@@ -124,6 +124,17 @@ class ThermalField:
         return self._ticks[-1].t_s
 
     @property
+    def latest_state_k(self) -> NDArray[np.float64]:
+        """The newest tick's temperatures in the solver's own float64, for energy bookkeeping.
+
+        A query through :meth:`temperature_at` is float32 by contract (CLAUDE.md #2: the
+        boundary narrows once); a conservation check summing ``C A T`` over 10⁴ cells needs the
+        seven extra digits, and this is the only place they leave the field.
+        """
+        out: NDArray[np.float64] = np.array(self._ticks[-1].temperatures_k, dtype=np.float64)
+        return out
+
+    @property
     def earliest_t_s(self) -> float:
         """The oldest tick still held: the start of the window a query can be answered in."""
         return self._ticks[0].t_s

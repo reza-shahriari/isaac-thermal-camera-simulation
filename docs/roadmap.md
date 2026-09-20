@@ -174,27 +174,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 104 open steps
+#### Then, in order — 103 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WM.1`** | WM | P | M | 10 | ready |
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
-| 4 | **`TC.3`** | TC | P | M | 6 | ready |
-| 5 | **`PT.7`** | PT | P | M | 5 | ready |
-| 6 | **`TC.5`** | TC | P | M | 5 | `TC.3` |
-| 7 | **`PH.1`** | PH | P | M | 4 | ready |
-| 8 | **`PH.5`** | PH | P | M | 4 | ready |
-| 9 | **`TC.6`** | TC | P | M | 4 | `TC.5` |
-| 10 | **`PT.11`** | PT | P | L | 4 | `PT.7` |
-| 11 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
-| 12 | **`PT.21`** | PT | P | M | 2 | ready |
-| 13 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
-| 14 | **`PT.6`** | PT | P | S | 1 | ready |
-| 15 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 4 | **`PT.7`** | PT | P | M | 5 | ready |
+| 5 | **`TC.5`** | TC | P | M | 5 | ready |
+| 6 | **`PH.1`** | PH | P | M | 4 | ready |
+| 7 | **`PH.5`** | PH | P | M | 4 | ready |
+| 8 | **`TC.6`** | TC | P | M | 4 | `TC.5` |
+| 9 | **`PT.11`** | PT | P | L | 4 | `PT.7` |
+| 10 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
+| 11 | **`PT.21`** | PT | P | M | 2 | ready |
+| 12 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
+| 13 | **`PT.6`** | PT | P | S | 1 | ready |
+| 14 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 15 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
 
-…and 89 more — `python scripts/next_step.py --queue 40`.
+…and 88 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -479,7 +479,7 @@ closed by an analytic check; the frames of `TC.6` are the in-engine half and wai
 |---|---|---|---|---|---|
 | TC.1 | ✅ **done.** `ConductionOperator` (symmetric W/K links + areas) and an IMEX step in `FacetSolver`: the surface balance keeps the midpoint rule, conduction is backward Euler, prefactored per tick size; §6.4's bound is checked every step (ADR 0094). | **Measured.** A zero operator is bit-identical to none; a ladder with τ ≈ 0.1 s at a 60 s tick settles to its mean within 1e-6 where forward Euler explodes; the slow mode's error halves with the tick (0.7 % at 60 s, τ = 1 h); energy closes to 1e-9 for 50 unequal cells; a leaf at h = 30 raises with its 36 s bound. | PT.8 | M | P |
 | TC.2 | ✅ **done.** `irsim.thermal.network`: `Node` (J/K), `FixedNode` (T(t)), `ImposedHeat` (W), `Link` as G or h·A (callable h), `LinkNode` (2G each side), `RadiationLink`; backward Euler on `ConductionOperator`, fixed nodes eliminated at the tick's end, radiation linearised per tick. ADR 0096. | **Measured.** ΔT = Q/G and Q/(hA) to 1e-6; three link forms bit-identical; a mount's τ within 2 % of C/4G; T⁴ steady state to 1e-6; energy closes to 1e-6 per tick on a 7-node bay with moving ambient, switching h and a mount; a bracket hot-soaks after key-off. 13 cases. | — | M | P |
-| TC.3 | **Contactors and radiation between fields.** A contactor joins two patches by a conductance proportional to overlap area, no grid alignment needed; radiation links reuse `spatial_sources` view factors with reciprocity, so engine → bonnet and underbody → road share one mechanism. | Two overlapping patches at h_c = 1e4 W m⁻² K⁻¹ give total G = h_c·A_overlap within 1 % and the same total after a 4× refinement of one grid — a per-node conductance fails; energy leaving the underbody by radiation equals energy arriving on the road cells to 1e-6. | TC.2, PT.17 | M | P |
+| TC.3 | ✅ **done.** `irsim.thermal.coupling`: contactor conductances by exact clipping of overlapping cells; `CoupledFields` steps members as one `ThermalField` with a block operator, a `PatchView` per member; `RadiationExchange` reads the view factors both ways. ADR 0099. | **Measured.** G = h_c·A_overlap to 1e-9, identical after 4× refinement; a 30° grid overlaps its own area; a half-overhanging plate gets 0.5 m² where per-node says 1.0; a τ = 0.8 s joint stands under 60 s ticks, energy conserved to 1e-9; body → road power equals the cells' to 1e-6, reciprocity 1 %. 8 cases. | — | M | P |
 | TC.4 | ✅ **done.** Schema v9: `thermal.nodes:` (capacity, mass×c_p, fixed or `ambient`, link node), `links:` in exactly one form (G, joint+area, h_c+area, fastener×count, h+area, radiation), `sources:`; `configs/thermal/joints.yaml` with provenance; `Scene.network`. ADR 0097. | **Measured.** h_c 1e-3, 50 and 2e6 refused by the loader, 1e-3 by the schema; a bracket on 25 cm² of `bolted_ferrous_new` vs `dry_default` on a 400 °C block, from YAML, settles in the ratio G/(G+hA) to 1e-6; every form builds to its conductance; a v7 surface beside it is bit-identical. 12 cases. | — | S | P |
 | TC.5 | **The engine as a solved node, not a schedule.** Imposed heat = power × loss fraction from the load schedule, block-plus-coolant mass, a bay-air fluid node, forced → natural convection at speed 0, links to mounts and subframe. Supersedes ADR 0089's adapter for the bay. | From 93 °C at 27 °C ambient the block is > 20 K above ambient after 1 h and within 1 K after 7 h (key-off τ ≈ 1.7 h; a 750 s schedule fails the first); after key-off the bonnet over the block warms 60–120 s more before cooling; bay air overshoots 20–50 K; steady ΔT inside §6.6's +40…+90 K band. | TC.3, TC.4 | M | P |
 | TC.6 | **The R2 reference scene: an engine warms the metal around it.** `car_ignition_*` migrate to nodes and links: block, rubber mounts as link nodes, subframe, wing bracket, bonnet by contactor and radiation, road by radiation; key on at 30 s, off at 20 min. | A bracket 0.3 m from the block lags the bay by its RC time and settles at G_path/(G_path + hA) of the bay rise, to 1e-6; parts warm in conductance order block → mount → bracket → wing; the synthetic-G-buffer bonnet shows 10–40 K max–min with the engine on. Frames need `IG.2`. | TC.5, PT.18 | M | P |
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0098 (0090–0098 were written after this section was first measured; 0093–0098 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4` and `PH.13`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0099 (0090–0099 were written after this section was first measured; 0093–0099 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13` and `TC.3`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

@@ -24,6 +24,15 @@ from irsim.thermal.convection import (
     free_forced_crossover_k,
     relative_air_speed,
 )
+from irsim.thermal.coupling import (
+    Contactor,
+    CoupledFields,
+    FieldMember,
+    PatchView,
+    RadiationExchange,
+    cell_overlap_areas,
+    contactor_conductances,
+)
 from irsim.thermal.longwave import (
     clear_sky_emissivity,
     longwave_down,
@@ -88,6 +97,13 @@ __all__ = [
     "view_factor_to_parallel_rectangle",
     "PlanarThermalField",
     "ConductionOperator",
+    "Contactor",
+    "CoupledFields",
+    "FieldMember",
+    "PatchView",
+    "RadiationExchange",
+    "cell_overlap_areas",
+    "contactor_conductances",
     "FixedNode",
     "ImposedHeat",
     "Link",

@@ -13,6 +13,28 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **Contactors and radiation between fields** (`TC.3`, ADR 0099). `irsim.thermal.coupling`:
+  `cell_overlap_areas` clips every cell of one patch against the cells of another in the first
+  patch's plane (Sutherland–Hodgman, candidates prefiltered by the grid), so a contactor's
+  conductance `h_c · A_ij` needs no grid alignment, no shared cell size and no shared orientation,
+  and its total is `h_c · A_overlap` regardless of refinement -- the property a per-node
+  conductance cannot have. Patches must share a frame, be parallel and lie within a gap tolerance
+  (a bonnet 0.9 m over a road is refused as a joint). `CoupledFields` concatenates its members'
+  cells into **one** `ThermalField` with a block `ConductionOperator` (each member's lateral
+  operator on the diagonal, the contactors off it), stepped by ADR 0094's IMEX scheme, and hands
+  out a `PatchView` per member with the point bridge's interface (`patch`, `advance_to`,
+  `sample_at`); advancing any view advances the system, and with no contactor the members are the
+  separate fields bit for bit. `RadiationExchange` reads ADR 0088's parallel-rectangle view
+  factors in both directions: the cells' net term is `occluded_longwave_flux`, the body's loss to
+  the patch is `ε_r σ T_r⁴ Σ A_i F_i` by reciprocity, and `reverse_view_factor` checks that
+  against an independent quadrature from the body's side. `ThermalField.latest_state_k` exposes
+  the newest tick in float64 for energy bookkeeping. Measured: a 1 m² plate on a 2 m base gives
+  `h_c · 1.0` to 1e-9 at 0.25 m cells and the same at 0.0625 m; a 30°-rotated square overlaps
+  exactly its own area; a half-overhanging plate is credited with 0.5 m² where a per-node total
+  says 1.0 at either refinement; a 350 K plate on a 300 K base at h_c = 10⁴ (τ = 0.8 s) settles
+  under 60 s ticks with the stored energy conserved to 1e-9 and the plate's lost joules equal to
+  the touched cells' gain; underbody → road power equals the cells' to 1e-6 and reciprocity holds
+  to 1 % between the two discretisations. 8 cases in `tests/unit/test_coupling.py`.
 - **ADR 0098: participating media and the phenomena tier** (`PH.13`). Records `PH.4`'s per-band
   slab in radiance space, why a grey emissivity knob, a Planck-mean coefficient, Hottel/Leckner
   totals and an emissive prim through the fp16 path were rejected for the image path (Leckner kept
