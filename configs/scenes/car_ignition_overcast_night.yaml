@@ -1,4 +1,4 @@
-# A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v7).
+# A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v8).
 # Roadmap MP.4b; ADR 0087 (point-wise surface temperature), ADR 0088 (spatial sources),
 # ADR 0089 (the vehicle_source solver).
 #
@@ -23,7 +23,7 @@
 # longitude ~ +30E. 01:00Z is 03:00 local -- two and a half hours before sunrise, well past the
 # point where yesterday's heat has been forgotten.
 
-schema_version: 7
+schema_version: 8
 scene:
   name: car_ignition_overcast_night
   description: "A cold car on asphalt starts its engine, 03:00 local under thick overcast"
@@ -32,6 +32,10 @@ scene:
   environment_preset: overcast
   site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
   start_utc: "2024-06-22T01:00:00Z"
+  # The stage is +X right, +Y up, -Z forward (`car_demo`), so up is +Y and the car faces north.
+  # This is what turns the scene's ENU sun into a direction the Y-up patches can be shaded by
+  # (schema v8, PT.18); `build_car_demo` refuses a scene whose up is not +Y.
+  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}
 
   targets:
     # ---- the shell -------------------------------------------------------------------------

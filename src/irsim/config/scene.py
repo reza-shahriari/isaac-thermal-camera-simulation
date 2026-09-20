@@ -48,7 +48,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 7  # v7: a surface may declare a `patch:` block (ADR 0087, PT.2)
+SCENE_SCHEMA_VERSION = 8  # v8: `world_frame:` and `thermal.occluders:` (ADR 0095, PT.18);
+# v7 added the `patch:` block (ADR 0087, PT.2)
 #: The oldest version this loader still accepts. v5 added `thermal:` as an **optional** field, so
 #: every v4 document is a valid v5 document and refusing one would be refusing it for a change
 #: that cannot affect it. A range is the honest representation of a backwards-compatible change;
@@ -289,6 +290,68 @@ class PatchSpec(_Frozen):
         return self
 
 
+class WorldFrameSpec(_Frozen):
+    """Which way the scene's world frame is up and which way is north (schema v8, PT.18).
+
+    Patches and occluders are authored in world coordinates; the sun is computed in ENU. Until
+    this block nothing related the two, and the car scenes -- Y-up, like the stage they author --
+    could not have been given a shadow without one. The default is ENU itself, so every v4-v7
+    scene reads exactly as before. East is derived (``north × up``), never declared.
+    """
+
+    up: tuple[float, float, float] = (0.0, 0.0, 1.0)
+    north: tuple[float, float, float] = (0.0, 1.0, 0.0)
+
+    @model_validator(mode="after")
+    def _right_handed(self) -> WorldFrameSpec:
+        from irsim.thermal.frames import WorldFrame
+
+        WorldFrame(up=np.asarray(self.up), north=np.asarray(self.north))  # raises with the reason
+        return self
+
+
+class OccluderSpec(_Frozen):
+    """A rectangle that casts a hard-edged shadow on every world-frame patch (schema v8, PT.18).
+
+    The same primitive `irsim.thermal.shadow.ShadowRectangle` is: a slab, a parapet, a wing, a
+    container. It shades the direct beam only; diffuse sky survives (§6.1). Occluders live at the
+    scene level, not under a surface, because one slab shades the wall *and* the ground under it.
+    """
+
+    name: str = Field(min_length=1)
+    centre_m: tuple[float, float, float]
+    u_axis: tuple[float, float, float]
+    v_axis: tuple[float, float, float]
+    half_u_m: float = Field(gt=0.0)
+    half_v_m: float = Field(gt=0.0)
+    #: Only ``"world"`` for now: a moving occluder needs its frame's pose, which the thermal core
+    #: does not carry (PT.9, WM). Declared rather than implied so the limit is visible.
+    frame: str = "world"
+
+    @field_validator("frame")
+    @classmethod
+    def _world_only(cls, v: str) -> str:
+        if v != "world":
+            raise ValueError(
+                f"occluder frame {v!r} is not supported: shadow in a moving frame needs the "
+                "frame's pose, which the thermal core does not carry (PT.9, WM)"
+            )
+        return v
+
+    @model_validator(mode="after")
+    def _well_formed(self) -> OccluderSpec:
+        from irsim.thermal.shadow import ShadowRectangle
+
+        ShadowRectangle(  # raises with the reason: zero-length or non-perpendicular axes
+            centre_m=np.asarray(self.centre_m),
+            u_axis=np.asarray(self.u_axis),
+            v_axis=np.asarray(self.v_axis),
+            half_u_m=self.half_u_m,
+            half_v_m=self.half_v_m,
+        )
+        return self
+
+
 class SurfaceSpec(_Frozen):
     """One thermally solved surface: a material, where it faces, and whether it is shaded.
 
@@ -316,6 +379,8 @@ class ThermalSceneSpec(_Frozen):
     surfaces: list[SurfaceSpec] = Field(default_factory=list)
     spin_up_hours: float = Field(default=48.0, gt=0.0, le=336.0)
     tick_s: float = Field(default=1.0, gt=0.0, le=3600.0)
+    #: What casts shadows on the patched surfaces (schema v8, PT.18). Empty is the v7 scene.
+    occluders: list[OccluderSpec] = Field(default_factory=list)
 
     @field_validator("surfaces")
     @classmethod
@@ -324,6 +389,32 @@ class ThermalSceneSpec(_Frozen):
         if len(set(names)) != len(names):
             raise ValueError(f"surface names must be unique: {names}")
         return surfaces
+
+    @field_validator("occluders")
+    @classmethod
+    def _unique_occluders(cls, occluders: list[OccluderSpec]) -> list[OccluderSpec]:
+        names = [o.name for o in occluders]
+        if len(set(names)) != len(names):
+            raise ValueError(f"occluder names must be unique: {names}")
+        return occluders
+
+    @model_validator(mode="after")
+    def _one_shadow_authority(self) -> ThermalSceneSpec:
+        """A patched surface under occluders may not also say ``shaded: true``.
+
+        The flag zeroes the beam for the whole surface; the occluders decide per cell. A scene
+        holding both would render whichever won the code path, and the author meant one of them.
+        """
+        if not self.occluders:
+            return self
+        both = [s.name for s in self.surfaces if s.patch is not None and s.shaded]
+        if both:
+            raise ValueError(
+                f"surfaces {both} declare `shaded: true` and carry a patch while the scene "
+                "declares occluders: two shadow authorities. Drop the flag (the occluders decide "
+                "per cell) or the occluders."
+            )
+        return self
 
 
 class SceneSpec(_Frozen):
@@ -336,6 +427,8 @@ class SceneSpec(_Frozen):
     start_utc: datetime
     targets: list[TargetSpec] = Field(default_factory=list)
     thermal: ThermalSceneSpec | None = None
+    #: How world coordinates relate to east, north and up (schema v8). Absent means ENU.
+    world_frame: WorldFrameSpec = Field(default_factory=WorldFrameSpec)
 
     @field_validator("start_utc")
     @classmethod

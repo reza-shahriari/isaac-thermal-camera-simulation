@@ -48,6 +48,8 @@ from irsim.scene import Scene
 from irsim.thermal.convection import DEFAULT_CONVECTION, convection_coefficient
 from irsim.thermal.facets import FacetForcing, FacetProperties
 from irsim.thermal.longwave import longwave_down
+from irsim.thermal.shadow import ShadowRectangle, box_faces, cell_shadow
+from irsim.thermal.solar import solar_loading
 from irsim.thermal.spatial_sources import (
     RadiantRectangle,
     clamp_view_factor_sum,
@@ -212,6 +214,19 @@ class CarGeometry:
             half_v_m=self.bay_half_length_m,
             emissivity=BAY_CAVITY_EMISSIVITY,
         )
+
+    def shadow_casters(self) -> tuple[ShadowRectangle, ...]:
+        """The car as the sun sees it: the faces of its shell, bonnet and cabin boxes (PT.18).
+
+        These are what put the car's own shadow on the road and, at a low sun from behind, the
+        cabin's shadow on the bonnet. The windscreen sits inside the cabin's box and the wheels
+        inside the shell's footprint, so neither adds an edge the boxes do not already cast.
+        """
+        faces: list[ShadowRectangle] = []
+        for part in self.parts():
+            if part.kind == "box" and part.name in ("shell", "bonnet", "cabin"):
+                faces.extend(box_faces(part.centre_m, part.size_m))
+        return tuple(faces)
 
     def ground_radiators(self) -> tuple[tuple[str, RadiantRectangle], ...]:
         """What the road sees, each paired with the scene target that gives its temperature.
@@ -413,6 +428,35 @@ def _weather_forcing(scene: Scene, sky_view: NDArray[np.float64], surface_t_gues
     return at
 
 
+def _solar_forcing(
+    scene: Scene,
+    patch: PlanarPatch,
+    sky_view: NDArray[np.float64],
+    casters: tuple[ShadowRectangle, ...],
+) -> Any:
+    """The direct beam per cell and the diffuse sky per cell -- §6.1's Q_sol for a field (PT.18).
+
+    Until this the car's fields had **no solar term at all**: a noon run rendered a sun-free
+    bonnet. The sun is the scene's own (`Scene.solar_terms`, the same call the §12.3 balance
+    makes), turned into the stage's Y-up frame by the scene's declared `world_frame`, and the
+    beam is gated by `cell_shadow` against the car's own faces plus whatever the config declares.
+    The cosine uses the patch's upward normal: both fields face straight up.
+    """
+    up_enu = np.array([0.0, 0.0, 1.0])
+
+    def at(t_abs_s: float) -> NDArray[np.float64]:
+        sun = scene.solar_terms(t_abs_s)
+        if sun.above_horizon and casters:
+            shade = cell_shadow(patch, scene.world_frame.to_world(sun.direction_enu), casters)
+        else:
+            shade = np.ones(patch.n_cells)
+        return np.asarray(
+            solar_loading(up_enu, sun.direction_enu, sun.dni_w_m2, sun.dhi_w_m2, sky_view, shade)
+        )
+
+    return at
+
+
 def _checked_bonnet_patch(patch: PlanarPatch, geom: CarGeometry) -> PlanarPatch:
     """A declared bonnet grid must sit on *this* geometry's bonnet, or the declaration is stale.
 
@@ -499,6 +543,7 @@ def build_bonnet_field(
     cell_m: float = 0.07,
     tick_s: float = 10.0,
     patch: PlanarPatch | None = None,
+    casters: tuple[ShadowRectangle, ...] = (),
 ) -> PlanarThermalField:
     """The bonnet skin: §6.1 per cell, with the bay's radiation weighted by ADR 0088's view factor.
 
@@ -519,6 +564,7 @@ def build_bonnet_field(
     view = patch_view_factors(patch, geom.engine_bay())
     sky_view = np.ones(patch.n_cells)  # a bonnet faces straight up
     environment = _weather_forcing(scene, sky_view, 290.0)
+    solar = _solar_forcing(scene, patch, sky_view, casters)
     bay = geom.engine_bay()
 
     def forcing_at(t_abs_s: float) -> FacetForcing:
@@ -536,6 +582,7 @@ def build_bonnet_field(
         return FacetForcing(
             t_air_k=t_air,
             h_w_m2_k=h,
+            q_solar_w_m2=solar(t_abs_s),
             q_longwave_down_w_m2=q_lw,
             q_internal_w_m2=q_int,
         )
@@ -559,6 +606,7 @@ def build_ground_field(
     solar_absorptivity: float,
     initial_k: float,
     tick_s: float = 30.0,
+    casters: tuple[ShadowRectangle, ...] = (),
 ) -> PlanarThermalField:
     """The road: §12.3's solved asphalt per cell, plus what the car standing on it radiates down.
 
@@ -573,6 +621,7 @@ def build_ground_field(
     """
     sky_view = np.ones(patch.n_cells)
     environment = _weather_forcing(scene, sky_view, initial_k)
+    solar = _solar_forcing(scene, patch, sky_view, casters)
     radiators = geom.ground_radiators()
     raw_views = [patch_view_factors(patch, rect) for _, rect in radiators]
     clamped_views = clamp_view_factor_sum(raw_views)
@@ -595,6 +644,7 @@ def build_ground_field(
         return FacetForcing(
             t_air_k=t_air,
             h_w_m2_k=h,
+            q_solar_w_m2=solar(t_abs_s),
             q_longwave_down_w_m2=q_lw,
             q_internal_w_m2=q_int,
         )
@@ -668,6 +718,15 @@ def build_car_demo(
     """
     geom = geometry or CarGeometry()
     cam = camera or CameraSetup()
+    if not np.allclose(scene.world_frame.up, EY):
+        raise ValueError(
+            "the car stage is +Y up (docstring: +X right, +Y up, -Z forward) but the scene's "
+            f"`world_frame.up` is {tuple(scene.world_frame.up)}; declare "
+            "`world_frame: {up: [0, 1, 0], north: [0, 0, -1]}` (schema v8) or the sun would "
+            "come from the wrong side of the car"
+        )
+    # What shades the fields: the car's own faces and whatever the config declares (PT.18).
+    casters = geom.shadow_casters() + tuple(scene.occluders.values())
     x0, x1, z0, z1 = cam.ground_footprint_m(vfov_deg, hfov_deg)
     # The union with the car's own footprint, so the patch holds the radiators even if the camera
     # is later moved somewhere that does not see them.
@@ -697,6 +756,7 @@ def build_car_demo(
         emissivity=bonnet_emissivity,
         cell_m=bonnet_cell_m,
         patch=scene.patches.get("bonnet"),
+        casters=casters,
     )
     demo.ground_field = build_ground_field(
         scene,
@@ -706,6 +766,7 @@ def build_car_demo(
         heat_capacity_j_m2_k=asphalt_capacity_j_m2_k,
         solar_absorptivity=asphalt_absorptivity,
         initial_k=asphalt_k,
+        casters=casters,
     )
 
     demo.prim_to_target = {

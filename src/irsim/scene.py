@@ -45,13 +45,15 @@ from irsim.thermal.aerial import (
     heat_source_solver,
     ram_skin_solver,
 )
+from irsim.thermal.frames import ENU, WorldFrame
+from irsim.thermal.shadow import ShadowRectangle
 from irsim.thermal.solvers import NewtonCoolingSolver, PrescribedSolver, TemperatureSolver
 from irsim.thermal.surface_field import PlanarPatch, PlanarThermalField
 from irsim.thermal.vehicle import VEHICLE_HEAT_SOURCES, VehicleSourceSolver
 from irsim.thermal.weather import WeatherSample, WeatherSeries
 from irsim.thermal.weather_io import load_weather_csv
 
-__all__ = ["Scene", "build_target"]
+__all__ = ["Scene", "build_occluder", "build_target", "build_world_frame"]
 
 
 def build_patch(spec: PatchSpec) -> PlanarPatch:
@@ -73,6 +75,25 @@ def build_patch(spec: PatchSpec) -> PlanarPatch:
         dv_m=spec.dv_m,
         thickness_m=spec.thickness_m,
         frame=spec.frame,
+    )
+
+
+def build_world_frame(spec: SceneSpec) -> WorldFrame:
+    """The scene's world frame (schema v8, PT.18); ENU for every scene that declares none."""
+    wf = spec.world_frame
+    return WorldFrame(
+        up=np.asarray(wf.up, dtype=np.float64), north=np.asarray(wf.north, dtype=np.float64)
+    )
+
+
+def build_occluder(spec: Any) -> ShadowRectangle:
+    """An `OccluderSpec` as the rectangle `cell_shadow` tests against (schema v8, PT.18)."""
+    return ShadowRectangle(
+        centre_m=np.asarray(spec.centre_m, dtype=np.float64),
+        u_axis=np.asarray(spec.u_axis, dtype=np.float64),
+        v_axis=np.asarray(spec.v_axis, dtype=np.float64),
+        half_u_m=float(spec.half_u_m),
+        half_v_m=float(spec.half_v_m),
     )
 
 
@@ -165,6 +186,12 @@ class Scene:
     #: `car_demo.py` could put a temperature on a cell, in Python. Empty for a scene with no
     #: patch. The per-prim entry in :attr:`thermal` stays as well, so the flat path is unchanged.
     surface_fields: Mapping[str, PlanarThermalField] = field(default_factory=dict)
+    #: How the scene's world coordinates relate to east, north and up (schema v8, PT.18). ENU
+    #: unless the config says otherwise; the car scenes say Y-up.
+    world_frame: WorldFrame = ENU
+    #: ``{occluder name: rectangle}`` in world coordinates -- what casts shadows on the patched
+    #: surfaces (PT.18). Empty for every scene before v8, and then nothing here changes.
+    occluders: Mapping[str, ShadowRectangle] = field(default_factory=dict)
     sky_models: Mapping[str, SkyModel] = field(default_factory=dict)  # per band (MS.2)
     extra_consumers: Mapping[str, Any] = field(
         default_factory=dict
@@ -326,6 +353,11 @@ class Scene:
             patches[surface.name] = build_patch(surface.patch)
             if surface.patch.prim_path:
                 patch_prims[surface.name] = surface.patch.prim_path
+        world_frame = build_world_frame(spec)
+        occluders = {
+            o.name: build_occluder(o)
+            for o in (spec.thermal.occluders if spec.thermal is not None else ())
+        }
         return cls(
             spec=spec,
             weather=weather,
@@ -339,7 +371,9 @@ class Scene:
             thermal_surfaces=build.names,
             patches=patches,
             patch_prims=patch_prims,
-            surface_fields=_build_surface_fields(spec, build, patches),
+            surface_fields=_build_surface_fields(spec, build, patches, world_frame, occluders),
+            world_frame=world_frame,
+            occluders=occluders,
         )
 
     @classmethod
@@ -362,6 +396,18 @@ class Scene:
         )
 
     # -- time helpers ---------------------------------------------------------------------
+    def solar_terms(self, t_abs_s: float) -> Any:
+        """The sun and irradiance every solar term in this scene uses at ``t_abs_s`` (PT.18).
+
+        One call for the per-prim balance, the per-cell shadow and any driver that builds its
+        own field, so a frame cannot show a sunlit road under an unlit car.
+        """
+        from irsim.thermal.scene_forcing import solar_terms_at
+
+        return solar_terms_at(
+            self.weather, self.spec.site.latitude_deg, self.spec.site.longitude_deg, t_abs_s
+        )
+
     def weather_at(self, t_rel_s: float) -> WeatherSample:
         return self.weather.at(self.t0_s + float(t_rel_s))
 
@@ -369,6 +415,10 @@ class Scene:
         """Step every target from t_rel to t_rel + dt; returns the new temperatures."""
         t = self.t0_s + float(t_rel_s)
         return {name: solver.advance(t, float(dt_s)) for name, solver in self.targets.items()}
+
+
+def _identity(forcing: Any) -> Any:
+    return forcing
 
 
 @dataclass(frozen=True)
@@ -381,6 +431,10 @@ class _ThermalBuild:
     properties: Any = None  # FacetProperties, one entry per surface
     spun_k: Any = None  # float64 (n_surfaces,) -- the state at t0, before any narrowing
     t0_s: float = 0.0
+    #: The weather's content hash, the spin-up cache key every field of this scene shares.
+    spin_up_hash: str = ""
+    #: Wraps a forcing callable into the weather series for a spin-up that starts before it.
+    wrap: Any = _identity
 
 
 def _build_thermal_field(
@@ -448,14 +502,17 @@ def _build_thermal_field(
     span = float(weather.time_s[-1] - weather.time_s[0])
     first = float(weather.time_s[0])
 
-    def wrapped(t_s: float) -> Any:
-        if t_s >= first:
-            return forcing(t_s)
-        return forcing(first + (t_s - first) % span)
+    def wrap(inner: Any) -> Any:
+        def wrapped(t_s: float) -> Any:
+            if t_s >= first:
+                return inner(t_s)
+            return inner(first + (t_s - first) % span)
+
+        return wrapped
 
     spun = spin_up(
         properties,
-        wrapped,
+        wrap(forcing),
         weather.content_hash,
         t0_s,
         hours=block.spin_up_hours,
@@ -469,33 +526,44 @@ def _build_thermal_field(
         properties=properties,
         spun_k=spun.temperatures_k,
         t0_s=t0_s,
+        spin_up_hash=weather.content_hash,
+        wrap=wrap,
     )
 
 
 def _build_surface_fields(
-    spec: SceneSpec, build: _ThermalBuild, patches: Mapping[str, PlanarPatch]
+    spec: SceneSpec,
+    build: _ThermalBuild,
+    patches: Mapping[str, PlanarPatch],
+    world_frame: WorldFrame = ENU,
+    occluders: Mapping[str, ShadowRectangle] | None = None,
 ) -> dict[str, PlanarThermalField]:
     """A per-cell field for every surface that declared a patch (ADR 0087, PT.17).
 
     Each field is the surface's own facet repeated over its cells: the same library material,
     the same spun-up starting state, the same forcing through
-    :class:`~irsim.thermal.scene_forcing.CellForcing`, on the scene's tick. Nothing varies across
-    the surface yet -- that is what makes this step checkable: with uniform forcing the cells
-    must reproduce the per-prim value exactly, and they do, bit for bit. The terms that make a
-    field a *field* -- a shadow across it (PT.18), its own sky view (PT.21), a hot part under it
-    (TC.3) -- enter through the forcing, and the solve does not change.
+    :class:`~irsim.thermal.scene_forcing.CellForcing`, on the scene's tick. With nothing varying
+    across the surface the cells reproduce the per-prim value exactly, bit for bit. The terms
+    that make a field a *field* enter through the forcing and the solve does not change: with
+    ``occluders`` the direct beam is gated per cell (PT.18) -- the spin-up sees the shadow too,
+    so a cell under an overhang starts the scene as cold as it has been all morning -- and the
+    per-cell sky view (PT.21) and a hot part under the surface (TC.3) follow the same route.
+
+    Occluders reach only the patches authored in the world frame. A patch in a moving frame
+    under a scene with occluders is refused by `CellForcing`, not quietly left unshaded.
 
     The spun-up state is taken in float64 from the build, not read back through
     ``temperature_at`` (float32): a field that started from the narrowed value would sit up to
     15 µK from the prim it claims to reproduce, and the one-millikelvin contract would still
     hold while the bit-identity test did not. Narrowing happens once, at the query (CLAUDE.md #2).
     """
-    from irsim.thermal.facets import FacetProperties
+    from irsim.thermal.facets import FacetProperties, spin_up
     from irsim.thermal.scene_forcing import CellForcing
 
     out: dict[str, PlanarThermalField] = {}
     if build.field is None or spec.thermal is None:
         return out
+    casters = tuple((occluders or {}).values())
     for i, s in enumerate(spec.thermal.surfaces):
         patch = patches.get(s.name)
         if patch is None:
@@ -507,12 +575,24 @@ def _build_surface_fields(
             emissivity=np.full(n, float(props.emissivity[i])),
             solar_absorptivity=np.full(n, float(props.solar_absorptivity[i])),
         )
+        forcing = CellForcing(
+            build.forcing, i, n, patch=patch, occluders=casters, frame=world_frame
+        )
+        if casters:
+            # The shadow is part of the surface's history, not a term switched on at t0: a cell
+            # under an overhang has been under it all morning. So the field is spun up on its
+            # own per-cell forcing, through the same wrap the per-prim spin-up uses.
+            spun = spin_up(
+                cells,
+                build.wrap(forcing),
+                build.spin_up_hash,
+                build.t0_s,
+                hours=spec.thermal.spin_up_hours,
+                dt_s=60.0,
+            ).temperatures_k
+        else:
+            spun = np.full(n, float(build.spun_k[i]))
         out[s.name] = PlanarThermalField(
-            patch,
-            cells,
-            CellForcing(build.forcing, i, n),
-            build.t0_s,
-            np.full(n, float(build.spun_k[i])),
-            spec.thermal.tick_s,
+            patch, cells, forcing, build.t0_s, spun, spec.thermal.tick_s
         )
     return out

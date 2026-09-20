@@ -34,7 +34,7 @@ from numpy.typing import NDArray
 
 from irsim.thermal.surface_field import PlanarPatch
 
-__all__ = ["ShadowRectangle", "cell_shadow", "patch_solar_loading"]
+__all__ = ["ShadowRectangle", "box_faces", "cell_shadow", "patch_solar_loading"]
 
 
 @dataclass(frozen=True)
@@ -63,6 +63,35 @@ class ShadowRectangle:
     @property
     def normal(self) -> NDArray[np.float64]:
         return np.asarray(np.cross(self.u_axis, self.v_axis))
+
+
+def box_faces(centre_m: Any, size_m: Any) -> tuple[ShadowRectangle, ...]:
+    """The six faces of an axis-aligned box as occluders, for a body that casts a shadow (PT.18).
+
+    A car, a container or a cabin is a box to the sun. Testing all six faces rather than the top
+    alone is what makes the shadow right at a low sun, where the *side* of the body is what the
+    beam meets. Faces are hard-edged and opaque like every occluder here; a face the ray runs
+    along is skipped by `cell_shadow` and a face behind the cell cannot shade it.
+    """
+    c = np.asarray(centre_m, dtype=np.float64).reshape(3)
+    size = np.asarray(size_m, dtype=np.float64).reshape(3)
+    if np.any(size <= 0.0):
+        raise ValueError(f"a box needs three positive extents, got {tuple(size)}")
+    axes = np.eye(3)
+    faces = []
+    for k in range(3):
+        u, v = axes[(k + 1) % 3], axes[(k + 2) % 3]
+        for sign in (-1.0, 1.0):
+            faces.append(
+                ShadowRectangle(
+                    centre_m=c + sign * 0.5 * size[k] * axes[k],
+                    u_axis=u,
+                    v_axis=v,
+                    half_u_m=0.5 * float(size[(k + 1) % 3]),
+                    half_v_m=0.5 * float(size[(k + 2) % 3]),
+                )
+            )
+    return tuple(faces)
 
 
 def cell_shadow(

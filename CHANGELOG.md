@@ -13,6 +13,23 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **Occluders and daylight in the config path** (`PT.18`, ADR 0095). Scene schema **v8**:
+  `world_frame: {up, north}` says which way the scene's geometry is up (ENU by default, so every
+  v4–v7 scene reads as before; the car scenes declare +Y up, −Z north), and
+  `thermal.occluders:` declares the rectangles that cast shadows. `CellForcing` gates the direct
+  beam per cell -- `solar_loading` on the surface's normal and sky view with `cell_shadow`'s
+  visibility -- and a patched surface under occluders is spun up on its own per-cell forcing, so a
+  cell under an overhang starts the scene as cold as it has been all morning. `Scene.solar_terms`
+  is the one sun every solar term uses; `car_demo`'s bonnet and road fields, which had **no solar
+  term at all**, now take it, shaded by the car's own box faces (`CarGeometry.shadow_casters`,
+  `shadow.box_faces`). Refused: `shaded: true` on a patched surface beside occluders (two shadow
+  authorities, at load), an occluder or a shaded patch in a moving frame, a patch whose plane
+  disagrees with its tilt, and a car scene whose frame is not +Y up. Measured: a south-west
+  concrete wall under an overhang, from YAML alone, is 9.9 K lit/shaded at 16:00 local; cells no
+  occluder ever reaches are bit-identical to the per-prim solve, spin-up included; the noon car
+  shades 105 road cells and the strip beside it runs 12.7 K colder after 1500 s; the cabin lays a
+  strip of shadow on the rear of the bonnet. 13 cases in `tests/unit/test_scene_occluders.py`,
+  3 in `test_car_demo.py`.
 - **Heat moves between facets, and the scene tick survives it** (`TC.1`, ADR 0094).
   `irsim.thermal.conduction.ConductionOperator`: symmetric link conductances in W/K (zero
   diagonal, non-negative, symmetry checked because an asymmetric matrix invents energy) plus the

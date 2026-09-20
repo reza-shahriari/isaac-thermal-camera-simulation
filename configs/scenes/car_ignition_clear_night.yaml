@@ -1,4 +1,4 @@
-# The SAME car and the same key, under a clear cold sky instead of thick overcast. Schema v7.
+# The SAME car and the same key, under a clear cold sky instead of thick overcast. Schema v8.
 # Roadmap MP.4b; ADR 0088 is what the pair exists to show.
 #
 # Run this beside `car_ignition_overcast_night.yaml` and the difference is not the engine -- the
@@ -32,7 +32,7 @@
 # ⚠️ `clear_midlat_summer_48h` declares "local = UTC+2" in its own header, so 01:00Z is 03:00
 # local -- the same pre-dawn hour, on a night that has been radiating to space since sunset.
 
-schema_version: 7
+schema_version: 8
 scene:
   name: car_ignition_clear_night
   description: "The same car and key, under a clear cold sky: the patch is there before the engine"
@@ -41,6 +41,10 @@ scene:
   environment_preset: clear_dry
   site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
   start_utc: "2024-06-22T01:00:00Z"
+  # The stage is +X right, +Y up, -Z forward (`car_demo`), so up is +Y and the car faces north.
+  # This is what turns the scene's ENU sun into a direction the Y-up patches can be shaded by
+  # (schema v8, PT.18); `build_car_demo` refuses a scene whose up is not +Y.
+  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}
 
   targets:
     # ---- the shell -------------------------------------------------------------------------

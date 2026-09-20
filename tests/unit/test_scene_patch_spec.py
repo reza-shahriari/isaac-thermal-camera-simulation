@@ -159,10 +159,14 @@ def test_a_zero_length_axis_is_refused() -> None:
 
 
 def test_the_block_is_optional_and_the_version_moved() -> None:
-    """Every v4-v6 scene must load and solve unchanged; `patch:` is additive."""
+    """Every v4-v6 scene must load and solve unchanged; `patch:` is additive.
+
+    v8 (PT.18) added `world_frame:` and `occluders:` the same way -- both optional, both
+    defaulting to what a v7 scene meant by omission.
+    """
     from irsim.config.scene import SurfaceSpec
 
-    assert SCENE_SCHEMA_VERSION == 7
+    assert SCENE_SCHEMA_VERSION == 8
     plain = SurfaceSpec(name="asphalt", material="asphalt_dry")
     assert plain.patch is None
 

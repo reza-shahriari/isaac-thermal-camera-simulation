@@ -385,3 +385,89 @@ def test_a_scene_that_declares_no_grid_still_gets_the_hand_built_ones(tmp_path) 
     assert scene.patches == {}
     assert demo.bonnet_field.patch.n_cells == 23 * 19
     assert demo.ground_field.patch.n_cells > 0
+
+
+# ---------------------------------------------------------------------------------------------
+# PT.18: the sun reaches the fields, and the car shades the road
+# ---------------------------------------------------------------------------------------------
+
+
+def _noon_scene(tmp_path: pathlib.Path) -> Scene:
+    """The clear scene at 13:00 local (11:00Z) on the same June day: a high sun from the south.
+
+    The *clear* file: the overcast one carries no direct beam at any hour, by design.
+    """
+    text = CLEAR_YAML.read_text()
+    old = 'start_utc: "2024-06-22T01:00:00Z"'
+    assert text.count(old) == 1
+    path = tmp_path / "noon.yaml"
+    path.write_text(text.replace(old, 'start_utc: "2024-06-21T11:00:00Z"', 1))
+    return Scene.from_file(path)
+
+
+def test_the_night_scenes_carry_no_beam_and_the_noon_one_does(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """Before PT.18 the fields had no solar term at all: a noon run rendered a sun-free bonnet."""
+    night = build_car_demo(Scene.from_file(CLEAR_YAML), author=False)
+    scene_n = Scene.from_file(CLEAR_YAML)
+    assert not scene_n.solar_terms(scene_n.t0_s).above_horizon
+    assert np.all(np.asarray(night.bonnet_field.field.forcing_at(scene_n.t0_s).q_solar_w_m2) == 0.0)
+
+    scene = _noon_scene(tmp_path)
+    demo = build_car_demo(scene, author=False)
+    sun = scene.solar_terms(scene.t0_s)
+    assert sun.elevation_deg > 60.0 and sun.dni_w_m2 > 800.0
+    q_bonnet = np.asarray(demo.bonnet_field.field.forcing_at(scene.t0_s).q_solar_w_m2)
+    lit = q_bonnet > 800.0
+    assert lit.mean() > 0.7, "a bonnet facing straight up under a 65 degree sun"
+    # The sun is behind the car (south is +Z on this stage), so the cabin's front face lays a
+    # strip of shadow on the rear of the bonnet: those cells carry the diffuse sky alone.
+    grid = lit.reshape(demo.bonnet_field.patch.shape)  # (n_v, n_u), v along +Z toward the cabin
+    assert not lit.all() and np.allclose(q_bonnet[~lit], sun.dhi_w_m2)
+    assert grid[0].all() and not grid[-1].any(), "the shadow is a strip at the cabin end"
+
+
+def test_the_car_shades_the_road_beside_it_and_the_shaded_road_runs_colder(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The car's own faces are occluders for the road field; the shadow lands north of the car.
+
+    Cells the car shades but does not stand over (its radiators see them at zero) fall below
+    the sunlit road around them by kelvins within 25 minutes: asphalt at 60 kJ m^-2 K^-1 losing
+    ~500 W/m^2 of absorbed beam is 0.5 K a minute.
+    """
+    scene = _noon_scene(tmp_path)
+    demo = build_car_demo(scene, author=False)
+    road = demo.ground_field
+    patch = road.patch
+    t0 = scene.t0_s
+    sun_world = scene.world_frame.to_world(scene.solar_terms(t0).direction_enu)
+    assert sun_world[1] > 0.9, "the sun is high, and up is +Y on this stage"
+    from irsim.thermal.shadow import cell_shadow
+
+    lit = cell_shadow(patch, sun_world, demo.geometry.shadow_casters())
+    shaded = lit == 0.0
+    assert 0.005 < shaded.mean() < 0.05, shaded.mean()  # a car's shadow on a 30 m road
+    # Shaded cells that lie outside the car's footprint, so no radiator term touches them.
+    centres = patch.cell_centres()
+    half_w, half_l = 0.5 * demo.geometry.width_m, 0.5 * demo.geometry.length_m
+    outside = (np.abs(centres[:, 0]) > half_w) | (np.abs(centres[:, 2]) > half_l)
+    beside = shaded & outside
+    far = ~shaded & outside
+    assert beside.sum() > 5 and far.sum() > 1000, (beside.sum(), far.sum())
+
+    start = np.asarray(road.temperature_at(t0), dtype=np.float64)
+    assert float(np.ptp(start)) == 0.0, "the field starts from the uniform spun-up asphalt"
+    road.advance_to(t0 + RUN_S)
+    end = np.asarray(road.temperature_at(t0 + RUN_S), dtype=np.float64)
+    contrast = float(end[far].mean() - end[beside].mean())
+    assert contrast > 2.0, f"the shaded road is only {contrast:.2f} K colder after {RUN_S:.0f} s"
+    # The sunlit road warmed over the run; the shadowed road cooled or held.
+    assert end[far].mean() > start[far].mean()
+
+
+def test_a_scene_whose_world_frame_is_not_y_up_is_refused(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The stage is +Y up; a scene that leaves the v8 frame at its ENU default would put the sun
+    on the wrong side of the car, quietly."""
+    scene = _scene_with(
+        tmp_path, "  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}\n", ""
+    )
+    with pytest.raises(ValueError, match=r"world_frame\.up"):
+        build_car_demo(scene, author=False)
