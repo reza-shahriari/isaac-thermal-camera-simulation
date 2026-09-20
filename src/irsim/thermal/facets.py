@@ -16,7 +16,15 @@ to leave a residual of a few, and a diurnal run accumulates ~10⁵ steps of that
 subtraction alone loses four digits before the accumulation starts. The solver refuses a float16
 input outright and works in float64 throughout (CLAUDE.md #2).
 
-docs/physics-model.md §6.4, §15 T1; ADR 0036, ADR 0037
+**Conduction between facets, and the tick that survives it** (TC.1, ADR 0094). A solver built
+with a :class:`~irsim.thermal.conduction.ConductionOperator` steps the surface balance exactly as
+before and the conduction term implicitly (backward Euler, prefactored once per tick size), so a
+60 s scene tick stands over a joint whose own time constant is a tenth of a second. Without an
+operator the step is the midpoint rule it always was, bit for bit. Either way the explicit part is
+now guarded: §6.4's bound ``2C/(h + 4εσT³)`` is checked every step on the forcing's actual ``h``
+and raises with the numbers -- it never was before, and ``tick_s`` up to 3600 s parsed.
+
+docs/physics-model.md §6.4, §15 T1; ADR 0036, ADR 0037, ADR 0094
 """
 
 from __future__ import annotations
@@ -124,9 +132,22 @@ class FacetForcing:
 
 
 class FacetSolver:
-    """§6.1's balance over ``(N,)`` facets, stepped with the same midpoint rule as M6.7."""
+    """§6.1's balance over ``(N,)`` facets, stepped with the same midpoint rule as M6.7.
 
-    def __init__(self, properties: FacetProperties, initial_k: Any) -> None:
+    ``conduction`` adds ``Σ_j K_ij (T_j − T_i)`` between facets and switches the step to IMEX --
+    the surface balance explicit on the midpoint rule, the conduction term backward Euler -- see
+    `irsim.thermal.conduction`. ``guard`` is the §6.4 explicit bound, on by default; a caller who
+    deliberately steps past it (a steady-state search, say) switches it off and says so.
+    """
+
+    def __init__(
+        self,
+        properties: FacetProperties,
+        initial_k: Any,
+        *,
+        conduction: Any = None,
+        guard: bool = True,
+    ) -> None:
         self.properties = properties
         state = _f64(initial_k, "initial temperature")
         if state.ndim == 0:
@@ -137,7 +158,15 @@ class FacetSolver:
             )
         if np.any(state <= 0.0):
             raise ValueError("temperatures must be positive (kelvin)")
+        if conduction is not None and conduction.n_facets != properties.n_facets:
+            raise ValueError(
+                f"the conduction operator links {conduction.n_facets} facets, the solver has "
+                f"{properties.n_facets}"
+            )
         self._state = state
+        self.conduction = conduction
+        self.guard = guard
+        self._factor: tuple[float, Any] | None = None
 
     @property
     def temperatures_k(self) -> NDArray[np.float64]:
@@ -157,12 +186,40 @@ class FacetSolver:
             + q_int
         )
 
+    def _check_explicit_bound(self, forcing: FacetForcing, dt_s: float) -> None:
+        """§6.4's bound on the forcing's actual h and the state's own T, every step."""
+        from irsim.thermal.conduction import explicit_bound_s
+
+        h = forcing.arrays(self.properties.n_facets)[1]
+        bound = explicit_bound_s(
+            self.properties.heat_capacity_j_m2_k, h, self.properties.emissivity, self._state
+        )
+        worst = int(np.argmin(bound))
+        if dt_s > bound[worst]:
+            raise ValueError(
+                f"dt = {dt_s:g} s exceeds the §6.4 explicit bound {bound[worst]:.3g} s on facet "
+                f"{worst} (C = {self.properties.heat_capacity_j_m2_k[worst]:.4g} J/m²/K, "
+                f"h = {h[worst]:.3g} W/m²/K, T = {self._state[worst]:.1f} K). The midpoint rule "
+                "diverges there; shorten the tick or give the surface a larger areal capacity. "
+                "Conduction is not the cause -- it is stepped implicitly (ADR 0094)"
+            )
+
     def advance(self, forcing: FacetForcing, dt_s: float) -> NDArray[np.float64]:
         if dt_s <= 0.0:
             raise ValueError("dt_s must be positive")
+        if self.guard:
+            self._check_explicit_bound(forcing, dt_s)
         capacity = self.properties.heat_capacity_j_m2_k
         half = self._state + 0.5 * dt_s * self.net_flux(self._state, forcing) / capacity
-        self._state = self._state + dt_s * self.net_flux(half, forcing) / capacity
+        explicit = self._state + dt_s * self.net_flux(half, forcing) / capacity
+        if self.conduction is None:
+            self._state = explicit
+            return self.temperatures_k
+        # IMEX: the surface balance above is the explicit half; conduction is backward Euler on
+        # a matrix that depends only on the tick, factorised once and reused (ADR 0094).
+        if self._factor is None or self._factor[0] != float(dt_s):
+            self._factor = (float(dt_s), self.conduction.factorise(capacity, float(dt_s)))
+        self._state = np.asarray(self._factor[1].solve(explicit), dtype=np.float64)
         return self.temperatures_k
 
     def as_float32(self) -> NDArray[np.float32]:

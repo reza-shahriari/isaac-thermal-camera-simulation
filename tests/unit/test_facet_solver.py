@@ -137,7 +137,9 @@ def test_shape_and_range_errors_are_refused() -> None:
 
 def test_scalars_broadcast_and_arrays_are_per_facet() -> None:
     packed, _ = _random_facets(8)
-    solver = FacetSolver(packed, 290.0)
+    # A 600 s step at h = 50 is past §6.4's explicit bound for these thin facets (TC.1 now
+    # refuses it); broadcasting is what is under test here, so the guard is switched off.
+    solver = FacetSolver(packed, 290.0, guard=False)
     per_facet = np.linspace(280.0, 300.0, 8)
     solver.advance(FacetForcing(t_air_k=per_facet, h_w_m2_k=50.0), 600.0)
     warmed = solver.temperatures_k

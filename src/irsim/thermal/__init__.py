@@ -16,6 +16,7 @@ from irsim.thermal.aerial import (
     refine_nodes,
     throttle_profile,
 )
+from irsim.thermal.conduction import ConductionOperator, explicit_bound_s
 from irsim.thermal.convection import (
     DEFAULT_CONVECTION,
     ConvectionParams,
@@ -77,6 +78,8 @@ __all__ = [
     "patch_view_factors",
     "view_factor_to_parallel_rectangle",
     "PlanarThermalField",
+    "ConductionOperator",
+    "explicit_bound_s",
     "SOLVER_TYPES",
     "NewtonCoolingSolver",
     "PrescribedSolver",

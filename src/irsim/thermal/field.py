@@ -40,6 +40,7 @@ import collections
 import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -77,6 +78,7 @@ class ThermalField:
         *,
         keep_ticks: int | None = None,
         on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
+        conduction: Any = None,
     ) -> None:
         if tick_s <= 0.0:
             raise ValueError("tick_s must be positive")
@@ -90,7 +92,7 @@ class ThermalField:
         self.t0_s = float(t0_s)
         self.keep_ticks = keep_ticks
         self.on_tick = on_tick
-        self._solver = FacetSolver(properties, initial_k)
+        self._solver = FacetSolver(properties, initial_k, conduction=conduction)
         self._ticks: collections.deque[_Tick] = collections.deque(maxlen=keep_ticks)
         self._produced = 0
         self._digest = hashlib.sha256()
@@ -176,6 +178,11 @@ class ThermalField:
         weight = 0.0 if span <= 0.0 else (t_s - lower.t_s) / span
         blended = lower.temperatures_k + weight * (upper.temperatures_k - lower.temperatures_k)
         return np.asarray(blended, dtype=np.float32)
+
+    @property
+    def conduction(self) -> Any:
+        """The operator linking the facets, or ``None`` for independent columns (TC.1)."""
+        return self._solver.conduction
 
     def state_hash(self) -> str:
         """SHA-256 over every tick produced so far: what a query must not change.

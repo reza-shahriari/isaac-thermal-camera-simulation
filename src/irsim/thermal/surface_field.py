@@ -223,6 +223,7 @@ class PlanarThermalField:
         *,
         keep_ticks: int | None = DEFAULT_KEEP_TICKS,
         on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
+        conduction: Any = None,
     ) -> None:
         if properties.n_facets != patch.n_cells:
             raise ValueError(
@@ -238,7 +239,14 @@ class PlanarThermalField:
         # tick of a day at ~240 MB. Pass keep_ticks=None for the old behaviour, or on_tick to
         # record the history a time-lapse wants without holding it in the field.
         self.field = ThermalField(
-            properties, forcing_at, t0_s, state, tick_s, keep_ticks=keep_ticks, on_tick=on_tick
+            properties,
+            forcing_at,
+            t0_s,
+            state,
+            tick_s,
+            keep_ticks=keep_ticks,
+            on_tick=on_tick,
+            conduction=conduction,
         )
 
     # -- delegation --------------------------------------------------------------------------

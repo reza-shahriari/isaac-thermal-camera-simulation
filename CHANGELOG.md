@@ -13,6 +13,20 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **Heat moves between facets, and the scene tick survives it** (`TC.1`, ADR 0094).
+  `irsim.thermal.conduction.ConductionOperator`: symmetric link conductances in W/K (zero
+  diagonal, non-negative, symmetry checked because an asymmetric matrix invents energy) plus the
+  facet areas, so `C_i A_i dT_i/dt += Σ_j K_ij (T_j − T_i)` and unequal cells conserve.
+  `FacetSolver(conduction=)` steps IMEX: the surface balance keeps ADR 0036's midpoint rule, the
+  conduction term is backward Euler (L-stable; Crank–Nicolson would ring at dt/τ = 600) through
+  one `splu` factorisation per tick size; both fields pass `conduction=` through. §6.4's explicit
+  bound `2C/(h + 4εσT³)` is now checked every step on the forcing's actual h and raises with the
+  numbers -- it never was, and a leaf at 630 J m⁻² K⁻¹ under wind would have diverged quietly.
+  Measured: a zero operator is bit-identical to none over 240 ticks; a ladder with τ ≈ 0.1 s at a
+  60 s tick settles to its mean within 1e-6 where forward Euler explodes; the slow mode's error
+  halves with the tick (0.7 % at 60 s for τ = 1 h); energy closes to 1e-9 for 50 unequal cells
+  under a real forcing. 13 cases in `tests/unit/test_conduction.py`; one broadcast test opts out
+  of the guard because its 600 s step was always past the bound.
 - **A field holds the ticks a query needs, not every tick it produced** (`PT.8`, ADR 0093).
   `ThermalField` gains `keep_ticks` (a `deque` ring; `None` keeps all, the per-prim default) and
   `on_tick`, a hook that sees every tick in order for a time-lapse or a validation to record.
