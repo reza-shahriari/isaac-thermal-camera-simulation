@@ -98,7 +98,9 @@ class TargetSpec(_Frozen):
     """
 
     name: str = Field(min_length=1)
-    solver: Literal["newton", "prescribed", "heat_source", "airframe", "ram_skin", "vehicle_source"]
+    solver: Literal[
+        "newton", "prescribed", "heat_source", "airframe", "ram_skin", "vehicle_source", "engine"
+    ]
     t0_k: float | None = Field(default=None, gt=0.0)
     tau_s: float | None = Field(default=None, gt=0.0)
     schedule_s: list[float] | None = None
@@ -116,10 +118,14 @@ class TargetSpec(_Frozen):
     def _fields_for_solver(self) -> TargetSpec:
         if self.solver == "vehicle_source":
             return self._vehicle_fields()
+        if self.solver == "engine":
+            return self._engine_fields()
         if self.solver in ("heat_source", "airframe", "ram_skin"):
             return self._aerial_fields()
         if self.load is not None or self.load_s is not None:
-            raise ValueError(f"target {self.name!r}: only vehicle_source takes a load profile")
+            raise ValueError(
+                f"target {self.name!r}: only vehicle_source and engine take a load profile"
+            )
         if self.source is not None or self.throttle is not None or self.throttle_s is not None:
             raise ValueError(f"target {self.name!r}: {self.solver} takes no throttle profile")
         if self.offset_k is not None:
@@ -183,6 +189,36 @@ class TargetSpec(_Frozen):
             raise ValueError(f"target {self.name!r}: load must lie in [0, 1]")
         return self
 
+    def _engine_fields(self) -> TargetSpec:
+        """``engine`` (TC.5, ADR 0100): block, bay air, mounts and subframe solved as a network from
+        a load schedule -- no §6.6 row, no rise or time constant to author."""
+        if self.source is not None:
+            raise ValueError(
+                f"target {self.name!r}: engine takes no `source`; its heat is P_rated · load · "
+                "bay_fraction, not a §6.6 row"
+            )
+        if self.t0_k is not None or self.tau_s is not None:
+            raise ValueError(f"target {self.name!r}: engine takes no t0_k/tau_s")
+        if self.schedule_s is not None or self.schedule_k is not None:
+            raise ValueError(f"target {self.name!r}: engine takes no schedule; it is solved")
+        if self.throttle is not None or self.throttle_s is not None:
+            raise ValueError(f"target {self.name!r}: engine takes load_s/load, not a throttle")
+        if (
+            self.offset_k is not None
+            or self.speed_m_s is not None
+            or self.recovery_factor is not None
+        ):
+            raise ValueError(f"target {self.name!r}: engine takes no aerial fields")
+        if not self.load_s or not self.load:
+            raise ValueError(f"target {self.name!r}: engine needs load_s and load")
+        if len(self.load_s) != len(self.load):
+            raise ValueError(f"target {self.name!r}: load_s and load differ in length")
+        if any(b <= a for a, b in zip(self.load_s[:-1], self.load_s[1:], strict=True)):
+            raise ValueError(f"target {self.name!r}: load_s must be strictly increasing")
+        if any(not 0.0 <= u <= 1.0 for u in self.load):
+            raise ValueError(f"target {self.name!r}: load must lie in [0, 1]")
+        return self
+
     def _aerial_fields(self) -> TargetSpec:
         """Validate the ADR 0072 solvers. The heat-source names are checked against the model."""
         from irsim.thermal.aerial import AERIAL_HEAT_SOURCES
@@ -190,7 +226,9 @@ class TargetSpec(_Frozen):
         if self.t0_k is not None or self.tau_s is not None:
             raise ValueError(f"target {self.name!r}: {self.solver} takes no t0_k/tau_s")
         if self.load is not None or self.load_s is not None:
-            raise ValueError(f"target {self.name!r}: only vehicle_source takes a load profile")
+            raise ValueError(
+                f"target {self.name!r}: only vehicle_source and engine take a load profile"
+            )
         if self.schedule_s is not None or self.schedule_k is not None:
             raise ValueError(
                 f"target {self.name!r}: {self.solver} derives its schedule from the model; "

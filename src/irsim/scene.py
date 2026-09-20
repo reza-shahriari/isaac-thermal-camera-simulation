@@ -228,6 +228,17 @@ def build_target(spec: TargetSpec, weather: WeatherSeries, t0_s: float) -> Tempe
     if spec.solver == "newton":
         assert spec.t0_k is not None and spec.tau_s is not None
         return NewtonCoolingSolver(spec.t0_k, spec.tau_s, weather, t0_s=t0_s)
+    if spec.solver == "engine":
+        from irsim.thermal.engine import EngineSolver, EngineSpec
+
+        assert spec.load_s is not None and spec.load is not None
+        return EngineSolver(
+            EngineSpec(),
+            weather,
+            t0_s + np.asarray(spec.load_s, dtype=np.float64),
+            spec.load,
+            t0_s,
+        )
     if spec.solver == "vehicle_source":
         assert spec.source is not None and spec.load_s is not None and spec.load is not None
         # Written in seconds after the scene start; the solvers live on the weather's absolute

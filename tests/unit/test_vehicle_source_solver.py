@@ -174,7 +174,7 @@ def test_the_two_node_kinds_do_not_take_each_others_profiles() -> None:
             throttle_s=[0.0],
             throttle=[1.0],
         )
-    with pytest.raises(ValidationError, match="only vehicle_source takes a load profile"):
+    with pytest.raises(ValidationError, match="only vehicle_source and engine take a load profile"):
         TargetSpec(
             name="motor",
             solver="heat_source",
@@ -184,7 +184,7 @@ def test_the_two_node_kinds_do_not_take_each_others_profiles() -> None:
             load_s=[0.0],
             load=[1.0],
         )
-    with pytest.raises(ValidationError, match="only vehicle_source takes a load profile"):
+    with pytest.raises(ValidationError, match="only vehicle_source and engine take a load profile"):
         TargetSpec(
             name="hull",
             solver="prescribed",

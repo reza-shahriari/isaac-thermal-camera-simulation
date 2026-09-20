@@ -31,14 +31,17 @@ ROW = re.compile(r"^\|\s*([ST]\d+)\s*\|(.*)\|\s*([^|]*?)\s*\|\s*$")
 #: Written out in the summary paragraph, so a change to the table has to move the words too.
 WORDS = {
     4: "four",
+    11: "eleven",
     12: "twelve",
     13: "thirteen",
     16: "sixteen",
     19: "nineteen",
     20: "twenty",
+    21: "twenty-one",
     37: "thirty-seven",
     56: "fifty-six",
     57: "fifty-seven",
+    58: "fifty-eight",
     60: "sixty",
     69: "sixty-nine",
 }

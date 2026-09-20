@@ -13,6 +13,23 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The engine as a solved node, not a schedule** (`TC.5`, ADR 0100; spec issue S43 is now
+  `code`). `irsim.thermal.engine`: `EngineSpec` (block + coolant mass, skin area, forced and
+  natural convection, bay volume and vent conductances, rated power and the bay's share of it,
+  radiation views, rubber mounts, subframe -- every number ESTIMATED and said so),
+  `engine_network` (four nodes and a fixed ambient on the TC.2 network, with forced → natural
+  convection and venting when the engine stops) and `EngineSolver`, a `TemperatureSolver` whose
+  reported temperature is the **bay air** -- the cavity temperature ADR 0088's radiator carries
+  onto the bonnet -- so the bonnet field's forcing is unchanged. Scene targets gain
+  `solver: engine` with `load_s` → `load` and no `source`; `vehicle_source: engine_bay` still
+  works and the car scenes migrate in `TC.6`. Measured against the survey's bands: from 93 °C at
+  27 °C the block is +32.3 K after 1 h (§6.6's 1800 s schedule: 9 K) and +0.92 K after 7 h; the
+  full-load rise is +53.7 K (§6.6: +40…+90); the bay air overshoots by +27 K peaking 145 s after
+  key-off; parts warm block → mounts → subframe; energy closes to 1e-6 at steady state; in the
+  overcast scene the bonnet over the block keeps warming after key-off -- for ~23 minutes, where
+  the row asked for 60–120 s: that figure is the survey's manifold-skin number and belongs to
+  `TC.7`, and the bonnet is not yet the bay's loss path (`TC.6`), which ADR 0100 records. 7
+  cases in `tests/unit/test_engine_node.py`.
 - **The car scene's fields are spun up with the car present** (`PT.7`, the MP.5 limit). Both
   `car_demo` fields are integrated through the scene's `spin_up_hours` with the car's sky
   occlusion, its radiators at the air temperature of each hour plus whatever rise they carry at
