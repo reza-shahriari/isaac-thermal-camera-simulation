@@ -1,4 +1,4 @@
-# A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v8).
+# A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v9).
 # Roadmap MP.4b; ADR 0087 (point-wise surface temperature), ADR 0088 (spatial sources),
 # ADR 0089 (the vehicle_source solver).
 #
@@ -23,7 +23,7 @@
 # longitude ~ +30E. 01:00Z is 03:00 local -- two and a half hours before sunrise, well past the
 # point where yesterday's heat has been forgotten.
 
-schema_version: 8
+schema_version: 9
 scene:
   name: car_ignition_overcast_night
   description: "A cold car on asphalt starts its engine, 03:00 local under thick overcast"

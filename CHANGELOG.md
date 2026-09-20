@@ -13,6 +13,26 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **Nodes, links and joints in the scene schema** (`TC.4`, ADR 0097). Scene schema **v9**:
+  `thermal.nodes:` (a `capacity_j_k`, a `mass_kg` with `specific_heat_j_kgk`, a `fixed` kelvin
+  value or `"ambient"` for the scene's one weather series, or a `link_node` with its own
+  capacity), `thermal.links:` in exactly one of the forms the literature reports (a total
+  `g_w_k`; a `joint` name with `area_m2`; an inline `h_c_w_m2_k` with `area_m2`, range-checked;
+  a `fastener` name with `count`; `h_w_m2_k` with `area_m2` for convection to a fluid node; or
+  `radiation`), and `thermal.sources:` (a constant or a piecewise-linear schedule). All optional,
+  so every v4–v8 scene reads as before. `configs/thermal/joints.yaml` (`irsim.config.joints`)
+  holds the survey's joint conductances with provenance -- bolted ferrous 12 kW m⁻² K⁻¹ new, 7
+  corroded, 59 with paste, 67 with foil (Voller & Tirovic 2007, MEASURED), a 1 kW m⁻² K⁻¹ dry
+  default (ESTIMATED) and ~1 W/K per small bolt (Hasselström & Nilsson 2012, ESTIMATED: measured
+  in vacuum on aluminium) -- and its loader refuses h_c outside 1e2–1e6 W m⁻² K⁻¹, the per-K typo
+  that would render a bolted bracket plausibly cold. `Scene.network` is built from the block,
+  stepped by `advance_targets` beside the targets and read through `node_temperature_k`; it
+  carries the weather so the one-weather guard sees it. Measured: a bracket through 25 cm² of
+  `bolted_ferrous_new` against `dry_default` on a 400 °C block, from the scene config alone,
+  settles at rises in the two-resistor ratio G/(G + hA) to 1e-6; every link form and node kind
+  builds to the conductance it declares; a v9 network beside a v7 surface leaves the surface's
+  solve bit-identical. 12 cases in `tests/unit/test_network_schema.py`. Spec issue S42 is now
+  `code`.
 - **A thermal network: parts with mass, the joints between them, and their boundaries** (`TC.2`,
   ADR 0096). `irsim.thermal.network`: `Node` (capacity in J/K, or `from_mass`), `FixedNode` (an
   imposed temperature, constant or a callable of time -- ambient from the weather, a thermostatted

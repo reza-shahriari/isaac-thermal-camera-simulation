@@ -48,8 +48,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 8  # v8: `world_frame:` and `thermal.occluders:` (ADR 0095, PT.18);
-# v7 added the `patch:` block (ADR 0087, PT.2)
+SCENE_SCHEMA_VERSION = 9  # v9: `thermal.nodes/links/sources` (ADR 0097, TC.4); v8 added
+# `world_frame:` and `thermal.occluders:` (ADR 0095, PT.18); v7 the `patch:` block (ADR 0087)
 #: The oldest version this loader still accepts. v5 added `thermal:` as an **optional** field, so
 #: every v4 document is a valid v5 document and refusing one would be refusing it for a change
 #: that cannot affect it. A range is the honest representation of a backwards-compatible change;
@@ -373,6 +373,159 @@ class SurfaceSpec(_Frozen):
     patch: PatchSpec | None = None
 
 
+class NodeSpec(_Frozen):
+    """One lumped part of the thermal network (schema v9, TC.4; `irsim.thermal.network`).
+
+    Exactly one of: ``capacity_j_k``; ``mass_kg`` with ``specific_heat_j_kgk``; ``fixed`` (a
+    kelvin value, or ``"ambient"`` for the weather's air temperature); or ``link_node`` -- a
+    link with mass of its own, a rubber mount, between ``a`` and ``b`` with the series
+    conductance ``g_w_k`` and this node's ``capacity_j_k``.
+    """
+
+    name: str = Field(min_length=1)
+    capacity_j_k: float | None = Field(default=None, gt=0.0)
+    mass_kg: float | None = Field(default=None, gt=0.0)
+    specific_heat_j_kgk: float | None = Field(default=None, gt=0.0)
+    fixed: float | Literal["ambient"] | None = None
+    link_node: dict[str, str | float] | None = None
+    initial_k: float | None = Field(default=None, gt=0.0)
+
+    @model_validator(mode="after")
+    def _one_kind(self) -> NodeSpec:
+        forms = {
+            "capacity_j_k": self.capacity_j_k is not None,
+            "mass_kg": self.mass_kg is not None or self.specific_heat_j_kgk is not None,
+            "fixed": self.fixed is not None,
+            "link_node": self.link_node is not None,
+        }
+        chosen = [k for k, v in forms.items() if v]
+        if len(chosen) != 1 and not (chosen == ["capacity_j_k", "link_node"]):
+            raise ValueError(
+                f"node {self.name!r} must be exactly one of capacity_j_k, mass_kg + "
+                f"specific_heat_j_kgk, fixed, or link_node (+ capacity_j_k); got {chosen}"
+            )
+        if (self.mass_kg is None) != (self.specific_heat_j_kgk is None):
+            raise ValueError(f"node {self.name!r}: mass_kg and specific_heat_j_kgk go together")
+        if isinstance(self.fixed, float) and self.fixed <= 0.0:
+            raise ValueError(f"node {self.name!r}: a fixed temperature must be positive kelvin")
+        if self.fixed is not None and self.initial_k is not None:
+            raise ValueError(f"node {self.name!r}: a fixed node has no initial temperature")
+        if self.link_node is not None:
+            keys = set(self.link_node)
+            if keys != {"a", "b", "g_w_k"} or self.capacity_j_k is None:
+                raise ValueError(
+                    f"node {self.name!r}: link_node needs a, b and g_w_k, plus capacity_j_k"
+                )
+            if float(self.link_node["g_w_k"]) <= 0.0:
+                raise ValueError(f"node {self.name!r}: link_node g_w_k must be positive")
+        return self
+
+    @property
+    def is_fixed(self) -> bool:
+        return self.fixed is not None
+
+    @property
+    def capacity(self) -> float | None:
+        if self.capacity_j_k is not None:
+            return self.capacity_j_k
+        if self.mass_kg is not None and self.specific_heat_j_kgk is not None:
+            return self.mass_kg * self.specific_heat_j_kgk
+        return None
+
+
+class RadiationSpec(_Frozen):
+    emissivity: float = Field(gt=0.0, le=1.0)
+    area_m2: float = Field(gt=0.0)
+    view_factor: float = Field(default=1.0, gt=0.0, le=1.0)
+
+
+class LinkSpec(_Frozen):
+    """A conductor between two nodes, in exactly one of the forms the literature reports.
+
+    ``g_w_k`` (a total); ``joint`` from `configs/thermal/joints.yaml` with ``area_m2``;
+    ``h_c_w_m2_k`` with ``area_m2`` (an inline contact conductance, range-checked like the
+    table); ``fastener`` from the table with ``count``; ``h_w_m2_k`` with ``area_m2``
+    (convection to a fluid node); or ``radiation``.
+    """
+
+    a: str = Field(min_length=1)
+    b: str = Field(min_length=1)
+    g_w_k: float | None = Field(default=None, ge=0.0)
+    joint: str | None = None
+    h_c_w_m2_k: float | None = None
+    area_m2: float | None = Field(default=None, gt=0.0)
+    fastener: str | None = None
+    count: int | None = Field(default=None, ge=1)
+    h_w_m2_k: float | None = Field(default=None, ge=0.0)
+    radiation: RadiationSpec | None = None
+
+    @model_validator(mode="after")
+    def _one_form(self) -> LinkSpec:
+        from irsim.config.joints import check_h_c
+
+        if self.a == self.b:
+            raise ValueError(f"a link cannot join {self.a!r} to itself")
+        forms = {
+            "g_w_k": self.g_w_k is not None,
+            "joint": self.joint is not None,
+            "h_c_w_m2_k": self.h_c_w_m2_k is not None,
+            "fastener": self.fastener is not None,
+            "h_w_m2_k": self.h_w_m2_k is not None,
+            "radiation": self.radiation is not None,
+        }
+        chosen = [k for k, v in forms.items() if v]
+        if len(chosen) != 1:
+            raise ValueError(
+                f"link {self.a!r}-{self.b!r} must take exactly one form (g_w_k, joint, "
+                f"h_c_w_m2_k, fastener, h_w_m2_k or radiation); got {chosen}"
+            )
+        form = chosen[0]
+        needs_area = form in ("joint", "h_c_w_m2_k", "h_w_m2_k")
+        if needs_area != (self.area_m2 is not None):
+            raise ValueError(
+                f"link {self.a!r}-{self.b!r}: {form} "
+                f"{'needs' if needs_area else 'takes no'} area_m2"
+            )
+        if (form == "fastener") != (self.count is not None):
+            raise ValueError(
+                f"link {self.a!r}-{self.b!r}: count goes with fastener, and only with it"
+            )
+        if self.h_c_w_m2_k is not None:
+            check_h_c(self.h_c_w_m2_k, f"link {self.a!r}-{self.b!r}")
+        return self
+
+    @property
+    def form(self) -> str:
+        for name in ("g_w_k", "joint", "h_c_w_m2_k", "fastener", "h_w_m2_k", "radiation"):
+            if getattr(self, name) is not None:
+                return name
+        raise AssertionError("validated link without a form")
+
+
+class SourceSpec(_Frozen):
+    """Heat in watts on a node: a constant, or a piecewise-linear ``times_s`` → ``power_w``."""
+
+    node: str = Field(min_length=1)
+    power_w: float | list[float]
+    times_s: list[float] | None = None
+
+    @model_validator(mode="after")
+    def _schedule(self) -> SourceSpec:
+        if isinstance(self.power_w, list):
+            if self.times_s is None or len(self.times_s) != len(self.power_w) or not self.power_w:
+                raise ValueError(f"source on {self.node!r}: times_s and power_w must pair up")
+            if any(b <= a for a, b in zip(self.times_s[:-1], self.times_s[1:], strict=True)):
+                raise ValueError(f"source on {self.node!r}: times_s must be strictly increasing")
+            if any(w < 0.0 for w in self.power_w):
+                raise ValueError(f"source on {self.node!r}: power_w cannot be negative")
+        else:
+            if self.times_s is not None:
+                raise ValueError(f"source on {self.node!r}: times_s needs a list of power_w")
+            if self.power_w < 0.0:
+                raise ValueError(f"source on {self.node!r}: power_w cannot be negative")
+        return self
+
+
 class ThermalSceneSpec(_Frozen):
     """§12.3's thermal block: how the surfaces are solved, not what they are."""
 
@@ -381,6 +534,10 @@ class ThermalSceneSpec(_Frozen):
     tick_s: float = Field(default=1.0, gt=0.0, le=3600.0)
     #: What casts shadows on the patched surfaces (schema v8, PT.18). Empty is the v7 scene.
     occluders: list[OccluderSpec] = Field(default_factory=list)
+    #: The thermal network (schema v9, TC.4): parts, the joints between them, heat in watts.
+    nodes: list[NodeSpec] = Field(default_factory=list)
+    links: list[LinkSpec] = Field(default_factory=list)
+    sources: list[SourceSpec] = Field(default_factory=list)
 
     @field_validator("surfaces")
     @classmethod
@@ -397,6 +554,34 @@ class ThermalSceneSpec(_Frozen):
         if len(set(names)) != len(names):
             raise ValueError(f"occluder names must be unique: {names}")
         return occluders
+
+    @model_validator(mode="after")
+    def _network_is_well_formed(self) -> ThermalSceneSpec:
+        """Names resolve, exactly once; heat lands on a node that can hold it."""
+        names = [n.name for n in self.nodes]
+        if len(set(names)) != len(names):
+            raise ValueError(f"node names must be unique: {names}")
+        known = set(names)
+        fixed = {n.name for n in self.nodes if n.is_fixed}
+        for n in self.nodes:
+            if n.link_node is not None:
+                for end in (str(n.link_node["a"]), str(n.link_node["b"])):
+                    if end not in known:
+                        raise ValueError(f"link node {n.name!r} names unknown node {end!r}")
+        for link in self.links:
+            for end in (link.a, link.b):
+                if end not in known:
+                    raise ValueError(f"link {link.a!r}-{link.b!r} names unknown node {end!r}")
+        for src in self.sources:
+            if src.node not in known:
+                raise ValueError(f"source names unknown node {src.node!r}")
+            if src.node in fixed:
+                raise ValueError(
+                    f"source on fixed node {src.node!r} goes nowhere: its temperature is imposed"
+                )
+        if (self.links or self.sources) and not self.nodes:
+            raise ValueError("links and sources need nodes")
+        return self
 
     @model_validator(mode="after")
     def _one_shadow_authority(self) -> ThermalSceneSpec:

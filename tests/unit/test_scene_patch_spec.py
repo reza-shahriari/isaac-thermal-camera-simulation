@@ -166,7 +166,7 @@ def test_the_block_is_optional_and_the_version_moved() -> None:
     """
     from irsim.config.scene import SurfaceSpec
 
-    assert SCENE_SCHEMA_VERSION == 8
+    assert SCENE_SCHEMA_VERSION == 9
     plain = SurfaceSpec(name="asphalt", material="asphalt_dry")
     assert plain.patch is None
 

@@ -1,0 +1,61 @@
+# Joint conductances a scene's `links:` may name instead of typing a number (TC.4, ADR 0097).
+#
+# Two forms, because the literature reports both. A `joint` is a contact conductance h_c in
+# W m^-2 K^-1 that a link multiplies by its own footprint (`area_m2`); a `fastener` is a total
+# conductance G in W/K per bolt or hanger that a link multiplies by its `count`. Every value
+# carries its provenance: MEASURED means the number is a published measurement of this kind of
+# joint; ESTIMATED means an engineering default or a measurement under other conditions, and a
+# scene that leans on one should say so.
+#
+# The spread is the point of keeping them in one file: a new bolted ferrous joint conducts an
+# order of magnitude better than a dry default, and paste another factor of five. For a 25 cm^2
+# bracket footprint the new-joint value is ~30 W/K -- a hot block conducts strongly into any
+# metal bolted to it, and only rubber breaks the path (that is a `link_node`, not a joint).
+#
+# The loader refuses h_c outside 1e2..1e6 W m^-2 K^-1 (a per-K typo such as 1e-3 would make a
+# bolted joint an insulator) and G outside 1e-3..1e3 W/K.
+
+schema_version: 1
+
+joints:
+  bolted_ferrous_new:
+    h_c_w_m2_k: 12000.0
+    status: MEASURED
+    source: >-
+      Voller & Tirovic, Conductive heat transfer across a bolted automotive joint and the
+      influence of interface conditioning, Int. J. Heat Mass Transfer 50 (2007) 4833-4844:
+      average conductance of a new grey-iron / SG-iron brake-disc-to-carrier joint, ten 12.9
+      bolts at 300 N m (56 MPa mean interface pressure).
+  bolted_ferrous_corroded:
+    h_c_w_m2_k: 7000.0
+    status: MEASURED
+    source: >-
+      Voller & Tirovic 2007, the same joint slightly corroded: "Due to corrosion, thermal
+      conductance is reduced to only 7 kW/m2 K."
+  bolted_ferrous_paste:
+    h_c_w_m2_k: 59000.0
+    status: MEASURED
+    source: Voller & Tirovic 2007, the same joint with heat-sink paste at the interface.
+  bolted_ferrous_foil:
+    h_c_w_m2_k: 67000.0
+    status: MEASURED
+    source: Voller & Tirovic 2007, the same joint with a 15 um aluminium foil interlayer.
+  dry_default:
+    h_c_w_m2_k: 1000.0
+    status: ESTIMATED
+    source: >-
+      DSPE Thermomechanics knowledge base, thermal contact conduction: "a commonly used value for
+      a sturdy mechanical interface is around 1000 W/m2K ... typical of a dry contact, with a
+      moderate contacting pressure (e.g. a bolted connection)". The conservative choice when a
+      scene does not know its joint; the Voller range above is the authored override.
+
+fasteners:
+  small_bolt:
+    g_w_k: 1.0
+    status: ESTIMATED
+    source: >-
+      Hasselstrom & Nilsson, Thermal Contact Conductance in Bolted Joints, Chalmers MSc thesis
+      2012 (RUAG Space): nickel-plated Al6082/Al7075 single-bolt joints at 0.8-1.4 N m in vacuum
+      held "close to ... 1 W/K per added bolt". Measured in vacuum on a small aluminium bolt;
+      used here as the order of magnitude for an exhaust hanger or a small bracket bolt in air,
+      hence ESTIMATED.

@@ -1,4 +1,4 @@
-# The SAME car and the same key, under a clear cold sky instead of thick overcast. Schema v8.
+# The SAME car and the same key, under a clear cold sky instead of thick overcast. Schema v9.
 # Roadmap MP.4b; ADR 0088 is what the pair exists to show.
 #
 # Run this beside `car_ignition_overcast_night.yaml` and the difference is not the engine -- the
@@ -32,7 +32,7 @@
 # ⚠️ `clear_midlat_summer_48h` declares "local = UTC+2" in its own header, so 01:00Z is 03:00
 # local -- the same pre-dawn hour, on a night that has been radiating to space since sunset.
 
-schema_version: 8
+schema_version: 9
 scene:
   name: car_ignition_clear_night
   description: "The same car and key, under a clear cold sky: the patch is there before the engine"

@@ -46,6 +46,7 @@ from irsim.thermal.aerial import (
     ram_skin_solver,
 )
 from irsim.thermal.frames import ENU, WorldFrame
+from irsim.thermal.network import ThermalNetwork
 from irsim.thermal.shadow import ShadowRectangle
 from irsim.thermal.solvers import NewtonCoolingSolver, PrescribedSolver, TemperatureSolver
 from irsim.thermal.surface_field import PlanarPatch, PlanarThermalField
@@ -53,7 +54,7 @@ from irsim.thermal.vehicle import VEHICLE_HEAT_SOURCES, VehicleSourceSolver
 from irsim.thermal.weather import WeatherSample, WeatherSeries
 from irsim.thermal.weather_io import load_weather_csv
 
-__all__ = ["Scene", "build_occluder", "build_target", "build_world_frame"]
+__all__ = ["Scene", "build_network", "build_occluder", "build_target", "build_world_frame"]
 
 
 def build_patch(spec: PatchSpec) -> PlanarPatch:
@@ -94,6 +95,111 @@ def build_occluder(spec: Any) -> ShadowRectangle:
         v_axis=np.asarray(spec.v_axis, dtype=np.float64),
         half_u_m=float(spec.half_u_m),
         half_v_m=float(spec.half_v_m),
+    )
+
+
+def _ambient_of(weather: WeatherSeries) -> Any:
+    def at(t_s: float) -> float:
+        return float(weather.at(t_s).t_air_k)
+
+    return at
+
+
+def _schedule_of(times_s: Any, power_w: Any) -> Any:
+    times = np.asarray(times_s, dtype=np.float64)
+    watts = np.asarray(power_w, dtype=np.float64)
+
+    def at(t_s: float) -> float:
+        return float(np.interp(t_s, times, watts))
+
+    return at
+
+
+def build_network(
+    block: Any,
+    weather: WeatherSeries,
+    t0_s: float,
+    joints: Any | None = None,
+) -> ThermalNetwork | None:
+    """The `nodes:` / `links:` / `sources:` blocks as a `ThermalNetwork` (schema v9, TC.4).
+
+    ``None`` when the block declares no nodes, which is every scene before v9. An ``"ambient"``
+    fixed node reads the scene's one weather series; a ``joint`` or ``fastener`` link reads
+    `configs/thermal/joints.yaml` (or the table passed in), so the number and its provenance
+    stay in one place. A source schedule is piecewise linear in time, held at its ends.
+    """
+    from irsim.config.joints import load_joint_table
+    from irsim.thermal.network import (
+        FixedNode,
+        ImposedHeat,
+        Link,
+        LinkNode,
+        Node,
+        RadiationLink,
+    )
+
+    if block is None or not block.nodes:
+        return None
+    table = joints if joints is not None else load_joint_table()
+    nodes: list[Node] = []
+    fixed: list[FixedNode] = []
+    link_nodes: list[LinkNode] = []
+    initial: dict[str, float] = {}
+    t_air_0 = float(weather.at(t0_s).t_air_k)
+    for n in block.nodes:
+        if n.fixed == "ambient":
+            fixed.append(FixedNode(n.name, _ambient_of(weather)))
+        elif n.fixed is not None:
+            fixed.append(FixedNode(n.name, float(n.fixed)))
+        elif n.link_node is not None:
+            link_nodes.append(
+                LinkNode(
+                    n.name,
+                    str(n.link_node["a"]),
+                    str(n.link_node["b"]),
+                    float(n.link_node["g_w_k"]),
+                    float(n.capacity_j_k),
+                )
+            )
+            initial[n.name] = t_air_0 if n.initial_k is None else float(n.initial_k)
+        else:
+            nodes.append(Node(n.name, float(n.capacity)))
+            initial[n.name] = t_air_0 if n.initial_k is None else float(n.initial_k)
+    links: list[Link] = []
+    radiation: list[RadiationLink] = []
+    for lk in block.links:
+        form = lk.form
+        if form == "g_w_k":
+            links.append(Link(lk.a, lk.b, float(lk.g_w_k)))
+        elif form == "joint":
+            links.append(
+                Link.from_contact(lk.a, lk.b, table.joint(lk.joint).h_c_w_m2_k, lk.area_m2)
+            )
+        elif form == "h_c_w_m2_k":
+            links.append(Link.from_contact(lk.a, lk.b, float(lk.h_c_w_m2_k), lk.area_m2))
+        elif form == "fastener":
+            links.append(Link(lk.a, lk.b, table.fastener(lk.fastener).g_w_k * int(lk.count)))
+        elif form == "h_w_m2_k":
+            links.append(Link.convection(lk.a, lk.b, float(lk.h_w_m2_k), lk.area_m2))
+        else:
+            r = lk.radiation
+            radiation.append(RadiationLink(lk.a, lk.b, r.emissivity, r.area_m2, r.view_factor))
+    sources: list[ImposedHeat] = []
+    for src in block.sources:
+        if isinstance(src.power_w, list):
+            sources.append(ImposedHeat(src.node, _schedule_of(src.times_s, src.power_w)))
+        else:
+            sources.append(ImposedHeat(src.node, float(src.power_w)))
+    return ThermalNetwork(
+        nodes=nodes,
+        fixed=fixed,
+        links=links,
+        radiation=radiation,
+        sources=sources,
+        link_nodes=link_nodes,
+        t0_s=t0_s,
+        initial_k=initial,
+        weather=weather,
     )
 
 
@@ -192,6 +298,9 @@ class Scene:
     #: ``{occluder name: rectangle}`` in world coordinates -- what casts shadows on the patched
     #: surfaces (PT.18). Empty for every scene before v8, and then nothing here changes.
     occluders: Mapping[str, ShadowRectangle] = field(default_factory=dict)
+    #: The `nodes:` / `links:` / `sources:` network (schema v9, TC.4), or ``None``. Stepped by
+    #: :meth:`advance_targets` beside the targets; read through :meth:`node_temperature_k`.
+    network: ThermalNetwork | None = None
     sky_models: Mapping[str, SkyModel] = field(default_factory=dict)  # per band (MS.2)
     extra_consumers: Mapping[str, Any] = field(
         default_factory=dict
@@ -266,6 +375,8 @@ class Scene:
         if self.thermal is not None:
             out["thermal"] = self.thermal.forcing_at
         out.update({f"field:{k}": v.field.forcing_at for k, v in self.surface_fields.items()})
+        if self.network is not None:
+            out["network"] = self.network
         out.update(self.extra_consumers)
         return out
 
@@ -354,6 +465,7 @@ class Scene:
             if surface.patch.prim_path:
                 patch_prims[surface.name] = surface.patch.prim_path
         world_frame = build_world_frame(spec)
+        network = build_network(spec.thermal, weather, t0_s)
         occluders = {
             o.name: build_occluder(o)
             for o in (spec.thermal.occluders if spec.thermal is not None else ())
@@ -374,6 +486,7 @@ class Scene:
             surface_fields=_build_surface_fields(spec, build, patches, world_frame, occluders),
             world_frame=world_frame,
             occluders=occluders,
+            network=network,
         )
 
     @classmethod
@@ -412,9 +525,22 @@ class Scene:
         return self.weather.at(self.t0_s + float(t_rel_s))
 
     def advance_targets(self, t_rel_s: float, dt_s: float) -> dict[str, float]:
-        """Step every target from t_rel to t_rel + dt; returns the new temperatures."""
+        """Step every target -- and the network, if any -- from t_rel to t_rel + dt.
+
+        Returns the new temperatures by name; network nodes are included under their own names.
+        """
         t = self.t0_s + float(t_rel_s)
-        return {name: solver.advance(t, float(dt_s)) for name, solver in self.targets.items()}
+        out = {name: solver.advance(t, float(dt_s)) for name, solver in self.targets.items()}
+        if self.network is not None:
+            self.network.advance(t, float(dt_s))
+            out.update(self.network.temperatures_k)
+        return out
+
+    def node_temperature_k(self, name: str) -> float:
+        """One network node's current temperature (schema v9, TC.4)."""
+        if self.network is None:
+            raise ValueError("this scene declares no thermal network")
+        return self.network.temperature(name)
 
 
 def _identity(forcing: Any) -> Any:

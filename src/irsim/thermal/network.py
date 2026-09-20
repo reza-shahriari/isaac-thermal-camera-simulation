@@ -231,6 +231,9 @@ class ThermalNetwork:
     link_nodes: Sequence[LinkNode] = ()
     t0_s: float = 0.0
     initial_k: Any = 293.15
+    #: The `WeatherSeries` an ``"ambient"`` fixed node reads, if any, so the scene's one-weather
+    #: guard (CLAUDE.md #6) can see that this network follows the same series as everything else.
+    weather: Any = None
     _names: list[str] = field(init=False, repr=False)
     _index: dict[str, int] = field(init=False, repr=False)
     _capacity: NDArray[np.float64] = field(init=False, repr=False)
