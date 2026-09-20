@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 105 open steps
+#### Then, in order — 104 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -194,7 +194,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`PT.6`** | PT | P | S | 1 | ready |
 | 15 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
 
-…and 90 more — `python scripts/next_step.py --queue 40`.
+…and 89 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -524,7 +524,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | PH.10 | **Snow: the melt cap.** T_s ≤ 273.15 K; surplus net flux at the cap becomes melt at L_f = 334 kJ/kg; ε 0.98–0.99 with the library's angular fall-off. | +200 W/m² net holds the cell at exactly 273.15 K and melts 2.2 mm water-equivalent per hour; a clear calm night drives the surface several K below air while overcast does not; the alpine ESSD 16 (2024) series bounds a Tier 4 check at 0.7–1.3 K MAE. | PH.1 | S | C |
 | PH.11 | **Vegetation: leaves transpire.** `PH.1`'s latent term with a stomatal resistance from the material and a leaf's tiny capacity, under `TC.1`'s guard (a 630 J m⁻² K⁻¹ leaf breaks a 60 s explicit tick). | g_s → 0 converges to the dry reference (above air in sun); a well-watered leaf sits below air at high VPD; the slope of (T_leaf − T_air) against VPD lies in [−3.8, −1.1] °C/kPa (Idso baselines); the Campbell–Norman closed form agrees with the stepped steady state to 0.1 K. | PH.1, TC.1 | S | C |
 | PH.12 | **People: skin and clothing are two temperatures on one prim.** `irsim.thermal.human`: skin at 35.7 − 0.028 (M − W) °C, ε ≈ 0.98; a clothing surface solved from the ISO 7730 balance with I_cl = 0.155·clo and h_c = max(2.38 |Δt|^0.25, 12.1 √v); two patches per human prim. | I_cl = 0 gives t_cl = t_sk; 1 clo at 0 °C air lands the clothing 10–15 °C below skin; more wind lowers t_cl; one condition matches pythermalcomfort's two-node model (MIT, a dev-only oracle never imported by `src/irsim`) to 0.5 K. | PT.17 | S | C |
-| PH.13 | **ADR: participating media and the phenomena tier.** Records the slab kernel and its 8 % RadCal envelope (a phenomenology feature, not a 10 mK one), the transport/radiometry split DIRSIG and FDS both use, Leckner/Hottel rejected for the image path and kept for heating, and what stays deferred: buoyancy, scattering, flicker, a volume on the Isaac side. | A record. Its options list must name the rejected routes: a grey emissivity knob, a Planck-mean coefficient in a band camera, an emissive dome prim through the fp16 path ADR 0014 closed. | PH.4 | S | P |
+| PH.13 | ✅ **done.** ADR 0098: the per-band slab in radiance space, the ~8 % RadCal envelope as the phenomena tier, transport kept outside the renderer (DIRSIG/FDS), Leckner/Hottel rejected for the image path and kept for heating, and the deferrals: scattering, gradients along the ray, buoyancy, flicker, an Isaac-side volume. | **Measured.** A record. The options list names the rejected routes: a grey emissivity knob (PH.4's test: > 900 K between bands vs 150 K), a Planck-mean coefficient in a band camera, Hottel/Leckner totals, an emissive prim through ADR 0014's fp16 path. | — | S | P |
 
 ---
 
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0097 (0090–0097 were written after this section was first measured; 0093–0097 by `PT.8`, `TC.1`, `PT.18`, `TC.2` and `TC.4`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0098 (0090–0098 were written after this section was first measured; 0093–0098 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4` and `PH.13`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

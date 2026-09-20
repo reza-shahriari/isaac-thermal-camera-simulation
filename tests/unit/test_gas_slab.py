@@ -11,7 +11,7 @@ point target is, per class.
 The CO₂/H₂O tables here are **synthetic** -- shaped like a real one (MWIR ≫ LWIR) to test the
 kernel, not numbers about any gas. `PH.5` generates the real ones offline from HITEMP.
 
-docs/physics-model.md §2, §8.1, §8.3; spec issue S46; roadmap PH.4 (the ADR is PH.13's).
+docs/physics-model.md §2, §8.1, §8.3; spec issue S46; roadmap PH.4; ADR 0098.
 """
 
 from __future__ import annotations

@@ -13,7 +13,13 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
-- **A gas slab in radiance space** (`PH.4`; the ADR is `PH.13`'s). `irsim.pipeline.gas_slab`:
+- **ADR 0098: participating media and the phenomena tier** (`PH.13`). Records `PH.4`'s per-band
+  slab in radiance space, why a grey emissivity knob, a Planck-mean coefficient, Hottel/Leckner
+  totals and an emissive prim through the fp16 path were rejected for the image path (Leckner kept
+  for heating), the ~8 % RadCal envelope as the fidelity this feature claims, the
+  transport/radiometry split DIRSIG and FDS both keep, and what stays deferred: scattering, a
+  gradient along the ray, buoyancy, flicker, a volume on the Isaac side.
+- **A gas slab in radiance space** (`PH.4`, ADR 0098). `irsim.pipeline.gas_slab`:
   `GasSlab(t_gas_k, length_m, p_co2_atm, p_h2o_atm, f_soot)` -- authored by species and path,
   never by an emissivity -- and per band `L_b = τ_b L_behind + (1 − τ_b) B_b(T_g)` with
   `τ_b = exp(−κ_b(T_g) L)`, FDS's flame operator read per band. Soot needs no table: the

@@ -3,7 +3,7 @@
 Roadmap PH.4.
 
 docs/physics-model.md §2 (the master equation, surface-only until this), §8.1, §8.3; spec issue
-S46 (the §7.5 the model lacks); the ADR is `PH.13`'s.
+S46 (the §7.5 the model lacks); ADR 0098.
 
 §2 describes what a surface emits and reflects. A flame, an exhaust plume or a hot-gas volume is
 none of that: it emits and absorbs **along the ray**, and painting it as a hot prim gives a grey
@@ -42,7 +42,7 @@ thin and the opaque limits and approximate between them (the true band transmitt
 R·B-weighted mean of ``exp(−κ_λ L)``, which a narrow-band code like RadCal evaluates and this does
 not); the survey's RadCal envelope for 20–200 cm paths at 800–1800 K is about 8 % in radiance,
 and that is the fidelity this feature claims -- a phenomenology term, not a 10 mK one. No
-scattering, no temperature gradient along the ray, no buoyancy or flicker. `PH.13` records all
+scattering, no temperature gradient along the ray, no buoyancy or flicker. ADR 0098 records all
 of it.
 """
 
