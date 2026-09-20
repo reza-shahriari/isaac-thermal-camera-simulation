@@ -254,14 +254,18 @@ def test_a_scene_exposes_its_patches_by_surface_name(tmp_path, tophat_lwir_lut) 
 
 
 def test_a_scene_without_patches_exposes_none(tophat_lwir_lut) -> None:
-    """Every scene before v7, and every v7 scene that does not want a field."""
+    """Every scene before v7, and every v7 scene that does not want a field.
+
+    The car scenes stopped being that example in PT.17 -- they now declare their bonnet and road
+    -- so the v4 facet scene stands in.
+    """
     import pathlib
 
     from irsim.scene import Scene
 
     repo = pathlib.Path(__file__).resolve().parents[2]
     scene = Scene.from_file(
-        repo / "configs/scenes/car_ignition_overcast_night.yaml", {"lwir": tophat_lwir_lut}
+        repo / "configs/scenes/thermal_facet_scene.yaml", {"lwir": tophat_lwir_lut}
     )
     assert scene.patches == {}
     assert scene.patch_prims == {}

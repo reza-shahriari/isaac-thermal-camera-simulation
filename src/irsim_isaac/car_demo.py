@@ -67,6 +67,7 @@ __all__ = [
     "build_ground_field",
     "build_car_demo",
     "describe",
+    "grids_source",
 ]
 
 EX = np.array([1.0, 0.0, 0.0])
@@ -412,6 +413,82 @@ def _weather_forcing(scene: Scene, sky_view: NDArray[np.float64], surface_t_gues
     return at
 
 
+def _checked_bonnet_patch(patch: PlanarPatch, geom: CarGeometry) -> PlanarPatch:
+    """A declared bonnet grid must sit on *this* geometry's bonnet, or the declaration is stale.
+
+    A scene config now carries the bonnet's patch (PT.17) while `CarGeometry` still owns where the
+    bonnet is. The two can drift -- someone lengthens the bonnet in Python and the YAML keeps the
+    old grid -- and the failure that would produce is quiet: a field solved over a rectangle that
+    is partly cabin roof and partly air, rendered onto a prim it no longer covers, with the
+    uncovered pixels raising only at render time under strict coverage. So the plane, the axes and
+    the footprint are checked here, to a millimetre, and a mismatch names both numbers.
+    """
+    top_y = geom.bonnet_y_m + geom.bonnet_thickness_m
+    span_u, span_v = patch.extent_m
+    x0 = -geom.bonnet_half_width_m
+    z0 = geom.bonnet_centre_z_m - 0.5 * geom.bonnet_length_m
+    problems = []
+    if patch.frame != "world":
+        problems.append(f"frame is {patch.frame!r}, and this car does not move")
+    if abs(float(patch.origin_m[1]) - top_y) > 1e-6:
+        problems.append(f"plane y = {float(patch.origin_m[1])}, bonnet top is y = {top_y}")
+    along_x = float(np.dot(patch.u_axis, EX)) >= 1.0 - 1e-9
+    along_z = float(np.dot(patch.v_axis, EZ)) >= 1.0 - 1e-9
+    if not (along_x and along_z):
+        problems.append("axes must be +X (across) and +Z (along)")
+    width = 2.0 * geom.bonnet_half_width_m
+    if abs(float(patch.origin_m[0]) - x0) > 1e-3 or abs(span_u - width) > 1e-3:
+        problems.append(
+            f"across: origin {float(patch.origin_m[0]):.4f}, span {span_u:.4f} against the "
+            f"bonnet's {x0:.4f} and {2.0 * geom.bonnet_half_width_m:.4f}"
+        )
+    if abs(float(patch.origin_m[2]) - z0) > 1e-3 or abs(span_v - geom.bonnet_length_m) > 1e-3:
+        problems.append(
+            f"along: origin {float(patch.origin_m[2]):.4f}, span {span_v:.4f} against the "
+            f"bonnet's {z0:.4f} and {geom.bonnet_length_m:.4f}"
+        )
+    if problems:
+        raise ValueError(
+            "the scene config's bonnet patch does not sit on CarGeometry's bonnet: "
+            + "; ".join(problems)
+            + ". Update the `patch:` block under the `bonnet` surface to match the geometry."
+        )
+    return patch
+
+
+def _checked_road_patch(
+    patch: PlanarPatch, bounds_m: tuple[float, float, float, float]
+) -> PlanarPatch:
+    """A declared road grid must cover the camera's ground footprint (and the car under it).
+
+    The hand-built road used to be sized from the frustum so that `PointwiseTemperature` could
+    never raise half an hour into a Kit session; a declared road is whatever the author wrote, so
+    the same guarantee is checked here instead, at build time, with the numbers in the message.
+    """
+    x0, x1, z0, z1 = bounds_m
+    corners = np.array([[x0, 0.0, z0], [x1, 0.0, z0], [x0, 0.0, z1], [x1, 0.0, z1]])
+    problems = []
+    if patch.frame != "world":
+        problems.append(f"frame is {patch.frame!r}; a road is authored in world")
+    if abs(float(patch.origin_m[1])) > 1e-6:
+        problems.append(f"plane y = {float(patch.origin_m[1])}, the road surface is y = 0")
+    if not bool(np.all(patch.contains(corners))):
+        u0, v0 = float(patch.origin_m[0]), float(patch.origin_m[2])
+        span_u, span_v = patch.extent_m
+        problems.append(
+            f"it spans x {u0:.2f}..{u0 + span_u:.2f}, z {v0:.2f}..{v0 + span_v:.2f} m but the "
+            f"camera's footprint plus the car and margin needs x {x0:.2f}..{x1:.2f}, "
+            f"z {z0:.2f}..{z1:.2f} m"
+        )
+    if problems:
+        raise ValueError(
+            "the scene config's road patch cannot serve this camera: "
+            + "; ".join(problems)
+            + ". Widen the `patch:` block under the `asphalt` surface."
+        )
+    return patch
+
+
 def build_bonnet_field(
     scene: Scene,
     geom: CarGeometry,
@@ -421,6 +498,7 @@ def build_bonnet_field(
     solar_absorptivity: float = 0.90,
     cell_m: float = 0.07,
     tick_s: float = 10.0,
+    patch: PlanarPatch | None = None,
 ) -> PlanarThermalField:
     """The bonnet skin: §6.1 per cell, with the bay's radiation weighted by ADR 0088's view factor.
 
@@ -428,8 +506,16 @@ def build_bonnet_field(
     the bonnet's temperature in frame 0 is set by its own top-side balance alone. Without that
     reference the underside would appear to exchange with a body at 0 K and the panel would start
     the film 30 K too cold, which is both wrong and, after AGC, not obviously wrong.
+
+    ``patch`` is the grid the scene config declared (PT.17), checked against the geometry; when
+    the scene declares none the grid is built here as before. The forcing stays in Python until
+    `TC.3` gives the engine bay a place in the config: the scene's own field for the bonnet
+    (`Scene.surface_fields`) is the same grid under the weather alone.
     """
-    patch = bonnet_patch(geom, cell_m=cell_m)
+    if patch is None:
+        patch = bonnet_patch(geom, cell_m=cell_m)
+    else:
+        patch = _checked_bonnet_patch(patch, geom)
     view = patch_view_factors(patch, geom.engine_bay())
     sky_view = np.ones(patch.n_cells)  # a bonnet faces straight up
     environment = _weather_forcing(scene, sky_view, 290.0)
@@ -572,9 +658,13 @@ def build_car_demo(
 ) -> CarDemoScene:
     """Author the stage and build both fields. ``author=False`` builds the physics only.
 
-    The road is sized from the **camera**, not chosen: a patch smaller than the frame makes
-    `PointwiseTemperature` raise, which is the right failure and a tedious one to meet at render
-    time. The margin is added on top of the computed span.
+    **The grids come from the scene config when it declares them** (PT.17): a `patch:` block
+    under the `bonnet` and `asphalt` surfaces. Each is checked -- the bonnet grid against this
+    geometry's bonnet, the road grid against the camera's ground footprint -- because a declared
+    grid can go stale in ways that render plausibly. A scene that declares neither gets the
+    hand-built grids this function has always made, sized from the camera so a patch smaller
+    than the frame cannot make `PointwiseTemperature` raise half an hour into a Kit session.
+    The ``*_cell_m`` arguments apply only to those hand-built grids.
     """
     geom = geometry or CarGeometry()
     cam = camera or CameraSetup()
@@ -589,7 +679,12 @@ def build_car_demo(
         min(z0, -half_l) - road_margin_m,
         max(z1, half_l) + road_margin_m,
     )
-    road_grid = ground_patch(bounds, cell_m=ground_cell_m)
+    declared_road = scene.patches.get("asphalt")
+    road_grid = (
+        ground_patch(bounds, cell_m=ground_cell_m)
+        if declared_road is None
+        else _checked_road_patch(declared_road, bounds)
+    )
     demo = CarDemoScene(geometry=geom, camera=cam)
 
     # §12.3 solved the asphalt as one surface; the field starts from that spun-up state, so the
@@ -597,7 +692,11 @@ def build_car_demo(
     asphalt_k = scene.surface_temperature_k("asphalt", scene.t0_s)
 
     demo.bonnet_field = build_bonnet_field(
-        scene, geom, emissivity=bonnet_emissivity, cell_m=bonnet_cell_m
+        scene,
+        geom,
+        emissivity=bonnet_emissivity,
+        cell_m=bonnet_cell_m,
+        patch=scene.patches.get("bonnet"),
     )
     demo.ground_field = build_ground_field(
         scene,
@@ -682,6 +781,14 @@ def _author_camera(stage: Any, path: str, cam: CameraSetup) -> None:
 # ---------------------------------------------------------------------------------------------
 # the readout
 # ---------------------------------------------------------------------------------------------
+
+
+def grids_source(scene: Scene) -> str:
+    """Where the demo's grids came from, for the render script's readout."""
+    declared = sorted(name for name in ("bonnet", "asphalt") if name in scene.patches)
+    if not declared:
+        return "grids sized from the camera in Python (the scene config declares no patch)"
+    return f"grids declared in the scene config ({', '.join(declared)}), checked against geometry"
 
 
 def describe(demo: CarDemoScene, scene: Scene, t_abs_s: float) -> dict[str, Any]:

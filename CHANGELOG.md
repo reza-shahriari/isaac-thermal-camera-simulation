@@ -13,6 +13,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **Patches solved from the scene config** (`PT.17`, ADR 0087). A `patch:` block on a §12.3
+  surface now buys a per-cell `PlanarThermalField` on the surface's own library material, started
+  from the prim's spun-up state and forced through `CellForcing` -- the same numbers the per-prim
+  solve uses -- so with nothing varying across the surface the cells reproduce the prim **bit for
+  bit** (`tests/unit/test_scene_surface_fields.py`; the contract is 1 mK). `Scene.surface_fields`
+  and `Scene.surface_bindings()` hand `(prim path, field)` pairs to `bindings_from_scene`, the one
+  line a render driver needs. Both car scenes declare their bonnet (now a solved `car_paint_black`
+  surface) and road grids in YAML; `build_car_demo` reads them and refuses a bonnet grid that does
+  not sit on `CarGeometry`'s bonnet or a road grid short of the camera's footprint, with both
+  numbers in the message. A scene that declares no grid keeps the hand-built path bit-identically;
+  an unknown patch material fails at load naming the surface. The engine-bay and underbody
+  radiators still ride in Python on the declared grids until `TC.3` gives them a place in the
+  config. 14 cases.
 - **Roadmap revision 6: the plan now leads to per-point, part-to-part, water and fire physics.** On
   2026-09-18 the owner restated the requirement that drove them off their previous simulator and widened
   it — a building whose sunlit and shaded parts differ; an engine that warms *the metal around it*, not

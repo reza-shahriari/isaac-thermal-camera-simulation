@@ -35,7 +35,7 @@ from irsim.thermal.longwave import longwave_down
 from irsim.thermal.solar import solar_loading, sun_direction, sun_position_utc
 from irsim.thermal.weather import WeatherSeries
 
-__all__ = ["SurfaceOrientation", "SceneSurfaceForcing", "sky_view_for_tilt"]
+__all__ = ["SurfaceOrientation", "SceneSurfaceForcing", "CellForcing", "sky_view_for_tilt"]
 
 
 def sky_view_for_tilt(tilt_deg: Any) -> NDArray[np.float64]:
@@ -118,4 +118,50 @@ class SceneSurfaceForcing:
             h_w_m2_k=np.asarray(h, dtype=np.float64),
             q_solar_w_m2=np.asarray(q_solar, dtype=np.float64),
             q_longwave_down_w_m2=np.asarray(q_lw, dtype=np.float64),
+        )
+
+
+@dataclass
+class CellForcing:
+    """One surface's forcing, handed to every cell of its patch (PT.17).
+
+    The per-prim solve and the per-cell solve must agree wherever nothing varies across the
+    surface, or a patch would change a surface's temperature merely by existing. So this does
+    not compute anything: it evaluates the scene's :class:`SceneSurfaceForcing` -- the same call
+    the per-prim field makes -- takes the one surface's entry, and broadcasts it. The arithmetic
+    the cells then do is element-for-element the arithmetic the prim does, which is why
+    `test_scene_surface_fields` can hold the two to bit-identity rather than to a tolerance.
+
+    It is also the seam the spatial terms plug into: per-cell shadow (PT.18) and sky view (PT.21)
+    replace the broadcast of ``q_solar`` and ``q_longwave_down`` here, and nothing else moves.
+
+    docs/physics-model.md §6.1; ADR 0087
+    """
+
+    surfaces: SceneSurfaceForcing
+    index: int
+    n_cells: int
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.index < self.surfaces.n_facets:
+            raise IndexError(
+                f"surface index {self.index} is outside the {self.surfaces.n_facets} surfaces"
+            )
+        if self.n_cells < 1:
+            raise ValueError("a patch needs at least one cell")
+
+    @property
+    def weather(self) -> WeatherSeries:
+        """The scene's one series, so the one-weather guard (CLAUDE.md #6) sees this too."""
+        return self.surfaces.weather
+
+    def __call__(self, t_s: float) -> FacetForcing:
+        t_air, h, q_solar, q_lw, q_int = self.surfaces(t_s).arrays(self.surfaces.n_facets)
+        i, n = self.index, self.n_cells
+        return FacetForcing(
+            t_air_k=float(t_air[i]),
+            h_w_m2_k=np.full(n, h[i]),
+            q_solar_w_m2=np.full(n, q_solar[i]),
+            q_longwave_down_w_m2=np.full(n, q_lw[i]),
+            q_internal_w_m2=np.full(n, q_int[i]),
         )

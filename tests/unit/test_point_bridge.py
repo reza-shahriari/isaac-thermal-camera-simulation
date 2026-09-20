@@ -392,3 +392,25 @@ def test_the_transform_uses_usd_row_vector_convention() -> None:
     assert np.max(np.abs(right.astype(np.float64) - transposed.astype(np.float64))) > 1.0
     # And the right one really does reproduce the field, so "different" is not "both wrong".
     assert np.allclose(right, field.temperature_image(1.0), atol=1e-3)
+
+
+# ---------------------------------------------------------------------------------------------
+# PT.17: the bindings come off the scene
+# ---------------------------------------------------------------------------------------------
+
+
+def test_bindings_from_scene_wrap_every_patched_surface_with_a_prim(tophat_lwir_lut) -> None:  # type: ignore[no-untyped-def]
+    """One line between `Scene.surface_bindings` and `IrCamera(surface_fields=...)`."""
+    import pathlib
+
+    from irsim.scene import Scene
+    from irsim_isaac.pipeline.point_bridge import SurfaceBinding, bindings_from_scene
+
+    repo = pathlib.Path(__file__).resolve().parents[2]
+    scene = Scene.from_file(
+        repo / "configs/scenes/car_ignition_overcast_night.yaml", {"lwir": tophat_lwir_lut}
+    )
+    bindings = bindings_from_scene(scene)
+    assert {b.prim_path for b in bindings} == {"/World/Road", "/World/Car/bonnet"}
+    assert all(isinstance(b, SurfaceBinding) for b in bindings)
+    assert PointwiseTemperature(bindings).prim_paths == ("/World/Road", "/World/Car/bonnet")

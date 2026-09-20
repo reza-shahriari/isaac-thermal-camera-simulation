@@ -311,3 +311,77 @@ def test_the_engine_is_identical_in_both_scenes() -> None:
         assert a[name].source == b[name].source
         assert a[name].load == b[name].load
         assert a[name].load_s == b[name].load_s
+
+
+# ---------------------------------------------------------------------------------------------
+# PT.17: the grids are the scene config's own
+# ---------------------------------------------------------------------------------------------
+
+
+def test_the_demo_grids_are_the_scene_config_s_own() -> None:
+    """The owner's bar, on this lane: the YAML declares the patch, Python only checks it."""
+    scene = Scene.from_file(SCENE_YAML)
+    demo = build_car_demo(scene, author=False)
+    assert demo.bonnet_field.patch is scene.patches["bonnet"]
+    assert demo.ground_field.patch is scene.patches["asphalt"]
+    # And the scene solves the same grids on its own, under the weather alone.
+    assert set(scene.surface_fields) == {"asphalt", "bonnet"}
+    assert dict(scene.surface_bindings()) == {
+        "/World/Road": scene.surface_fields["asphalt"],
+        "/World/Car/bonnet": scene.surface_fields["bonnet"],
+    }
+
+
+def test_two_loads_of_the_config_give_bit_identical_fields() -> None:
+    """Declared numbers are numbers: no camera-derived sizing can make two runs differ."""
+    fields = []
+    for _ in range(2):
+        scene = Scene.from_file(SCENE_YAML)
+        demo = build_car_demo(scene, author=False)
+        t = scene.t0_s + 600.0
+        demo.bonnet_field.advance_to(t)
+        demo.ground_field.advance_to(t)
+        fields.append((demo.bonnet_field.temperature_at(t), demo.ground_field.temperature_at(t)))
+    assert np.array_equal(fields[0][0], fields[1][0])
+    assert np.array_equal(fields[0][1], fields[1][1])
+
+
+def _scene_with(tmp_path: pathlib.Path, old: str, new: str) -> Scene:
+    text = SCENE_YAML.read_text()
+    assert text.count(old) == 1, old
+    path = tmp_path / "edited.yaml"
+    path.write_text(text.replace(old, new, 1))
+    return Scene.from_file(path)
+
+
+def test_a_declared_bonnet_patch_off_the_bonnet_is_refused(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """A grid 24 cm above the skin is partly cabin roof and partly air; it must not solve."""
+    scene = _scene_with(
+        tmp_path, "origin_m: [-0.82, 1.06, -1.925]", "origin_m: [-0.82, 1.30, -1.925]"
+    )
+    with pytest.raises(ValueError, match=r"bonnet patch does not sit on CarGeometry's bonnet"):
+        build_car_demo(scene, author=False)
+
+
+def test_a_declared_road_patch_smaller_than_the_frame_is_refused(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The tedious failure, caught at build time with the two footprints in the message."""
+    scene = _scene_with(tmp_path, "          n_u: 102\n", "          n_u: 20\n")
+    with pytest.raises(ValueError, match=r"road patch cannot serve this camera.*footprint"):
+        build_car_demo(scene, author=False)
+
+
+def test_a_scene_that_declares_no_grid_still_gets_the_hand_built_ones(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The pre-PT.17 path is kept, so an older scene renders as it did."""
+    text = SCENE_YAML.read_text()
+    head, _, _ = text.partition("  thermal:")
+    path = tmp_path / "bare.yaml"
+    path.write_text(
+        head.rstrip()
+        + "\n  thermal:\n    spin_up_hours: 48.0\n    tick_s: 60.0\n    surfaces:\n"
+        + "      - {name: asphalt, material: asphalt_dry, tilt_deg: 0.0}\n"
+    )
+    scene = Scene.from_file(path)
+    demo = build_car_demo(scene, author=False)
+    assert scene.patches == {}
+    assert demo.bonnet_field.patch.n_cells == 23 * 19
+    assert demo.ground_field.patch.n_cells > 0

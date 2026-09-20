@@ -35,7 +35,7 @@ from irsim.thermal.surface_field import PlanarThermalField
 from irsim_isaac.pipeline.gbuffer_isaac import _as_f64_plane
 from irsim_isaac.pipeline.material_ids import BACKGROUND_INSTANCE_ID, labels_to_paths
 
-__all__ = ["SurfaceBinding", "PointwiseTemperature", "world_positions"]
+__all__ = ["SurfaceBinding", "PointwiseTemperature", "world_positions", "bindings_from_scene"]
 
 
 def world_positions(
@@ -124,6 +124,16 @@ class SurfaceBinding:
     def __post_init__(self) -> None:
         if not self.prim_path:
             raise ValueError("a binding needs a prim path")
+
+
+def bindings_from_scene(scene: Any) -> list[SurfaceBinding]:
+    """Every patched surface the scene config bound to a prim, as `IrCamera` takes them (PT.17).
+
+    The core exposes ``(prim path, field)`` pairs (`Scene.surface_bindings`) because it may not
+    import this module (CLAUDE.md #1); this is the one line that turns them into bindings, so a
+    render driver reads its fields off the scene instead of building grids in Python.
+    """
+    return [SurfaceBinding(path, fld) for path, fld in scene.surface_bindings()]
 
 
 class PointwiseTemperature:

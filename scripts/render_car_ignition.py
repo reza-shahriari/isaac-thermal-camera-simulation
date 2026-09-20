@@ -144,7 +144,7 @@ def main() -> int:
     )
     from irsim.scene import Scene
     from irsim_eval.video import encode_mp4, ffmpeg_available, overlay_readout
-    from irsim_isaac.car_demo import CameraSetup, build_car_demo, describe
+    from irsim_isaac.car_demo import CameraSetup, build_car_demo, describe, grids_source
     from irsim_isaac.display_span import DisplaySpan
     from irsim_isaac.pipeline.ir_camera import IrCamera
     from irsim_isaac.pipeline.materials_usd import prim_records
@@ -213,6 +213,7 @@ def main() -> int:
 
     road = demo.ground_field.patch
     bonnet = demo.bonnet_field.patch
+    print(f"  {grids_source(scene)}")
     print(
         f"\n{spec.name}: {spec.fpa.width}x{spec.fpa.height}, {hfov:.1f} x {vfov:.1f} deg, "
         f"camera {args.depression_deg:.0f} deg down at {args.range_m:.0f} m"

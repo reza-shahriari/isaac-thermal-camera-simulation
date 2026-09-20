@@ -1,4 +1,4 @@
-# A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v6).
+# A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v7).
 # Roadmap MP.4b; ADR 0087 (point-wise surface temperature), ADR 0088 (spatial sources),
 # ADR 0089 (the vehicle_source solver).
 #
@@ -87,4 +87,40 @@ scene:
     spin_up_hours: 48.0
     tick_s: 60.0
     surfaces:
-      - {name: asphalt, material: asphalt_dry, tilt_deg: 0.0}
+      # The road, solved per CELL (PT.17): the `patch:` block is the grid `Scene.surface_fields`
+      # runs on and `car_demo` overlays the car's radiators on (ADR 0088). It must cover what the
+      # camera sees plus the car and a margin; `build_car_demo` checks that and says so if not.
+      # 30.6 x 31.8 m at 0.3 m cells, its top face at y = 0, bound to the road prim.
+      - name: asphalt
+        material: asphalt_dry
+        tilt_deg: 0.0
+        patch:
+          origin_m: [-18.0, 0.0, -19.0]
+          u_axis: [1.0, 0.0, 0.0]
+          v_axis: [0.0, 0.0, 1.0]
+          n_u: 102
+          n_v: 106
+          du_m: 0.3
+          dv_m: 0.3
+          thickness_m: 0.10
+          frame: world
+          prim_path: /World/Road
+      # The bonnet skin as a solved surface on its own material, and the grid the engine-bay
+      # radiation lands on. The numbers are CarGeometry's: top of the skin at y = 1.06, 1.64 m
+      # across from x = -0.82, 1.30 m along from z = -1.925; `build_car_demo` refuses a grid that
+      # does not sit there. 23 x 19 cells (~70 mm); the slab is thick enough for the skin's camber
+      # and far too thin to reach the cabin roof above or the road below (ADR 0087).
+      - name: bonnet
+        material: car_paint_black
+        tilt_deg: 0.0
+        patch:
+          origin_m: [-0.82, 1.06, -1.925]
+          u_axis: [1.0, 0.0, 0.0]
+          v_axis: [0.0, 0.0, 1.0]
+          n_u: 23
+          n_v: 19
+          du_m: 0.07130434782608697
+          dv_m: 0.06842105263157895
+          thickness_m: 0.12
+          frame: world
+          prim_path: /World/Car/bonnet

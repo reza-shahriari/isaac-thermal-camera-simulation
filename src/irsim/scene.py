@@ -46,7 +46,7 @@ from irsim.thermal.aerial import (
     ram_skin_solver,
 )
 from irsim.thermal.solvers import NewtonCoolingSolver, PrescribedSolver, TemperatureSolver
-from irsim.thermal.surface_field import PlanarPatch
+from irsim.thermal.surface_field import PlanarPatch, PlanarThermalField
 from irsim.thermal.vehicle import VEHICLE_HEAT_SOURCES, VehicleSourceSolver
 from irsim.thermal.weather import WeatherSample, WeatherSeries
 from irsim.thermal.weather_io import load_weather_csv
@@ -159,6 +159,12 @@ class Scene:
     #: ``{surface name: prim path}`` for the patches that named one, which is what binds a
     #: solved field to geometry at render time.
     patch_prims: Mapping[str, str] = field(default_factory=dict)
+    #: ``{surface name: field}`` -- the patched surfaces solved **per cell** on their own library
+    #: material and the scene's weather (PT.17). Until this existed a `patch:` block bought a grid
+    #: and no solver: `_build_thermal_field` still solved the surface as one facet and only
+    #: `car_demo.py` could put a temperature on a cell, in Python. Empty for a scene with no
+    #: patch. The per-prim entry in :attr:`thermal` stays as well, so the flat path is unchanged.
+    surface_fields: Mapping[str, PlanarThermalField] = field(default_factory=dict)
     sky_models: Mapping[str, SkyModel] = field(default_factory=dict)  # per band (MS.2)
     extra_consumers: Mapping[str, Any] = field(
         default_factory=dict
@@ -232,8 +238,24 @@ class Scene:
         out.update({f"target:{k}": v for k, v in self.targets.items()})
         if self.thermal is not None:
             out["thermal"] = self.thermal.forcing_at
+        out.update({f"field:{k}": v.field.forcing_at for k, v in self.surface_fields.items()})
         out.update(self.extra_consumers)
         return out
+
+    def surface_bindings(self) -> tuple[tuple[str, PlanarThermalField], ...]:
+        """``(prim path, field)`` for every patched surface that named a prim (PT.17).
+
+        This is what a render driver hands to ``IrCamera`` -- through
+        ``irsim_isaac.pipeline.point_bridge.bindings_from_scene``, which wraps each pair in a
+        ``SurfaceBinding``; the core cannot import that class (CLAUDE.md #1), so the pairs are
+        plain tuples here. A patch without a ``prim_path`` is solvable and never reaches a pixel,
+        which is the schema's own rule.
+        """
+        return tuple(
+            (self.patch_prims[name], fld)
+            for name, fld in self.surface_fields.items()
+            if name in self.patch_prims
+        )
 
     def surface_temperature_k(self, name: str, t_s: float) -> float:
         """One named surface's temperature at a render time, float32-narrowed (M6.11)."""
@@ -296,7 +318,7 @@ class Scene:
                     quantity,
                     skylight=None if skylights is None else skylights.get(band),
                 )
-        thermal, surface_names = _build_thermal_field(spec, weather, t0_s, data_dir)
+        build = _build_thermal_field(spec, weather, t0_s, data_dir)
         patches, patch_prims = {}, {}
         for surface in spec.thermal.surfaces if spec.thermal is not None else ():
             if surface.patch is None:
@@ -313,10 +335,11 @@ class Scene:
             layered=layered,
             environment=environment,
             sky_models=sky_models,
-            thermal=thermal,
-            thermal_surfaces=surface_names,
+            thermal=build.field,
+            thermal_surfaces=build.names,
             patches=patches,
             patch_prims=patch_prims,
+            surface_fields=_build_surface_fields(spec, build, patches),
         )
 
     @classmethod
@@ -348,15 +371,27 @@ class Scene:
         return {name: solver.advance(t, float(dt_s)) for name, solver in self.targets.items()}
 
 
+@dataclass(frozen=True)
+class _ThermalBuild:
+    """What `_build_thermal_field` made, kept together so the per-cell fields start from it."""
+
+    field: Any = None  # ThermalField
+    names: tuple[str, ...] = ()
+    forcing: Any = None  # SceneSurfaceForcing
+    properties: Any = None  # FacetProperties, one entry per surface
+    spun_k: Any = None  # float64 (n_surfaces,) -- the state at t0, before any narrowing
+    t0_s: float = 0.0
+
+
 def _build_thermal_field(
     spec: SceneSpec,
     weather: WeatherSeries,
     t0_s: float,
     data_dir: str | os.PathLike[str] | None,
-) -> tuple[Any, tuple[str, ...]]:
+) -> _ThermalBuild:
     """Build M6.11's field for the scene's `thermal:` block, spun up to the scene's own start.
 
-    Returns ``(None, ())`` when the scene has no thermal block, which is every scene written
+    Returns an empty build when the scene has no thermal block, which is every scene written
     before M6.12 -- the phase-1 prescribed and Newton solvers in ``targets`` are untouched.
 
     The spin-up **ends at t0_s**, so the field's first query is the state the weather implies at
@@ -372,14 +407,20 @@ def _build_thermal_field(
 
     block = spec.thermal
     if block is None or not block.surfaces:
-        return None, ()
+        return _ThermalBuild()
 
     library = MaterialLibrary.load()
+    materials = []
+    for s in block.surfaces:
+        try:
+            materials.append(library[s.material])
+        except KeyError as exc:
+            raise ValueError(
+                f"surface {s.name!r} names material {s.material!r}, which the library does not "
+                f"have; known materials: {sorted(library.names)}"
+            ) from exc
     properties = FacetProperties.stack(
-        [
-            ThermalProperties.from_material(library[s.material], 300.0, data_dir=data_dir)
-            for s in block.surfaces
-        ]
+        [ThermalProperties.from_material(m, 300.0, data_dir=data_dir) for m in materials]
     )
     forcing = SceneSurfaceForcing(
         weather=weather,
@@ -421,4 +462,57 @@ def _build_thermal_field(
         dt_s=60.0,
     )
     field = ThermalField(properties, forcing, t0_s, spun.temperatures_k, block.tick_s)
-    return field, tuple(s.name for s in block.surfaces)
+    return _ThermalBuild(
+        field=field,
+        names=tuple(s.name for s in block.surfaces),
+        forcing=forcing,
+        properties=properties,
+        spun_k=spun.temperatures_k,
+        t0_s=t0_s,
+    )
+
+
+def _build_surface_fields(
+    spec: SceneSpec, build: _ThermalBuild, patches: Mapping[str, PlanarPatch]
+) -> dict[str, PlanarThermalField]:
+    """A per-cell field for every surface that declared a patch (ADR 0087, PT.17).
+
+    Each field is the surface's own facet repeated over its cells: the same library material,
+    the same spun-up starting state, the same forcing through
+    :class:`~irsim.thermal.scene_forcing.CellForcing`, on the scene's tick. Nothing varies across
+    the surface yet -- that is what makes this step checkable: with uniform forcing the cells
+    must reproduce the per-prim value exactly, and they do, bit for bit. The terms that make a
+    field a *field* -- a shadow across it (PT.18), its own sky view (PT.21), a hot part under it
+    (TC.3) -- enter through the forcing, and the solve does not change.
+
+    The spun-up state is taken in float64 from the build, not read back through
+    ``temperature_at`` (float32): a field that started from the narrowed value would sit up to
+    15 µK from the prim it claims to reproduce, and the one-millikelvin contract would still
+    hold while the bit-identity test did not. Narrowing happens once, at the query (CLAUDE.md #2).
+    """
+    from irsim.thermal.facets import FacetProperties
+    from irsim.thermal.scene_forcing import CellForcing
+
+    out: dict[str, PlanarThermalField] = {}
+    if build.field is None or spec.thermal is None:
+        return out
+    for i, s in enumerate(spec.thermal.surfaces):
+        patch = patches.get(s.name)
+        if patch is None:
+            continue
+        n = patch.n_cells
+        props = build.properties
+        cells = FacetProperties(
+            heat_capacity_j_m2_k=np.full(n, float(props.heat_capacity_j_m2_k[i])),
+            emissivity=np.full(n, float(props.emissivity[i])),
+            solar_absorptivity=np.full(n, float(props.solar_absorptivity[i])),
+        )
+        out[s.name] = PlanarThermalField(
+            patch,
+            cells,
+            CellForcing(build.forcing, i, n),
+            build.t0_s,
+            np.full(n, float(build.spun_k[i])),
+            spec.thermal.tick_s,
+        )
+    return out
