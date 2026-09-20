@@ -37,6 +37,10 @@ working in one tree; two commits already exist whose whole subject is restoring 
 #### Changed
 - `scripts/next_step.py`: `PHASE_RANK` gains `P` between `0` and `A`; the tiebreak prose in the roadmap
   and the script follow.
+- **Ten roadmap verification cells now state what would fail** (`RP.10`): `EV.6`, `EV.11`, `XD.4`,
+  `XD.5`, `XD.7`, `XD.11`, `IG.3`, `IG.4`, `GT.6`, `DC.3` carried motivation or a description where the row
+  contract asks for an assertion and its tolerance. Each now names a closed form, a band, a resolvable
+  hash or a recorded refusal; the two in-engine probes say what a CPU-only session can ship.
 - README: the plan paragraph describes revision 6 and the owner's order; the `thermal` status row stops
   calling the two-node solver and vehicle regimes "phase 2" (they are shipped and unreachable, `PT.15`)
   and says that point-wise reaches a frame only through the car demo's Python (`PT.17`); the command
