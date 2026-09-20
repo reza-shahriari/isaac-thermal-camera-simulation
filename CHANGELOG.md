@@ -13,6 +13,24 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **A thermal network: parts with mass, the joints between them, and their boundaries** (`TC.2`,
+  ADR 0096). `irsim.thermal.network`: `Node` (capacity in J/K, or `from_mass`), `FixedNode` (an
+  imposed temperature, constant or a callable of time -- ambient from the weather, a thermostatted
+  coolant), `ImposedHeat` (watts on a node), `Link` in W/K authored as a total `G`, as a contact
+  `h_c·A` or as convection `h·A` to a fluid node (the three are one multiplication and are
+  bit-identical; `h` may be a callable for the forced-to-natural switch at key-off), `LinkNode`
+  (a rubber mount: a node with 2G on each side so the series conductance is the one authored and
+  τ = C/4G) and `RadiationLink` (ε A F σ (T_a⁴ − T_b⁴), linearised per tick at the exact
+  conductance for the current flux). One backward Euler solve per tick on `ConductionOperator`'s
+  Laplacian, fixed nodes eliminated at their end-of-tick value; the matrix the step applied is kept
+  so `link_power_w` and `energy_residual_w` report the flows as the solver used them. Measured:
+  ΔT = Q/G on a fixed sink and Q/(hA) on a fluid node to 1e-6; a mount's τ fitted from its own
+  trajectory within 2 % of C/4G; the T⁴ steady state to 1e-6; a 50 g bracket on a 25 W/K bolt
+  (τ ≈ 1 s) monotone under 60 s ticks; energy closes to 1e-6 of the imposed power every tick on a
+  seven-node bay with a moving ambient, a switching h, a radiation link and a mount, and a bracket
+  on a dry joint keeps warming for minutes after key-off -- the hot soak, from a callable h and a
+  node with mass rather than a script. 13 cases in `tests/unit/test_thermal_network.py`. Spec
+  issue S42 moves to `TC.4` (the schema and the joint table).
 - **Occluders and daylight in the config path** (`PT.18`, ADR 0095). Scene schema **v8**:
   `world_frame: {up, north}` says which way the scene's geometry is up (ENU by default, so every
   v4–v7 scene reads as before; the car scenes declare +Y up, −Z north), and

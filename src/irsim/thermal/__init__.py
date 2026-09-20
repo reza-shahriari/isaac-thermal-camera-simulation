@@ -30,6 +30,15 @@ from irsim.thermal.longwave import (
     longwave_down_from_sample,
     sky_emissivity,
 )
+from irsim.thermal.network import (
+    FixedNode,
+    ImposedHeat,
+    Link,
+    LinkNode,
+    Node,
+    RadiationLink,
+    ThermalNetwork,
+)
 from irsim.thermal.shadow import ShadowRectangle, cell_shadow, patch_solar_loading
 from irsim.thermal.solar import (
     SunPosition,
@@ -79,6 +88,13 @@ __all__ = [
     "view_factor_to_parallel_rectangle",
     "PlanarThermalField",
     "ConductionOperator",
+    "FixedNode",
+    "ImposedHeat",
+    "Link",
+    "LinkNode",
+    "Node",
+    "RadiationLink",
+    "ThermalNetwork",
     "explicit_bound_s",
     "SOLVER_TYPES",
     "NewtonCoolingSolver",
