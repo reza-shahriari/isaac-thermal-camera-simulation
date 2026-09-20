@@ -67,6 +67,15 @@ KOSCHMIEDER: Final[float] = 3.912023005428146  # ln(50)
 # for any surface irradiance in a weather file; the solar-path transmittance (M11) scales it.
 SOLAR_CONSTANT_W_M2: Final[float] = 1361.0
 
+# --- Soot (docs/physics-model.md §2 read for a participating medium; PH.4) -----------------------
+# Small-particle (Rayleigh) soot absorbs as kappa_lambda = C0 * f_v / lambda, with f_v the soot
+# volume fraction and C0 = 36 pi n k / ((n^2 - k^2 + 2)^2 + 4 n^2 k^2) from the soot refractive
+# index. Reported C0 spans 4.9-7.9 across measured optical constants; 7.0 is Widmann's recommended
+# value (Widmann, Combust. Sci. Tech. 175 (2003) 2299: "Evaluation of the Planck mean absorption
+# coefficients for radiation from soot") and the value FDS/RadCal use for kappa_P = 3.72 C0 f_v
+# T / C2. ESTIMATED to that spread, not measured for any particular flame.
+SOOT_RAYLEIGH_C0: Final[float] = 7.0
+
 # --- Semiconductor band gaps for the Arrhenius dark-current model (docs/physics-model.md §9.1) ----
 # i_dark ∝ T^1.5 exp(-E_g / 2 k_B T). Values at the detectors' operating temperatures:
 #   InSb   0.23 eV at 77 K   (Littler & Seiler 1985; Vurgaftman et al. 2001 -- 0.235 eV at 0 K)

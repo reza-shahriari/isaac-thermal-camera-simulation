@@ -13,6 +13,25 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **A gas slab in radiance space** (`PH.4`; the ADR is `PH.13`'s). `irsim.pipeline.gas_slab`:
+  `GasSlab(t_gas_k, length_m, p_co2_atm, p_h2o_atm, f_soot)` -- authored by species and path,
+  never by an emissivity -- and per band `L_b = τ_b L_behind + (1 − τ_b) B_b(T_g)` with
+  `τ_b = exp(−κ_b(T_g) L)`, FDS's flame operator read per band. Soot needs no table: the
+  small-particle `κ_λ = C0 f_v / λ` (`SOOT_RAYLEIGH_C0` = 7.0, Widmann 2003, ESTIMATED to its
+  4.9–7.9 spread) is Planck-weighted over the camera's own R(λ) by the LUT quadrature. CO₂ and
+  H₂O take `SpeciesAbsorption` tables in 1/(m·atm) over a temperature grid, linear between knots
+  and refusing to extrapolate; a slab carrying a species with no table raises naming `PH.5`, the
+  offline HITEMP/RadCal generator, rather than scaling ambient coefficients. `B_b(T_g)` comes
+  from quadrature because the band LUT stops at 1000 K and a flame does not; the gas temperature
+  is guarded to 300–2500 K. `slab_excess_radiance` attenuates the slab from its range exactly as
+  MS.6's point target does (per class of the layered atmosphere, `τ(R)` for the grey one), with
+  the sky beyond or an authored radiance behind it. Measured: κL → 0 returns the background
+  bit-exactly and κL → ∞ returns B_b(T_g); an opaque soot flame reads its own temperature in MWIR
+  and LWIR to 1 mK while soot's band means differ by the wavelength ratio (2–3×); a CO₂/H₂O slab
+  on a synthetic MWIR ≫ LWIR table reads more than 900 K apart between the two cameras where a
+  grey emissivity reads within 150 K; steam before a hot wall gives negative contrast; the grey
+  and per-class range identities hold to 1e-12. 12 cases in `tests/unit/test_gas_slab.py`. The
+  real species tables, the plume and the flame are `PH.5`–`PH.7`.
 - **Nodes, links and joints in the scene schema** (`TC.4`, ADR 0097). Scene schema **v9**:
   `thermal.nodes:` (a `capacity_j_k`, a `mass_kg` with `specific_heat_j_kgk`, a `fixed` kelvin
   value or `"ambient"` for the scene's one weather series, or a `link_node` with its own

@@ -174,27 +174,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 106 open steps
+#### Then, in order — 105 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WM.1`** | WM | P | M | 10 | ready |
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
-| 4 | **`PH.4`** | PH | P | M | 6 | ready |
-| 5 | **`TC.3`** | TC | P | M | 6 | ready |
-| 6 | **`PT.7`** | PT | P | M | 5 | ready |
-| 7 | **`TC.5`** | TC | P | M | 5 | `TC.3` |
-| 8 | **`PH.1`** | PH | P | M | 4 | ready |
-| 9 | **`PH.5`** | PH | P | M | 4 | `PH.4` |
-| 10 | **`TC.6`** | TC | P | M | 4 | `TC.5` |
-| 11 | **`PT.11`** | PT | P | L | 4 | `PT.7` |
-| 12 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
-| 13 | **`PT.21`** | PT | P | M | 2 | ready |
-| 14 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
-| 15 | **`PT.6`** | PT | P | S | 1 | ready |
+| 4 | **`TC.3`** | TC | P | M | 6 | ready |
+| 5 | **`PT.7`** | PT | P | M | 5 | ready |
+| 6 | **`TC.5`** | TC | P | M | 5 | `TC.3` |
+| 7 | **`PH.1`** | PH | P | M | 4 | ready |
+| 8 | **`PH.5`** | PH | P | M | 4 | ready |
+| 9 | **`TC.6`** | TC | P | M | 4 | `TC.5` |
+| 10 | **`PT.11`** | PT | P | L | 4 | `PT.7` |
+| 11 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
+| 12 | **`PT.21`** | PT | P | M | 2 | ready |
+| 13 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
+| 14 | **`PT.6`** | PT | P | S | 1 | ready |
+| 15 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
 
-…and 91 more — `python scripts/next_step.py --queue 40`.
+…and 90 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -515,7 +515,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | PH.1 | **The latent-heat term and a wet film per cell.** §6.1 gains −L_v·E with E = ρ_a C_E U (q_sat(T_s) − q_a) — r_s = 0 for a free film, r_s > 0 for stomata — a film mass per cell filled from `precip_mm_h` and emptied by E; L_v = 2.45 MJ/kg in `constants`. | A saturated cell with no radiation relaxes to the psychrometric wet-bulb of (T_air, RH) within 0.1 K and cools as RH falls; zero film is bit-identical to today; Q_L = 0 at RH = 1 and T_s = T_a; removing the term warms the sea skin; Q_L at 5 m/s, 293 K, RH 0.7 within 15 % of COARE 3.6. | PT.17 | M | P |
 | PH.2 | **The wet/dry road: one object, two states.** An asphalt patch at noon under the clear summer file with a 0.2 mm film on half its cells (Paris pavement watering, Hendel 2014, FLIR B400). | The wet half renders 6–13 K colder than the dry half in sun and 2–4 K in shade; the film is gone in 15–120 min and the halves reconverge — the drying spike the camera saw; the film mass budget closes to 1e-6 against ∫E dt. A latent term scaled wrong dries outside the window. | PH.1, PT.18 | S | P |
 | PH.3 | **Still water: lakes, ponds and puddles.** A fresh-water mixed-layer node under the sea-skin model, water's Fresnel angular emissivity and the reflected sky, as a per-cell override on a ground patch so a puddle is a region of the road. | Clear calm night: skin − bulk in [−0.5, −0.1] K; a cloudy humid night flips the sign — a skin that only ever cools fails; the sublayer is 0.7–3.6 mm at 0.8–8.2 m/s; a puddle at the road's kinetic temperature reads several K colder apparent at 60° off nadir under a clear sky, within 0.5 K at nadir; ε + ρ = 1 at every angle. | PH.1 | M | P |
-| PH.4 | **A gas slab in radiance space.** Per band L = τ_b L_behind + (1 − τ_b) B_b(T_g), τ_b = exp(−κ_b(T_g)·L), authored as (T_gas, p_CO₂, p_H₂O, f_soot, L) — never as an emissivity — applied at the target's range and attenuated by the remaining path as MS.6 does; guard 300–2500 K. | κL → 0 returns the background exactly; κL → ∞ returns B_b(T_g); a soot-only slab reads the same apparent temperature in MWIR and LWIR while a CO₂/H₂O slab of the same T does not (a grey knob fails); T_g below the background gives negative contrast; at range R, ΔL = τ(R)·[L_slab − L_air]. | — | M | P |
+| PH.4 | ✅ **done.** `irsim.pipeline.gas_slab`: `GasSlab(T_gas, L, p_CO₂, p_H₂O, f_soot)`, no emissivity field; L_b = τ_b L_behind + (1−τ_b) B_b(T_g); soot κ_b by quadrature, gas κ_b(T) from tables (PH.5); attenuated per class from range as MS.6; guard 300–2500 K. ADR: PH.13. | **Measured.** κL→0 returns the background bit-exactly, κL→∞ B_b(T_g); an opaque soot flame reads T_g in both bands to 1 mK; a CO₂/H₂O slab (synthetic table) reads > 900 K apart between bands, a grey ε within 150 K; steam before a hot wall is negative; range identities to 1e-12. 12 cases. | — | M | P |
 | PH.5 | **Per-band hot-gas absorption tables, generated offline.** `scripts/generate_gas_luts.py` runs RADIS over HITEMP (LGPL, under `scripts/` only) for CO₂ and H₂O over 300–2500 K, integrates against every band's R(λ) so bands stay data, and commits float32 κ_b(T) with a hash sidecar; RadCal is the fallback. | The CO₂ 4.3 µm band mean at 1500 K exceeds the 296 K value; the sidecar hash pins the database used; a 3.80–4.05 µm through-flame sub-band added as config shows near-zero CO₂ contrast against 3–5 µm's; `test_temperature_encoding` sweeps to 1000 K. | PH.4 | M | P |
 | PH.6 | **The exhaust plume, on the car and the vessel.** A gas slab per pixel over the plume's cone, T and species from the exhaust node; closes the §6.6 deferral whose trigger — an MWIR Tier 3 bench — fired with `test_tier3_multiband.py`. | τ_LWIR ≥ 0.90 and τ_MWIR in 0.65–1.0 falling toward the exit (NIRATAM ship-plume fits) — a grey slab gives equal τ and fails; the MWIR bench shows the plume as the dominant feature while the LWIR bolometer sees a few-K contrast at most; one scene file renders both bands. | PH.5, TC.7 | M | P |
 | PH.7 | **Fire: the flame and what it heats.** A soot slab at 1150–1300 K; `RadiantRectangle` carries an authored surface emissive power (100–170 kW/m² unobscured, 30–50 smoke-obscured; Considine/Mudan) so a cell's q_int = α·F·SEP; Heskestad's plume centreline ΔT₀ replaces T_air above the fire, authored by Q_c [kW] and D. | A cell with F = 0.10 facing 120 kW/m², ε = 0, h > 0 sits at T_air + α·12 kW m⁻²/h to 1e-9 (the pinned steady-state form); Σ F ≤ 1 per cell (ADR 0090); ΔT₀ → 0 as z → ∞, continuous at the flame tip, monotone in z; a Q_c given in W instead of kW is refused. | PH.5 | M | P |
