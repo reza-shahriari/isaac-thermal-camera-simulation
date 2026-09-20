@@ -462,6 +462,7 @@ def _spun_up_or_uniform(
     forcing_at: Any,
     uniform_k: float,
     spin_up_hours: float | None,
+    conduction: Any = None,
 ) -> NDArray[np.float64]:
     """The field's starting state: spun up on its own forcing (PT.7), or the uniform value.
 
@@ -480,6 +481,7 @@ def _spun_up_or_uniform(
         hours=float(spin_up_hours),
         dt_s=60.0,
         cache=_SPIN_UP_CACHE,
+        conduction=conduction,
     )
     return np.asarray(result.temperatures_k, dtype=np.float64)
 
@@ -637,27 +639,55 @@ def _checked_road_patch(
     return patch
 
 
+def _surface_thermal(
+    scene: Scene, name: str, properties: Any, conductivity_w_mk: Any, thickness_m: Any
+) -> tuple[Any, float, float]:
+    """The scene's own numbers for a surface (PT.6, ADR 0043), unless a test passes its own.
+
+    C, ε and α come from `Scene.surface_properties` -- the same `ThermalProperties.from_material`
+    the per-prim solve used, ε from the material's optical data -- and k, δ from the library
+    material's thermal block. The demo used to author C = 8000 (library: 4399), ε 0.92 (0.853)
+    and, for the road, C = 60 000 against 101 200: a 1.7× error in the road's time constant on a
+    panel nobody could find in `configs/materials/`.
+    """
+    if properties is None:
+        properties = scene.surface_properties(name)
+    if conductivity_w_mk is None or thickness_m is None:
+        material = scene.surface_materials.get(name)
+        if material is None:
+            raise ValueError(
+                f"the scene declares no surface {name!r} to read k and δ from; pass "
+                "conductivity_w_mk and thickness_m explicitly"
+            )
+        thermal = material.spec.thermal
+        conductivity_w_mk = (
+            thermal.conductivity_w_mk if conductivity_w_mk is None else conductivity_w_mk
+        )
+        thickness_m = thermal.thickness_m if thickness_m is None else thickness_m
+    return properties, float(conductivity_w_mk), float(thickness_m)
+
+
 def build_bonnet_field(
     scene: Scene,
     geom: CarGeometry,
     *,
-    emissivity: float,
-    heat_capacity_j_m2_k: float = 8_000.0,
-    solar_absorptivity: float = 0.90,
+    properties: Any = None,
     cell_m: float = 0.07,
     tick_s: float = 10.0,
     patch: PlanarPatch | None = None,
     casters: tuple[ShadowRectangle, ...] = (),
     spin_up_hours: float | None = None,
     underside_h_w_m2_k: float = 5.0,
-    conductivity_w_mk: float = 45.0,
-    thickness_m: float = 0.0012,
+    conductivity_w_mk: float | None = None,
+    thickness_m: float | None = None,
 ) -> PlanarThermalField:
     """The bonnet skin: §6.1 per cell, with the bay's radiation weighted by ADR 0088's view factor.
 
-    ``conductivity_w_mk`` and ``thickness_m`` are the skin's own (steel under paint, the
-    `car_paint_black` substrate: 45 W/mK, 1.2 mm) and give the cells their in-plane conduction
-    (PT.11); ``0`` for the independent-column field the demo had before.
+    ``properties`` (C, ε, α) default to the scene's ``bonnet`` surface -- the library material,
+    ε from its optical data (PT.6, ADR 0043) -- and ``conductivity_w_mk`` / ``thickness_m`` to
+    that material's thermal block, which give the cells their in-plane conduction (PT.11).
+    Explicit values are for tests and comparisons (``conductivity_w_mk=0`` is the
+    independent-column field).
 
     ``underside_h_w_m2_k`` is the skin's natural convection with the bay air below it (TC.6),
     used when the engine is a solved node with a bay-air node; ESTIMATED at 5 W m⁻² K⁻¹.
@@ -676,6 +706,10 @@ def build_bonnet_field(
         patch = bonnet_patch(geom, cell_m=cell_m)
     else:
         patch = _checked_bonnet_patch(patch, geom)
+    thermal, conductivity_w_mk, thickness_m = _surface_thermal(
+        scene, "bonnet", properties, conductivity_w_mk, thickness_m
+    )
+    emissivity = float(thermal.emissivity)
     view = patch_view_factors(patch, geom.engine_bay())
     sky_view = np.ones(patch.n_cells)  # a bonnet faces straight up
     environment = _weather_forcing(scene, sky_view, 290.0)
@@ -685,6 +719,7 @@ def build_bonnet_field(
     # TC.6: the skin's underside convects with the bay air when the engine is solved (the bay
     # air is what spikes at key-off, ADR 0100). Two fluids on one cell fold exactly into one
     # convective term: h_eff = h_top + h_under, T_eff = (h_top T_air + h_under T_bay) / h_eff.
+    conduction = lateral_operator(patch, conductivity_w_mk, thickness_m)
     engine = scene.targets["engine_bay"]
     bay_air_at = (
         _node_temperature(scene, "engine_bay", "bay_air")
@@ -723,28 +758,23 @@ def build_bonnet_field(
         )
 
     properties = FacetProperties(
-        heat_capacity_j_m2_k=np.full(patch.n_cells, heat_capacity_j_m2_k),
+        heat_capacity_j_m2_k=np.full(patch.n_cells, float(thermal.heat_capacity_j_m2_k)),
         emissivity=np.full(patch.n_cells, emissivity),
-        solar_absorptivity=np.full(patch.n_cells, solar_absorptivity),
+        solar_absorptivity=np.full(patch.n_cells, float(thermal.solar_absorptivity)),
     )
     # PT.7: spun up under its own sky and shadow, so a clear night's bonnet starts below the air
     # it has been radiating past all night rather than at it. `None` keeps the old start.
     initial = _spun_up_or_uniform(
         scene,
-        _spin_up_key(scene, geom, patch, casters, emissivity, heat_capacity_j_m2_k),
+        _spin_up_key(scene, geom, patch, casters, thermal, conductivity_w_mk, thickness_m),
         properties,
         forcing_at,
         float(scene.weather.at(scene.t0_s).t_air_k),
         spin_up_hours,
+        conduction=conduction,
     )
     return PlanarThermalField(
-        patch,
-        properties,
-        forcing_at,
-        scene.t0_s,
-        initial,
-        tick_s,
-        conduction=lateral_operator(patch, conductivity_w_mk, thickness_m),
+        patch, properties, forcing_at, scene.t0_s, initial, tick_s, conduction=conduction
     )
 
 
@@ -753,15 +783,19 @@ def build_ground_field(
     geom: CarGeometry,
     patch: PlanarPatch,
     *,
-    emissivity: float,
-    heat_capacity_j_m2_k: float,
-    solar_absorptivity: float,
     initial_k: float,
+    properties: Any = None,
     tick_s: float = 30.0,
     casters: tuple[ShadowRectangle, ...] = (),
     spin_up_hours: float | None = None,
+    conductivity_w_mk: float | None = None,
+    thickness_m: float | None = None,
 ) -> PlanarThermalField:
     """The road: §12.3's solved asphalt per cell, plus what the car standing on it radiates down.
+
+    ``properties`` and the skin's k, δ default to the scene's ``asphalt`` surface (PT.6): the
+    library material the per-prim solve used, so the field and the prim it overlays are the
+    same asphalt.
 
     ``spin_up_hours`` spins the field up **with the car on it** (PT.7): frame 0 then carries the
     patch a car that has stood there for hours has already made -- under a clear sky the dominant
@@ -777,6 +811,10 @@ def build_ground_field(
     per cell before use -- otherwise a cell under the engine bay is credited with more than one
     sky's worth of occlusion and source.
     """
+    thermal, conductivity_w_mk, thickness_m = _surface_thermal(
+        scene, "asphalt", properties, conductivity_w_mk, thickness_m
+    )
+    emissivity = float(thermal.emissivity)
     sky_view = np.ones(patch.n_cells)
     environment = _weather_forcing(scene, sky_view, initial_k)
     solar = _solar_forcing(scene, patch, sky_view, casters)
@@ -814,21 +852,23 @@ def build_ground_field(
         )
 
     properties = FacetProperties(
-        heat_capacity_j_m2_k=np.full(patch.n_cells, heat_capacity_j_m2_k),
+        heat_capacity_j_m2_k=np.full(patch.n_cells, float(thermal.heat_capacity_j_m2_k)),
         emissivity=np.full(patch.n_cells, emissivity),
-        solar_absorptivity=np.full(patch.n_cells, solar_absorptivity),
+        solar_absorptivity=np.full(patch.n_cells, float(thermal.solar_absorptivity)),
     )
+    conduction = lateral_operator(patch, conductivity_w_mk, thickness_m)
     initial = _spun_up_or_uniform(
         scene,
-        _spin_up_key(
-            scene, geom, patch, casters, emissivity, heat_capacity_j_m2_k, solar_absorptivity
-        ),
+        _spin_up_key(scene, geom, patch, casters, thermal, conductivity_w_mk, thickness_m),
         properties,
         forcing_at,
         initial_k,
         spin_up_hours,
+        conduction=conduction,
     )
-    return PlanarThermalField(patch, properties, forcing_at, scene.t0_s, initial, tick_s)
+    return PlanarThermalField(
+        patch, properties, forcing_at, scene.t0_s, initial, tick_s, conduction=conduction
+    )
 
 
 @dataclass
@@ -872,10 +912,10 @@ def build_car_demo(
     road_margin_m: float = 4.0,
     ground_cell_m: float = 0.30,
     bonnet_cell_m: float = 0.07,
-    bonnet_emissivity: float = 0.92,
-    asphalt_emissivity: float = 0.95,
-    asphalt_capacity_j_m2_k: float = 60_000.0,
-    asphalt_absorptivity: float = 0.88,
+    bonnet_emissivity: float | None = None,
+    asphalt_emissivity: float | None = None,
+    asphalt_capacity_j_m2_k: float | None = None,
+    asphalt_absorptivity: float | None = None,
     stage: Any = None,
     author: bool = True,
     spin_up: bool = True,
@@ -895,6 +935,19 @@ def build_car_demo(
     than the frame cannot make `PointwiseTemperature` raise half an hour into a Kit session.
     The ``*_cell_m`` arguments apply only to those hand-built grids.
     """
+    overrides = {
+        "bonnet_emissivity": bonnet_emissivity,
+        "asphalt_emissivity": asphalt_emissivity,
+        "asphalt_capacity_j_m2_k": asphalt_capacity_j_m2_k,
+        "asphalt_absorptivity": asphalt_absorptivity,
+    }
+    given = sorted(k for k, v in overrides.items() if v is not None)
+    if given:
+        raise ValueError(
+            f"{given} are not authored here (PT.6, ADR 0043): the bonnet's and the road's C, ε "
+            "and α come from the scene's `bonnet` and `asphalt` surfaces, which name a material "
+            "in configs/materials/. Change the material, or declare another surface material."
+        )
     geom = geometry or CarGeometry()
     cam = camera or CameraSetup()
     if not np.allclose(scene.world_frame.up, EY):
@@ -935,7 +988,6 @@ def build_car_demo(
     demo.bonnet_field = build_bonnet_field(
         scene,
         geom,
-        emissivity=bonnet_emissivity,
         cell_m=bonnet_cell_m,
         patch=scene.patches.get("bonnet"),
         casters=casters,
@@ -945,9 +997,6 @@ def build_car_demo(
         scene,
         geom,
         road_grid,
-        emissivity=asphalt_emissivity,
-        heat_capacity_j_m2_k=asphalt_capacity_j_m2_k,
-        solar_absorptivity=asphalt_absorptivity,
         initial_k=asphalt_k,
         casters=casters,
         spin_up_hours=hours,

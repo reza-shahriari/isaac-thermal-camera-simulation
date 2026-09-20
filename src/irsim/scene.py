@@ -360,6 +360,10 @@ class Scene:
     #: ``{occluder name: rectangle}`` in world coordinates -- what casts shadows on the patched
     #: surfaces (PT.18). Empty for every scene before v8, and then nothing here changes.
     occluders: Mapping[str, ShadowRectangle] = field(default_factory=dict)
+    #: ``{surface name: library material}`` for the §12.3 surfaces (PT.6): what a driver reads
+    #: for the numbers the per-prim stack does not keep (k, δ) and the object ADR 0043 makes the
+    #: single source of ε.
+    surface_materials: Mapping[str, Any] = field(default_factory=dict)
     #: The `nodes:` / `links:` / `sources:` network (schema v9, TC.4), or ``None``. Stepped by
     #: :meth:`advance_targets` beside the targets; read through :meth:`node_temperature_k`.
     network: ThermalNetwork | None = None
@@ -457,6 +461,23 @@ class Scene:
             if name in self.patch_prims
         )
 
+    def surface_properties(self, name: str) -> Any:
+        """One §12.3 surface's `ThermalProperties`, as the scene solved it (PT.6, ADR 0043)."""
+        from irsim.thermal.balance import ThermalProperties
+
+        if self.thermal is None or name not in self.thermal_surfaces:
+            raise KeyError(
+                f"unknown surface {name!r}; the scene's thermal block declares "
+                f"{list(self.thermal_surfaces)}"
+            )
+        i = self.thermal_surfaces.index(name)
+        p = self.thermal.properties
+        return ThermalProperties(
+            heat_capacity_j_m2_k=float(p.heat_capacity_j_m2_k[i]),
+            emissivity=float(p.emissivity[i]),
+            solar_absorptivity=float(p.solar_absorptivity[i]),
+        )
+
     def surface_temperature_k(self, name: str, t_s: float) -> float:
         """One named surface's temperature at a render time, float32-narrowed (M6.11)."""
         if self.thermal is None:
@@ -549,6 +570,7 @@ class Scene:
             world_frame=world_frame,
             occluders=occluders,
             network=network,
+            surface_materials=dict(zip(build.names, build.materials, strict=True)),
         )
 
     @classmethod

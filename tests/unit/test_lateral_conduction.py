@@ -184,7 +184,7 @@ def test_the_car_bonnet_conducts_laterally_and_its_gradient_softens() -> None:
     scene = Scene.from_file(REPO / "configs/scenes/car_ignition_overcast_night.yaml")
     demo = build_car_demo(scene, author=False, spin_up=False)
     columns = build_bonnet_field(
-        scene, demo.geometry, emissivity=0.92, patch=demo.bonnet_field.patch, conductivity_w_mk=0.0
+        scene, demo.geometry, patch=demo.bonnet_field.patch, conductivity_w_mk=0.0
     )
     assert demo.bonnet_field.field.conduction is not None and columns.field.conduction is None
     t = scene.t0_s

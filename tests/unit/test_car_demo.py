@@ -317,9 +317,6 @@ def test_frame_0_carries_the_patch_a_parked_car_has_already_made() -> None:
         scene,
         demo.geometry,
         demo.ground_field.patch,
-        emissivity=0.95,
-        heat_capacity_j_m2_k=60_000.0,
-        solar_absorptivity=0.88,
         initial_k=scene.surface_temperature_k("asphalt", scene.t0_s),
         casters=demo.geometry.shadow_casters() + tuple(scene.occluders.values()),
         spin_up_hours=24.0,
@@ -416,6 +413,7 @@ def test_a_scene_that_declares_no_grid_still_gets_the_hand_built_ones(tmp_path) 
         head.rstrip()
         + "\n  thermal:\n    spin_up_hours: 48.0\n    tick_s: 60.0\n    surfaces:\n"
         + "      - {name: asphalt, material: asphalt_dry, tilt_deg: 0.0}\n"
+        + "      - {name: bonnet, material: car_paint_black, tilt_deg: 0.0}\n"
     )
     scene = Scene.from_file(path)
     demo = build_car_demo(scene, author=False)
@@ -510,3 +508,51 @@ def test_a_scene_whose_world_frame_is_not_y_up_is_refused(tmp_path) -> None:  # 
     )
     with pytest.raises(ValueError, match=r"world_frame\.up"):
         build_car_demo(scene, author=False)
+
+
+# ---------------------------------------------------------------------------------------------
+# PT.6: the fields' thermal properties are the material library's, not the driver's
+# ---------------------------------------------------------------------------------------------
+
+
+def test_the_fields_carry_the_scene_s_own_material_properties_exactly() -> None:
+    """`build_car_demo` with no overrides reproduces `ThermalProperties.from_material` bit for
+    bit -- C 101 200 for asphalt where the driver used to author 60 000 (1.7× in the road's time
+    constant), ε 0.853 for the paint where it authored 0.92 -- and the lateral operator carries
+    the material's own k and δ."""
+    from irsim.materials.library import MaterialLibrary
+    from irsim.thermal.balance import ThermalProperties
+
+    scene = Scene.from_file(SCENE_YAML)
+    demo = build_car_demo(scene, author=False, spin_up=False)
+    library = MaterialLibrary.load()
+    for name, fld in (("asphalt", demo.ground_field), ("bonnet", demo.bonnet_field)):
+        spec = next(s for s in scene.spec.thermal.surfaces if s.name == name)
+        expected = ThermalProperties.from_material(library[spec.material], 300.0)
+        props = fld.field.properties
+        assert np.all(props.heat_capacity_j_m2_k == expected.heat_capacity_j_m2_k)
+        assert np.all(props.emissivity == expected.emissivity)
+        assert np.all(props.solar_absorptivity == expected.solar_absorptivity)
+        assert scene.surface_properties(name) == expected
+        thermal = library[spec.material].spec.thermal
+        k = fld.field.conduction.conductance_w_k
+        assert float(k.max()) == pytest.approx(
+            thermal.conductivity_w_mk
+            * thermal.thickness_m
+            * max(fld.patch.dv_m / fld.patch.du_m, fld.patch.du_m / fld.patch.dv_m)
+        )
+    assert scene.surface_properties("asphalt").heat_capacity_j_m2_k == pytest.approx(101_200.0)
+    assert scene.surface_properties("bonnet").heat_capacity_j_m2_k == pytest.approx(4399.2)
+
+
+def test_an_authored_override_is_refused_and_names_the_material_files() -> None:
+    scene = Scene.from_file(SCENE_YAML)
+    for kwargs in (
+        {"asphalt_capacity_j_m2_k": 60_000.0},
+        {"bonnet_emissivity": 0.92},
+        {"asphalt_emissivity": 0.95, "asphalt_absorptivity": 0.88},
+    ):
+        with pytest.raises(ValueError, match="configs/materials"):
+            build_car_demo(scene, author=False, spin_up=False, **kwargs)
+    with pytest.raises(KeyError, match="unknown surface"):
+        scene.surface_properties("roof")

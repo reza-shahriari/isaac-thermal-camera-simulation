@@ -13,6 +13,18 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The car demo's fields take their thermal properties from the material library** (`PT.6`,
+  ADR 0043's single-source rule). `Scene.surface_properties(name)` returns a §12.3 surface's
+  `ThermalProperties` as the scene solved it and `Scene.surface_materials` the library material
+  behind it; `build_bonnet_field` and `build_ground_field` read C, ε, α, k and δ from the scene's
+  `bonnet` and `asphalt` surfaces, and `build_car_demo` refuses an authored override, naming
+  `configs/materials/`. The driver used to author C = 60 000 J m⁻² K⁻¹ for the road against the
+  library's 101 200 -- 1.7× in the road's time constant -- ε 0.92 for the paint against the
+  material's 0.853, and 8000 against 4399 for the skin. Measured: both fields equal
+  `ThermalProperties.from_material` bit for bit and their lateral operators carry the materials'
+  own k and δ; with the library's numbers the overcast bonnet is 17 K max–min at 1500 s (was
+  18) and the road's engine patch after 30 min 2.4 K (was 3.9, the heavier asphalt warming more
+  slowly). 2 cases in `tests/unit/test_car_demo.py`.
 - **Lateral conduction between a patch's cells** (`PT.11`, ADR 0102; spec issue S41 is now
   `code`). `irsim.thermal.conduction.lateral_operator(patch, k, δ)` links four-neighbour cells
   with `K = k δ · (shared side) / (gap)` in W/K -- Fourier across the slab -- as a

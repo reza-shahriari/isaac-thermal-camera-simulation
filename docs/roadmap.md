@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 97 open steps
+#### Then, in order — 96 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -185,16 +185,16 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 5 | **`PT.12`** | PT | P | M | 2 | ready |
 | 6 | **`PT.21`** | PT | P | M | 2 | ready |
 | 7 | **`TC.7`** | TC | P | M | 2 | ready |
-| 8 | **`PT.6`** | PT | P | S | 1 | ready |
-| 9 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
-| 10 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
-| 11 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 12 | **`PT.15`** | PT | P | M | 1 | `PT.12` |
-| 13 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
-| 14 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 15 | **`PT.19`** | PT | P | S | — | ready |
+| 8 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 9 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
+| 10 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
+| 11 | **`PT.15`** | PT | P | M | 1 | `PT.12` |
+| 12 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
+| 13 | **`PT.14`** | PT | P | S | — | `WM.5` |
+| 14 | **`PT.19`** | PT | P | S | — | ready |
+| 15 | **`PH.3`** | PH | P | M | — | ready |
 
-…and 82 more — `python scripts/next_step.py --queue 40`.
+…and 81 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -396,7 +396,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.3 | ✅ **done.** Clamped, not partitioned (ADR 0090): `clamp_view_factor_sum` rescales `underbody`/`engine_bay`/`exhaust_pipe`'s view factors proportionally wherever their sum exceeds 1, and `build_ground_field` uses the clamped values. Warns loudly when triggered. | **Measured.** Σ view factors ≤ 1 + 1e-6 on every cell of both car scenes (`test_ground_radiator_view_factors_never_exceed_one`), reproducing the pre-fix peak 1.400 / 28 cells exactly as the warning message. 6 new cases in `test_spatial_sources.py`. | — | S | 0 |
 | PT.4 | ✅ **done.** `axes=` is **removed**, not guarded: the configuration factor is Howell C-11 for a *differential element*, which has no in-plane orientation to depend on. A rotated patch now gets the right answer rather than raising — better than the acceptance asked for. | **Measured.** 0.152 vs 0.104 on one element before the fix. 6 cases: a world-space quadrature oracle that walks the real corners (so a frame mix-up fails it), one rectangle labelled two ways, and a whole-configuration rotation. Re-mixing turns 3 red. | — | S | 0 |
 | PT.5 | ✅ **done.** `apply(world_from_local=...)` plus `local_frames`; `IrCamera` reads the matrices off the stage each frame. World-frame patches are bit-identical and never touch USD. | **Measured.** A prim translated 10 m and yawed 90°/215°: the same material point reads the same cell to **1e-6 K** across four poses, where a cell spans ~4 K. Identity-pose control disagrees by >5 K; the transposed matrix by >1 K, so USD's row-vector convention is pinned. 7 cases; in-sim read is `IG.2`. | PT.2 | M | A |
-| PT.6 | **Thermal properties from the material library.** `car_demo` authors bonnet C = 8000, asphalt C = 60 000, ε 0.92/0.95, α 0.88, bypassing `ThermalProperties.from_material` and violating ADR 0043's single-source rule. | `build_car_demo` with no overrides reproduces `from_material('asphalt_dry')` exactly. Measured disagreement today: C 60 000 against the library's 101 200 J/m²/K — 1.7× in the *time constant* — so the headline 6.21 K gradient is a result on a panel nobody can find in `configs/materials/`. An override raises unless the scene declares it. | PT.2 | S | P |
+| PT.6 | ✅ **done.** `Scene.surface_properties(name)` and `Scene.surface_materials`; `build_bonnet_field` / `build_ground_field` read C, ε, α and k, δ from the scene's `bonnet` / `asphalt` surface; `build_car_demo` refuses an authored override, naming `configs/materials/`. | **Measured.** Both fields equal `from_material` bit for bit: asphalt C 101 200 (was 60 000), α 0.90 (0.88), ε 0.935 (0.95); paint C 4399 (8000), ε 0.853 (0.92), α 0.94 (0.90); the operators carry the materials' k, δ. The overcast bonnet is 17 K max–min at 1500 s, the road's engine patch 2.4 K. 2 cases. | — | S | P |
 | PT.7 | ✅ **done.** `build_car_demo(spin_up=True)`: both fields spun up through `spin_up_hours` with the car present (occlusion, cold radiators, shadow), cached; `emission_factor` on the balance returns one reflection off a grey body (ADR 0088 addendum); `spin_up=False` is the old start. | **Measured.** Clear night frame 0: a **4.5 K** standing patch, 24 h and 48 h spin-ups identical to 0.1 mK; overcast +0.009 K (the missing reflection had made it −2.1 K); the engine's 30 min growth is 1.81 K either way; `spin_up=False` is the uniform start bit for bit. The old pin is inverted. | — | M | P |
 | PT.8 | ✅ **done.** `ThermalField(keep_ticks=, on_tick=)`: a `deque` ring (`None` keeps all, the per-prim default), a running SHA-256 fed per tick, a hook that sees every tick in order. `PlanarThermalField` defaults to the bracketing pair; a query outside the window raises (ADR 0093). | **Measured.** A day of the 10 400-cell road holds **166 KB** of ticks against ~240 MB before; the ring's hash equals the full history's, rebuilt from the hook, byte for byte; 500 queries inside the window are bit-identical to the unbounded field's; a query before it names `keep_ticks`. 10 cases. | — | S | P |
 | PT.9 | **Point-wise on the aerial lane.** An airframe skin field bound from the scene config, with per-cell solar and the ram-heating source already in ADR 0075. A fuselage is the most obviously curved thing in the project, so this is the first consumer of `WM`. | The aircraft-pass frame shows a leading-edge-to-shaded-underside gradient across one prim, against 0.000 K today, with each cell holding its own equilibrium to 1 mK in the engine-free oracle. The per-prim path is bit-identical when the binding is absent. | PT.1, PT.2, PT.5, WM.3 | M | A |
