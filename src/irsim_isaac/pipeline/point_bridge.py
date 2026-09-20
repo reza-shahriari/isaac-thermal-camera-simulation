@@ -23,6 +23,7 @@ and part of it is a flat patch, with a seam that looks like physics.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -139,11 +140,33 @@ def bindings_from_scene(scene: Any) -> list[SurfaceBinding]:
 class PointwiseTemperature:
     """Overwrites the patch-backed prims of a per-instance temperature plane with their fields."""
 
-    def __init__(self, bindings: Sequence[SurfaceBinding]) -> None:
+    def __init__(
+        self, bindings: Sequence[SurfaceBinding], known_paths: Sequence[str] | None = None
+    ) -> None:
         self.bindings = tuple(bindings)
         self._by_path: dict[str, list[PlanarThermalField]] = {}
         for binding in self.bindings:
             self._by_path.setdefault(binding.prim_path, []).append(binding.field)
+        #: Pixels each bound prim path took in the last :meth:`apply` (PT.19): the number a
+        #: sidecar records, and zero for a binding nothing on screen consumed.
+        self.last_coverage: dict[str, int] = dict.fromkeys(self._by_path, 0)
+        #: The prim paths the stage knows, when the caller has them (PT.19). A binding to a path
+        #: that is not among them is a misspelling, a renamed prim or a stage without it, and it
+        #: raises here -- before any frame -- rather than leaving the prim at its per-instance
+        #: fallback with a seam that looks like physics. A frame's own labels cannot make this
+        #: call: a prim off screen is absent from them too, and that is not an error.
+        self.known_paths: frozenset[str] | None = (
+            None if known_paths is None else frozenset(known_paths)
+        )
+        if self.known_paths is not None:
+            unknown = sorted(p for p in self._by_path if p not in self.known_paths)
+            if unknown:
+                raise ValueError(
+                    f"bound prim path(s) {unknown} are not among the stage's prims "
+                    f"{sorted(self.known_paths)}; check the `prim_path` in the scene's "
+                    "`patch:` blocks -- a binding nothing consumes would leave its prim at the "
+                    "per-instance fallback"
+                )
 
     @property
     def prim_paths(self) -> tuple[str, ...]:
@@ -200,6 +223,24 @@ class PointwiseTemperature:
             raise ValueError(f"positions_world {points.shape} does not match the plane {out.shape}")
 
         paths = labels_to_paths(id_to_labels)
+        # PT.19: without a stage prim list, the frame's labels are the only authority on whether
+        # a bound path exists at all. A binding absent from them is then a misspelling or a prim
+        # off screen, and the frame cannot tell which: it raises under `strict` and warns
+        # otherwise, naming the path. With `known_paths` the typo was caught at construction
+        # and an absent path is a prim off screen -- recorded as coverage 0, nothing more.
+        if self.known_paths is None:
+            present = set(paths.values())
+            missing = sorted(p for p in self._by_path if p not in present)
+            if missing:
+                message = (
+                    f"bound prim path(s) {missing} are absent from this frame's idToLabels, whose "
+                    f"prim paths are {sorted(present)}. Either the path is misspelt or the prim is "
+                    "off screen; pass `known_paths` from the stage to tell the two apart."
+                )
+                if strict:
+                    raise ValueError(message)
+                warnings.warn(message, stacklevel=2)
+        coverage = dict.fromkeys(self._by_path, 0)
         for ident, path in paths.items():
             if ident == BACKGROUND_INSTANCE_ID:
                 continue
@@ -236,6 +277,8 @@ class PointwiseTemperature:
                 # Non-strict: keep the per-instance value, which is what the pixel had before.
                 values[~filled] = out[mask][~filled]
             out[mask] = values
+            coverage[path] = int(filled.sum())
+        self.last_coverage = coverage
         return out
 
     def __repr__(self) -> str:  # pragma: no cover - diagnostics

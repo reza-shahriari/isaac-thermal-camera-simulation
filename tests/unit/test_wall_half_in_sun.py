@@ -115,7 +115,9 @@ def test_the_synthetic_g_buffer_frame_carries_the_terminator_on_one_prim(scene) 
     yy, zz = np.meshgrid(ys, zs)
     positions = np.stack([np.zeros_like(yy), yy, zz], axis=-1)
     ids = np.full(yy.shape, 7, dtype=np.int32)
-    bridge = PointwiseTemperature(bindings_from_scene(scene))
+    bridge = PointwiseTemperature(
+        bindings_from_scene(scene), known_paths=set(scene.patch_prims.values())
+    )
     frame = bridge.apply(
         np.full(ids.shape, 300.0, np.float32),
         ids,

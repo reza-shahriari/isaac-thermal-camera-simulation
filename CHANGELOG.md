@@ -13,6 +13,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **An unconsumed binding is loud** (`PT.19`). `PointwiseTemperature(bindings, known_paths=)`:
+  a binding to a prim path the stage does not know -- a misspelling, a renamed prim, a stage
+  without it -- raises at construction, naming the path and the stage's prims, before the first
+  frame; `IrCamera` passes its prim map. The prim used to be skipped in silence and rendered at
+  its per-instance fallback with a seam that looked like physics, which the scene's own YAML
+  comment called a guard. A frame's own labels cannot make that call (a prim off screen is absent
+  from them too), so without a stage list a bound path absent from `idToLabels` raises under
+  `strict` and warns otherwise, and with one it is coverage 0, quietly. `last_coverage` counts
+  the pixels each binding took in the frame, `IrCamera.patch_coverage` exposes it and the car
+  render's per-frame record carries it. Measured: `/World/raod` bound against a stage of
+  `/World/road` raises naming both; frame-only, strict raises and lenient warns with the plane
+  untouched; a correctly spelt binding is bit-identical to before; a bound prim off screen this
+  frame is coverage 0. 2 cases in `tests/unit/test_point_bridge.py`.
 - **The R1 reference scene: a wall half in sun, from YAML plus one command** (`PT.20`).
   `configs/scenes/wall_half_in_sun.yaml`: a concrete building 8 × 6 × 6 m (four wall patches and
   a roof, the west wall split into a concrete half and a half of the new `etics_render`, a thin

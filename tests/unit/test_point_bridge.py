@@ -414,3 +414,48 @@ def test_bindings_from_scene_wrap_every_patched_surface_with_a_prim(tophat_lwir_
     assert {b.prim_path for b in bindings} == {"/World/Road", "/World/Car/bonnet"}
     assert all(isinstance(b, SurfaceBinding) for b in bindings)
     assert PointwiseTemperature(bindings).prim_paths == ("/World/Road", "/World/Car/bonnet")
+
+
+# ---------------------------------------------------------------------------------------------
+# PT.19: an unconsumed binding is loud
+# ---------------------------------------------------------------------------------------------
+
+
+def test_a_misspelt_prim_path_raises_naming_it_and_correct_paths_are_bit_identical() -> None:
+    """The failure this exists for: `/World/Car/bonet` bound, `/World/Car/bonnet` on the stage,
+    and the bonnet rendering at its ambient fallback with a seam that looked like physics."""
+    _patch, field, centres, ids, flat = _scene()
+    stage = ["/World/road", "/World/car"]
+    with pytest.raises(ValueError, match=r"/World/raod.*not among the stage's prims"):
+        PointwiseTemperature([SurfaceBinding("/World/raod", field)], known_paths=stage)
+    # Without a stage list the frame's labels are the only authority: strict raises, else warns.
+    bad = PointwiseTemperature([SurfaceBinding("/World/raod", field)])
+    with pytest.raises(ValueError, match=r"/World/raod.*absent from this frame's idToLabels"):
+        bad.apply(flat, ids, LABELS, centres, 1.0)
+    with pytest.warns(UserWarning, match="/World/raod"):
+        lenient = bad.apply(flat, ids, LABELS, centres, 1.0, strict=False)
+    assert np.array_equal(lenient, flat)  # nothing consumed: the plane is untouched
+    assert bad.last_coverage == {"/World/raod": 0}
+    # And a correctly spelt binding is exactly what it was before this check existed.
+    good = PointwiseTemperature([SurfaceBinding("/World/road", field)], known_paths=stage)
+    expected = PointwiseTemperature([SurfaceBinding("/World/road", field)]).apply(
+        flat, ids, LABELS, centres, 1.0
+    )
+    assert np.array_equal(good.apply(flat, ids, LABELS, centres, 1.0), expected)
+    assert good.last_coverage == {"/World/road": int(ids.size)}
+
+
+def test_coverage_counts_the_pixels_each_binding_took_and_off_screen_is_not_an_error() -> None:
+    _patch, field, centres, ids, flat = _scene()
+    mixed = ids.copy()
+    mixed[:, :3] = 7  # the car's id over half the frame; the road keeps the other half
+    bridge = PointwiseTemperature(
+        [SurfaceBinding("/World/road", field)], known_paths=["/World/road", "/World/car"]
+    )
+    bridge.apply(flat, mixed, LABELS, centres, 1.0)
+    assert bridge.last_coverage == {"/World/road": int((mixed == 3).sum())}
+    # A bound prim off screen this frame -- absent from the labels too -- is coverage 0, quietly,
+    # because the stage list already said the path is real.
+    car_only = np.full_like(ids, 7)
+    out = bridge.apply(flat, car_only, {"0": "BACKGROUND", "7": "/World/car"}, centres, 1.0)
+    assert np.array_equal(out, flat) and bridge.last_coverage == {"/World/road": 0}

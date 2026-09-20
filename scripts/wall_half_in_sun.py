@@ -62,7 +62,9 @@ def main() -> int:
 
     # The frame: the west wall through the point bridge, from a synthetic G-buffer.
     ids, positions, labels = west_wall_gbuffer()
-    bridge = PointwiseTemperature(bindings_from_scene(scene))
+    bridge = PointwiseTemperature(
+        bindings_from_scene(scene), known_paths=set(scene.patch_prims.values())
+    )
     plane = np.full(ids.shape, 300.0, dtype=np.float32)
     frame = bridge.apply(plane, ids, labels, positions, t0, strict=True)
     args.out.mkdir(parents=True, exist_ok=True)

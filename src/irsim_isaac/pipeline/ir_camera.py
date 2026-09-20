@@ -432,7 +432,13 @@ class IrCamera:
         # a patch for, so a camera built without `surface_fields` renders bit-identically to
         # every frame this project has produced. `None` rather than an empty object so the
         # per-pixel world positions are not computed for a scene that has no use for them.
-        self.pointwise = PointwiseTemperature(surface_fields) if surface_fields else None
+        # PT.19: the stage's prim map is what tells a misspelt binding from a prim off screen;
+        # a binding to a path it does not know raises here, before the first frame.
+        self.pointwise = (
+            PointwiseTemperature(surface_fields, known_paths=list(prim_to_target))
+            if surface_fields
+            else None
+        )
         # How much scene time one capture costs. The sensor's own frame rate by default; an
         # override makes this a **time-lapse camera** -- one frame every N seconds -- which is the
         # honest way to film a process slower than the video that shows it. It is not a speed-up
@@ -477,6 +483,16 @@ class IrCamera:
         self._authored: dict[str, Any] = {}
 
     # -- engine set-up --------------------------------------------------------------------
+
+    @property
+    def patch_coverage(self) -> dict[str, int]:
+        """Pixels each bound patch prim took in the last frame (PT.19); empty without bindings.
+
+        What a per-frame record should carry beside the frame: a binding at zero is a prim that
+        was bound and never consumed, which under ``strict_patch_coverage`` has already raised
+        when its path was unknown to the frame and is otherwise a prim off screen.
+        """
+        return {} if self.pointwise is None else dict(self.pointwise.last_coverage)
 
     def open(self, *, settle_frames: int = 8, rt_subframes: int = 1) -> IrCamera:
         """Author the camera, create the render product, attach the annotators, settle.

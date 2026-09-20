@@ -363,6 +363,8 @@ def main() -> int:
                     "point_wise_fields": not args.no_fields,
                     "frame_period_s": args.frame_period,
                     "thermal": row,
+                    # PT.19: pixels each bound patch took; a zero is a binding nothing consumed.
+                    "patch_coverage": camera.patch_coverage,
                 },
             )
         )
