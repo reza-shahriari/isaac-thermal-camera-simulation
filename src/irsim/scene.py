@@ -45,6 +45,7 @@ from irsim.thermal.aerial import (
     heat_source_solver,
     ram_skin_solver,
 )
+from irsim.thermal.conduction import lateral_operator
 from irsim.thermal.frames import ENU, WorldFrame
 from irsim.thermal.network import ThermalNetwork
 from irsim.thermal.shadow import ShadowRectangle
@@ -640,6 +641,8 @@ class _ThermalBuild:
     t0_s: float = 0.0
     #: The weather's content hash, the spin-up cache key every field of this scene shares.
     spin_up_hash: str = ""
+    #: The library materials, one per surface, for what the per-prim stack does not keep (k, δ).
+    materials: tuple[Any, ...] = ()
     #: Wraps a forcing callable into the weather series for a spin-up that starts before it.
     wrap: Any = _identity
 
@@ -721,6 +724,7 @@ def _build_thermal_field(
         t0_s=t0_s,
         spin_up_hash=weather.content_hash,
         wrap=wrap,
+        materials=tuple(materials),
     )
 
 
@@ -771,6 +775,11 @@ def _build_surface_fields(
         forcing = CellForcing(
             build.forcing, i, n, patch=patch, occluders=casters, frame=world_frame
         )
+        # PT.11: in-plane conduction from the material's own k and thickness (ADR 0102).
+        conduction = None
+        if s.lateral_conduction:
+            thermal = build.materials[i].spec.thermal
+            conduction = lateral_operator(patch, thermal.conductivity_w_mk, thermal.thickness_m)
         if casters:
             # The shadow is part of the surface's history, not a term switched on at t0: a cell
             # under an overhang has been under it all morning. So the field is spun up on its
@@ -782,6 +791,7 @@ def _build_surface_fields(
                 build.t0_s,
                 hours=spec.thermal.spin_up_hours,
                 dt_s=60.0,
+                conduction=conduction,
             ).temperatures_k
         else:
             spun = np.full(n, float(build.spun_k[i]))
@@ -793,6 +803,7 @@ def _build_surface_fields(
             spun,
             spec.thermal.tick_s,
             film_kg_m2=_film_for(patch, s.film),
+            conduction=conduction,
         )
     return out
 

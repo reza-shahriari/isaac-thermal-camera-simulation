@@ -102,10 +102,14 @@ SLAB_SW = (
 )
 START_16H = "2024-06-21T14:00:00Z"
 
+#: `lateral_conduction: false` (PT.11): the bit-identity below is a property of the shadow term
+#: alone. With asphalt's own in-plane conduction on, a lit cell beside a shaded one exchanges
+#: heat with it -- millikelvins for asphalt, but not bits.
 ROAD = """
       - name: road
         material: asphalt_dry
         tilt_deg: 0.0
+        lateral_conduction: false
         patch:
           origin_m: [-1.5, -1.2, 0.0]
           u_axis: [1.0, 0.0, 0.0]

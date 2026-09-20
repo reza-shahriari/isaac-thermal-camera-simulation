@@ -16,7 +16,7 @@ from irsim.thermal.aerial import (
     refine_nodes,
     throttle_profile,
 )
-from irsim.thermal.conduction import ConductionOperator, explicit_bound_s
+from irsim.thermal.conduction import ConductionOperator, explicit_bound_s, lateral_operator
 from irsim.thermal.convection import (
     DEFAULT_CONVECTION,
     ConvectionParams,
@@ -112,6 +112,7 @@ __all__ = [
     "RadiationLink",
     "ThermalNetwork",
     "explicit_bound_s",
+    "lateral_operator",
     "SOLVER_TYPES",
     "NewtonCoolingSolver",
     "PrescribedSolver",

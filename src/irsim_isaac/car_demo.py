@@ -46,6 +46,7 @@ from numpy.typing import NDArray
 
 from irsim.radiometry.constants import SIGMA_SB
 from irsim.scene import Scene, wrap_into_weather
+from irsim.thermal.conduction import lateral_operator
 from irsim.thermal.convection import DEFAULT_CONVECTION, convection_coefficient
 from irsim.thermal.facets import FacetForcing, FacetProperties, SpinUpCache, spin_up
 from irsim.thermal.longwave import longwave_down
@@ -649,8 +650,14 @@ def build_bonnet_field(
     casters: tuple[ShadowRectangle, ...] = (),
     spin_up_hours: float | None = None,
     underside_h_w_m2_k: float = 5.0,
+    conductivity_w_mk: float = 45.0,
+    thickness_m: float = 0.0012,
 ) -> PlanarThermalField:
     """The bonnet skin: §6.1 per cell, with the bay's radiation weighted by ADR 0088's view factor.
+
+    ``conductivity_w_mk`` and ``thickness_m`` are the skin's own (steel under paint, the
+    `car_paint_black` substrate: 45 W/mK, 1.2 mm) and give the cells their in-plane conduction
+    (PT.11); ``0`` for the independent-column field the demo had before.
 
     ``underside_h_w_m2_k`` is the skin's natural convection with the bay air below it (TC.6),
     used when the engine is a solved node with a bay-air node; ESTIMATED at 5 W m⁻² K⁻¹.
@@ -730,7 +737,15 @@ def build_bonnet_field(
         float(scene.weather.at(scene.t0_s).t_air_k),
         spin_up_hours,
     )
-    return PlanarThermalField(patch, properties, forcing_at, scene.t0_s, initial, tick_s)
+    return PlanarThermalField(
+        patch,
+        properties,
+        forcing_at,
+        scene.t0_s,
+        initial,
+        tick_s,
+        conduction=lateral_operator(patch, conductivity_w_mk, thickness_m),
+    )
 
 
 def build_ground_field(

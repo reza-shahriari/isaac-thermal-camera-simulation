@@ -396,6 +396,7 @@ def spin_up(
     dt_s: float = 60.0,
     initial_k: Any = None,
     cache: SpinUpCache | None = None,
+    conduction: Any = None,
 ) -> SpinUpResult:
     """Integrate the facets through ``hours`` of weather *ending* at ``t0_s``.
 
@@ -416,6 +417,7 @@ def spin_up(
     solver = FacetSolver(
         properties,
         forcing_at(start).arrays(properties.n_facets)[0] if initial_k is None else initial_k,
+        conduction=conduction,
     )
     steps = int(round(hours * 3600.0 / dt_s))
     for i in range(steps):

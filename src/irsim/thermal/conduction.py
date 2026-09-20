@@ -52,7 +52,7 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 from numpy.typing import NDArray
 
-__all__ = ["ConductionOperator", "explicit_bound_s"]
+__all__ = ["ConductionOperator", "explicit_bound_s", "lateral_operator"]
 
 
 def explicit_bound_s(
@@ -134,3 +134,46 @@ class ConductionOperator:
     def factorise(self, heat_capacity_j_m2_k: Any, dt_s: float) -> Any:
         """A prefactored solve for one tick size; call once, back-substitute every tick."""
         return spla.splu(self.implicit_matrix(heat_capacity_j_m2_k, dt_s))
+
+
+def lateral_operator(patch: Any, conductivity_w_mk: float, thickness_m: float) -> Any:
+    """In-plane conduction between a patch's four-neighbour cells (PT.11, ADR 0102).
+
+    A grid edge between cells ``du`` apart along ``u`` with a shared side ``dv`` long carries
+    ``K = k δ dv / du`` in W/K (and ``k δ du / dv`` along ``v``): Fourier's law across a slab of
+    thickness ``δ``, which is the ``k δ w / d`` link the module docstring names. Returns ``None``
+    for ``k δ = 0`` -- the operator-free field, bit for bit -- rather than a matrix of zeros.
+
+    Why it matters: over §6.6's 750 s engine-bay rise a signal spreads ``√(α t)`` with
+    ``α = k δ / C``: 270 mm in aluminium and 99 mm in steel against 71–150 mm cells, so a metal
+    panel without this renders sharper than aluminium can be. Asphalt spreads 16 mm and barely
+    notices. Stepped by ADR 0094's backward Euler, a 60 s tick stands where the explicit limit
+    ``du² C / (4 k δ)`` is 6 s for 5 cm of aluminium.
+    """
+    if conductivity_w_mk < 0.0 or thickness_m < 0.0:
+        raise ValueError("conductivity and thickness cannot be negative")
+    k_delta = float(conductivity_w_mk) * float(thickness_m)
+    if k_delta == 0.0:
+        return None
+    n_u, n_v = int(patch.n_u), int(patch.n_v)
+    du, dv = float(patch.du_m), float(patch.dv_m)
+    rows: list[int] = []
+    cols: list[int] = []
+    vals: list[float] = []
+    if n_u > 1:
+        g_u = k_delta * dv / du
+        iv, iu = np.meshgrid(np.arange(n_v), np.arange(n_u - 1), indexing="ij")
+        a = (iv * n_u + iu).ravel()
+        rows += a.tolist()
+        cols += (a + 1).tolist()
+        vals += [g_u] * a.size
+    if n_v > 1:
+        g_v = k_delta * du / dv
+        iv, iu = np.meshgrid(np.arange(n_v - 1), np.arange(n_u), indexing="ij")
+        a = (iv * n_u + iu).ravel()
+        rows += a.tolist()
+        cols += (a + n_u).tolist()
+        vals += [g_v] * a.size
+    n = n_u * n_v
+    upper = sp.coo_matrix((np.asarray(vals), (rows, cols)), shape=(n, n))
+    return ConductionOperator(upper + upper.T, np.full(n, patch.cell_area_m2))

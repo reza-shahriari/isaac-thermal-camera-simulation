@@ -433,6 +433,9 @@ class SurfaceSpec(_Frozen):
     #: A water film at the scene start, per cell (PH.2). Needs a patch; a per-prim surface has
     #: no cells to be half wet.
     film: FilmSpec | None = None
+    #: In-plane conduction between a patch's cells from the material's k and thickness (PT.11,
+    #: ADR 0102). On by default; off is the independent-column field for a comparison.
+    lateral_conduction: bool = True
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:

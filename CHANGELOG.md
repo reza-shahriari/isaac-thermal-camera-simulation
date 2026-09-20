@@ -13,6 +13,23 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **Lateral conduction between a patch's cells** (`PT.11`, ADR 0102; spec issue S41 is now
+  `code`). `irsim.thermal.conduction.lateral_operator(patch, k, δ)` links four-neighbour cells
+  with `K = k δ · (shared side) / (gap)` in W/K -- Fourier across the slab -- as a
+  `ConductionOperator` on ADR 0094's IMEX step; `k δ = 0` returns `None`, the operator-free
+  field bit for bit. Every patched surface in a scene builds it from its own material's
+  `conductivity_w_mk` and `thickness_m` (the per-material switch: asphalt at 0.0375 W/K per
+  edge barely notices, steel spreads 99 mm over an engine's rise), `lateral_conduction: false`
+  opts a surface out, the per-cell spin-up carries the operator, and the car demo's bonnet takes
+  steel's 45 W/mK over 1.2 mm until PT.6 reads the material. Measured: a 20 K step on a 2 m
+  strip of 5 mm aluminium cells spreads as the semi-infinite sheet's erf to 0.6 % of the step at
+  60 s; the operator is `k δ dv / du` per u-edge and `k δ du / dv` per v-edge exactly; at 5 cm in
+  aluminium the explicit limit is 6.4 s and a 60 s implicit tick keeps the maximum principle and
+  the mean where forward Euler on the same operator explodes; the steel bonnet's engine hot spot
+  is 5 % smoother than the independent-column field with the same mean. The PT.17/PT.18
+  bit-identity tests now declare `lateral_conduction: false`, because with the operator a lit
+  cell beside a shaded one exchanges heat -- millikelvins for asphalt, and the physics. 6 cases in
+  `tests/unit/test_lateral_conduction.py`.
 - **The wet/dry road: one object, two states** (`PH.2`, ADR 0101 addendum). A patched surface
   may declare `film: {depth_mm, region_m}`: water on every cell or on the cells inside a
   rectangle of the patch's own (u, v), at the scene start. `configs/scenes/wet_road_noon.yaml`
