@@ -1,0 +1,89 @@
+# The R1 reference scene: one building, its parts at different temperatures, from YAML alone.
+# Schema: irsim.config.scene (v9). Roadmap PT.20; ADR 0087 (the field), ADR 0095 (occluders and
+# the world frame), ADR 0102 (in-plane conduction), ADR 0043 (materials as the single source).
+#
+# A concrete building 8 m x 6 m x 6 m at the origin, a lower block standing 2 m to its west, on
+# an asphalt ground, at 18:00 on a clear June day (16:00Z; the weather file is local = UTC+2),
+# when a low western sun has been on the west wall for four hours.
+# What the frame should show, and what tests/unit/test_wall_half_in_sun.py holds it to:
+#
+#   * The faces of one building sit more than 10 K apart (Morrison, Kotthaus & Grimmond 2021:
+#     5th-95th percentile spreads of that size across one London street scene from ground-based
+#     thermography): the roof against the north wall, the sunlit west wall against the east
+#     wall that lost the sun at noon. Measured: 12.4 K and 7.5 K; west against north is 7.4 K
+#     because at 18:00 the north wall catches a grazing beam of its own.
+#   * The neighbour's shadow cuts across the west wall: a terminator of 10.3 K on the concrete
+#     half and 7.4 K on the half that is a thin insulated render (ETICS thermography, Madrid:
+#     7.4 C). The two halves are one face of one building; a shadow that only scaled the beam by
+#     the same factor everywhere could not tell them apart.
+#   * Cells that have been in shadow for the afternoon stay 8.7 K colder half an hour after the
+#     shadow lifts, because concrete remembers.
+#
+# The rendered frame is IG.2's; scripts/wall_half_in_sun.py writes the engine-free one from a
+# synthetic G-buffer over the west wall. World is ENU: x east, y north, z up.
+
+schema_version: 9
+scene:
+  name: wall_half_in_sun
+  description: "a concrete building with a neighbour's shadow across its west wall, 18:00 on a clear June day"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
+  start_utc: "2024-06-21T16:00:00Z"
+  targets: []
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 60.0
+    # Every opaque face casts a shadow on every world-frame patch (ADR 0095): the building's own
+    # five faces (a face never shades its own cells: the ray leaves it) and the neighbour's.
+    occluders:
+      - {name: bldg_west,  centre_m: [0.0, 3.0, 3.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 3.0, half_v_m: 3.0}
+      - {name: bldg_east,  centre_m: [8.0, 3.0, 3.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 3.0, half_v_m: 3.0}
+      - {name: bldg_south, centre_m: [4.0, 0.0, 3.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 4.0, half_v_m: 3.0}
+      - {name: bldg_north, centre_m: [4.0, 6.0, 3.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 4.0, half_v_m: 3.0}
+      - {name: bldg_roof,  centre_m: [4.0, 3.0, 6.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 4.0, half_v_m: 3.0}
+      # The neighbour: 4 m wide, 8 m long, 4 m tall, its east face 2 m from the building's west.
+      - {name: nbr_east,  centre_m: [-2.0, 3.0, 2.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 4.0, half_v_m: 2.0}
+      - {name: nbr_west,  centre_m: [-6.0, 3.0, 2.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 4.0, half_v_m: 2.0}
+      - {name: nbr_south, centre_m: [-4.0, -1.0, 2.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 2.0, half_v_m: 2.0}
+      - {name: nbr_north, centre_m: [-4.0, 7.0, 2.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 2.0, half_v_m: 2.0}
+      - {name: nbr_roof,  centre_m: [-4.0, 3.0, 4.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 2.0, half_v_m: 4.0}
+    surfaces:
+      # The west wall, in two halves that are one face: the north half concrete, the south half a
+      # thin insulated render. 0.25 m cells, u north, v up; u x v = +x and the wall faces -x (270).
+      - name: west_concrete
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 270.0
+        patch: {origin_m: [0.0, 3.0, 0.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 12, n_v: 24, du_m: 0.25, dv_m: 0.25, thickness_m: 0.15, frame: world, prim_path: /World/Building/west}
+      - name: west_render
+        material: etics_render
+        tilt_deg: 90.0
+        azimuth_deg: 270.0
+        patch: {origin_m: [0.0, 0.0, 0.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 12, n_v: 24, du_m: 0.25, dv_m: 0.25, thickness_m: 0.15, frame: world, prim_path: /World/Building/west}
+      - name: north
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 0.0
+        patch: {origin_m: [0.0, 6.0, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 32, n_v: 24, du_m: 0.25, dv_m: 0.25, thickness_m: 0.15, frame: world, prim_path: /World/Building/north}
+      - name: south
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 180.0
+        patch: {origin_m: [0.0, 0.0, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 32, n_v: 24, du_m: 0.25, dv_m: 0.25, thickness_m: 0.15, frame: world, prim_path: /World/Building/south}
+      - name: east
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 90.0
+        patch: {origin_m: [8.0, 0.0, 0.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 24, n_v: 24, du_m: 0.25, dv_m: 0.25, thickness_m: 0.15, frame: world, prim_path: /World/Building/east}
+      - name: roof
+        material: concrete
+        tilt_deg: 0.0
+        patch: {origin_m: [0.0, 0.0, 6.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 32, n_v: 24, du_m: 0.25, dv_m: 0.25, thickness_m: 0.15, frame: world, prim_path: /World/Building/roof}
+      # The ground: 24 m x 24 m of asphalt at 0.5 m cells around both blocks.
+      - name: ground
+        material: asphalt_dry
+        tilt_deg: 0.0
+        patch: {origin_m: [-12.0, -12.0, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 48, n_v: 48, du_m: 0.5, dv_m: 0.5, thickness_m: 0.10, frame: world, prim_path: /World/Ground}

@@ -13,6 +13,24 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The R1 reference scene: a wall half in sun, from YAML plus one command** (`PT.20`).
+  `configs/scenes/wall_half_in_sun.yaml`: a concrete building 8 × 6 × 6 m (four wall patches and
+  a roof, the west wall split into a concrete half and a half of the new `etics_render`, a thin
+  light render over insulation), a lower neighbour standing 2 m to its west as five occluders
+  beside the building's own five, asphalt ground, at 18:00 on the clear June file when a low
+  western sun has been on the west wall for four hours. `scripts/wall_half_in_sun.py` prints
+  every face's mean and lit/shaded step, writes the west wall as a frame from a synthetic
+  G-buffer through the point bridge (both halves on one prim; float32 `.npy` and a white-hot
+  PNG), lifts the neighbour's shadow and follows the once-shaded concrete. Measured: the
+  terminator across the concrete is 10.3 K and across the render 7.4 K (the ETICS thermography's
+  7.4 °C) -- one face, one shadow, two materials a shadow that only scaled the beam could not
+  tell apart; the roof and the north wall differ by 12.4 K, the sunlit west wall and the east
+  wall that lost the sun at noon by 7.5 K; half an hour after the shadow lifts the once-shaded
+  concrete is still 8.7 K cooler. Two of the row's figures came out below it and are held to what
+  was measured: west against north is 7.4 K rather than > 10 K because at 18:00 the north wall
+  catches a grazing beam of its own, and the after-shadow memory is 84 % of the step rather than
+  > 10 K. 6 cases in `tests/unit/test_wall_half_in_sun.py`; the scene is listed as unswept by
+  the multiband sweep; the rendered frame needs `IG.2`.
 - **The car demo's fields take their thermal properties from the material library** (`PT.6`,
   ADR 0043's single-source rule). `Scene.surface_properties(name)` returns a §12.3 surface's
   `ThermalProperties` as the scene solved it and `Scene.surface_materials` the library material

@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 96 open steps
+#### Then, in order — 95 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -194,7 +194,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`PT.19`** | PT | P | S | — | ready |
 | 15 | **`PH.3`** | PH | P | M | — | ready |
 
-…and 81 more — `python scripts/next_step.py --queue 40`.
+…and 80 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -409,7 +409,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.17 | ✅ **done.** A `PlanarThermalField` per patched surface, on its library material and spun-up state, forced by `CellForcing`; `Scene.surface_fields`, `surface_bindings()`, `bindings_from_scene`. Both car scenes declare bonnet and road; `build_car_demo` reads and checks them. | **Measured.** Under uniform forcing every cell equals the per-prim value **bit for bit** (contract 1 mK); a bonnet grid 24 cm off the skin and a road grid short of the footprint are refused; no patch keeps the hand-built grids; an unknown material fails at load naming the surface. 14 cases. | — | M | P |
 | PT.18 | ✅ **done.** Schema v8: `world_frame:` (ENU default) and `thermal.occluders:`. `CellForcing` gates the beam per cell via `cell_shadow`, spun up with the shadow; `car_demo` fields gain q_solar from `Scene.solar_terms`, shaded by the car's faces. `shaded: true` beside occluders refused. ADR 0095. | **Measured.** SW concrete wall + overhang from YAML: **9.9 K** lit/shaded at 16:00 (PT.1's 22.1 K was a fixed-beam equilibrium); unreached cells **bit-identical** to the per-prim solve, spin-up included; the noon car's shadow strip runs 12.7 K colder after 1500 s. 16 cases. | — | S | P |
 | PT.19 | **An unconsumed binding is loud.** `PointwiseTemperature.apply` counts pixels per binding; a prim path absent from `idToLabels` raises under `strict_patch_coverage` and warns otherwise, and the sidecar records coverage per binding. | Red today: a misspelt prim path is skipped by `if not fields: continue` (`point_bridge.py:196`) and the bonnet quietly renders at its ambient fallback — the YAML comment calls that a guard. After: the synthetic G-buffer test with one misspelt path raises naming it; correct paths are bit-identical. | PT.17 | S | P |
-| PT.20 | **The R1 reference scene: a wall half in sun, from YAML plus one command.** `configs/scenes/wall_half_in_sun.yaml`: four wall patches and a roof on a ground patch, a neighbouring slab as occluder, clear summer weather; a synthetic-G-buffer frame. | At 15:00 west and north walls differ by > 10 K (Morrison 2021); the terminator across one concrete wall ≥ 10 K and ≈ 7 K on a thin insulated skin — a shadow that only scales q_solar fails the second; cells shaded > 30 min stay > 10 K cooler for 30 min after the occluder goes. The rendered frame needs `IG.2`. | PT.6, PT.18 | M | P |
+| PT.20 | ✅ **done.** `wall_half_in_sun.yaml`: a concrete building (4 walls + roof; the west wall half concrete, half the new `etics_render`), a neighbour block as occluders, asphalt ground, 18:00; `scripts/wall_half_in_sun.py` prints the faces and writes the west wall as a synthetic-G-buffer frame. | **Measured.** Terminator: concrete **10.3 K**, render **7.4 K** (ETICS 7.4); roof − north 12.4 K, west − east 7.5 K, west − north 7.4 K (not > 10: a grazing beam on the north wall); 30 min after the shadow lifts the concrete is 8.7 K cooler (84 %, not > 10). Frame: IG.2. 6 cases. | — | M | P |
 | PT.21 | **Per-cell sky view factor and diffuse shadowing.** A 145-patch Tregenza sky sampled with the same ray–rectangle test gives each cell an SVF that scales both diffuse solar and longwave down, with dome, horizon and circumsolar split as EnergyPlus does. | Analytic anchors within 0.01 of the 145-patch quadrature: under an infinite overhang SVF = 0.5, at the foot of an infinite wall 0.5, open sky 1.000. Cells at SVF 0.2 and 0.9 under one weather file show a diurnal-amplitude ratio near 2 (kabalti passages, 1.97 vs 4.21 °C); an SVF applied to solar only fails it. | PT.18 | M | P |
 | PT.22 | **Shadows and sky view from geometry, CPU-only, neighbours included.** An `(origins, directions) → hit` adapter: the analytic rectangles are the oracle, a trimesh + embreex backend is optional and outside `src/irsim`, and the query walks every opaque prim. The 0.53° solar disc is sampled (7–19 rays) into a sunlit fraction. | The mesh path and the rectangle path agree cell-for-cell on a box occluder; a neighbouring block shades a wall its own mesh cannot; the penumbra ramp width is d·tan 0.53° ≈ 9.3 mm per metre within 10 % — a binary test fails. | PT.21 | M | P |
 | PT.16 | **Make `HeatTraceLayer` reachable** (ADR 0039, M6.16). §6.6 calls heat traces a signature phenomenon of the band, and the sim-to-real literature says detectors trained on synthetic data lacking them are confused by them — so this is an evaluation deliverable, not a nicety. | A rendered frame shows the trace ghost at the authored offset and amplitude; the overlay is absent bit-identically when unbound. Red today: `irsim.thermal.traces` is imported only by its own unit test. | PT.15 | M | C |

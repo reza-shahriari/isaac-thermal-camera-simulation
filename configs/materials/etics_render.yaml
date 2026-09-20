@@ -1,0 +1,28 @@
+# A thin render on external insulation (ETICS / EIFS): 10 mm of mineral render over 100 mm of
+# EPS, the retrofit skin most of Europe's post-war housing wears. Schema: irsim.config.materials.
+#
+# Thermally it is the opposite of masonry: a light skin (C ~ 18 kJ m^-2 K^-1) on a back that
+# conducts almost nothing, so the sunlit/shaded step across it sets up in minutes and tracks the
+# beam, and a light colour keeps the step small. IR thermography of an ETICS-retrofitted, light
+# ochre building in Madrid found sunny and shaded areas 7.4 C apart in summer against > 10 K on
+# massive walls (docs/research/2026-09-18-thermal-coupling-survey.md; Morrison et al. 2021 for the
+# masonry figure). Every number ESTIMATED: the render's density and heat capacity are generic
+# mineral-render values, k is the insulation's (0.037 W/mK) because the back boundary is what the
+# two-node model's second layer sees, and the solar absorptivity is a light ochre's.
+schema_version: 1
+material:
+  name: etics_render
+  source: estimated
+  reference: "docs/research/2026-09-18-thermal-coupling-survey.md (ETICS thermography, Madrid); ESTIMATED"
+  description: "Light render over EPS insulation: a thin, low-mass, low-conductance facade skin"
+  thermal:
+    density_kg_m3: 1800
+    specific_heat_j_kgk: 1000
+    conductivity_w_mk: 0.037
+    thickness_m: 0.01
+    solar_absorptivity: 0.30
+  optical:
+    emissivity_per_band: {nir: 0.88, swir: 0.88, mwir: 0.90, lwir: 0.91}
+    roughness_per_band: {nir: 0.75, swir: 0.75, mwir: 0.70, lwir: 0.65}
+    # A rough mineral render is a rough dielectric like asphalt (§4.2): a small residual falloff.
+    angular_model: {type: empirical, a: 0.05, p: 4}

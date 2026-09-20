@@ -74,6 +74,11 @@ UNSWEPT_SCENES: dict[str, str] = {
         "the §6.13 facet bench: seven surfaces, no camera and no prims. It is driven by "
         "scripts/validate_thermal_diurnal.py, which produces a diurnal curve, not a frame."
     ),
+    "wall_half_in_sun.yaml": (
+        "PT.20's reference scene: seven patches on one building and its ground, no camera and "
+        "no prims yet. scripts/wall_half_in_sun.py writes the engine-free frame from a synthetic "
+        "G-buffer; the rendered one is IG.2's."
+    ),
     "wet_road_noon.yaml": (
         "PH.2's reference field: one road patch, half wet, part shaded, no camera and no prims "
         "yet. Its numbers are tests/unit/test_wet_road.py's; the frame is IG.2's, and when a "
