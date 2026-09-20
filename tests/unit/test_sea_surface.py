@@ -182,10 +182,12 @@ def test_nadir_reads_just_below_the_sea_surface_temperature(rig) -> None:
     assert reading < SST_K
     # Two effects now separate the reading from the authored bulk SST, and they are checked apart
     # because they have different sizes and different causes: the reflected cold sky (~0.53 K,
-    # below) and MM.4's cool skin (~0.11 K at 5 m/s), which moves the radiating temperature itself.
+    # below) and MM.4's cool skin, which moves the radiating temperature itself -- ~0.11 K at
+    # 5 m/s on the longwave loss alone, ~0.31 K once PH.1 added the latent flux the sea-skin
+    # module had always said was the larger term.
     skin = sea.skin_temperature_k(0.0)
     deficit = SST_K - skin
-    assert 0.05 < deficit < 0.30, deficit
+    assert 0.05 < deficit < 0.50, deficit
     assert skin - reading == pytest.approx(0.53, abs=0.15)
 
     eps = float(np.atleast_1d(sea.emissivity(1.0))[0])
@@ -216,7 +218,9 @@ def test_the_profile_has_a_minimum_rather_than_a_monotone_ramp(rig) -> None:
     argmin = int(np.argmin(surface))
     assert 0 < argmin < surface.size - 1  # an interior minimum
     assert 2.0 <= math.degrees(depression[argmin]) <= 15.0
-    assert surface[-1] == pytest.approx(289.47, abs=0.3)  # nadir, warmest
+    # 289.47 before PH.1; the latent flux joined the cool skin's net loss and the skin fell
+    # ~0.3 K (the latent term is of the longwave term's size at 5 m/s and 50 % RH).
+    assert surface[-1] == pytest.approx(289.16, abs=0.3)  # nadir, warmest
     assert surface[argmin] == pytest.approx(283.7, abs=0.5)
     assert surface[-1] - surface[argmin] > 4.0  # a real, findable feature, not noise
 

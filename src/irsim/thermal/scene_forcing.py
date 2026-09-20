@@ -164,11 +164,18 @@ class SceneSurfaceForcing:
             speeds,
             self.convection,
         )
+        # PH.1: what the latent term needs from the weather, on every forcing. With no wetness
+        # declared and no film the balance never evaluates it, so a dry scene is unchanged.
+        from irsim.thermal.latent import bulk_conductance_kg_m2_s, specific_humidity_kg_kg
+
         return FacetForcing(
             t_air_k=sample.t_air_k,
             h_w_m2_k=np.asarray(h, dtype=np.float64),
             q_solar_w_m2=np.asarray(q_solar, dtype=np.float64),
             q_longwave_down_w_m2=np.asarray(q_lw, dtype=np.float64),
+            q_air_kg_kg=float(specific_humidity_kg_kg(sample.t_air_k, sample.rh_fraction)),
+            g_e_kg_m2_s=float(bulk_conductance_kg_m2_s(sample.wind_speed_m_s)),
+            precip_kg_m2_s=float(sample.precip_mm_h) / 3600.0,
         )
 
 
@@ -276,10 +283,14 @@ class CellForcing:
             )
         else:
             q_solar_cells = np.full(n, q_solar[i])
+        base = self.surfaces(t_s)
         return FacetForcing(
             t_air_k=float(t_air[i]),
             h_w_m2_k=np.full(n, h[i]),
             q_solar_w_m2=np.asarray(q_solar_cells, dtype=np.float64),
             q_longwave_down_w_m2=np.full(n, q_lw[i]),
             q_internal_w_m2=np.full(n, q_int[i]),
+            q_air_kg_kg=float(base.q_air_kg_kg),
+            g_e_kg_m2_s=float(base.g_e_kg_m2_s),
+            precip_kg_m2_s=float(base.precip_kg_m2_s),
         )

@@ -67,6 +67,23 @@ KOSCHMIEDER: Final[float] = 3.912023005428146  # ln(50)
 # for any surface irradiance in a weather file; the solar-path transmittance (M11) scales it.
 SOLAR_CONSTANT_W_M2: Final[float] = 1361.0
 
+# --- Moist air and evaporation (docs/physics-model.md §6.1 with the latent term; PH.1) ------------
+# Latent heat of vaporisation of water at 20 C, J kg^-1 (2.501e6 at 0 C, 2.45e6 at 20 C: Rogers &
+# Yau, A Short Course in Cloud Physics, Table 2.1). The roadmap's 2.45 MJ/kg is this value.
+L_V_WATER_J_KG: Final[float] = 2.45e6
+# Specific heat of dry air at constant pressure, J kg^-1 K^-1, and a standard-atmosphere density
+# at sea level, 15 C (ICAO): the Lewis relation h = rho c_p C_H U ties the sensible and latent
+# bulk fluxes together, and the psychrometric wet bulb is where they balance.
+C_P_AIR_J_KGK: Final[float] = 1005.0
+RHO_AIR_STD_KG_M3: Final[float] = 1.225
+P_STD_HPA: Final[float] = 1013.25
+# Ratio of the molar masses of water vapour and dry air: q = eps e / (p - (1 - eps) e).
+EPSILON_WATER_AIR: Final[float] = 0.622
+# Bulk transfer coefficient for latent heat (Dalton number) at 10 m in the 5-10 m/s range, COARE
+# 3.6 (Fairall et al. 2003 / Edson et al. 2013): 1.1-1.2e-3. Held constant here; COARE's own
+# stability and gustiness dependence is what PH.1's 15 % test tolerance allows for. ESTIMATED.
+C_E_BULK: Final[float] = 1.15e-3
+
 # --- Soot (docs/physics-model.md §2 read for a participating medium; PH.4) -----------------------
 # Small-particle (Rayleigh) soot absorbs as kappa_lambda = C0 * f_v / lambda, with f_v the soot
 # volume fraction and C0 = 36 pi n k / ((n^2 - k^2 + 2)^2 + 4 n^2 k^2) from the soot refractive

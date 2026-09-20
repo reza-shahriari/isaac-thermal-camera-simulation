@@ -79,6 +79,7 @@ class ThermalField:
         keep_ticks: int | None = None,
         on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
         conduction: Any = None,
+        film_kg_m2: Any = None,
     ) -> None:
         if tick_s <= 0.0:
             raise ValueError("tick_s must be positive")
@@ -92,7 +93,9 @@ class ThermalField:
         self.t0_s = float(t0_s)
         self.keep_ticks = keep_ticks
         self.on_tick = on_tick
-        self._solver = FacetSolver(properties, initial_k, conduction=conduction)
+        self._solver = FacetSolver(
+            properties, initial_k, conduction=conduction, film_kg_m2=film_kg_m2
+        )
         self._ticks: collections.deque[_Tick] = collections.deque(maxlen=keep_ticks)
         self._produced = 0
         self._digest = hashlib.sha256()
@@ -189,6 +192,11 @@ class ThermalField:
         weight = 0.0 if span <= 0.0 else (t_s - lower.t_s) / span
         blended = lower.temperatures_k + weight * (upper.temperatures_k - lower.temperatures_k)
         return np.asarray(blended, dtype=np.float32)
+
+    @property
+    def film_kg_m2(self) -> NDArray[np.float64] | None:
+        """The solver's water film per facet at the latest tick (PH.1), or ``None``."""
+        return self._solver.film_kg_m2
 
     @property
     def conduction(self) -> Any:

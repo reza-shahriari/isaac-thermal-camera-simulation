@@ -117,6 +117,37 @@ class FacetForcing:
     #: reflects part of it back (ADR 0088 addendum, PT.7). Not part of :meth:`arrays`, whose
     #: five-tuple callers unpack; read through :meth:`emission_factors`.
     emission_factor: Any = 1.0
+    #: The latent term (PH.1): the air's specific humidity, the bulk conductance ``ρ_a C_E U``
+    #: (kg m⁻² s⁻¹), the declared wet fraction, a surface resistance (s/m) and the rain rate
+    #: (kg m⁻² s⁻¹) that fills a solver's film. ``wet_fraction = 0`` with no film is no term.
+    q_air_kg_kg: Any = 0.0
+    g_e_kg_m2_s: Any = 0.0
+    wet_fraction: Any = 0.0
+    r_s_s_m: Any = 0.0
+    precip_kg_m2_s: Any = 0.0
+
+    def latent_arrays(self, n_facets: int) -> tuple[NDArray[np.float64], ...]:
+        """``(q_air, g_e, wet_fraction, r_s, precip)`` as ``(N,)`` arrays."""
+        out = []
+        for name in ("q_air_kg_kg", "g_e_kg_m2_s", "wet_fraction", "r_s_s_m", "precip_kg_m2_s"):
+            arr = _f64(getattr(self, name), name)
+            if arr.ndim == 0:
+                arr = np.full(n_facets, float(arr))
+            elif arr.shape != (n_facets,):
+                raise ValueError(f"{name} has shape {arr.shape}, expected ({n_facets},)")
+            if np.any(arr < 0.0):
+                raise ValueError(f"{name} cannot be negative")
+            out.append(arr)
+        if np.any(out[2] > 1.0):
+            raise ValueError("wet_fraction must lie in [0, 1]")
+        return tuple(out)
+
+    @property
+    def has_latent(self) -> bool:
+        """Cheap gate: a forcing with no wetness declared and no conductance skips the term."""
+        return bool(np.any(np.asarray(self.wet_fraction) > 0.0)) and bool(
+            np.any(np.asarray(self.g_e_kg_m2_s) > 0.0)
+        )
 
     def emission_factors(self, n_facets: int) -> NDArray[np.float64]:
         arr = _f64(self.emission_factor, "emission_factor")
@@ -162,6 +193,7 @@ class FacetSolver:
         *,
         conduction: Any = None,
         guard: bool = True,
+        film_kg_m2: Any = None,
     ) -> None:
         self.properties = properties
         state = _f64(initial_k, "initial temperature")
@@ -181,26 +213,67 @@ class FacetSolver:
         self._state = state
         self.conduction = conduction
         self.guard = guard
+        # PH.1: a water film per facet, kg m⁻², that rain fills and evaporation empties. `None`
+        # is a surface with no film bookkeeping at all (the declared `wet_fraction` still applies).
+        self._film: NDArray[np.float64] | None = None
+        if film_kg_m2 is not None:
+            film = np.asarray(film_kg_m2, dtype=np.float64)
+            if film.ndim == 0:
+                film = np.full(properties.n_facets, float(film))
+            if film.shape != (properties.n_facets,):
+                raise ValueError(
+                    f"film_kg_m2 has shape {film.shape}, expected ({properties.n_facets},)"
+                )
+            if np.any(film < 0.0):
+                raise ValueError("a film cannot be negative")
+            self._film = film
         self._factor: tuple[float, Any] | None = None
 
     @property
     def temperatures_k(self) -> NDArray[np.float64]:
         return np.asarray(self._state.copy())
 
+    @property
+    def film_kg_m2(self) -> NDArray[np.float64] | None:
+        """The water film per facet, kg m⁻² (a 0.2 mm film is 0.2 kg m⁻²), or ``None``."""
+        return None if self._film is None else np.asarray(self._film.copy())
+
+    def _wetness(self, forcing: FacetForcing) -> NDArray[np.float64] | None:
+        """The wet fraction the balance sees: the declared one, or 1 wherever a film stands."""
+        if not forcing.has_latent and self._film is None:
+            return None
+        _, g_e, wet, _, _ = forcing.latent_arrays(self.properties.n_facets)
+        if self._film is not None:
+            wet = np.maximum(wet, (self._film > 0.0).astype(np.float64))
+        if not np.any(wet > 0.0) or not np.any(g_e > 0.0):
+            return None
+        return np.asarray(wet)
+
     def net_flux(
-        self, temperatures: NDArray[np.float64], forcing: FacetForcing
+        self,
+        temperatures: NDArray[np.float64],
+        forcing: FacetForcing,
+        wet: NDArray[np.float64] | None = None,
     ) -> NDArray[np.float64]:
+        """§6.1's right-hand side per facet; ``wet`` overrides the forcing's wet fraction."""
         t_air, h, q_sol, q_lw, q_int = forcing.arrays(self.properties.n_facets)
         leaves = forcing.emission_factors(self.properties.n_facets)
         # eps multiplies BOTH the absorbed sky radiation and the emitted term, as §6.1 writes
         # it. Kirchhoff: a surface absorbs the same fraction of incident longwave that it emits.
-        return np.asarray(
+        net = np.asarray(
             self.properties.solar_absorptivity * q_sol
             + self.properties.emissivity * q_lw
             - leaves * self.properties.emissivity * SIGMA_SB * temperatures**4
             - h * (temperatures - t_air)
             + q_int
         )
+        wetness = self._wetness(forcing) if wet is None else wet
+        if wetness is None:
+            return net
+        from irsim.thermal.latent import latent_heat_flux_w_m2
+
+        q_air, g_e, _, r_s, _ = forcing.latent_arrays(self.properties.n_facets)
+        return np.asarray(net - latent_heat_flux_w_m2(temperatures, q_air, g_e, wetness, r_s))
 
     def _check_explicit_bound(self, forcing: FacetForcing, dt_s: float) -> None:
         """§6.4's bound on the forcing's actual h and the state's own T, every step."""
@@ -226,8 +299,18 @@ class FacetSolver:
         if self.guard:
             self._check_explicit_bound(forcing, dt_s)
         capacity = self.properties.heat_capacity_j_m2_k
-        half = self._state + 0.5 * dt_s * self.net_flux(self._state, forcing) / capacity
-        explicit = self._state + dt_s * self.net_flux(half, forcing) / capacity
+        wet = self._wetness(forcing)
+        half = self._state + 0.5 * dt_s * self.net_flux(self._state, forcing, wet) / capacity
+        explicit = self._state + dt_s * self.net_flux(half, forcing, wet) / capacity
+        if self._film is not None:
+            # The film: rain in, evaporation (at the midpoint temperature) out, never below zero.
+            from irsim.thermal.latent import evaporation_kg_m2_s
+
+            q_air, g_e, _, r_s, precip = forcing.latent_arrays(self.properties.n_facets)
+            rate = precip.copy()
+            if wet is not None:
+                rate = rate - evaporation_kg_m2_s(half, q_air, g_e, wet, r_s)
+            self._film = np.maximum(0.0, self._film + rate * dt_s)
         if self.conduction is None:
             self._state = explicit
             return self.temperatures_k

@@ -224,6 +224,7 @@ class PlanarThermalField:
         keep_ticks: int | None = DEFAULT_KEEP_TICKS,
         on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
         conduction: Any = None,
+        film_kg_m2: Any = None,
     ) -> None:
         if properties.n_facets != patch.n_cells:
             raise ValueError(
@@ -247,6 +248,7 @@ class PlanarThermalField:
             keep_ticks=keep_ticks,
             on_tick=on_tick,
             conduction=conduction,
+            film_kg_m2=film_kg_m2,
         )
 
     # -- delegation --------------------------------------------------------------------------
@@ -277,6 +279,11 @@ class PlanarThermalField:
 
     def state_hash(self) -> str:
         return self.field.state_hash()
+
+    @property
+    def film_kg_m2(self) -> NDArray[np.float64] | None:
+        """The water film per cell at the latest tick (PH.1), or ``None`` without one."""
+        return self.field.film_kg_m2
 
     # -- the query ---------------------------------------------------------------------------
 

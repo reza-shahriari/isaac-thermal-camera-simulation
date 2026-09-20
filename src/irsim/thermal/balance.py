@@ -102,12 +102,23 @@ class SurfaceForcing:
     #: emissivity ε_r over view factor F returns F (1 − ε_r) ε of what the surface emits, so
     #: ``emission_factor = 1 − F (1 − ε_r) ε``. Exactly 1 under an open sky.
     emission_factor: float = 1.0
+    #: The latent term (PH.1, `irsim.thermal.latent`): the air's specific humidity, the bulk
+    #: conductance ``ρ_a C_E U`` in kg m⁻² s⁻¹, the wet fraction of the surface and a surface
+    #: resistance in s/m. ``wet_fraction = 0`` (the default) evaluates no latent term at all.
+    q_air_kg_kg: float = 0.0
+    g_e_kg_m2_s: float = 0.0
+    wet_fraction: float = 0.0
+    r_s_s_m: float = 0.0
 
     def __post_init__(self) -> None:
         if self.t_air_k <= 0.0:
             raise ValueError("air temperature must be positive (kelvin, not celsius)")
         if not 0.0 <= self.emission_factor <= 1.0:
             raise ValueError("emission_factor must lie in [0, 1]")
+        if not 0.0 <= self.wet_fraction <= 1.0:
+            raise ValueError("wet_fraction must lie in [0, 1]")
+        if self.q_air_kg_kg < 0.0 or self.g_e_kg_m2_s < 0.0 or self.r_s_s_m < 0.0:
+            raise ValueError("humidity, conductance and resistance cannot be negative")
         if self.h_w_m2_k < 0.0:
             raise ValueError("convection coefficient cannot be negative")
         if self.q_solar_w_m2 < 0.0 or self.q_longwave_down_w_m2 < 0.0:
@@ -125,7 +136,14 @@ def net_flux(
     absorbed_longwave = properties.emissivity * forcing.q_longwave_down_w_m2
     emitted = forcing.emission_factor * properties.emissivity * SIGMA_SB * t**4
     convected = forcing.h_w_m2_k * (t - forcing.t_air_k)
-    return np.asarray(absorbed + absorbed_longwave - emitted - convected + forcing.q_internal_w_m2)
+    net = absorbed + absorbed_longwave - emitted - convected + forcing.q_internal_w_m2
+    if forcing.wet_fraction > 0.0 and forcing.g_e_kg_m2_s > 0.0:
+        from irsim.thermal.latent import latent_heat_flux_w_m2
+
+        net = net - latent_heat_flux_w_m2(
+            t, forcing.q_air_kg_kg, forcing.g_e_kg_m2_s, forcing.wet_fraction, forcing.r_s_s_m
+        )
+    return np.asarray(net)
 
 
 def rk2_step(

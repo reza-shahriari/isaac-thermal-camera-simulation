@@ -268,10 +268,38 @@ class SeaModel:
         down = float(longwave_down_from_sample(sample, 1.0, sample.t_air_k))
         return float(net_longwave_up_w_m2(self._bulk_sst_k, down))
 
+    def latent_up_w_m2(self, t_s: float) -> float:
+        """Evaporative heat loss from the bulk sea to the scene's air, W m⁻² (PH.1).
+
+        At sea the latent flux is usually the largest term in the net heat loss (the sea-skin
+        module's own docstring says so, and omitted it). ``ρ_a C_E U (q_sat(SST) − q_a)`` with
+        the bulk SST as the evaporating temperature -- the same knowingly-uniterated choice the
+        longwave term makes -- and no salinity reduction of ``q_sat`` (2 %, below the bulk
+        coefficient's own spread).
+        """
+        from irsim.thermal.latent import (
+            bulk_conductance_kg_m2_s,
+            latent_heat_flux_w_m2,
+            specific_humidity_kg_kg,
+        )
+
+        sample = self._sky.weather.at(t_s)
+        q_air = float(specific_humidity_kg_kg(sample.t_air_k, sample.rh_fraction))
+        g_e = float(bulk_conductance_kg_m2_s(sample.wind_speed_m_s))
+        # Clamped at zero: a sea colder than the air's dew point collects condensation, which
+        # deposits its latent heat *at* the skin -- a warm-layer-like mechanism the cool-skin
+        # model does not carry -- and letting it cancel the longwave loss here would report a
+        # skin that has stopped cooling for the wrong reason.
+        return max(0.0, float(latent_heat_flux_w_m2(self._bulk_sst_k, q_air, g_e)))
+
+    def net_heat_up_w_m2(self, t_s: float) -> float:
+        """The net heat leaving the sea that the cool skin conducts: longwave plus latent."""
+        return self.net_longwave_up_w_m2(t_s) + self.latent_up_w_m2(t_s)
+
     def cool_skin_deficit_k(self, t_s: float) -> float:
-        """How far the skin sits below the bulk, from the shared weather's wind (MM.4)."""
+        """How far the skin sits below the bulk, from the shared weather's wind (MM.4, PH.1)."""
         wind = float(self._sky.weather.at(t_s).wind_speed_m_s)
-        return float(cool_skin_deficit_k(self.net_longwave_up_w_m2(t_s), wind, self._skin))
+        return float(cool_skin_deficit_k(self.net_heat_up_w_m2(t_s), wind, self._skin))
 
     def warm_layer_k(self, t_s: float) -> float:
         """How far a calm, sunlit afternoon lifts the skin above the bulk (MM.4)."""

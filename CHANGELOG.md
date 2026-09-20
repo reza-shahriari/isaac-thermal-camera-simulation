@@ -13,6 +13,26 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The latent-heat term and a wet film per cell** (`PH.1`, ADR 0101). §6.1's balance gains
+  `Q_L = L_v ρ_a (q_sat(T_s) − q_a) / (r_a + r_s)`, evaluated on the solver's own temperature like
+  emission (`irsim.thermal.latent`; Magnus/Bolton saturation shared with the atmosphere module;
+  `L_V_WATER_J_KG`, `C_P_AIR_J_KGK`, `RHO_AIR_STD_KG_M3`, `P_STD_HPA`, `EPSILON_WATER_AIR` and
+  COARE 3.6's `C_E_BULK` in `constants` with sources). `SurfaceForcing` / `FacetForcing` carry
+  `q_air_kg_kg`, `g_e_kg_m2_s`, `wet_fraction`, `r_s_s_m` and the rain rate; `FacetSolver`,
+  `ThermalField` and `PlanarThermalField` take `film_kg_m2=`, a water film per cell that rain
+  fills and evaporation (at the step's midpoint temperature) empties, and a cell is wet while it
+  holds water. `SceneSurfaceForcing` and `CellForcing` supply the humidity, the bulk conductance
+  and the rain from the scene's one weather series on every call, so a scene needs only to
+  declare a film (`PH.2`). The sea's cool skin now conducts the net longwave **plus** the latent
+  flux from the bulk SST (clamped at zero: condensation onto a cold sea is a warm-layer mechanism
+  the model does not carry), so the sea skin runs ~0.3 K colder; `test_sea_surface` re-pins the
+  nadir reading (289.47 → 289.16 K) and widens the cool-skin band to 0.5 K with the reason.
+  Measured: a saturated cell with no radiation relaxes to the psychrometric wet bulb within
+  0.1 K at RH 1.0, 0.7 and 0.4 and cools as RH falls; Q_L = 0 for saturated air at the surface's
+  temperature; a dry cell under moist weather is bit-identical to the plain balance over 200
+  ticks, with or without an empty film; 75 W/m² at 5 m/s, 293 K, RH 0.7 against COARE 3.6's 76;
+  the film budget closes to 1e-6 against the solver's own evaporation; removing the term warms
+  the sea skin. 11 cases in `tests/unit/test_latent_heat.py`. Spec issue S45 moves to `PH.3`.
 - **The engine as a solved node, not a schedule** (`TC.5`, ADR 0100; spec issue S43 is now
   `code`). `irsim.thermal.engine`: `EngineSpec` (block + coolant mass, skin area, forced and
   natural convection, bay volume and vent conductances, rated power and the bay's share of it,
