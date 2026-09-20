@@ -47,7 +47,10 @@ from numpy.typing import NDArray
 from irsim.thermal.facets import FacetForcing, FacetProperties
 from irsim.thermal.field import DEFAULT_TICK_S, ThermalField
 
-__all__ = ["PlanarPatch", "PlanarThermalField"]
+__all__ = ["PlanarPatch", "PlanarThermalField", "DEFAULT_KEEP_TICKS"]
+
+#: The bracketing pair a query blends, and nothing older: what a spatial field holds by default.
+DEFAULT_KEEP_TICKS = 2
 
 
 def _unit(vector: Any, what: str) -> NDArray[np.float64]:
@@ -217,6 +220,9 @@ class PlanarThermalField:
         t0_s: float,
         initial_k: Any,
         tick_s: float = DEFAULT_TICK_S,
+        *,
+        keep_ticks: int | None = DEFAULT_KEEP_TICKS,
+        on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
     ) -> None:
         if properties.n_facets != patch.n_cells:
             raise ValueError(
@@ -227,7 +233,13 @@ class PlanarThermalField:
         if state.ndim == 0:
             state = np.full(patch.n_cells, float(state))
         self.patch = patch
-        self.field = ThermalField(properties, forcing_at, t0_s, state, tick_s)
+        # A spatial field keeps a two-tick ring by default (PT.8, ADR 0093): a renderer asks for
+        # the tick it just advanced to, never for last hour, and a 10 400-cell road held every
+        # tick of a day at ~240 MB. Pass keep_ticks=None for the old behaviour, or on_tick to
+        # record the history a time-lapse wants without holding it in the field.
+        self.field = ThermalField(
+            properties, forcing_at, t0_s, state, tick_s, keep_ticks=keep_ticks, on_tick=on_tick
+        )
 
     # -- delegation --------------------------------------------------------------------------
 
@@ -246,6 +258,10 @@ class PlanarThermalField:
     @property
     def n_ticks(self) -> int:
         return self.field.n_ticks
+
+    @property
+    def n_held(self) -> int:
+        return self.field.n_held
 
     def advance_to(self, t_s: float) -> None:
         """Produce ticks up to ``t_s``. The **only** method that changes anything."""

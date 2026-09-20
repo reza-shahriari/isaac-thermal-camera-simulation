@@ -13,6 +13,16 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **A field holds the ticks a query needs, not every tick it produced** (`PT.8`, ADR 0093).
+  `ThermalField` gains `keep_ticks` (a `deque` ring; `None` keeps all, the per-prim default) and
+  `on_tick`, a hook that sees every tick in order for a time-lapse or a validation to record.
+  `PlanarThermalField` defaults to the bracketing pair: a day of the car scenes' 10 400-cell road
+  held ~240 MB and now holds 166 KB, which is what blocked ADR 0074's full-diurnal film.
+  `state_hash` is a running digest fed the same bytes in the same order as the old walk, so a ring
+  hashes exactly as the unbounded field did (checked by reconstructing the walk from the hook);
+  500 queries inside the window are bit-identical to the unbounded field's; a query before the
+  oldest held tick raises and names the knob rather than answering from a fallback. `n_ticks`
+  counts ticks produced, `n_held` ticks resident. 10 cases in `tests/unit/test_tick_history.py`.
 - **Patches solved from the scene config** (`PT.17`, ADR 0087). A `patch:` block on a §12.3
   surface now buys a per-cell `PlanarThermalField` on the surface's own library material, started
   from the prim's spun-up state and forced through `CellForcing` -- the same numbers the per-prim

@@ -201,17 +201,21 @@ def test_outside_the_patch_is_nan_not_an_edge_value() -> None:
 
 
 def test_a_query_does_not_advance_the_solve() -> None:
-    """A renderer asks many times per tick; the answer must not depend on how often."""
+    """A renderer asks many times per tick; the answer must not depend on how often.
+
+    The query sits inside the two-tick window a spatial field keeps by default (PT.8, ADR 0093):
+    a renderer asks for the tick it just advanced to, which is what this stands for.
+    """
     patch = _patch()
     field = _field(patch, 200.0)
     field.advance_to(100.0)
     before = field.state_hash()
     points = patch.cell_centres()
-    first = field.sample_at(37.5, points)
+    first = field.sample_at(99.0, points)
     for _ in range(20):
-        field.sample_at(37.5, points)
+        field.sample_at(99.0, points)
     assert field.state_hash() == before
-    assert np.array_equal(field.sample_at(37.5, points), first)
+    assert np.array_equal(field.sample_at(99.0, points), first)
 
 
 def test_temperature_narrows_to_float32_only_at_the_boundary() -> None:
