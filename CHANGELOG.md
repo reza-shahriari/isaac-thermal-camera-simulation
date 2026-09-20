@@ -13,6 +13,23 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The car scene's fields are spun up with the car present** (`PT.7`, the MP.5 limit). Both
+  `car_demo` fields are integrated through the scene's `spin_up_hours` with the car's sky
+  occlusion, its radiators at the air temperature of each hour plus whatever rise they carry at
+  t₀, and its shadow (`wrap_into_weather` is now public), cached per material, weather, geometry
+  and grid so a test session integrates each scene once (~14 s). Frame 0 of the clear-night scene
+  now carries the ~4.5 K road patch a car parked all night makes under a clear sky -- the dominant
+  feature of real night parking-lot imagery -- and its bonnet starts 4 K below the air it has been
+  radiating past; under overcast the standing patch is +0.009 K. `build_car_demo(spin_up=False)`
+  is the old uniform start, bit for bit. Spinning up exposed a residual of ADR 0088's kernel: an
+  ambient underbody of ε 0.88 under an overcast sky "cooled" the road beneath the bay by 2.1 K at
+  equilibrium, the reflection of the road's own emission off the grey body being missing. §6.1's
+  balance therefore gains `emission_factor` on `SurfaceForcing` and `FacetForcing` (default 1;
+  `1 − Σ F (1 − ε_r) ε_s` under grey bodies, one reflection), which the road field takes and the
+  bonnet deliberately does not (ADR 0088 addendum). Measured: 24 h and 48 h spin-ups agree to
+  0.1 mK; the engine's 30-minute growth is 1.81 K from either start.
+  `test_the_ground_patch_needs_time_because_the_field_starts_uniform` is inverted into
+  `test_frame_0_carries_the_patch_a_parked_car_has_already_made`.
 - **Contactors and radiation between fields** (`TC.3`, ADR 0099). `irsim.thermal.coupling`:
   `cell_overlap_areas` clips every cell of one patch against the cells of another in the first
   patch's plane (Sutherland–Hodgman, candidates prefiltered by the grid), so a contactor's

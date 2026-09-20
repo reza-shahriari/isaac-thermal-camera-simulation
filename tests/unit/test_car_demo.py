@@ -29,6 +29,7 @@ from irsim_isaac.car_demo import (
     CameraSetup,
     CarGeometry,
     build_car_demo,
+    build_ground_field,
     describe,
 )
 
@@ -99,7 +100,9 @@ def test_the_bonnet_gradient_falls_away_from_the_engine_and_is_not_a_step(demo_a
 
 def test_the_road_under_the_car_warms_and_the_far_road_does_not(demo_at_end) -> None:  # type: ignore[no-untyped-def]
     _scene, demo, start, _sb, end = demo_at_end
-    assert abs(start["road_patch_k"]) < 1e-3, "frame 0 road is uniform"
+    # PT.7: frame 0 is a car that has stood there all night. Under overcast the sky it blocks is
+    # within a few kelvin of the air, so the standing patch is tenths of a kelvin at most.
+    assert abs(start["road_patch_k"]) < 0.3, "under overcast a parked car leaves almost no patch"
     assert end["road_patch_k"] > 0.4, "the car should leave a warm patch"
     assert end["road_patch_k"] / NETD_K > 8.0
     # The far road is still cooling on its own, so the patch is a *contrast*, not a scene warm-up.
@@ -285,18 +288,43 @@ def test_a_clear_sky_puts_far_more_of_the_patch_on_the_road_than_the_engine_does
     assert clear_bonnet < overcast_bonnet, "a colder sky must cool the bonnet, not warm it"
 
 
-def test_the_ground_patch_needs_time_because_the_field_starts_uniform() -> None:
-    """A known limit, pinned so it is not mistaken for a result.
+def test_frame_0_carries_the_patch_a_parked_car_has_already_made() -> None:
+    """The MP.5 limit, inverted (PT.7).
 
-    §12.3 solves the asphalt as **one** surface, so the field inherits a uniform spun-up state --
-    the road as it would be with no car on it. A car that has stood there for hours would already
-    have its patch, and under a clear sky that is most of what a night thermal image of a car park
-    shows. Spinning the field up with the car present is what would fix it; until then frame 0 is
-    the moment the car arrived, and every patch here is one the run itself grew.
+    The fields are spun up with the car present -- its sky occlusion, its cold radiators, its
+    shadow -- so frame 0 of the clear-night scene already carries the road patch a car that has
+    stood all night has made (a real night image of a car park is mostly that), while under
+    overcast the standing patch stays under 0.3 K. The patch is at its own equilibrium: 24 h and
+    48 h of spin-up agree within 10 % (measured: identical to 0.1 mK). ``spin_up=False`` is the
+    old uniform start, bit for bit.
     """
-    for yaml_path in (SCENE_YAML, CLEAR_YAML):
-        patch_0, _ = _patch_after(yaml_path, 0.0)
-        assert abs(patch_0) < 1e-3, f"{yaml_path.name} starts with a patch it did not earn"
+    clear_0, _ = _patch_after(CLEAR_YAML, 0.0)
+    overcast_0, _ = _patch_after(SCENE_YAML, 0.0)
+    assert clear_0 > 3.0, f"the clear night's standing patch is only {clear_0:.2f} K"
+    assert abs(overcast_0) < 0.3, overcast_0
+
+    scene = Scene.from_file(CLEAR_YAML)
+    demo = build_car_demo(scene, author=False)
+    shorter = build_ground_field(
+        scene,
+        demo.geometry,
+        demo.ground_field.patch,
+        emissivity=0.95,
+        heat_capacity_j_m2_k=60_000.0,
+        solar_absorptivity=0.88,
+        initial_k=scene.surface_temperature_k("asphalt", scene.t0_s),
+        casters=demo.geometry.shadow_casters() + tuple(scene.occluders.values()),
+        spin_up_hours=24.0,
+    )
+    long_patch = describe(demo, scene, scene.t0_s)["road_patch_k"]
+    demo.ground_field = shorter
+    short_patch = describe(demo, scene, scene.t0_s)["road_patch_k"]
+    assert abs(short_patch - long_patch) < 0.1 * long_patch, (short_patch, long_patch)
+
+    uniform = build_car_demo(scene, author=False, spin_up=False)
+    asphalt_k = scene.surface_temperature_k("asphalt", scene.t0_s)
+    start = np.asarray(uniform.ground_field.temperature_at(scene.t0_s), dtype=np.float64)
+    assert np.array_equal(start, np.full(start.shape, np.float32(asphalt_k), dtype=np.float64))
 
 
 def test_the_engine_is_identical_in_both_scenes() -> None:
@@ -454,7 +482,9 @@ def test_the_car_shades_the_road_beside_it_and_the_shaded_road_runs_colder(tmp_p
     assert beside.sum() > 5 and far.sum() > 1000, (beside.sum(), far.sum())
 
     start = np.asarray(road.temperature_at(t0), dtype=np.float64)
-    assert float(np.ptp(start)) == 0.0, "the field starts from the uniform spun-up asphalt"
+    # PT.7: the field is spun up under the sun and the car's shadow, so the strip beside the car
+    # already runs cold in frame 0 and the run below only widens the contrast.
+    assert float(start[far].mean() - start[beside].mean()) > 1.0
     road.advance_to(t0 + RUN_S)
     end = np.asarray(road.temperature_at(t0 + RUN_S), dtype=np.float64)
     contrast = float(end[far].mean() - end[beside].mean())

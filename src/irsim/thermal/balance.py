@@ -97,10 +97,17 @@ class SurfaceForcing:
     q_solar_w_m2: float = 0.0
     q_longwave_down_w_m2: float = 0.0
     q_internal_w_m2: float = 0.0
+    #: The fraction of the surface's own emission that leaves for good. Below 1 when a grey body
+    #: facing the surface reflects part of it back (ADR 0088 addendum, PT.7): a body of
+    #: emissivity ε_r over view factor F returns F (1 − ε_r) ε of what the surface emits, so
+    #: ``emission_factor = 1 − F (1 − ε_r) ε``. Exactly 1 under an open sky.
+    emission_factor: float = 1.0
 
     def __post_init__(self) -> None:
         if self.t_air_k <= 0.0:
             raise ValueError("air temperature must be positive (kelvin, not celsius)")
+        if not 0.0 <= self.emission_factor <= 1.0:
+            raise ValueError("emission_factor must lie in [0, 1]")
         if self.h_w_m2_k < 0.0:
             raise ValueError("convection coefficient cannot be negative")
         if self.q_solar_w_m2 < 0.0 or self.q_longwave_down_w_m2 < 0.0:
@@ -116,7 +123,7 @@ def net_flux(
         raise ValueError("temperature must be positive (kelvin)")
     absorbed = properties.solar_absorptivity * forcing.q_solar_w_m2
     absorbed_longwave = properties.emissivity * forcing.q_longwave_down_w_m2
-    emitted = properties.emissivity * SIGMA_SB * t**4
+    emitted = forcing.emission_factor * properties.emissivity * SIGMA_SB * t**4
     convected = forcing.h_w_m2_k * (t - forcing.t_air_k)
     return np.asarray(absorbed + absorbed_longwave - emitted - convected + forcing.q_internal_w_m2)
 

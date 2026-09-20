@@ -23,11 +23,11 @@
 # demonstrate what a car does to the ground it stands on. The site and start hour match the
 # overcast scene so only the weather differs.
 #
-# ⚠️ KNOWN LIMIT, and it matters most here. §12.3 solves the asphalt as ONE surface, so the ground
-# field inherits a uniform spun-up state -- the road as it would be with no car on it. Frame 0 is
-# therefore the moment this car arrived, and every patch below is one the run itself grew. A car
-# that has stood for hours would already carry the full patch, which is what a real night image of
-# a car park shows. Fixing it means spinning the field up with the car present; MP.5.
+# Frame 0 is a car that has STOOD here all night (PT.7): both fields are spun up through
+# `spin_up_hours` with the car present -- its sky occlusion, its cold radiators, its shadow -- so
+# the road already carries the ~4.5 K patch a parked car makes under a clear sky, and the bonnet
+# starts ~4 K below the air it has been radiating past. `build_car_demo(spin_up=False)` is the
+# old uniform start, for comparison.
 #
 # ⚠️ `clear_midlat_summer_48h` declares "local = UTC+2" in its own header, so 01:00Z is 03:00
 # local -- the same pre-dawn hour, on a night that has been radiating to space since sunset.

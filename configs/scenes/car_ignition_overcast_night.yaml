@@ -10,7 +10,8 @@
 # WHY OVERCAST, AND WHY AT NIGHT. Under thick cloud the sky radiates at close to air temperature,
 # so §5.3's downwelling longwave nearly matches what a surface emits and everything in the scene --
 # the car, the road, the glass -- settles within a kelvin or two of ambient whatever it is made of.
-# Frame 0 is therefore genuinely flat, and everything that appears afterwards is the engine.
+# Frame 0 is therefore nearly flat -- the fields are spun up with the car present (PT.7) and a
+# parked car under overcast leaves under 0.3 K -- and what appears afterwards is the engine.
 #
 # Under a CLEAR night the same scene is not flat at all. The sky runs 40-50 K below ambient, every
 # upward-facing surface radiates to it and cools, and the car BLOCKS that cold sky from the asphalt

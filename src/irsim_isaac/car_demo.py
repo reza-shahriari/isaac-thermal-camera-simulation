@@ -37,6 +37,7 @@ The stage frame is :mod:`irsim_isaac.airframe`'s: **+X right, +Y up, -Z forward*
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,9 +45,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.radiometry.constants import SIGMA_SB
-from irsim.scene import Scene
+from irsim.scene import Scene, wrap_into_weather
 from irsim.thermal.convection import DEFAULT_CONVECTION, convection_coefficient
-from irsim.thermal.facets import FacetForcing, FacetProperties
+from irsim.thermal.facets import FacetForcing, FacetProperties, SpinUpCache, spin_up
 from irsim.thermal.longwave import longwave_down
 from irsim.thermal.shadow import ShadowRectangle, box_faces, cell_shadow
 from irsim.thermal.solar import solar_loading
@@ -428,6 +429,93 @@ def _weather_forcing(scene: Scene, sky_view: NDArray[np.float64], surface_t_gues
     return at
 
 
+#: Spun-up field states, keyed on the material, the weather, the geometry and the clock
+#: (`_spin_up_key`), so the many builds of one scene in a test session integrate it once.
+_SPIN_UP_CACHE = SpinUpCache()
+
+
+def _spin_up_key(scene: Scene, geom: CarGeometry, patch: PlanarPatch, *parts: Any) -> str:
+    """The weather-hash slot of `spin_up_key`, widened with what else decides the answer.
+
+    `spin_up` keys on the material, the weather, t₀, the span and the step. A field spun up with
+    the car present also depends on the car's geometry, the grid it lands on, what shades it
+    and what radiates onto it; two scenes that differ only there would otherwise share a cache
+    entry and one of them would start from the other's road.
+    """
+    import hashlib
+
+    h = hashlib.sha256(scene.weather.content_hash.encode())
+    h.update(repr(geom).encode())
+    for arr in (patch.origin_m, patch.u_axis, patch.v_axis):
+        h.update(np.ascontiguousarray(arr, dtype=np.float64).tobytes())
+    h.update(np.array([patch.n_u, patch.n_v, patch.du_m, patch.dv_m, patch.thickness_m]).tobytes())
+    for part in parts:
+        h.update(repr(part).encode())
+    return h.hexdigest()
+
+
+def _spun_up_or_uniform(
+    scene: Scene,
+    key: str,
+    properties: FacetProperties,
+    forcing_at: Any,
+    uniform_k: float,
+    spin_up_hours: float | None,
+) -> NDArray[np.float64]:
+    """The field's starting state: spun up on its own forcing (PT.7), or the uniform value.
+
+    ``spin_up_hours=None`` is the pre-PT.7 start -- the per-prim answer broadcast to every cell,
+    the road as it would be with nothing standing on it -- kept so the two can be compared and
+    so a caller who wants the old frame 0 can still ask for it, bit for bit.
+    """
+    n = properties.n_facets
+    if spin_up_hours is None:
+        return np.full(n, float(uniform_k))
+    result = spin_up(
+        properties,
+        wrap_into_weather(scene.weather, forcing_at),
+        key,
+        scene.t0_s,
+        hours=float(spin_up_hours),
+        dt_s=60.0,
+        cache=_SPIN_UP_CACHE,
+    )
+    return np.asarray(result.temperatures_k, dtype=np.float64)
+
+
+def _emission_factor(
+    views: Sequence[Any], source_emissivities: Sequence[float], surface_emissivity: float
+) -> NDArray[np.float64]:
+    """``1 − Σ_r F_r (1 − ε_r) ε_s`` per cell: one reflection off each grey body back at the cell.
+
+    ADR 0088's kernel is single-bounce: a body radiates ``ε_r σ T_r⁴`` at the cell and blocks the
+    sky, and the cell's own emission toward the body was treated as lost. A grey body reflects
+    ``1 − ε_r`` of it back, and the cell re-absorbs ``ε_s`` of that. Without the term an ambient
+    body of ε 0.88 over an ambient road under an overcast sky is a net *cooler*, which is not a
+    thing. One reflection, not the infinite series: for ε ≥ 0.85 on both sides the second bounce
+    is under 2 % of the first.
+    """
+    back = np.zeros_like(np.asarray(views[0], dtype=np.float64))
+    for view, eps_r in zip(views, source_emissivities, strict=True):
+        back = back + np.asarray(view, dtype=np.float64) * (1.0 - eps_r) * surface_emissivity
+    return np.asarray(np.clip(1.0 - back, 0.0, 1.0))
+
+
+def _radiator_temperature(scene: Scene, name: str) -> Any:
+    """``t_abs_s -> K`` for a radiating part: its solved node from t₀ on, and before t₀ -- the
+    spin-up, when the node cannot be rewound -- the air of that instant plus the rise the node
+    carries at t₀ (zero for a car that has stood cold, which is what a spin-up is)."""
+    target = scene.targets[name]
+    t_air_0 = float(scene.weather.at(scene.t0_s).t_air_k)
+
+    def at(t_abs_s: float) -> float:
+        if t_abs_s >= scene.t0_s:
+            return float(target.temperature())
+        return float(scene.weather.at(t_abs_s).t_air_k) + (float(target.temperature()) - t_air_0)
+
+    return at
+
+
 def _solar_forcing(
     scene: Scene,
     patch: PlanarPatch,
@@ -544,6 +632,7 @@ def build_bonnet_field(
     tick_s: float = 10.0,
     patch: PlanarPatch | None = None,
     casters: tuple[ShadowRectangle, ...] = (),
+    spin_up_hours: float | None = None,
 ) -> PlanarThermalField:
     """The bonnet skin: §6.1 per cell, with the bay's radiation weighted by ADR 0088's view factor.
 
@@ -566,10 +655,15 @@ def build_bonnet_field(
     environment = _weather_forcing(scene, sky_view, 290.0)
     solar = _solar_forcing(scene, patch, sky_view, casters)
     bay = geom.engine_bay()
+    bay_temperature = _radiator_temperature(scene, "engine_bay")
+    # No emission factor here, on purpose: the skin's one emission term is its **top** face
+    # toward the sky, and the underside's exchange with the bay is the `reference` convention
+    # below (zero net for a bay at ambient). The road's term is different -- its one face is the
+    # one the car's grey underside faces -- and takes the factor (ADR 0088 addendum).
 
     def forcing_at(t_abs_s: float) -> FacetForcing:
         t_air, h, q_lw = environment(t_abs_s)
-        t_bay = scene.targets["engine_bay"].temperature()
+        t_bay = bay_temperature(t_abs_s)
         reference = bay.emissivity * SIGMA_SB * t_air**4
         q_int = occluded_longwave_flux(
             view,
@@ -592,7 +686,16 @@ def build_bonnet_field(
         emissivity=np.full(patch.n_cells, emissivity),
         solar_absorptivity=np.full(patch.n_cells, solar_absorptivity),
     )
-    initial = np.full(patch.n_cells, scene.weather.at(scene.t0_s).t_air_k)
+    # PT.7: spun up under its own sky and shadow, so a clear night's bonnet starts below the air
+    # it has been radiating past all night rather than at it. `None` keeps the old start.
+    initial = _spun_up_or_uniform(
+        scene,
+        _spin_up_key(scene, geom, patch, casters, emissivity, heat_capacity_j_m2_k),
+        properties,
+        forcing_at,
+        float(scene.weather.at(scene.t0_s).t_air_k),
+        spin_up_hours,
+    )
     return PlanarThermalField(patch, properties, forcing_at, scene.t0_s, initial, tick_s)
 
 
@@ -607,8 +710,14 @@ def build_ground_field(
     initial_k: float,
     tick_s: float = 30.0,
     casters: tuple[ShadowRectangle, ...] = (),
+    spin_up_hours: float | None = None,
 ) -> PlanarThermalField:
     """The road: §12.3's solved asphalt per cell, plus what the car standing on it radiates down.
+
+    ``spin_up_hours`` spins the field up **with the car on it** (PT.7): frame 0 then carries the
+    patch a car that has stood there for hours has already made -- under a clear sky the dominant
+    feature of a night parking-lot image -- instead of the uniform road no car has stood on.
+    ``None`` is that uniform start (``initial_k`` broadcast), bit for bit as before.
 
     Here the occlusion term is the real one (ADR 0088): the car takes away the sky each cell was
     seeing. Under this scene's overcast that nearly cancels the car's own emission, which is why
@@ -626,16 +735,21 @@ def build_ground_field(
     raw_views = [patch_view_factors(patch, rect) for _, rect in radiators]
     clamped_views = clamp_view_factor_sum(raw_views)
     views = tuple(
-        (name, view, rect) for (name, rect), view in zip(radiators, clamped_views, strict=True)
+        (_radiator_temperature(scene, name), view, rect)
+        for (name, rect), view in zip(radiators, clamped_views, strict=True)
     )
+    # What the road emits at the car's grey underside comes partly back (ADR 0088 addendum). Without
+    # this a cold car of ε 0.88 under an overcast sky "cooled" the road beneath its engine bay by
+    # 2 K at equilibrium -- the missing reflection, which a spun-up frame 0 made visible.
+    leaves = _emission_factor(clamped_views, [rect.emissivity for _, rect in radiators], emissivity)
 
     def forcing_at(t_abs_s: float) -> FacetForcing:
         t_air, h, q_lw = environment(t_abs_s)
         q_int = np.zeros(patch.n_cells)
-        for name, view, rect in views:
+        for temperature_of, view, rect in views:
             q_int = q_int + occluded_longwave_flux(
                 view,
-                scene.targets[name].temperature(),
+                temperature_of(t_abs_s),
                 emissivity,
                 source_emissivity=rect.emissivity,
                 longwave_down_w_m2=q_lw,
@@ -647,6 +761,7 @@ def build_ground_field(
             q_solar_w_m2=solar(t_abs_s),
             q_longwave_down_w_m2=q_lw,
             q_internal_w_m2=q_int,
+            emission_factor=leaves,
         )
 
     properties = FacetProperties(
@@ -654,7 +769,16 @@ def build_ground_field(
         emissivity=np.full(patch.n_cells, emissivity),
         solar_absorptivity=np.full(patch.n_cells, solar_absorptivity),
     )
-    initial = np.full(patch.n_cells, initial_k)
+    initial = _spun_up_or_uniform(
+        scene,
+        _spin_up_key(
+            scene, geom, patch, casters, emissivity, heat_capacity_j_m2_k, solar_absorptivity
+        ),
+        properties,
+        forcing_at,
+        initial_k,
+        spin_up_hours,
+    )
     return PlanarThermalField(patch, properties, forcing_at, scene.t0_s, initial, tick_s)
 
 
@@ -705,8 +829,14 @@ def build_car_demo(
     asphalt_absorptivity: float = 0.88,
     stage: Any = None,
     author: bool = True,
+    spin_up: bool = True,
 ) -> CarDemoScene:
     """Author the stage and build both fields. ``author=False`` builds the physics only.
+
+    ``spin_up`` (PT.7) integrates both fields through the scene's ``spin_up_hours`` with the car
+    present -- its shadow, its sky occlusion, its cold radiators -- so frame 0 is a car that has
+    stood there, not one that has just arrived. ``False`` is the uniform start the demo had
+    before, for comparison.
 
     **The grids come from the scene config when it declares them** (PT.17): a `patch:` block
     under the `bonnet` and `asphalt` surfaces. Each is checked -- the bonnet grid against this
@@ -749,6 +879,9 @@ def build_car_demo(
     # §12.3 solved the asphalt as one surface; the field starts from that spun-up state, so the
     # road does not begin the film at the air temperature having forgotten yesterday (M6.10).
     asphalt_k = scene.surface_temperature_k("asphalt", scene.t0_s)
+    hours = None
+    if spin_up:
+        hours = scene.spec.thermal.spin_up_hours if scene.spec.thermal is not None else 48.0
 
     demo.bonnet_field = build_bonnet_field(
         scene,
@@ -757,6 +890,7 @@ def build_car_demo(
         cell_m=bonnet_cell_m,
         patch=scene.patches.get("bonnet"),
         casters=casters,
+        spin_up_hours=hours,
     )
     demo.ground_field = build_ground_field(
         scene,
@@ -767,6 +901,7 @@ def build_car_demo(
         solar_absorptivity=asphalt_absorptivity,
         initial_k=asphalt_k,
         casters=casters,
+        spin_up_hours=hours,
     )
 
     demo.prim_to_target = {

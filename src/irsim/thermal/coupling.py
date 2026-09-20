@@ -379,14 +379,22 @@ class CoupledFields:
 
     def _forcing(self, t_s: float) -> FacetForcing:
         """Every member's forcing at ``t_s``, concatenated cell for cell."""
-        parts = [m.forcing_at(t_s).arrays(m.patch.n_cells) for m in self.members]
+        forcings = [m.forcing_at(t_s) for m in self.members]
+        parts = [f.arrays(m.patch.n_cells) for f, m in zip(forcings, self.members, strict=True)]
         t_air, h, q_solar, q_lw, q_int = (np.concatenate(col) for col in zip(*parts, strict=True))
+        leaves = np.concatenate(
+            [
+                f.emission_factors(m.patch.n_cells)
+                for f, m in zip(forcings, self.members, strict=True)
+            ]
+        )
         return FacetForcing(
             t_air_k=t_air,
             h_w_m2_k=h,
             q_solar_w_m2=q_solar,
             q_longwave_down_w_m2=q_lw,
             q_internal_w_m2=q_int,
+            emission_factor=leaves,
         )
 
     @property

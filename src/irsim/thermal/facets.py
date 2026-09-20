@@ -112,6 +112,21 @@ class FacetForcing:
     q_solar_w_m2: Any = 0.0
     q_longwave_down_w_m2: Any = 0.0
     q_internal_w_m2: Any = 0.0
+    #: The fraction of each facet's own emission that leaves for good (`SurfaceForcing`'s field
+    #: of the same name): 1 under an open sky, ``1 − F (1 − ε_r) ε`` under a grey body that
+    #: reflects part of it back (ADR 0088 addendum, PT.7). Not part of :meth:`arrays`, whose
+    #: five-tuple callers unpack; read through :meth:`emission_factors`.
+    emission_factor: Any = 1.0
+
+    def emission_factors(self, n_facets: int) -> NDArray[np.float64]:
+        arr = _f64(self.emission_factor, "emission_factor")
+        if arr.ndim == 0:
+            arr = np.full(n_facets, float(arr))
+        elif arr.shape != (n_facets,):
+            raise ValueError(f"emission_factor has shape {arr.shape}, expected ({n_facets},)")
+        if np.any((arr < 0.0) | (arr > 1.0)):
+            raise ValueError("emission_factor must lie in [0, 1]")
+        return arr
 
     def arrays(self, n_facets: int) -> tuple[NDArray[np.float64], ...]:
         out = []
@@ -176,12 +191,13 @@ class FacetSolver:
         self, temperatures: NDArray[np.float64], forcing: FacetForcing
     ) -> NDArray[np.float64]:
         t_air, h, q_sol, q_lw, q_int = forcing.arrays(self.properties.n_facets)
+        leaves = forcing.emission_factors(self.properties.n_facets)
         # eps multiplies BOTH the absorbed sky radiation and the emitted term, as §6.1 writes
         # it. Kirchhoff: a surface absorbs the same fraction of incident longwave that it emits.
         return np.asarray(
             self.properties.solar_absorptivity * q_sol
             + self.properties.emissivity * q_lw
-            - self.properties.emissivity * SIGMA_SB * temperatures**4
+            - leaves * self.properties.emissivity * SIGMA_SB * temperatures**4
             - h * (temperatures - t_air)
             + q_int
         )

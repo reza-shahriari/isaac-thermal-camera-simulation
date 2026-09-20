@@ -77,3 +77,24 @@ until now was *one temperature for the whole panel*.
 
 A scene needs a non-parallel pair (a wall beside a radiator, a wheel arch), or Tier 4 shows a
 vehicle-vs-ground bias that survives the schedules — at which point option 3 is the next step.
+
+## Addendum 2026-09-20 (PT.7): one reflection off the grey body
+
+Spinning a field up with the car present made a residual of this kernel visible that a 30-minute
+run from a uniform start never reached: an **ambient** underbody of ε 0.88 over an ambient road
+under an overcast sky "cooled" the road beneath the engine bay by 2.1 K at equilibrium. The
+kernel gave the cell the body's emission `F ε_s ε_r σ T_r⁴` and took away the sky it blocks, but
+treated the cell's own emission toward the body as lost; a grey body reflects `1 − ε_r` of it
+back, and the cell re-absorbs `ε_s` of that. With the sky's effective emissivity near 1 and the
+body's at 0.88, the missing 12 % was a net loss, and a cold car became a net cooler of the road,
+which is not a thing.
+
+`SurfaceForcing` / `FacetForcing` therefore carry an `emission_factor` (default 1): the fraction
+of a facet's own emission that leaves for good, `1 − Σ_r F_r (1 − ε_r) ε_s` under grey bodies.
+One reflection, not the series: for ε ≥ 0.85 on both sides the second bounce is under 2 % of the
+first. The road field takes it; the bonnet does **not**, on purpose -- its one emission term is
+its sky-facing top, and its underside's exchange with the bay is already the "bay at ambient"
+reference convention above. Measured after the change: the overcast scene's standing patch is
++0.009 K (was −0.136 K mean, −2.1 K under the bay) and the engine's 30-minute growth is 1.81 K in
+both the uniform and the spun-up start.
+

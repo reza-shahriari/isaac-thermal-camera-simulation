@@ -174,27 +174,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 103 open steps
+#### Then, in order — 102 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WM.1`** | WM | P | M | 10 | ready |
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
-| 4 | **`PT.7`** | PT | P | M | 5 | ready |
-| 5 | **`TC.5`** | TC | P | M | 5 | ready |
-| 6 | **`PH.1`** | PH | P | M | 4 | ready |
-| 7 | **`PH.5`** | PH | P | M | 4 | ready |
-| 8 | **`TC.6`** | TC | P | M | 4 | `TC.5` |
-| 9 | **`PT.11`** | PT | P | L | 4 | `PT.7` |
-| 10 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
-| 11 | **`PT.21`** | PT | P | M | 2 | ready |
-| 12 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
-| 13 | **`PT.6`** | PT | P | S | 1 | ready |
-| 14 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
-| 15 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
+| 4 | **`TC.5`** | TC | P | M | 5 | ready |
+| 5 | **`PH.1`** | PH | P | M | 4 | ready |
+| 6 | **`PH.5`** | PH | P | M | 4 | ready |
+| 7 | **`TC.6`** | TC | P | M | 4 | `TC.5` |
+| 8 | **`PT.11`** | PT | P | L | 4 | ready |
+| 9 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
+| 10 | **`PT.21`** | PT | P | M | 2 | ready |
+| 11 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
+| 12 | **`PT.6`** | PT | P | S | 1 | ready |
+| 13 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 14 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
+| 15 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 
-…and 88 more — `python scripts/next_step.py --queue 40`.
+…and 87 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -397,7 +397,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.4 | ✅ **done.** `axes=` is **removed**, not guarded: the configuration factor is Howell C-11 for a *differential element*, which has no in-plane orientation to depend on. A rotated patch now gets the right answer rather than raising — better than the acceptance asked for. | **Measured.** 0.152 vs 0.104 on one element before the fix. 6 cases: a world-space quadrature oracle that walks the real corners (so a frame mix-up fails it), one rectangle labelled two ways, and a whole-configuration rotation. Re-mixing turns 3 red. | — | S | 0 |
 | PT.5 | ✅ **done.** `apply(world_from_local=...)` plus `local_frames`; `IrCamera` reads the matrices off the stage each frame. World-frame patches are bit-identical and never touch USD. | **Measured.** A prim translated 10 m and yawed 90°/215°: the same material point reads the same cell to **1e-6 K** across four poses, where a cell spans ~4 K. Identity-pose control disagrees by >5 K; the transposed matrix by >1 K, so USD's row-vector convention is pinned. 7 cases; in-sim read is `IG.2`. | PT.2 | M | A |
 | PT.6 | **Thermal properties from the material library.** `car_demo` authors bonnet C = 8000, asphalt C = 60 000, ε 0.92/0.95, α 0.88, bypassing `ThermalProperties.from_material` and violating ADR 0043's single-source rule. | `build_car_demo` with no overrides reproduces `from_material('asphalt_dry')` exactly. Measured disagreement today: C 60 000 against the library's 101 200 J/m²/K — 1.7× in the *time constant* — so the headline 6.21 K gradient is a result on a panel nobody can find in `configs/materials/`. An override raises unless the scene declares it. | PT.2 | S | P |
-| PT.7 | **Spin the field up with the scene present** (the MP.5 limit). Fields start uniform: the bonnet at air temperature, the road from one broadcast scalar, so frame 0 is a road no car has ever stood on — the dominant feature of real night parking-lot imagery. | Frame 0 of the clear-night scene carries a road patch within 10 % of its own equilibrium; the overcast scene stays under 0.3 K; a field spun up with no radiators is bit-identical to today. `test_the_ground_patch_needs_time_because_the_field_starts_uniform` names this fix explicitly and must be inverted. | PT.3 | M | P |
+| PT.7 | ✅ **done.** `build_car_demo(spin_up=True)`: both fields spun up through `spin_up_hours` with the car present (occlusion, cold radiators, shadow), cached; `emission_factor` on the balance returns one reflection off a grey body (ADR 0088 addendum); `spin_up=False` is the old start. | **Measured.** Clear night frame 0: a **4.5 K** standing patch, 24 h and 48 h spin-ups identical to 0.1 mK; overcast +0.009 K (the missing reflection had made it −2.1 K); the engine's 30 min growth is 1.81 K either way; `spin_up=False` is the uniform start bit for bit. The old pin is inverted. | — | M | P |
 | PT.8 | ✅ **done.** `ThermalField(keep_ticks=, on_tick=)`: a `deque` ring (`None` keeps all, the per-prim default), a running SHA-256 fed per tick, a hook that sees every tick in order. `PlanarThermalField` defaults to the bracketing pair; a query outside the window raises (ADR 0093). | **Measured.** A day of the 10 400-cell road holds **166 KB** of ticks against ~240 MB before; the ring's hash equals the full history's, rebuilt from the hook, byte for byte; 500 queries inside the window are bit-identical to the unbounded field's; a query before it names `keep_ticks`. 10 cases. | — | S | P |
 | PT.9 | **Point-wise on the aerial lane.** An airframe skin field bound from the scene config, with per-cell solar and the ram-heating source already in ADR 0075. A fuselage is the most obviously curved thing in the project, so this is the first consumer of `WM`. | The aircraft-pass frame shows a leading-edge-to-shaded-underside gradient across one prim, against 0.000 K today, with each cell holding its own equilibrium to 1 mK in the engine-free oracle. The per-prim path is bit-identical when the binding is absent. | PT.1, PT.2, PT.5, WM.3 | M | A |
 | PT.10 | **Point-wise on the maritime lane.** Deck and superstructure fields on the vessel scenes. The sea is already per-ray (ADR 0078/0080) by a different mechanism; the hull is not. | The vessel frame shows a sunlit-deck vs shadowed-superstructure step of ≥ 5 K across the hull prim, against 0.000 K today. Runs the same conservation test as WM.2: the area-weighted mean matches the per-prim value it replaces to within the forcing difference, so the change is provably a redistribution. | PT.9 | M | B |

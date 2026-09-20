@@ -54,7 +54,14 @@ from irsim.thermal.vehicle import VEHICLE_HEAT_SOURCES, VehicleSourceSolver
 from irsim.thermal.weather import WeatherSample, WeatherSeries
 from irsim.thermal.weather_io import load_weather_csv
 
-__all__ = ["Scene", "build_network", "build_occluder", "build_target", "build_world_frame"]
+__all__ = [
+    "Scene",
+    "build_network",
+    "build_occluder",
+    "build_target",
+    "build_world_frame",
+    "wrap_into_weather",
+]
 
 
 def build_patch(spec: PatchSpec) -> PlanarPatch:
@@ -547,6 +554,26 @@ def _identity(forcing: Any) -> Any:
     return forcing
 
 
+def wrap_into_weather(weather: WeatherSeries, forcing: Any) -> Any:
+    """``forcing`` evaluated inside the weather series for instants before it starts.
+
+    A spin-up needs hours of weather *before* t₀ that a 48 h file usually does not have, so the
+    spin-up wraps into the series it has: the synthetic files are a whole number of days long, a
+    wrap lands at the same time of day, and the seam is a weather discontinuity rather than a
+    clock one. Applied to the spin-up only -- the live forcing stays un-wrapped so a run past the
+    end of the weather raises instead of quietly reading yesterday.
+    """
+    span = float(weather.time_s[-1] - weather.time_s[0])
+    first = float(weather.time_s[0])
+
+    def wrapped(t_s: float) -> Any:
+        if t_s >= first:
+            return forcing(t_s)
+        return forcing(first + (t_s - first) % span)
+
+    return wrapped
+
+
 @dataclass(frozen=True)
 class _ThermalBuild:
     """What `_build_thermal_field` made, kept together so the per-cell fields start from it."""
@@ -616,25 +643,11 @@ def _build_thermal_field(
             for s in block.surfaces
         ),
     )
+
     # The spin-up needs `spin_up_hours` of weather *before* t0, and a 48 h file usually does not
-    # have it -- a scene at 07:00 on day 1 would need weather from two days before the file
-    # starts. So the spin-up **wraps** into the series it has: it is asking "what would this
-    # surface look like after a couple of days of weather like this", and the synthetic files are
-    # a whole number of days long, so a wrap lands at the same time of day and the seam is a
-    # weather discontinuity rather than a clock one.
-    #
-    # The wrap is applied to the **spin-up only**. The scene's live forcing stays un-wrapped, so a
-    # render that runs past the end of the weather raises instead of quietly reading yesterday.
-    span = float(weather.time_s[-1] - weather.time_s[0])
-    first = float(weather.time_s[0])
-
+    # have it -- see `wrap_into_weather`. The wrap is applied to the **spin-up only**.
     def wrap(inner: Any) -> Any:
-        def wrapped(t_s: float) -> Any:
-            if t_s >= first:
-                return inner(t_s)
-            return inner(first + (t_s - first) % span)
-
-        return wrapped
+        return wrap_into_weather(weather, inner)
 
     spun = spin_up(
         properties,
