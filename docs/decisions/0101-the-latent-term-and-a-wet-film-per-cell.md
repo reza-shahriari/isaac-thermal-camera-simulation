@@ -82,3 +82,16 @@ against the solver's own evaporation; the sea skin runs colder with the term tha
 A validation needs COARE's stability dependence (replace `C_E_BULK` with a function of the
 bulk Richardson number), dew on dry surfaces is wanted for a night scene (the sign already
 works; it needs a film to land in), or a soil model needs the film to infiltrate.
+
+## Addendum 2026-09-20 (PH.2): the film in the scene config
+
+`SurfaceSpec.film: {depth_mm, region_m}` puts a film on a patched surface at the scene start --
+every cell, or the cells whose centres lie in ``[u0, u1, v0, v1]`` of the patch -- so half a
+road can be wet on one prim. The film is not spun up (the road has just been watered).
+`configs/scenes/wet_road_noon.yaml` is the reference: a 0.5 mm pass on the west half of a
+12 m asphalt patch at 14:00 on a clear June day, a wall shading the south rows. Measured: the
+sunlit wet half runs up to 9.9 K colder than the dry half at ~27 min (Hendel 2014: 6–13 K),
+the shaded contrast peaks near 5 K later, the sunlit film is gone at ~28 min (0.2 mm would go
+in ten: this road is ~57 °C under 2.5 m/s, 1.3 mm/h) and the halves reconverge to under a
+quarter of the peak by three hours; `evaporated_kg_m2` closes the budget exactly.
+

@@ -13,6 +13,20 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The wet/dry road: one object, two states** (`PH.2`, ADR 0101 addendum). A patched surface
+  may declare `film: {depth_mm, region_m}`: water on every cell or on the cells inside a
+  rectangle of the patch's own (u, v), at the scene start. `configs/scenes/wet_road_noon.yaml`
+  waters the west half of a 12 m asphalt patch with a 0.5 mm pass at 14:00 on a clear June day
+  with a wall shading the south rows -- one prim, four states. `FacetSolver`, `ThermalField`
+  and `PlanarThermalField` expose `evaporated_kg_m2`, the water each cell's film has given up,
+  bookkept exactly through the clamp. Measured: the sunlit wet half runs up to 9.9 K colder than
+  the dry half at ~27 min (Hendel 2014's FLIR B400: 6–13 K), the shaded contrast is a third of
+  that at the peak and reaches ~5 K later because evaporation runs on the surface's own
+  temperature; the sunlit film is gone at ~28 min, inside the 15–120 min window (0.2 mm would go
+  in ten minutes on a 57 °C road under 2.5 m/s, 1.3 mm/h, which is why the scene waters 0.5 mm),
+  and the halves reconverge to under a quarter of the peak by three hours; film₀ − film equals
+  what evaporated to 1e-6 and an independent quadrature of E(T) over the tick temperatures agrees
+  to 1e-6. 5 cases in `tests/unit/test_wet_road.py`. The rendered frame needs `IG.2`.
 - **The R2 reference scene: an engine warms the metal around it** (`TC.6`, ADR 0100 addendum).
   Both car scenes declare the engine as `solver: engine` and the metal around it as `nodes:` and
   `links:`: the block followed as a boundary (`follows: {target, node}`, a one-way boundary

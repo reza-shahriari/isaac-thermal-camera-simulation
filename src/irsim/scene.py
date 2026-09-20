@@ -786,6 +786,25 @@ def _build_surface_fields(
         else:
             spun = np.full(n, float(build.spun_k[i]))
         out[s.name] = PlanarThermalField(
-            patch, cells, forcing, build.t0_s, spun, spec.thermal.tick_s
+            patch,
+            cells,
+            forcing,
+            build.t0_s,
+            spun,
+            spec.thermal.tick_s,
+            film_kg_m2=_film_for(patch, s.film),
         )
     return out
+
+
+def _film_for(patch: PlanarPatch, film: Any) -> Any:
+    """``(n_cells,)`` kg m⁻² of water at t₀ from a `FilmSpec`, or ``None`` for a dry surface."""
+    if film is None:
+        return None
+    depth = np.full(patch.n_cells, float(film.depth_mm))  # 1 mm of water is 1 kg m⁻²
+    if film.region_m is not None:
+        u0, u1, v0, v1 = film.region_m
+        uv = patch.local_coords(patch.cell_centres())
+        inside = (uv[:, 0] >= u0) & (uv[:, 0] <= u1) & (uv[:, 1] >= v0) & (uv[:, 1] <= v1)
+        depth = np.where(inside, depth, 0.0)
+    return depth

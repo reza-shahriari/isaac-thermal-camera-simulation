@@ -199,6 +199,11 @@ class ThermalField:
         return self._solver.film_kg_m2
 
     @property
+    def evaporated_kg_m2(self) -> NDArray[np.float64]:
+        """Water each facet's film has given up since t₀, kg m⁻² (PH.2's budget)."""
+        return self._solver.evaporated_kg_m2
+
+    @property
     def conduction(self) -> Any:
         """The operator linking the facets, or ``None`` for independent columns (TC.1)."""
         return self._solver.conduction

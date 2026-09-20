@@ -1,0 +1,67 @@
+# One object, two states: a road watered on half its width, at 14:00 on a clear June day, with a
+# slab shading the far end. Schema: irsim.config.scene (v9). Roadmap PH.2; ADR 0101 (the latent
+# term and the film), ADR 0095 (the occluder).
+#
+# What the frame should show, and why it is a test of physics rather than of a lookup table:
+#
+#   * The wet half is 6-13 K colder than the dry half in the sun (Hendel et al. 2014 watered Paris
+#     pavements and imaged them with a FLIR B400; that is the spread they saw) and only 2-4 K in
+#     the shade, because evaporation is driven by the surface's OWN temperature and a shaded cell
+#     is cooler to begin with. A "wet = colder by a constant" shortcut gets the shade wrong.
+#   * The 0.2 mm film is gone in 15-120 minutes and the halves reconverge: the drying spike the
+#     camera saw. The film is a mass per cell that evaporation empties; the budget closes.
+#   * The road is ONE prim. Its wet half, dry half, sunlit and shaded quarters are cells of one
+#     field bound to one piece of geometry -- the owner's first requirement.
+#
+# The rendered frame is IG.2's; the field these numbers live on is engine-free and tested in
+# tests/unit/test_wet_road.py.
+
+schema_version: 9
+scene:
+  name: wet_road_noon
+  description: "an asphalt road watered on half its width at 14:00 on a clear June day, part shaded"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
+  # `clear_midlat_summer_48h` is local = UTC+2: 12:00Z is 14:00 local, the sun high in the SSW.
+  start_utc: "2024-06-21T12:00:00Z"
+  # World is ENU: x east, y north, z up.
+  targets: []
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 60.0
+    # A wall standing along the road's south edge, 4 m high: at 14:00 the sun is in the SSW at
+    # ~58 degrees, so its shadow reaches ~2.5 m north across the first rows of the road.
+    # Hard-edged, as ADR 0095 records.
+    occluders:
+      - name: south_wall
+        centre_m: [6.0, -0.5, 2.0]
+        u_axis: [1.0, 0.0, 0.0]
+        v_axis: [0.0, 0.0, 1.0]
+        half_u_m: 8.0
+        half_v_m: 2.0
+    surfaces:
+      # 12 m x 12 m of asphalt at 0.5 m cells, x from 0 to 12 (u), y from 0 to 12 (v). The west
+      # half (u < 6) was watered a moment ago with a 0.5 mm pass; the east half is dry. The
+      # wall's shadow covers the south rows (v < ~2.5). Why 0.5 mm and not less: this road is
+      # ~57 C at 14:00 under 2.5 m/s, where the film evaporates at ~1.3 mm/h, so 0.2 mm would be
+      # gone in ten minutes; a watering pass leaves enough to dry over the 15-120 min Hendel saw.
+      - name: road
+        material: asphalt_dry
+        tilt_deg: 0.0
+        patch:
+          origin_m: [0.0, 0.0, 0.0]
+          u_axis: [1.0, 0.0, 0.0]
+          v_axis: [0.0, 1.0, 0.0]
+          n_u: 24
+          n_v: 24
+          du_m: 0.5
+          dv_m: 0.5
+          thickness_m: 0.10
+          frame: world
+          prim_path: /World/Road
+        film:
+          depth_mm: 0.5
+          region_m: [0.0, 6.0, 0.0, 12.0]

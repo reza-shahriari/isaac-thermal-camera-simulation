@@ -227,6 +227,7 @@ class FacetSolver:
             if np.any(film < 0.0):
                 raise ValueError("a film cannot be negative")
             self._film = film
+        self._evaporated = np.zeros(properties.n_facets)
         self._factor: tuple[float, Any] | None = None
 
     @property
@@ -237,6 +238,11 @@ class FacetSolver:
     def film_kg_m2(self) -> NDArray[np.float64] | None:
         """The water film per facet, kg m⁻² (a 0.2 mm film is 0.2 kg m⁻²), or ``None``."""
         return None if self._film is None else np.asarray(self._film.copy())
+
+    @property
+    def evaporated_kg_m2(self) -> NDArray[np.float64]:
+        """Water each facet's film has given up since the start, kg m⁻² (exact bookkeeping)."""
+        return np.asarray(self._evaporated.copy())
 
     def _wetness(self, forcing: FacetForcing) -> NDArray[np.float64] | None:
         """The wet fraction the balance sees: the declared one, or 1 wherever a film stands."""
@@ -310,7 +316,11 @@ class FacetSolver:
             rate = precip.copy()
             if wet is not None:
                 rate = rate - evaporation_kg_m2_s(half, q_air, g_e, wet, r_s)
+            before_film = self._film
             self._film = np.maximum(0.0, self._film + rate * dt_s)
+            # What actually left the film this tick (the clamp means E dt can exceed it), so
+            # a mass budget can be checked exactly: film₀ − film + rain = evaporated.
+            self._evaporated = self._evaporated + (before_film - self._film + precip * dt_s)
         if self.conduction is None:
             self._state = explicit
             return self.temperatures_k

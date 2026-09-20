@@ -390,6 +390,27 @@ class OccluderSpec(_Frozen):
         return self
 
 
+class FilmSpec(_Frozen):
+    """A water film on a patched surface at the scene start (PH.2, ADR 0101).
+
+    ``depth_mm`` of water (1 mm is 1 kg m⁻²) on every cell, or only on the cells whose centre
+    lies inside ``region_m`` -- ``[u0, u1, v0, v1]`` in the patch's own (u, v) metres -- so half
+    a road can be wet and the other half dry on one prim. The film starts at t₀ (the road has
+    just been watered, or the rain has just stopped); it is not spun up.
+    """
+
+    depth_mm: float = Field(gt=0.0, le=50.0)
+    region_m: tuple[float, float, float, float] | None = None
+
+    @model_validator(mode="after")
+    def _region(self) -> FilmSpec:
+        if self.region_m is not None:
+            u0, u1, v0, v1 = self.region_m
+            if not (u1 > u0 and v1 > v0):
+                raise ValueError("film region_m must be [u0, u1, v0, v1] with u1 > u0, v1 > v0")
+        return self
+
+
 class SurfaceSpec(_Frozen):
     """One thermally solved surface: a material, where it faces, and whether it is shaded.
 
@@ -409,6 +430,18 @@ class SurfaceSpec(_Frozen):
     #: whole surface. Absent leaves the surface exactly as it was, so every v4-v6 scene loads
     #: and solves unchanged (schema v7, PT.2).
     patch: PatchSpec | None = None
+    #: A water film at the scene start, per cell (PH.2). Needs a patch; a per-prim surface has
+    #: no cells to be half wet.
+    film: FilmSpec | None = None
+
+    @model_validator(mode="after")
+    def _film_needs_a_patch(self) -> SurfaceSpec:
+        if self.film is not None and self.patch is None:
+            raise ValueError(
+                f"surface {self.name!r}: a film needs a `patch:` -- it is a per-cell state, and a "
+                "per-prim surface has no cells to be half wet"
+            )
+        return self
 
 
 class NodeSpec(_Frozen):

@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 99 open steps
+#### Then, in order — 98 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -192,9 +192,9 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 12 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 | 13 | **`PT.15`** | PT | P | M | 1 | `PT.12` |
 | 14 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
-| 15 | **`PH.2`** | PH | P | S | — | ready |
+| 15 | **`PT.14`** | PT | P | S | — | `WM.5` |
 
-…and 84 more — `python scripts/next_step.py --queue 40`.
+…and 83 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -513,7 +513,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | PH.1 | ✅ **done.** `irsim.thermal.latent`: Q_L = L_v ρ_a (q_sat(T_s) − q_a)/(r_a + r_s) in the balance; `FacetSolver(film_kg_m2=)` keeps a film per cell that rain fills and evaporation empties; scene forcings carry q_a, g_e and rain; the sea skin's net loss gains the latent flux. ADR 0101. | **Measured.** A saturated cell with no radiation lands on the wet bulb within 0.1 K at RH 1.0, 0.7, 0.4; Q_L = 0 at RH 1, T_s = T_a; a dry cell is bit-identical; 75 W/m² at 5 m/s, 293 K, RH 0.7 (COARE 76); the film budget closes to 1e-6; the sea skin runs 0.3 K colder. 11 cases. | — | M | P |
-| PH.2 | **The wet/dry road: one object, two states.** An asphalt patch at noon under the clear summer file with a 0.2 mm film on half its cells (Paris pavement watering, Hendel 2014, FLIR B400). | The wet half renders 6–13 K colder than the dry half in sun and 2–4 K in shade; the film is gone in 15–120 min and the halves reconverge — the drying spike the camera saw; the film mass budget closes to 1e-6 against ∫E dt. A latent term scaled wrong dries outside the window. | PH.1, PT.18 | S | P |
+| PH.2 | ✅ **done.** `configs/scenes/wet_road_noon.yaml`: `film: {depth_mm, region_m}` on a patched surface (ADR 0101 addendum) waters the west half of a 12 m asphalt patch at 14:00, a wall shading the south rows; `evaporated_kg_m2` closes the budget. 0.5 mm, not 0.2: this road dries at 1.3 mm/h. | **Measured.** Sunlit wet − dry peaks at **9.9 K** at 27 min, shaded near 5 K later; the sunlit film is gone at 28 min and the halves reconverge below a quarter of the peak by 3 h; film₀ − film = evaporated and a quadrature of E(T) agree to 1e-6. The frame needs IG.2. 5 cases. | — | S | P |
 | PH.3 | **Still water: lakes, ponds and puddles.** A fresh-water mixed-layer node under the sea-skin model, water's Fresnel angular emissivity and the reflected sky, as a per-cell override on a ground patch so a puddle is a region of the road. | Clear calm night: skin − bulk in [−0.5, −0.1] K; a cloudy humid night flips the sign — a skin that only ever cools fails; the sublayer is 0.7–3.6 mm at 0.8–8.2 m/s; a puddle at the road's kinetic temperature reads several K colder apparent at 60° off nadir under a clear sky, within 0.5 K at nadir; ε + ρ = 1 at every angle. | PH.1 | M | P |
 | PH.4 | ✅ **done.** `irsim.pipeline.gas_slab`: `GasSlab(T_gas, L, p_CO₂, p_H₂O, f_soot)`, no emissivity field; L_b = τ_b L_behind + (1−τ_b) B_b(T_g); soot κ_b by quadrature, gas κ_b(T) from tables (PH.5); attenuated per class from range as MS.6; guard 300–2500 K. ADR: PH.13. | **Measured.** κL→0 returns the background bit-exactly, κL→∞ B_b(T_g); an opaque soot flame reads T_g in both bands to 1 mK; a CO₂/H₂O slab (synthetic table) reads > 900 K apart between bands, a grey ε within 150 K; steam before a hot wall is negative; range identities to 1e-12. 12 cases. | — | M | P |
 | PH.5 | **Per-band hot-gas absorption tables, generated offline.** `scripts/generate_gas_luts.py` runs RADIS over HITEMP (LGPL, under `scripts/` only) for CO₂ and H₂O over 300–2500 K, integrates against every band's R(λ) so bands stay data, and commits float32 κ_b(T) with a hash sidecar; RadCal is the fallback. | The CO₂ 4.3 µm band mean at 1500 K exceeds the 296 K value; the sidecar hash pins the database used; a 3.80–4.05 µm through-flame sub-band added as config shows near-zero CO₂ contrast against 3–5 µm's; `test_temperature_encoding` sweeps to 1000 K. | PH.4 | M | P |

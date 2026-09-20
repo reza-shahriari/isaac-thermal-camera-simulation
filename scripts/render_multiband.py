@@ -74,6 +74,11 @@ UNSWEPT_SCENES: dict[str, str] = {
         "the §6.13 facet bench: seven surfaces, no camera and no prims. It is driven by "
         "scripts/validate_thermal_diurnal.py, which produces a diurnal curve, not a frame."
     ),
+    "wet_road_noon.yaml": (
+        "PH.2's reference field: one road patch, half wet, part shaded, no camera and no prims "
+        "yet. Its numbers are tests/unit/test_wet_road.py's; the frame is IG.2's, and when a "
+        "driver authors the road it joins the sweep."
+    ),
 }
 
 #: band -> (sensor config, extra arguments). `--integration-ms` appears only where the camera's own

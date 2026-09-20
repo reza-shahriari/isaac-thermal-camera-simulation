@@ -285,6 +285,11 @@ class PlanarThermalField:
         """The water film per cell at the latest tick (PH.1), or ``None`` without one."""
         return self.field.film_kg_m2
 
+    @property
+    def evaporated_kg_m2(self) -> NDArray[np.float64]:
+        """Water each cell's film has given up since t₀, kg m⁻² (PH.2)."""
+        return self.field.evaporated_kg_m2
+
     # -- the query ---------------------------------------------------------------------------
 
     def temperature_at(self, t_s: float) -> NDArray[np.float32]:
