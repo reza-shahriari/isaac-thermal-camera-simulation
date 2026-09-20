@@ -436,6 +436,10 @@ class SurfaceSpec(_Frozen):
     #: In-plane conduction between a patch's cells from the material's k and thickness (PT.11,
     #: ADR 0102). On by default; off is the independent-column field for a comparison.
     lateral_conduction: bool = True
+    #: Layers through the thickness of every cell (PT.12, ADR 0103): 1 is the single node the
+    #: field always was; N cuts the material's thickness into N equal slices with §6.4's contact
+    #: resistance between them and an adiabatic back. Needs a patch.
+    layers: int = Field(default=1, ge=1, le=64)
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
@@ -443,6 +447,13 @@ class SurfaceSpec(_Frozen):
             raise ValueError(
                 f"surface {self.name!r}: a film needs a `patch:` -- it is a per-cell state, and a "
                 "per-prim surface has no cells to be half wet"
+            )
+        if self.layers > 1 and self.patch is None:
+            raise ValueError(f"surface {self.name!r}: `layers` needs a `patch:`")
+        if self.layers > 1 and self.film is not None:
+            raise ValueError(
+                f"surface {self.name!r}: a film on a layered surface is not supported yet -- "
+                "the film lives on the single-node field (PH.1)"
             )
         return self
 

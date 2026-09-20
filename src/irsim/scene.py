@@ -353,7 +353,9 @@ class Scene:
     #: and no solver: `_build_thermal_field` still solved the surface as one facet and only
     #: `car_demo.py` could put a temperature on a cell, in Python. Empty for a scene with no
     #: patch. The per-prim entry in :attr:`thermal` stays as well, so the flat path is unchanged.
-    surface_fields: Mapping[str, PlanarThermalField] = field(default_factory=dict)
+    #: A `PlanarThermalField`, or for a surface with ``layers > 1`` the surface layer's
+    #: `PatchView` over its stack (PT.12) -- the same ``patch`` / ``advance_to`` / ``sample_at``.
+    surface_fields: Mapping[str, Any] = field(default_factory=dict)
     #: How the scene's world coordinates relate to east, north and up (schema v8, PT.18). ENU
     #: unless the config says otherwise; the car scenes say Y-up.
     world_frame: WorldFrame = ENU
@@ -446,7 +448,7 @@ class Scene:
         out.update(self.extra_consumers)
         return out
 
-    def surface_bindings(self) -> tuple[tuple[str, PlanarThermalField], ...]:
+    def surface_bindings(self) -> tuple[tuple[str, Any], ...]:
         """``(prim path, field)`` for every patched surface that named a prim (PT.17).
 
         This is what a render driver hands to ``IrCamera`` -- through
@@ -756,7 +758,7 @@ def _build_surface_fields(
     patches: Mapping[str, PlanarPatch],
     world_frame: WorldFrame = ENU,
     occluders: Mapping[str, ShadowRectangle] | None = None,
-) -> dict[str, PlanarThermalField]:
+) -> dict[str, Any]:
     """A per-cell field for every surface that declared a patch (ADR 0087, PT.17).
 
     Each field is the surface's own facet repeated over its cells: the same library material,
@@ -779,7 +781,7 @@ def _build_surface_fields(
     from irsim.thermal.facets import FacetProperties, spin_up
     from irsim.thermal.scene_forcing import CellForcing
 
-    out: dict[str, PlanarThermalField] = {}
+    out: dict[str, Any] = {}
     if build.field is None or spec.thermal is None:
         return out
     casters = tuple((occluders or {}).values())
@@ -798,10 +800,38 @@ def _build_surface_fields(
             build.forcing, i, n, patch=patch, occluders=casters, frame=world_frame
         )
         # PT.11: in-plane conduction from the material's own k and thickness (ADR 0102).
+        thermal = build.materials[i].spec.thermal
         conduction = None
         if s.lateral_conduction:
-            thermal = build.materials[i].spec.thermal
             conduction = lateral_operator(patch, thermal.conductivity_w_mk, thermal.thickness_m)
+        if s.layers > 1:
+            # PT.12: the material's thickness cut into N slices, one coupled solve (ADR 0103).
+            from irsim.thermal.layers import LayerStack, layered_field
+
+            stack = LayerStack.uniform(
+                s.layers,
+                thermal.conductivity_w_mk,
+                thermal.density_kg_m3,
+                thermal.specific_heat_j_kgk,
+                thermal.thickness_m,
+            )
+            optical = ThermalPropertiesOf(props, i)
+            coupled = layered_field(
+                s.name,
+                patch,
+                optical,
+                stack,
+                forcing,
+                build.t0_s,
+                float(build.spun_k[i]),
+                spec.thermal.tick_s,
+                lateral=s.lateral_conduction,
+                spin_up_hours=spec.thermal.spin_up_hours,
+                spin_up_hash=build.spin_up_hash,
+                wrap=build.wrap,
+            )
+            out[s.name] = coupled.fields[s.name]
+            continue
         if casters:
             # The shadow is part of the surface's history, not a term switched on at t0: a cell
             # under an overhang has been under it all morning. So the field is spun up on its
@@ -828,6 +858,17 @@ def _build_surface_fields(
             conduction=conduction,
         )
     return out
+
+
+def ThermalPropertiesOf(props: Any, i: int) -> Any:  # noqa: N802 - reads as a constructor
+    """One surface's scalar `ThermalProperties` out of the per-prim stack."""
+    from irsim.thermal.balance import ThermalProperties
+
+    return ThermalProperties(
+        heat_capacity_j_m2_k=float(props.heat_capacity_j_m2_k[i]),
+        emissivity=float(props.emissivity[i]),
+        solar_absorptivity=float(props.solar_absorptivity[i]),
+    )
 
 
 def _film_for(patch: PlanarPatch, film: Any) -> Any:

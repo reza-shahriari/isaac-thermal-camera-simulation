@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 94 open steps
+#### Then, in order — 93 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -182,19 +182,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
 | 4 | **`PH.5`** | PH | P | M | 4 | ready |
-| 5 | **`PT.12`** | PT | P | M | 2 | ready |
-| 6 | **`PT.21`** | PT | P | M | 2 | ready |
-| 7 | **`TC.7`** | TC | P | M | 2 | ready |
-| 8 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
-| 9 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
-| 10 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 11 | **`PT.15`** | PT | P | M | 1 | `PT.12` |
-| 12 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
-| 13 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 14 | **`PH.3`** | PH | P | M | — | ready |
-| 15 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 5 | **`PT.21`** | PT | P | M | 2 | ready |
+| 6 | **`TC.7`** | TC | P | M | 2 | ready |
+| 7 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 8 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
+| 9 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
+| 10 | **`PT.15`** | PT | P | M | 1 | ready |
+| 11 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
+| 12 | **`PT.14`** | PT | P | S | — | `WM.5` |
+| 13 | **`PH.3`** | PH | P | M | — | ready |
+| 14 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 15 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
 
-…and 79 more — `python scripts/next_step.py --queue 40`.
+…and 78 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -402,7 +402,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.9 | **Point-wise on the aerial lane.** An airframe skin field bound from the scene config, with per-cell solar and the ram-heating source already in ADR 0075. A fuselage is the most obviously curved thing in the project, so this is the first consumer of `WM`. | The aircraft-pass frame shows a leading-edge-to-shaded-underside gradient across one prim, against 0.000 K today, with each cell holding its own equilibrium to 1 mK in the engine-free oracle. The per-prim path is bit-identical when the binding is absent. | PT.1, PT.2, PT.5, WM.3 | M | A |
 | PT.10 | **Point-wise on the maritime lane.** Deck and superstructure fields on the vessel scenes. The sea is already per-ray (ADR 0078/0080) by a different mechanism; the hull is not. | The vessel frame shows a sunlit-deck vs shadowed-superstructure step of ≥ 5 K across the hull prim, against 0.000 K today. Runs the same conservation test as WM.2: the area-weighted mean matches the per-prim value it replaces to within the forcing difference, so the change is provably a redistribution. | PT.9 | M | B |
 | PT.11 | ✅ **done.** `lateral_operator(patch, k, δ)`: K = k δ · side/gap per four-neighbour edge as a `ConductionOperator` on the IMEX step; every patched surface builds it from its material's k and thickness (`lateral_conduction: false` opts out); the car bonnet takes steel's. ADR 0102. | **Measured.** A 20 K step on 5 mm aluminium cells matches the semi-infinite sheet's erf to 0.6 % at 60 s; k → 0 is bit-identical; at 5 cm the explicit limit is 6.4 s and a 60 s implicit tick holds the maximum principle where forward Euler explodes; the steel bonnet is 5 % smoother. 6 cases. | — | L | P |
-| PT.12 | **N-layer through-thickness stack per cell**, generalising `two_node.py`. MuSES evaluates properties per thermal node through the element thickness; Fraunhofer stores 2+N temperatures per triangle and used 10 layers. | N = 1 reproduces the existing two-node result to 1 mK. A 1 mm steel skin and 0.3 m of asphalt in one scene each show their own time constant, ordered by areal capacity; a single-layer asphalt gets the night curve wrong by > 2 K. | PT.11 | M | P |
+| PT.12 | ✅ **done.** `irsim.thermal.layers`: `LayerStack` (§6.4's R = δ/2k + δ/2k between layers, optional deep node) and `layered_field`, each layer a `CoupledFields` member joined by a contactor at 1/R, stepped implicitly; `layers: N` on a patched surface (default 1). ADR 0103. | **Measured.** Two layers reproduce `LumpedTwoNodeSolver` to < 1 mK on both nodes over 6 h; a 1 mm steel skin peaks at 12:19 and a 6-layer 0.3 m asphalt surface at 13:45; the lumped 0.3 m slab is 5.6 K warmer than the 6-layer one at 04:00; `layers: 6` on a scene's road binds its surface view. 5 cases. | — | M | P |
 | PT.13 | **Temperature-map and parameter-map ingest.** DIRSIG's Map Temperature Solver is a single-band raster in °C applied by UV or drape projection; MappedTherm does the same for parameters. `PlanarPatch` is already a raster with a projection. The escape hatch for prescribed aerial skins, externally solved hulls and draping public thermal frames onto geometry. | A float32 raster round-trips through a patch to 1 mK. A °C raster mis-declared as K raises. A parameter map varying α_sol gives the per-cell equilibrium the scalar solver predicts. | PT.2 | M | C |
 | PT.14 | **ADR: temperature granularity tiers.** Production tools select a tier per surface — DIRSIG offers per-material, per-solid, per-facet and per-pixel, and imports MuSES for a real 3-D field. irsim has three tiers in code and only ADR 0087's prose describing the boundary; CLAUDE.md requires an ADR for a chosen fidelity level. | A record, not a test. It states where irsim sits, what each tier costs, and the rule a scene author uses to pick one. It supersedes ADR 0087's "a real limit, not a temporary one". | WM.5 | S | P |
 | PT.15 | **Make `LumpedTwoNodeSolver` and `CabinNode` reachable — the cabin as a fluid node of `TC.2`'s network.** Neither is importable from `irsim.thermal`, neither is a `solver:` kind, no demo constructs either: every solved surface has an adiabatic back. | ADR 0036/0038's measured results appear in a rendered frame: a roof +4.8 K with a cabin against adiabatic, both > 2 K below ambient on a clear night. Red today: no scene can construct either. As a fluid node the cabin must reproduce `CabinNode`'s coupled equilibrium to 0.1 K, or two copies of one balance drift. | PT.12, TC.2 | M | P |
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0102 (0090–0102 were written after this section was first measured; 0093–0102 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1` and `PT.11`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0103 (0090–0103 were written after this section was first measured; 0093–0103 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11` and `PT.12`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

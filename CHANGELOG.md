@@ -13,6 +13,24 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **An N-layer stack through every cell** (`PT.12`, ADR 0103). `irsim.thermal.layers`:
+  `LayerStack` (layers top first as `two_node.NodeLayer`s, §6.4's centre-to-centre resistance
+  `δ_i/2k_i + δ_{i+1}/2k_{i+1}` between them, an optional deep node under the last, adiabatic by
+  default; `LayerStack.uniform` cuts one material into N equal slices) and `layered_field`,
+  which makes each layer a member of a `CoupledFields` on the same grid -- layer 0 with the
+  surface balance and the material's ε and α, the layers below with none, consecutive layers
+  joined by a contactor at `1/R` -- so the stack is one implicit solve per tick, its surface
+  layer a `PatchView` the bridge binds, lateral conduction running in every layer with its own
+  `k δ`, and the whole stack spun up so the base carries the days before. The scene schema gains
+  `layers: N` on a patched surface (default 1, the field it always was; a film on a layered
+  surface is refused for now). Measured: two layers with a deep boundary reproduce
+  `LumpedTwoNodeSolver` to under 1 mK on both nodes over 6 h at a 2 s tick (1.7 mK at 10 s: the
+  IMEX side is first order in dt); the contact conductances are `k/δ` for equal slices exactly; a
+  1 mm steel skin peaks at 12:19 with the beam and a six-layer 0.3 m asphalt surface at 13:45; the
+  single-node 0.3 m asphalt is 5.6 K warmer than the six-layer one at 04:00, holding its surface
+  up on the whole slab's heat, with the stack's base warmer than its surface at night;
+  `layers: 6` on a scene's road builds a six-member solve whose surface view answers the
+  bridge's interface. 5 cases in `tests/unit/test_layers.py`.
 - **An unconsumed binding is loud** (`PT.19`). `PointwiseTemperature(bindings, known_paths=)`:
   a binding to a prim path the stage does not know -- a misspelling, a renamed prim, a stage
   without it -- raises at construction, naming the path and the stage's prims, before the first
