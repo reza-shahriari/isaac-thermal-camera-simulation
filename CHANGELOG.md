@@ -10,6 +10,48 @@ repeated `Added` / `Changed` / `Fixed` headings was a single merge hotspot for t
 working in one tree; two commits already exist whose whole subject is restoring lost entries.
 `tests/unit/test_changelog_structure.py` fails on a repeated heading inside a dated section.
 
+### 2026-09-20
+
+#### Added
+- **Roadmap revision 6: the plan now leads to per-point, part-to-part, water and fire physics.** On
+  2026-09-18 the owner restated the requirement that drove them off their previous simulator and widened
+  it — a building whose sunlit and shaded parts differ; an engine that warms *the metal around it*, not
+  only itself; and the same for water, fire and their kin. An audit that day (three repository audits and
+  two web-research sweeps, run in parallel) found the point-wise machinery real but reachable from no
+  scene config, no mechanism anywhere for heat between parts, and no model or step for water or fire.
+  Revision 6 adds phase **P** — point-wise and coupled physics, CPU only, between repair and the aerial
+  lane — two lanes, `TC` (thermal coupling, 8 rows) and `PH` (phenomena beyond opaque solids, 13 rows),
+  six `PT` rows that make what shipped reachable from YAML and add sky view, geometry shadows with
+  neighbours and the penumbra, and the R1 reference scene; and moves `PT.6`–`PT.8`, `PT.11`, `PT.12`,
+  `PT.14`, `PT.15` and `WM.1`–`WM.6` into P. The queue now opens with `RP.10` (a small repair row) and then `PT.17`
+  (patches solved from the scene config). Every tolerance in a new row is quoted from a primary source and is external evidence
+  until an irsim test reproduces it.
+- `docs/research/2026-09-18-thermal-coupling-survey.md`: the evidence — 70 sourced findings (55 with the
+  page or PDF read), 43 audit findings with file and line, 22 open-source codes with licences.
+- `tests/unit/test_roadmap_phase_table.py`: the phase-plan table is generated from the step rows and can
+  no longer drift from them (revision 5's disagreed in seven cells and omitted five rows).
+- Nine spec issues, `S41`–`S49`, recording what §6, §2 and §16.2 lack for the owner's requirements —
+  lateral and part-to-part conduction, a solved engine node, the shadow term's provider, latent heat,
+  participating media, snow, vegetation, people — each owned by a roadmap row.
+
+#### Changed
+- `scripts/next_step.py`: `PHASE_RANK` gains `P` between `0` and `A`; the tiebreak prose in the roadmap
+  and the script follow.
+- README: the plan paragraph describes revision 6 and the owner's order; the `thermal` status row stops
+  calling the two-node solver and vehicle regimes "phase 2" (they are shipped and unreachable, `PT.15`)
+  and says that point-wise reaches a frame only through the car demo's Python (`PT.17`); the command
+  table says what `make check` actually runs and which packages mypy covers; the limitations bullet no
+  longer claims there is no image-plane velocity (`IG.6` synthesises it).
+
+#### Fixed
+- Roadmap self-inconsistencies found by the audit: the header said revision 4 while the body said 5; the
+  step count; "two prims in one of eight scenes" (it is two of eight); PT.5's case count; the WM lane
+  "gated on phase A closing" while phase A's own exit waited on a WM step; the §6.6 plume deferral whose
+  revisit trigger had already fired; the ground-breadth deferral that deferred the owner's first
+  requirement's occlusion input along with material breadth; the ADR-allocation section's "highest ADR".
+  Two defects are rows rather than fixes: `RP.10` (ten verification cells that state motivation, not a
+  failure condition) and `GT.8` (`--lane` prints a blocked head).
+
 ### 2026-09-17
 
 #### Added

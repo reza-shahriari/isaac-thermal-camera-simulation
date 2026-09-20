@@ -20,8 +20,10 @@ depends on, with ties broken by a total order:
 1. **Promoted** (see :data:`PROMOTED`) -- the documented exceptions, and the only place judgement
    enters. The mechanical key counts dependents; it cannot see that a step prevents a recurring
    loss.
-2. **Phase**, 0 → A → B → C → X. This is where the owner's ordering lives: repair, then aerial,
-   then maritime, then ground, with the cross-cutting lane last. A *dependency* may still pull an
+2. **Phase**, 0 → P → A → B → C → X. This is where the owner's ordering lives: repair, then the
+   physics the owner's requirements need (per-point temperature from a config, heat between parts,
+   water and fire — revision 6), then aerial, then maritime, then ground, with the cross-cutting
+   lane last. A *dependency* may still pull an
    X step earlier -- `XD.1` unblocks eight -- and the topological sort does that on its own rather
    than needing a special case.
 3. **Dependents, descending.** Transitive, not immediate: a step that unblocks ten outranks one
@@ -50,9 +52,10 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parents[1]
 ROADMAP = REPO / "docs" / "roadmap.md"
 
-#: Phase order. `X` is the cross-cutting lane and sorts last; a dependency can still pull one of
+#: Phase order. `P` (revision 6) is the engine-free physics every scene lane needs and sorts right
+#: after repair; `X` is the cross-cutting lane and sorts last; a dependency can still pull one of
 #: its steps forward, which the topological sort handles without a rule of its own.
-PHASE_RANK = {"0": 0, "A": 1, "B": 2, "C": 3, "X": 4}
+PHASE_RANK = {"0": 0, "P": 1, "A": 2, "B": 3, "C": 4, "X": 5}
 SIZE_RANK = {"S": 0, "M": 1, "L": 2}
 
 #: The documented exceptions, and the ONLY place judgement overrides the mechanical key. Each entry

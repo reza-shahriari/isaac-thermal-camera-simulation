@@ -31,11 +31,13 @@ ROW = re.compile(r"^\|\s*([ST]\d+)\s*\|(.*)\|\s*([^|]*?)\s*\|\s*$")
 #: Written out in the summary paragraph, so a change to the table has to move the words too.
 WORDS = {
     4: "four",
+    13: "thirteen",
     16: "sixteen",
     19: "nineteen",
     37: "thirty-seven",
     56: "fifty-six",
     60: "sixty",
+    69: "sixty-nine",
 }
 
 
@@ -65,9 +67,13 @@ def _adrs_in(text: str) -> list[str]:
 # --- every row carries a status -------------------------------------------------------------------
 
 
-def test_the_file_still_holds_sixty_issues() -> None:
-    """If this moves, the summary paragraph's counts move with it and the tests below say so."""
-    assert len(_rows()) == 60
+def test_the_file_still_holds_sixty_nine_issues() -> None:
+    """If this moves, the summary paragraph's counts move with it and the tests below say so.
+
+    Sixty until 2026-09-20; `S41`–`S49` were opened by roadmap revision 6 for the owner's per-point,
+    part-to-part, water and fire requirements.
+    """
+    assert len(_rows()) == 69
 
 
 def test_every_row_has_a_non_empty_status() -> None:

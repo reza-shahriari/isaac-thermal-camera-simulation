@@ -1,10 +1,20 @@
 # irsim roadmap
 
-**Revision 4, 2026-09-15.** Replaces revision 3 (2026-09-10) in full. The plan for taking `irsim` from
-where it is today to an L2-fidelity multi-band IR camera simulator in Isaac Sim 6.1, with a clean upgrade
-path to L3. Derived from `docs/physics-model.md` (cited as §N.M), the seven project skills, five subsystem
-audits run against the code and `git log`, and a survey of production IR simulators, published camera
-datasheets, measurement standards, public dataset primary sources and the 2026 sim-to-real literature.
+**Revision 6, 2026-09-20.** Amends revision 5 (2026-09-15), which replaced revision 3 in full. The plan for
+taking `irsim` from where it is today to an L2-fidelity multi-band IR camera simulator in Isaac Sim 6.1,
+with a clean upgrade path to L3. Derived from `docs/physics-model.md` (cited as §N.M), the seven project
+skills, subsystem audits run against the code and `git log`, and two surveys of production IR simulators,
+published camera datasheets, measurement standards, public dataset primary sources and the sim-to-real
+literature — [`docs/research/2026-09-15-field-survey.md`](research/2026-09-15-field-survey.md) and
+[`docs/research/2026-09-18-thermal-coupling-survey.md`](research/2026-09-18-thermal-coupling-survey.md).
+
+**What revision 6 changes.** On 2026-09-18 the owner restated the requirement that drove them off their
+previous simulator and widened it: one building must show its sunlit and shaded parts at different
+temperatures; a running engine must warm *the metal around it*, not only itself; and the same must hold
+for water, fire and their kin. An audit that day found the point-wise machinery real but reachable from
+no scene config, no mechanism anywhere for heat between parts, and no model or step for water or fire
+(see *The owner's priorities*, items 1, 7 and 8). This revision adds phase **P**, two lanes (`TC`, `PH`),
+six `PT` rows, and moves the mesh lane into P. Nothing shipped is re-described; the ledger is unchanged.
 
 ---
 
@@ -39,8 +49,10 @@ per CLAUDE.md.
 | lane | subject |
 |---|---|
 | `RP` | Repair: damage already done to README, CHANGELOG, the roadmap, the ADR corpus and the spec-issues log |
-| `PT` | Point-wise surface temperature — the owner's headline requirement |
+| `PT` | Point-wise surface temperature — the owner's headline requirement, reachable from a scene config |
 | `WM` | Warp mesh surface parameterisation — point-wise on curved geometry |
+| `TC` | Thermal coupling — heat moving between cells and between parts (an engine warms the metal around it) |
+| `PH` | Phenomena beyond opaque solids — water, fire and their kin |
 | `AT` | Atmosphere, sky and materials physics |
 | `SE` | Sea and maritime |
 | `SC` | Sensor chain and published-reference anchoring |
@@ -88,9 +100,19 @@ model of the project before reaching any table.
 | Integration tests | 15 files, 4,480 lines, all auto-marked `isaac`, run in no automated job anywhere |
 | Configs | 5 sensors, 19 materials plus a mapping, 7 atmospheres, 8 scenes |
 | Demo lanes | Six render drivers produce frames from one command: aerial demo, quad flight, aircraft pass, maritime demo, vessel departure, car ignition |
-| Point-wise temperature | Real, correct, end-to-end — and reaching **two prims in one of eight scenes**, on the lane the owner ranked third |
+| Point-wise temperature | Real, correct, end-to-end — and reaching **two prims in two of eight scenes**, both authored from Python rather than from the scene config, on the lane the owner ranked third |
 | ADRs | 85 files, 0001–0089 with gaps at 0042, 0062, 0069, 0079. None is ever marked Superseded although the template offers it |
 | Docs | `docs/roadmap.md` 888 lines / 304 KB; `CHANGELOG.md` 3,025 lines / 270 KB in one `[Unreleased]` section with 20+ repeated headings; `docs/maps/` 729 KB across 12 files with one commit ever |
+
+**Measured again on 2026-09-18** (commit `7f0b372`, clean tree, `make check` green: lint, mypy over 187
+files, 2 985 fast and 251 slow tests, 3 244 collected). All eight scene configs load; every step id claimed
+in the last forty commit subjects is ticked and every ticked row has a commit; the CHANGELOG's newest
+section matches `git log` entry for entry. Against the owner's requirements: no scene YAML carries a
+`patch:` block, `cell_shadow` has no caller outside its tests, the only bound fields are hand-built in
+`car_demo.py` with no solar term, `FacetSolver.net_flux` has no inter-cell term and no node-to-node
+conductance exists anywhere, the engine is a scripted ΔT schedule, no balance has a latent-heat term,
+and fire, flame and plume have no code. The full findings, with file and line, are in
+[`docs/research/2026-09-18-thermal-coupling-survey.md`](research/2026-09-18-thermal-coupling-survey.md).
 
 ---
 
@@ -100,9 +122,12 @@ These are requirements, not preferences. Each has a lane that owns it and a crit
 off a rendered frame.
 
 1. **Per-point surface temperature, not one value per object.** This is the defect that drove the owner
-   off their previous simulator. A lane satisfies it when a rendered frame of that lane's target shows a
-   temperature gradient *across one prim*, authored from a scene config. Today: the car's bonnet, only.
-   Owned by `PT` and `WM`.
+   off their previous simulator, restated on 2026-09-18 with its example: *a building, some parts in the
+   sun and some in shadow*. A lane satisfies it when a rendered frame of that lane's target shows a
+   temperature gradient *across one prim*, authored from a scene config — the config, not a Python
+   driver, declares the patch, the occluders and the material. Today: the car's bonnet and the road,
+   both built in `car_demo.py`; no config declares a patch. Owned by `PT` and `WM`; `PT.20` is the
+   reference scene.
 2. **Aerial first, then maritime, then ground.** A lane is done when **a scene config plus one command
    produces frames** — and, from this revision on, frames that carry float32 planes and a config-hash
    sidecar (IG.13), because three of the six drivers currently emit 8-bit PNGs only and two of those three
@@ -118,6 +143,23 @@ off a rendered frame.
    sets carry both polarities and a detector trained on one fails on the other.
 6. **Evaluation is a first-class deliverable.** The `EV` lane is not a reporting afterthought; it ends in
    EV.9, a measurement that can return a negative about the project's own headline feature.
+7. **Parts interact through temperature.** In the owner's words (2026-09-18): *an engine will increase
+   its temperature while being used — but not just itself, also the metals around it.* Today the only
+   coupling between parts is radiation onto a parallel panel; nothing conducts through a mount, a bracket
+   or a panel, and no balance has a neighbour term. Satisfied when a rendered frame shows a bracket, a
+   wing and a bonnet warming *in the order of their conductance path* from a solved engine node, with
+   energy conserved and the hot soak after key-off that every under-hood measurement records. Owned by
+   `TC`; `TC.6` is the reference scene.
+8. **Water, fire and their kin are modelled, not painted.** *This is correct about water, fire and
+   something like these.* Today water is the open sea only, no balance has a latent-heat term, and fire,
+   flame and plume have no code. Satisfied when a wet half of one road renders colder than its dry half
+   and dries on the measured time scale, a puddle reflects the sky at grazing angles, an exhaust plume is
+   bright in MWIR and nearly invisible in LWIR, and a flame rails the camera the way FLIR's own notes
+   say it does — each from a scene config. Owned by `PH`.
+
+Items 1, 7 and 8 are lane-independent physics and are scheduled first (phase **P**); items 2 and 3 order
+the *scenes* that consume them. A reference scene in phase P is the smallest scene that can show the
+requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a city.
 
 ---
 
@@ -126,33 +168,33 @@ off a rendered frame.
 <!-- next:begin -->
 <!-- generated by `python scripts/next_step.py --write`; do not edit by hand -->
 
-### Start here → `AT.10` · Atmosphere, sky and materials
+### Start here → `RP.10` · Repair
 
-> **One wavelength ladder for the atmosphere's spectral classes.** `BAND_CLASSES` is spectroscopy filed under camera names, and two tables disagree about the same air: NIR resolves the 0.94 µm water band (×10), SWIR's window swallows 0.90–0.98 µm at ×0.5. Holes at 1.80–2.00 / 6.00–7.00 µm.
+> **Verification cells that state a failure condition.** Ten open cells state motivation or a description rather than what would fail: `EV.6`, `EV.11`, `XD.4`, `XD.5`, `XD.7`, `XD.11`, `IG.3`, `IG.4`, `GT.6`, `DC.3`. Rewrite each with the assertion and its tolerance.
 
-`AT.10` is phase A, size M, and unblocks 0 other step(s).
+`RP.10` is phase 0, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 84 open steps
+#### Then, in order — 113 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
-| 1 | **`AT.10`** | AT | A | M | — | ready |
-| 2 | **`GT.2`** | GT | A | M | — | ready |
-| 3 | **`IG.2`** | IG | A | M | — | ready |
-| 4 | **`SC.4`** | SC | A | M | — | ready |
-| 5 | **`WM.1`** | WM | B | M | 10 | ready |
-| 6 | **`WM.2`** | WM | B | M | 9 | `WM.1` |
-| 7 | **`WM.3`** | WM | B | M | 8 | `WM.2` |
-| 8 | **`PT.9`** | PT | A | M | 3 | `WM.3` |
-| 9 | **`WM.5`** | WM | B | S | 1 | `WM.3` |
-| 10 | **`IG.16`** | IG | B | M | — | ready |
-| 11 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 12 | **`SE.1`** | SE | B | M | — | ready |
-| 13 | **`SE.2`** | SE | B | M | — | ready |
-| 14 | **`WM.4`** | WM | B | M | — | `WM.3` |
-| 15 | **`PT.7`** | PT | C | M | 5 | ready |
+| 1 | **`RP.10`** | RP | 0 | S | — | ready |
+| 2 | **`PT.17`** | PT | P | M | 19 | ready |
+| 3 | **`PT.8`** | PT | P | S | 16 | ready |
+| 4 | **`TC.1`** | TC | P | M | 15 | `PT.8` |
+| 5 | **`PT.18`** | PT | P | S | 10 | `PT.17` |
+| 6 | **`TC.2`** | TC | P | M | 10 | `TC.1` |
+| 7 | **`WM.1`** | WM | P | M | 10 | ready |
+| 8 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
+| 9 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
+| 10 | **`TC.4`** | TC | P | S | 6 | `TC.2` |
+| 11 | **`PH.4`** | PH | P | M | 6 | ready |
+| 12 | **`TC.3`** | TC | P | M | 6 | `TC.2`, `PT.17` |
+| 13 | **`PT.7`** | PT | P | M | 5 | ready |
+| 14 | **`TC.5`** | TC | P | M | 5 | `TC.3`, `TC.4` |
+| 15 | **`PH.1`** | PH | P | M | 4 | `PT.17` |
 
-…and 69 more — `python scripts/next_step.py --queue 40`.
+…and 98 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -177,7 +219,7 @@ something it depends on, with ties broken by a total order:
 | | tiebreak | why |
 |---|---|---|
 | 1 | **Promoted** | The documented exceptions, and the only place judgement enters. The mechanical key counts dependents; it cannot see that a step prevents a recurring loss. Kept to three at most — a long list means the rule itself is wrong |
-| 2 | **Phase**, 0 → A → B → C → X | Where the owner's ordering lives. A dependency may still pull an X step forward; the sort does that on its own |
+| 2 | **Phase**, 0 → P → A → B → C → X | Where the owner's ordering lives: repair, then the physics the owner's requirements need, then the scene lanes in application order. A dependency may still pull an X step forward; the sort does that on its own |
 | 3 | **Dependents, descending** | Transitive, not immediate. A step unblocking ten outranks one unblocking two |
 | 4 | **Size, ascending** | Between equal leverage, the small one first |
 | 5 | **Step id** | A total order, so two sessions asking "what next" get the same answer |
@@ -214,20 +256,34 @@ than nothing. Consequences, applied throughout this document:
   without a renderer change — it **runs on the Warp CPU backend by default**, keeps a brute-force NumPy
   closest point as its oracle (ADR 0018/0061), and is justified by what it makes possible, not by a
   timing figure. The RTX 5090 numbers quoted in `WM` are a headroom note, not a reason.
-* `WM` is therefore scheduled **behind** the phase-A CPU defects rather than beside them: `AT.1`,
-  `SC.1`, `PT.1` and `PT.2` are the four critical CPU-path defects and none of them needs a GPU.
+* `WM` was scheduled behind the phase-A CPU defects while `AT.1`, `SC.1`, `PT.1` and `PT.2` were open.
+  All four shipped by 2026-09-17, so that reason is spent; revision 6 moves `WM` into phase **P** with
+  the rest of the point-wise physics. It stays what it was — a capability on the Warp CPU backend with a
+  NumPy oracle, never an acceleration — and `PT.22` gives it a CPU-only shadow and sky-view oracle that
+  needs no Warp at all.
+
+**Phase P, added in revision 6.** The owner's three physics requirements — per-point temperature from a
+config, heat between parts, water and fire — are needed by every scene lane and owned by none, so
+putting them under the ground lane (where the 2026-09-18 audit found them: `PT.11` in phase C, no row at
+all for a thermal network or for fire) meant the headline requirement was scheduled last. Phase P sits
+between repair and the aerial lane. It is **CPU only** like phase A: every step in it is engine-free
+physics with a test that fails if the physics is wrong, and where a step also has an in-engine half the
+row says so and names the step that closes it.
 
 | phase | contents | exit |
 |---|---|---|
-| **0 — Repair** | `RP.1`–`RP.9`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
-| **A — Aerial to the bar** | `AT.1`–`AT.4`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `IG.2`, `IG.6`, `IG.13`, `SC.1`–`SC.4`, `GT.1`, `GT.2` — **CPU only** | An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
-| **B — Maritime to the same bar** | `SE.1`–`SE.3`, `PT.10`, `WM.1`–`WM.5`, `IG.12`, `XD.3` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
-| **C — Ground and automotive** | `PT.6`–`PT.8`, `PT.11`–`PT.16`, `WM.6`, `AT.6`–`AT.9`, `XD.10` | Deferred breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled |
-| **X — Cross-cutting, continuous** | `EV.*`, `XD.*`, `DC.*`, `GT.3`–`GT.6`, `SC.5`–`SC.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.11`, `IG.14`, `IG.15` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
+| **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
+| **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.6`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
+| **A — Aerial to the bar** | `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **B — Maritime to the same bar** | `PT.10`, `SE.1`–`SE.3`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
+| **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
+| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
 **Dependency shape.** Phase 0 blocks nothing technically but blocks *knowing what is true*, and three
 sessions share this tree. `AT.1` and `SC.1` are the two critical-priority physics defects and are
-independent of each other. `WM.1` is a probe and gates `WM.2`–`WM.4`, and the whole `WM` lane is gated on phase A closing — it is a capability step, not an acceleration step, but it waits regardless. `EV.9` — the per-point ablation —
+independent of each other. `WM.1` is a probe and gates `WM.2`–`WM.4`; the lane is phase P, so `PT.9`'s
+dependency on `WM.3` no longer crosses a phase boundary (revision 5 had phase A's exit waiting on a
+phase-B step, which the queue ignored and the prose did not). `EV.9` — the per-point ablation —
 depends on `PT.9` or `PT.10`, because a negative from a feature that is not switched on in the measured
 targets is not a negative about the feature.
 
@@ -303,6 +359,7 @@ and ADR 0087/0088/0089 entries. Capping row length does not stop a whole-file wr
 | RP.7 | ✅ **done.** All sixty rows carry a status (`ADR NNNN` / `code` / `open`); the "everything else is open" line is replaced by counts the tests recompute. **S13 reopened, and its resolution was wrong:** `glass.csv` is fused silica, supplying shape not magnitude, so τ cannot be derived from it. | **Measured.** Beer–Lambert over the authored 5 mm gives nir 0.935 / swir 0.936 / mwir 0.109 / lwir 0.000 against 0.77 / 0.70 / 0.02 / 0.0 — three bands off, not one; only LWIR agrees. Glass declares `authored: S13`. 23 cases, 2 negative controls. | — | M | 0 |
 | RP.8 | ✅ **done.** `spg/` is described as empty on purpose (its README says so; `DC.1` blocks it) and `docs/maps/` as frozen 2026-09-10 history rather than navigation. Line 13, the scope list and the version string are untouched — open questions 2 and 9. | **Measured.** `test_claude_md_layout.py` parses the block: every path exists, a directory claiming a file type holds one, and a directory whose own README disclaims currency is not sold as live. Red on both before; restoring either sentence turns it red again. | — | S | 0 |
 | RP.9 | ✅ **done.** `test_roadmap_row_length.py` owns the 600-character step-row cap; the ledger's 200 already has an owner (`test_shipped_ledger.py`, RP.6) and is not duplicated. | **Measured.** 12 cases. Scope is checked, not assumed: no row found above the first lane heading, no ledger row at the wrong cap, and the generated queue block excluded because its rows start with a position number. Self-tested on a synthetic row; fattening `IG.13` past the cap turns it red. A lint, not counted as a verification. | — | S | 0 |
+| RP.10 | **Verification cells that state a failure condition.** Ten open cells state motivation or a description rather than what would fail: `EV.6`, `EV.11`, `XD.4`, `XD.5`, `XD.7`, `XD.11`, `IG.3`, `IG.4`, `GT.6`, `DC.3`. Rewrite each with the assertion and its tolerance. | Red today by inspection (2026-09-18 audit). After: each cell names a test or a measurement that would fail — e.g. `EV.6`: HTV, Sobel and GLCM as pure NumPy against a synthetic-image oracle, a known comb spectrum returning HTV within 1 % of its closed form. | — | S | 0 |
 
 ---
 
@@ -322,23 +379,40 @@ sim-to-real gap driver (Cohen's d = 1.224), writing that simulated targets "act 
 rather than noisy, physical heat sources"; DIRSIG's own manual names the bonnet-over-engine case verbatim
 as its documented limitation. `EV.9` turns that from a conviction into a cited number.
 
+**What the 2026-09-18 audit added.** `PT.1`, `PT.2` and `PT.5` shipped the per-cell shadow, the patch in
+the schema and the moving frame — and none of it is reachable from a scene config: `_build_thermal_field`
+never reads `SurfaceSpec.patch` (a patched surface is still one facet), the schema has no occluder field,
+`cell_shadow` has no caller outside its tests, no shipped YAML carries a `patch:` block, and the only
+bound fields are hand-built in `car_demo.py` with **no solar term at all**, so a noon run of the car
+scene would render a sun-free bonnet over a solved sunlit road. Several docstrings and CHANGELOG entries
+say otherwise; they are corrected by `PT.17`. Shadows also come only from authored rectangles (never from
+geometry, and never from a neighbour), the sky view factor is the unoccluded form, and the one scene the
+owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in phase P; `PT.6`–`PT.8`,
+`PT.11`, `PT.12`, `PT.14` and `PT.15` move from phase C to P because they are the same physics.
+
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | PT.1 | ✅ **done.** `irsim.thermal.shadow`: `ShadowRectangle` occluders and an exact ray–rectangle `cell_shadow` per cell, feeding the `shadow` argument `solar_loading` always accepted and nothing varied. Gates the beam only; diffuse sky survives. | **Measured.** A 4 m concrete wall at 45° sun, half occluded: lit 305.1 K vs shaded 283.0 K — a **22.1 K step across one prim**. Every cell holds its own §6.1 root to <1 mK. The per-surface `shaded` bool is flat to 1e-6 and wrong by the full step. 10 cases. | — | M | A |
 | PT.2 | ✅ **done.** Schema **v7**: `PatchSpec` carries origin, axes, extents, cell size, thickness, frame and prim binding; `Scene.patches` exposes them by surface name. Optional, so every v4–v6 scene is unchanged. | **Measured.** The car demo's bonnet and road patches reproduce from a declaration with **bit-identical** cell centres (array equality, not approx) and bit-identical field temperature after 1500 s. Non-perpendicular axes, zero thickness and zero extents raise at load. 16 cases. | — | M | A |
 | PT.3 | ✅ **done.** Clamped, not partitioned (ADR 0090): `clamp_view_factor_sum` rescales `underbody`/`engine_bay`/`exhaust_pipe`'s view factors proportionally wherever their sum exceeds 1, and `build_ground_field` uses the clamped values. Warns loudly when triggered. | **Measured.** Σ view factors ≤ 1 + 1e-6 on every cell of both car scenes (`test_ground_radiator_view_factors_never_exceed_one`), reproducing the pre-fix peak 1.400 / 28 cells exactly as the warning message. 6 new cases in `test_spatial_sources.py`. | — | S | 0 |
 | PT.4 | ✅ **done.** `axes=` is **removed**, not guarded: the configuration factor is Howell C-11 for a *differential element*, which has no in-plane orientation to depend on. A rotated patch now gets the right answer rather than raising — better than the acceptance asked for. | **Measured.** 0.152 vs 0.104 on one element before the fix. 6 cases: a world-space quadrature oracle that walks the real corners (so a frame mix-up fails it), one rectangle labelled two ways, and a whole-configuration rotation. Re-mixing turns 3 red. | — | S | 0 |
-| PT.5 | ✅ **done.** `apply(world_from_local=...)` plus `local_frames`; `IrCamera` reads the matrices off the stage each frame. World-frame patches are bit-identical and never touch USD. | **Measured.** A prim translated 10 m and yawed 90°/215°: the same material point reads the same cell to **1e-6 K** across four poses, where a cell spans ~4 K. Identity-pose control disagrees by >5 K; the transposed matrix by >1 K, so USD's row-vector convention is pinned. 6 cases; in-sim read is `IG.2`. | PT.2 | M | A |
-| PT.6 | **Thermal properties from the material library.** `car_demo` authors bonnet C = 8000, asphalt C = 60 000, ε 0.92/0.95, α 0.88, bypassing `ThermalProperties.from_material` and violating ADR 0043's single-source rule. | `build_car_demo` with no overrides reproduces `from_material('asphalt_dry')` exactly. Measured disagreement today: C 60 000 against the library's 101 200 J/m²/K — 1.7× in the *time constant* — so the headline 6.21 K gradient is a result on a panel nobody can find in `configs/materials/`. An override raises unless the scene declares it. | PT.2 | S | C |
-| PT.7 | **Spin the field up with the scene present** (the MP.5 limit). Fields start uniform: the bonnet at air temperature, the road from one broadcast scalar, so frame 0 is a road no car has ever stood on — the dominant feature of real night parking-lot imagery. | Frame 0 of the clear-night scene carries a road patch within 10 % of its own equilibrium; the overcast scene stays under 0.3 K; a field spun up with no radiators is bit-identical to today. `test_the_ground_patch_needs_time_because_the_field_starts_uniform` names this fix explicitly and must be inverted. | PT.3 | M | C |
-| PT.8 | **Bound the tick history.** `ThermalField._ticks` is appended to and never pruned; only the two ticks bracketing a query are read. A two-tick ring plus an optional history hook keeps `state_hash` working. | A 24 h run of the 10 400-cell road patch holds resident memory under 16 MB. Measured today: 2 880 ticks × 10 400 cells × 8 B ≈ 240 MB for that patch alone, gigabytes at 10⁵ cells — which blocks the full-diurnal time-lapse ADR 0074 wants to film. `state_hash` and interpolation unchanged over 500 queries. | — | S | C |
+| PT.5 | ✅ **done.** `apply(world_from_local=...)` plus `local_frames`; `IrCamera` reads the matrices off the stage each frame. World-frame patches are bit-identical and never touch USD. | **Measured.** A prim translated 10 m and yawed 90°/215°: the same material point reads the same cell to **1e-6 K** across four poses, where a cell spans ~4 K. Identity-pose control disagrees by >5 K; the transposed matrix by >1 K, so USD's row-vector convention is pinned. 7 cases; in-sim read is `IG.2`. | PT.2 | M | A |
+| PT.6 | **Thermal properties from the material library.** `car_demo` authors bonnet C = 8000, asphalt C = 60 000, ε 0.92/0.95, α 0.88, bypassing `ThermalProperties.from_material` and violating ADR 0043's single-source rule. | `build_car_demo` with no overrides reproduces `from_material('asphalt_dry')` exactly. Measured disagreement today: C 60 000 against the library's 101 200 J/m²/K — 1.7× in the *time constant* — so the headline 6.21 K gradient is a result on a panel nobody can find in `configs/materials/`. An override raises unless the scene declares it. | PT.2 | S | P |
+| PT.7 | **Spin the field up with the scene present** (the MP.5 limit). Fields start uniform: the bonnet at air temperature, the road from one broadcast scalar, so frame 0 is a road no car has ever stood on — the dominant feature of real night parking-lot imagery. | Frame 0 of the clear-night scene carries a road patch within 10 % of its own equilibrium; the overcast scene stays under 0.3 K; a field spun up with no radiators is bit-identical to today. `test_the_ground_patch_needs_time_because_the_field_starts_uniform` names this fix explicitly and must be inverted. | PT.3 | M | P |
+| PT.8 | **Bound the tick history.** `ThermalField._ticks` is appended to and never pruned; only the two ticks bracketing a query are read. A two-tick ring plus an optional history hook keeps `state_hash` working. | A 24 h run of the 10 400-cell road patch holds resident memory under 16 MB. Measured today: 2 880 ticks × 10 400 cells × 8 B ≈ 240 MB for that patch alone, gigabytes at 10⁵ cells — which blocks the full-diurnal time-lapse ADR 0074 wants to film. `state_hash` and interpolation unchanged over 500 queries. | — | S | P |
 | PT.9 | **Point-wise on the aerial lane.** An airframe skin field bound from the scene config, with per-cell solar and the ram-heating source already in ADR 0075. A fuselage is the most obviously curved thing in the project, so this is the first consumer of `WM`. | The aircraft-pass frame shows a leading-edge-to-shaded-underside gradient across one prim, against 0.000 K today, with each cell holding its own equilibrium to 1 mK in the engine-free oracle. The per-prim path is bit-identical when the binding is absent. | PT.1, PT.2, PT.5, WM.3 | M | A |
 | PT.10 | **Point-wise on the maritime lane.** Deck and superstructure fields on the vessel scenes. The sea is already per-ray (ADR 0078/0080) by a different mechanism; the hull is not. | The vessel frame shows a sunlit-deck vs shadowed-superstructure step of ≥ 5 K across the hull prim, against 0.000 K today. Runs the same conservation test as WM.2: the area-weighted mean matches the per-prim value it replaces to within the forcing difference, so the change is provably a redistribution. | PT.9 | M | B |
-| PT.11 | **Lateral conduction between cells.** Cells on one steel bonnet are independent columns. Derived diffusion lengths over §6.6's 750 s engine-bay rise: aluminium 270 mm, steel 99 mm, asphalt 16 mm, against 71–150 mm cells — metal panels render sharper than reality. Implicit or ADI: `tick_s: 60` is 6.6× past the explicit limit (≈ 9 s at 5 cm in aluminium). | Against the analytic Gaussian spreading of a step in a semi-infinite sheet to 1 %; the k → 0 limit is bit-identical; forward Euler at the shipped tick diverges. Per-material switch. | PT.3, PT.7 | L | C |
-| PT.12 | **N-layer through-thickness stack per cell**, generalising `two_node.py`. MuSES evaluates properties per thermal node through the element thickness; Fraunhofer stores 2+N temperatures per triangle and used 10 layers. | N = 1 reproduces the existing two-node result to 1 mK. A 1 mm steel skin and 0.3 m of asphalt in one scene each show their own time constant, ordered by areal capacity; a single-layer asphalt gets the night curve wrong by > 2 K. | PT.11 | M | C |
+| PT.11 | **Lateral conduction between cells.** Cells on one steel bonnet are independent columns. Derived diffusion lengths over §6.6's 750 s engine-bay rise: aluminium 270 mm, steel 99 mm, asphalt 16 mm, against 71–150 mm cells — metal panels render sharper than reality. Implicit or ADI: `tick_s: 60` is 6.6× past the explicit limit (≈ 9 s at 5 cm in aluminium). | Against the analytic Gaussian spreading of a step in a semi-infinite sheet to 1 %; the k → 0 limit is bit-identical; forward Euler at the shipped tick diverges. Per-material switch. | TC.1, PT.7 | L | P |
+| PT.12 | **N-layer through-thickness stack per cell**, generalising `two_node.py`. MuSES evaluates properties per thermal node through the element thickness; Fraunhofer stores 2+N temperatures per triangle and used 10 layers. | N = 1 reproduces the existing two-node result to 1 mK. A 1 mm steel skin and 0.3 m of asphalt in one scene each show their own time constant, ordered by areal capacity; a single-layer asphalt gets the night curve wrong by > 2 K. | PT.11 | M | P |
 | PT.13 | **Temperature-map and parameter-map ingest.** DIRSIG's Map Temperature Solver is a single-band raster in °C applied by UV or drape projection; MappedTherm does the same for parameters. `PlanarPatch` is already a raster with a projection. The escape hatch for prescribed aerial skins, externally solved hulls and draping public thermal frames onto geometry. | A float32 raster round-trips through a patch to 1 mK. A °C raster mis-declared as K raises. A parameter map varying α_sol gives the per-cell equilibrium the scalar solver predicts. | PT.2 | M | C |
-| PT.14 | **ADR: temperature granularity tiers.** Production tools select a tier per surface — DIRSIG offers per-material, per-solid, per-facet and per-pixel, and imports MuSES for a real 3-D field. irsim has three tiers in code and only ADR 0087's prose describing the boundary; CLAUDE.md requires an ADR for a chosen fidelity level. | A record, not a test. It states where irsim sits, what each tier costs, and the rule a scene author uses to pick one. It supersedes ADR 0087's "a real limit, not a temporary one". | WM.5 | S | C |
-| PT.15 | **Make `LumpedTwoNodeSolver` and `CabinNode` reachable.** Neither is importable from `irsim.thermal`'s `__init__`, neither is a `solver:` kind, no demo constructs either — so every solved surface in every scene has an adiabatic back. | ADR 0036/0038's measured results appear in a rendered frame: a roof +4.8 K with a cabin against adiabatic, both > 2 K below ambient on a clear night. Red today: no scene can construct either, so those are results no rendered frame can show. Note the 12.04 s gate leader exercises this unreachable solver. | PT.12 | M | C |
+| PT.14 | **ADR: temperature granularity tiers.** Production tools select a tier per surface — DIRSIG offers per-material, per-solid, per-facet and per-pixel, and imports MuSES for a real 3-D field. irsim has three tiers in code and only ADR 0087's prose describing the boundary; CLAUDE.md requires an ADR for a chosen fidelity level. | A record, not a test. It states where irsim sits, what each tier costs, and the rule a scene author uses to pick one. It supersedes ADR 0087's "a real limit, not a temporary one". | WM.5 | S | P |
+| PT.15 | **Make `LumpedTwoNodeSolver` and `CabinNode` reachable — the cabin as a fluid node of `TC.2`'s network.** Neither is importable from `irsim.thermal`, neither is a `solver:` kind, no demo constructs either: every solved surface has an adiabatic back. | ADR 0036/0038's measured results appear in a rendered frame: a roof +4.8 K with a cabin against adiabatic, both > 2 K below ambient on a clear night. Red today: no scene can construct either. As a fluid node the cabin must reproduce `CabinNode`'s coupled equilibrium to 0.1 K, or two copies of one balance drift. | PT.12, TC.2 | M | P |
+| PT.17 | **Patches solved from the scene config, not from Python.** `_build_thermal_field` reads `SurfaceSpec.patch` and builds a `PlanarThermalField` per patched surface on its library material; bindings reach `IrCamera` from `Scene`; the car scenes declare bonnet and road in YAML. | Red today: a `patch:` block yields geometry and one facet; nothing reads `Scene.patches`. After: under uniform forcing every cell equals the per-prim value to 1 mK; the car scenes render bit-identically on the synthetic G-buffer from YAML alone; an unknown patch material fails at load. | — | M | P |
+| PT.18 | **Occluders and daylight in the config path.** Schema v8: `occluders:` rectangles feed `cell_shadow`; `patch_solar_loading` supplies q_solar per cell; the car driver gains the solar term it lacks. `shaded: true` plus an occluder on one surface is refused — two shadow authorities. | Red today: `cell_shadow` has no caller outside tests and `car_demo` has no q_solar, so a noon run renders a sun-free bonnet. After: PT.1's wall (22.1 K lit/shaded step) reproduces from YAML alone; the daytime road field matches the per-prim asphalt solve to 1 mK where unshaded. | PT.17 | S | P |
+| PT.19 | **An unconsumed binding is loud.** `PointwiseTemperature.apply` counts pixels per binding; a prim path absent from `idToLabels` raises under `strict_patch_coverage` and warns otherwise, and the sidecar records coverage per binding. | Red today: a misspelt prim path is skipped by `if not fields: continue` (`point_bridge.py:196`) and the bonnet quietly renders at its ambient fallback — the YAML comment calls that a guard. After: the synthetic G-buffer test with one misspelt path raises naming it; correct paths are bit-identical. | PT.17 | S | P |
+| PT.20 | **The R1 reference scene: a wall half in sun, from YAML plus one command.** `configs/scenes/wall_half_in_sun.yaml`: four wall patches and a roof on a ground patch, a neighbouring slab as occluder, clear summer weather; a synthetic-G-buffer frame. | At 15:00 west and north walls differ by > 10 K (Morrison 2021); the terminator across one concrete wall ≥ 10 K and ≈ 7 K on a thin insulated skin — a shadow that only scales q_solar fails the second; cells shaded > 30 min stay > 10 K cooler for 30 min after the occluder goes. The rendered frame needs `IG.2`. | PT.6, PT.18 | M | P |
+| PT.21 | **Per-cell sky view factor and diffuse shadowing.** A 145-patch Tregenza sky sampled with the same ray–rectangle test gives each cell an SVF that scales both diffuse solar and longwave down, with dome, horizon and circumsolar split as EnergyPlus does. | Analytic anchors within 0.01 of the 145-patch quadrature: under an infinite overhang SVF = 0.5, at the foot of an infinite wall 0.5, open sky 1.000. Cells at SVF 0.2 and 0.9 under one weather file show a diurnal-amplitude ratio near 2 (kabalti passages, 1.97 vs 4.21 °C); an SVF applied to solar only fails it. | PT.18 | M | P |
+| PT.22 | **Shadows and sky view from geometry, CPU-only, neighbours included.** An `(origins, directions) → hit` adapter: the analytic rectangles are the oracle, a trimesh + embreex backend is optional and outside `src/irsim`, and the query walks every opaque prim. The 0.53° solar disc is sampled (7–19 rays) into a sunlit fraction. | The mesh path and the rectangle path agree cell-for-cell on a box occluder; a neighbouring block shades a wall its own mesh cannot; the penumbra ramp width is d·tan 0.53° ≈ 9.3 mm per metre within 10 % — a binary test fails. | PT.21 | M | P |
 | PT.16 | **Make `HeatTraceLayer` reachable** (ADR 0039, M6.16). §6.6 calls heat traces a signature phenomenon of the band, and the sim-to-real literature says detectors trained on synthetic data lacking them are confused by them — so this is an evaluation deliverable, not a nicety. | A rendered frame shows the trace ghost at the authored offset and amplitude; the overlay is absent bit-identically when unbound. Red today: `irsim.thermal.traces` is imported only by its own unit test. | PT.15 | M | C |
 
 ---
@@ -371,12 +445,87 @@ Leaving ADR 0087 standing as written will cost another session a week, so WM.5 i
 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
-| WM.1 | **Probe: exact per-pixel (face, u, v) from Warp on this build.** Build a `wp.Mesh` from a prim's own points and indices, seed `mesh_query_point_no_sign` with the position AOV, recover face and barycentrics. A probe script and numbers, not a pipeline. | Recovered face and barycentrics reproduce the M10.1 probe scene's known geometry; the closest-point residual is inside the 3.4 mm position budget; `mesh_eval_position(face, u, v)` returns the queried point. Red today only in the sense that the measurement does not exist — this is the step that settles ADR 0087's premise. | — | M | B |
-| WM.2 | **`TriangleMeshField` in `irsim.thermal`**, engine-free, composing `ThermalField` as `PlanarThermalField` does so the fixed tick and never-mutate-on-query rule carry over. Cells per face with a per-face resolution, Ptex style. `PlanarPatch` stays as the special case. | A sphere under a directional sun holds each face to its own cos θ equilibrium to 1 mK — a single facet fails by the pole-to-terminator span. Conservation: the area-weighted mean matches the per-prim value it replaces to within the forcing difference, so the change is provably a redistribution. | WM.1 | M | B |
-| WM.3 | **`MeshPointBridge`**: per-pixel instance id selects the prim's `wp.Mesh`, the query gives `(face, u, v)`, the field gives the temperature. Additive like `point_bridge`: an unbound prim keeps the per-instance path bit-identically. | Brute-force NumPy closest point is the oracle; Warp and oracle agree on face and on the sampled temperature for 100 % of pixels on a curved fixture. A hit beyond the tolerance raises rather than snapping. A wheel, tyre and exhaust pipe stop being one temperature — the case ADR 0087 lists as Hard. | WM.2 | M | B |
-| WM.4 | **Per-cell geometry from the mesh**: true per-face normals for the solar incidence term, ray-traced sky view factor and self-shadowing via `mesh_query_ray` (0.51 ms per 327 k rays measured). This is ADR 0088's own "revisit when". | The analytic parallel-rectangle form stays the oracle and the Monte Carlo estimator converges to it inside its stated standard error. A hull at 45° shows per-cell view factors varying across the surface where one shared patch normal gives one value. | WM.3 | M | B |
-| WM.5 | **ADR: the surface temperature field lives on the mesh**, superseding ADR 0087's curved-geometry limitation. Records the closest-point parameterisation, why it needs nothing from the renderer, the error budget, and the options rejected with reasons. | A record. The rejected options must be named or they will be rediscovered: closest-point-method narrow bands need a grid finer than a panel's thickness; a UV atlas as the *solver* domain carries metric distortion, seam severing and conservative-rasterisation taxes; transient surfels cannot hold a 48 h spin-up memory. | WM.3 | S | B |
-| WM.6 | **Intrinsic-Delaunay-safe Laplacian** if PT.11's lateral conduction moves onto a mesh. A cotan Laplacian gives negative edge weights whenever two opposite angles sum past π, breaking the discrete maximum principle. | On a deliberately obtuse imported mesh, no cell leaves the range spanned by its neighbours and the forcing; the plain cotan operator fails this and produces a bright speck that looks like a bad pixel. Backward Euler is prefactored once per asset, so the 1 s fixed tick survives. | PT.11, WM.3 | M | C |
+| WM.1 | **Probe: exact per-pixel (face, u, v) from Warp on this build.** Build a `wp.Mesh` from a prim's own points and indices, seed `mesh_query_point_no_sign` with the position AOV, recover face and barycentrics. A probe script and numbers, not a pipeline. | Recovered face and barycentrics reproduce the M10.1 probe scene's known geometry; the closest-point residual is inside the 3.4 mm position budget; `mesh_eval_position(face, u, v)` returns the queried point. Red today only in the sense that the measurement does not exist — this is the step that settles ADR 0087's premise. | — | M | P |
+| WM.2 | **`TriangleMeshField` in `irsim.thermal`**, engine-free, composing `ThermalField` as `PlanarThermalField` does so the fixed tick and never-mutate-on-query rule carry over. Cells per face with a per-face resolution, Ptex style. `PlanarPatch` stays as the special case. | A sphere under a directional sun holds each face to its own cos θ equilibrium to 1 mK — a single facet fails by the pole-to-terminator span. Conservation: the area-weighted mean matches the per-prim value it replaces to within the forcing difference, so the change is provably a redistribution. | WM.1 | M | P |
+| WM.3 | **`MeshPointBridge`**: per-pixel instance id selects the prim's `wp.Mesh`, the query gives `(face, u, v)`, the field gives the temperature. Additive like `point_bridge`: an unbound prim keeps the per-instance path bit-identically. | Brute-force NumPy closest point is the oracle; Warp and oracle agree on face and on the sampled temperature for 100 % of pixels on a curved fixture. A hit beyond the tolerance raises rather than snapping. A wheel, tyre and exhaust pipe stop being one temperature — the case ADR 0087 lists as Hard. | WM.2 | M | P |
+| WM.4 | **Per-cell geometry from the mesh**: true per-face normals for the solar incidence term, ray-traced sky view factor and self-shadowing via `mesh_query_ray` (0.51 ms per 327 k rays measured). This is ADR 0088's own "revisit when". | The analytic parallel-rectangle form stays the oracle and the Monte Carlo estimator converges to it inside its stated standard error. A hull at 45° shows per-cell view factors varying across the surface where one shared patch normal gives one value; `PT.22` agrees cell-for-cell on one box and adds neighbour shadows. | WM.3, PT.22 | M | P |
+| WM.5 | **ADR: the surface temperature field lives on the mesh**, superseding ADR 0087's curved-geometry limitation. Records the closest-point parameterisation, why it needs nothing from the renderer, the error budget, and the options rejected with reasons. | A record. The rejected options must be named or they will be rediscovered: closest-point-method narrow bands need a grid finer than a panel's thickness; a UV atlas as the *solver* domain carries metric distortion, seam severing and conservative-rasterisation taxes; transient surfels cannot hold a 48 h spin-up memory. | WM.3 | S | P |
+| WM.6 | **Intrinsic-Delaunay-safe Laplacian** if PT.11's lateral conduction moves onto a mesh. A cotan Laplacian gives negative edge weights whenever two opposite angles sum past π, breaking the discrete maximum principle. | On a deliberately obtuse imported mesh, no cell leaves the range spanned by its neighbours and the forcing; the plain cotan operator fails this and produces a bright speck that looks like a bad pixel. Backward Euler is prefactored once per asset, so the 1 s fixed tick survives. | PT.11, WM.3 | M | P |
+---
+
+## TC — Thermal coupling
+
+The owner's seventh requirement, in their words: *"engine will increase its temperature while being used —
+but not just itself, also the metals around it."* The 2026-09-18 audit found nothing in the spec, the code
+or revision 5 that could do this. `FacetSolver.net_flux` is a pure per-cell function of that cell's own
+temperature; the only coupling between parts is ADR 0088's radiative view factor onto a parallel panel;
+the two objects that carry a conductance — the two-node solver and the cabin node — reach no scene; and
+the engine is a scripted ΔT schedule (ADR 0089) with no watts, no mass and no link to anything. `PT.11`
+diffused heat *within* one patch and sat in phase C behind the lane ranked third.
+
+The production answer is old and small: a lumped **network** — nodes with capacity, links with conductance,
+a fluid node for the bay air, heat imposed in watts — is how MuSES, TAITherm and Thermal Desktop couple
+parts, and engine warm-up models in the literature use ten to sixty nodes, not thousands. Measured joint
+conductances exist (bolted ferrous automotive joints ~1e4 W m⁻² K⁻¹; rubber mounts are first-order lags),
+and the phenomenon every under-hood measurement records — the **hot soak** after key-off, when skins keep
+rising for one to two minutes because forced convection stopped while the core still feeds them — is
+unrepresentable by any schedule. Sources are in the 2026-09-18 survey.
+
+What makes this a lane rather than a row is the integrator. The fixed explicit tick that every field runs on
+cannot host a conduction operator (`TC.1`); once it can, lateral conduction (`PT.11`), the network (`TC.2`)
+and contactors between fields (`TC.3`) share one implicit solve. The engine-free half of every row here is
+closed by an analytic check; the frames of `TC.6` are the in-engine half and wait on `IG.2`.
+
+| id | what | verification (red today → green after) | deps | size | phase |
+|---|---|---|---|---|---|
+| TC.1 | **The tick survives conduction: a stability guard and an IMEX step.** `ThermalField` enforces the explicit bound of `two_node.py`; conduction — lateral, through-thickness, links — is stepped implicitly through one prefactored sparse solve per tick; radiation and convection keep the midpoint rule. | `tick_s` up to 3600 s is unguarded, and 60 s is 6.6× past the explicit limit for 5 cm aluminium. After: an unstable tick raises; k → 0 is bit-identical to RK2; a stiff RC ladder holds its closed form to 1e-6 at 60 s where Euler diverges; energy closes to 1e-6 per tick. | PT.8 | M | P |
+| TC.2 | **A thermal network: nodes, links and a fluid node.** `irsim.thermal.network`: nodes with capacity C; MuSES's boundary kinds: fixed temperature, imposed heat Q [W], convection to a fluid node (hA, T_fluid); links as h_c·A or G [W/K], with an optional node of their own (a rubber mount); radiation links. Solved under `TC.1`. | ΔT = Q/G to 1e-6 relative on a fixed sink, Q/(hA) on a fluid node; both link forms bit-identical; a link node with τ answers a step exponentially within 2 %; Σ C dT/dt = sources − losses to 1e-6 each tick, so a sign error in any conductor fails. | TC.1 | M | P |
+| TC.3 | **Contactors and radiation between fields.** A contactor joins two patches by a conductance proportional to overlap area, no grid alignment needed; radiation links reuse `spatial_sources` view factors with reciprocity, so engine → bonnet and underbody → road share one mechanism. | Two overlapping patches at h_c = 1e4 W m⁻² K⁻¹ give total G = h_c·A_overlap within 1 % and the same total after a 4× refinement of one grid — a per-node conductance fails; energy leaving the underbody by radiation equals energy arriving on the road cells to 1e-6. | TC.2, PT.17 | M | P |
+| TC.4 | **Nodes, links and joints in the scene schema.** `nodes:` and `links:` blocks and `configs/thermal/joints.yaml`: bolted ferrous automotive joints 12 kW m⁻² K⁻¹ new, 7 corroded, 59 with paste (Voller & Tirovic 2007), a 1 kW m⁻² K⁻¹ dry default, ~1 W/K per small fastener; each value marked ESTIMATED or MEASURED with a source. | The loader refuses h_c outside 1e2–1e6 W m⁻² K⁻¹ (a per-K typo); a bracket joined to a 400 °C part through 25 cm² at 12 against 1 kW m⁻² K⁻¹ shows steady rises in the ratio the two-resistor closed form gives against one convective loss, to 1e-6. | TC.2 | S | P |
+| TC.5 | **The engine as a solved node, not a schedule.** Imposed heat = power × loss fraction from the load schedule, block-plus-coolant mass, a bay-air fluid node, forced → natural convection at speed 0, links to mounts and subframe. Supersedes ADR 0089's adapter for the bay. | From 93 °C at 27 °C ambient the block is > 20 K above ambient after 1 h and within 1 K after 7 h (key-off τ ≈ 1.7 h; a 750 s schedule fails the first); after key-off the bonnet over the block warms 60–120 s more before cooling; bay air overshoots 20–50 K; steady ΔT inside §6.6's +40…+90 K band. | TC.3, TC.4 | M | P |
+| TC.6 | **The R2 reference scene: an engine warms the metal around it.** `car_ignition_*` migrate to nodes and links: block, rubber mounts as link nodes, subframe, wing bracket, bonnet by contactor and radiation, road by radiation; key on at 30 s, off at 20 min. | A bracket 0.3 m from the block lags the bay by its RC time and settles at G_path/(G_path + hA) of the bay rise, to 1e-6; parts warm in conductance order block → mount → bracket → wing; the synthetic-G-buffer bonnet shows 10–40 K max–min with the engine on. Frames need `IG.2`. | TC.5, PT.18 | M | P |
+| TC.7 | **The exhaust line as a gas stream in a wall.** `exhaust_line.py`: quasi-1-D T_gas(x) with an inner h drives wall cells that radiate to the floor pan and conduct through hangers (~1 W/K per fastener) — the manifold-to-tailpipe gradient a camera sees under a car. | T_gas − T_wall decays as exp(−NTU·x/L) against the closed form to 1e-6; the wall → T_gas as h → ∞; after key-off the manifold and catalyst skins peak 60–120 s later and fall from 400 °C to below 260 °C in 3–12 min (MVFRI R04-13; the ~100 °C clamp-probe spread is recorded as tolerance, not tuned to). | TC.6 | M | P |
+| TC.8 | **Wheel arches and brakes reach a frame.** A `RadiantRectangle` per wheel well carries the tyre and brake sources `vehicle.py` already computes but nothing calls; the closed-form brake deposit and the speed-driven tyre rise are driven from a `VehicleState` trace, as ADR 0089 asks. | Red today: zero callers for `brake_temperature_rise_k` and `tyre_delta_t_k`. After a drive cycle the arch cells nearest the tyre are > 2 K warmer than the door; a 1600 kg stop from 30 m/s deposits 162 K into an 8 kg disc and four times that from 60 m/s (ADR 0038). | TC.6 | S | C |
+
+---
+
+## PH — Phenomena beyond opaque solids
+
+The owner's eighth requirement: *"this is correct about water, fire and something like these."* The
+2026-09-18 audit found water only as the open sea (an authored bulk SST under a skin model that omits the
+latent flux by its own admission), no latent-heat term in any balance, nothing consuming the weather file's
+`precip_mm_h`, wetness as a second material rather than a state, and — for fire, flame, hot gas and plume —
+no code, no config surface and no step: §2 is a surface-only equation and the plume was "deferred without
+a number" past a trigger that had already fired.
+
+Two pieces of physics cover most of it. **A latent-heat term with a per-cell water film** (`PH.1`) gives wet
+roads, drying spikes, lakes and puddles, and with a stomatal resistance, transpiring leaves. **A gas slab in
+radiance space** (`PH.4`) — per band, L = τ L_behind + (1 − τ) B(T_gas), the one-line kernel FDS, DIRSIG and
+NIRATAM all reduce to — gives exhaust plumes, flames and steam, with the band selectivity that makes a plume
+dominant in MWIR and nearly invisible to a LWIR bolometer. The hot-gas absorption tables are generated
+offline like the Planck LUTs, so bands stay data. Fire on the *camera* is its own row (`PH.8`): what a
+microbolometer does with a 1000 °C object is a gain state, a rail and an AGC choice, and FLIR's own notes
+quantify it. Snow, vegetation and people are one rule each on top of `PH.1` and the patch machinery; they
+are phase C because no scene in the owner's order needs them yet, but they are rows, not deferrals.
+
+Everything here is engine-free and CPU-only; the tolerance for gas radiometry is RadCal's 8 %, which makes
+fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so nobody tunes it to 10 mK.
+
+| id | what | verification (red today → green after) | deps | size | phase |
+|---|---|---|---|---|---|
+| PH.1 | **The latent-heat term and a wet film per cell.** §6.1 gains −L_v·E with E = ρ_a C_E U (q_sat(T_s) − q_a) — r_s = 0 for a free film, r_s > 0 for stomata — a film mass per cell filled from `precip_mm_h` and emptied by E; L_v = 2.45 MJ/kg in `constants`. | A saturated cell with no radiation relaxes to the psychrometric wet-bulb of (T_air, RH) within 0.1 K and cools as RH falls; zero film is bit-identical to today; Q_L = 0 at RH = 1 and T_s = T_a; removing the term warms the sea skin; Q_L at 5 m/s, 293 K, RH 0.7 within 15 % of COARE 3.6. | PT.17 | M | P |
+| PH.2 | **The wet/dry road: one object, two states.** An asphalt patch at noon under the clear summer file with a 0.2 mm film on half its cells (Paris pavement watering, Hendel 2014, FLIR B400). | The wet half renders 6–13 K colder than the dry half in sun and 2–4 K in shade; the film is gone in 15–120 min and the halves reconverge — the drying spike the camera saw; the film mass budget closes to 1e-6 against ∫E dt. A latent term scaled wrong dries outside the window. | PH.1, PT.18 | S | P |
+| PH.3 | **Still water: lakes, ponds and puddles.** A fresh-water mixed-layer node under the sea-skin model, water's Fresnel angular emissivity and the reflected sky, as a per-cell override on a ground patch so a puddle is a region of the road. | Clear calm night: skin − bulk in [−0.5, −0.1] K; a cloudy humid night flips the sign — a skin that only ever cools fails; the sublayer is 0.7–3.6 mm at 0.8–8.2 m/s; a puddle at the road's kinetic temperature reads several K colder apparent at 60° off nadir under a clear sky, within 0.5 K at nadir; ε + ρ = 1 at every angle. | PH.1 | M | P |
+| PH.4 | **A gas slab in radiance space.** Per band L = τ_b L_behind + (1 − τ_b) B_b(T_g), τ_b = exp(−κ_b(T_g)·L), authored as (T_gas, p_CO₂, p_H₂O, f_soot, L) — never as an emissivity — applied at the target's range and attenuated by the remaining path as MS.6 does; guard 300–2500 K. | κL → 0 returns the background exactly; κL → ∞ returns B_b(T_g); a soot-only slab reads the same apparent temperature in MWIR and LWIR while a CO₂/H₂O slab of the same T does not (a grey knob fails); T_g below the background gives negative contrast; at range R, ΔL = τ(R)·[L_slab − L_air]. | — | M | P |
+| PH.5 | **Per-band hot-gas absorption tables, generated offline.** `scripts/generate_gas_luts.py` runs RADIS over HITEMP (LGPL, under `scripts/` only) for CO₂ and H₂O over 300–2500 K, integrates against every band's R(λ) so bands stay data, and commits float32 κ_b(T) with a hash sidecar; RadCal is the fallback. | The CO₂ 4.3 µm band mean at 1500 K exceeds the 296 K value; the sidecar hash pins the database used; a 3.80–4.05 µm through-flame sub-band added as config shows near-zero CO₂ contrast against 3–5 µm's; `test_temperature_encoding` sweeps to 1000 K. | PH.4 | M | P |
+| PH.6 | **The exhaust plume, on the car and the vessel.** A gas slab per pixel over the plume's cone, T and species from the exhaust node; closes the §6.6 deferral whose trigger — an MWIR Tier 3 bench — fired with `test_tier3_multiband.py`. | τ_LWIR ≥ 0.90 and τ_MWIR in 0.65–1.0 falling toward the exit (NIRATAM ship-plume fits) — a grey slab gives equal τ and fails; the MWIR bench shows the plume as the dominant feature while the LWIR bolometer sees a few-K contrast at most; one scene file renders both bands. | PH.5, TC.7 | M | P |
+| PH.7 | **Fire: the flame and what it heats.** A soot slab at 1150–1300 K; `RadiantRectangle` carries an authored surface emissive power (100–170 kW/m² unobscured, 30–50 smoke-obscured; Considine/Mudan) so a cell's q_int = α·F·SEP; Heskestad's plume centreline ΔT₀ replaces T_air above the fire, authored by Q_c [kW] and D. | A cell with F = 0.10 facing 120 kW/m², ε = 0, h > 0 sits at T_air + α·12 kW m⁻²/h to 1e-9 (the pinned steady-state form); Σ F ≤ 1 per cell (ADR 0090); ΔT₀ → 0 as z → ∞, continuous at the flame tip, monotone in z; a Q_c given in W instead of kW is refused. | PH.5 | M | P |
+| PH.8 | **Fire on the camera: gain state, rail and AGC.** A `gain_state` with an intrascene ceiling (Boson: 140 °C high, 500 °C low, Rev 340) clipped in radiance before the ISP; radiometric output uncapped. | A 1273 K patch over a 303 K scene with a 310 K person: `agc_linear` leaves < 2 DN person/room contrast (FLIR: 0.7 % of range), `agc_plateau` keeps ≥ 10 DN; the high-gain 16-bit signal rails, low gain does not; a radiometric config reproduces FLAME 3's histogram — a 0–25 °C mode and a tail railing at 500 °C — and fails if the ceiling is applied in Kelvin space. | PH.7 | M | P |
+| PH.9 | **Steam and droplet plumes.** The slab of `PH.4` with a droplet extinction from `cloud.py`'s Mie tables scaled by liquid water content, emitting at the droplet temperature. | For one LWC the MWIR extinction exceeds the LWIR extinction; the plume's apparent temperature never exceeds the authored droplet temperature; a pure-gas H₂O slab at 373 K has τ_LWIR ≥ 0.9 (NIRATAM) — the steam a LWIR camera sees is droplets, not gas. | PH.6 | S | C |
+| PH.10 | **Snow: the melt cap.** T_s ≤ 273.15 K; surplus net flux at the cap becomes melt at L_f = 334 kJ/kg; ε 0.98–0.99 with the library's angular fall-off. | +200 W/m² net holds the cell at exactly 273.15 K and melts 2.2 mm water-equivalent per hour; a clear calm night drives the surface several K below air while overcast does not; the alpine ESSD 16 (2024) series bounds a Tier 4 check at 0.7–1.3 K MAE. | PH.1 | S | C |
+| PH.11 | **Vegetation: leaves transpire.** `PH.1`'s latent term with a stomatal resistance from the material and a leaf's tiny capacity, under `TC.1`'s guard (a 630 J m⁻² K⁻¹ leaf breaks a 60 s explicit tick). | g_s → 0 converges to the dry reference (above air in sun); a well-watered leaf sits below air at high VPD; the slope of (T_leaf − T_air) against VPD lies in [−3.8, −1.1] °C/kPa (Idso baselines); the Campbell–Norman closed form agrees with the stepped steady state to 0.1 K. | PH.1, TC.1 | S | C |
+| PH.12 | **People: skin and clothing are two temperatures on one prim.** `irsim.thermal.human`: skin at 35.7 − 0.028 (M − W) °C, ε ≈ 0.98; a clothing surface solved from the ISO 7730 balance with I_cl = 0.155·clo and h_c = max(2.38 |Δt|^0.25, 12.1 √v); two patches per human prim. | I_cl = 0 gives t_cl = t_sk; 1 clo at 0 °C air lands the clothing 10–15 °C below skin; more wind lowers t_cl; one condition matches pythermalcomfort's two-node model (MIT, a dev-only oracle never imported by `src/irsim`) to 0.5 K. | PT.17 | S | C |
+| PH.13 | **ADR: participating media and the phenomena tier.** Records the slab kernel and its 8 % RadCal envelope (a phenomenology feature, not a 10 mK one), the transport/radiometry split DIRSIG and FDS both use, Leckner/Hottel rejected for the image path and kept for heating, and what stays deferred: buoyancy, scattering, flicker, a volume on the Isaac side. | A record. Its options list must name the rejected routes: a grey emissivity knob, a Planck-mean coefficient in a band camera, an emissive dome prim through the fp16 path ADR 0014 closed. | PH.4 | S | P |
 
 ---
 
@@ -529,6 +678,7 @@ job. Several of these rows are not new features but *documented invariants that 
 | GT.5 | **Test `irsim_eval.decode`.** It is the entry point to the whole Tier 4 public-data lane and has no test at all; its own docstring names two decode facts (luma-plane-only, an unflagged colour range worth a 255/219 gain plus a 16-code offset) that bound every downstream number. Coverage 43 %, all incidental. | A synthetic clip encoded at a known range round-trips, and a range-flag regression fails. Needs ffmpeg and the `validation` extra, neither of which CI installs, so it follows the existing ffmpeg-gated pattern in `test_codec_floor.py`. | — | S | X |
 | GT.6 | **Record Tier 3 manual passes with their commit hash** in `docs/validation/tier3-checklist.md`, and commit a small contact sheet per pass. `outputs/` is gitignored, so the owner's stated way of reading these renders is invisible to everyone but the author, and no manual pass has ever been recorded although the roadmap requires each with a hash. | The checklist carries a dated, hashed row per pass and the five Tier 3 rows that point at open steps (M10.11, M10.19, MM.8) are marked open rather than reading as a plan of record. | RP.6 | S | X |
 | GT.7 | **A cost-budget test that pins the cell and prim budget.** Fraunhofer ran 1,313,410 triangles with a 10-layer stack through five day–night cycles in **252 s** in MATLAB on one i7-8700, so 10⁵–10⁶ cells is affordable and nobody should coarsen a patch for speed. | A 10⁵-cell field over a 48 h spin-up completes inside a stated budget, in the **slow** tier — which is why GT.1 lands first. Also pins the render cost: `PointwiseTemperature.apply` measured 79 ms per frame at 640×512 for one bound prim, ~30 % of it a duplicated `local_coords` pass. | GT.1, PT.9 | M | C |
+| GT.8 | **`--lane` answers with a startable step.** `next_step.py --lane PT` prints `PT.9` although it waits on `WM.3`; the single-head and `--queue` outputs gain the `waiting on` column the published block already has. | Red today: `--lane PT` names a blocked head. After: the head printed for a lane is its first step whose deps are all ticked, or the line says what it waits on; `test_roadmap_queue.py` gains a `--lane` case. | — | S | X |
 
 ---
 
@@ -580,9 +730,11 @@ and are not restated here; the ones below either changed state or were being rep
 | R11 | The unit suite drifts past 30 s | **Materialised.** Measured 130 s, a 4.3× overrun. The `slow` marker the mitigation names was never implemented in the Makefile or pyproject | `GT.1` |
 | R13 | Estimated data is mistaken for measurement | **Violated where it matters most.** The three example configs mark `ratios_3d` ESTIMATED; the two Boson configs that actually get rendered and compared against reality do not — and those are the values `SC.2` shows are 7–19× out | `SC.3` |
 | R26 | The per-point ablation returns a negative | Live. The pre-committed answer is to redirect to the ISP, which the same evidence ranks first — but the two effect sizes are a near-tie (HTV d = 1.242 against target Sobel variance d = 1.224) measured on a different generator, so "ranks first" is not a ranking that survives. See open question 10 | `EV.9` |
-| R27 | **New.** Point-wise temperature reaches one lane, and it is the lane ranked third | Live. Two prims in one of eight scene configs, authored only from Python, world-frame only, night only | `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.10` |
+| R27 | **New.** Point-wise temperature reaches one lane, and it is the lane ranked third | Live. Two prims in two of eight scene configs, authored only from Python, night only; `PT.1`, `PT.2` and `PT.5` shipped the machinery and no config reaches it | `PT.17`, `PT.18`, `PT.20`, `PT.9`, `PT.10` |
 | R28 | **New.** A whole-file write silently reverts another session's work | **Materialised three times**: `68acd1c`, `303b56b`, and the 135-line CHANGELOG deletion live in the working tree now. The tested mitigation `scripts/stage_own_hunk.sh` exists and nothing reaches it | `RP.3` — not the row-length cap, which only makes the diffs reviewable |
 | R29 | **New.** A "measured" figure in a project document cannot be reproduced | Live. `tier4-2026-09-15.json` records no clip list, archive hash, `config_hash`, CRF, seed or patch count; no noise statistic anywhere states its de-trending convention, which alone moves the answer by up to 3× | `EV.8`, `SC.5` |
+| R30 | **New (revision 6).** Heat never moves between parts: a hot engine renders a warm bonnet and a cold bracket bolted to the block | Live. No inter-cell term, no node-to-node conductance, the engine a scripted ΔT (2026-09-18 audit). The visible symptom is a car whose bonnet glows and whose wings, arches and subframe stay at ambient, which a detector learns as a signature | `TC.1`–`TC.6` |
+| R31 | **New (revision 6).** Fire, hot gas and wet surfaces are absent, so the scenes that contain them cannot be generated at all | Live. The gas-slab tables need HITEMP or RadCal offline (open question 14); the latent term needs no external data. A scene author who paints a flame as a hot prim gets a grey emitter that is wrong in every band | `PH.1`, `PH.4`, `PH.5`, `PH.8` |
 
 ---
 
@@ -600,9 +752,9 @@ over ADR 0073.
 | **An unconditionally stable two-node solver for thin panels** | ADR 0036 sends thin panels to a single node with a resistive back rather than fixing the 0.235 s explicit bound. An external review proposed Backward Euler. Not free: ADR 0036 chose RK2 over Euler on *bias*, because the T⁴ term makes explicit Euler inflate the diurnal swing — the quantity §6.3's acceptance test measures — and Backward Euler damps the same quantity. The stiffness is all in conduction (1/R₁₂ = 37 500 W m⁻² K⁻¹ against h + 4εσT³ ≈ 43), so **IMEX** — implicit conduction, explicit radiation — is the shape that pays, and `PT.11` already needs that machinery | `PT.11` lands, or a scene needs a thin panel resolved in depth |
 | §8.2 narcissus | §8.2 gives only a phenomenological form and no amplitude data | A Tier 4 flat-field PSD shows a radial low-frequency term |
 | §13.8 performance | No implementation and no citation outside one open step's spec column | Dataset throughput binds — see the composed Warp frame below |
-| §6.6 exhaust plume | Needs a participating-medium term absent from §2; a surface-radiometry pipeline cannot represent it. **Deferred without a number**; the old instruction to "record as ADR 0073" would overwrite a live Accepted record | MWIR Tier 3 |
+| §6.6 exhaust plume | ~~Deferred without a number~~ **No longer deferred.** Its trigger — an MWIR Tier 3 bench — fired with `test_tier3_multiband.py`, and the owner asked for fire and hot gas on 2026-09-18. `PH.4`–`PH.6` are the rows; what stays deferred (buoyancy, scattering, flicker, a volume on the Isaac side) is listed in `PH.13` | `PH.6` |
 | The composed all-device Warp frame | ~2,200 lines of op-for-op stage twins exist and are held to the CPU oracle, `EQUIVALENCE_STAGES` registers four of them, and nothing composes them into a frame. `ir_camera.py:44-51` still blames M10.7b, which landed 2026-09-13, so the real blockers are recorded nowhere: composing the stages, the AGC/FFC schedule question, and where the host/device seam sits — M10.7a already showed two correct stages can disagree tenfold when the seam moves | Dataset throughput actually binds. State the measurement rather than the belief: `PointwiseTemperature.apply` is 79 ms per frame at 640×512 for one bound prim on the CPU path and the plan binds more prims, so `GT.7` is what decides this |
-| Ground and automotive breadth | Building-envelope and roofing materials, the street-canyon reflected environment, and the solver's missing occlusion input are real gaps — low-e glazing alone is a ~40 K apparent-temperature error on every modern window — but they serve the lane ranked third | Phase C, after the aerial and maritime lanes meet the exit bar |
+| Ground and automotive **material** breadth | Building-envelope and roofing materials and the street-canyon reflected environment are real gaps — low-e glazing alone is a ~40 K apparent-temperature error on every modern window — but they serve the lane ranked third. The occlusion input this row used to defer with them is **not** breadth: it is the owner's first requirement and is `PT.18`, `PT.21` and `PT.22` in phase P | Phase C, after the aerial and maritime lanes meet the exit bar |
 | The grey `Atmosphere` as a live path | Two models coexist and `Scene.from_config` builds both; every render script uses `scene.layered` while `scene.atmosphere` is the primary attribute | `AT.5` marks it L1-only or guards it; a divergence, not a feature |
 | §13.7 options 2, 3 and 4; `THM-16`, `THM-17` | Unchanged from revision 3, and each already carries a reason and a trigger there | Unchanged |
 | Turbulence, polarisation, spectral fine structure, scattered-sunlight *path* radiance | App. A #2, #5, #6; §7.4. ADR 0086 shipped the scattered-sunlight **sky**; only the path radiance remains | Ranges beyond 500 m or airborne use |
@@ -707,13 +859,15 @@ answer arrives — so the plan cannot stall on silence.
 | 9 | **Commit scopes.** `pipeline`, `validation`, `eval` and `io` are still proposed additions to CLAUDE.md's list | Nothing; a convention | Use `build` for infrastructure and the physics scope a step tests |
 | 10 | **What happens if `EV.9` returns a negative** (R26)? | `EV.9`'s interpretation | Redirect to the ISP — but record the caveat *before* the measurement: the two published effect sizes are a near-tie (1.242 against 1.224) measured on a different generator, so the redirect is a decision, not a reading of the evidence. Confirm the intent so the result is not relitigated afterwards |
 | 11 | **CLAUDE.md's 30-second unit-test budget is not reachable, and the number should move or be funded.** Measured over 2,979 tests: **154 s of the 170 s is in test bodies**, not in fixtures — setup is only 15 s, so the obvious optimisation (17 modules each building their own `BandLUT`) is worth ~15 s at most. `GT.1` marked the validation benches and everything over a second, which is the defensible line and leaves the fast tier at roughly **65 s of test time**. Reaching 30 s would mean marking every test over 0.2 s — 173 of them — which redefines `slow` to mean five times what it says | `GT.1`'s stated acceptance; nothing else | **Revise the budget to the measured fast-tier number** and record it as a budget the gate enforces, rather than marking 40 % of the suite to hit a figure written when the suite was a tenth of this size. The alternative — funding a real optimisation of the 154 s — is a lane, not a step |
+| 13 | **CLAUDE.md has drifted from the tree and is not edited by this plan.** Its commands block calls `make test` the default gate (the gate is `make check`, which also runs the slow tier and the queue check), lists mypy on two packages (three), keeps the 30 s unit budget (open question 11), says Isaac Sim 6.0 (6.1.0-rc.26 measured, ADR 0014), and its layout block omits `irsim/io`, `irsim/pipeline`, `irsim/validation`, `scene.py` and `irsim_eval` | Nothing technical | Leave it; the owner edits CLAUDE.md. README.md is corrected in revision 6 where it repeated the same claims |
+| 14 | **HITEMP and RADIS for the hot-gas tables.** HITEMP needs registration and a citation; RADIS is LGPL and stays under `scripts/`; the download is large. RadCal's band tables in the public-domain FDS tree are the fallback | `PH.5` | Try RADIS first, time-boxed to a day; on any block, generate from RadCal and record the swap in `PH.13`. Either way the committed tables are float32 with a hash sidecar and `src/irsim` imports neither |
 | 12 | **The Boson's FFC fires on temperature, not only on time, and irsim models only time.** [R24] S5: an FFC is triggered by a 1.0 °C change in FPA temperature, and for the first 90 s after power-up by **one-third** of that. `NucSpec` has `ffc_interval_s` and nothing else, so a warming camera — the first two minutes of every render — shutters far less often in sim than in life, and the NUC residual it leaves is correspondingly larger. `SC.3` corrected the time trigger to 300 s and left this open rather than approximating it | A new `SC` step | Add `ffc_temp_delta_k` and `ffc_startup_period_s` to `NucSpec` and drive them off the existing `housing_tau_s` FPA track, which already exists and is not connected to the controller |
 
 ---
 
 ## ADR number allocation
 
-The highest ADR is 0089. Four numbers below it are cited and were never written: **0042** (the Level B
+The highest ADR is 0092 (0090–0092 were written after this section was first measured). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward
@@ -729,6 +883,39 @@ environment dome, Accepted 2026-09-14. `DC.4` records the rule and the RP.4 pars
 
 ## Review notes
 
+**Revision 6, 2026-09-20.** Amends revision 5 after the owner's 2026-09-18 message and the audit it prompted
+(three repository audits and two web-research sweeps, run in parallel; the evidence is
+[`docs/research/2026-09-18-thermal-coupling-survey.md`](research/2026-09-18-thermal-coupling-survey.md)).
+
+*What the audit found.* The point-wise machinery revision 5 scheduled and shipped (`PT.1`, `PT.2`, `PT.5`)
+is correct and reachable from no scene config: `_build_thermal_field` never reads `SurfaceSpec.patch`, the
+schema has no occluder, `cell_shadow` has no caller, no YAML declares a patch, and the only bound fields are
+hand-built in `car_demo.py` with no solar term. The roadmap had no row for heat between parts, none for
+water beyond the sea, none for fire, and parked lateral conduction in phase C. It also disagreed with itself
+about its revision number and step count, its phase table drifted from its rows in seven cells, its WM
+gating was circular (phase A's exit waited on a phase-B step), the plume deferral's trigger had fired, and
+ten verification cells stated motivation instead of a failure condition.
+
+*What this revision does.* (1) Phase **P** — point-wise and coupled physics, CPU only — between repair and
+the aerial lane, with its exit bar in the owner's words; `PHASE_RANK` in `scripts/next_step.py` and the
+tiebreak prose follow. (2) Two lanes: `TC` (eight rows: the integrator, the network, contactors, the joint
+table, the engine as a solved node with hot soak, the R2 reference scene, the exhaust line, wheel arches)
+and `PH` (thirteen rows: the latent term and wet film, the wet/dry road, still water, the gas slab, offline
+hot-gas tables, the exhaust plume, fire and what it heats, fire on the camera, steam, snow, vegetation,
+people, and the ADR). (3) Six `PT` rows that make what shipped reachable from a config and add sky view,
+geometry shadows with neighbours and the penumbra, and the R1 reference scene. (4) `PT.6`–`PT.8`, `PT.11`,
+`PT.12`, `PT.14`, `PT.15` and `WM.1`–`WM.6` move to phase P; `PT.11` now depends on `TC.1`, `PT.15` on
+`TC.2`, `WM.4` on `PT.22`. (5) The phase table is generated from the rows and guarded by
+`tests/unit/test_roadmap_phase_table.py`, so it cannot drift again. (6) Nine spec issues, `S41`–`S49`,
+record what §6, §2 and §16.2 lack for the owner's requirements. (7) `RP.10` and `GT.8` carry the two
+roadmap defects not fixed here; the rest are fixed in place. Every tolerance in a new row is quoted from a
+primary source in the survey and is external evidence until an irsim test reproduces it (R13).
+
+*What this revision deliberately does not do.* It does not re-order the scene lanes: aerial, then maritime,
+then ground remains the application order, and the reference scenes in phase P are the smallest scenes that
+can show a requirement, not lane deliverables. It does not touch CLAUDE.md (open question 13). It does not
+allocate an ADR number. And it does not claim any of the new rows' numbers as irsim measurements.
+
 **Revision 5, 2026-09-15.** Replaces revision 3 (2026-09-10) in full, and supersedes an unpublished
 revision 4 that was rejected in review for three reasons this revision fixes.
 
@@ -743,7 +930,7 @@ this tree at commit `ca5a663`" when the tree was dirty in seven paths, and two o
 (2,748 tests, 298,272 characters) no longer reproduced. And it shipped **no step table at all**, so no
 coverage claim about any step could be checked.
 
-*What this revision does differently.* (1) The plan is published: 109 steps across eleven lanes, each with
+*What this revision does differently.* (1) The plan is published: 109 steps at publication (112 by 2026-09-18) across eleven lanes, each with
 a verification cell that states what would fail and why the tolerance is that number, plus deps, size and
 phase. (2) It is organised by the owner's application order, with a per-lane exit bar taken from the
 owner's own words and amended only to require float32 output. (3) The three defects the audits ranked
