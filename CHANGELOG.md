@@ -13,6 +13,29 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-20
 
 #### Added
+- **The R2 reference scene: an engine warms the metal around it** (`TC.6`, ADR 0100 addendum).
+  Both car scenes declare the engine as `solver: engine` and the metal around it as `nodes:` and
+  `links:`: the block followed as a boundary (`follows: {target, node}`, a one-way boundary
+  reading a solved target's node each tick), rubber mounts as a link node to the subframe, a
+  wing bracket bolted through 25 cm² of `bolted_ferrous_new` whose fan-driven convection drops
+  to natural when the engine stops (`switch: engine_bay`, `off_h_w_m2_k`), and the wing on two
+  small bolts; the key turns on at 30 s and off at 20 min so the hot soak is in the film. The
+  engine model gained what the migration showed it lacked: heat into block and coolant as the
+  thirds rule (`block_fraction`, 0.9 of mechanical power at the load), a **proportional
+  thermostat** (90 °C, a 6 K band, 5 kW/K open) onto a radiator node, closed at key-off, and the
+  scene's `load` becomes a duty fraction of rated power (an idle in a car park is 0.10). The
+  target reports the **block**, the radiating mass under the bonnet, not the bay air; the bonnet's
+  underside now convects with the bay air, folded exactly into the cell's convective term, so the
+  bay's key-off spike reaches the skin. Measured: a bracket on a fixed block reaches 1 − e⁻¹ of
+  its share at τ = C/(G + hA) and settles at G/(G + hA) to 1e-6; parts warm block → bracket (30
+  W/K bolted) → mounts (12 W/K rubber) → wing; the overcast bonnet is 18 K max–min at 1500 s and
+  its rise climbs from 21 K at key-off to 27 K ten minutes later; the engine's bands hold with
+  the thermostat (full load +78.5 K flat to 1e-6 per tick, idle +65.5 K, key-off +32 K / +0.9 K
+  at 1 h / 7 h, bay overshoot +40 K at 140 s). Not done, recorded: the bonnet joined to the body
+  by a contactor needs one implicit system across the network and a field. 3 cases in
+  `tests/unit/test_r2_scene.py`; `test_car_demo` and `test_engine_node` re-read for the solved
+  engine (the clear/overcast road patch is now held as a difference, the sump radiating at the
+  block's temperature having grown the engine's share). Frames need `IG.2`.
 - **The latent-heat term and a wet film per cell** (`PH.1`, ADR 0101). §6.1's balance gains
   `Q_L = L_v ρ_a (q_sat(T_s) − q_a) / (r_a + r_s)`, evaluated on the solver's own temperature like
   emission (`irsim.thermal.latent`; Magnus/Bolton saturation shared with the atmosphere module;

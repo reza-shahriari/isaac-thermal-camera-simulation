@@ -73,11 +73,12 @@ def test_the_bonnet_is_a_gradient_and_the_frame_0_panel_is_not(demo_at_end) -> N
     assert start["bonnet_gradient_k"] < 1e-3
     assert float(start_bonnet.max() - start_bonnet.min()) < 1e-3
 
-    # By the end: several kelvin across the same prim, which is 100+ noise-equivalent steps.
-    assert end["bonnet_gradient_k"] > 3.0
-    assert end["bonnet_gradient_k"] / NETD_K > 60.0
+    # By the end: tens of kelvin across the same prim, hundreds of noise-equivalent steps -- the
+    # solved block sits at its thermostat under the skin (TC.6; the row's 10–40 K band).
+    assert 10.0 < end["bonnet_gradient_k"] < 40.0, end["bonnet_gradient_k"]
+    assert end["bonnet_gradient_k"] / NETD_K > 200.0
     # And it is a rise over ambient, not a redistribution.
-    assert end["bonnet_rise_k"] > 3.0
+    assert end["bonnet_rise_k"] > 10.0
 
 
 def test_the_bonnet_gradient_falls_away_from_the_engine_and_is_not_a_step(demo_at_end) -> None:  # type: ignore[no-untyped-def]
@@ -133,14 +134,16 @@ def test_the_wheels_do_not_warm(demo_at_end) -> None:  # type: ignore[no-untyped
     assert end["bonnet_rise_k"] > 100.0 * max(abs(end["tyre_rise_k"]), 1e-6)
 
 
-def test_the_engine_reaches_its_6_6_node_temperature(demo_at_end) -> None:  # type: ignore[no-untyped-def]
-    """The whole chain rests on §6.6's own numbers, so state what they came out as."""
-    from irsim.thermal.vehicle import VEHICLE_HEAT_SOURCES, first_order_rise
+def test_the_engine_is_solved_and_sits_at_its_thermostat(demo_at_end) -> None:  # type: ignore[no-untyped-def]
+    """TC.5/TC.6: the block is a solved node held by its thermostat, inside §6.6's band, and the
+    key went off at 1200 s so at 1500 s it is already cooling through the bay."""
+    from irsim.thermal.engine import EngineSpec
 
-    _scene, _demo, _start, _sb, end = demo_at_end
-    spec = VEHICLE_HEAT_SOURCES["engine_bay"]
-    expected = float(first_order_rise(RUN_S - 30.0, 0.45 * spec.delta_t_max_k, spec.tau_rise_s))
-    assert end["engine_bay_k"] - end["t_air_k"] == pytest.approx(expected, abs=0.05)
+    scene, _demo, _start, _sb, end = demo_at_end
+    rise = end["engine_bay_k"] - end["t_air_k"]
+    assert 40.0 <= rise <= 90.0, rise
+    assert end["engine_bay_k"] < EngineSpec().thermostat_k + EngineSpec().thermostat_band_k
+    assert scene.targets["engine_bay"].load_at(scene.t0_s + RUN_S) == 0.0
 
 
 # ---------------------------------------------------------------------------------------------
@@ -284,7 +287,12 @@ def test_a_clear_sky_puts_far_more_of_the_patch_on_the_road_than_the_engine_does
     clear_patch, clear_bonnet = _patch_after(CLEAR_YAML, 1800.0)
 
     assert overcast_patch > 0.5
-    assert clear_patch > 2.0 * overcast_patch, f"clear {clear_patch}, overcast {overcast_patch}"
+    # The clear night adds the standing sky-occlusion patch (PT.7: ~4.5 K) on top of what the
+    # engine puts down in both. With the engine solved (TC.6) the sump radiates at the block's
+    # ~90 °C and the engine's share grew, so the sky's share is held as a difference in kelvin
+    # rather than the near-3x ratio the scripted +26 K bay gave.
+    assert clear_patch - overcast_patch > 3.0, f"clear {clear_patch}, overcast {overcast_patch}"
+    assert clear_patch > 1.5 * overcast_patch, f"clear {clear_patch}, overcast {overcast_patch}"
     assert clear_bonnet < overcast_bonnet, "a colder sky must cool the bonnet, not warm it"
 
 
@@ -334,8 +342,9 @@ def test_the_engine_is_identical_in_both_scenes() -> None:
     a = {t.name: t for t in load_scene_config(SCENE_YAML).scene.targets}
     b = {t.name: t for t in load_scene_config(CLEAR_YAML).scene.targets}
     assert set(a) == set(b)
+    assert a["engine_bay"].solver == b["engine_bay"].solver == "engine"
     for name in ("engine_bay", "exhaust_pipe", "underbody", "tyre"):
-        assert a[name].solver == b[name].solver == "vehicle_source"
+        assert a[name].solver == b[name].solver
         assert a[name].source == b[name].source
         assert a[name].load == b[name].load
         assert a[name].load_s == b[name].load_s

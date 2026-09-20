@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 100 open steps
+#### Then, in order — 99 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -182,19 +182,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
 | 4 | **`PH.5`** | PH | P | M | 4 | ready |
-| 5 | **`TC.6`** | TC | P | M | 4 | ready |
-| 6 | **`PT.11`** | PT | P | L | 4 | ready |
-| 7 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
-| 8 | **`PT.21`** | PT | P | M | 2 | ready |
-| 9 | **`TC.7`** | TC | P | M | 2 | `TC.6` |
-| 10 | **`PT.6`** | PT | P | S | 1 | ready |
-| 11 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
-| 12 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
-| 13 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 14 | **`PT.15`** | PT | P | M | 1 | `PT.12` |
-| 15 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
+| 5 | **`PT.11`** | PT | P | L | 4 | ready |
+| 6 | **`PT.12`** | PT | P | M | 2 | `PT.11` |
+| 7 | **`PT.21`** | PT | P | M | 2 | ready |
+| 8 | **`TC.7`** | TC | P | M | 2 | ready |
+| 9 | **`PT.6`** | PT | P | S | 1 | ready |
+| 10 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 11 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
+| 12 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
+| 13 | **`PT.15`** | PT | P | M | 1 | `PT.12` |
+| 14 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
+| 15 | **`PH.2`** | PH | P | S | — | ready |
 
-…and 85 more — `python scripts/next_step.py --queue 40`.
+…and 84 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -482,7 +482,7 @@ closed by an analytic check; the frames of `TC.6` are the in-engine half and wai
 | TC.3 | ✅ **done.** `irsim.thermal.coupling`: contactor conductances by exact clipping of overlapping cells; `CoupledFields` steps members as one `ThermalField` with a block operator, a `PatchView` per member; `RadiationExchange` reads the view factors both ways. ADR 0099. | **Measured.** G = h_c·A_overlap to 1e-9, identical after 4× refinement; a 30° grid overlaps its own area; a half-overhanging plate gets 0.5 m² where per-node says 1.0; a τ = 0.8 s joint stands under 60 s ticks, energy conserved to 1e-9; body → road power equals the cells' to 1e-6, reciprocity 1 %. 8 cases. | — | M | P |
 | TC.4 | ✅ **done.** Schema v9: `thermal.nodes:` (capacity, mass×c_p, fixed or `ambient`, link node), `links:` in exactly one form (G, joint+area, h_c+area, fastener×count, h+area, radiation), `sources:`; `configs/thermal/joints.yaml` with provenance; `Scene.network`. ADR 0097. | **Measured.** h_c 1e-3, 50 and 2e6 refused by the loader, 1e-3 by the schema; a bracket on 25 cm² of `bolted_ferrous_new` vs `dry_default` on a 400 °C block, from YAML, settles in the ratio G/(G+hA) to 1e-6; every form builds to its conductance; a v7 surface beside it is bit-identical. 12 cases. | — | S | P |
 | TC.5 | ✅ **done.** `irsim.thermal.engine`: block + coolant, bay air, rubber mounts, subframe on the TC.2 network; heat = P_rated · load · bay_fraction; forced → natural convection and venting at key-off; `solver: engine` reports the bay air as the bonnet's cavity. ADR 0100 supersedes ADR 0089 for the bay. | **Measured.** From 93 °C at 27 °C: +32.3 K after 1 h (schedule: 9 K), +0.92 K after 7 h; full load +53.7 K; bay air overshoots +27 K peaking 145 s after key-off; the bonnet over the block keeps warming ~23 min (not 60–120 s, the manifold-skin figure: TC.7). 7 cases. | — | M | P |
-| TC.6 | **The R2 reference scene: an engine warms the metal around it.** `car_ignition_*` migrate to nodes and links: block, rubber mounts as link nodes, subframe, wing bracket, bonnet by contactor and radiation, road by radiation; key on at 30 s, off at 20 min. | A bracket 0.3 m from the block lags the bay by its RC time and settles at G_path/(G_path + hA) of the bay rise, to 1e-6; parts warm in conductance order block → mount → bracket → wing; the synthetic-G-buffer bonnet shows 10–40 K max–min with the engine on. Frames need `IG.2`. | TC.5, PT.18 | M | P |
+| TC.6 | ✅ **done.** Both car scenes: `solver: engine` (coolant loop + proportional thermostat) plus `nodes:`/`links:` — block followed as a boundary, rubber mounts, subframe, a bolted bracket whose fan convection stops at key-off, the wing on two bolts; key on 30 s, off 20 min. ADR 0100 addendum. | **Measured.** A bracket on a fixed block reaches 1 − e⁻¹ at τ = C/(G+hA) and settles at G/(G+hA) to 1e-6; parts warm block → bracket → mounts → wing; the overcast bonnet is 18 K max–min at 1500 s and warms 6 K more after key-off. Bonnet by contactor deferred. Frames need IG.2. | — | M | P |
 | TC.7 | **The exhaust line as a gas stream in a wall.** `exhaust_line.py`: quasi-1-D T_gas(x) with an inner h drives wall cells that radiate to the floor pan and conduct through hangers (~1 W/K per fastener) — the manifold-to-tailpipe gradient a camera sees under a car. | T_gas − T_wall decays as exp(−NTU·x/L) against the closed form to 1e-6; the wall → T_gas as h → ∞; after key-off the manifold and catalyst skins peak 60–120 s later and fall from 400 °C to below 260 °C in 3–12 min (MVFRI R04-13; the ~100 °C clamp-probe spread is recorded as tolerance, not tuned to). | TC.6 | M | P |
 | TC.8 | **Wheel arches and brakes reach a frame.** A `RadiantRectangle` per wheel well carries the tyre and brake sources `vehicle.py` already computes but nothing calls; the closed-form brake deposit and the speed-driven tyre rise are driven from a `VehicleState` trace, as ADR 0089 asks. | Red today: zero callers for `brake_temperature_rise_k` and `tyre_delta_t_k`. After a drive cycle the arch cells nearest the tyre are > 2 K warmer than the door; a 1600 kg stop from 30 m/s deposits 162 K into an 8 kg disc and four times that from 60 m/s (ADR 0038). | TC.6 | S | C |
 

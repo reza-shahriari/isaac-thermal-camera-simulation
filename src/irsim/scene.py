@@ -122,11 +122,39 @@ def _schedule_of(times_s: Any, power_w: Any) -> Any:
     return at
 
 
+def _follower(targets: Mapping[str, Any], target: str, node: str | None) -> Any:
+    """A boundary reading a scene target's temperature (or one node of a solved target)."""
+    solver = targets[target]
+    if node is None:
+        return lambda t_s: float(solver.temperature())
+    if not hasattr(solver, "node_temperature_k"):
+        raise ValueError(f"target {target!r} has no nodes to follow; drop `node`")
+    solver.node_temperature_k(node)  # raises now if the node does not exist
+
+    def at(t_s: float) -> float:
+        return float(solver.node_temperature_k(node))
+
+    return at
+
+
+def _switched(targets: Mapping[str, Any], switch: str, on: float, off: float) -> Any:
+    """``on`` while the named engine target runs, ``off`` otherwise."""
+    solver = targets[switch]
+    if not hasattr(solver, "load_at"):
+        raise ValueError(f"link switch {switch!r} must name an `engine` target with a load")
+
+    def at(t_s: float) -> float:
+        return on if float(solver.load_at(t_s)) > 0.0 else off
+
+    return at
+
+
 def build_network(
     block: Any,
     weather: WeatherSeries,
     t0_s: float,
     joints: Any | None = None,
+    targets: Mapping[str, Any] | None = None,
 ) -> ThermalNetwork | None:
     """The `nodes:` / `links:` / `sources:` blocks as a `ThermalNetwork` (schema v9, TC.4).
 
@@ -153,8 +181,15 @@ def build_network(
     link_nodes: list[LinkNode] = []
     initial: dict[str, float] = {}
     t_air_0 = float(weather.at(t0_s).t_air_k)
+    known_targets: Mapping[str, Any] = targets or {}
     for n in block.nodes:
-        if n.fixed == "ambient":
+        if n.follows is not None:
+            target = str(n.follows["target"])
+            if target not in known_targets:
+                raise ValueError(f"node {n.name!r} follows unknown target {target!r}")
+            node = n.follows.get("node")
+            fixed.append(FixedNode(n.name, _follower(known_targets, target, node)))
+        elif n.fixed == "ambient":
             fixed.append(FixedNode(n.name, _ambient_of(weather)))
         elif n.fixed is not None:
             fixed.append(FixedNode(n.name, float(n.fixed)))
@@ -187,7 +222,15 @@ def build_network(
         elif form == "fastener":
             links.append(Link(lk.a, lk.b, table.fastener(lk.fastener).g_w_k * int(lk.count)))
         elif form == "h_w_m2_k":
-            links.append(Link.convection(lk.a, lk.b, float(lk.h_w_m2_k), lk.area_m2))
+            if lk.switch is not None:
+                if lk.switch not in known_targets:
+                    raise ValueError(
+                        f"link {lk.a!r}-{lk.b!r} switches on unknown target {lk.switch!r}"
+                    )
+                h = _switched(known_targets, lk.switch, float(lk.h_w_m2_k), float(lk.off_h_w_m2_k))
+                links.append(Link.convection(lk.a, lk.b, h, lk.area_m2))
+            else:
+                links.append(Link.convection(lk.a, lk.b, float(lk.h_w_m2_k), lk.area_m2))
         else:
             r = lk.radiation
             radiation.append(RadiationLink(lk.a, lk.b, r.emissivity, r.area_m2, r.view_factor))
@@ -483,7 +526,7 @@ class Scene:
             if surface.patch.prim_path:
                 patch_prims[surface.name] = surface.patch.prim_path
         world_frame = build_world_frame(spec)
-        network = build_network(spec.thermal, weather, t0_s)
+        network = build_network(spec.thermal, weather, t0_s, targets=targets)
         occluders = {
             o.name: build_occluder(o)
             for o in (spec.thermal.occluders if spec.thermal is not None else ())

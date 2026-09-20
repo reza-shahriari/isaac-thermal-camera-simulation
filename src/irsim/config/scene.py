@@ -426,6 +426,10 @@ class NodeSpec(_Frozen):
     specific_heat_j_kgk: float | None = Field(default=None, gt=0.0)
     fixed: float | Literal["ambient"] | None = None
     link_node: dict[str, str | float] | None = None
+    #: A boundary that tracks a scene target's temperature (TC.6): ``{target: engine_bay}`` for
+    #: the target's reported temperature, ``{target: engine_bay, node: block}`` for one node of
+    #: a solved target. One-way: the target is not cooled by what hangs off it.
+    follows: dict[str, str] | None = None
     initial_k: float | None = Field(default=None, gt=0.0)
 
     @model_validator(mode="after")
@@ -435,6 +439,7 @@ class NodeSpec(_Frozen):
             "mass_kg": self.mass_kg is not None or self.specific_heat_j_kgk is not None,
             "fixed": self.fixed is not None,
             "link_node": self.link_node is not None,
+            "follows": self.follows is not None,
         }
         chosen = [k for k, v in forms.items() if v]
         if len(chosen) != 1 and not (chosen == ["capacity_j_k", "link_node"]):
@@ -446,8 +451,12 @@ class NodeSpec(_Frozen):
             raise ValueError(f"node {self.name!r}: mass_kg and specific_heat_j_kgk go together")
         if isinstance(self.fixed, float) and self.fixed <= 0.0:
             raise ValueError(f"node {self.name!r}: a fixed temperature must be positive kelvin")
-        if self.fixed is not None and self.initial_k is not None:
-            raise ValueError(f"node {self.name!r}: a fixed node has no initial temperature")
+        if (self.fixed is not None or self.follows is not None) and self.initial_k is not None:
+            raise ValueError(f"node {self.name!r}: a boundary node has no initial temperature")
+        if self.follows is not None and (
+            "target" not in self.follows or not set(self.follows) <= {"target", "node"}
+        ):
+            raise ValueError(f"node {self.name!r}: follows takes `target` and optionally `node`")
         if self.link_node is not None:
             keys = set(self.link_node)
             if keys != {"a", "b", "g_w_k"} or self.capacity_j_k is None:
@@ -460,7 +469,7 @@ class NodeSpec(_Frozen):
 
     @property
     def is_fixed(self) -> bool:
-        return self.fixed is not None
+        return self.fixed is not None or self.follows is not None
 
     @property
     def capacity(self) -> float | None:
@@ -496,6 +505,10 @@ class LinkSpec(_Frozen):
     count: int | None = Field(default=None, ge=1)
     h_w_m2_k: float | None = Field(default=None, ge=0.0)
     radiation: RadiationSpec | None = None
+    #: Forced → natural (TC.6): with ``switch`` naming an ``engine`` target, ``h_w_m2_k`` holds
+    #: while that engine runs and ``off_h_w_m2_k`` when it is off (a fan that stops).
+    switch: str | None = None
+    off_h_w_m2_k: float | None = Field(default=None, ge=0.0)
 
     @model_validator(mode="after")
     def _one_form(self) -> LinkSpec:
@@ -530,6 +543,10 @@ class LinkSpec(_Frozen):
             )
         if self.h_c_w_m2_k is not None:
             check_h_c(self.h_c_w_m2_k, f"link {self.a!r}-{self.b!r}")
+        if (self.switch is None) != (self.off_h_w_m2_k is None):
+            raise ValueError(f"link {self.a!r}-{self.b!r}: switch and off_h_w_m2_k go together")
+        if self.switch is not None and form != "h_w_m2_k":
+            raise ValueError(f"link {self.a!r}-{self.b!r}: switch applies to an h_w_m2_k link")
         return self
 
     @property

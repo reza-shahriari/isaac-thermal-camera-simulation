@@ -77,3 +77,36 @@ the schedule could not do — and records the peak time as measured.
 TC.6 couples the bonnet (its skin becomes the bay's loss path and the overshoot shortens), TC.7
 adds the manifold and catalyst skins, or a vehicle's measured under-hood data arrives, at which
 point `EngineSpec`'s defaults become a fit rather than an estimate.
+
+## Addendum 2026-09-20 (TC.6): the thermostat, the block as the cavity, and what still waits
+
+Migrating the car scenes onto this engine showed three things the first cut had wrong or missing.
+
+1. **The block needs its coolant loop.** With only the bay's share of power heating it, an
+   idling block reached +11 K in twenty minutes and the bonnet over it 2.4 K of gradient; a real
+   idling engine reaches its thermostat. `EngineSpec` now heats the block with
+   `P_rated · load · block_fraction` (the thirds rule, `block_fraction = 0.9`) and holds it with
+   a **thermostat**: a proportional element opening over `thermostat_band_k` (6 K) above
+   `thermostat_k` (90 °C) onto a radiator node at that temperature with `thermostat_g_w_k`
+   (5 kW/K) fully open, closed at key-off. Proportional rather than a switch, because a switch
+   evaluated at the tick's start bang-bangs by `Q dt / C` per tick. `load` is now the duty
+   fraction of rated power (an idle in a car park is 0.10, not the scripted rows' 0.45-of-ΔT).
+   Measured: full load +78.5 K and flat to 1e-6 per tick, idle +65.5 K (the thermostat), key-off
+   +32.2 K after 1 h and +0.91 K after 7 h, bay-air overshoot +40 K peaking 140 s after key-off.
+2. **The target reports the block, not the bay air.** ADR 0088's radiator under the bonnet is the
+   hot mass; the bay air at idle is vented to within ten kelvin of ambient and would leave the
+   bonnet flat. `EngineSolver.temperature()` is the block; the bay air stays readable. The
+   overcast scene's bonnet shows 22.8 K max–min at 1500 s (the clear scene 19.7 K), inside the
+   row's 10–40 K.
+3. **Nodes that hang off a target, one way.** The scene's `nodes:` gain `follows: {target, node}`,
+   a boundary that reads a solved target's node each tick, and `links:` gain
+   `switch`/`off_h_w_m2_k`, a convection that drops when the named engine stops. The bracket,
+   mounts, subframe and wing hang off the engine's block without cooling it (a hundredfold mass
+   ratio); parts warm block → bracket (30 W/K bolted) → mounts (12 W/K rubber) → wing → subframe.
+
+**Still waiting:** the bonnet joined to the body by a contactor, and the bonnet skin as the bay's
+loss path, need one implicit system across the network and a field (`CoupledFields` joins
+fields; the network is its own solver). The row's "bonnet by contactor" is therefore not done;
+the bonnet is coupled by radiation from the block, as before, and the deviation is recorded here
+rather than in a passing test.
+

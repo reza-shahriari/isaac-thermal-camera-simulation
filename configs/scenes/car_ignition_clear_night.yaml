@@ -68,30 +68,34 @@ scene:
     - {name: tyre, solver: vehicle_source, source: tyre, load_s: [0.0, 1800.0], load: [0.0, 0.0]}
 
     # ---- the engine ------------------------------------------------------------------------
-    # THE SUBJECT. §6.6's engine_bay row, derived and not typed: +65 K at full load with a 750 s
-    # rise. The key turns at t = 30 s so the film opens on a genuinely cold car, and the load is
-    # 0.45 rather than 1.0 because this is an idle in a car park, not a climb at full throttle.
+    # THE SUBJECT, solved rather than scripted (TC.5, ADR 0100): block + coolant, bay air,
+    # mounts and subframe on a thermal network, heated by P_rated · load · bay_fraction, with
+    # forced convection while it runs and natural after key-off. The key turns at t = 30 s so
+    # the film opens on a genuinely cold car and off at 20 min so the hot soak is in the film.
+    # `load` is the duty fraction of rated power: 0.10 is an idle in a car park (a few kW into
+    # the coolant, the thermostat reached in ~15 min), where the scripted rows below still use
+    # their own 0.45-of-ΔT convention. The target reports the block, the radiating mass under
+    # the bonnet.
     - name: engine_bay
-      solver: vehicle_source
-      source: engine_bay
-      load_s: [0.0, 29.9, 30.0, 1800.0]
-      load:   [0.0,  0.0,  0.45,   0.45]
+      solver: engine
+      load_s: [0.0, 29.9, 30.0, 1200.0, 1200.1, 1800.0]
+      load:   [0.0,  0.0,  0.10,   0.10,    0.0,    0.0]
 
     # The exhaust run under the floor: faster (tau 360 s) and hotter than the bay, which is what
     # puts a warm STRIPE on the asphalt rather than a uniform blob.
     - name: exhaust_pipe
       solver: vehicle_source
       source: exhaust_pipe
-      load_s: [0.0, 29.9, 30.0, 1800.0]
-      load:   [0.0,  0.0,  0.40,   0.40]
+      load_s: [0.0, 29.9, 30.0, 1200.0, 1200.1, 1800.0]
+      load:   [0.0,  0.0,  0.40,   0.40,    0.0,    0.0]
 
     # The underbody as a whole: warmed by the bay and the transmission, and the surface that
     # actually faces the road. ESTIMATED as the bay's row at a third of its load.
     - name: underbody
       solver: vehicle_source
       source: engine_bay
-      load_s: [0.0, 29.9, 30.0, 1800.0]
-      load:   [0.0,  0.0,  0.18,   0.18]
+      load_s: [0.0, 29.9, 30.0, 1200.0, 1200.1, 1800.0]
+      load:   [0.0,  0.0,  0.18,   0.18,    0.0,    0.0]
 
   # The road is solved, not prescribed: §12.3's energy balance on the shared weather, spun up 48 h
   # so it carries yesterday rather than starting at the air temperature. The MP.1 field inherits
@@ -99,6 +103,25 @@ scene:
   thermal:
     spin_up_hours: 48.0
     tick_s: 60.0
+    # ---- the metal around the engine (TC.6, ADR 0100) ------------------------------------
+    # The R2 mechanism, declared: the block (the `engine` target's own node, followed here as a
+    # boundary), rubber mounts as a link node to the subframe, a wing bracket bolted to the
+    # block through 25 cm² of a new ferrous joint, and the wing hung off it by two small bolts.
+    # The bracket's fan-driven convection stops when the engine does. One-way: the block is not
+    # cooled by what hangs off it (its mass is a hundred times the bracket's).
+    nodes:
+      - {name: block, follows: {target: engine_bay, node: block}}
+      - {name: air, fixed: ambient}
+      - {name: subframe, mass_kg: 25.0, specific_heat_j_kgk: 500.0}
+      - {name: mounts, link_node: {a: block, b: subframe, g_w_k: 6.0}, capacity_j_k: 900.0}
+      - {name: bracket, mass_kg: 0.6, specific_heat_j_kgk: 470.0}
+      - {name: wing, mass_kg: 4.0, specific_heat_j_kgk: 900.0}
+    links:
+      - {a: block, b: bracket, joint: bolted_ferrous_new, area_m2: 25.0e-4}
+      - {a: bracket, b: air, h_w_m2_k: 40.0, area_m2: 0.05, switch: engine_bay, off_h_w_m2_k: 5.0}
+      - {a: bracket, b: wing, fastener: small_bolt, count: 2}
+      - {a: wing, b: air, h_w_m2_k: 8.0, area_m2: 1.5}
+      - {a: subframe, b: air, h_w_m2_k: 6.4, area_m2: 1.0}
     surfaces:
       # The road, solved per CELL (PT.17): the `patch:` block is the grid `Scene.surface_fields`
       # runs on and `car_demo` overlays the car's radiators on (ADR 0088). It must cover what the

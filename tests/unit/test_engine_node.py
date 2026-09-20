@@ -61,16 +61,22 @@ def test_the_block_cools_over_hours_and_a_schedule_does_not() -> None:
 
 def test_the_steady_rise_at_full_load_is_inside_6_6_s_band() -> None:
     net = engine_network(EngineSpec(), lambda t: 1.0, lambda t: AMBIENT_K, 0.0)
-    net.advance_to(6.0 * 3600.0, 60.0)
+    net.advance_to(6.0 * 3600.0, 10.0)
     rise = net.temperature("block") - AMBIENT_K
     assert 40.0 <= rise <= 90.0, rise
-    idle = engine_network(EngineSpec(), lambda t: 0.45, lambda t: AMBIENT_K, 0.0)
-    idle.advance_to(6.0 * 3600.0, 60.0)
-    assert 0.0 < idle.temperature("block") - AMBIENT_K < rise
+    # The thermostat holds it, steadily: no per-tick chatter from the coolant loop.
+    ticks = [float(net.advance(net.t_s, 10.0)[0]) for _ in range(12)]
+    assert max(ticks) - min(ticks) < 1e-6
+    idle = engine_network(EngineSpec(), lambda t: 0.10, lambda t: AMBIENT_K, 0.0)
+    idle.advance_to(6.0 * 3600.0, 10.0)
+    # The thermostat holds an idling block at its setpoint too: less than full load, but at
+    # the coolant temperature a real idling engine reaches, not a tenth of it.
+    idle_rise = idle.temperature("block") - AMBIENT_K
+    assert EngineSpec().thermostat_k - AMBIENT_K - 1.0 < idle_rise < rise
     # Heat in equals heat out at steady state, to the solver's own arithmetic.
     before = net.all_temperatures_k()[: net.n_free]
     net.advance(net.t_s, 60.0)
-    assert abs(net.energy_residual_w(before, 60.0)) < 1e-6 * EngineSpec().heat_to_bay_w
+    assert abs(net.energy_residual_w(before, 60.0)) < 1e-6 * EngineSpec().heat_to_block_w
 
 
 def test_the_bay_air_overshoots_after_key_off() -> None:
@@ -79,7 +85,7 @@ def test_the_bay_air_overshoots_after_key_off() -> None:
     net = engine_network(
         EngineSpec(), lambda t: 1.0 if t <= key_off else 0.0, lambda t: AMBIENT_K, 0.0
     )
-    net.advance_to(key_off - 60.0, 60.0)
+    net.advance_to(key_off - 60.0, 10.0)
     running = net.temperature("bay_air") - AMBIENT_K
     peak, t_peak = running, 0.0
     while net.t_s < key_off + 900.0:
@@ -93,7 +99,7 @@ def test_the_bay_air_overshoots_after_key_off() -> None:
 
 def test_parts_lag_the_block_in_conductance_order() -> None:
     net = engine_network(EngineSpec(), lambda t: 1.0, lambda t: AMBIENT_K, 0.0)
-    net.advance_to(1200.0, 30.0)
+    net.advance_to(1200.0, 10.0)
     t = net.temperatures_k
     assert t["block"] > t["mounts"] > t["subframe"] > AMBIENT_K
     assert t["block"] > t["bay_air"] > AMBIENT_K
@@ -104,11 +110,7 @@ def test_parts_lag_the_block_in_conductance_order() -> None:
 
 def test_the_engine_solver_drops_into_the_scene_s_target_slot(tmp_path) -> None:  # type: ignore[no-untyped-def]
     """``solver: engine`` replaces ADR 0089's adapter; the bonnet's forcing reads the bay air."""
-    text = OVERCAST.read_text()
-    old = "- name: engine_bay\n      solver: vehicle_source\n      source: engine_bay\n"
-    assert text.count(old) == 1
-    path = tmp_path / "engine.yaml"
-    path.write_text(text.replace(old, "- name: engine_bay\n      solver: engine\n"))
+    path = OVERCAST  # TC.6 migrated the car scenes to `solver: engine`
     config = load_scene_config(path)
     assert [t.solver for t in config.scene.targets if t.name == "engine_bay"] == ["engine"]
     scene = Scene.from_file(path)
@@ -117,11 +119,11 @@ def test_the_engine_solver_drops_into_the_scene_s_target_slot(tmp_path) -> None:
     t_air = scene.weather.at(scene.t0_s).t_air_k
     assert engine.temperature() == pytest.approx(t_air) and engine.state.t_s == scene.t0_s
     # The key turns at 30 s: the block warms, the bay air with it, and the reported cavity
-    # temperature is the bay air.
+    # temperature is the block -- the radiating mass ADR 0088's bay radiator stands for.
     out = scene.advance_targets(0.0, 600.0)
     assert engine.node_temperature_k("block") > t_air + 5.0
-    assert out["engine_bay"] == engine.temperature() == engine.node_temperature_k("bay_air")
-    assert engine.temperature() > t_air + 0.5  # the fan vents hard while the engine runs
+    assert out["engine_bay"] == engine.temperature() == engine.node_temperature_k("block")
+    assert engine.node_temperature_k("bay_air") > t_air + 0.5  # vented hard while it runs
 
 
 @pytest.mark.slow
@@ -141,20 +143,7 @@ def test_the_bonnet_over_the_block_keeps_warming_after_key_off(tmp_path) -> None
     from irsim.thermal.spatial_sources import patch_view_factors
     from irsim_isaac.car_demo import build_car_demo
 
-    text = OVERCAST.read_text()
-    old = "- name: engine_bay\n      solver: vehicle_source\n      source: engine_bay\n"
-    schedule_old = "load_s: [0.0, 29.9, 30.0, 1800.0]\n      load:   [0.0,  0.0,  0.45,   0.45]"
-    assert text.count(old) == 1 and text.count(schedule_old) >= 1
-    path = tmp_path / "engine_off.yaml"
-    path.write_text(
-        text.replace(old, "- name: engine_bay\n      solver: engine\n").replace(
-            schedule_old,
-            "load_s: [0.0, 29.9, 30.0, 1200.0, 1200.1, 3000.0]\n"
-            "      load:   [0.0,  0.0,  0.45,   0.45,   0.0,    0.0]",
-            1,
-        )
-    )
-    scene = Scene.from_file(path)
+    scene = Scene.from_file(OVERCAST)  # key on at 30 s, off at 1200 s (TC.6)
     demo = build_car_demo(scene, author=False, spin_up=False)
     bonnet = demo.bonnet_field
     over = patch_view_factors(bonnet.patch, demo.geometry.engine_bay())
@@ -168,12 +157,13 @@ def test_the_bonnet_over_the_block_keeps_warming_after_key_off(tmp_path) -> None
         scene.advance_targets(10.0 * k, 10.0)
     bonnet.advance_to(scene.t0_s + 1200.0)
     at_key_off = bonnet_over_block()
-    bay_at_key_off = engine.temperature()
+    bay_at_key_off = engine.node_temperature_k("bay_air")
     bay_peak, bay_peak_t = bay_at_key_off, 0.0
     for k in range(120, 180):  # ten minutes after
         scene.advance_targets(10.0 * k, 10.0)
-        if engine.temperature() > bay_peak:
-            bay_peak, bay_peak_t = engine.temperature(), 10.0 * (k + 1) - 1200.0
+        bay = engine.node_temperature_k("bay_air")
+        if bay > bay_peak:
+            bay_peak, bay_peak_t = bay, 10.0 * (k + 1) - 1200.0
     bonnet.advance_to(scene.t0_s + 1800.0)
     assert 60.0 <= bay_peak_t <= 300.0 and bay_peak - bay_at_key_off > 2.0, (bay_peak_t, bay_peak)
     assert bonnet_over_block() > at_key_off + 0.5, "the bonnet over the block kept warming"
@@ -191,8 +181,8 @@ def test_the_engine_kind_is_validated_like_a_load_profile() -> None:
         TargetSpec(name="e", solver="engine", load_s=[0.0, 5.0], load=[0.0, 1.5])
     with pytest.raises(ValueError, match="must be positive"):
         EngineSpec(block_mass_kg=0.0)
-    with pytest.raises(ValueError, match="BAY"):
-        EngineSpec(bay_fraction=0.5)
+    with pytest.raises(ValueError, match="thirds rule"):
+        EngineSpec(block_fraction=2.0)
     with pytest.raises(ValueError, match="stands at"):
         EngineSolver(EngineSpec(), _constant_weather(), [0.0, 1.0], [0.0, 1.0], 0.0).advance(
             5.0, 1.0

@@ -501,6 +501,21 @@ def _emission_factor(
     return np.asarray(np.clip(1.0 - back, 0.0, 1.0))
 
 
+def _node_temperature(scene: Scene, target: str, node: str) -> Any:
+    """``t_abs_s -> K`` for one node of a solved target, with the spin-up rule of
+    `_radiator_temperature`: before t₀ the node is the air of the hour plus its rise at t₀."""
+    solver: Any = scene.targets[target]
+    t_air_0 = float(scene.weather.at(scene.t0_s).t_air_k)
+
+    def at(t_abs_s: float) -> float:
+        now = float(solver.node_temperature_k(node))
+        if t_abs_s >= scene.t0_s:
+            return now
+        return float(scene.weather.at(t_abs_s).t_air_k) + (now - t_air_0)
+
+    return at
+
+
 def _radiator_temperature(scene: Scene, name: str) -> Any:
     """``t_abs_s -> K`` for a radiating part: its solved node from t₀ on, and before t₀ -- the
     spin-up, when the node cannot be rewound -- the air of that instant plus the rise the node
@@ -633,8 +648,12 @@ def build_bonnet_field(
     patch: PlanarPatch | None = None,
     casters: tuple[ShadowRectangle, ...] = (),
     spin_up_hours: float | None = None,
+    underside_h_w_m2_k: float = 5.0,
 ) -> PlanarThermalField:
     """The bonnet skin: §6.1 per cell, with the bay's radiation weighted by ADR 0088's view factor.
+
+    ``underside_h_w_m2_k`` is the skin's natural convection with the bay air below it (TC.6),
+    used when the engine is a solved node with a bay-air node; ESTIMATED at 5 W m⁻² K⁻¹.
 
     **The bay's reference is the bay at ambient**, so a cold engine contributes exactly zero and
     the bonnet's temperature in frame 0 is set by its own top-side balance alone. Without that
@@ -656,6 +675,15 @@ def build_bonnet_field(
     solar = _solar_forcing(scene, patch, sky_view, casters)
     bay = geom.engine_bay()
     bay_temperature = _radiator_temperature(scene, "engine_bay")
+    # TC.6: the skin's underside convects with the bay air when the engine is solved (the bay
+    # air is what spikes at key-off, ADR 0100). Two fluids on one cell fold exactly into one
+    # convective term: h_eff = h_top + h_under, T_eff = (h_top T_air + h_under T_bay) / h_eff.
+    engine = scene.targets["engine_bay"]
+    bay_air_at = (
+        _node_temperature(scene, "engine_bay", "bay_air")
+        if hasattr(engine, "node_temperature_k")
+        else None
+    )
     # No emission factor here, on purpose: the skin's one emission term is its **top** face
     # toward the sky, and the underside's exchange with the bay is the `reference` convention
     # below (zero net for a bay at ambient). The road's term is different -- its one face is the
@@ -673,9 +701,15 @@ def build_bonnet_field(
             longwave_down_w_m2=reference,
             sky_view=sky_view,
         )
+        h_eff: Any = h
+        t_eff: Any = t_air
+        if bay_air_at is not None:
+            h_under = underside_h_w_m2_k
+            h_eff = h + h_under
+            t_eff = (h * t_air + h_under * bay_air_at(t_abs_s)) / h_eff
         return FacetForcing(
-            t_air_k=t_air,
-            h_w_m2_k=h,
+            t_air_k=t_eff,
+            h_w_m2_k=h_eff,
             q_solar_w_m2=solar(t_abs_s),
             q_longwave_down_w_m2=q_lw,
             q_internal_w_m2=q_int,
