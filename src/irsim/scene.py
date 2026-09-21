@@ -796,8 +796,29 @@ def _build_surface_fields(
             emissivity=np.full(n, float(props.emissivity[i])),
             solar_absorptivity=np.full(n, float(props.solar_absorptivity[i])),
         )
+        # PT.21: the sky each cell sees, through the same occluders that cast the beam. An
+        # unobstructed cell keeps the tilt's own factor exactly; nothing to compute without
+        # occluders, and a moving-frame patch is refused by `CellForcing` for the beam already.
+        sky_view = None
+        if casters and patch.frame == "world":
+            from irsim.thermal.skyview import sky_view_factors
+
+            orientation = build.forcing.orientations[i]
+            sky_view = sky_view_factors(
+                patch,
+                orientation.normal_enu(),
+                float(build.forcing.sky_view[i]),
+                casters,
+                world_frame.to_world,
+            )
         forcing = CellForcing(
-            build.forcing, i, n, patch=patch, occluders=casters, frame=world_frame
+            build.forcing,
+            i,
+            n,
+            patch=patch,
+            occluders=casters,
+            frame=world_frame,
+            sky_view=sky_view,
         )
         # PT.11: in-plane conduction from the material's own k and thickness (ADR 0102).
         thermal = build.materials[i].spec.thermal

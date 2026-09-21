@@ -214,6 +214,11 @@ class CellForcing:
     occluders: tuple[ShadowRectangle, ...] = ()
     #: How the patch's world frame relates to ENU; required with occluders, ignored without.
     frame: WorldFrame | None = None
+    #: Per-cell sky view factors (PT.21), ``None`` for the tilt's own on every cell. Scales the
+    #: diffuse solar and the longwave down; ``sky_view_longwave=False`` is the negative control
+    #: the roadmap names (a factor on solar alone), for tests.
+    sky_view: Any = None
+    sky_view_longwave: bool = True
 
     def __post_init__(self) -> None:
         if not 0 <= self.index < self.surfaces.n_facets:
@@ -223,6 +228,13 @@ class CellForcing:
         if self.n_cells < 1:
             raise ValueError("a patch needs at least one cell")
         self.occluders = tuple(self.occluders)
+        if self.sky_view is not None:
+            svf = np.asarray(self.sky_view, dtype=np.float64).reshape(-1)
+            if svf.shape != (self.n_cells,):
+                raise ValueError(f"sky_view has shape {svf.shape}, expected ({self.n_cells},)")
+            if np.any((svf < 0.0) | (svf > 1.0)):
+                raise ValueError("sky view factors must lie in [0, 1]")
+            self.sky_view = svf
         if not self.occluders:
             return
         if self.patch is None or self.frame is None:
@@ -259,9 +271,11 @@ class CellForcing:
         return self.surfaces.weather
 
     def cell_visibility(self, t_s: float) -> NDArray[np.float64]:
-        """``(n_cells,)`` direct-beam visibility at ``t_s``; all ones without occluders."""
+        """``(n_cells,)`` direct-beam visibility at ``t_s``; the surface's own ``shaded`` flag,
+        broadcast, without occluders."""
         if not self.occluders or self.patch is None or self.frame is None:
-            return np.ones(self.n_cells)
+            shaded = self.surfaces.orientations[self.index].shaded
+            return np.full(self.n_cells, 0.0 if shaded else 1.0)
         sun = self.surfaces.solar_terms(t_s)
         if not sun.above_horizon:
             return np.ones(self.n_cells)
@@ -270,7 +284,8 @@ class CellForcing:
     def __call__(self, t_s: float) -> FacetForcing:
         t_air, h, q_solar, q_lw, q_int = self.surfaces(t_s).arrays(self.surfaces.n_facets)
         i, n = self.index, self.n_cells
-        if self.occluders:
+        v_s: Any = float(self.surfaces.sky_view[i]) if self.sky_view is None else self.sky_view
+        if self.occluders or self.sky_view is not None:
             sun = self.surfaces.solar_terms(t_s)
             orientation = self.surfaces.orientations[i]
             q_solar_cells = solar_loading(
@@ -278,17 +293,33 @@ class CellForcing:
                 sun.direction_enu,
                 sun.dni_w_m2,
                 sun.dhi_w_m2,
-                float(self.surfaces.sky_view[i]),
+                v_s,
                 self.cell_visibility(t_s),
             )
         else:
             q_solar_cells = np.full(n, q_solar[i])
+        if self.sky_view is not None and self.sky_view_longwave:
+            # The longwave down through the cell's own share of the dome, the rest of the
+            # hemisphere at the air temperature -- the per-prim call with the cell's factor.
+            sample = self.surfaces.weather.at(t_s)
+            q_lw_cells = np.asarray(
+                longwave_down(
+                    sample.t_air_k,
+                    sample.vapour_pressure_hpa,
+                    sample.cloud_fraction,
+                    self.sky_view,
+                    sample.t_air_k,
+                ),
+                dtype=np.float64,
+            )
+        else:
+            q_lw_cells = np.full(n, q_lw[i])
         base = self.surfaces(t_s)
         return FacetForcing(
             t_air_k=float(t_air[i]),
             h_w_m2_k=np.full(n, h[i]),
             q_solar_w_m2=np.asarray(q_solar_cells, dtype=np.float64),
-            q_longwave_down_w_m2=np.full(n, q_lw[i]),
+            q_longwave_down_w_m2=q_lw_cells,
             q_internal_w_m2=np.full(n, q_int[i]),
             q_air_kg_kg=float(base.q_air_kg_kg),
             g_e_kg_m2_s=float(base.g_e_kg_m2_s),

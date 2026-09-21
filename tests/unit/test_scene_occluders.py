@@ -190,22 +190,30 @@ def test_the_per_cell_beam_is_pt1_s_shadow_on_the_scene_s_own_sun(
     assert sun.above_horizon and sun.dni_w_m2 > 700.0
     patch = scene.patches["wall"]
     shade = cell_shadow(patch, sun.direction_enu, [scene.occluders["overhang"]])
+    # PT.21: the diffuse term carries each cell's own sky view -- the wall's half-dome where
+    # nothing hides it, less under the overhang.
+    svf = forcing.sky_view
+    assert svf is not None and svf.max() == 0.5 and svf.min() < 0.5
     expected = solar_loading(
-        np.array([0.0, -1.0, 0.0]), sun.direction_enu, sun.dni_w_m2, sun.dhi_w_m2, 0.5, shade
+        np.array([0.0, -1.0, 0.0]), sun.direction_enu, sun.dni_w_m2, sun.dhi_w_m2, svf, shade
     )
     got = np.asarray(forcing(t).q_solar_w_m2)
     assert np.array_equal(got, expected)
-    # Shade gates the beam only: the shaded cells still carry the wall's half-sky of diffuse.
-    assert np.allclose(got[shade == 0.0], 0.5 * sun.dhi_w_m2) and float(got[shade == 0.0][0]) > 0.0
+    # Shade gates the beam only: the shaded cells still carry their share of the diffuse sky.
+    assert np.allclose(got[shade == 0.0], svf[shade == 0.0] * sun.dhi_w_m2)
+    assert float(got[shade == 0.0].min()) > 0.0
 
 
 @pytest.mark.slow
 def test_unshaded_cells_stay_bit_identical_to_the_per_prim_solve(tmp_path, tophat_lwir_lut) -> None:  # type: ignore[no-untyped-def]
-    """The verification cell's "1 mK where unshaded", held to equality instead.
+    """The verification cell's "1 mK where unshaded".
 
     A cell the cap never shades -- at any instant the spin-up or the run evaluates -- sees the
-    per-prim expression on the per-prim operands, so its temperature is the prim's to the bit.
-    The cells the cap does reach are colder, by kelvins, at noon.
+    per-prim expression on the per-prim operands except for one: since PT.21 the cap also hides
+    a sliver of its sky (SVF 0.93-0.99 here), so it is the prim's to within 50 mK rather than
+    to the bit, warmer by less sky to lose to, and closest to the prim where it sees most sky.
+    The bit identity itself lives where the dome is open (`test_sky_view`, PT.17's scene). The
+    cells the cap does reach are colder, by kelvins, at noon.
     """
     scene = Scene.from_file(_write(tmp_path, ROAD, POST_CAP), {"lwir": tophat_lwir_lut})
     fld = scene.surface_fields["road"]
@@ -225,9 +233,13 @@ def test_unshaded_cells_stay_bit_identical_to_the_per_prim_solve(tmp_path, topha
 
     fld.advance_to(end)
     scene.thermal.advance_to(end)
-    cells = np.asarray(fld.temperature_at(end))
-    prim = np.asarray(scene.thermal.temperature_at(end))[0]
-    assert np.array_equal(cells[always_lit], np.full(int(always_lit.sum()), prim))
+    cells = np.asarray(fld.temperature_at(end), dtype=np.float64)
+    prim = float(np.asarray(scene.thermal.temperature_at(end))[0])
+    svf = forcing.sky_view
+    assert svf is not None and svf[always_lit].min() > 0.9 and svf.max() < 1.0
+    gap = cells[always_lit] - prim
+    assert np.all(gap >= 0.0) and gap.max() < 0.05, (gap.min(), gap.max())  # measured 20 mK
+    assert gap[np.argmax(svf[always_lit])] == gap.min()
     assert float(prim - cells[shaded_now].mean()) > 1.0
 
 

@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 93 open steps
+#### Then, in order — 92 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -182,19 +182,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
 | 4 | **`PH.5`** | PH | P | M | 4 | ready |
-| 5 | **`PT.21`** | PT | P | M | 2 | ready |
-| 6 | **`TC.7`** | TC | P | M | 2 | ready |
-| 7 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
-| 8 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
-| 9 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 10 | **`PT.15`** | PT | P | M | 1 | ready |
-| 11 | **`PT.22`** | PT | P | M | 1 | `PT.21` |
-| 12 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 13 | **`PH.3`** | PH | P | M | — | ready |
-| 14 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 15 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
+| 5 | **`TC.7`** | TC | P | M | 2 | ready |
+| 6 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 7 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
+| 8 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
+| 9 | **`PT.15`** | PT | P | M | 1 | ready |
+| 10 | **`PT.22`** | PT | P | M | 1 | ready |
+| 11 | **`PT.14`** | PT | P | S | — | `WM.5` |
+| 12 | **`PH.3`** | PH | P | M | — | ready |
+| 13 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 14 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
+| 15 | **`WM.6`** | WM | P | M | — | `WM.3` |
 
-…and 78 more — `python scripts/next_step.py --queue 40`.
+…and 77 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -409,8 +409,8 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.17 | ✅ **done.** A `PlanarThermalField` per patched surface, on its library material and spun-up state, forced by `CellForcing`; `Scene.surface_fields`, `surface_bindings()`, `bindings_from_scene`. Both car scenes declare bonnet and road; `build_car_demo` reads and checks them. | **Measured.** Under uniform forcing every cell equals the per-prim value **bit for bit** (contract 1 mK); a bonnet grid 24 cm off the skin and a road grid short of the footprint are refused; no patch keeps the hand-built grids; an unknown material fails at load naming the surface. 14 cases. | — | M | P |
 | PT.18 | ✅ **done.** Schema v8: `world_frame:` (ENU default) and `thermal.occluders:`. `CellForcing` gates the beam per cell via `cell_shadow`, spun up with the shadow; `car_demo` fields gain q_solar from `Scene.solar_terms`, shaded by the car's faces. `shaded: true` beside occluders refused. ADR 0095. | **Measured.** SW concrete wall + overhang from YAML: **9.9 K** lit/shaded at 16:00 (PT.1's 22.1 K was a fixed-beam equilibrium); unreached cells **bit-identical** to the per-prim solve, spin-up included; the noon car's shadow strip runs 12.7 K colder after 1500 s. 16 cases. | — | S | P |
 | PT.19 | ✅ **done.** `PointwiseTemperature(bindings, known_paths=)`: a binding to a prim path the stage does not know raises at construction, naming it (`IrCamera` passes its prim map); frame-only, an absent path raises under `strict`, warns otherwise; `last_coverage` counts pixels per binding. | **Measured.** `/World/raod` bound against a stage of `/World/road` raises naming both; frame-only, strict raises and lenient warns with the plane untouched; a correct binding is bit-identical to before; a bound prim off screen is coverage 0, not an error. 2 cases. | — | S | P |
-| PT.20 | ✅ **done.** `wall_half_in_sun.yaml`: a concrete building (4 walls + roof; the west wall half concrete, half the new `etics_render`), a neighbour block as occluders, asphalt ground, 18:00; `scripts/wall_half_in_sun.py` prints the faces and writes the west wall as a synthetic-G-buffer frame. | **Measured.** Terminator: concrete **10.3 K**, render **7.4 K** (ETICS 7.4); roof − north 12.4 K, west − east 7.5 K, west − north 7.4 K (not > 10: a grazing beam on the north wall); 30 min after the shadow lifts the concrete is 8.7 K cooler (84 %, not > 10). Frame: IG.2. 6 cases. | — | M | P |
-| PT.21 | **Per-cell sky view factor and diffuse shadowing.** A 145-patch Tregenza sky sampled with the same ray–rectangle test gives each cell an SVF that scales both diffuse solar and longwave down, with dome, horizon and circumsolar split as EnergyPlus does. | Analytic anchors within 0.01 of the 145-patch quadrature: under an infinite overhang SVF = 0.5, at the foot of an infinite wall 0.5, open sky 1.000. Cells at SVF 0.2 and 0.9 under one weather file show a diurnal-amplitude ratio near 2 (kabalti passages, 1.97 vs 4.21 °C); an SVF applied to solar only fails it. | PT.18 | M | P |
+| PT.20 | ✅ **done.** `wall_half_in_sun.yaml`: a concrete building (4 walls + roof; the west wall half concrete, half the new `etics_render`), a neighbour block as occluders, asphalt ground, 18:00; `scripts/wall_half_in_sun.py` prints the faces and writes the west wall as a synthetic-G-buffer frame. | **Measured** (after PT.21). Terminator: concrete **9.7 K** (10.3 before), render **6.3 K**; roof − north 12.4 K, west − east 7.9 K, west − north 7.7 K (not > 10: a grazing beam); 30 min after the shadow lifts the concrete is 8.05 K cooler (83 %, not > 10). Frame: IG.2. 6 cases. | — | M | P |
+| PT.21 | ✅ **done.** `irsim.thermal.skyview`: a 145-patch Tregenza dome, each patch sub-sampled 3 × 4, gated by the beam's own `cell_shadow`, an open cell keeping `V_s` to the bit; patches under occluders get their factor and `CellForcing` scales diffuse solar and longwave down by it. Perez split deferred (ADR 0104). | **Measured.** Open sky 1.000; wall foot and overhang edge 0.5 within 0.01. Shaded asphalt, SVF 0.2 vs 0.9: swing ratio 1.25 (not ~2: one air temperature floors it), night minimum 3.2 K warmer; solar-only: minima within 0.05 K. R1 terminator 10.3 → 9.7 K. | PT.18 | M | P |
 | PT.22 | **Shadows and sky view from geometry, CPU-only, neighbours included.** An `(origins, directions) → hit` adapter: the analytic rectangles are the oracle, a trimesh + embreex backend is optional and outside `src/irsim`, and the query walks every opaque prim. The 0.53° solar disc is sampled (7–19 rays) into a sunlit fraction. | The mesh path and the rectangle path agree cell-for-cell on a box occluder; a neighbouring block shades a wall its own mesh cannot; the penumbra ramp width is d·tan 0.53° ≈ 9.3 mm per metre within 10 % — a binary test fails. | PT.21 | M | P |
 | PT.16 | **Make `HeatTraceLayer` reachable** (ADR 0039, M6.16). §6.6 calls heat traces a signature phenomenon of the band, and the sim-to-real literature says detectors trained on synthetic data lacking them are confused by them — so this is an evaluation deliverable, not a nicety. | A rendered frame shows the trace ghost at the authored offset and amplitude; the overlay is absent bit-identically when unbound. Red today: `irsim.thermal.traces` is imported only by its own unit test. | PT.15 | M | C |
 
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0103 (0090–0103 were written after this section was first measured; 0093–0103 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11` and `PT.12`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0104 (0090–0104 were written after this section was first measured; 0093–0104 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12` and `PT.21`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

@@ -10,6 +10,28 @@ repeated `Added` / `Changed` / `Fixed` headings was a single merge hotspot for t
 working in one tree; two commits already exist whose whole subject is restoring lost entries.
 `tests/unit/test_changelog_structure.py` fails on a repeated heading inside a dated section.
 
+### 2026-09-21
+
+#### Added
+- **A per-cell sky view factor** (`PT.21`, ADR 0104). `irsim.thermal.skyview`: Tregenza's
+  145-patch dome, each patch sub-sampled 3 × 4 over its own extent with exact solid angles,
+  every ray gated by the same `cell_shadow` test the beam uses and the sum normalised to the
+  open dome so an unobstructed cell keeps its tilt's `V_s` to the bit. A scene computes it for
+  every world-frame patch under occluders; `CellForcing` scales both the diffuse solar and the
+  longwave down by it (`sky_view_longwave=False` is the roadmap's negative control). Anchors:
+  open sky 1.000, the foot of an infinite wall and the edge of an infinite overhang 0.5 within
+  0.01. Two shaded asphalt cells at SVF 0.2 and 0.9 under one weather file: swing ratio 1.25 and
+  the enclosed cell 3.2 K warmer at its night minimum, where a factor on solar alone leaves the
+  minima within 0.05 K. The ratio near 2 the row asked for is out of reach with one air
+  temperature per scene (the swing cannot fall below the air's own 12 K) and is recorded as such.
+
+#### Changed
+- The R1 wall scene's terminators moved with the sky view: concrete 10.3 → 9.7 K, render
+  7.4 → 6.3 K, memory after 30 min 8.7 → 8.05 K (the shaded half sees the neighbour's roof, not
+  cold sky); the post-cap scene's never-shaded cells now sit within 20 mK of the per-prim solve
+  instead of on it, the bit identity holding where the dome is open. A surface's `shaded` flag
+  gates the beam under a supplied sky view as it did without one.
+
 ### 2026-09-20
 
 #### Added
