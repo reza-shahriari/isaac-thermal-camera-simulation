@@ -52,7 +52,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 12  # v12: a surface's `water:` (ADR 0108, PH.3); v11
+SCENE_SCHEMA_VERSION = 13  # v13: a surface's speed schedule (ADR 0109, PT.9); v12 its
+# `water:` (ADR 0108, PH.3); v11
 # `thermal.penumbra_rays:` (ADR 0107, PT.22); v10
 # `thermal.cabin:` and a surface's `back:` (ADR 0106, PT.15);
 # v9 `thermal.nodes/links/sources` (ADR 0097, TC.4); v8 `world_frame:` and
@@ -524,6 +525,13 @@ class SurfaceSpec(_Frozen):
     azimuth_deg: float = Field(default=180.0, ge=0.0, lt=360.0)
     shaded: bool = False
     vehicle_speed_m_s: float = Field(default=0.0, ge=0.0)
+    #: A speed that changes with the mission (PT.9, ADR 0109): seconds after the scene start
+    #: against metres per second, linearly interpolated and held flat outside. Use it instead of
+    #: ``vehicle_speed_m_s`` when the platform is sometimes still and sometimes moving -- a
+    #: quadrotor on its pad and the same quadrotor in a climb are free and forced convection,
+    #: which is tens of kelvin on a sunlit deck.
+    speed_s: list[float] | None = None
+    speed_m_s: list[float] | None = None
     #: Present makes this surface point-wise: one temperature per cell instead of one for the
     #: whole surface. Absent leaves the surface exactly as it was, so every v4-v6 scene loads
     #: and solves unchanged (schema v7, PT.2).
@@ -550,6 +558,21 @@ class SurfaceSpec(_Frozen):
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
+        if (self.speed_s is None) != (self.speed_m_s is None):
+            raise ValueError(f"surface {self.name!r}: a speed schedule needs speed_s and speed_m_s")
+        if self.speed_s is not None:
+            assert self.speed_m_s is not None
+            if len(self.speed_s) != len(self.speed_m_s) or not self.speed_s:
+                raise ValueError(f"surface {self.name!r}: speed_s and speed_m_s differ in length")
+            if any(b <= a for a, b in zip(self.speed_s[:-1], self.speed_s[1:], strict=True)):
+                raise ValueError(f"surface {self.name!r}: speed_s must be strictly increasing")
+            if any(v < 0.0 for v in self.speed_m_s):
+                raise ValueError(f"surface {self.name!r}: a speed cannot be negative")
+            if self.vehicle_speed_m_s:
+                raise ValueError(
+                    f"surface {self.name!r}: one speed authority -- `vehicle_speed_m_s` or a "
+                    "schedule, not both"
+                )
         if self.water is not None:
             if self.patch is None:
                 raise ValueError(

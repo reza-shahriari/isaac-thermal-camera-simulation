@@ -79,6 +79,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "no prims yet. scripts/wall_half_in_sun.py writes the engine-free frame from a synthetic "
         "G-buffer; the rendered one is IG.2's."
     ),
+    "quad_flight_pointwise.yaml": (
+        "PT.9's regenerated aerial scene: the deck, the belly and two arms of a quadrotor as "
+        "patched surfaces, no camera and no prims yet. scripts/quad_flight_pointwise.py writes "
+        "the engine-free plan frames from a synthetic G-buffer; the rendered ones are IG.2's, "
+        "and the curved-prim binding a fuselage needs is WM.3's."
+    ),
     "parked_car_cabin.yaml": (
         "PT.15's reference scene: five panels of a schematic saloon and the cabin behind four "
         "of them, no camera and no prims yet. scripts/parked_car_cabin.py writes the "

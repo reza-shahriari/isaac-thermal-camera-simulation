@@ -163,11 +163,12 @@ def test_the_block_is_optional_and_the_version_moved() -> None:
 
     v8 (PT.18) added `world_frame:` and `occluders:` the same way -- both optional, both
     defaulting to what a v7 scene meant by omission, v9 the network, v10 the cabin and a
-    layered surface's deep boundary, v11 the sun's disc and v12 standing water.
+    layered surface's deep boundary, v11 the sun's disc, v12 standing water and v13 a
+    surface's speed schedule.
     """
     from irsim.config.scene import SurfaceSpec
 
-    assert SCENE_SCHEMA_VERSION == 12
+    assert SCENE_SCHEMA_VERSION == 13
     plain = SurfaceSpec(name="asphalt", material="asphalt_dry")
     assert plain.patch is None
 

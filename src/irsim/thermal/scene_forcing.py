@@ -104,6 +104,33 @@ class SurfaceOrientation:
     azimuth_deg: float = 180.0
     shaded: bool = False
     vehicle_speed_m_s: float = 0.0
+    #: A speed that changes with the mission (PT.9): ``(times, speeds)`` on the weather's own
+    #: axis, linearly interpolated and held flat outside. A drone on its pad cools by free
+    #: convection and the same drone in a climb by forced -- the difference is tens of kelvin on
+    #: a sunlit deck, and it is the flight that decides which, not the surface.
+    speed_schedule: tuple[tuple[float, ...], tuple[float, ...]] | None = None
+
+    def __post_init__(self) -> None:
+        if self.speed_schedule is None:
+            return
+        times, speeds = self.speed_schedule
+        if len(times) != len(speeds) or not times:
+            raise ValueError("a speed schedule needs matching, non-empty times and speeds")
+        if any(b <= a for a, b in zip(times[:-1], times[1:], strict=True)):
+            raise ValueError("a speed schedule's times must be strictly increasing")
+        if any(v < 0.0 for v in speeds):
+            raise ValueError("a speed cannot be negative")
+        if self.vehicle_speed_m_s:
+            raise ValueError(
+                "a surface has one speed authority: `vehicle_speed_m_s` or a schedule, not both"
+            )
+
+    def speed_at(self, t_s: float) -> float:
+        """The speed this facet meets the air at, at ``t_s``."""
+        if self.speed_schedule is None:
+            return float(self.vehicle_speed_m_s)
+        times, speeds = self.speed_schedule
+        return float(np.interp(t_s, np.asarray(times), np.asarray(speeds)))
 
     def normal_enu(self) -> NDArray[np.float64]:
         tilt = math.radians(self.tilt_deg)
@@ -157,7 +184,7 @@ class SceneSurfaceForcing:
             v_s,
             sample.t_air_k,
         )
-        speeds = np.array([o.vehicle_speed_m_s for o in self.orientations])
+        speeds = np.array([o.speed_at(t_s) for o in self.orientations])
         h = convection_coefficient(
             self.surface_temperature_k - sample.t_air_k,
             sample.wind_speed_m_s,

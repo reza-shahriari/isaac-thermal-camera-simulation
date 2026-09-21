@@ -737,6 +737,9 @@ def _build_thermal_field(
                 azimuth_deg=s.azimuth_deg,
                 shaded=s.shaded,
                 vehicle_speed_m_s=s.vehicle_speed_m_s,
+                speed_schedule=None
+                if s.speed_s is None
+                else (tuple(t0_s + t for t in s.speed_s), tuple(s.speed_m_s or ())),
             )
             for s in block.surfaces
         ),
