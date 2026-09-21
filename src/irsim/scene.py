@@ -840,6 +840,7 @@ def _build_surface_fields(
             occluders=casters,
             frame=world_frame,
             sky_view=sky_view,
+            penumbra_rays=spec.thermal.penumbra_rays,
         )
         # PT.11: in-plane conduction from the material's own k and thickness (ADR 0102).
         thermal = build.materials[i].spec.thermal

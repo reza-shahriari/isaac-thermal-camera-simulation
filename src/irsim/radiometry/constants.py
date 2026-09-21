@@ -161,3 +161,12 @@ THERMAL_CONDUCTIVITY_SEAWATER: Final[float] = 0.596  # W m^-1 K^-1
 DENSITY_SEAWATER: Final[float] = 1025.0  # kg m^-3
 DENSITY_AIR_SEA_LEVEL: Final[float] = 1.225  # kg m^-3, ISA at 15 degC
 EMISSIVITY_SEAWATER_BROADBAND: Final[float] = 0.98
+
+# --- The sun's angular size -------------------------------------------------
+# The photosphere subtends a finite disc, which is why a shadow edge is a ramp and not a step
+# (PT.22, ADR 0107). The mean apparent diameter is 31.99 arcmin = 0.5332 deg, varying between
+# 31.46' at aphelion and 32.53' at perihelion (Astronomical Almanac 2024, section C); the 1.7 %
+# annual swing is well inside the 10 % the penumbra-width test allows, so the mean is used and
+# the eccentricity is not carried. Half of it is the half-angle a ray may depart the sun
+# direction by and still come from the disc.
+SOLAR_DISC_DIAMETER_DEG: Final[float] = 0.5332

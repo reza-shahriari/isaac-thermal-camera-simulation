@@ -1,5 +1,5 @@
 # The R1 reference scene: one building, its parts at different temperatures, from YAML alone.
-# Schema: irsim.config.scene (v10). Roadmap PT.20; ADR 0087 (the field), ADR 0095 (occluders and
+# Schema: irsim.config.scene (v11). Roadmap PT.20; ADR 0087 (the field), ADR 0095 (occluders and
 # the world frame), ADR 0102 (in-plane conduction), ADR 0043 (materials as the single source).
 #
 # A concrete building 8 m x 6 m x 6 m at the origin, a lower block standing 2 m to its west, on
@@ -22,7 +22,7 @@
 # The rendered frame is IG.2's; scripts/wall_half_in_sun.py writes the engine-free one from a
 # synthetic G-buffer over the west wall. World is ENU: x east, y north, z up.
 
-schema_version: 10
+schema_version: 11
 scene:
   name: wall_half_in_sun
   description: "a concrete building with a neighbour's shadow across its west wall, 18:00 on a clear June day"

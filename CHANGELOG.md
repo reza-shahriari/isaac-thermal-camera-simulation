@@ -25,6 +25,22 @@ working in one tree; two commits already exist whose whole subject is restoring 
   minima within 0.05 K. The ratio near 2 the row asked for is out of reach with one air
   temperature per scene (the swing cannot fall below the air's own 12 K) and is recorded as such.
 
+- **Occlusion from geometry, and the sun as a disc** (`PT.22`, ADR 0107).
+  `irsim.thermal.raycast`: an `Occluders` protocol whose one method answers "is this ray
+  stopped?", implemented by `RectangleOccluders` (`cell_shadow`'s exact test generalised to
+  per-ray origins and directions, and still the oracle), `TriangleSoup` / `MeshOccluders`
+  (Möller–Trumbore in NumPy, an axis-aligned box reject per soup, chunked over rays, no
+  acceleration structure and no dependency) and `AnyOccluders` (rectangles beside meshes).
+  `solar_disc_rays` samples the sun's 0.5332° disc on concentric rings with the outermost ring
+  exactly on the limb -- 1, 7, 19 or 37 rays -- and `sunlit_fraction` turns them into a per-cell
+  number in [0, 1], snapped at the ends so a cell nothing shades stays bit-identical to the
+  per-prim solve. Scene schema **v11** adds `thermal.penumbra_rays:` (default 1, which is the
+  hard edge to the bit). `SOLAR_DISC_DIAMETER_DEG` joins `irsim.radiometry.constants`.
+  Measured: a box shades identically as six rectangles and as twelve triangles, cell for cell,
+  from 10° to 85° elevation and against trimesh's own intersector; a wall's own box never shades
+  the wall while a block 1.5 m west of it does; the penumbra ramp is within 10 % of
+  `d tan(0.53°)` at 0.5, 2 and 6 m standoff (18.0 mm against 18.6 mm at 2 m) and a binary test
+  gives a ramp of zero width. Meshes are not yet authorable from a config.
 - **The cabin and the two-node substrate, reachable from a scene** (`PT.15`, ADR 0106).
   `LumpedTwoNodeSolver` and `CabinNode` shipped in M6 and no config could construct either, so
   every solved surface had an adiabatic back. `irsim.thermal.coupling` gains `LumpedMember` (a

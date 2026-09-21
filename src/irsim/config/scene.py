@@ -51,7 +51,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 10  # v10: `thermal.cabin:` and a surface's `back:` (ADR 0106, PT.15);
+SCENE_SCHEMA_VERSION = 11  # v11: `thermal.penumbra_rays:` (ADR 0107, PT.22); v10
+# `thermal.cabin:` and a surface's `back:` (ADR 0106, PT.15);
 # v9 `thermal.nodes/links/sources` (ADR 0097, TC.4); v8 `world_frame:` and
 # `thermal.occluders:` (ADR 0095, PT.18); v7 the `patch:` block (ADR 0087)
 #: The oldest version this loader still accepts. v5 added `thermal:` as an **optional** field, so
@@ -723,6 +724,23 @@ class ThermalSceneSpec(_Frozen):
     sources: list[SourceSpec] = Field(default_factory=list)
     #: The cabin behind a set of patched panels (PT.15). Absent leaves every back adiabatic.
     cabin: CabinSpec | None = None
+    #: Rays across the sun's 0.53 deg disc when occluders shade a patch (PT.22, ADR 0107). 1 is
+    #: the hard-edged shadow every scene has had; 7, 19 or 37 give a penumbra `d tan(0.53 deg)`
+    #: wide -- 9.3 mm per metre of standoff, which is sub-cell unless the cells are small and
+    #: the occluder close. Each extra ray is another occluder pass per forcing evaluation.
+    penumbra_rays: int = Field(default=1, ge=1, le=37)
+
+    @model_validator(mode="after")
+    def _penumbra_is_a_ring_count(self) -> ThermalSceneSpec:
+        allowed = {1, 7, 19, 37}
+        if self.penumbra_rays not in allowed:
+            raise ValueError(
+                f"penumbra_rays must be one of {sorted(allowed)} (concentric rings on the disc), "
+                f"got {self.penumbra_rays}"
+            )
+        if self.penumbra_rays > 1 and not self.occluders:
+            raise ValueError("penumbra_rays sharpens nothing without `occluders:` to cast a shadow")
+        return self
 
     @model_validator(mode="after")
     def _cabin_panels_are_plain_patches(self) -> ThermalSceneSpec:

@@ -1,5 +1,5 @@
 # The cabin reference scene: a parked car whose panels lose heat into the air behind them.
-# Schema: irsim.config.scene (v10). Roadmap PT.15; ADR 0038 (the cabin), ADR 0106 (the cabin as
+# Schema: irsim.config.scene (v11). Roadmap PT.15; ADR 0038 (the cabin), ADR 0106 (the cabin as
 # a lumped member of its panels' coupled solve), ADR 0087 (the field), ADR 0102 (in-plane
 # conduction), ADR 0043 (materials as the single source).
 #
@@ -24,7 +24,7 @@
 # The rendered frame is IG.2's; scripts/parked_car_cabin.py writes the engine-free one from a
 # synthetic G-buffer. World is ENU: x east, y north, z up. The car faces south.
 
-schema_version: 10
+schema_version: 11
 scene:
   name: parked_car_cabin
   description: "a parked car at noon, its panels backed by a cabin that the sun has been heating"

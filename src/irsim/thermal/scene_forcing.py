@@ -219,6 +219,10 @@ class CellForcing:
     #: the roadmap names (a factor on solar alone), for tests.
     sky_view: Any = None
     sky_view_longwave: bool = True
+    #: Rays across the sun's 0.53 deg disc (PT.22): 1 is PT.18's hard edge, bit for bit; 7, 19
+    #: or 37 turn the beam's visibility into a sunlit fraction and the terminator into a ramp
+    #: `d tan(0.53 deg)` wide. Costs one ray-occluder pass per ray per forcing evaluation.
+    penumbra_rays: int = 1
 
     def __post_init__(self) -> None:
         if not 0 <= self.index < self.surfaces.n_facets:
@@ -235,6 +239,8 @@ class CellForcing:
             if np.any((svf < 0.0) | (svf > 1.0)):
                 raise ValueError("sky view factors must lie in [0, 1]")
             self.sky_view = svf
+        if self.penumbra_rays < 1:
+            raise ValueError("penumbra_rays must be at least 1 (1 is the hard-edged shadow)")
         if not self.occluders:
             return
         if self.patch is None or self.frame is None:
@@ -279,7 +285,12 @@ class CellForcing:
         sun = self.surfaces.solar_terms(t_s)
         if not sun.above_horizon:
             return np.ones(self.n_cells)
-        return cell_shadow(self.patch, self.frame.to_world(sun.direction_enu), self.occluders)
+        toward_sun = self.frame.to_world(sun.direction_enu)
+        if self.penumbra_rays > 1:  # PT.22: the sun as a disc, so the edge is a ramp
+            from irsim.thermal.raycast import sunlit_fraction
+
+            return sunlit_fraction(self.patch, toward_sun, self.occluders, self.penumbra_rays)
+        return cell_shadow(self.patch, toward_sun, self.occluders)
 
     def __call__(self, t_s: float) -> FacetForcing:
         t_air, h, q_solar, q_lw, q_int = self.surfaces(t_s).arrays(self.surfaces.n_facets)
