@@ -283,6 +283,21 @@ def build_target(spec: TargetSpec, weather: WeatherSeries, t0_s: float) -> Tempe
             spec.load,
             t0_s,
         )
+    if spec.solver == "exhaust":
+        from irsim.thermal.exhaust_line import ExhaustSolver, stock_exhaust
+
+        assert spec.load_s is not None and spec.load is not None
+        # Parked: no ram air under the car, and no head to bolt the manifold to from here (the
+        # engine target is a separate solver; the flange is a one-way boundary a scene cannot
+        # yet wire -- ADR 0105).
+        return ExhaustSolver(
+            stock_exhaust(),
+            weather,
+            t0_s + np.asarray(spec.load_s, dtype=np.float64),
+            spec.load,
+            t0_s,
+            section=spec.section or "mid_pipe",
+        )
     if spec.solver == "vehicle_source":
         assert spec.source is not None and spec.load_s is not None and spec.load is not None
         # Written in seconds after the scene start; the solvers live on the weather's absolute

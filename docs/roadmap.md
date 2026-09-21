@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 92 open steps
+#### Then, in order — 91 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -182,19 +182,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`WM.2`** | WM | P | M | 9 | `WM.1` |
 | 3 | **`WM.3`** | WM | P | M | 8 | `WM.2` |
 | 4 | **`PH.5`** | PH | P | M | 4 | ready |
-| 5 | **`TC.7`** | TC | P | M | 2 | ready |
-| 6 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
-| 7 | **`PH.6`** | PH | P | M | 1 | `PH.5`, `TC.7` |
-| 8 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 9 | **`PT.15`** | PT | P | M | 1 | ready |
-| 10 | **`PT.22`** | PT | P | M | 1 | ready |
-| 11 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 12 | **`PH.3`** | PH | P | M | — | ready |
-| 13 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 14 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
-| 15 | **`WM.6`** | WM | P | M | — | `WM.3` |
+| 5 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
+| 6 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
+| 7 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
+| 8 | **`PT.15`** | PT | P | M | 1 | ready |
+| 9 | **`PT.22`** | PT | P | M | 1 | ready |
+| 10 | **`PT.14`** | PT | P | S | — | `WM.5` |
+| 11 | **`PH.3`** | PH | P | M | — | ready |
+| 12 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 13 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
+| 14 | **`WM.6`** | WM | P | M | — | `WM.3` |
+| 15 | **`PT.9`** | PT | A | M | 3 | `WM.3` |
 
-…and 77 more — `python scripts/next_step.py --queue 40`.
+…and 76 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -483,7 +483,7 @@ closed by an analytic check; the frames of `TC.6` are the in-engine half and wai
 | TC.4 | ✅ **done.** Schema v9: `thermal.nodes:` (capacity, mass×c_p, fixed or `ambient`, link node), `links:` in exactly one form (G, joint+area, h_c+area, fastener×count, h+area, radiation), `sources:`; `configs/thermal/joints.yaml` with provenance; `Scene.network`. ADR 0097. | **Measured.** h_c 1e-3, 50 and 2e6 refused by the loader, 1e-3 by the schema; a bracket on 25 cm² of `bolted_ferrous_new` vs `dry_default` on a 400 °C block, from YAML, settles in the ratio G/(G+hA) to 1e-6; every form builds to its conductance; a v7 surface beside it is bit-identical. 12 cases. | — | S | P |
 | TC.5 | ✅ **done.** `irsim.thermal.engine`: block + coolant, bay air, rubber mounts, subframe on the TC.2 network; heat = P_rated · load · bay_fraction; forced → natural convection and venting at key-off; `solver: engine` reports the bay air as the bonnet's cavity. ADR 0100 supersedes ADR 0089 for the bay. | **Measured.** From 93 °C at 27 °C: +32.3 K after 1 h (schedule: 9 K), +0.92 K after 7 h; full load +53.7 K; bay air overshoots +27 K peaking 145 s after key-off; the bonnet over the block keeps warming ~23 min (not 60–120 s, the manifold-skin figure: TC.7). 7 cases. | — | M | P |
 | TC.6 | ✅ **done.** Both car scenes: `solver: engine` (coolant loop + proportional thermostat) plus `nodes:`/`links:` — block followed as a boundary, rubber mounts, subframe, a bolted bracket whose fan convection stops at key-off, the wing on two bolts; key on 30 s, off 20 min. ADR 0100 addendum. | **Measured.** A bracket on a fixed block reaches 1 − e⁻¹ at τ = C/(G+hA) and settles at G/(G+hA) to 1e-6; parts warm block → bracket → mounts → wing; the overcast bonnet is 18 K max–min at 1500 s and warms 6 K more after key-off. Bonnet by contactor deferred. Frames need IG.2. | — | M | P |
-| TC.7 | **The exhaust line as a gas stream in a wall.** `exhaust_line.py`: quasi-1-D T_gas(x) with an inner h drives wall cells that radiate to the floor pan and conduct through hangers (~1 W/K per fastener) — the manifold-to-tailpipe gradient a camera sees under a car. | T_gas − T_wall decays as exp(−NTU·x/L) against the closed form to 1e-6; the wall → T_gas as h → ∞; after key-off the manifold and catalyst skins peak 60–120 s later and fall from 400 °C to below 260 °C in 3–12 min (MVFRI R04-13; the ~100 °C clamp-probe spread is recorded as tolerance, not tuned to). | TC.6 | M | P |
+| TC.7 | ✅ **done.** `irsim.thermal.exhaust_line`: the gas marched segment by segment (exact `exp(−NTU)`, Dittus–Boelter h_i) as links into wall nodes of the S42 network; outside h forced/natural with motion, radiation to pan and road, hangers 1 W/K, an inner mass for catalyst and silencer, a heat shield node; `solver: exhaust` from YAML (ADR 0105). | **Measured.** March vs closed form 1e-6; gas heat = ṁc_p ΔT to 1e-9. 60 % load: manifold 557 → tail 368 °C, hangers 40–50 K cold. Key-off: shield 287 → 347 °C at +65 s, < 260 °C 5.3 min on; shell peaks +65 s (270 °C, not 400). | TC.6 | M | P |
 | TC.8 | **Wheel arches and brakes reach a frame.** A `RadiantRectangle` per wheel well carries the tyre and brake sources `vehicle.py` already computes but nothing calls; the closed-form brake deposit and the speed-driven tyre rise are driven from a `VehicleState` trace, as ADR 0089 asks. | Red today: zero callers for `brake_temperature_rise_k` and `tyre_delta_t_k`. After a drive cycle the arch cells nearest the tyre are > 2 K warmer than the door; a 1600 kg stop from 30 m/s deposits 162 K into an 8 kg disc and four times that from 60 m/s (ADR 0038). | TC.6 | S | C |
 
 ---
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0104 (0090–0104 were written after this section was first measured; 0093–0104 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12` and `PT.21`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0105 (0090–0105 were written after this section was first measured; 0093–0105 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21` and `TC.7`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

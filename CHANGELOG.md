@@ -25,6 +25,21 @@ working in one tree; two commits already exist whose whole subject is restoring 
   minima within 0.05 K. The ratio near 2 the row asked for is out of reach with one air
   temperature per scene (the swing cannot fall below the air's own 12 K) and is recorded as such.
 
+- **The exhaust line as a gas stream in a wall** (`TC.7`, ADR 0105). `irsim.thermal.exhaust_line`:
+  `PipeSection`s in order, each a run of wall nodes on the S42 network (steel or cast iron,
+  outside convection forced while the car moves and natural when it stands, radiation to the
+  floor pan and the road, hangers at ~1 W/K, an inner mass for a catalyst's monolith or a
+  silencer's baffles, a heat shield as a thin node across an air gap), and `GasFlow` (ṁ and
+  inlet temperature linear in load, Dittus–Boelter h_i). The gas is marched segment by segment
+  -- exact `exp(−NTU)` per segment -- and enters the network as a link of `ṁ c_p (1 − e^{−NTU})`
+  to a fixed node at the segment's inlet temperature. `ExhaustSolver` is a `TemperatureSolver`;
+  `solver: exhaust` with `section:` reaches it from YAML. Measured: the march matches the closed
+  form to 1e-6 over 24 segments, the gas heat equals `ṁ c_p (T_in − T_tail)` to 1e-9, the
+  energy residual is below 1e-6; at 60 % load the line runs manifold 557 → tailpipe 368 °C with
+  hung segments 40–50 K colder; after key-off the manifold shield rises 287 → 347 °C peaking at
+  +65 s and is below 260 °C 5.3 min later, the catalyst shell peaks at +65 s. The shell runs
+  270 °C, not MVFRI's 400 (no exotherm), and the car scenes keep §6.6's schedule for now.
+
 #### Changed
 - The R1 wall scene's terminators moved with the sky view: concrete 10.3 → 9.7 K, render
   7.4 → 6.3 K, memory after 30 min 8.7 → 8.05 K (the shaded half sees the neighbour's roof, not

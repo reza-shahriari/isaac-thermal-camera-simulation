@@ -99,7 +99,14 @@ class TargetSpec(_Frozen):
 
     name: str = Field(min_length=1)
     solver: Literal[
-        "newton", "prescribed", "heat_source", "airframe", "ram_skin", "vehicle_source", "engine"
+        "newton",
+        "prescribed",
+        "heat_source",
+        "airframe",
+        "ram_skin",
+        "vehicle_source",
+        "engine",
+        "exhaust",
     ]
     t0_k: float | None = Field(default=None, gt=0.0)
     tau_s: float | None = Field(default=None, gt=0.0)
@@ -113,12 +120,16 @@ class TargetSpec(_Frozen):
     load: list[float] | None = None
     speed_m_s: float | None = Field(default=None, ge=0.0)
     recovery_factor: float | None = Field(default=None, gt=0.0, le=1.0)
+    #: ``exhaust`` only: which section's skin the target reports (TC.7, ADR 0105).
+    section: str | None = None
 
     @model_validator(mode="after")
     def _fields_for_solver(self) -> TargetSpec:
+        if self.section is not None and self.solver != "exhaust":
+            raise ValueError(f"target {self.name!r}: only exhaust takes a `section`")
         if self.solver == "vehicle_source":
             return self._vehicle_fields()
-        if self.solver == "engine":
+        if self.solver in ("engine", "exhaust"):
             return self._engine_fields()
         if self.solver in ("heat_source", "airframe", "ram_skin"):
             return self._aerial_fields()
@@ -191,26 +202,29 @@ class TargetSpec(_Frozen):
 
     def _engine_fields(self) -> TargetSpec:
         """``engine`` (TC.5, ADR 0100): block, bay air, mounts and subframe solved as a network from
-        a load schedule -- no §6.6 row, no rise or time constant to author."""
+        a load schedule -- no §6.6 row, no rise or time constant to author. ``exhaust`` (TC.7,
+        ADR 0105) is the line downstream of it on the same kind of schedule, reporting the skin
+        of ``section`` (default ``mid_pipe``)."""
+        kind = self.solver
         if self.source is not None:
             raise ValueError(
-                f"target {self.name!r}: engine takes no `source`; its heat is P_rated · load · "
-                "bay_fraction, not a §6.6 row"
+                f"target {self.name!r}: {kind} takes no `source`; its heat is P_rated · load "
+                "(the engine) or the gas that load makes (the exhaust), not a §6.6 row"
             )
         if self.t0_k is not None or self.tau_s is not None:
-            raise ValueError(f"target {self.name!r}: engine takes no t0_k/tau_s")
+            raise ValueError(f"target {self.name!r}: {kind} takes no t0_k/tau_s")
         if self.schedule_s is not None or self.schedule_k is not None:
-            raise ValueError(f"target {self.name!r}: engine takes no schedule; it is solved")
+            raise ValueError(f"target {self.name!r}: {kind} takes no schedule; it is solved")
         if self.throttle is not None or self.throttle_s is not None:
-            raise ValueError(f"target {self.name!r}: engine takes load_s/load, not a throttle")
+            raise ValueError(f"target {self.name!r}: {kind} takes load_s/load, not a throttle")
         if (
             self.offset_k is not None
             or self.speed_m_s is not None
             or self.recovery_factor is not None
         ):
-            raise ValueError(f"target {self.name!r}: engine takes no aerial fields")
+            raise ValueError(f"target {self.name!r}: {kind} takes no aerial fields")
         if not self.load_s or not self.load:
-            raise ValueError(f"target {self.name!r}: engine needs load_s and load")
+            raise ValueError(f"target {self.name!r}: {kind} needs load_s and load")
         if len(self.load_s) != len(self.load):
             raise ValueError(f"target {self.name!r}: load_s and load differ in length")
         if any(b <= a for a, b in zip(self.load_s[:-1], self.load_s[1:], strict=True)):
