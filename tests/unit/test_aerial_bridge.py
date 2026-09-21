@@ -287,3 +287,37 @@ def test_elevation_uses_the_stage_up_axis() -> None:
         elevation_from_rays(rays, up=(0.0, 0.0, 0.0))
     with pytest.raises(ValueError, match=r"\(H, W, 3\)"):
         elevation_from_rays(np.zeros((2, 2)))
+
+
+# --- the network's nodes are in the clock too ----------------------------------------------------
+
+NETWORK_SCENE = REPO / "configs" / "scenes" / "car_ignition_clear_night.yaml"
+
+
+def test_the_first_bracket_names_every_node_a_tick_will_report() -> None:
+    """A scene with a `nodes:` block reports its network under its own names as well as its
+    targets (`Scene.advance_targets`, TC.4). The bridge seeds its first bracket before any tick
+    has run, so if it seeds from `scene.targets` alone the first tick widens `next_k` past
+    `prev_k` and `interpolate` raises `KeyError` on frame zero -- which is what every car render
+    did between TC.4 and this fix.
+
+    The assertion is not merely that it does not raise: a bracket seeded with the wrong *values*
+    would also not raise. Each network node must start at the network's own temperature.
+    """
+    scene = Scene.from_file(NETWORK_SCENE)
+    expected = dict(scene.network.temperatures_k)
+    assert expected, "this scene is supposed to declare a network"
+
+    bridge = AerialThermalBridge(Scene.from_file(NETWORK_SCENE), {"/World/Car/shell": "shell"})
+    bracket = bridge._bracket
+    assert not set(bracket.next_k) - set(bracket.prev_k), sorted(
+        set(bracket.next_k) - set(bracket.prev_k)
+    )
+    # Frame zero is the one that used to raise, and it lands inside the first tick.
+    first = bridge.advance_to(0.0)
+    for name, kelvin in expected.items():
+        assert name in first, name
+        assert first[name] == pytest.approx(kelvin, abs=1e-9), name
+    # And the nodes really do move afterwards, so the seeding is a starting point and not a pin.
+    later = bridge.advance_to(120.0)
+    assert later["block"] - first["block"] > 1.0, (first["block"], later["block"])

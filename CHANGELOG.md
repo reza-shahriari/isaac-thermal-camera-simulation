@@ -97,6 +97,17 @@ working in one tree; two commits already exist whose whole subject is restoring 
   instead of on it, the bit identity holding where the dome is open. A surface's `shaded` flag
   gates the beam under a supplied sky view as it did without one.
 
+#### Fixed
+- **Every render of a scene with a `nodes:` block failed on frame zero**, and had since `TC.4`.
+  `Scene.advance_targets` returns the thermal network's nodes under their own names alongside the
+  targets, but `AerialThermalBridge` seeded its first tick bracket from `scene.targets` alone, so
+  the first tick made `next_k` six names wider than `prev_k` and `TickBracket.interpolate` raised
+  `KeyError: 'subframe'` before a single frame was written. Both car scenes are affected --
+  the only two that declare a network -- which is why `outputs/multiband`'s manifest recorded no
+  car renders. The bracket is now seeded with the network's own temperatures, and
+  `test_aerial_bridge.py` asserts the first bracket names everything a tick reports *and* starts
+  each node at the network's value, since a bracket seeded with wrong numbers would not raise.
+
 ### 2026-09-20
 
 #### Added

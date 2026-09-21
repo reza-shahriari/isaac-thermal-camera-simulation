@@ -214,7 +214,14 @@ class AerialThermalBridge:
                 beta, float(scene.weather.at(scene.t0_s).cloud_fraction), int(cloud_seed)
             )
 
+        # The first bracket has to name **everything a tick will report**, not just the targets.
+        # `Scene.advance_targets` returns the network's nodes under their own names as well
+        # (TC.4), so seeding this from `scene.targets` alone left the first tick's `next_k` six
+        # names wider than its `prev_k`, and `interpolate` raised `KeyError` on the first frame of
+        # any scene with a `nodes:` block. Every car render has failed that way since TC.4.
         initial = {name: float(s.temperature()) for name, s in scene.targets.items()}
+        if scene.network is not None:
+            initial.update(scene.network.temperatures_k)
         self._bracket = TickBracket(0.0, 0.0, dict(initial), dict(initial))
         self._advance_one_tick()
         self._advance_field_to(0.0)
