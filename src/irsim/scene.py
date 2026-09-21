@@ -87,6 +87,36 @@ def build_patch(spec: PatchSpec) -> PlanarPatch:
     )
 
 
+def build_mesh(spec: Any) -> Any:
+    """A declared `mesh:` block as the triangle mesh the solver runs on (ADR 0110, WM.7).
+
+    The geometry is generated rather than read from an asset, because the engine-free core may not
+    import `pxr` (CLAUDE.md #1) and a scene has to be loadable and solvable with no renderer. The
+    shapes are the ones ADR 0087 listed as Hard: a cylinder is a pipe, an arm, a mast or a motor
+    bell, and a sphere is a bell housing or a dome.
+    """
+    from irsim.thermal.mesh_field import TriangleMeshPatch
+    from irsim.thermal.raycast import cylinder_mesh, sphere_mesh
+
+    if spec.shape == "cylinder":
+        soup = cylinder_mesh(
+            spec.centre_m,
+            spec.radius_m,
+            float(spec.length_m),
+            spec.axis,
+            spec.segments,
+            spec.rings,
+            capped=spec.capped,
+        )
+    else:
+        soup = sphere_mesh(spec.centre_m, spec.radius_m, spec.rings, spec.segments)
+    if spec.cell_m is not None:
+        return TriangleMeshPatch.by_cell_size(
+            soup.vertices, soup.faces, spec.cell_m, frame=spec.frame
+        )
+    return TriangleMeshPatch.from_soup(soup, spec.level, frame=spec.frame)
+
+
 def build_world_frame(spec: SceneSpec) -> WorldFrame:
     """The scene's world frame (schema v8, PT.18); ENU for every scene that declares none."""
     wf = spec.world_frame
@@ -371,6 +401,14 @@ class Scene:
     #: A `PlanarThermalField`, or for a surface with ``layers > 1`` the surface layer's
     #: `PatchView` over its stack (PT.12) -- the same ``patch`` / ``advance_to`` / ``sample_at``.
     surface_fields: Mapping[str, Any] = field(default_factory=dict)
+    #: ``{surface name: TriangleMeshPatch}`` for every surface whose config declared a `mesh:`
+    #: instead of a `patch:` (schema v14, WM.7). Empty for every scene before v14.
+    meshes: Mapping[str, Any] = field(default_factory=dict)
+    #: ``{surface name: prim path}`` for the meshes that named one.
+    mesh_prims: Mapping[str, str] = field(default_factory=dict)
+    #: ``{surface name: TriangleMeshField}`` -- the mesh surfaces solved **per cell**, each cell
+    #: on its own face's normal (WM.7). The per-prim entry in :attr:`thermal` stays as well.
+    mesh_fields: Mapping[str, Any] = field(default_factory=dict)
     #: How the scene's world coordinates relate to east, north and up (schema v8, PT.18). ENU
     #: unless the config says otherwise; the car scenes say Y-up.
     world_frame: WorldFrame = ENU
@@ -478,6 +516,19 @@ class Scene:
             if name in self.patch_prims
         )
 
+    def mesh_bindings(self) -> tuple[tuple[str, Any], ...]:
+        """``(prim path, field)`` for every mesh surface that named a prim (WM.7).
+
+        What a render driver hands to `irsim_isaac.pipeline.mesh_bridge.MeshPointBridge`, through
+        a `MeshBinding`; the core cannot import that class (CLAUDE.md #1), so the pairs are plain
+        tuples here, exactly as :meth:`surface_bindings` does for the planar path.
+        """
+        return tuple(
+            (self.mesh_prims[name], fld)
+            for name, fld in self.mesh_fields.items()
+            if name in self.mesh_prims
+        )
+
     def surface_properties(self, name: str) -> Any:
         """One §12.3 surface's `ThermalProperties`, as the scene solved it (PT.6, ADR 0043)."""
         from irsim.thermal.balance import ThermalProperties
@@ -558,7 +609,12 @@ class Scene:
                 )
         build = _build_thermal_field(spec, weather, t0_s, data_dir)
         patches, patch_prims = {}, {}
+        meshes, mesh_prims = {}, {}
         for surface in spec.thermal.surfaces if spec.thermal is not None else ():
+            if surface.mesh is not None:
+                meshes[surface.name] = build_mesh(surface.mesh)
+                if surface.mesh.prim_path:
+                    mesh_prims[surface.name] = surface.mesh.prim_path
             if surface.patch is None:
                 continue
             patches[surface.name] = build_patch(surface.patch)
@@ -586,6 +642,9 @@ class Scene:
             surface_fields=_build_surface_fields(
                 spec, build, patches, world_frame, occluders, data_dir
             ),
+            meshes=meshes,
+            mesh_prims=mesh_prims,
+            mesh_fields=_build_mesh_fields(spec, build, meshes, world_frame),
             world_frame=world_frame,
             occluders=occluders,
             network=network,
@@ -770,6 +829,65 @@ def _build_thermal_field(
         wrap=wrap,
         materials=tuple(materials),
     )
+
+
+def _build_mesh_fields(
+    spec: SceneSpec,
+    build: _ThermalBuild,
+    meshes: Mapping[str, Any],
+    world_frame: WorldFrame = ENU,
+) -> dict[str, Any]:
+    """A per-cell field for every surface that declared a mesh (ADR 0110, WM.7).
+
+    The twin of :func:`_build_surface_fields`, and the same contract: the surface's own facet
+    repeated over its cells, on the same library material, the same spun-up starting state and the
+    scene's tick. What differs is the parameterisation and one physical term -- each cell takes
+    **its own face's normal** for the direct beam and for its sky view, through
+    :class:`~irsim.thermal.scene_forcing.MeshCellForcing`, which is exactly the thing one shared
+    patch normal cannot express.
+
+    The spun-up state comes from the build in float64 for the same reason it does for a patch: a
+    field started from the float32 read-back would sit microkelvins from the prim it claims to
+    reproduce.
+    """
+    from irsim.thermal.facets import FacetProperties, spin_up
+    from irsim.thermal.mesh_field import TriangleMeshField
+    from irsim.thermal.scene_forcing import MeshCellForcing
+
+    out: dict[str, Any] = {}
+    if build.field is None or spec.thermal is None:
+        return out
+    for i, s in enumerate(spec.thermal.surfaces):
+        mesh = meshes.get(s.name)
+        if mesh is None:
+            continue
+        n = mesh.n_cells
+        props = build.properties
+        cells = FacetProperties(
+            heat_capacity_j_m2_k=np.full(n, float(props.heat_capacity_j_m2_k[i])),
+            emissivity=np.full(n, float(props.emissivity[i])),
+            solar_absorptivity=np.full(n, float(props.solar_absorptivity[i])),
+        )
+        forcing = MeshCellForcing(
+            surfaces=build.field.forcing_at,
+            index=i,
+            normals_world=mesh.cell_normal,
+            frame=world_frame,
+        )
+        # **Always** spun up per cell, where a patch only bothers under occluders. Every cell of
+        # a mesh has its own normal, so no two of them share a forcing history and the per-prim
+        # spun-up value is wrong for all of them: a scene starting at 10:00 would open with a
+        # uniform pipe and take an hour of its own to grow the gradient it should already have.
+        spun = spin_up(
+            cells,
+            build.wrap(forcing),
+            build.spin_up_hash,
+            build.t0_s,
+            hours=spec.thermal.spin_up_hours,
+            dt_s=60.0,
+        ).temperatures_k
+        out[s.name] = TriangleMeshField(mesh, cells, forcing, build.t0_s, spun, spec.thermal.tick_s)
+    return out
 
 
 def _build_surface_fields(

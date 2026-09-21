@@ -90,6 +90,28 @@ working in one tree; two commits already exist whose whole subject is restoring 
   +65 s and is below 260 °C 5.3 min later, the catalyst shell peaks at +65 s. The shell runs
   270 °C, not MVFRI's 400 (no exotherm), and the car scenes keep §6.6's schedule for now.
 
+- **A mesh temperature field, reachable from a scene config** (`WM.7`, schema **v14**). `WM.2`
+  built the field and `WM.3` put it on pixels; until this nothing could ask for one, so the lane
+  was a capability with no user. A surface now takes a `mesh:` block instead of a `patch:`:
+  `MeshSpec` names a cylinder or a sphere with its facet counts and a per-face cell `level` (or a
+  `cell_m` to pick one), `build_mesh` generates it, and `Scene.meshes` / `mesh_fields` /
+  `mesh_bindings()` carry it exactly as the patched path does. The shape is **generated from the
+  config rather than read from an asset**, because the engine-free core may not import `pxr`
+  (CLAUDE.md #1) and a scene has to be loadable with no renderer present; ingesting a real prim's
+  triangles is the follow-on. New `MeshCellForcing` gives each cell **its own face's normal** for
+  the direct beam and for `V_s = (1 + n·up)/2`, which is the term one shared patch normal cannot
+  express. A mesh field is **always** spun up per cell, where a patch only bothers under
+  occluders: no two cells of a mesh share a forcing history, so the per-prim spun-up value is
+  wrong for all of them and the scene would otherwise open with a uniform tube. `cylinder_mesh`
+  joins `irsim.thermal.raycast`. `configs/scenes/quad_flight_mesh.yaml` is the first scene to use
+  any of it — the aerial mission of `quad_flight_pointwise.yaml` with the two arms as 30 mm carbon
+  tubes — and `scripts/quad_flight_mesh.py` writes each arm **unrolled** plus a video of the
+  mission. Measured: crown 52.8 °C against an underside sitting on 26.2 °C of air, **26.6 K around
+  one arm**, where the same arm as a patched strip carries under a millikelvin across its width;
+  the mission collapses the crown's excess over air from 26.6 K on the pad to 16.4 K in the climb and 12.7 K in the hard climb, and landing brings it back to 27.6 K. Refused
+  rather than ignored on a mesh: `patch:` alongside it, and `film:`, `water:`, `layers:` and
+  `back:`, each of which is a rectangular-grid construction with no mesh equivalent shipped.
+
 - **ADR 0110 — the surface temperature field lives on the mesh** (`WM.5`). The record for
   `WM.1`–`WM.3`: what the closest-point parameterisation is, why it needs nothing from the
   renderer, the error budget, and the routes rejected *with their reasons*, so they are not

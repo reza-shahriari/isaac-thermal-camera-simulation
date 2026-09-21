@@ -28,6 +28,7 @@ from irsim.thermal.raycast import (
     RectangleOccluders,
     TriangleSoup,
     box_mesh,
+    cylinder_mesh,
     penumbra_width_m,
     rectangle_mesh,
     solar_disc_rays,
@@ -316,3 +317,59 @@ def test_a_sphere_mesh_closes_on_the_analytic_sphere_and_occludes_like_one() -> 
         sphere_mesh((0.0, 0.0, 0.0), 0.0)
     with pytest.raises(ValueError, match="n_theta >= 2"):
         sphere_mesh((0.0, 0.0, 0.0), 1.0, 1, 8)
+
+
+def test_every_generated_mesh_winds_its_faces_outward() -> None:
+    """The invariant a `WM.2` field depends on and a ray test does not.
+
+    Occlusion only asks whether a triangle was hit, so a mesh wound inside out shades correctly
+    and nothing complains. A temperature field asks `max(0, n·s)`, so an inward normal makes the
+    sunlit crown of a tube the *cold* side and its shaded underside the hot one -- a picture that
+    looks entirely like physics and is upside down. Measured on `quad_flight_mesh.yaml` before
+    this was pinned: the cylinder's side faces were wound inward and the unrolled arm read with
+    its crown at air temperature.
+    """
+    centre = np.array([0.1, 0.2, 0.3])
+    for axis in ((0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (1.0, 1.0, 1.0)):
+        soup = cylinder_mesh(centre, 0.05, 0.4, axis, 24, 6)
+        v = soup.vertices[soup.faces]
+        normals = np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0])
+        normals /= np.linalg.norm(normals, axis=-1, keepdims=True)
+        offset = v.mean(axis=1) - centre
+        w = np.asarray(axis, dtype=float)
+        w = w / np.linalg.norm(w)
+        cap = np.abs(normals @ w) > 0.9
+        radial = offset - (offset @ w)[:, None] * w
+        assert np.all(np.sum(normals[~cap] * radial[~cap], axis=-1) > 0.0), axis
+        assert np.all(np.sum(normals[cap] * ((offset[cap] @ w)[:, None] * w), axis=-1) > 0.0), axis
+        assert int((~cap).sum()) == 2 * 24 * 6 and int(cap.sum()) == 2 * 24
+
+    soup = sphere_mesh(centre, 0.25, 12, 24)
+    v = soup.vertices[soup.faces]
+    normals = np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0])
+    outward = v.mean(axis=1) - centre
+    assert np.all(np.sum(normals * outward, axis=-1) > 0.0)
+
+
+def test_a_cylinder_closes_on_its_analytic_area_and_can_be_left_open() -> None:
+    radius, length = 0.05, 0.4
+    side = 2.0 * math.pi * radius * length
+    capped = cylinder_mesh((0.0, 0.0, 0.0), radius, length, (0.0, 0.0, 1.0), 64, 4)
+    open_tube = cylinder_mesh((0.0, 0.0, 0.0), radius, length, (0.0, 0.0, 1.0), 64, 4, capped=False)
+
+    def area(soup):  # type: ignore[no-untyped-def]
+        v = soup.vertices[soup.faces]
+        return float(
+            0.5 * np.linalg.norm(np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0]), axis=-1).sum()
+        )
+
+    assert area(open_tube) == pytest.approx(side, rel=0.01)
+    assert area(capped) == pytest.approx(side + 2.0 * math.pi * radius**2, rel=0.01)
+    assert capped.n_faces == open_tube.n_faces + 2 * 64
+
+    with pytest.raises(ValueError, match="positive radius and length"):
+        cylinder_mesh((0.0, 0.0, 0.0), 0.0, 1.0)
+    with pytest.raises(ValueError, match="n_phi >= 3"):
+        cylinder_mesh((0.0, 0.0, 0.0), 1.0, 1.0, (0.0, 0.0, 1.0), 2, 1)
+    with pytest.raises(ValueError, match="axis has zero length"):
+        cylinder_mesh((0.0, 0.0, 0.0), 1.0, 1.0, (0.0, 0.0, 0.0))

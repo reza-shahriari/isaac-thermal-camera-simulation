@@ -1,35 +1,33 @@
-# The aerial scenario, regenerated point-wise: the same 30-minute quadrotor mission as
-# quad_flight_clear_noon.yaml, with the airframe solved **per cell** instead of as one number.
-# Schema: irsim.config.scene (v13). Roadmap PT.9; ADR 0087 (the field), ADR 0095 (occluders and
-# the world frame), ADR 0102 (in-plane conduction), ADR 0104 (the per-cell sky view), ADR 0109
-# (a speed that follows the mission).
+# The quadrotor's arms as **tubes**, not flat patches: the same 30-minute mission, with the two
+# arms solved on a triangle mesh so each carries a gradient around its circumference as well as
+# along its length. Schema: irsim.config.scene (v14). Roadmap WM.7; ADR 0110 (the field on the
+# mesh), ADR 0087 (the planar patch it extends), ADR 0109 (a speed that follows the mission).
 #
-# What changes against the per-prim scene, and why it matters for a sky-background target:
+# Why this scene exists. ADR 0087 gave a near-planar surface a field by projecting the position
+# AOV onto a rectangle and recorded a tube as a permanent limit -- so quad_flight_pointwise.yaml
+# has to model each arm as a flat strip, which is the one thing an arm is not. At noon the top of
+# a carbon tube is tens of kelvin over its underside, and a strip carries a single value across
+# both. WM.1-WM.3 lifted the limit; this is the first scene that uses it.
 #
-#   * The deck, the belly and the four arms are patched surfaces, so one prim carries a
-#     gradient. Seen from above a quadrotor at noon is a hot carbon deck; seen from below it is
-#     its own shaded belly, a few kelvin either side of air. A single airframe temperature
-#     cannot be both, and which one a detector is trained on is the whole question.
-#   * The body and the four motor pods are occluders, so the inner arms sit in the deck's own
-#     shadow and the pods throw a shadow of their own down each arm.
-#   * The skin's speed follows the mission (ADR 0109). On the pad the deck runs tens of kelvin
-#     over air; a minute into the climb forced convection has pinned it back to within a few.
-#     That collapse is the point-wise signature of taking off, and it is what the per-prim
-#     `airframe` solver asserted from the start (T = T_air) without ever deriving.
+#   * `deck` and `belly` stay **patches**: they really are near-planar, and the planar path is
+#     cheaper and samples bilinearly, so nothing is gained by moving them.
+#   * `arm_n` and `arm_e` are **meshes** -- 24-sided cylinders, cells at one per face, each cell
+#     on its own face normal. That is the whole difference: the sunlit crown and the shaded
+#     underside of one arm are different cells of one solve.
 #
-# The powered parts -- motors, speed controllers, the pack -- stay per-prim nodes, because
-# conducting their heat into the skin from a config still has no route (PT.9's remainder).
-# World is ENU: x east, y north, z up. The quadrotor sits on its pad at the origin.
+# What this scene does NOT do, so the frames are read correctly. A mesh cell's beam is gated by
+# the surface's own `shaded` flag and nothing else: the body and pod occluders that shade the
+# patched arms in quad_flight_pointwise.yaml do not shade these, because ray-traced
+# self-shadowing and neighbour shadowing on a mesh are `WM.4`'s. The far side of a tube is cold
+# here because its normal faces away, which is the cosine and not an occlusion test. For a convex
+# tube in the open those agree; for a mesh that folds over itself they would not.
 #
-# Speeds are ESTIMATED as the air speed the skin meets, and rotor downwash is not modelled:
-# 1 m/s while the rotors idle on the pad is a stand-in for it, and a real hover moves more air
-# over the deck than that. The mission's throttle profile is quad_flight_clear_noon.yaml's,
-# unchanged, so the two scenes are the same flight.
+# World is ENU: x east, y north, z up. The mission is quad_flight_clear_noon.yaml's, unchanged.
 
 schema_version: 14
 scene:
-  name: quad_flight_pointwise
-  description: "The 30-min quadrotor mission with a point-wise airframe, clear midday"
+  name: quad_flight_mesh
+  description: "The 30-min quadrotor mission with the arms as meshed tubes, clear midday"
   weather_file: weather/clear_midlat_summer_48h.csv
   atmosphere_preset: us_standard_clear
   environment_preset: clear_dry
@@ -92,15 +90,41 @@ scene:
 
       # Two arms, north and east: 0.30 m of carbon tube from the body to the pod, 40 mm below the
       # deck so the deck's own shadow falls across their inner half at a high sun.
+      # A 30 mm carbon tube from the body out to the motor pod. 24 facets around it, 6 along:
+      # 144 side cells plus 48 on the two caps, each on its own normal.
       - name: arm_n
         material: carbon_fibre
         tilt_deg: 0.0
-        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1080.0, 1200.0, 1560.0]
         speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
-        patch: {origin_m: [-0.025, 0.15, 0.32], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 2, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.002, frame: world, prim_path: /World/Quad/arm_n}
+        mesh:
+          shape: cylinder
+          centre_m: [0.0, 0.30, 0.32]
+          radius_m: 0.015
+          length_m: 0.30
+          axis: [0.0, 1.0, 0.0]
+          segments: 24
+          rings: 6
+          capped: true
+          level: 1
+          frame: world
+          prim_path: /World/Quad/arm_n
+      # A 30 mm carbon tube from the body out to the motor pod. 24 facets around it, 6 along:
+      # 144 side cells plus 48 on the two caps, each on its own normal.
       - name: arm_e
         material: carbon_fibre
         tilt_deg: 0.0
-        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1080.0, 1200.0, 1560.0]
         speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
-        patch: {origin_m: [0.15, -0.025, 0.32], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 12, n_v: 2, du_m: 0.025, dv_m: 0.025, thickness_m: 0.002, frame: world, prim_path: /World/Quad/arm_e}
+        mesh:
+          shape: cylinder
+          centre_m: [0.30, 0.0, 0.32]
+          radius_m: 0.015
+          length_m: 0.30
+          axis: [1.0, 0.0, 0.0]
+          segments: 24
+          rings: 6
+          capped: true
+          level: 1
+          frame: world
+          prim_path: /World/Quad/arm_e

@@ -48,6 +48,7 @@ __all__ = [
     "RectangleOccluders",
     "TriangleSoup",
     "box_mesh",
+    "cylinder_mesh",
     "penumbra_width_m",
     "rectangle_mesh",
     "solar_disc_rays",
@@ -296,6 +297,68 @@ def sphere_mesh(centre_m: Any, radius_m: float, n_theta: int = 16, n_phi: int = 
     v = vertices[faces]
     keep = np.linalg.norm(np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0]), axis=-1) > 1e-15
     return TriangleSoup(vertices, np.asarray(faces[keep], dtype=np.int64))
+
+
+def cylinder_mesh(
+    centre_m: Any,
+    radius_m: float,
+    length_m: float,
+    axis: Any = (0.0, 0.0, 1.0),
+    n_phi: int = 24,
+    n_z: int = 8,
+    *,
+    capped: bool = True,
+) -> TriangleSoup:
+    """A cylinder about ``axis``, centred on ``centre_m``: a pipe, an arm, a mast, a motor bell.
+
+    The shape ADR 0087 named as Hard, and the one `WM.2`'s field exists for -- its temperature
+    varies around the circumference as well as along the length, which no single patch normal can
+    express. ``capped`` closes the ends with a triangle fan; an open tube is the right model for a
+    pipe seen from outside and a closed one for a bell.
+    """
+    c = np.asarray(centre_m, dtype=np.float64).reshape(3)
+    if radius_m <= 0.0 or length_m <= 0.0:
+        raise ValueError(f"a cylinder needs positive radius and length, got {radius_m}, {length_m}")
+    if n_phi < 3 or n_z < 1:
+        raise ValueError(f"a cylinder needs n_phi >= 3 and n_z >= 1, got {n_phi}, {n_z}")
+    w = np.asarray(axis, dtype=np.float64).reshape(3)
+    norm = float(np.linalg.norm(w))
+    if norm <= 0.0:
+        raise ValueError("a cylinder's axis has zero length")
+    w = w / norm
+    # Any perpendicular pair will do; take the world axis least aligned with w so the cross
+    # product is well conditioned rather than nearly zero.
+    helper = np.eye(3)[int(np.argmin(np.abs(w)))]
+    u = np.cross(w, helper)
+    u /= np.linalg.norm(u)
+    v = np.cross(w, u)
+
+    phi = np.linspace(0.0, 2.0 * np.pi, n_phi, endpoint=False)
+    z = np.linspace(-0.5 * length_m, 0.5 * length_m, n_z + 1)
+    zz, pp = np.meshgrid(z, phi, indexing="ij")
+    ring = radius_m * (np.cos(pp)[..., None] * u + np.sin(pp)[..., None] * v)
+    vertices = (c + zz[..., None] * w + ring).reshape(-1, 3)
+
+    rows, cols = np.arange(n_z)[:, None], np.arange(n_phi)[None, :]
+    a = (rows * n_phi + cols).ravel()
+    b = (rows * n_phi + (cols + 1) % n_phi).ravel()
+    d = ((rows + 1) * n_phi + cols).ravel()
+    e = ((rows + 1) * n_phi + (cols + 1) % n_phi).ravel()
+    # Wound so the side normals point **outward**. This is not cosmetic: a cell's solar term is
+    # `max(0, n·s)`, so an inward normal makes the sunlit crown of a tube the cold side and the
+    # shaded underside the hot one -- a picture that looks like physics and is upside down.
+    faces = [np.stack([a, e, d], axis=1), np.stack([a, b, e], axis=1)]
+    if capped:
+        low = c - 0.5 * length_m * w
+        high = c + 0.5 * length_m * w
+        base = vertices.shape[0]
+        vertices = np.concatenate([vertices, low[None, :], high[None, :]], axis=0)
+        cols_flat = np.arange(n_phi)
+        nxt = (cols_flat + 1) % n_phi
+        faces.append(np.stack([np.full(n_phi, base), nxt, cols_flat], axis=1))
+        top = n_z * n_phi
+        faces.append(np.stack([np.full(n_phi, base + 1), top + cols_flat, top + nxt], axis=1))
+    return TriangleSoup(vertices, np.concatenate(faces, axis=0).astype(np.int64))
 
 
 # --- the sun's disc ------------------------------------------------------------------------------

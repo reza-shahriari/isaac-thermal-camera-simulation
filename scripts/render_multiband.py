@@ -79,6 +79,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "no prims yet. scripts/wall_half_in_sun.py writes the engine-free frame from a synthetic "
         "G-buffer; the rendered one is IG.2's."
     ),
+    "quad_flight_mesh.yaml": (
+        "WM.7's reference scene: the same mission with the two arms as meshed tubes, no camera "
+        "and no prims yet. scripts/quad_flight_mesh.py writes the unrolled frames and a video "
+        "from a synthetic G-buffer through the mesh bridge; the rendered ones are IG.2's, and "
+        "binding a mesh field to a real asset's triangles is the follow-on to WM.7."
+    ),
     "quad_flight_pointwise.yaml": (
         "PT.9's regenerated aerial scene: the deck, the belly and two arms of a quadrotor as "
         "patched surfaces, no camera and no prims yet. scripts/quad_flight_pointwise.py writes "

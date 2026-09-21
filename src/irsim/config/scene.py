@@ -39,6 +39,7 @@ from pydantic import (
 __all__ = [
     "SCENE_SCHEMA_VERSION",
     "MIN_SCENE_SCHEMA_VERSION",
+    "MeshSpec",
     "SurfaceSpec",
     "ThermalSceneSpec",
     "SiteSpec",
@@ -52,7 +53,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 13  # v13: a surface's speed schedule (ADR 0109, PT.9); v12 its
+SCENE_SCHEMA_VERSION = 14  # v14: a surface's `mesh:` (ADR 0110, WM.7); v13 its
+# speed schedule (ADR 0109, PT.9); v12 its
 # `water:` (ADR 0108, PH.3); v11
 # `thermal.penumbra_rays:` (ADR 0107, PT.22); v10
 # `thermal.cabin:` and a surface's `back:` (ADR 0106, PT.15);
@@ -350,6 +352,57 @@ class PatchSpec(_Frozen):
         return self
 
 
+class MeshSpec(_Frozen):
+    """The spatial half of a surface on **curved** geometry (WM.2/WM.3, ADR 0110).
+
+    :class:`PatchSpec` projects the per-pixel world position onto a rectangle, which is exact for
+    a road, a bonnet, a roof or a deck and wrong for everything that curves. This block builds a
+    :class:`~irsim.thermal.mesh_field.TriangleMeshPatch` instead: cells live **on the mesh**, at a
+    per-face level, and a closest-point query locates a pixel on it. A pipe, an arm, a mast, a
+    tyre or a motor bell can then carry a temperature that varies around its circumference, which
+    is what one shared patch normal cannot express.
+
+    **The shape is generated here, not read from USD.** `src/irsim/` may not import `pxr`
+    (CLAUDE.md #1), so the engine-free core builds the primitive the author names. That covers the
+    cases ADR 0087 listed as Hard, and it keeps a scene loadable and solvable with no renderer
+    present. Ingesting a real asset's triangles is the Isaac side's job -- `probe_warp_prim.py`
+    measured what it takes (triangulating quads, applying the local-to-world transform, and that
+    an analytic gprim exposes no points at all) -- and is the follow-on to this row.
+
+    ``level`` is cells per face edge, so a face carries ``level²``; ``cell_m`` picks a level per
+    face from a target cell size instead. ``frame`` and ``prim_path`` mean exactly what they mean
+    on a patch.
+    """
+
+    shape: Literal["cylinder", "sphere"]
+    centre_m: tuple[float, float, float]
+    radius_m: float = Field(gt=0.0)
+    #: Cylinders only; a sphere has none and refuses one.
+    length_m: float | None = Field(default=None, gt=0.0)
+    axis: tuple[float, float, float] = (0.0, 0.0, 1.0)
+    #: Facets around the circumference, and along the axis (cylinder) or from pole to pole
+    #: (sphere). These set the *geometry*; `level` and `cell_m` set the cells on it.
+    segments: int = Field(default=24, ge=3, le=256)
+    rings: int = Field(default=8, ge=1, le=256)
+    capped: bool = True
+    level: int = Field(default=1, ge=1, le=32)
+    cell_m: float | None = Field(default=None, gt=0.0)
+    frame: str = Field(default="world", min_length=1)
+    prim_path: str | None = None
+
+    @model_validator(mode="after")
+    def _shape_fields_match_the_shape(self) -> MeshSpec:
+        if self.shape == "cylinder" and self.length_m is None:
+            raise ValueError("a cylinder mesh needs length_m")
+        if self.shape == "sphere" and self.length_m is not None:
+            raise ValueError("a sphere mesh has no length_m")
+        if self.cell_m is not None and self.level != 1:
+            raise ValueError("a mesh takes `level` or `cell_m`, not both")
+        if math.isclose(sum(c * c for c in self.axis), 0.0, abs_tol=1e-18):
+            raise ValueError("a mesh's axis has zero length")
+        return self
+
+
 class WorldFrameSpec(_Frozen):
     """Which way the scene's world frame is up and which way is north (schema v8, PT.18).
 
@@ -536,6 +589,10 @@ class SurfaceSpec(_Frozen):
     #: whole surface. Absent leaves the surface exactly as it was, so every v4-v6 scene loads
     #: and solves unchanged (schema v7, PT.2).
     patch: PatchSpec | None = None
+    #: The same, on **curved** geometry (WM.7, ADR 0110): cells on a generated mesh instead of a
+    #: projected rectangle, so a pipe, an arm, a mast or a tyre carries a gradient around its
+    #: circumference. Mutually exclusive with `patch`.
+    mesh: MeshSpec | None = None
     #: A water film at the scene start, per cell (PH.2). Needs a patch; a per-prim surface has
     #: no cells to be half wet.
     film: FilmSpec | None = None
@@ -558,6 +615,29 @@ class SurfaceSpec(_Frozen):
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
+        if self.patch is not None and self.mesh is not None:
+            raise ValueError(
+                f"surface {self.name!r}: a surface takes `patch:` or `mesh:`, not both -- the two "
+                "are different parameterisations of the same surface and a cell would belong to "
+                "each of them"
+            )
+        if self.mesh is not None:
+            # The patch-only extras are refused on a mesh rather than silently ignored. Each is a
+            # rectangular-grid construction: a film and standing water are per-cell masses keyed
+            # to a region in (u, v), layers cut a slab under a plane, and PT.11's lateral operator
+            # is built on four-neighbour grid edges whose mesh equivalent is WM.6's.
+            for field_name, owner in (
+                ("film", "PH.2"),
+                ("water", "PH.3"),
+                ("back", "PT.15"),
+            ):
+                if getattr(self, field_name) is not None:
+                    raise ValueError(
+                        f"surface {self.name!r}: `{field_name}:` ({owner}) needs a `patch:`; it "
+                        "has no meaning on a mesh yet"
+                    )
+            if self.layers != 1:
+                raise ValueError(f"surface {self.name!r}: `layers:` (PT.12) needs a `patch:`")
         if (self.speed_s is None) != (self.speed_m_s is None):
             raise ValueError(f"surface {self.name!r}: a speed schedule needs speed_s and speed_m_s")
         if self.speed_s is not None:

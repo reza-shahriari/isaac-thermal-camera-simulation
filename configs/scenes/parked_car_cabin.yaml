@@ -24,7 +24,7 @@
 # The rendered frame is IG.2's; scripts/parked_car_cabin.py writes the engine-free one from a
 # synthetic G-buffer. World is ENU: x east, y north, z up. The car faces south.
 
-schema_version: 13
+schema_version: 14
 scene:
   name: parked_car_cabin
   description: "a parked car at noon, its panels backed by a cabin that the sun has been heating"

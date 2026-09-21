@@ -31,7 +31,7 @@ from numpy.typing import NDArray
 
 from irsim.thermal.convection import DEFAULT_CONVECTION, ConvectionParams, convection_coefficient
 from irsim.thermal.facets import FacetForcing
-from irsim.thermal.frames import WorldFrame
+from irsim.thermal.frames import ENU, WorldFrame
 from irsim.thermal.longwave import longwave_down
 from irsim.thermal.shadow import ShadowRectangle, cell_shadow
 from irsim.thermal.solar import solar_loading, sun_direction, sun_position_utc
@@ -43,6 +43,7 @@ __all__ = [
     "SceneSurfaceForcing",
     "SolarTerms",
     "CellForcing",
+    "MeshCellForcing",
     "sky_view_for_tilt",
     "solar_terms_at",
 ]
@@ -339,6 +340,112 @@ class CellForcing:
         if self.sky_view is not None and self.sky_view_longwave:
             # The longwave down through the cell's own share of the dome, the rest of the
             # hemisphere at the air temperature -- the per-prim call with the cell's factor.
+            sample = self.surfaces.weather.at(t_s)
+            q_lw_cells = np.asarray(
+                longwave_down(
+                    sample.t_air_k,
+                    sample.vapour_pressure_hpa,
+                    sample.cloud_fraction,
+                    self.sky_view,
+                    sample.t_air_k,
+                ),
+                dtype=np.float64,
+            )
+        else:
+            q_lw_cells = np.full(n, q_lw[i])
+        base = self.surfaces(t_s)
+        return FacetForcing(
+            t_air_k=float(t_air[i]),
+            h_w_m2_k=np.full(n, h[i]),
+            q_solar_w_m2=np.asarray(q_solar_cells, dtype=np.float64),
+            q_longwave_down_w_m2=q_lw_cells,
+            q_internal_w_m2=np.full(n, q_int[i]),
+            q_air_kg_kg=float(base.q_air_kg_kg),
+            g_e_kg_m2_s=float(base.g_e_kg_m2_s),
+            precip_kg_m2_s=float(base.precip_kg_m2_s),
+        )
+
+
+@dataclass
+class MeshCellForcing:
+    """Per-cell forcing on a **mesh**: each cell's own face normal drives its solar term (WM.7).
+
+    :class:`CellForcing` gives every cell of a planar patch the surface's one normal, which is
+    right for a plane and is exactly what a curved surface cannot have. Here the normal comes
+    from the cell's own triangle, so the sunlit side of a pipe and its shaded side are different
+    cells of one solve -- which is the whole reason `WM.2`'s field exists.
+
+    Two terms follow the normal and nothing else changes: the direct beam through
+    :func:`~irsim.thermal.solar.solar_loading`'s ``max(0, n·s)``, and each cell's sky view
+    ``V_s = (1 + n·up)/2``, which scales the diffuse solar and the longwave down together exactly
+    as `PT.21` does for a patch.
+
+    **Self-shadowing is not modelled here.** The far side of a cylinder is dark because its normal
+    faces away, which is the cosine doing its job; a cell that another *part* of the same mesh
+    occludes still sees the beam. `WM.4` owns the ray-traced version, and until it lands this is
+    a convex-geometry assumption, true for the pipes, arms and bells this row was written for and
+    false for a mesh that folds over itself.
+    """
+
+    surfaces: SceneSurfaceForcing
+    index: int
+    #: ``(n_cells, 3)`` unit outward normals in the **scene's world frame**.
+    normals_world: Any
+    frame: WorldFrame = ENU
+    sky_view_longwave: bool = True
+
+    def __post_init__(self) -> None:
+        n = np.asarray(self.normals_world, dtype=np.float64)
+        if n.ndim != 2 or n.shape[1] != 3 or n.shape[0] < 1:
+            raise ValueError(f"normals_world must be (n_cells >= 1, 3), got {n.shape}")
+        norms = np.linalg.norm(n, axis=-1)
+        if np.any(norms <= 0.0):
+            raise ValueError("a cell normal has zero length")
+        if not 0 <= self.index < self.surfaces.n_facets:
+            raise IndexError(
+                f"surface index {self.index} is outside the {self.surfaces.n_facets} surfaces"
+            )
+        self.normals_world = n / norms[:, None]
+        enu = np.asarray(self.frame.to_enu(self.normals_world), dtype=np.float64)
+        object.__setattr__(self, "_normals_enu", enu)
+        object.__setattr__(self, "_sky_view", np.clip(0.5 * (1.0 + enu[:, 2]), 0.0, 1.0))
+
+    @property
+    def n_cells(self) -> int:
+        return int(np.shape(self.normals_world)[0])
+
+    @property
+    def weather(self) -> WeatherSeries:
+        """The scene's one series, so the one-weather guard (CLAUDE.md #6) sees this too."""
+        return self.surfaces.weather
+
+    @property
+    def sky_view(self) -> NDArray[np.float64]:
+        """``(n_cells,)`` V_s from each cell's own normal."""
+        return np.asarray(self._sky_view)  # type: ignore[attr-defined]
+
+    @property
+    def normals_enu(self) -> NDArray[np.float64]:
+        return np.asarray(self._normals_enu)  # type: ignore[attr-defined]
+
+    def cell_visibility(self, t_s: float) -> NDArray[np.float64]:
+        """The surface's own ``shaded`` flag, broadcast. Geometry-aware shadowing is `WM.4`'s."""
+        shaded = self.surfaces.orientations[self.index].shaded
+        return np.full(self.n_cells, 0.0 if shaded else 1.0)
+
+    def __call__(self, t_s: float) -> FacetForcing:
+        t_air, h, _q_solar, q_lw, q_int = self.surfaces(t_s).arrays(self.surfaces.n_facets)
+        i, n = self.index, self.n_cells
+        sun = self.surfaces.solar_terms(t_s)
+        q_solar_cells = solar_loading(
+            self.normals_enu,
+            sun.direction_enu,
+            sun.dni_w_m2,
+            sun.dhi_w_m2,
+            self.sky_view,
+            self.cell_visibility(t_s),
+        )
+        if self.sky_view_longwave:
             sample = self.surfaces.weather.at(t_s)
             q_lw_cells = np.asarray(
                 longwave_down(

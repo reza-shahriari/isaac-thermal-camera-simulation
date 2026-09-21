@@ -22,7 +22,7 @@
 # The rendered frame is IG.2's; scripts/wall_half_in_sun.py writes the engine-free one from a
 # synthetic G-buffer over the west wall. World is ENU: x east, y north, z up.
 
-schema_version: 13
+schema_version: 14
 scene:
   name: wall_half_in_sun
   description: "a concrete building with a neighbour's shadow across its west wall, 18:00 on a clear June day"
