@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 89 open steps
+#### Then, in order — 88 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -186,15 +186,15 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 6 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
 | 7 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 | 8 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 9 | **`PH.3`** | PH | P | M | — | ready |
-| 10 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 11 | **`WM.4`** | WM | P | M | — | `WM.3` |
-| 12 | **`WM.6`** | WM | P | M | — | `WM.3` |
-| 13 | **`PT.9`** | PT | A | M | 3 | `WM.3` |
-| 14 | **`AT.10`** | AT | A | M | — | ready |
-| 15 | **`GT.2`** | GT | A | M | — | ready |
+| 9 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 10 | **`WM.4`** | WM | P | M | — | `WM.3` |
+| 11 | **`WM.6`** | WM | P | M | — | `WM.3` |
+| 12 | **`PT.9`** | PT | A | M | 3 | `WM.3` |
+| 13 | **`AT.10`** | AT | A | M | — | ready |
+| 14 | **`GT.2`** | GT | A | M | — | ready |
+| 15 | **`IG.2`** | IG | A | M | — | ready |
 
-…and 74 more — `python scripts/next_step.py --queue 40`.
+…and 73 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -514,7 +514,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 |---|---|---|---|---|---|
 | PH.1 | ✅ **done.** `irsim.thermal.latent`: Q_L = L_v ρ_a (q_sat(T_s) − q_a)/(r_a + r_s) in the balance; `FacetSolver(film_kg_m2=)` keeps a film per cell that rain fills and evaporation empties; scene forcings carry q_a, g_e and rain; the sea skin's net loss gains the latent flux. ADR 0101. | **Measured.** A saturated cell with no radiation lands on the wet bulb within 0.1 K at RH 1.0, 0.7, 0.4; Q_L = 0 at RH 1, T_s = T_a; a dry cell is bit-identical; 75 W/m² at 5 m/s, 293 K, RH 0.7 (COARE 76); the film budget closes to 1e-6; the sea skin runs 0.3 K colder. 11 cases. | — | M | P |
 | PH.2 | ✅ **done.** `configs/scenes/wet_road_noon.yaml`: `film: {depth_mm, region_m}` on a patched surface (ADR 0101 addendum) waters the west half of a 12 m asphalt patch at 14:00, a wall shading the south rows; `evaporated_kg_m2` closes the budget. 0.5 mm, not 0.2: this road dries at 1.3 mm/h. | **Measured.** Sunlit wet − dry peaks at **9.9 K** at 27 min, shaded near 5 K later; the sunlit film is gone at 28 min and the halves reconverge below a quarter of the peak by 3 h; film₀ − film = evaporated and a quadrature of E(T) agree to 1e-6. The frame needs IG.2. 5 cases. | — | S | P |
-| PH.3 | **Still water: lakes, ponds and puddles.** A fresh-water mixed-layer node under the sea-skin model, water's Fresnel angular emissivity and the reflected sky, as a per-cell override on a ground patch so a puddle is a region of the road. | Clear calm night: skin − bulk in [−0.5, −0.1] K; a cloudy humid night flips the sign — a skin that only ever cools fails; the sublayer is 0.7–3.6 mm at 0.8–8.2 m/s; a puddle at the road's kinetic temperature reads several K colder apparent at 60° off nadir under a clear sky, within 0.5 K at nadir; ε + ρ = 1 at every angle. | PH.1 | M | P |
+| PH.3 | ✅ **done.** `irsim.thermal.still_water`: a fresh-water sublayer with a **signed** skin (the sea's clamp is wrong on land), the mixed layer's capacity, and the Fresnel/sky mix a camera reads; schema v12 `water:` makes a puddle a region of a road's patch (ADR 0108). | **Measured.** Sublayer 0.67–3.61 mm over 0.8–8.2 m/s. Clear calm night −0.38 K; cloudy humid **+0.21 K** (clamped: 0.00). ε+ρ=1 to 1e-12. Puddle −0.55 K nadir, −1.90 K at 60° (row: 0.5 / several — this sky is colder), −4.40 K at 70°. Road: −3.8 K at t0, −11 K at +1 h. | PH.1 | M | P |
 | PH.4 | ✅ **done.** `irsim.pipeline.gas_slab`: `GasSlab(T_gas, L, p_CO₂, p_H₂O, f_soot)`, no emissivity field; L_b = τ_b L_behind + (1−τ_b) B_b(T_g); soot κ_b by quadrature, gas κ_b(T) from tables (PH.5); attenuated per class from range as MS.6; guard 300–2500 K. ADR: PH.13. | **Measured.** κL→0 returns the background bit-exactly, κL→∞ B_b(T_g); an opaque soot flame reads T_g in both bands to 1 mK; a CO₂/H₂O slab (synthetic table) reads > 900 K apart between bands, a grey ε within 150 K; steam before a hot wall is negative; range identities to 1e-12. 12 cases. | — | M | P |
 | PH.5 | **Per-band hot-gas absorption tables, generated offline.** `scripts/generate_gas_luts.py` runs RADIS over HITEMP (LGPL, under `scripts/` only) for CO₂ and H₂O over 300–2500 K, integrates against every band's R(λ) so bands stay data, and commits float32 κ_b(T) with a hash sidecar; RadCal is the fallback. | The CO₂ 4.3 µm band mean at 1500 K exceeds the 296 K value; the sidecar hash pins the database used; a 3.80–4.05 µm through-flame sub-band added as config shows near-zero CO₂ contrast against 3–5 µm's; `test_temperature_encoding` sweeps to 1000 K. | PH.4 | M | P |
 | PH.6 | **The exhaust plume, on the car and the vessel.** A gas slab per pixel over the plume's cone, T and species from the exhaust node; closes the §6.6 deferral whose trigger — an MWIR Tier 3 bench — fired with `test_tier3_multiband.py`. | τ_LWIR ≥ 0.90 and τ_MWIR in 0.65–1.0 falling toward the exit (NIRATAM ship-plume fits) — a grey slab gives equal τ and fails; the MWIR bench shows the plume as the dominant feature while the LWIR bolometer sees a few-K contrast at most; one scene file renders both bands. | PH.5, TC.7 | M | P |
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0107 (0090–0107 were written after this section was first measured; 0093–0107 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15` and `PT.22`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0108 (0090–0108 were written after this section was first measured; 0093–0108 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22` and `PH.3`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

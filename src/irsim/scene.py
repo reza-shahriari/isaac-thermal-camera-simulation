@@ -583,7 +583,9 @@ class Scene:
             thermal_surfaces=build.names,
             patches=patches,
             patch_prims=patch_prims,
-            surface_fields=_build_surface_fields(spec, build, patches, world_frame, occluders),
+            surface_fields=_build_surface_fields(
+                spec, build, patches, world_frame, occluders, data_dir
+            ),
             world_frame=world_frame,
             occluders=occluders,
             network=network,
@@ -773,6 +775,7 @@ def _build_surface_fields(
     patches: Mapping[str, PlanarPatch],
     world_frame: WorldFrame = ENU,
     occluders: Mapping[str, ShadowRectangle] | None = None,
+    data_dir: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
     """A per-cell field for every surface that declared a patch (ADR 0087, PT.17).
 
@@ -842,6 +845,11 @@ def _build_surface_fields(
             sky_view=sky_view,
             penumbra_rays=spec.thermal.penumbra_rays,
         )
+        # PH.3: the cells that are standing water stop being road -- their capacity, their
+        # optics and their film are the puddle's (ADR 0108).
+        film = _film_for(patch, s.film)
+        if s.water is not None:
+            cells, film = _puddle(patch, s.water, cells, data_dir)
         # PT.11: in-plane conduction from the material's own k and thickness (ADR 0102).
         thermal = build.materials[i].spec.thermal
         conduction = None
@@ -915,7 +923,7 @@ def _build_surface_fields(
             build.t0_s,
             spun,
             spec.thermal.tick_s,
-            film_kg_m2=_film_for(patch, s.film),
+            film_kg_m2=film,
             conduction=conduction,
         )
     if cabin_spec is not None:
@@ -986,6 +994,52 @@ def ThermalPropertiesOf(props: Any, i: int) -> Any:  # noqa: N802 - reads as a c
         emissivity=float(props.emissivity[i]),
         solar_absorptivity=float(props.solar_absorptivity[i]),
     )
+
+
+def _puddle(
+    patch: PlanarPatch, water: Any, cells: Any, data_dir: str | os.PathLike[str] | None
+) -> tuple[Any, Any]:
+    """``(properties, film)`` with the puddle's cells turned into water (PH.3, ADR 0108).
+
+    A cell inside the region gets the mixed layer's areal capacity ``rho c d`` **added to the
+    substrate's**, because the road under a puddle has not gone away and the two are coupled far
+    more tightly than a day is long; the water material's own hemispherical emissivity and solar
+    absorptivity (ADR 0043: never a second authored copy); and a film of the same depth so the
+    latent term has something to evaporate. The cells outside keep the road's numbers, bit for
+    bit. The film is laid at t0 like every other (ADR 0101), so the spin-up sees water's optics
+    and mass but not its evaporation.
+    """
+    from irsim.materials.library import MaterialLibrary
+    from irsim.thermal.balance import ThermalProperties
+    from irsim.thermal.facets import FacetProperties
+    from irsim.thermal.still_water import mixed_layer_capacity_j_m2_k
+
+    library = MaterialLibrary.load()
+    if water.material not in library.names:
+        raise ValueError(
+            f"a puddle names material {water.material!r}, which the library does not have; "
+            f"known materials: {sorted(library.names)}"
+        )
+    material = library[water.material]
+    optical = ThermalProperties.from_material(material, 300.0, data_dir=data_dir)
+    depth_m = float(water.depth_mm) / 1000.0
+    inside = np.ones(patch.n_cells, dtype=bool)
+    if water.region_m is not None:
+        u0, u1, v0, v1 = water.region_m
+        uv = patch.local_coords(patch.cell_centres())
+        inside = (uv[:, 0] >= u0) & (uv[:, 0] <= u1) & (uv[:, 1] >= v0) & (uv[:, 1] <= v1)
+    wet = FacetProperties(
+        heat_capacity_j_m2_k=np.where(
+            inside,
+            float(mixed_layer_capacity_j_m2_k(depth_m)) + cells.heat_capacity_j_m2_k,
+            cells.heat_capacity_j_m2_k,
+        ),
+        emissivity=np.where(inside, float(optical.emissivity), cells.emissivity),
+        solar_absorptivity=np.where(
+            inside, float(optical.solar_absorptivity), cells.solar_absorptivity
+        ),
+    )
+    return wet, np.where(inside, float(water.depth_mm), 0.0)  # 1 mm of water is 1 kg m^-2
 
 
 def _film_for(patch: PlanarPatch, film: Any) -> Any:

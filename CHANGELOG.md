@@ -25,6 +25,24 @@ working in one tree; two commits already exist whose whole subject is restoring 
   minima within 0.05 K. The ratio near 2 the row asked for is out of reach with one air
   temperature per scene (the swing cannot fall below the air's own 12 K) and is recorded as such.
 
+- **Still water: lakes, ponds and puddles** (`PH.3`, ADR 0108). `irsim.thermal.still_water`: a
+  fresh-water conductive sublayer (`sublayer_thickness_m`, Saunders bounded by a tanh) whose skin
+  offset is **signed** -- the sea's clamp (ADR 0080) is right there and wrong on land, because
+  over a pond the fluxes that reverse are longwave and condensation, and both land *in* the
+  sublayer -- plus `mixed_layer_capacity_j_m2_k` and `apparent_temperature_k`, the
+  `eps(theta) B(T) + (1 - eps(theta)) L_sky` mix a camera actually reads. Scene schema **v12**
+  adds `water:` on a patched surface: the cells inside `region_m` take the mixed layer's mass on
+  top of the substrate's, the water material's emissivity and solar absorptivity, and a film of
+  the puddle's own depth to evaporate, while the cells outside stay the road bit for bit. Fresh
+  water's kinematic viscosity, conductivity, density and specific heat join
+  `irsim.radiometry.constants` rather than reusing the seawater values. Measured: the sublayer
+  spans 0.67-3.61 mm over 0.8-8.2 m/s; a clear calm night puts the skin 0.38 K below the bulk and
+  a humid overcast one 0.21 K above it (the clamped form: 0.00); Kirchhoff closes to 1e-12 from
+  nadir to 89.5 deg; a 293 K puddle reads 0.55 K below its kinetic temperature at nadir, 1.90 K
+  at 60 deg and 4.40 K at 70 deg under a clear sky, and under half a kelvin at 60 deg overcast;
+  and 20 mm of water over half PH.2's road opens 3.8 K below the dry half and is 11 K below an
+  hour later. The row asked for "several kelvin at 60 deg" and 0.5 K at nadir: this sky is colder
+  than it assumed, which deepens the nadir deficit and moves "several" out to 70 deg.
 - **Occlusion from geometry, and the sun as a disc** (`PT.22`, ADR 0107).
   `irsim.thermal.raycast`: an `Occluders` protocol whose one method answers "is this ray
   stopped?", implemented by `RectangleOccluders` (`cell_shadow`'s exact test generalised to

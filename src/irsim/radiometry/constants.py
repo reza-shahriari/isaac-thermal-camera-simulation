@@ -170,3 +170,15 @@ EMISSIVITY_SEAWATER_BROADBAND: Final[float] = 0.98
 # the eccentricity is not carried. Half of it is the half-angle a ray may depart the sun
 # direction by and still come from the disc.
 SOLAR_DISC_DIAMETER_DEG: Final[float] = 0.5332
+
+# --- Fresh water ------------------------------------------------------------
+# The pond/lake/puddle counterparts of the seawater values above, for the still-water skin model
+# (PH.3, ADR 0108). Fresh water at 20 degC: the kinematic viscosity and thermal conductivity from
+# the IAPWS-95 formulation as tabulated in the CRC Handbook (97th ed.), the density and specific
+# heat likewise. They differ from the seawater figures by 4 %, 0.3 % and 2.6 % respectively --
+# small, and kept separate anyway because a puddle is not a sea and a reader should not have to
+# discover that the model used salt water for a road.
+KINEMATIC_VISCOSITY_FRESH_WATER: Final[float] = 1.004e-6  # m^2 s^-1, 20 degC
+THERMAL_CONDUCTIVITY_FRESH_WATER: Final[float] = 0.598  # W m^-1 K^-1
+DENSITY_FRESH_WATER: Final[float] = 998.2  # kg m^-3
+SPECIFIC_HEAT_FRESH_WATER: Final[float] = 4182.0  # J kg^-1 K^-1

@@ -43,6 +43,7 @@ __all__ = [
     "ThermalSceneSpec",
     "SiteSpec",
     "BackSpec",
+    "WaterSpec",
     "CabinPanelSpec",
     "CabinSpec",
     "TargetSpec",
@@ -51,7 +52,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 11  # v11: `thermal.penumbra_rays:` (ADR 0107, PT.22); v10
+SCENE_SCHEMA_VERSION = 12  # v12: a surface's `water:` (ADR 0108, PH.3); v11
+# `thermal.penumbra_rays:` (ADR 0107, PT.22); v10
 # `thermal.cabin:` and a surface's `back:` (ADR 0106, PT.15);
 # v9 `thermal.nodes/links/sources` (ADR 0097, TC.4); v8 `world_frame:` and
 # `thermal.occluders:` (ADR 0095, PT.18); v7 the `patch:` block (ADR 0087)
@@ -430,6 +432,30 @@ class FilmSpec(_Frozen):
         return self
 
 
+class WaterSpec(_Frozen):
+    """Standing water on part of a patched surface: a puddle, a pond, a flooded verge (PH.3).
+
+    The cells inside ``region_m`` -- ``[u0, u1, v0, v1]`` in the patch's own (u, v) metres, or
+    the whole patch when absent -- stop being road and become water: their areal heat capacity
+    is ``rho c d`` of the mixed layer, their emissivity and solar absorptivity are the water
+    material's, and they carry a full film of ``depth_mm`` so the latent term evaporates them
+    (ADR 0101). Everything else about the surface is unchanged, which is the point: a puddle is
+    a region of a road, on one prim, not a surface of its own.
+    """
+
+    depth_mm: float = Field(gt=0.0, le=1000.0)
+    region_m: tuple[float, float, float, float] | None = None
+    material: str = Field(default="water", min_length=1)
+
+    @model_validator(mode="after")
+    def _region(self) -> WaterSpec:
+        if self.region_m is not None:
+            u0, u1, v0, v1 = self.region_m
+            if not (u1 > u0 and v1 > v0):
+                raise ValueError("water region_m must be [u0, u1, v0, v1] with u1 > u0, v1 > v0")
+        return self
+
+
 class BackSpec(_Frozen):
     """The deep boundary under a layered surface (§6.4's R₂d and T_deep, ADR 0036)."""
 
@@ -512,6 +538,10 @@ class SurfaceSpec(_Frozen):
     #: field always was; N cuts the material's thickness into N equal slices with §6.4's contact
     #: resistance between them and an adiabatic back. Needs a patch.
     layers: int = Field(default=1, ge=1, le=64)
+    #: Standing water over part of the patch (PH.3, ADR 0108): those cells become water, with
+    #: the mixed layer's capacity, water's optics and a film to evaporate. Needs a patch, and
+    #: cannot sit on a layered surface or beside an authored film.
+    water: WaterSpec | None = None
     #: What lies under the last layer (PT.15, ADR 0036's R₂d and T_deep): a resistance to a deep
     #: temperature, kelvin or ``"ambient"`` (the air at the scene start). Absent is adiabatic.
     #: Needs ``layers`` ≥ 2 -- a single layer with a deep boundary is `LumpedTwoNodeSolver`'s
@@ -520,6 +550,22 @@ class SurfaceSpec(_Frozen):
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
+        if self.water is not None:
+            if self.patch is None:
+                raise ValueError(
+                    f"surface {self.name!r}: `water:` needs a `patch:` -- a puddle is a region of "
+                    "cells, and a per-prim surface has no cells to be a region of"
+                )
+            if self.layers > 1:
+                raise ValueError(
+                    f"surface {self.name!r}: water on a layered surface is not supported -- the "
+                    "puddle replaces the cell's one node (PH.3)"
+                )
+            if self.film is not None:
+                raise ValueError(
+                    f"surface {self.name!r}: `water:` already lays a film of its own depth; "
+                    "authoring `film:` beside it is two authorities on how wet the cell is"
+                )
         if self.back is not None and self.layers < 2:
             raise ValueError(
                 f"surface {self.name!r}: a `back:` boundary needs `layers: 2` or more (the deep "
