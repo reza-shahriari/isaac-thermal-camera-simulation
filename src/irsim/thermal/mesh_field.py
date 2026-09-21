@@ -52,7 +52,12 @@ from irsim.thermal.facets import FacetForcing, FacetProperties
 from irsim.thermal.field import DEFAULT_TICK_S, ThermalField
 from irsim.thermal.surface_field import DEFAULT_KEEP_TICKS
 
-__all__ = ["TriangleMeshPatch", "TriangleMeshField", "DEFAULT_LEVEL"]
+__all__ = [
+    "TriangleMeshPatch",
+    "TriangleMeshField",
+    "DEFAULT_LEVEL",
+    "closest_point_on_mesh",
+]
 
 #: Sub-triangles per edge on a face nobody gave a resolution for. One cell per face is the
 #: per-prim behaviour restricted to a triangle, which is the honest default: a caller who has not
@@ -87,6 +92,80 @@ def _subdivision(level: int) -> tuple[NDArray[np.intp], NDArray[np.intp], NDArra
         np.asarray(j_out, dtype=np.intp),
         np.asarray(inverted, dtype=np.intp),
     )
+
+
+def closest_point_on_mesh(
+    vertices_m: Any, faces: Any, points: Any, *, chunk: int = 256
+) -> tuple[NDArray[np.intp], NDArray[np.float64], NDArray[np.float64]]:
+    """``(face, barycentric (P, 3), distance_m)`` of the closest point on a triangle soup.
+
+    Ericson's region test over every triangle, chunked over the query points. Deliberately the
+    dumbest correct implementation: `WM.3` is specified to hold Warp's `mesh_query_point_no_sign`
+    to this, so it has to be obviously right rather than fast, and an oracle that shared an
+    optimisation with the thing it certifies would certify the optimisation too.
+
+    It is also the fallback when Warp is not installed, which is what keeps the mesh bridge
+    runnable on the plain-CPython gate.
+    """
+    v = np.asarray(vertices_m, dtype=np.float64)
+    f = np.asarray(faces, dtype=np.intp)
+    q = np.asarray(points, dtype=np.float64).reshape(-1, 3)
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    ab, ac = b - a, c - a
+    best_face = np.zeros(len(q), dtype=np.intp)
+    best_point = np.zeros((len(q), 3), dtype=np.float64)
+    best_d2 = np.full(len(q), np.inf)
+    for start in range(0, len(q), chunk):
+        p = q[start : start + chunk][:, None, :]
+        ap, bp, cp = p - a, p - b, p - c
+        d1, d2 = (ab * ap).sum(-1), (ac * ap).sum(-1)
+        d3, d4 = (ab * bp).sum(-1), (ac * bp).sum(-1)
+        d5, d6 = (ab * cp).sum(-1), (ac * cp).sum(-1)
+        va, vb, vc = d3 * d6 - d5 * d4, d5 * d2 - d1 * d6, d1 * d4 - d3 * d2
+        with np.errstate(divide="ignore", invalid="ignore"):
+            denom = 1.0 / (va + vb + vc)
+            interior = a + ab * (vb * denom)[..., None] + ac * (vc * denom)[..., None]
+            t_ab = np.nan_to_num(d1 / (d1 - d3))[..., None]
+            t_ac = np.nan_to_num(d2 / (d2 - d6))[..., None]
+            t_bc = np.nan_to_num((d4 - d3) / ((d4 - d3) + (d5 - d6)))[..., None]
+        cand = np.where(np.isfinite(interior), interior, a)
+        # The edge and vertex regions, applied so the vertex cases win over the edges.
+        cand = np.where(
+            ((va <= 0.0) & ((d4 - d3) >= 0.0) & ((d5 - d6) >= 0.0))[..., None],
+            b + (c - b) * t_bc,
+            cand,
+        )
+        cand = np.where(((vb <= 0.0) & (d2 >= 0.0) & (d6 <= 0.0))[..., None], a + ac * t_ac, cand)
+        cand = np.where(((vc <= 0.0) & (d1 >= 0.0) & (d3 <= 0.0))[..., None], a + ab * t_ab, cand)
+        cand = np.where(((d6 >= 0.0) & (d5 <= d6))[..., None], c, cand)
+        cand = np.where(((d3 >= 0.0) & (d4 <= d3))[..., None], b, cand)
+        cand = np.where(((d1 <= 0.0) & (d2 <= 0.0))[..., None], a, cand)
+        dist2 = ((cand - p) ** 2).sum(-1)
+        pick = np.argmin(dist2, axis=1)
+        rows = np.arange(len(pick))
+        best_face[start : start + chunk] = pick
+        best_point[start : start + chunk] = cand[rows, pick]
+        best_d2[start : start + chunk] = dist2[rows, pick]
+    return best_face, barycentric_of(v, f, best_face, best_point), np.sqrt(best_d2)
+
+
+def barycentric_of(vertices_m: Any, faces: Any, face: Any, points: Any) -> NDArray[np.float64]:
+    """``(P, 3)`` weights of each face's three vertices for a point lying in that face's plane."""
+    v = np.asarray(vertices_m, dtype=np.float64)
+    f = np.asarray(faces, dtype=np.intp)[np.asarray(face, dtype=np.intp)]
+    p = np.asarray(points, dtype=np.float64).reshape(-1, 3)
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    e0, e1, e2 = b - a, c - a, p - a
+    d00 = (e0 * e0).sum(-1)
+    d01 = (e0 * e1).sum(-1)
+    d11 = (e1 * e1).sum(-1)
+    d20 = (e2 * e0).sum(-1)
+    d21 = (e2 * e1).sum(-1)
+    denom = d00 * d11 - d01 * d01
+    with np.errstate(divide="ignore", invalid="ignore"):
+        w1 = np.nan_to_num((d11 * d20 - d01 * d21) / denom)
+        w2 = np.nan_to_num((d00 * d21 - d01 * d20) / denom)
+    return np.stack([1.0 - w1 - w2, w1, w2], axis=-1)
 
 
 @dataclass(frozen=True)
@@ -249,6 +328,21 @@ class TriangleMeshPatch:
         misses by 0.56 m on a 0.4 m box, silently, so it is not a convention to retype per caller.
         """
         return self.cell_of(face, u, v)
+
+    def locate(
+        self, points: Any
+    ) -> tuple[NDArray[np.intp], NDArray[np.float64], NDArray[np.float64]]:
+        """``(face, barycentric, distance_m)`` for arbitrary points, by brute force.
+
+        The engine-free route to a cell: what `WM.3`'s Warp query does per pixel, done here in
+        NumPy so the mesh field is usable -- and testable -- with no renderer and no Warp.
+        """
+        return closest_point_on_mesh(self.vertices_m, self.faces, points)
+
+    def cell_at(self, points: Any) -> tuple[NDArray[np.intp], NDArray[np.float64]]:
+        """``(cell, distance_m)`` for arbitrary points."""
+        face, bary, distance = self.locate(points)
+        return self.cell_of(face, bary[:, 0], bary[:, 1]), distance
 
     def sample(
         self, values: Any, face: Any, w0: Any, w1: Any, *, fill: float = float("nan")
@@ -427,6 +521,27 @@ class TriangleMeshField:
     ) -> NDArray[np.float32]:
         """:meth:`sample_at` from Warp's ``(u, v)`` pair (`WM.1`'s convention)."""
         return self.sample_at(t_s, face, u, v, fill=fill)
+
+    def sample_at_points(
+        self,
+        t_s: float,
+        points: Any,
+        *,
+        max_distance_m: float | None = None,
+        fill: float = float("nan"),
+    ) -> NDArray[np.float32]:
+        """Temperature at arbitrary points, located by brute force in NumPy.
+
+        ``max_distance_m`` rejects a point that is not really on this mesh: it takes ``fill``
+        rather than the temperature of whatever happened to be nearest. Without it, a pixel that
+        hit the road would quietly read the car's bonnet because the bonnet was the closest mesh
+        to it.
+        """
+        cell, distance = self.patch.cell_at(points)
+        values = np.asarray(self.temperature_at(t_s), dtype=np.float64)[cell]
+        if max_distance_m is not None:
+            values = np.where(distance <= float(max_distance_m), values, fill)
+        return np.asarray(values, dtype=np.float32)
 
     def __repr__(self) -> str:  # pragma: no cover - diagnostics
         return (

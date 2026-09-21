@@ -90,6 +90,28 @@ working in one tree; two commits already exist whose whole subject is restoring 
   +65 s and is below 260 °C 5.3 min later, the catalyst shell peaks at +65 s. The shell runs
   270 °C, not MVFRI's 400 (no exotherm), and the car scenes keep §6.6's schedule for now.
 
+- **The mesh field on the render path** (`WM.3`). `irsim_isaac.pipeline.mesh_bridge`:
+  `MeshPointBridge` takes a finished per-instance temperature plane and overwrites only the pixels
+  of prims that have a `TriangleMeshField` bound to them -- per-pixel instance id picks the prim's
+  `wp.Mesh`, a closest-point query gives `(face, u, v)`, and the field gives the temperature. This
+  is the case ADR 0087 lists as Hard: **an exhaust pipe goes from 0.000 K across the whole prim to
+  34.1 K** (12.9 → 47.0 °C around its circumference) without the renderer transporting anything it
+  does not already carry. Additive exactly as the planar bridge is, so a prim with no binding is
+  bit-identical and attaching it to an existing scene is a no-op. **Warp is the accelerator, not
+  the authority**: `irsim.thermal.closest_point_on_mesh` (new, engine-free, Ericson's region test
+  over every triangle) is the oracle the tests hold Warp to *and* the fallback when Warp is
+  absent, so the bridge runs on the plain-CPython gate and `device` defaults to Warp's **CPU**
+  device. Measured: Warp and the oracle agree on face, cell and sampled temperature for **100 %**
+  of 4 000 pixels on a sphere, and the two routes render the same frame bit for bit. A pixel whose
+  closest point on the bound mesh is further than 7 mm away (twice ADR 0014's 3.4 mm position
+  budget, because a mesh is itself a chord approximation) **raises rather than snapping** -- the
+  id plane and the position plane disagreeing is not a slightly noisy hit, and snapping would
+  paint a wheel with whatever part of it happened to be closest. Where several meshes share a
+  prim the nearest surface wins, so the result does not depend on binding order. `PT.19`'s rule
+  carries over: a binding to a prim path the stage does not know raises at construction. Not yet
+  reachable from a scene config -- no shipped scene authors a mesh field, so every rendered frame
+  still shows its curved prims at one temperature until one does.
+
 - **A temperature field on a triangle mesh** (`WM.2`). `irsim.thermal.mesh_field`:
   `TriangleMeshPatch` cuts every face into `k²` congruent cells on the barycentric grid at a
   **per-face** level -- Ptex style, so resolution follows the thermal gradient and not the
