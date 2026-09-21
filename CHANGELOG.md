@@ -90,6 +90,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
   +65 s and is below 260 °C 5.3 min later, the catalyst shell peaks at +65 s. The shell runs
   270 °C, not MVFRI's 400 (no exotherm), and the car scenes keep §6.6's schedule for now.
 
+- **ADR 0110 — the surface temperature field lives on the mesh** (`WM.5`). The record for
+  `WM.1`–`WM.3`: what the closest-point parameterisation is, why it needs nothing from the
+  renderer, the error budget, and the routes rejected *with their reasons*, so they are not
+  rediscovered. Rejected: a **UV atlas as the solver domain** (not merely unavailable — it carries
+  metric distortion, so equal texels are unequal areas and §6.1's areal heat capacity stops meaning
+  what it says; seam severing, so a lateral operator has to reconnect what the unwrap cut; and a
+  conservative-rasterisation tax on chart boundaries), a **per-triangle id AOV** (blocked on an SPG
+  shader), **closest-point-method narrow bands** (the band must be finer than the thinnest feature,
+  and a car panel is ~1 mm), and **transient surfels** (`PT.7` spins a field up over 48 h and the
+  answer depends on that memory, which a per-frame sample set cannot hold). ADR 0087's status now
+  names 0110 as superseding its curved-geometry limitation; its planar patch, slab rule and cost
+  argument are untouched and still ship.
+
 - **The mesh field on the render path** (`WM.3`). `irsim_isaac.pipeline.mesh_bridge`:
   `MeshPointBridge` takes a finished per-instance temperature plane and overwrites only the pixels
   of prims that have a `TriangleMeshField` bound to them -- per-pixel instance id picks the prim's

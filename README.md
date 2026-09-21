@@ -352,8 +352,8 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   radiators and shadow, so frame 0 carries the ~4.5 K patch a car parked all night makes under a
   clear sky (under 0.3 K under overcast). The exchange with a grey body counts one reflection
   (ADR 0088 addendum), not the series; a second bounce is under 2 % for ε ≥ 0.85.
-- **Curved geometry needs a mesh field, and no shipped scene authors one yet** (ADR 0087 and its
-  WM.1 addendum). ADR 0087's projection onto a plane covers a road, a bonnet, a roof or a deck, and
+- **Curved geometry needs a mesh field, and no shipped scene authors one yet** (ADR 0110, which
+  supersedes ADR 0087's curved-geometry limitation but not its planar patch). ADR 0087's projection onto a plane covers a road, a bonnet, a roof or a deck, and
   recorded a wheel, a tyre, an exhaust pipe or a mast as a permanent limit, because lifting it
   appeared to need a UV or per-triangle AOV that ADR 0014 measured as absent. `WM.1`–`WM.3` lifted
   it instead: a Warp closest-point query *derives* the (face, u, v) from the position AOV rather

@@ -1,7 +1,8 @@
 # 0087 — Point-wise surface temperature, parameterised by the position AOV
 
 Date: 2026-09-15
-**Status:** Accepted
+**Status:** Accepted; the **curved-geometry limitation** superseded by ADR 0110 (the planar
+patch itself is not superseded and is still what ships for near-planar surfaces)
 Roadmap: MP.1 (§6.1, §6.4, §13.1)
 
 ## Context

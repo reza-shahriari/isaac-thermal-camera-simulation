@@ -174,27 +174,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PH.5` is phase P, size M, and unblocks 4 other step(s).
 
-#### Then, in order — 85 open steps
+#### Then, in order — 84 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`PH.5`** | PH | P | M | 4 | ready |
-| 2 | **`WM.5`** | WM | P | S | 1 | ready |
-| 3 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
-| 4 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 5 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 6 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 7 | **`WM.4`** | WM | P | M | — | ready |
-| 8 | **`WM.6`** | WM | P | M | — | ready |
-| 9 | **`PT.9`** | PT | A | M | 3 | ready |
-| 10 | **`AT.10`** | AT | A | M | — | ready |
-| 11 | **`GT.2`** | GT | A | M | — | ready |
-| 12 | **`IG.2`** | IG | A | M | — | ready |
-| 13 | **`SC.4`** | SC | A | M | — | ready |
-| 14 | **`IG.16`** | IG | B | M | — | ready |
-| 15 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 2 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
+| 3 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
+| 4 | **`PT.14`** | PT | P | S | — | ready |
+| 5 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 6 | **`WM.4`** | WM | P | M | — | ready |
+| 7 | **`WM.6`** | WM | P | M | — | ready |
+| 8 | **`PT.9`** | PT | A | M | 3 | ready |
+| 9 | **`AT.10`** | AT | A | M | — | ready |
+| 10 | **`GT.2`** | GT | A | M | — | ready |
+| 11 | **`IG.2`** | IG | A | M | — | ready |
+| 12 | **`SC.4`** | SC | A | M | — | ready |
+| 13 | **`IG.16`** | IG | B | M | — | ready |
+| 14 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 15 | **`SE.1`** | SE | B | M | — | ready |
 
-…and 70 more — `python scripts/next_step.py --queue 40`.
+…and 69 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -448,7 +448,7 @@ Leaving ADR 0087 standing as written will cost another session a week, so WM.5 i
 | WM.2 | ✅ **done.** `irsim.thermal.mesh_field`: `TriangleMeshPatch` cuts each face into k² congruent cells on the barycentric grid (per-face level, Ptex style), `TriangleMeshField` composes `ThermalField`; `sphere_mesh` joins `raycast`. | **Measured.** A 0.25 m sphere under an overhead sun holds every face to its own root within **1 mK** across a **34.3 K** span; one facet lands at 295.0 K — 25 K under the cap, 9 K over the far side. Uniform forcing is **bit-identical in float32** to the scalar solve; the varying mean sits below it by Jensen, energy closing to 1e-6. | WM.1 | M | P |
 | WM.3 | ✅ **done.** `mesh_bridge.MeshPointBridge`: instance id picks the prim's `wp.Mesh`, the closest-point query gives (face, u, v), the mesh field gives the temperature. Additive; Warp accelerates, `closest_point_on_mesh` is oracle **and** no-Warp fallback. | **Measured.** Warp and the brute-force oracle agree on face, cell and sampled temperature for **100 %** of 4 000 pixels on a sphere, and both routes render the same frame. An exhaust pipe goes from **0.000 K** across the prim to **34.1 K** (12.9→47.0 °C). A pixel 50 mm off raises; unbound prims stay bit-identical. | WM.2 | M | P |
 | WM.4 | **Per-cell geometry from the mesh**: true per-face normals for the solar incidence term, ray-traced sky view factor and self-shadowing via `mesh_query_ray` (0.51 ms per 327 k rays measured). This is ADR 0088's own "revisit when". | The analytic parallel-rectangle form stays the oracle and the Monte Carlo estimator converges to it inside its stated standard error. A hull at 45° shows per-cell view factors varying across the surface where one shared patch normal gives one value; `PT.22` agrees cell-for-cell on one box and adds neighbour shadows. | WM.3, PT.22 | M | P |
-| WM.5 | **ADR: the surface temperature field lives on the mesh**, superseding ADR 0087's curved-geometry limitation. Records the closest-point parameterisation, why it needs nothing from the renderer, the error budget, and the options rejected with reasons. | A record. The rejected options must be named or they will be rediscovered: closest-point-method narrow bands need a grid finer than a panel's thickness; a UV atlas as the *solver* domain carries metric distortion, seam severing and conservative-rasterisation taxes; transient surfels cannot hold a 48 h spin-up memory. | WM.3 | S | P |
+| WM.5 | ✅ **done.** ADR 0110: cells per face on the mesh, located by a closest-point query that **derives** the parameterisation instead of asking the renderer to transport it. ADR 0087's curved-geometry limitation is superseded; its planar patch is not. | **Measured.** A record. The rejected routes are named with reasons: a UV atlas as the *solver* domain (metric distortion, seam severing, a conservative-rasterisation tax), CPM narrow bands (a grid finer than a 1 mm panel), transient surfels (no 48 h spin-up memory), and ADR 0087's two AOV routes. | WM.3 | S | P |
 | WM.6 | **Intrinsic-Delaunay-safe Laplacian** if PT.11's lateral conduction moves onto a mesh. A cotan Laplacian gives negative edge weights whenever two opposite angles sum past π, breaking the discrete maximum principle. | On a deliberately obtuse imported mesh, no cell leaves the range spanned by its neighbours and the forcing; the plain cotan operator fails this and produces a bright speck that looks like a bad pixel. Backward Euler is prefactored once per asset, so the 1 s fixed tick survives. | PT.11, WM.3 | M | P |
 ---
 
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0109 (0090–0109 were written after this section was first measured; 0093–0109 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3` and `PT.9`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0110 (0090–0110 were written after this section was first measured; 0093–0110 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9` and `WM.5`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward
