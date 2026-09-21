@@ -16,6 +16,13 @@ from irsim.thermal.aerial import (
     refine_nodes,
     throttle_profile,
 )
+from irsim.thermal.cabin import (
+    CabinNode,
+    CabinPanel,
+    CabinState,
+    cabin_coupling,
+    cabin_field,
+)
 from irsim.thermal.conduction import ConductionOperator, explicit_bound_s, lateral_operator
 from irsim.thermal.convection import (
     DEFAULT_CONVECTION,
@@ -28,11 +35,14 @@ from irsim.thermal.coupling import (
     Contactor,
     CoupledFields,
     FieldMember,
+    LumpedLink,
+    LumpedMember,
     PatchView,
     RadiationExchange,
     cell_overlap_areas,
     contactor_conductances,
 )
+from irsim.thermal.layers import LayerStack, layered_field
 from irsim.thermal.longwave import (
     clear_sky_emissivity,
     longwave_down,
@@ -74,6 +84,13 @@ from irsim.thermal.spatial_sources import (
     view_factor_to_parallel_rectangle,
 )
 from irsim.thermal.surface_field import PlanarPatch, PlanarThermalField
+from irsim.thermal.two_node import (
+    LumpedTwoNodeSolver,
+    NodeLayer,
+    TwoNodeProperties,
+    TwoNodeState,
+    contact_resistance,
+)
 from irsim.thermal.weather import WEATHER_FIELDS, WeatherSample, WeatherSeries, seconds_since
 from irsim.thermal.weather_io import load_weather_csv, synthetic_clear_day, write_weather_csv
 
@@ -96,10 +113,24 @@ __all__ = [
     "patch_view_factors",
     "view_factor_to_parallel_rectangle",
     "PlanarThermalField",
+    "CabinNode",
+    "CabinPanel",
+    "CabinState",
+    "cabin_coupling",
+    "cabin_field",
     "ConductionOperator",
     "Contactor",
     "CoupledFields",
     "FieldMember",
+    "LayerStack",
+    "layered_field",
+    "LumpedLink",
+    "LumpedMember",
+    "LumpedTwoNodeSolver",
+    "NodeLayer",
+    "TwoNodeProperties",
+    "TwoNodeState",
+    "contact_resistance",
     "PatchView",
     "RadiationExchange",
     "cell_overlap_areas",

@@ -1,0 +1,91 @@
+# The cabin reference scene: a parked car whose panels lose heat into the air behind them.
+# Schema: irsim.config.scene (v10). Roadmap PT.15; ADR 0038 (the cabin), ADR 0106 (the cabin as
+# a lumped member of its panels' coupled solve), ADR 0087 (the field), ADR 0102 (in-plane
+# conduction), ADR 0043 (materials as the single source).
+#
+# A schematic saloon -- five flat panels, not a CAD model -- parked facing south on a clear June
+# day, the scene opening at local noon (10:00Z; the weather file is local = UTC+2). Four of the
+# panels bound the cabin; the bonnet does not, because an engine bay is behind it, and it is
+# therefore the same paint with an adiabatic back standing beside the panels that have a cabin.
+#
+# What the frame should show, and what tests/unit/test_cabin_scene.py holds it to:
+#
+#   * The roof is several kelvin HOTTER than the same roof with an adiabatic back (ADR 0038
+#     measured +4.8 K at 850 W/m2), because it is losing heat into air the sun has been heating
+#     through the glass all morning. That is the whole point of the node: a parked car does not
+#     read like a painted slab on the ground.
+#   * The cabin air reaches the 60-80 C a sealed car really reaches in strong sun.
+#   * The glazing sits far below the painted panels: alpha_sol 0.10 means it transmits the sun
+#     rather than absorbing it, while being the thing that heats the cabin.
+#   * Twelve hours later, on a clear night, the roof and the cabin are both more than 2 K BELOW
+#     the air, because the roof radiates to a cold sky and drags the cabin down with it -- which
+#     is why cars get frost on the roof when the air never goes below freezing.
+#
+# The rendered frame is IG.2's; scripts/parked_car_cabin.py writes the engine-free one from a
+# synthetic G-buffer. World is ENU: x east, y north, z up. The car faces south.
+
+schema_version: 10
+scene:
+  name: parked_car_cabin
+  description: "a parked car at noon, its panels backed by a cabin that the sun has been heating"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  targets: []
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 60.0
+
+    # The cabin: one volume of air and trim behind four of the panels (ADR 0038). The glazing
+    # must be one of them -- it is both the solar inlet and one of the largest conduction paths,
+    # and a cabin given the inlet without the path runs ~22 K too hot.
+    cabin:
+      name: cabin
+      glazing_surface: glazing
+      volume_m3: 3.0
+      glazing_area_m2: 1.92          # the windscreen patch, which is the inlet
+      glazing_transmittance: 0.55
+      air_changes_per_hour: 2.0
+      interior_mass_j_k: 25000.0     # the seats, dash and trim; 3 m3 of air is only 3.6 kJ/K
+      panels:
+        - {surface: roof,      inner_resistance_m2k_w: 0.13}   # bare metal: the film dominates
+        - {surface: door_east, inner_resistance_m2k_w: 0.50}   # trim behind the skin
+        - {surface: door_west, inner_resistance_m2k_w: 0.50}
+        - {surface: glazing,   inner_resistance_m2k_w: 0.17}
+
+    surfaces:
+      # 1.4 x 1.6 m of painted steel, facing up.
+      - name: roof
+        material: car_paint_black
+        tilt_deg: 0.0
+        patch: {origin_m: [-0.7, -0.8, 1.45], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 7, n_v: 8, du_m: 0.2, dv_m: 0.2, thickness_m: 0.0012, frame: world, prim_path: /World/Car/roof}
+
+      # The same paint, the same tilt, an ENGINE BAY behind it rather than the cabin: the
+      # control that makes the cabin's +K visible in one frame.
+      - name: bonnet
+        material: car_paint_black
+        tilt_deg: 0.0
+        patch: {origin_m: [-0.7, 0.8, 1.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 7, n_v: 6, du_m: 0.2, dv_m: 0.2, thickness_m: 0.0012, frame: world, prim_path: /World/Car/bonnet}
+
+      # The sides: 3.6 x 0.8 m each, vertical, facing east and west.
+      - name: door_east
+        material: car_paint_black
+        tilt_deg: 90.0
+        azimuth_deg: 90.0
+        patch: {origin_m: [0.85, -1.8, 0.6], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 18, n_v: 4, du_m: 0.2, dv_m: 0.2, thickness_m: 0.0012, frame: world, prim_path: /World/Car/door_east}
+      - name: door_west
+        material: car_paint_black
+        tilt_deg: 90.0
+        azimuth_deg: 270.0
+        patch: {origin_m: [-0.85, -1.8, 0.6], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 18, n_v: 4, du_m: 0.2, dv_m: 0.2, thickness_m: 0.0012, frame: world, prim_path: /World/Car/door_west}
+
+      # The windscreen: 1.6 x 1.2 m at 30 deg, facing south into the noon sun. v_axis runs up
+      # the slope, (0, cos30, sin30), so the patch plane is the tilt the balance uses.
+      - name: glazing
+        material: glass_windshield
+        tilt_deg: 30.0
+        azimuth_deg: 180.0
+        patch: {origin_m: [-0.8, -1.9, 0.95], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.8660254, 0.5], n_u: 8, n_v: 6, du_m: 0.2, dv_m: 0.2, thickness_m: 0.005, frame: world, prim_path: /World/Car/glazing}

@@ -22,19 +22,39 @@ that under-predicts the greenhouse, which is the effect the node exists to produ
 Every parameter here is ESTIMATED from §6.6's ranges and from the geometry of an ordinary car; none
 is a measurement.
 
-docs/physics-model.md §6.6; ADR 0038
+**Reaching a scene (PT.15, ADR 0106).** `CabinNode` steps its own panels as lumps. A scene's
+panels are *fields* -- cells with their own shadows and sky -- so there the cabin is a
+:class:`~irsim.thermal.coupling.LumpedMember` of the panels' `CoupledFields`: the same three
+terms, the same conductances, on the one implicit operator that steps every cell. It has to
+reproduce this module's coupled equilibrium to 0.1 K (the test holds it to that), or two
+copies of one balance would drift apart. :func:`cabin_coupling` builds that member.
+
+docs/physics-model.md §6.6; ADR 0038, ADR 0106
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
 
 from irsim.thermal.balance import SurfaceForcing, ThermalProperties, net_flux
+from irsim.thermal.coupling import CoupledFields, FieldMember, LumpedLink, LumpedMember
+from irsim.thermal.facets import FacetForcing, spin_up
+from irsim.thermal.surface_field import DEFAULT_KEEP_TICKS
 
-__all__ = ["CabinPanel", "CabinNode", "CabinState", "AIR_SPECIFIC_HEAT_J_KGK", "AIR_DENSITY_KG_M3"]
+__all__ = [
+    "CabinPanel",
+    "CabinNode",
+    "CabinState",
+    "AIR_SPECIFIC_HEAT_J_KGK",
+    "AIR_DENSITY_KG_M3",
+    "cabin_coupling",
+    "cabin_field",
+]
 
 AIR_SPECIFIC_HEAT_J_KGK = 1005.0
 AIR_DENSITY_KG_M3 = 1.2
@@ -199,3 +219,116 @@ class CabinNode:
         if total <= 0.0:
             raise ValueError("a cabin with no coupling has no time constant")
         return float(self.capacity_j_k / total)
+
+
+def cabin_coupling(
+    cabin: CabinNode,
+    ambient_at: Callable[[float], float],
+    glazing_solar_at: Callable[[float], float],
+    initial_k: float,
+    *,
+    name: str = "cabin",
+) -> tuple[LumpedMember, list[LumpedLink]]:
+    """The cabin as a lumped member of its panels' coupled solve, plus the links to them.
+
+    ``glazing_solar_at`` is the solar irradiance *incident* on the glazing (W m⁻²) -- the
+    scene's own ``q_solar`` on that surface's tilt -- of which ``τ_glz A_glz`` reaches the
+    interior. The member's forcing is `CabinNode`'s balance term for term: infiltration as a
+    conductance ``ṁ c_p`` to the air, the transmitted sun as an imposed power, no radiation and
+    no absorption of its own; the panels' inward conduction is the links, one per panel at
+    ``1/R_p`` over the panel's cells. The link names are the panels' names, which must be the
+    member names in the `CoupledFields` this is handed to.
+    """
+
+    def forcing(t_s: float) -> FacetForcing:
+        return FacetForcing(
+            t_air_k=float(ambient_at(t_s)),
+            h_w_m2_k=cabin.infiltration_w_k,
+            q_internal_w_m2=cabin.glazing_transmittance
+            * cabin.glazing_area_m2
+            * float(glazing_solar_at(t_s)),
+        )
+
+    member = LumpedMember(name, cabin.capacity_j_k, forcing, float(initial_k))
+    links = [LumpedLink(p.name, name, 1.0 / p.inner_resistance_m2k_w) for p in cabin.panels]
+    return member, links
+
+
+def cabin_field(
+    cabin: CabinNode,
+    panels: Sequence[FieldMember],
+    ambient_at: Callable[[float], float],
+    glazing_solar_at: Callable[[float], float],
+    t0_s: float,
+    tick_s: float,
+    *,
+    name: str = "cabin",
+    initial_k: float | None = None,
+    keep_ticks: int | None = DEFAULT_KEEP_TICKS,
+    spin_up_hours: float | None = None,
+    spin_up_hash: str = "",
+    wrap: Callable[[Any], Any] | None = None,
+) -> CoupledFields:
+    """The panels and the cabin behind them as **one** coupled solve (PT.15, ADR 0106).
+
+    ``panels`` are the fields that bound the cabin, in the order `cabin.panels` names them;
+    each keeps its own cells, forcing, shadow and lateral operator. The cabin joins them as a
+    lumped member, so the whole thing is stepped by one implicit operator -- panels against
+    this tick's cabin, cabin against this tick's panels, which is what ADR 0038 required and
+    what an alternating step gets wrong at a 60 s tick.
+
+    With ``spin_up_hours`` the coupled system is integrated through the hours before ``t0_s``
+    (through ``wrap``, the scene's weather wrap), so the cabin starts the scene carrying the
+    days before rather than at the air temperature.
+    """
+    names = [p.name for p in cabin.panels]
+    if [m.name for m in panels] != names:
+        raise ValueError(
+            f"the coupled panels {[m.name for m in panels]} must be the cabin's own {names}, "
+            "in order: the links are built from the cabin's panel list"
+        )
+    start = float(ambient_at(t0_s)) if initial_k is None else float(initial_k)
+    member, links = cabin_coupling(cabin, ambient_at, glazing_solar_at, start, name=name)
+    coupled = CoupledFields(
+        panels,
+        t0_s=t0_s,
+        tick_s=tick_s,
+        keep_ticks=keep_ticks,
+        lumped=[member],
+        lumped_links=links,
+    )
+    if spin_up_hours is None:
+        return coupled
+    forcing_all = coupled._forcing if wrap is None else wrap(coupled._forcing)
+    spun = spin_up(
+        coupled.field.properties,
+        forcing_all,
+        spin_up_hash,
+        t0_s,
+        hours=float(spin_up_hours),
+        dt_s=60.0,
+        conduction=coupled.field.conduction,
+    ).temperatures_k
+    rebuilt = []
+    at = 0
+    for m in panels:
+        rebuilt.append(
+            FieldMember(
+                m.name,
+                m.patch,
+                m.properties,
+                m.forcing_at,
+                spun[at : at + m.patch.n_cells],
+                m.conduction,
+            )
+        )
+        at += m.patch.n_cells
+    member, links = cabin_coupling(cabin, ambient_at, glazing_solar_at, float(spun[at]), name=name)
+    return CoupledFields(
+        rebuilt,
+        t0_s=t0_s,
+        tick_s=tick_s,
+        keep_ticks=keep_ticks,
+        lumped=[member],
+        lumped_links=links,
+    )

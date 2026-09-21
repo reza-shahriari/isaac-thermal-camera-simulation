@@ -57,6 +57,8 @@ from irsim.thermal.spatial_sources import (
 from irsim.thermal.surface_field import DEFAULT_KEEP_TICKS, PlanarPatch
 
 __all__ = [
+    "LumpedLink",
+    "LumpedMember",
     "Contactor",
     "CoupledFields",
     "FieldMember",
@@ -252,6 +254,68 @@ class Contactor:
             raise ValueError("a contact conductance cannot be negative")
 
 
+@dataclass(frozen=True)
+class LumpedMember:
+    """A node with no cells -- a cabin's air, any fluid volume -- solved with the fields (PT.15).
+
+    It is one cell of unit area: ``capacity_j_k`` is its J/K, its forcing's ``h_w_m2_k`` is a
+    conductance in W/K to ``t_air_k`` (infiltration to ambient), ``q_internal_w_m2`` is watts
+    (solar through the glazing), and ε = α = 0 so it neither radiates nor sees the sun. Joined
+    to a field's cells by :class:`LumpedLink`s, which is how a panel gets a back boundary that
+    is neither adiabatic nor ambient (ADR 0038, ADR 0106).
+    """
+
+    name: str
+    capacity_j_k: float
+    forcing_at: Callable[[float], FacetForcing]
+    initial_k: float
+
+    def __post_init__(self) -> None:
+        if self.capacity_j_k <= 0.0:
+            raise ValueError(f"lumped member {self.name!r}: capacity must be positive (J/K)")
+        if self.initial_k <= 0.0:
+            raise ValueError(f"lumped member {self.name!r}: initial_k must be positive")
+
+    def as_member(self) -> FieldMember:
+        patch = PlanarPatch(
+            origin_m=np.zeros(3),
+            u_axis=np.array([1.0, 0.0, 0.0]),
+            v_axis=np.array([0.0, 1.0, 0.0]),
+            n_u=1,
+            n_v=1,
+            du_m=1.0,
+            dv_m=1.0,
+            thickness_m=1.0,
+            frame=f"lumped:{self.name}",
+        )
+        props = FacetProperties(
+            heat_capacity_j_m2_k=np.array([self.capacity_j_k]),
+            emissivity=np.array([0.0]),
+            solar_absorptivity=np.array([0.0]),
+        )
+        return FieldMember(self.name, patch, props, self.forcing_at, np.array([self.initial_k]))
+
+
+@dataclass(frozen=True)
+class LumpedLink:
+    """``h · A_cell`` from every cell of member ``field`` to the lumped ``node``, W/K per cell.
+
+    ``h_w_m2_k`` is ``1/R`` for a panel's inner resistance (conduction plus the interior film,
+    §6.6 / ADR 0038): the flux a cell loses inward is ``(T_cell − T_node)/R`` and the node
+    gains ``Σ A_cell (T_cell − T_node)/R`` -- `CabinNode`'s two terms, on one operator.
+    """
+
+    field: str
+    node: str
+    h_w_m2_k: float
+
+    def __post_init__(self) -> None:
+        if self.field == self.node:
+            raise ValueError("a lumped link joins a field to a different node")
+        if self.h_w_m2_k < 0.0:
+            raise ValueError("a lumped link's conductance cannot be negative")
+
+
 class PatchView:
     """One member's slice of a :class:`CoupledFields`: what the point bridge and a test see."""
 
@@ -310,9 +374,13 @@ class CoupledFields:
         tick_s: float = DEFAULT_TICK_S,
         keep_ticks: int | None = DEFAULT_KEEP_TICKS,
         on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
+        lumped: Sequence[LumpedMember] = (),
+        lumped_links: Sequence[LumpedLink] = (),
     ) -> None:
-        if not members:
+        if not members and not lumped:
             raise ValueError("a coupled solve needs at least one member")
+        members = tuple(members) + tuple(m.as_member() for m in lumped)
+        self.lumped_names: tuple[str, ...] = tuple(m.name for m in lumped)
         names = [m.name for m in members]
         if len(set(names)) != len(names):
             raise ValueError(f"member names must be unique: {names}")
@@ -350,6 +418,18 @@ class CoupledFields:
                 members[i].patch, members[j].patch, c.h_c_w_m2_k, gap_tolerance_m=c.gap_tolerance_m
             )
             self.contactor_conductances[(c.a, c.b)] = k_ab
+            blocks[(i, j)] = k_ab if (i, j) not in blocks else blocks[(i, j)] + k_ab
+            blocks[(j, i)] = k_ab.T if (j, i) not in blocks else blocks[(j, i)] + k_ab.T
+        for link in lumped_links:
+            if link.field not in self._index or link.node not in self.lumped_names:
+                raise ValueError(
+                    f"lumped link {link.field!r} -> {link.node!r}: the field must be a member and "
+                    f"the node a lumped member; known {names}, lumped {list(self.lumped_names)}"
+                )
+            i, j = self._index[link.field], self._index[link.node]
+            column = np.full((sizes[i], 1), link.h_w_m2_k * members[i].patch.cell_area_m2)
+            k_ab = sp.csr_matrix(column)
+            self.contactor_conductances[(link.field, link.node)] = k_ab
             blocks[(i, j)] = k_ab if (i, j) not in blocks else blocks[(i, j)] + k_ab
             blocks[(j, i)] = k_ab.T if (j, i) not in blocks else blocks[(j, i)] + k_ab.T
         conduction = None
@@ -413,6 +493,13 @@ class CoupledFields:
     def temperature_at(self, t_s: float) -> NDArray[np.float32]:
         """All members' cells, in member order."""
         return self.field.temperature_at(t_s)
+
+    def node_temperature_k(self, name: str) -> float:
+        """A lumped member's temperature at the latest tick, in float64 from the solver."""
+        if name not in self.lumped_names:
+            raise KeyError(f"{name!r} is not a lumped member; lumped: {list(self.lumped_names)}")
+        start, _stop = self._slices[name]
+        return float(self.field.latest_state_k[start])
 
     def stored_energy_j(self) -> float:
         """``Σ C_i A_i T_i`` at the latest tick, in float64 from the solver's own state."""

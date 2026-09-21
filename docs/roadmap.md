@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WM.1` is phase P, size M, and unblocks 10 other step(s).
 
-#### Then, in order — 91 open steps
+#### Then, in order — 90 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -185,16 +185,16 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 5 | **`WM.5`** | WM | P | S | 1 | `WM.3` |
 | 6 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
 | 7 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 8 | **`PT.15`** | PT | P | M | 1 | ready |
-| 9 | **`PT.22`** | PT | P | M | 1 | ready |
-| 10 | **`PT.14`** | PT | P | S | — | `WM.5` |
-| 11 | **`PH.3`** | PH | P | M | — | ready |
-| 12 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 13 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
-| 14 | **`WM.6`** | WM | P | M | — | `WM.3` |
-| 15 | **`PT.9`** | PT | A | M | 3 | `WM.3` |
+| 8 | **`PT.22`** | PT | P | M | 1 | ready |
+| 9 | **`PT.14`** | PT | P | S | — | `WM.5` |
+| 10 | **`PH.3`** | PH | P | M | — | ready |
+| 11 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 12 | **`WM.4`** | WM | P | M | — | `WM.3`, `PT.22` |
+| 13 | **`WM.6`** | WM | P | M | — | `WM.3` |
+| 14 | **`PT.9`** | PT | A | M | 3 | `WM.3` |
+| 15 | **`AT.10`** | AT | A | M | — | ready |
 
-…and 76 more — `python scripts/next_step.py --queue 40`.
+…and 75 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -319,7 +319,7 @@ for Tier 3, and `M7` resolves to `1a0f13c`, the commit `RP.7` separately identif
 | M3 optics | done | `ddad9d0` | Aperture factor defined once, AST guard, 181 cases. `SC.4` adds the missing aberration term |
 | M4 detector | done | `7bd10d1` | NETD anchoring, NETD(373)/NETD(300) = 0.576. `SC.1` wires the photon-FPA electron budget |
 | M5 ISP | done | `b373f02` | NUC, AGC, DDE, grayscale default. `SC.10` adds the temporal behaviour `display.py:286` requires |
-| M6 thermal solvers and weather | done | `b870d57` | Two-node and cabin shipped but unreachable from a scene: `PT.15`. Heat traces likewise: `PT.16` |
+| M6 thermal solvers and weather | done | `b870d57` | Two-node and cabin are reachable from a scene since `PT.15` (schema v10 `back:` and `cabin:`). Heat traces likewise: `PT.16` |
 | M7 materials | done | `1a0f13c` | 19 materials, Kirchhoff walk, Fresnel, n/k. **M7.9's stated Beer-Lambert derivation never ran**: `RP.7` |
 | M8 atmosphere, grey and layered | done | `e4caef9` | Layered exponential-sum slant path, R13-anchored. Per-pixel slant path was never in scope: `AT.1` |
 | M9 sensor chain | done | `d38c3f0` | 3-D noise, FPN, bad pixels, NUC residual, budget test. M9.8's IIR wiring is recorded by ADR 0082 |
@@ -405,7 +405,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.12 | ✅ **done.** `irsim.thermal.layers`: `LayerStack` (§6.4's R = δ/2k + δ/2k between layers, optional deep node) and `layered_field`, each layer a `CoupledFields` member joined by a contactor at 1/R, stepped implicitly; `layers: N` on a patched surface (default 1). ADR 0103. | **Measured.** Two layers reproduce `LumpedTwoNodeSolver` to < 1 mK on both nodes over 6 h; a 1 mm steel skin peaks at 12:19 and a 6-layer 0.3 m asphalt surface at 13:45; the lumped 0.3 m slab is 5.6 K warmer than the 6-layer one at 04:00; `layers: 6` on a scene's road binds its surface view. 5 cases. | — | M | P |
 | PT.13 | **Temperature-map and parameter-map ingest.** DIRSIG's Map Temperature Solver is a single-band raster in °C applied by UV or drape projection; MappedTherm does the same for parameters. `PlanarPatch` is already a raster with a projection. The escape hatch for prescribed aerial skins, externally solved hulls and draping public thermal frames onto geometry. | A float32 raster round-trips through a patch to 1 mK. A °C raster mis-declared as K raises. A parameter map varying α_sol gives the per-cell equilibrium the scalar solver predicts. | PT.2 | M | C |
 | PT.14 | **ADR: temperature granularity tiers.** Production tools select a tier per surface — DIRSIG offers per-material, per-solid, per-facet and per-pixel, and imports MuSES for a real 3-D field. irsim has three tiers in code and only ADR 0087's prose describing the boundary; CLAUDE.md requires an ADR for a chosen fidelity level. | A record, not a test. It states where irsim sits, what each tier costs, and the rule a scene author uses to pick one. It supersedes ADR 0087's "a real limit, not a temporary one". | WM.5 | S | P |
-| PT.15 | **Make `LumpedTwoNodeSolver` and `CabinNode` reachable — the cabin as a fluid node of `TC.2`'s network.** Neither is importable from `irsim.thermal`, neither is a `solver:` kind, no demo constructs either: every solved surface has an adiabatic back. | ADR 0036/0038's measured results appear in a rendered frame: a roof +4.8 K with a cabin against adiabatic, both > 2 K below ambient on a clear night. Red today: no scene can construct either. As a fluid node the cabin must reproduce `CabinNode`'s coupled equilibrium to 0.1 K, or two copies of one balance drift. | PT.12, TC.2 | M | P |
+| PT.15 | ✅ **done.** Both exported from `irsim.thermal`; the cabin is a `LumpedMember` of its panels' `CoupledFields` (one implicit operator over panels *and* air) and a layered surface takes §6.4's R₂d/T_deep from `back:`. Schema v10 `thermal.cabin:`; `parked_car_cabin.yaml` + its script (ADR 0106). | **Measured.** Reproduces `CabinNode`'s equilibrium to **0.021 K** at a 2 s tick, roof **+4.84 K** on ADR 0038's panels. Scene: cabin 68.7 °C, roof +1.6 K over an adiabatic bonnet (not 4.8: only the roof faces the sun), night roof −3.8 K vs air. Frame: IG.2. | PT.12, TC.2 | M | P |
 | PT.17 | ✅ **done.** A `PlanarThermalField` per patched surface, on its library material and spun-up state, forced by `CellForcing`; `Scene.surface_fields`, `surface_bindings()`, `bindings_from_scene`. Both car scenes declare bonnet and road; `build_car_demo` reads and checks them. | **Measured.** Under uniform forcing every cell equals the per-prim value **bit for bit** (contract 1 mK); a bonnet grid 24 cm off the skin and a road grid short of the footprint are refused; no patch keeps the hand-built grids; an unknown material fails at load naming the surface. 14 cases. | — | M | P |
 | PT.18 | ✅ **done.** Schema v8: `world_frame:` (ENU default) and `thermal.occluders:`. `CellForcing` gates the beam per cell via `cell_shadow`, spun up with the shadow; `car_demo` fields gain q_solar from `Scene.solar_terms`, shaded by the car's faces. `shaded: true` beside occluders refused. ADR 0095. | **Measured.** SW concrete wall + overhang from YAML: **9.9 K** lit/shaded at 16:00 (PT.1's 22.1 K was a fixed-beam equilibrium); unreached cells **bit-identical** to the per-prim solve, spin-up included; the noon car's shadow strip runs 12.7 K colder after 1500 s. 16 cases. | — | S | P |
 | PT.19 | ✅ **done.** `PointwiseTemperature(bindings, known_paths=)`: a binding to a prim path the stage does not know raises at construction, naming it (`IrCamera` passes its prim map); frame-only, an absent path raises under `strict`, warns otherwise; `last_coverage` counts pixels per binding. | **Measured.** `/World/raod` bound against a stage of `/World/road` raises naming both; frame-only, strict raises and lenient warns with the plane untouched; a correct binding is bit-identical to before; a bound prim off screen is coverage 0, not an error. 2 cases. | — | S | P |
@@ -866,7 +866,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0105 (0090–0105 were written after this section was first measured; 0093–0105 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21` and `TC.7`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0106 (0090–0106 were written after this section was first measured; 0093–0106 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7` and `PT.15`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

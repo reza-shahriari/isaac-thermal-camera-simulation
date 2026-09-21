@@ -16,7 +16,7 @@
 # The rendered frame is IG.2's; the field these numbers live on is engine-free and tested in
 # tests/unit/test_wet_road.py.
 
-schema_version: 9
+schema_version: 10
 scene:
   name: wet_road_noon
   description: "an asphalt road watered on half its width at 14:00 on a clear June day, part shaded"

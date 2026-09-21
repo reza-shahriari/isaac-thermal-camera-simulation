@@ -134,6 +134,11 @@ class PlanarPatch:
     def cell_area_m2(self) -> float:
         return float(self.du_m * self.dv_m)
 
+    @property
+    def area_m2(self) -> float:
+        """The whole patch, ``n_cells · A_cell`` -- a panel's area for a lumped coupling."""
+        return self.cell_area_m2 * self.n_cells
+
     def cell_centres(self) -> NDArray[np.float64]:
         """``(n_cells, 3)`` cell-centre positions, C order with ``v`` slow."""
         iu = (np.arange(self.n_u, dtype=np.float64) + 0.5) * self.du_m

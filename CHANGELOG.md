@@ -25,6 +25,22 @@ working in one tree; two commits already exist whose whole subject is restoring 
   minima within 0.05 K. The ratio near 2 the row asked for is out of reach with one air
   temperature per scene (the swing cannot fall below the air's own 12 K) and is recorded as such.
 
+- **The cabin and the two-node substrate, reachable from a scene** (`PT.15`, ADR 0106).
+  `LumpedTwoNodeSolver` and `CabinNode` shipped in M6 and no config could construct either, so
+  every solved surface had an adiabatic back. `irsim.thermal.coupling` gains `LumpedMember` (a
+  node with no cells: its areal capacity is its J/K, its convection coefficient the infiltration
+  conductance, its `q_internal` the watts through the glazing) and `LumpedLink` (`A_cell / R_p`
+  from every cell of a panel to it); `irsim.thermal.cabin` gains `cabin_coupling` and
+  `cabin_field`, which solve the panels and the air on **one** implicit operator rather than
+  alternately -- the step ADR 0038 measured as wrong at a 60 s tick. Scene schema **v10** adds
+  `thermal.cabin:` and a surface's `back:` (§6.4's R₂d and T_deep on a layered surface), and
+  `irsim.thermal` now exports both objects with `LayerStack`. Measured: the coupled member
+  reproduces `CabinNode.equilibrium` on ADR 0038's panels to 0.021 K at a 2 s tick, with the roof
+  4.84 K above an adiabatic back. New scene `configs/scenes/parked_car_cabin.yaml` and
+  `scripts/parked_car_cabin.py`: cabin 68.7 °C at local noon, roof 65.0 °C against 63.4 °C for
+  the same paint with an adiabatic back, glazing 37.3 °C, and at midnight roof and cabin 3.8 K
+  and 3.0 K below the air. The scene's roof boost is +1.6 K rather than ADR 0038's +4.8 K
+  because its only sun-facing panel is the roof; recorded, not tuned away.
 - **The exhaust line as a gas stream in a wall** (`TC.7`, ADR 0105). `irsim.thermal.exhaust_line`:
   `PipeSection`s in order, each a run of wall nodes on the S42 network (steel or cast iron,
   outside convection forced while the car moves and natural when it stands, radiation to the

@@ -793,6 +793,7 @@ def _build_surface_fields(
     15 µK from the prim it claims to reproduce, and the one-millikelvin contract would still
     hold while the bit-identity test did not. Narrowing happens once, at the query (CLAUDE.md #2).
     """
+    from irsim.thermal.coupling import FieldMember
     from irsim.thermal.facets import FacetProperties, spin_up
     from irsim.thermal.scene_forcing import CellForcing
 
@@ -800,6 +801,11 @@ def _build_surface_fields(
     if build.field is None or spec.thermal is None:
         return out
     casters = tuple((occluders or {}).values())
+    # PT.15: the surfaces that bound a cabin are solved *together* with it, so they are set
+    # aside here and built as one `CoupledFields` after the loop (ADR 0106).
+    cabin_spec = spec.thermal.cabin
+    panel_order = [p.surface for p in cabin_spec.panels] if cabin_spec is not None else []
+    panels: dict[str, Any] = {}
     for i, s in enumerate(spec.thermal.surfaces):
         patch = patches.get(s.name)
         if patch is None:
@@ -844,12 +850,22 @@ def _build_surface_fields(
             # PT.12: the material's thickness cut into N slices, one coupled solve (ADR 0103).
             from irsim.thermal.layers import LayerStack, layered_field
 
+            deep: dict[str, Any] = {}
+            if s.back is not None:  # PT.15: §6.4's R₂d and T_deep, from the config (ADR 0036)
+                t_deep = s.back.deep_temperature_k
+                deep = {
+                    "back_resistance_m2k_w": s.back.resistance_m2k_w,
+                    "deep_temperature_k": float(build.forcing.weather.at(build.t0_s).t_air_k)
+                    if t_deep == "ambient"
+                    else float(t_deep),
+                }
             stack = LayerStack.uniform(
                 s.layers,
                 thermal.conductivity_w_mk,
                 thermal.density_kg_m3,
                 thermal.specific_heat_j_kgk,
                 thermal.thickness_m,
+                **deep,
             )
             optical = ThermalPropertiesOf(props, i)
             coupled = layered_field(
@@ -867,6 +883,14 @@ def _build_surface_fields(
                 wrap=build.wrap,
             )
             out[s.name] = coupled.fields[s.name]
+            continue
+        if s.name in panel_order:
+            # A cabin panel: its own cells and forcing, held for the coupled solve below. Its
+            # start is the per-prim spun state; the whole system is then spun up together, so a
+            # per-panel spin-up against an adiabatic back would only be thrown away.
+            panels[s.name] = FieldMember(
+                s.name, patch, cells, forcing, np.full(n, float(build.spun_k[i])), conduction
+            )
             continue
         if casters:
             # The shadow is part of the surface's history, not a term switched on at t0: a cell
@@ -893,6 +917,62 @@ def _build_surface_fields(
             film_kg_m2=_film_for(patch, s.film),
             conduction=conduction,
         )
+    if cabin_spec is not None:
+        out.update(_build_cabin(spec, build, cabin_spec, panels))
+    return out
+
+
+def _build_cabin(
+    spec: SceneSpec, build: _ThermalBuild, cabin_spec: Any, panels: Mapping[str, Any]
+) -> dict[str, Any]:
+    """The cabin and its panels as one coupled solve; every panel comes back as a `PatchView`."""
+    from irsim.thermal.cabin import CabinNode, CabinPanel, cabin_field
+
+    assert spec.thermal is not None
+    order = [p.surface for p in cabin_spec.panels]
+    missing = [name for name in order if name not in panels]
+    if missing:  # pragma: no cover - the schema already checks the names and the patches
+        raise ValueError(f"cabin {cabin_spec.name!r}: panels {missing} built no field")
+    index = {name: i for i, name in enumerate(build.names)}
+    node = CabinNode(
+        [
+            CabinPanel(
+                p.surface,
+                ThermalPropertiesOf(build.properties, index[p.surface]),
+                float(panels[p.surface].patch.area_m2),
+                p.inner_resistance_m2k_w,
+            )
+            for p in cabin_spec.panels
+        ],
+        volume_m3=cabin_spec.volume_m3,
+        glazing_area_m2=cabin_spec.glazing_area_m2,
+        glazing_transmittance=cabin_spec.glazing_transmittance,
+        air_changes_per_hour=cabin_spec.air_changes_per_hour,
+        interior_mass_j_k=cabin_spec.interior_mass_j_k,
+        glazing_panel=cabin_spec.glazing_surface,
+    )
+    glazing = index[cabin_spec.glazing_surface]
+
+    def glazing_solar_at(t_s: float) -> float:
+        """The sun on the glazing's own tilt -- the per-prim term, which is what §6.6 transmits."""
+        return float(np.atleast_1d(build.forcing(t_s).q_solar_w_m2)[glazing])
+
+    coupled = cabin_field(
+        node,
+        [panels[name] for name in order],
+        lambda t: float(build.forcing.weather.at(t).t_air_k),
+        glazing_solar_at,
+        build.t0_s,
+        spec.thermal.tick_s,
+        name=cabin_spec.name,
+        spin_up_hours=spec.thermal.spin_up_hours,
+        spin_up_hash=build.spin_up_hash,
+        wrap=build.wrap,
+    )
+    # The panels as views, and the whole solve under the cabin's own name: that is where
+    # `node_temperature_k` lives, and it is the only handle on a member with no cells.
+    out: dict[str, Any] = {name: coupled.fields[name] for name in order}
+    out[cabin_spec.name] = coupled
     return out
 
 

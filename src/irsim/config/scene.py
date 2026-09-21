@@ -42,14 +42,18 @@ __all__ = [
     "SurfaceSpec",
     "ThermalSceneSpec",
     "SiteSpec",
+    "BackSpec",
+    "CabinPanelSpec",
+    "CabinSpec",
     "TargetSpec",
     "SceneSpec",
     "SceneConfig",
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 9  # v9: `thermal.nodes/links/sources` (ADR 0097, TC.4); v8 added
-# `world_frame:` and `thermal.occluders:` (ADR 0095, PT.18); v7 the `patch:` block (ADR 0087)
+SCENE_SCHEMA_VERSION = 10  # v10: `thermal.cabin:` and a surface's `back:` (ADR 0106, PT.15);
+# v9 `thermal.nodes/links/sources` (ADR 0097, TC.4); v8 `world_frame:` and
+# `thermal.occluders:` (ADR 0095, PT.18); v7 the `patch:` block (ADR 0087)
 #: The oldest version this loader still accepts. v5 added `thermal:` as an **optional** field, so
 #: every v4 document is a valid v5 document and refusing one would be refusing it for a change
 #: that cannot affect it. A range is the honest representation of a backwards-compatible change;
@@ -425,6 +429,59 @@ class FilmSpec(_Frozen):
         return self
 
 
+class BackSpec(_Frozen):
+    """The deep boundary under a layered surface (§6.4's R₂d and T_deep, ADR 0036)."""
+
+    resistance_m2k_w: float = Field(gt=0.0)
+    deep_temperature_k: float | Literal["ambient"]
+
+    @model_validator(mode="after")
+    def _positive(self) -> BackSpec:
+        if isinstance(self.deep_temperature_k, float) and self.deep_temperature_k <= 0.0:
+            raise ValueError("deep_temperature_k must be positive (kelvin)")
+        return self
+
+
+class CabinPanelSpec(_Frozen):
+    """One patched surface bounding the cabin, and its inward resistance (ADR 0038)."""
+
+    surface: str = Field(min_length=1)
+    #: Conduction + interior-film resistance from the panel to the cabin air, m² K W⁻¹:
+    #: ~0.13 for bare metal (the film dominates), ~0.5 with trim, ~0.17 for glass.
+    inner_resistance_m2k_w: float = Field(default=0.13, gt=0.0)
+
+
+class CabinSpec(_Frozen):
+    """The cabin air as a lumped node behind its panels (PT.15, ADR 0038, ADR 0106).
+
+    The panels named here are solved **together** with the cabin as one coupled field, so the
+    roof loses heat into air the sun has already heated through the glass. The glazing must
+    be one of the panels: it is both the solar inlet and one of the largest conduction paths,
+    and a cabin given the inlet without the path runs ~22 K too hot (ADR 0038).
+    """
+
+    name: str = Field(default="cabin", min_length=1)
+    panels: list[CabinPanelSpec] = Field(min_length=1)
+    glazing_surface: str = Field(min_length=1)
+    volume_m3: float = Field(default=3.0, gt=0.0)
+    glazing_area_m2: float = Field(default=2.6, gt=0.0)
+    glazing_transmittance: float = Field(default=0.55, ge=0.0, le=1.0)
+    air_changes_per_hour: float = Field(default=2.0, ge=0.0)
+    interior_mass_j_k: float = Field(default=25_000.0, gt=0.0)
+
+    @model_validator(mode="after")
+    def _glazing_is_a_panel(self) -> CabinSpec:
+        names = [p.surface for p in self.panels]
+        if len(set(names)) != len(names):
+            raise ValueError(f"cabin {self.name!r}: panel surfaces must be unique: {names}")
+        if self.glazing_surface not in names:
+            raise ValueError(
+                f"cabin {self.name!r}: glazing_surface must be one of its panels {names} -- the "
+                "glass is both the solar inlet and a conduction path (ADR 0038)"
+            )
+        return self
+
+
 class SurfaceSpec(_Frozen):
     """One thermally solved surface: a material, where it faces, and whether it is shaded.
 
@@ -454,9 +511,19 @@ class SurfaceSpec(_Frozen):
     #: field always was; N cuts the material's thickness into N equal slices with §6.4's contact
     #: resistance between them and an adiabatic back. Needs a patch.
     layers: int = Field(default=1, ge=1, le=64)
+    #: What lies under the last layer (PT.15, ADR 0036's R₂d and T_deep): a resistance to a deep
+    #: temperature, kelvin or ``"ambient"`` (the air at the scene start). Absent is adiabatic.
+    #: Needs ``layers`` ≥ 2 -- a single layer with a deep boundary is `LumpedTwoNodeSolver`'s
+    #: substrate-less case, which `layered_field` refuses.
+    back: BackSpec | None = None
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
+        if self.back is not None and self.layers < 2:
+            raise ValueError(
+                f"surface {self.name!r}: a `back:` boundary needs `layers: 2` or more (the deep "
+                "node sits under the last layer, not under the surface itself)"
+            )
         if self.film is not None and self.patch is None:
             raise ValueError(
                 f"surface {self.name!r}: a film needs a `patch:` -- it is a per-cell state, and a "
@@ -654,6 +721,35 @@ class ThermalSceneSpec(_Frozen):
     nodes: list[NodeSpec] = Field(default_factory=list)
     links: list[LinkSpec] = Field(default_factory=list)
     sources: list[SourceSpec] = Field(default_factory=list)
+    #: The cabin behind a set of patched panels (PT.15). Absent leaves every back adiabatic.
+    cabin: CabinSpec | None = None
+
+    @model_validator(mode="after")
+    def _cabin_panels_are_plain_patches(self) -> ThermalSceneSpec:
+        """A cabin's panels are patched, single-layer, dry surfaces, solved as one field."""
+        if self.cabin is None:
+            return self
+        by_name = {s.name: s for s in self.surfaces}
+        for panel in self.cabin.panels:
+            surface = by_name.get(panel.surface)
+            if surface is None:
+                raise ValueError(
+                    f"cabin {self.cabin.name!r}: panel {panel.surface!r} is not a surface; "
+                    f"surfaces: {list(by_name)}"
+                )
+            if surface.patch is None:
+                raise ValueError(
+                    f"cabin {self.cabin.name!r}: panel {panel.surface!r} needs a `patch:` -- the "
+                    "cabin is solved with its panels' cells"
+                )
+            if surface.layers > 1 or surface.film is not None:
+                raise ValueError(
+                    f"cabin {self.cabin.name!r}: panel {panel.surface!r} must be a single-layer "
+                    "surface without a film (the cabin joins the panel's one node)"
+                )
+        if any(n.name == self.cabin.name for n in self.nodes):
+            raise ValueError(f"cabin {self.cabin.name!r} shares its name with a network node")
+        return self
 
     @field_validator("surfaces")
     @classmethod

@@ -79,6 +79,11 @@ UNSWEPT_SCENES: dict[str, str] = {
         "no prims yet. scripts/wall_half_in_sun.py writes the engine-free frame from a synthetic "
         "G-buffer; the rendered one is IG.2's."
     ),
+    "parked_car_cabin.yaml": (
+        "PT.15's reference scene: five panels of a schematic saloon and the cabin behind four "
+        "of them, no camera and no prims yet. scripts/parked_car_cabin.py writes the "
+        "engine-free plan frame from a synthetic G-buffer; the rendered one is IG.2's."
+    ),
     "wet_road_noon.yaml": (
         "PH.2's reference field: one road patch, half wet, part shaded, no camera and no prims "
         "yet. Its numbers are tests/unit/test_wet_road.py's; the frame is IG.2's, and when a "
