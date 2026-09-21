@@ -51,6 +51,7 @@ __all__ = [
     "penumbra_width_m",
     "rectangle_mesh",
     "solar_disc_rays",
+    "sphere_mesh",
     "sunlit_fraction",
 ]
 
@@ -264,6 +265,37 @@ def box_mesh(centre_m: Any, size_m: Any) -> TriangleSoup:
         dtype=np.int64,
     )
     return TriangleSoup(vertices, faces)
+
+
+def sphere_mesh(centre_m: Any, radius_m: float, n_theta: int = 16, n_phi: int = 32) -> TriangleSoup:
+    """A UV sphere: the curved case, for an occluder or for a `WM.2` temperature field.
+
+    A chord approximation, short of the true sphere by `radius (1 - cos(diagonal/2))` where the
+    diagonal is the angular extent of one quad -- about 0.6 mm on a 0.25 m sphere at 32x64. Poles
+    are single vertices, so the first and last rings are triangles and the rest are split quads.
+    """
+    c = np.asarray(centre_m, dtype=np.float64).reshape(3)
+    if radius_m <= 0.0:
+        raise ValueError(f"a sphere needs a positive radius, got {radius_m}")
+    if n_theta < 2 or n_phi < 3:
+        raise ValueError(f"a sphere needs n_theta >= 2 and n_phi >= 3, got {n_theta}, {n_phi}")
+    theta = np.linspace(0.0, np.pi, n_theta + 1)
+    phi = np.linspace(0.0, 2.0 * np.pi, n_phi, endpoint=False)
+    tt, pp = np.meshgrid(theta, phi, indexing="ij")
+    vertices = c + radius_m * np.stack(
+        [np.sin(tt) * np.cos(pp), np.sin(tt) * np.sin(pp), np.cos(tt)], axis=-1
+    ).reshape(-1, 3)
+    rows = np.arange(n_theta)[:, None]
+    cols = np.arange(n_phi)[None, :]
+    a = (rows * n_phi + cols).ravel()
+    b = (rows * n_phi + (cols + 1) % n_phi).ravel()
+    d = ((rows + 1) * n_phi + cols).ravel()
+    e = ((rows + 1) * n_phi + (cols + 1) % n_phi).ravel()
+    faces = np.concatenate([np.stack([a, d, e], axis=1), np.stack([a, e, b], axis=1)], axis=0)
+    # Degenerate triangles at the two poles, where a whole ring collapses to one point.
+    v = vertices[faces]
+    keep = np.linalg.norm(np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0]), axis=-1) > 1e-15
+    return TriangleSoup(vertices, np.asarray(faces[keep], dtype=np.int64))
 
 
 # --- the sun's disc ------------------------------------------------------------------------------

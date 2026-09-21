@@ -31,6 +31,7 @@ from irsim.thermal.raycast import (
     penumbra_width_m,
     rectangle_mesh,
     solar_disc_rays,
+    sphere_mesh,
     sunlit_fraction,
 )
 from irsim.thermal.shadow import ShadowRectangle, box_faces, cell_shadow
@@ -278,3 +279,40 @@ def test_the_numpy_soup_agrees_with_trimesh_where_trimesh_is_installed() -> None
         sun /= np.linalg.norm(sun)
         theirs = mesh.ray.intersects_any(origins, np.broadcast_to(sun, origins.shape))
         assert np.array_equal(soup.blocked(origins, sun), np.asarray(theirs, dtype=bool))
+
+
+# --- the sphere ----------------------------------------------------------------------------------
+
+
+def test_a_sphere_mesh_closes_on_the_analytic_sphere_and_occludes_like_one() -> None:
+    """The curved occluder, and the geometry `WM.2` hangs a field on. A UV sphere is a chord
+    approximation, so its area is *under* 4 pi r^2 and closes on it as the tessellation refines --
+    a mesh whose area went the other way would have inverted winding or duplicated faces."""
+    radius = 0.25
+    exact = 4.0 * math.pi * radius**2
+    areas = []
+    for n in (8, 16, 32):
+        soup = sphere_mesh((0.0, 0.0, 0.0), radius, n, 2 * n)
+        v = soup.vertices[soup.faces]
+        area = float(
+            0.5 * np.linalg.norm(np.cross(v[:, 1] - v[:, 0], v[:, 2] - v[:, 0]), axis=-1).sum()
+        )
+        assert area < exact
+        assert np.allclose(np.linalg.norm(soup.vertices, axis=-1), radius)
+        areas.append(area)
+    assert areas[0] < areas[1] < areas[2]
+    assert areas[-1] == pytest.approx(exact, rel=0.01)
+    # The poles collapse a whole ring to one vertex; those triangles are dropped, not kept at
+    # zero area, because a degenerate face is a division by zero in every normal that touches it.
+    assert sphere_mesh((0.0, 0.0, 0.0), radius, 8, 16).n_faces == 2 * 8 * 16 - 2 * 16
+
+    # As an occluder: a ray through the centre is blocked, one that clears the limb is not.
+    occluders = MeshOccluders((sphere_mesh((0.0, 0.0, 2.0), radius, 24, 48),))
+    origins = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    directions = np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0]])
+    assert occluders.blocked(origins, directions).tolist() == [True, False]
+
+    with pytest.raises(ValueError, match="positive radius"):
+        sphere_mesh((0.0, 0.0, 0.0), 0.0)
+    with pytest.raises(ValueError, match="n_theta >= 2"):
+        sphere_mesh((0.0, 0.0, 0.0), 1.0, 1, 8)

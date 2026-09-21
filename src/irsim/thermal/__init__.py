@@ -49,6 +49,7 @@ from irsim.thermal.longwave import (
     longwave_down_from_sample,
     sky_emissivity,
 )
+from irsim.thermal.mesh_field import TriangleMeshField, TriangleMeshPatch
 from irsim.thermal.network import (
     FixedNode,
     ImposedHeat,
@@ -128,6 +129,8 @@ __all__ = [
     "LumpedMember",
     "LumpedTwoNodeSolver",
     "NodeLayer",
+    "TriangleMeshField",
+    "TriangleMeshPatch",
     "TwoNodeProperties",
     "TwoNodeState",
     "contact_resistance",

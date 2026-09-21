@@ -90,6 +90,29 @@ working in one tree; two commits already exist whose whole subject is restoring 
   +65 s and is below 260 °C 5.3 min later, the catalyst shell peaks at +65 s. The shell runs
   270 °C, not MVFRI's 400 (no exotherm), and the car scenes keep §6.6's schedule for now.
 
+- **A temperature field on a triangle mesh** (`WM.2`). `irsim.thermal.mesh_field`:
+  `TriangleMeshPatch` cuts every face into `k²` congruent cells on the barycentric grid at a
+  **per-face** level -- Ptex style, so resolution follows the thermal gradient and not the
+  tessellation, and `by_cell_size` picks the level per face from a target cell size.
+  `TriangleMeshField` composes `ThermalField` exactly as `PlanarThermalField` does, so the fixed
+  tick, the between-tick interpolation and the never-mutate-on-query rule are reused rather than
+  restated; `PlanarPatch` stays the special case for near-planar surfaces and is untouched.
+  `sphere_mesh` joins `irsim.thermal.raycast` beside `box_mesh`, so one mesh can both shade and be
+  solved. Measured: a 0.25 m sphere under an overhead sun holds **every face to its own cos θ root
+  within 1 mK** across a **34.3 K** span (sunlit cap 320.3 K, far side 286.0 K), where a single
+  facet on the area-weighted mean flux -- what every prim in this project carried before a field
+  -- lands at 295.0 K, 25 K under the cap and 9 K over the far side. Conservation: under uniform
+  forcing every cell is **bit-identical in float32** to the scalar solve, and under varying
+  forcing the area-weighted mean sits *below* the per-prim value exactly as the concavity of
+  `T(q)` requires, with the area-weighted net flux closing to 1e-6 of the absorbed power -- so the
+  change is provably a redistribution and not new energy. Deliberately deferred and recorded in
+  the module docstring: the sample is piecewise constant within a cell (smoothing across faces
+  needs edge adjacency, `WM.4`), normals are per face rather than per vertex (§6.1 balances a
+  facet), and cells do not conduct to each other (`PT.11`'s operator is a rectangular grid's; the
+  mesh equivalent is `WM.6`'s, which exists because a naive cotan Laplacian breaks the discrete
+  maximum principle). Nothing on the render path calls this yet -- `WM.3` is the bridge, and
+  `WM.5` writes the decision that supersedes ADR 0087.
+
 - **A probe for per-pixel (face, u, v) from Warp** (`WM.1`, ADR 0087 addendum).
   `scripts/probe_warp_mesh.py` (no Kit boot) and `scripts/probe_warp_prim.py` (a real USD prim)
   build a `wp.Mesh` and recover a triangle and its barycentrics from a world position with
