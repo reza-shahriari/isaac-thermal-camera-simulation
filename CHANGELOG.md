@@ -90,6 +90,26 @@ working in one tree; two commits already exist whose whole subject is restoring 
   +65 s and is below 260 °C 5.3 min later, the catalyst shell peaks at +65 s. The shell runs
   270 °C, not MVFRI's 400 (no exotherm), and the car scenes keep §6.6's schedule for now.
 
+- **A probe for per-pixel (face, u, v) from Warp** (`WM.1`, ADR 0087 addendum).
+  `scripts/probe_warp_mesh.py` (no Kit boot) and `scripts/probe_warp_prim.py` (a real USD prim)
+  build a `wp.Mesh` and recover a triangle and its barycentrics from a world position with
+  `mesh_query_point_no_sign`, against a brute-force NumPy closest-point oracle. This is the
+  measurement ADR 0087's "a real limit, not a temporary one" rested on, and it goes the other way:
+  the parameterisation can be **derived** from the position AOV instead of transported by a UV or
+  per-triangle AOV the build does not have. Measured on Warp 1.16.0: `mesh_eval_position` returns a
+  surface point to **0.13 µm** against the 3.4 mm position budget (0.73 µm at 4.3 m from the origin
+  -- the residual is float32 and grows with distance, so a scene tens of km across needs its own
+  check). Warp's `(u, v)` weight **v0 and v1** with `1 - u - v` on v2; the reading a person writes
+  down first is wrong by **0.56 m on a 0.4 m box**, which is why the convention is measured rather
+  than assumed. Under a full 3.4 mm of position error the recovered *face* flips on 1.9 % of
+  queries on a 12-triangle box and 56 % on a 16 k-triangle sphere, but the sampled surface point
+  moves only 2.68 mm on average and never past 3.41 mm -- the face is unstable between neighbours
+  and the position is not, which is what a temperature lookup needs. 2.3-5.9 M queries/s on the
+  **CPU**, so a 640x512 frame is 0.06-0.14 s with no GPU. From a USD prim: quads need triangulating
+  (`faceVertexCounts` of 4), the local-to-world transform must be applied, and an analytic gprim
+  such as `UsdGeom.Sphere` exposes no points to hand Warp at all. A probe and numbers, not a
+  pipeline: `WM.2` puts a field on a mesh, `WM.3` binds it and `WM.5` writes the decision.
+
 #### Changed
 - The R1 wall scene's terminators moved with the sky view: concrete 10.3 → 9.7 K, render
   7.4 → 6.3 K, memory after 30 min 8.7 → 8.05 K (the shaded half sees the neighbour's roof, not

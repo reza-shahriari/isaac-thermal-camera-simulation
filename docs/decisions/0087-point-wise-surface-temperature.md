@@ -87,3 +87,36 @@ pixel count: a 2.4 m bonnet at 0.15 m cells is 16×8 = 128 cells, and a 20 m × 
 An SPG shader lands (M10.12/M10.13a–e) and can carry an integer per-triangle attribute, or a build
 exposes a UV AOV — either makes option 1 or 2 reachable and this becomes the fallback for surfaces
 that do not merit an atlas.
+
+## Addendum, 2026-09-21 (WM.1): the premise of "a real limit" does not hold
+
+This ADR's Consequences call curved geometry "a real limit, not a temporary one: raising it means
+option 1 or 2, and therefore means a renderer capability this build does not have". `WM.1` measured
+a **third** route that needs nothing from the renderer, and it works.
+
+Options 1 and 2 both ask the *renderer* to transport the parameterisation — a UV AOV, or a
+per-triangle id. The third route derives it instead: the instance id says which prim a pixel hit,
+the position AOV says where in the world it hit, and a closest-point query against that prim's own
+mesh returns the triangle and its barycentric coordinates. `scripts/probe_warp_mesh.py` and
+`scripts/probe_warp_prim.py` measure it on this build (Warp 1.16.0, no Kit boot needed for the
+first):
+
+* `mesh_eval_position(face, u, v)` reproduces a point already on the surface to **0.13 µm** on a
+  0.4 m box and a 16 k-triangle sphere — against this ADR's own 3.4 mm position budget, a margin of
+  more than four orders of magnitude. The residual is float32 round-off, and it scales with distance
+  from the world origin (0.73 µm at 4.3 m), so a scene tens of kilometres across would need
+  checking; at vehicle and building scale it is nowhere near the budget.
+* Warp's `(u, v)` are the weights of **v0 and v1**, with `1 − u − v` on v2. The reading a person
+  writes down first, `(1−u−v)·v0 + u·v1 + v·v2`, is wrong by **0.56 m on a 0.4 m box** — a silent
+  error that samples an unrelated part of the surface.
+* Under a full 3.4 mm of position error the recovered *face* changes on 1.9 % of queries on a
+  12-triangle box and 56 % on a 16 k-triangle sphere, but the sampled surface point moves only
+  2.68 mm on average and never more than 3.41 mm. The face is unstable between neighbours; the
+  **position** is stable to the size of the input error, which is what a temperature lookup needs.
+* A USD prim needs triangulating (`faceVertexCounts` of 4 for an asset authored as quads) and its
+  local-to-world transform applying, and an analytic gprim such as `UsdGeom.Sphere` exposes no
+  points to hand Warp at all.
+
+This ADR is **not** superseded here: the planar patch remains what ships, and the decision that
+replaces it is `WM.5`'s to write once `WM.3` has built the bridge. What changes now is the claim
+that the limit could not be raised on this build. It can.
