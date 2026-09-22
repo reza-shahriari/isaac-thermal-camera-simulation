@@ -228,3 +228,38 @@ def test_the_sweep_only_passes_flags_every_driver_accepts(driver, monkeypatch, t
             + ", ".join(sorted(passed - accepted))
             + " -- the sweep passes it to every driver"
         )
+
+
+# --- IG.13: a driver the sweep runs in four bands must be able to run in four bands -----------
+
+
+def _scene_from_file_calls(script: pathlib.Path):
+    """Every ``Scene.from_file(...)`` in a driver, as AST nodes."""
+    for node in ast.walk(ast.parse(script.read_text("utf-8"))):
+        if isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "from_file":
+            yield node
+
+
+def test_every_swept_driver_builds_its_scene_in_the_sensors_own_quantity(driver):
+    """A sky model built in the wrong radiometric form refuses the render.
+
+    `Scene.from_file` defaults to ``quantity="lb"`` -- band radiance, which is what a bolometer
+    integrates. A photon FPA runs on ``lb_q``, and `PipelineConfig.from_sensor` compares the two
+    and raises rather than mixing them. Three of the six drivers never passed the sensor's own
+    quantity through, so each worked in the one band its `--sensor` default names and failed in
+    the other three with `sky model built in the 'lb' form`. The aerial point-target scene --
+    the lane the owner ranked first -- was among them, and the sweep found it by trying: 3 of 16
+    renders died at startup.
+
+    Checked by AST rather than by running the drivers, because every one of them boots Kit.
+    """
+    for scene, (script, _args, _frames) in driver.SCENES.items():
+        path = SCRIPTS / script
+        calls = list(_scene_from_file_calls(path))
+        assert calls, f"{script} builds no Scene; the check is pointed at the wrong thing"
+        for call in calls:
+            named = {k.arg for k in call.keywords}
+            assert "quantity" in named, (
+                f"{scene}: {script} line {call.lineno} builds a Scene without the sensor's "
+                "quantity, so it runs in one band and raises in the other three"
+            )

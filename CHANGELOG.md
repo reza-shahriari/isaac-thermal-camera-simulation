@@ -10,6 +10,19 @@ repeated `Added` / `Changed` / `Fixed` headings was a single merge hotspot for t
 working in one tree; two commits already exist whose whole subject is restoring lost entries.
 `tests/unit/test_changelog_structure.py` fails on a repeated heading inside a dated section.
 
+### 2026-09-22
+
+#### Fixed
+- **Three render drivers ran in one band each** (`IG.13`). `render_aerial_demo.py`,
+  `render_car_ignition.py` and `render_vessel_departure.py` built their scene with
+  `Scene.from_file`'s default `quantity="lb"` rather than the sensor's own, so the sky model came
+  out in band radiance while a photon FPA runs on `lb_q`; `PipelineConfig.from_sensor` compares
+  the two and raised `sky model built in the 'lb' form`. Each driver therefore worked only in the
+  band its `--sensor` default names. Found by running the sweep, which lost 3 of 16 aerial renders
+  at startup. The three now pass the sensor's quantity and its `DiffuseSkylight` (M11.10, ADR
+  0086) through, as the other three already did, and `tests/unit/test_render_multiband.py` reads
+  every swept driver's `Scene.from_file` calls by AST and fails if one omits it.
+
 ### 2026-09-21
 
 #### Added

@@ -121,6 +121,7 @@ def main() -> int:
     from pxr import Gf, UsdGeom
 
     from irsim.atmosphere.sea import SeaModel
+    from irsim.atmosphere.skylight import skylight_for_sensor
     from irsim.config.loader import (
         band_hash,
         config_hash,
@@ -168,10 +169,21 @@ def main() -> int:
     # The camera's own R(lambda), for the layered atmosphere's spectral-class split. It is
     # loaded beside the LUT because the two must describe one camera (AT.2).
     response = load_band_response_for_config(sensor, REPO / "data")
+    # Which table this camera runs on -- `lb` for a bolometer, `lb_q` for a photon FPA. The sky
+    # model must be built in the same form the pipeline reads it in, or `PipelineConfig`
+    # refuses the pair; without this line the scene was always built in `lb` and the driver
+    # ran in its own default band only.
+    quantity = spec.quantity
+    # Scattered sunlight in the sky (M11.10, ADR 0086). `None` for an emissive band, so an LWIR
+    # render is bit-identical to what it was; in a reflective band, without it the sky renders
+    # black and the sunlit target sits on nothing, which is backwards.
+    skylight = skylight_for_sensor(sensor, quantity)
     scene = Scene.from_file(
         args.scene,
         {spec.band.band_id: lut},
         responses={spec.band.band_id: response},
+        quantity=quantity,
+        skylights={spec.band.band_id: skylight},
     )
 
     environment = scene.environment
@@ -286,6 +298,8 @@ def main() -> int:
         args.scene,
         {spec.band.band_id: lut},
         responses={spec.band.band_id: response},
+        quantity=quantity,
+        skylights={spec.band.band_id: skylight},
     )
     try:
         node_samples = [probe.advance_targets(float(t), 0.0) for t in np.linspace(0.0, span_s, 64)]

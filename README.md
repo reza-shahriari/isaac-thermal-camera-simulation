@@ -130,7 +130,13 @@ own driver defaults to. The eighth, `thermal_facet_scene`, is declared unswept w
 is the §6.13 facet bench, seven surfaces with no camera and no prims. Adding the rows found two
 gaps in the drivers themselves: `--rt-subframes` and `--integration-ms` are passed to every child
 process and were accepted by only three of the six, so a sweep over the new scenes would have
-failed twelve renders at once with the reason buried in a subprocess's stderr.
+failed twelve renders at once with the reason buried in a subprocess's stderr. Running it found a
+third: three of the six drivers built their scene with `Scene.from_file`'s default `quantity="lb"`
+instead of the sensor's own, so the sky model came out in band radiance while a photon FPA runs on
+`lb_q` and `PipelineConfig` refused the pair. Each of the three therefore worked in exactly the
+band its `--sensor` default names and raised in the other three -- the aerial point-target scene
+among them, which is the lane ranked first. `tests/unit/test_render_multiband.py` now reads every
+swept driver's `Scene.from_file` calls and fails if one omits the quantity.
 
 **The companion visible frame has a real sky (ADR 0073).** `--rgb` used to write a flat grey void
 with six grey squares in it, which told a reader nothing about where the camera pointed or what
