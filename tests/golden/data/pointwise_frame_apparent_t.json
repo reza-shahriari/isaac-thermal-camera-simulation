@@ -1,6 +1,6 @@
 {
   "atol": 0.001,
-  "config_hash": "abb89ad82bd5c17201a2f1edfda8cd3627fd7308bd0b055019b864112f6ea66e",
+  "config_hash": "80db15da7f32428dc3066e0b0d48f65c1252fa29c649e092321eba5732b9cd0b",
   "dtype": "float32",
   "name": "pointwise_frame_apparent_t",
   "numpy_version": "2.3.1",

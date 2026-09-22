@@ -174,27 +174,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PT.9` is phase A, size M, and unblocks 3 other step(s).
 
-#### Then, in order — 75 open steps
+#### Then, in order — 74 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`PT.9`** | PT | A | M | 3 | ready |
 | 2 | **`IG.2`** | IG | A | M | — | ready |
-| 3 | **`SC.4`** | SC | A | M | — | ready |
-| 4 | **`IG.16`** | IG | B | M | — | ready |
-| 5 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 6 | **`SE.1`** | SE | B | M | — | ready |
-| 7 | **`SE.2`** | SE | B | M | — | ready |
-| 8 | **`AT.7`** | AT | C | M | 1 | ready |
-| 9 | **`PH.10`** | PH | C | S | — | ready |
-| 10 | **`PH.11`** | PH | C | S | — | ready |
-| 11 | **`PH.12`** | PH | C | S | — | ready |
-| 12 | **`PH.9`** | PH | C | S | — | ready |
-| 13 | **`TC.8`** | TC | C | S | — | ready |
-| 14 | **`AT.6`** | AT | C | M | — | ready |
-| 15 | **`AT.9`** | AT | C | M | — | ready |
+| 3 | **`IG.16`** | IG | B | M | — | ready |
+| 4 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 5 | **`SE.1`** | SE | B | M | — | ready |
+| 6 | **`SE.2`** | SE | B | M | — | ready |
+| 7 | **`AT.7`** | AT | C | M | 1 | ready |
+| 8 | **`PH.10`** | PH | C | S | — | ready |
+| 9 | **`PH.11`** | PH | C | S | — | ready |
+| 10 | **`PH.12`** | PH | C | S | — | ready |
+| 11 | **`PH.9`** | PH | C | S | — | ready |
+| 12 | **`TC.8`** | TC | C | S | — | ready |
+| 13 | **`AT.6`** | AT | C | M | — | ready |
+| 14 | **`AT.9`** | AT | C | M | — | ready |
+| 15 | **`GT.7`** | GT | C | M | — | `PT.9` |
 
-…and 60 more — `python scripts/next_step.py --queue 40`.
+…and 59 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -570,7 +570,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.1 | ✅ **done.** `from_sensor` gains `noise_handle` (`auto`/`netd`/`electrons`) and takes the electron budget whenever a photon FPA authors `read_noise_e`. A bolometer keeps the ADR 0025 anchor and is refused `electrons`. | **Measured through the pipeline, not the module.** MWIR InSb σ **533.3 → 350 e⁻** (1.52×, the anchor's own invention); SWIR InGaAs dark **0 → 199.7 e⁻**, larger than its 120 e⁻ read noise. NETD is now a prediction that can disagree — 19.47 mK against a 20 mK claim, where anchored it equalled the claim to 1e-9. A 10 mK claim raises. 11 cases. | — | M | A |
 | SC.2 | ✅ **done.** The mutation is alive: `read_noise_e` reaches the rendered σ. `halmstad_boson_320.yaml` takes ME.5's measured ratios; the 640 keeps datasheet limits, settling open question 6. | **Measured.** Under `netd` a 10 % — or a 50 % — perturbation is **bit-identical**, the pre-SC.1 state; under the electron budget σ tracks it exactly, 2.1 % out at the InSb's bright point and the full 10 % where read dominates, including Monte Carlo on 400 frames. Ratios 8.8× / 7.2× / 19.1× out, and `h` only **1.1×** — already right. `vh` 2.64 round-trips. 24 cases. | SC.1 | S | A |
 | SC.3 | ✅ **done.** `ffc_interval_s` 180 → **300**, `thermal_time_constant_ms` 10.0 → **8.0**, both `ratios_3d` blocks marked ESTIMATED with Table 13 beside them. [R24] contradicts itself on the FFC defaults; ADR 0091 records which reading wins. | **Measured** at Table 13's conditions (f/1.0 lensless, 20 °C camera, 30 °C scene, averager off): tvh **48.5**, th **2.4**, tv **2.6** mK against < 50 / < 18 / < 18 — compliant and **7× more uniform than guaranteed**. Ratios left to `SC.2`: a ratio of upper bounds is not a typical value. 9 cases. Every golden array bit-identical. | — | M | A |
-| SC.4 | **The optical PSF's second factor.** `aberration_sigma_um` defaults to 0.0 and no sensor YAML carries an `mtf:` block, so every rendered camera is diffraction × detector-box only, while the schema docstring calls the value "the Gaussian fitted from a measured slant edge". | FLIR publishes 42 % nominal on-axis MTF at Nyquist for the configured 14 mm f/1.0 lens. Cascaded with the ideal 12 µm detector box (sinc at Nyquist = 0.637) that predicts **0.27 ± 0.03**; the slant-edge estimator must land there. Today one factor is identically zero. | — | M | A |
+| SC.4 | ✅ **done.** Both Bosons carry `mtf.aberration_sigma_um` = **1.654 µm**, *solved in code* by `aberration_sigma_for_mtf` from FLIR's 42 % nominal at Nyquist, not pasted; a test re-runs the solve against the YAML. Three generic cameras keep an ideal lens, listed with reasons. ADR 0117. | **Measured.** Lens at Nyquist 0.420 authored vs **0.461** diffraction-only; system 0.267 vs 0.294 — **both inside the 0.27 ± 0.03 band**, so the sharp check is the lens factor, not the system. Goldens: ramp 7.8 mK, hot patch 3.97 K, uniform fields bit-identical. | — | M | A |
 | SC.5 | **State the de-trending convention on every noise statistic.** Published measurement moves an uncooled imager's temporal noise by up to **3×** with the filter alone (1.00 unfiltered, 0.68 poly2, 0.34 Gaussian σ=8), and the effect differs between imagers. Larger than the codec floor already guarded. | `decompose_3d` and `temporal_shape` take an explicit `detrend`; every reported σ carries it; the Tier 4 report prints two conventions side by side. Red today: no rendered-versus-real noise bound is reproducible by a third party. | — | M | X |
 | SC.6 | **ADR: which NETD irsim means.** NETD is N_im/SiTF and there is no agreed N_im — five incompatible definitions are in current use, and NVESD's own recommendation changed in 1992, 2005 and 2023. | A record plus a docstring change wherever the project writes "NETD". A measured NETD quoted without its definition and filter is not comparable to anything, so this is a prerequisite for SC.3 and SC.9 meaning what they say. | SC.5 | S | X |
 | SC.7 | **Adopt the standard bench conditions** so irsim's Tier 2 numbers are comparable rather than project-local: SITF as a differential sweep −10…+20 °C in 5 °C steps with a linear fit over −5…+15; 3-D noise from 128 frames at 25 °C; MTF by ISO 12233 at 0.5 cycles/pixel from 128 averaged frames. Report N_temp and N_spat. | The bench reproduces its own previous numbers under the new conditions within the estimator's stated sampling floor, and the two summary quantities every external source quotes are printed. Red today: the frame counts and sweeps are project-chosen. | SC.6 | M | X |
@@ -867,7 +867,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0116 (0090–0116 were written after this section was first measured; 0093–0116 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7` and `PH.8`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0117 (0090–0117 were written after this section was first measured; 0093–0117 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8` and `SC.4`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

@@ -50,6 +50,21 @@ sensor:
       model: brown_conrady
       coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]          # ESTIMATED -- calibrate
     vignetting_cos4: true
+    mtf:
+      # MTF's second factor, DERIVED and not pasted (SC.4, ADR 0117). FLIR's Boson datasheet
+      # quotes 42 % nominal on-axis MTF at Nyquist for this lens, and that figure is the WHOLE
+      # lens -- diffraction included. Solving
+      #     MTF_diff(xi_N) * exp(-2 pi^2 sigma^2 xi_N^2) = 0.42
+      # at xi_N = 41.667 cyc/mm with lambda = 10.5 um and F/1.0 gives sigma = 1.654 um;
+      # `irsim.optics.mtf.aberration_sigma_for_mtf` is that solve, and a test re-runs it rather
+      # than trusting this comment. Diffraction alone would be 0.461 -- 10 % sharper than the
+      # lens FLIR actually sells, which is what this camera rendered until SC.4.
+      # The detector footprint is NOT in here: it is the supersample box filter's (ADR 0059).
+      aberration_sigma_um: 1.654
+      # NOTE: the 9.03 mm variant's own MTF figure was not found; this is the datasheet's
+      # nominal for the Boson lens family at the same f/1.0 and 12 um pitch, so the Nyquist
+      # frequency and the diffraction term are identical and only the field angle differs.
+      # ESTIMATED for this camera in a way the 640 is not.
 
   fpa:
     type: bolometer

@@ -13,6 +13,12 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **The optical PSF's second factor** (`SC.4`, ADR 0117). Both Bosons carry
+  `optics.mtf.aberration_sigma_um = 1.654 µm`, **solved in code** by the new
+  `irsim.optics.mtf.aberration_sigma_for_mtf` from FLIR's published 42 % nominal on-axis MTF at
+  Nyquist rather than pasted. Until now every shipped camera rendered a diffraction-limited lens.
+  `tests/unit/test_lens_mtf.py` re-runs the derivation against the YAML and fails for any camera
+  that is neither derived nor listed in `IDEAL_LENS` with a reason.
 - **Fire on the camera: gain state, rail and AGC** (`PH.8`, ADR 0116). `irsim.detector.gain_state`
   and `fpa.gain_ceiling_k` — the intrascene ceiling of the state a camera is running in (Boson
   Rev 340: 140 °C high, 500 °C low), applied to the at-aperture **radiance** plane as stage 2e and
@@ -143,6 +149,13 @@ working in one tree; two commits already exist whose whole subject is restoring 
   solved with lateral conduction is 26 % smaller, so `WM.6` is worth about a quarter of it.
 
 #### Changed
+- **The Boson's goldens moved, and in the shape an aberration should** (`SC.4`). Twelve arrays
+  changed and seventeen did not: the smooth ramp by **7.8 mK**, the hard-edged hot patch by
+  **3.97 K** (rms 0.21 K), and the uniform SITF and noise-cube fields **bit-identical**, because no
+  PSF can change a flat. MWIR/NIR/SWIR frames untouched. Regenerated after that comparison.
+- **The Tier 2 MTF bench measures the shipped camera** (`SC.4`): σ is read from
+  `flir_boson_640_lwir.yaml` instead of typed as 0.0 beside it, so the bench and the renderer
+  cannot disagree about which lens they describe. Its Nyquist expectation moves from 0.31 to 0.27.
 - **Golden config hashes regenerated** (`PH.8`). Adding `fpa.gain_ceiling_k` moves `config_hash` on
   23 stored sidecars even though every one has it as `null`. Every golden **array** was verified
   bit-identical before `make golden-update` ran; only the hash moved.

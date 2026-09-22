@@ -23,6 +23,7 @@ __all__ = [
     "mtf_motion",
     "mtf_gaussian",
     "mtf_system",
+    "aberration_sigma_for_mtf",
 ]
 
 FloatArray = NDArray[np.float64]
@@ -98,3 +99,42 @@ def mtf_system(
     if velocity_mm_per_s is not None and t_int_s is not None:
         mtf = mtf * mtf_motion(xi, velocity_mm_per_s, t_int_s)
     return np.asarray(mtf, dtype=np.float64)
+
+
+def aberration_sigma_for_mtf(
+    target_mtf: float, xi_cyc_per_mm: float, wavelength_um: float, f_number: float
+) -> float:
+    """The σ (in **µm**) whose Gaussian, times diffraction, gives ``target_mtf`` at ``ξ``.
+
+    The inverse of the lens half of :func:`mtf_system`, and it exists so a config can carry a
+    *derived* number rather than a pasted one. A datasheet quotes one figure -- "MTF at Nyquist,
+    nominal, on-axis" -- and that figure is the **whole lens**, diffraction included; authoring
+    ``aberration_sigma_um`` therefore means solving
+
+        MTF_diff(ξ) · exp(−2π² σ² ξ²) = target
+
+    for σ, which is what this does. Doing it by hand once and writing the answer into a YAML is
+    how a number stops being checkable: nobody can tell later whether 1.65 µm came from the
+    datasheet or from a fit to a golden.
+
+    The detector footprint is deliberately **not** included. It is the box filter's (ADR 0059) and
+    the datasheet figure is the lens alone, so folding it in here would double-count it.
+
+    Raises when the target is unreachable: above the diffraction limit at that frequency no
+    aberration can help, and a lens quoted above its own diffraction MTF is a datasheet to
+    re-read rather than a σ to solve for.
+    """
+    if not 0.0 < target_mtf < 1.0:
+        raise ValueError("target_mtf must lie in (0, 1)")
+    if xi_cyc_per_mm <= 0.0:
+        raise ValueError("the frequency must be positive")
+    diffraction = float(mtf_diffraction(xi_cyc_per_mm, wavelength_um, f_number))
+    if diffraction <= target_mtf:
+        raise ValueError(
+            f"diffraction alone gives {diffraction:.4f} at {xi_cyc_per_mm:g} cyc/mm, which is at "
+            f"or below the {target_mtf:g} asked for: no aberration Gaussian can raise an MTF, so "
+            "either the figure is for a different frequency or the f-number and wavelength are"
+        )
+    ratio = target_mtf / diffraction
+    sigma_mm = float(np.sqrt(-np.log(ratio) / (2.0 * np.pi**2 * xi_cyc_per_mm**2)))
+    return sigma_mm * 1e3
