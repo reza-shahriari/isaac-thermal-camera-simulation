@@ -45,6 +45,15 @@ from irsim.atmosphere.sea import (
     slant_range_m,
     slope_variance,
 )
+from irsim.atmosphere.sea_envelope import (
+    VALIDATED_WIND_M_S,
+    VALIDATED_ZENITH_DEG,
+    EnvelopeReport,
+    beyond_envelope,
+    depression_at_zenith_rad,
+    envelope_report,
+    view_zenith_rad,
+)
 from irsim.atmosphere.sky import CosQFit, SkyModel
 from irsim.atmosphere.spectral import (
     band_transmittance_spectral,
@@ -82,6 +91,13 @@ __all__ = [
     "available_presets",
     "COX_MUNK",
     "SeaModel",
+    "EnvelopeReport",
+    "VALIDATED_WIND_M_S",
+    "VALIDATED_ZENITH_DEG",
+    "beyond_envelope",
+    "depression_at_zenith_rad",
+    "envelope_report",
+    "view_zenith_rad",
     "horizon_depression_rad",
     "slant_range_m",
     "slope_variance",

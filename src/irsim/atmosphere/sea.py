@@ -441,6 +441,30 @@ class SeaModel:
         d = np.clip(slant_range_m(self._camera_height_m, delta), ranges[0], ranges[-1])
         return np.asarray(np.interp(np.log(d), np.log(ranges), values), dtype=np.float64)
 
+    # -- the validity envelope (SE.1) -------------------------------------------------------
+    def view_zenith_rad(self, depression_rad: Any) -> NDArray[np.float64]:
+        """Zenith angle at the sea for a ray at ``depression_rad`` -- the axis the published
+        in-situ validation is indexed by (:mod:`irsim.atmosphere.sea_envelope`)."""
+        from irsim.atmosphere.sea_envelope import view_zenith_rad
+
+        return view_zenith_rad(self._camera_height_m, depression_rad)
+
+    def beyond_envelope(self, depression_rad: Any) -> NDArray[np.bool_]:
+        """True where this ray views the sea past the angle published radiometry reaches (SE.1).
+
+        The model still answers there -- it has to, because a shore camera has almost no pixels
+        anywhere else -- but the answer is not backed by a measurement. ADR 0118.
+        """
+        from irsim.atmosphere.sea_envelope import beyond_envelope
+
+        return beyond_envelope(self._camera_height_m, depression_rad)
+
+    def envelope_report(self, depression_rad: Any, mask: Any | None = None) -> Any:
+        """How much of a frame's sea lies outside the validated envelope (SE.1)."""
+        from irsim.atmosphere.sea_envelope import envelope_report
+
+        return envelope_report(self._camera_height_m, depression_rad, mask)
+
     def apparent_temperature_exact_k(self, t_s: float, depression_rad: Any) -> NDArray[np.float64]:
         """The un-tabulated profile: the oracle :meth:`apparent_temperature_k` is tested against."""
         return np.asarray(

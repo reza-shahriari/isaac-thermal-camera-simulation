@@ -13,6 +13,18 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **The sea model's angular validity envelope, recorded** (`SE.1`, ADR 0118).
+  `irsim.atmosphere.sea_envelope` carries the 50° from-nadir limit published in-situ radiometry
+  reaches, the exact spherical `sin θ = (1 + h/R) cos δ` that converts a camera depression into
+  the angle that limit is expressed in, and an `EnvelopeReport` that measures a frame against it.
+  `SeaModel.beyond_envelope`, `MaritimeScene.envelope_report()`, and the maritime Tier 3 report
+  now prints the fraction. The measurement: **every shore and mast frame is 1.0000 outside the
+  envelope and every down-looking airborne frame 0.0000 inside it** — at a 20 m eye height the
+  limit is crossed at **31 m of slant range**, so the whole maritime working band is
+  extrapolation. Two findings beyond the row: the envelope has a **wind axis** (our facet-
+  integrated emissivity drop at 55° reproduces the published 2–3 % only to **7.3 m/s**, reaching
+  4.33 % at 15 m/s), and reading the limit against **depression** instead of zenith inverts the
+  answer rather than blurring it. Nothing is gated: the model still answers past 50°, now labelled.
 - **The optical PSF's second factor** (`SC.4`, ADR 0117). Both Bosons carry
   `optics.mtf.aberration_sigma_um = 1.654 µm`, **solved in code** by the new
   `irsim.optics.mtf.aberration_sigma_for_mtf` from FLIR's published 42 % nominal on-axis MTF at

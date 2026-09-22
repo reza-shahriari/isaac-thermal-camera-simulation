@@ -20,6 +20,12 @@ found it does not (ADR 0078):
 
 The third -- polarity flips with range -- holds, and is the one that matters for detection.
 
+**And all three are statements about an extrapolation.** SE.1 measured this frame against the
+angles published in-situ radiometry actually covers: **1.0000 of its sea is outside them.** The
+50 deg validated limit is crossed 31 m from a 20 m camera and this frame starts at 530 m, so
+nothing here is backed by a measurement of a sea. The isothermal identity holds throughout and
+is not evidence to the contrary -- it holds for a wrong angular emissivity too (ADR 0118).
+
 docs/physics-model.md §15 (Tier 3), §5.3; ADR 0078, ADR 0080
 """
 
@@ -36,6 +42,7 @@ import yaml
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.atmosphere.library import load_atmosphere_preset
 from irsim.atmosphere.sea import SeaModel, slant_range_m
+from irsim.atmosphere.sea_envelope import VALIDATED_ZENITH_DEG
 from irsim.atmosphere.sky import SkyModel
 from irsim.config.environment import load_environment_preset
 from irsim.config.gbuffer import UNMAPPED_MATERIAL_ID, GBuffer
@@ -364,3 +371,36 @@ def test_a_hot_vessel_stays_bright_at_every_range(tophat_lwir_lut, response, mat
     far, _ = _vessel_contrast(tophat_lwir_lut, response, materials, 0.18, 310.0)
     assert near > 0.0 and far > 0.0, (near, far)
     assert near > far, "contrast still falls with range, it just never changes sign"
+
+
+def test_the_report_prints_how_much_of_the_frame_is_outside_the_validated_envelope(
+    tophat_lwir_lut, response, materials
+) -> None:  # type: ignore[no-untyped-def]
+    """SE.1: **1.0000** of this frame's sea is past the angle published radiometry reaches.
+
+    Every other test in this file measures what the sea model says. This one measures whether
+    anyone has checked it at the angles being asked. The answer for the band a shore or mast
+    camera works in is *none of them*: at a 20 m eye height the 50° validated limit is crossed
+    at 31 m of slant range, and this frame starts at 530 m.
+
+    So the findings above -- the 2.9 K inversion, the cold trough, the 57 % overcast collapse --
+    are all statements about an extrapolation. They are self-consistent and the isothermal
+    identity holds across them, which is exactly the reassurance SE.1's acceptance warns is not
+    worth much here: the identity holds for a wrong angular emissivity too. ADR 0118.
+    """
+    _, sea, scene, cfg = _build(tophat_lwir_lut, response, materials)
+    report = scene.envelope_report()
+    print(report.summary())
+
+    assert report.n_samples == int(scene.sea_mask.sum()) > 0
+    assert report.fraction_beyond == 1.0, "no pixel of this frame is inside the envelope"
+    assert report.zenith_min_deg > VALIDATED_ZENITH_DEG
+    assert report.envelope_range_m == pytest.approx(31.1, rel=0.01)
+
+    # the near end of the frame is still an order of magnitude beyond where the envelope ends
+    _, depression = _column(scene, _render(scene, cfg))
+    nearest = float(slant_range_m(CAMERA_HEIGHT_M, float(depression[-1])))
+    assert nearest / report.envelope_range_m > 15.0, nearest
+
+    # and the model still answers there rather than refusing -- the flag is a record, not a gate
+    assert np.all(np.isfinite(sea.apparent_temperature_k(0.0, depression)))

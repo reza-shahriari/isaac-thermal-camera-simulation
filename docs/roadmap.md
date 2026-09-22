@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PT.9` is phase A, size M, and unblocks 3 other step(s).
 
-#### Then, in order — 74 open steps
+#### Then, in order — 73 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -182,19 +182,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`IG.2`** | IG | A | M | — | ready |
 | 3 | **`IG.16`** | IG | B | M | — | ready |
 | 4 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 5 | **`SE.1`** | SE | B | M | — | ready |
-| 6 | **`SE.2`** | SE | B | M | — | ready |
-| 7 | **`AT.7`** | AT | C | M | 1 | ready |
-| 8 | **`PH.10`** | PH | C | S | — | ready |
-| 9 | **`PH.11`** | PH | C | S | — | ready |
-| 10 | **`PH.12`** | PH | C | S | — | ready |
-| 11 | **`PH.9`** | PH | C | S | — | ready |
-| 12 | **`TC.8`** | TC | C | S | — | ready |
-| 13 | **`AT.6`** | AT | C | M | — | ready |
-| 14 | **`AT.9`** | AT | C | M | — | ready |
-| 15 | **`GT.7`** | GT | C | M | — | `PT.9` |
+| 5 | **`SE.2`** | SE | B | M | — | ready |
+| 6 | **`AT.7`** | AT | C | M | 1 | ready |
+| 7 | **`PH.10`** | PH | C | S | — | ready |
+| 8 | **`PH.11`** | PH | C | S | — | ready |
+| 9 | **`PH.12`** | PH | C | S | — | ready |
+| 10 | **`PH.9`** | PH | C | S | — | ready |
+| 11 | **`TC.8`** | TC | C | S | — | ready |
+| 12 | **`AT.6`** | AT | C | M | — | ready |
+| 13 | **`AT.9`** | AT | C | M | — | ready |
+| 14 | **`GT.7`** | GT | C | M | — | `PT.9` |
+| 15 | **`PT.13`** | PT | C | M | — | ready |
 
-…and 59 more — `python scripts/next_step.py --queue 40`.
+…and 58 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -552,7 +552,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
-| SE.1 | **Record the sea model's angular validity envelope.** Published in-situ radiometry validates Masuda only to ~50° from nadir; beyond that multiple reflections need Wu–Smith, and emissivity falls 2–3 % by 55°. A shore-based maritime camera views most of the sea **past** 50°, outside the validated envelope. | The model flags an angle outside the envelope and the maritime Tier 3 report prints the frame fraction beyond it. The isothermal identity is preserved but is not the test — it holds for a wrong angular emissivity too. | — | M | B |
+| SE.1 | ✅ **done.** `sea_envelope.py` records the 50° from-nadir limit and reports a frame's fraction beyond it, on the exact `sin θ = (1+h/R) cos δ` (90° at the horizon). Not a gate. ADR 0118. | **Measured.** Shore/mast **1.0000** outside, airborne **0.0000** inside; crossed at **31 m** from 20 m. A **wind axis** too — the 55° drop matches the published 2–3 % only to **7.3 m/s**. On depression the answer **inverts**. Identity held at ε ≡ 0.5, so it is not the test. | — | M | B |
 | SE.2 | **Maritime and illumination in-sim tests.** The maritime stage feeds water prims into `background_prim_paths` so their pixels join the sky mask and take the analytic sea profile; `illumination_isaac` fixed "every Isaac render was emission only". Both are verified engine-free only. | In-sim: the intended water prims are masked and no others; the horizon lands where the Earth-curved mesh puts it to a stated pixel count; sea apparent temperature varies monotonically with depression angle. Red today: no such file in `tests/integration/`. | — | M | B |
 | SE.3 | **Sea-surface temperature against ECOSTRESS SST.** The skin model shipped at `c6f98aa` has no external check. ECOSTRESS L2 carries an SST layer valid over all water. | Bias and RMSE against ECOSTRESS SST for a matched place, time and weather record, reported beside ECOSTRESS's own validation accuracy (bias −1.6 K, RMSE 3.1 K against SURFRAD) so the bar is the instrument's, not an aspiration. | XD.9 | M | B |
 
@@ -867,7 +867,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0117 (0090–0117 were written after this section was first measured; 0093–0117 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8` and `SC.4`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0118 (0090–0118 were written after this section was first measured; 0093–0118 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8`, `SC.4` and `SE.1`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

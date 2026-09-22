@@ -36,6 +36,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.atmosphere.sea import SeaModel
+from irsim.atmosphere.sea_envelope import EnvelopeReport, envelope_report
 from irsim.config.sensor import SensorSpec
 from irsim.materials.table import UNMAPPED_MATERIAL_ID, MaterialTable
 from irsim.pipeline.point_target import PointTarget, fill_fraction
@@ -72,6 +73,17 @@ class MaritimeScene:
         """Depression (degrees) down one image column -- the axis of the sea profile."""
         j = self.shape[1] // 2 if column is None else int(column)
         return np.degrees(self.depression_rad[:, j])
+
+    def envelope_report(self) -> EnvelopeReport:
+        """How much of this frame's sea lies past the sea model's validated view angle (SE.1).
+
+        Recomputed from the depression plane rather than stored, so it cannot drift from the
+        geometry it describes; ``metadata["envelope"]`` holds the same object for a caller that
+        only wants to print it.
+        """
+        return envelope_report(
+            float(self.metadata["camera_height_m"]), self.depression_rad, self.sea_mask
+        )
 
     def sea_rows(self, column: int | None = None) -> NDArray[np.intp]:
         """Row indices of the water pixels in one column, nearest the horizon first."""
@@ -217,5 +229,7 @@ def build_maritime_gbuffer(
             "bulk_sst_k": sea.bulk_sst_k,
             "skin_temperature_k": sea.skin_temperature_k(t_s),
             "cloud_seed": cloud_seed,
+            # SE.1: the frame's own answer to "is any of this backed by a measurement?"
+            "envelope": envelope_report(sea.camera_height_m, depression, sea_mask),
         },
     )
