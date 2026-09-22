@@ -174,27 +174,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PH.5` is phase P, size M, and unblocks 4 other step(s).
 
-#### Then, in order — 83 open steps
+#### Then, in order — 82 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`PH.5`** | PH | P | M | 4 | ready |
 | 2 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
 | 3 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
-| 4 | **`PT.14`** | PT | P | S | — | ready |
-| 5 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 6 | **`WM.6`** | WM | P | M | — | ready |
-| 7 | **`PT.9`** | PT | A | M | 3 | ready |
-| 8 | **`AT.10`** | AT | A | M | — | ready |
-| 9 | **`GT.2`** | GT | A | M | — | ready |
-| 10 | **`IG.2`** | IG | A | M | — | ready |
-| 11 | **`SC.4`** | SC | A | M | — | ready |
-| 12 | **`IG.16`** | IG | B | M | — | ready |
-| 13 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 14 | **`SE.1`** | SE | B | M | — | ready |
-| 15 | **`SE.2`** | SE | B | M | — | ready |
+| 4 | **`PH.8`** | PH | P | M | — | `PH.7` |
+| 5 | **`WM.6`** | WM | P | M | — | ready |
+| 6 | **`PT.9`** | PT | A | M | 3 | ready |
+| 7 | **`AT.10`** | AT | A | M | — | ready |
+| 8 | **`GT.2`** | GT | A | M | — | ready |
+| 9 | **`IG.2`** | IG | A | M | — | ready |
+| 10 | **`SC.4`** | SC | A | M | — | ready |
+| 11 | **`IG.16`** | IG | B | M | — | ready |
+| 12 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 13 | **`SE.1`** | SE | B | M | — | ready |
+| 14 | **`SE.2`** | SE | B | M | — | ready |
+| 15 | **`AT.7`** | AT | C | M | 1 | ready |
 
-…and 68 more — `python scripts/next_step.py --queue 40`.
+…and 67 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -404,7 +404,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.11 | ✅ **done.** `lateral_operator(patch, k, δ)`: K = k δ · side/gap per four-neighbour edge as a `ConductionOperator` on the IMEX step; every patched surface builds it from its material's k and thickness (`lateral_conduction: false` opts out); the car bonnet takes steel's. ADR 0102. | **Measured.** A 20 K step on 5 mm aluminium cells matches the semi-infinite sheet's erf to 0.6 % at 60 s; k → 0 is bit-identical; at 5 cm the explicit limit is 6.4 s and a 60 s implicit tick holds the maximum principle where forward Euler explodes; the steel bonnet is 5 % smoother. 6 cases. | — | L | P |
 | PT.12 | ✅ **done.** `irsim.thermal.layers`: `LayerStack` (§6.4's R = δ/2k + δ/2k between layers, optional deep node) and `layered_field`, each layer a `CoupledFields` member joined by a contactor at 1/R, stepped implicitly; `layers: N` on a patched surface (default 1). ADR 0103. | **Measured.** Two layers reproduce `LumpedTwoNodeSolver` to < 1 mK on both nodes over 6 h; a 1 mm steel skin peaks at 12:19 and a 6-layer 0.3 m asphalt surface at 13:45; the lumped 0.3 m slab is 5.6 K warmer than the 6-layer one at 04:00; `layers: 6` on a scene's road binds its surface view. 5 cases. | — | M | P |
 | PT.13 | **Temperature-map and parameter-map ingest.** DIRSIG's Map Temperature Solver is a single-band raster in °C applied by UV or drape projection; MappedTherm does the same for parameters. `PlanarPatch` is already a raster with a projection. The escape hatch for prescribed aerial skins, externally solved hulls and draping public thermal frames onto geometry. | A float32 raster round-trips through a patch to 1 mK. A °C raster mis-declared as K raises. A parameter map varying α_sol gives the per-cell equilibrium the scalar solver predicts. | PT.2 | M | C |
-| PT.14 | **ADR: temperature granularity tiers.** Production tools select a tier per surface — DIRSIG offers per-material, per-solid, per-facet and per-pixel, and imports MuSES for a real 3-D field. irsim has three tiers in code and only ADR 0087's prose describing the boundary; CLAUDE.md requires an ADR for a chosen fidelity level. | A record, not a test. It states where irsim sits, what each tier costs, and the rule a scene author uses to pick one. It supersedes ADR 0087's "a real limit, not a temporary one". | WM.5 | S | P |
+| PT.14 | ✅ **done.** ADR 0111: four tiers (per prim, cells on a plane, cells on a mesh, and a network node, which is a mass and not a surface), what each costs, and the rule for picking one. No per-material tier, and none chosen by range. | **A record, with numbers.** Cells are nearly free per tick (8× the cells for 1.75× the time; the forcing is the fixed 0.8 ms) and cost at build. Cell size is set by `L = √(kδ/h)` from the committed library — 9 mm on carbon, 145 mm on an aircraft skin — not by the pixel count. | WM.5 | S | P |
 | PT.15 | ✅ **done.** Both exported from `irsim.thermal`; the cabin is a `LumpedMember` of its panels' `CoupledFields` (one implicit operator over panels *and* air) and a layered surface takes §6.4's R₂d/T_deep from `back:`. Schema v10 `thermal.cabin:`; `parked_car_cabin.yaml` + its script (ADR 0106). | **Measured.** Reproduces `CabinNode`'s equilibrium to **0.021 K** at a 2 s tick, roof **+4.84 K** on ADR 0038's panels. Scene: cabin 68.7 °C, roof +1.6 K over an adiabatic bonnet (not 4.8: only the roof faces the sun), night roof −3.8 K vs air. Frame: IG.2. | PT.12, TC.2 | M | P |
 | PT.17 | ✅ **done.** A `PlanarThermalField` per patched surface, on its library material and spun-up state, forced by `CellForcing`; `Scene.surface_fields`, `surface_bindings()`, `bindings_from_scene`. Both car scenes declare bonnet and road; `build_car_demo` reads and checks them. | **Measured.** Under uniform forcing every cell equals the per-prim value **bit for bit** (contract 1 mK); a bonnet grid 24 cm off the skin and a road grid short of the footprint are refused; no patch keeps the hand-built grids; an unknown material fails at load naming the surface. 14 cases. | — | M | P |
 | PT.18 | ✅ **done.** Schema v8: `world_frame:` (ENU default) and `thermal.occluders:`. `CellForcing` gates the beam per cell via `cell_shadow`, spun up with the shadow; `car_demo` fields gain q_solar from `Scene.solar_terms`, shaded by the car's faces. `shaded: true` beside occluders refused. ADR 0095. | **Measured.** SW concrete wall + overhang from YAML: **9.9 K** lit/shaded at 16:00 (PT.1's 22.1 K was a fixed-beam equilibrium); unreached cells **bit-identical** to the per-prim solve, spin-up included; the noon car's shadow strip runs 12.7 K colder after 1500 s. 16 cases. | — | S | P |

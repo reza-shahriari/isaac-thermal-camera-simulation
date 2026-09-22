@@ -29,6 +29,17 @@ working in one tree; two commits already exist whose whole subject is restoring 
   crown-to-underside spread falls from 26.6 K to 22.1 K — the same body rectangles now shade the
   meshed arms and the patched ones alike, where before they shaded only the patched ones.
 
+- **ADR 0111 — temperature granularity tiers** (`PT.14`). Four of them, written down beside each
+  other for the first time: one facet per prim, cells on a plane (ADR 0087), cells on a mesh
+  (ADR 0110), and a network node, which is a mass and not a surface. No per-material tier, and no
+  tier chosen by range or pixel footprint. Measured: cells are nearly free per tick (288 → 2304
+  cells is 0.95 → 1.66 ms, the fixed ~0.8 ms being the forcing) and cost at build instead. The
+  selection rule is the fin equation's smoothing length `L = √(kδ/h)`, tabulated from the
+  committed material library — 2 mm on a leaf, 9 mm on carbon fibre, 49 mm on asphalt, 145 mm on a
+  painted aircraft skin, which therefore cannot hold a fine pattern at all. The meshed arms sit
+  finer than their own `L` on purpose, which makes their 22.1 K an upper bound: the same ring
+  solved with lateral conduction is 26 % smaller, so `WM.6` is worth about a quarter of it.
+
 #### Changed
 - `ShadowRectangle.normal` is cached in `__post_init__` instead of crossing its axes on every
   call. One scene's spin-up reached a million calls and spent more than half its wall clock inside

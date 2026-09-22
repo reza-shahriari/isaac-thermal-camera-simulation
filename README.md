@@ -385,6 +385,18 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   On a mesh the sample is also piecewise constant and the normal is its face's, never a vertex's;
   smoothing across faces and lateral conduction are `WM.6`'s, and
   `film:`, `water:`, `layers:` and `back:` are refused on a mesh rather than silently ignored.
+- **A surface's granularity tier is authored, never chosen for it** (ADR 0111). Four tiers: one
+  facet per prim, cells on a plane (ADR 0087), cells on a mesh (ADR 0110), and a network node,
+  which is a *mass* and not a surface. There is no per-material tier — DIRSIG's default — because
+  one material is shared by surfaces at different orientations under different shade. Nothing
+  selects a tier by range or by pixel footprint, and a surface with no `patch:` or `mesh:` gets
+  one temperature **silently**: the difference between "this surface is uniform" and "nobody got
+  round to it" is not in the config. Cell size is set by the material's own smoothing length
+  `L = √(kδ/h)` — 9 mm on carbon fibre, 49 mm on asphalt, **145 mm on a painted aircraft skin**,
+  which therefore cannot carry a fine thermal pattern however many cells a scene spends. The
+  meshed arms break that rule at 3.9 mm on purpose, because `PT.11`'s lateral conduction does not
+  run on a mesh yet (`WM.6`), which makes their 22.1 K an **upper bound**: solving the same ring
+  with conduction gives a span 26 % smaller.
 - Band-averaged atmosphere (Beer-Lambert). Valid under ~500 m; not for airborne work. Measured
   (ADR 0048): a grey γ_B fitted over 0–300 m over-attenuates a two-level LWIR band by 1.7 % at 500 m
   and 8.7 % at 1 km, and a MWIR band with an opaque CO₂ notch by 18 % at 500 m and 42 % at 1 km.
