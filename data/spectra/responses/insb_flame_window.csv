@@ -1,0 +1,150 @@
+# Generic InSb MWIR camera behind a 3.80-4.05 um through-flame bandpass, relative spectral
+# response R(lambda), peak-normalised.
+# STATUS: ESTIMATED -- not a measurement of any specific unit. Cold filter + bandpass + detector
+# + optics folded together.
+#
+# Shape (roadmap PH.5; the INSB header in this generator predicted this file):
+#   * the detector and its cold filter are exactly insb.csv's shape, multiplied by
+#   * a bandpass with 50 % points at 3.80 and 4.05 um and raised-cosine edges 0.08 um wide, which
+#     is what a 5-cavity interference filter at 77 K gives.
+# WHY IT EXISTS: this passband sits in the gap between the 2.7 um CO2/H2O complex and the 4.3 um
+# CO2 band. A plain 3-5 um camera looking at a flame sees the gas: hot CO2 at 4.3 um dominates
+# the band and hides whatever is behind it. This one sees through the gas and reads the soot and
+# the surfaces instead. The two cameras differ only by this file -- no kernel knows the
+# difference, which is what "bands are data, not code" has to mean to be worth anything.
+# The claim is checked, not asserted: tests/unit/test_gas_tables.py compares the committed
+# kappa_b(T) table for this response against the one for 3-5 um.
+# Columns: wavelength in MICROMETRES, dimensionless response in [0, 1]. Grid 0.005 um.
+# Authored 2026-09-22 (roadmap PH.5).
+wavelength_um,response
+3.600,0.000000
+3.605,0.000000
+3.610,0.000000
+3.615,0.000000
+3.620,0.000000
+3.625,0.000000
+3.630,0.000000
+3.635,0.000000
+3.640,0.000000
+3.645,0.000000
+3.650,0.000000
+3.655,0.000000
+3.660,0.000000
+3.665,0.000000
+3.670,0.000000
+3.675,0.000000
+3.680,0.000000
+3.685,0.000000
+3.690,0.000000
+3.695,0.000000
+3.700,0.000000
+3.705,0.000000
+3.710,0.000000
+3.715,0.000000
+3.720,0.000000
+3.725,0.000000
+3.730,0.000000
+3.735,0.000000
+3.740,0.000000
+3.745,0.000000
+3.750,0.000000
+3.755,0.000000
+3.760,0.000000
+3.765,0.009498
+3.770,0.037638
+3.775,0.083349
+3.780,0.144888
+3.785,0.219901
+3.790,0.305516
+3.795,0.398451
+3.800,0.495141
+3.805,0.591877
+3.810,0.684943
+3.815,0.770767
+3.820,0.846049
+3.825,0.907895
+3.830,0.953927
+3.835,0.982372
+3.840,0.992133
+3.845,0.992365
+3.850,0.992596
+3.855,0.992827
+3.860,0.993059
+3.865,0.993290
+3.870,0.993522
+3.875,0.993753
+3.880,0.993984
+3.885,0.994216
+3.890,0.994447
+3.895,0.994678
+3.900,0.994910
+3.905,0.995141
+3.910,0.995373
+3.915,0.995604
+3.920,0.995835
+3.925,0.996067
+3.930,0.996298
+3.935,0.996529
+3.940,0.996761
+3.945,0.996992
+3.950,0.997224
+3.955,0.997455
+3.960,0.997686
+3.965,0.997918
+3.970,0.998149
+3.975,0.998380
+3.980,0.998612
+3.985,0.998843
+3.990,0.999075
+3.995,0.999306
+4.000,0.999537
+4.005,0.999769
+4.010,1.000000
+4.015,0.990622
+4.020,0.962385
+4.025,0.916370
+4.030,0.854343
+4.035,0.778685
+4.040,0.692301
+4.045,0.598513
+4.050,0.500925
+4.055,0.403293
+4.060,0.309372
+4.065,0.222780
+4.070,0.146853
+4.075,0.084519
+4.080,0.038184
+4.085,0.009641
+4.090,0.000000
+4.095,0.000000
+4.100,0.000000
+4.105,0.000000
+4.110,0.000000
+4.115,0.000000
+4.120,0.000000
+4.125,0.000000
+4.130,0.000000
+4.135,0.000000
+4.140,0.000000
+4.145,0.000000
+4.150,0.000000
+4.155,0.000000
+4.160,0.000000
+4.165,0.000000
+4.170,0.000000
+4.175,0.000000
+4.180,0.000000
+4.185,0.000000
+4.190,0.000000
+4.195,0.000000
+4.200,0.000000
+4.205,0.000000
+4.210,0.000000
+4.215,0.000000
+4.220,0.000000
+4.225,0.000000
+4.230,0.000000
+4.235,0.000000
+4.240,0.000000
+4.245,0.000000
+4.250,0.000000

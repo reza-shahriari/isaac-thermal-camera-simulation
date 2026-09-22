@@ -201,9 +201,61 @@ def nir_si(lam: float) -> float:
     return qe
 
 
+# --- InSb behind a through-flame bandpass (MWIR, PH.5) -----------------------------------------
+
+#: The half-power edges of the bandpass, micrometres. Between the 2.7 um CO2/H2O complex and the
+#: 4.3 um CO2 band there is a window in which hot combustion gas is nearly transparent, and a
+#: filter that sits inside it lets an MWIR camera see the *soot and the surfaces* through a flame
+#: instead of the flame's own gas emission. 3.80-4.05 um is the usual placement (the "flame
+#: window" or "through-flame" filter sold for furnace and burner work).
+FLAME_WINDOW_UM = (3.80, 4.05)
+FLAME_EDGE_UM = 0.04  # half-width of each interference edge: 50 % at the quoted wavelength
+
+INSB_FLAME_WINDOW = dict(
+    edges=(3.60, 4.25),
+    step=0.005,
+    decimals=3,
+    header="""\
+# Generic InSb MWIR camera behind a 3.80-4.05 um through-flame bandpass, relative spectral
+# response R(lambda), peak-normalised.
+# STATUS: ESTIMATED -- not a measurement of any specific unit. Cold filter + bandpass + detector
+# + optics folded together.
+#
+# Shape (roadmap PH.5; the INSB header in this generator predicted this file):
+#   * the detector and its cold filter are exactly insb.csv's shape, multiplied by
+#   * a bandpass with 50 % points at 3.80 and 4.05 um and raised-cosine edges 0.08 um wide, which
+#     is what a 5-cavity interference filter at 77 K gives.
+# WHY IT EXISTS: this passband sits in the gap between the 2.7 um CO2/H2O complex and the 4.3 um
+# CO2 band. A plain 3-5 um camera looking at a flame sees the gas: hot CO2 at 4.3 um dominates
+# the band and hides whatever is behind it. This one sees through the gas and reads the soot and
+# the surfaces instead. The two cameras differ only by this file -- no kernel knows the
+# difference, which is what "bands are data, not code" has to mean to be worth anything.
+# The claim is checked, not asserted: tests/unit/test_gas_tables.py compares the committed
+# kappa_b(T) table for this response against the one for 3-5 um.
+# Columns: wavelength in MICROMETRES, dimensionless response in [0, 1]. Grid 0.005 um.
+# Authored 2026-09-22 (roadmap PH.5).
+wavelength_um,response
+""",
+)
+
+
+def insb_flame_window(lam: float) -> float:
+    lo, hi = FLAME_WINDOW_UM
+    if lam <= lo - FLAME_EDGE_UM or lam >= hi + FLAME_EDGE_UM:
+        return 0.0
+    if lam < lo + FLAME_EDGE_UM:
+        pass_band = _raised_cosine_up(lam, lo - FLAME_EDGE_UM, lo + FLAME_EDGE_UM)
+    elif lam > hi - FLAME_EDGE_UM:
+        pass_band = _raised_cosine_down(lam, hi - FLAME_EDGE_UM, hi + FLAME_EDGE_UM)
+    else:
+        pass_band = 1.0
+    return insb(lam) * pass_band
+
+
 CURVES["ingaas"] = {**INGAAS, "fn": ingaas}
 CURVES["nir_si"] = {**NIR_SI, "fn": nir_si}
 CURVES["insb"] = {**INSB, "fn": insb}
+CURVES["insb_flame_window"] = {**INSB_FLAME_WINDOW, "fn": insb_flame_window}
 
 
 def main(argv: list[str] | None = None) -> int:

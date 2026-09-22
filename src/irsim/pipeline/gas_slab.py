@@ -20,9 +20,13 @@ band-mean absorption coefficient of the mixture over the path length ``L``:
     κ_b = κ_CO₂,b(T_g) · p_CO₂ + κ_H₂O,b(T_g) · p_H₂O + κ_soot,b(T_g)
 
 The gas coefficients are per atmosphere of partial pressure and come from **tables generated
-offline** from HITEMP through RADIS, or from RadCal (`PH.5`, open question 14) -- a table is
-data this module reads and never derives, because HITRAN-regime coefficients scaled to flame
-temperature are wrong by the bands HITEMP adds. Soot needs no table: in the small-particle limit
+offline** -- RadCal's weak-line coefficients, per `PH.5` and open question 14; a table is data
+this module reads and never derives, because HITRAN-regime coefficients scaled to flame
+temperature are wrong by the bands a high-temperature line list adds. Each ``κ_species,b`` is
+read at the species' own column density ``p·L`` as well as at ``T_g``, because a band mean that
+goes inside one exponential depends on the path (see :class:`SpeciesAbsorption`); a table
+without that axis is read as a path-independent coefficient. Soot needs no table: in the
+small-particle limit
 ``κ_λ = C0 f_v / λ`` (`SOOT_RAYLEIGH_C0`), and its band mean is the Planck-weighted ``⟨1/λ⟩`` over
 the band's own R(λ), evaluated here by the same quadrature the band LUTs use.
 
@@ -75,6 +79,7 @@ __all__ = [
     "GasSlab",
     "SlabQuantity",
     "SpeciesAbsorption",
+    "TINY_OPTICAL_DEPTH",
     "gas_band_radiance",
     "slab_excess_radiance",
     "slab_optical_depth",
@@ -130,24 +135,63 @@ class GasSlab:
         )
 
 
+#: log(0) guard for the column interpolation: a band where a species has no absorption at all has
+#: a genuinely zero optical depth, and ``exp(log(TINY_OPTICAL_DEPTH))`` returns it as zero.
+TINY_OPTICAL_DEPTH = 1e-300
+
+
 @dataclass(frozen=True)
 class SpeciesAbsorption:
-    """``κ_b(T)`` for one species in one band, 1/(m·atm), on a temperature grid.
+    """``κ_b(T)`` -- or ``κ_b(T, X)`` -- for one species in one band, 1/(m·atm).
 
     Generated offline (`PH.5`) and read here; linear in T between grid points, and a query
     outside the grid raises rather than extrapolating a line-by-line result nobody computed.
+
+    **Why there is a second axis.** A band coefficient that goes inside one exponential is not a
+    property of the gas alone: it depends on how much gas the ray crosses. CO2 in a 3-5 µm camera
+    is the extreme case -- essentially all of its absorption is in 4.2-4.45 µm, so once that
+    core is saturated the band's absorptance stops growing and the *effective* coefficient falls
+    as 1/X. Measured on the committed table, ``κ_b`` for CO2 in MWIR runs from 36 to 0.6
+    1/(m·atm) between X = 0.005 and X = 0.5 atm·m: a single number would be wrong by sixty times
+    across the path lengths an exhaust plume actually spans (`PH.5`; ADR 0098 addendum).
+
+    So a generated table carries ``columns_atm_m`` -- the species' own column density ``p·L``,
+    in atm·m -- and ``kappa_per_m_atm`` is ``(n_T, n_X)``. It stores the coefficient that
+    reproduces the band-mean transmittance at that column, ``κ = −ln⟨exp(−κ_λ X)⟩_RB / X``, so
+    ``exp(−κ X)`` returns the right band transmittance and ``1 − exp(−κ X)`` the right band
+    emissivity. A one-dimensional table (no ``columns_atm_m``) is still accepted and is read as a
+    coefficient that does not vary with path -- which is what a synthetic test table wants.
+
+    Outside the column grid the two limits are known and are used rather than refused: below it
+    the medium is optically thin and ``κ`` is constant; above it the optical depth has saturated
+    and ``κ = τ*_max / X``.
     """
 
     temperatures_k: NDArray[np.float64]
     kappa_per_m_atm: NDArray[np.float64]
+    columns_atm_m: NDArray[np.float64] | None = None
 
     def __post_init__(self) -> None:
         t = np.asarray(self.temperatures_k, dtype=np.float64).reshape(-1)
-        k = np.asarray(self.kappa_per_m_atm, dtype=np.float64).reshape(-1)
+        k = np.asarray(self.kappa_per_m_atm, dtype=np.float64)
         if np.asarray(self.kappa_per_m_atm).dtype == np.float16:
             raise TypeError("float16 absorption tables are refused (CLAUDE.md #2)")
-        if t.shape != k.shape or t.shape[0] < 2:
-            raise ValueError("a table needs matching temperature and kappa arrays of length >= 2")
+        if self.columns_atm_m is None:
+            k = k.reshape(-1)
+            if t.shape != k.shape or t.shape[0] < 2:
+                raise ValueError(
+                    "a table needs matching temperature and kappa arrays of length >= 2"
+                )
+        else:
+            x = np.asarray(self.columns_atm_m, dtype=np.float64).reshape(-1)
+            if x.shape[0] < 2 or np.any(np.diff(x) <= 0.0) or x[0] <= 0.0:
+                raise ValueError("column densities must be positive and strictly increasing")
+            if k.shape != (t.shape[0], x.shape[0]) or t.shape[0] < 2:
+                raise ValueError(
+                    f"a two-dimensional table needs kappa of shape {(t.shape[0], x.shape[0])}, "
+                    f"got {k.shape}"
+                )
+            object.__setattr__(self, "columns_atm_m", x)
         if np.any(np.diff(t) <= 0.0):
             raise ValueError("table temperatures must be strictly increasing")
         if np.any(k < 0.0):
@@ -155,14 +199,35 @@ class SpeciesAbsorption:
         object.__setattr__(self, "temperatures_k", t)
         object.__setattr__(self, "kappa_per_m_atm", k)
 
-    def at(self, t_gas_k: float) -> float:
+    def at(self, t_gas_k: float, column_atm_m: float | None = None) -> float:
         t = self.temperatures_k
         if not t[0] <= t_gas_k <= t[-1]:
             raise ValueError(
                 f"T = {t_gas_k} K is outside the table's {t[0]:g}-{t[-1]:g} K; the table is a "
                 "line-by-line result and is not extrapolated"
             )
-        return float(np.interp(t_gas_k, t, self.kappa_per_m_atm))
+        if self.columns_atm_m is None:
+            return float(np.interp(t_gas_k, t, self.kappa_per_m_atm))
+        if column_atm_m is None:
+            raise ValueError(
+                "this table varies with column density and needs p·L in atm·m; a band "
+                "coefficient read at one column and used at another is wrong by the ratio of "
+                "the two once the band's core has saturated (`PH.5`)"
+            )
+        if column_atm_m <= 0.0:
+            raise ValueError("a column density must be positive")
+        columns = self.columns_atm_m
+        row = np.array(
+            [np.interp(t_gas_k, t, self.kappa_per_m_atm[:, j]) for j in range(columns.shape[0])]
+        )
+        if column_atm_m <= columns[0]:
+            return float(row[0])  # optically thin: the coefficient stops depending on the path
+        optical_depth = row * columns
+        if column_atm_m >= columns[-1]:
+            return float(optical_depth[-1] / column_atm_m)  # saturated: τ* stops growing
+        log_tau = np.log(np.maximum(optical_depth, TINY_OPTICAL_DEPTH))
+        tau = float(np.exp(np.interp(np.log(column_atm_m), np.log(columns), log_tau)))
+        return tau / column_atm_m
 
 
 @dataclass(frozen=True)
@@ -173,7 +238,14 @@ class GasBandTables:
     species: Mapping[str, SpeciesAbsorption]
 
     def kappa_per_m(self, slab: GasSlab) -> float:
-        """The gas part of κ_b at the slab's temperature, 1/m, from its partial pressures."""
+        """The gas part of κ_b at the slab's temperature, 1/m, from its partial pressures.
+
+        Each species is read at **its own** column density ``p·L``, and the contributions add, so
+        ``exp(−κ_b L)`` is the product of the two species' band transmittances. That product form
+        is the standard band-model treatment and its one approximation is that the two species'
+        lines do not overlap -- true where it matters most (CO2's 4.3 µm band is a window for
+        H2O) and mildly optimistic where the LWIR rotation band meets CO2's 15 µm band.
+        """
         total = 0.0
         for name, pressure in (("co2", slab.p_co2_atm), ("h2o", slab.p_h2o_atm)):
             if pressure <= 0.0:
@@ -186,7 +258,8 @@ class GasBandTables:
                     "-- a coefficient scaled from ambient HITRAN data would be wrong at flame "
                     "temperature and is not substituted"
                 )
-            total += table.at(slab.t_gas_k) * pressure
+            column = pressure * slab.length_m if table.columns_atm_m is not None else None
+            total += table.at(slab.t_gas_k, column) * pressure
         return total
 
 

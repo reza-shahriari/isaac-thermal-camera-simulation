@@ -99,3 +99,74 @@ A validation needs the band transmittance of a structured band (CO₂ 4.3 µm) t
 RadCal's envelope, which means a narrow-band or correlated-k integration inside the pipeline
 rather than a band-mean κ; or scattering becomes the dominant term for a smoke scene, which is
 a two-stream or Monte Carlo addition the slab's interface (T, species, L) already accommodates.
+
+## Addendum (PH.5, 2026-09-22) — RadCal, not HITEMP; and the coefficient needs a second axis
+
+Two findings from filling the tables. The first was expected and is recorded for provenance; the
+second contradicts a sentence above and changes the interface.
+
+### RADIS over HITEMP was not attempted; the tables are RadCal's
+
+Open question 14 offered RADIS over HITEMP first, time-boxed, with RadCal's public-domain tables
+as the fallback. The fallback was taken without spending the time box: RADIS is not installed in
+the project interpreter, and installing it plus a multi-gigabyte registered HITEMP download into
+an interpreter shared with other people's running work is not a change to make unasked. RadCal
+needed neither — it is a single public-domain Fortran file in the FDS tree.
+
+What is checked in: `data/spectra/radcal/{h2o_sd,co2_sd15}.csv`, the two arrays RadCal tabulates,
+extracted from FDS `Source/rcal.f90` at a pinned commit by `scripts/fetch_radcal_tables.py`; and
+`scripts/radcal.py`, a transcription of RadCal's `CO2` and `H2O` routines restricted to the
+weak-line coefficient `SDWEAK`. The transcription reproduces both arrays **bit-exactly at every
+grid node** except the two rows RadCal itself evaluates a hundredth of a degree short of
+(`tests/unit/test_radcal_port.py`), which is the check that an index transcribed wrong would fail.
+
+Not ported: the Goody/Malkmus/Elsasser line-structure fits, Curtis–Godson averaging and the
+Doppler growth curve. Those turn the weak-line coefficient into a narrow-band transmittance, and
+the model above wants a coefficient, not a transmittance.
+
+What the swap costs: RadCal's own envelope rather than a line-by-line one, and — the part that
+bites — RadCal **truncates**. CO₂ above 5725 cm⁻¹ (1.75 µm) and H₂O above 9300 cm⁻¹ (1.08 µm)
+are *set* to zero. That is sound for fire heat transfer and unsound for a short-wave camera,
+where real overtone bands live. So a band is refused rather than zeroed: the generator records
+the R·B-weighted fraction of each band inside the model's support, and `gas_tables.py` refuses
+below 0.99. On the committed tables MWIR and LWIR are 1.00 and usable; **SWIR is 0.78 for H₂O and
+0.00 for CO₂, NIR 0.00 for both, and both are refused.** A SWIR or NIR flame raises an error that
+names HITEMP. That is the one capability this fallback gives up, and it is worth stating plainly
+rather than shipping a flame that is invisible for a reason nobody can see.
+
+### The band coefficient depends on the path, and by a factor of sixty
+
+The ADR above says the band-mean-inside-one-exponential error "is the band-model error RadCal's
+8 % already includes". Measuring it, that is wrong, and wrong in a way that would have produced
+a visibly absurd plume.
+
+The obvious band mean is the emission-weighted mean of κ(λ) — RadCal's Planck-mean coefficient
+restricted to the response. In a 3–5 µm camera essentially all of CO₂'s absorption sits in
+4.2–4.45 µm, so that mean is **200–360 1/(m·atm)**, and putting it inside one exponential makes a
+30 cm exhaust plume at 10 % CO₂ opaque (τ = 0.003) when the band's own transmittance is 0.82. It
+also *falls* with temperature — the line peaks drop as the population spreads — while the band's
+absorptance *rises*, because hot bands widen it. So it fails `PH.5`'s own acceptance check.
+
+What is stored instead is the coefficient that reproduces the band's transmittance at the path
+the ray takes:
+
+    κ_b(T, X) = −ln ⟨exp(−κ_λ(T) X)⟩_RB / X,   X = p·L in atm·m
+
+This is the Planck mean in the optically thin limit and saturates like the real band when the
+core does. It is not a property of the gas alone, so `SpeciesAbsorption` gains a **column-density
+axis** and each species is read at its own `p·L`. Measured on the committed MWIR table, CO₂ runs
+from 35.8 to 0.61 1/(m·atm) between X = 0.005 and X = 0.5 atm·m: **a single number would be wrong by
+sixty times across the path lengths one exhaust plume spans**, which is why the axis is not
+optional. Outside the grid the two limits are used rather than refused — constant below it
+(optically thin), `τ*/X` above it (saturated). A one-dimensional table is still read, as a
+path-independent coefficient, which is what a synthetic test table wants.
+
+Species still add in optical depth, so `exp(−κ_b L)` is the product of the two species' band
+transmittances. The approximation there is that their lines do not overlap — true where it
+matters (CO₂'s 4.3 µm band is a window for H₂O), mildly optimistic where the LWIR rotation band
+meets CO₂'s 15 µm band.
+
+Measured, on the committed tables, for a 0.25 m 600 K plume at 10 % CO₂ / 12 % H₂O:
+τ(MWIR 3–5 µm) = **0.830**, τ(LWIR) = **0.913**, τ(3.80–4.05 µm through-flame) = **1.000**. The
+first two are inside `PH.6`'s stated bounds; the third is why `data/spectra/responses/insb_flame_window.csv`
+now exists, and it differs from the plain InSb camera by a response file and nothing else.
