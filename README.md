@@ -135,8 +135,12 @@ third: three of the six drivers built their scene with `Scene.from_file`'s defau
 instead of the sensor's own, so the sky model came out in band radiance while a photon FPA runs on
 `lb_q` and `PipelineConfig` refused the pair. Each of the three therefore worked in exactly the
 band its `--sensor` default names and raised in the other three -- the aerial point-target scene
-among them, which is the lane ranked first. `tests/unit/test_render_multiband.py` now reads every
-swept driver's `Scene.from_file` calls and fails if one omits the quantity.
+among them, which is the lane ranked first. Fixing it uncovered a fourth, hidden behind it in the
+same three drivers: they attached the M9 sensor chain unconditionally, and `attach_sensor_chain`
+needs a radiometric calibration to turn the NUC residual's millikelvin into DN (ADR 0056), which a
+photon FPA does not have. `tests/unit/test_render_multiband.py` now reads every swept driver by
+AST and fails if one builds a `Scene` without the sensor's quantity or attaches the chain without
+checking for a calibration.
 
 **The companion visible frame has a real sky (ADR 0073).** `--rgb` used to write a flat grey void
 with six grey squares in it, which told a reader nothing about where the camera pointed or what

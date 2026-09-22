@@ -263,3 +263,38 @@ def test_every_swept_driver_builds_its_scene_in_the_sensors_own_quantity(driver)
                 f"{scene}: {script} line {call.lineno} builds a Scene without the sensor's "
                 "quantity, so it runs in one band and raises in the other three"
             )
+
+
+def test_every_swept_driver_skips_the_m9_chain_when_the_camera_has_no_calibration(driver):
+    """The other half of "runs in four bands": a photon FPA carries no radiometric calibration.
+
+    The M9 chain's NUC residual is authored in millikelvin and `attach_sensor_chain` needs a
+    calibration to convert it into DN (ADR 0056); a photon camera has none (M11.6), and is
+    shutterless here anyway, so there is no FFC to freeze either. A driver that attaches the
+    chain unconditionally raises on every reflective band. Three did -- the same three that
+    built their scene in the wrong quantity, and the error only surfaced once that was fixed.
+
+    The guard reads `pipeline.calibration is None`; this test looks for that comparison rather
+    than for the call, because the honest behaviour is to skip and *say so*, not to fail.
+    """
+    for scene, (script, _args, _frames) in driver.SCENES.items():
+        source = (SCRIPTS / script).read_text("utf-8")
+        tree = ast.parse(source)
+        attaches = any(
+            isinstance(node, ast.Call) and getattr(node.func, "id", "") == "attach_sensor_chain"
+            for node in ast.walk(tree)
+        )
+        if not attaches:
+            continue
+        guarded = any(
+            isinstance(node, ast.Compare)
+            and isinstance(node.ops[0], ast.Is)
+            and getattr(node.left, "attr", "") == "calibration"
+            and isinstance(node.comparators[0], ast.Constant)
+            and node.comparators[0].value is None
+            for node in ast.walk(tree)
+        )
+        assert guarded, (
+            f"{scene}: {script} attaches the M9 chain without checking for a radiometric "
+            "calibration, so it raises on every photon-FPA band"
+        )

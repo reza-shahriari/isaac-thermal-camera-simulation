@@ -218,10 +218,23 @@ def main() -> int:
         atmosphere=scene.layered,
         flat_field_enabled=not args.no_flat_field,
     )
+    # ADR 0056: the M9 chain's NUC residual is authored in millikelvin and needs a radiometric
+    # calibration to reach DN. A photon FPA has none (M11.6), and a photon camera in this
+    # repository is shutterless by configuration anyway, so there is no FFC to model either.
+    # Skipping it is the honest behaviour and is announced; failing here would make every
+    # reflective-band render impossible for a reason that is not about the band.
     if not args.no_chain:
-        from irsim.pipeline.sensor_chain import attach_sensor_chain
+        if pipeline.calibration is None:
+            print(
+                f"{spec.name}: no M9 sensor chain -- a photon FPA has no radiometric calibration "
+                "to convert the NUC residual into DN (ADR 0056), and this camera is shutterless, "
+                "so there is no FFC to freeze. Defects and 3-D noise still apply.",
+                file=sys.stderr,
+            )
+        else:
+            from irsim.pipeline.sensor_chain import attach_sensor_chain
 
-        pipeline = attach_sensor_chain(pipeline, scene.weather, t0_s=scene.t0_s)
+            pipeline = attach_sensor_chain(pipeline, scene.weather, t0_s=scene.t0_s)
 
     road = demo.ground_field.patch
     bonnet = demo.bonnet_field.patch

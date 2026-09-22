@@ -44,6 +44,12 @@ working in one tree; two commits already exist whose whole subject is restoring 
   at startup. The three now pass the sensor's quantity and its `DiffuseSkylight` (M11.10, ADR
   0086) through, as the other three already did, and `tests/unit/test_render_multiband.py` reads
   every swept driver's `Scene.from_file` calls by AST and fails if one omits it.
+- **...and then attached a sensor chain the camera could not carry** (`IG.13`). Hidden behind the
+  entry above, in the same three drivers: `attach_sensor_chain` needs a radiometric calibration to
+  convert the M9 NUC residual's millikelvin into DN (ADR 0056), a photon FPA has none (M11.6), and
+  these three attached it unconditionally. They now skip the chain and say so on stderr, as the
+  other three already did -- the camera is shutterless anyway, so there is no FFC to freeze, and
+  defects and 3-D noise still apply. Guarded by the same AST test.
 
 ### 2026-09-21
 
