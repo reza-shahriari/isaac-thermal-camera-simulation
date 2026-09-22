@@ -98,3 +98,38 @@ reference convention above. Measured after the change: the overcast scene's stan
 +0.009 K (was −0.136 K mean, −2.1 K under the bay) and the engine's 30-minute growth is 1.81 K in
 both the uniform and the spun-up start.
 
+
+## Addendum 2026-09-22 (WM.4): the sky view on a mesh is traced, not assumed
+
+This ADR's "revisit when" asked for a non-parallel pair — a wheel arch, a wall beside a radiator.
+`WM.4` reaches it from the other side: a surface whose *cells do not share a normal*. Every mesh
+cell had the tilt's isotropic `V_s = (1 + n·up)/2` and the surface's one `shaded` flag, which is
+the **unobstructed** answer to both questions, and a tube running under an airframe is not
+unobstructed.
+
+`irsim.thermal.mesh_geometry` traces both: `PT.21`'s Tregenza quadrature per cell, and `PT.22`'s
+disc rays for the beam, through the `Occluders` protocol so the scene's rectangles and the mesh's
+own triangles answer the same query. The verification worth recording:
+
+* **A convex mesh traces to the analytic form bit for bit.** A ray leaving a convex body into the
+  outward hemisphere of the face it left cannot return, so the gated quadrature and the open one
+  are the same additions in the same order and their ratio is exactly 1.0. Measured on a tube, an
+  open tube, a sphere and a box. That equality is what licenses `cell_occluders` skipping the
+  trace for a convex mesh alone in a scene — exactness, not a speed heuristic — and it is why
+  every mesh shipped before this row keeps its numbers.
+* **A mesh cell and a patch cell agree to the bit** about the sky at the same point under the
+  same wall, through two independent ray-rectangle implementations (`cell_shadow` and
+  `RectangleOccluders`). They share the quadrature and nothing else.
+* The analytic anchors hold: the foot of a 60 m wall reads **0.5000** and the edge of a wide
+  overhang **0.5042**, against 0.5 exactly.
+
+What this changed in a shipped scene: `quad_flight_mesh.yaml` declares the body and pod
+rectangles that already shaded the *patched* arms of `quad_flight_pointwise.yaml`, and they now
+shade the meshed ones too — so the same airframe no longer casts a shadow in one scene and none
+in the other. The motor pod covers the outer 60 mm of each arm: those cells lose the whole midday
+beam and all but **0.10** of their sky against **0.93** along the open span, and the arm's
+crown-to-underside spread at noon falls from 26.6 K to **22.1 K** because part of the crown is no
+longer in the sun. The cheaper number is the more correct one.
+
+Still assumed: the dome is isotropic (ADR 0104's Perez deferral stands), there is no
+inter-reflection between a cell and whatever shades it, and normals are per face.

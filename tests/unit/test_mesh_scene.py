@@ -94,7 +94,10 @@ def test_the_crown_is_the_side_that_faces_the_sun_and_not_the_other_one() -> Non
         for lo, hi in zip(edges[:-1], edges[1:], strict=True)
     ]
     assert np.all(np.diff(means) > 0.0), means
-    assert means[-1] - means[0] > 25.0, means
+    # 11.8 K between the bin facing straight down and the bin facing straight up, measured. It
+    # was 27 K before `WM.4` traced the body's shadow onto the arm: the inner third of the tube
+    # runs under the airframe's roof, which takes its midday beam and most of its sky.
+    assert means[-1] - means[0] > 10.0, means
 
 
 @pytest.mark.slow
@@ -272,13 +275,44 @@ def test_build_mesh_makes_the_shape_the_author_named() -> None:
 
 
 @pytest.mark.slow
-def test_a_mesh_cell_takes_its_sky_view_from_its_own_normal(scene) -> None:  # type: ignore[no-untyped-def]
-    """`MeshCellForcing`'s other term. V_s = (1 + n·up)/2, so a cell on the crown sees the whole
-    sky, one on the underside sees none of it, and one on the flank sees half — where every cell
-    of a patch shares the surface's single tilt."""
-    forcing = scene.mesh_fields["arm_n"].field.forcing_at
-    sky = forcing.sky_view
-    up = scene.mesh_fields["arm_n"].patch.cell_normal @ UP
-    assert float(sky.max()) > 0.98 and float(sky.min()) < 0.02
-    assert np.allclose(sky, 0.5 * (1.0 + up), atol=1e-12)
+def test_a_mesh_cell_sees_the_sky_its_own_geometry_leaves_it(scene) -> None:  # type: ignore[no-untyped-def]
+    """`MeshCellForcing`'s other term, traced (`WM.4`).
+
+    The tilt's ``V_s = (1 + n·up)/2`` is the *unobstructed* sky, and the inner third of an arm is
+    not unobstructed: it runs 25 mm under the body's roof. The traced factor can only take sky
+    away, it takes a great deal of it from the sheltered cells, and it still spans nearly the
+    whole range across the tube — which is the part a patch's single tilt cannot express at all.
+    """
+    field = scene.mesh_fields["arm_n"]
+    sky = field.field.forcing_at.sky_view
+    unobstructed = np.clip(0.5 * (1.0 + field.patch.cell_normal @ UP), 0.0, 1.0)
+    assert np.all(sky <= unobstructed + 1e-12), "the trace added sky to a cell"
+    lost = unobstructed - sky
+    assert float(lost.max()) > 0.9, "no cell is sheltered; the body is not shading the arm"
+    assert int((lost > 0.01).sum()) > 0.5 * field.patch.n_cells
     assert float(np.ptp(sky)) > 0.9
+
+
+@pytest.mark.slow
+def test_the_body_shadow_reaches_the_meshed_arm_as_it_reaches_the_patched_one(scene) -> None:  # type: ignore[no-untyped-def]
+    """The consistency `WM.7` could not have: one set of occluders, two parameterisations.
+
+    Both scenes declare the same body and pod rectangles. Before `WM.4` they shaded the patched
+    arm and not the meshed one, so the same airframe at the same instant cast a shadow in one
+    scene and none in the other. `arm_n` runs from y = 0.15 to y = 0.45 and the motor pod covers
+    its last 60 mm, so at midday the crown goes dark there and is fully lit along the open span.
+    """
+    field = scene.mesh_fields["arm_n"]
+    t = scene.t0_s + PAD_S
+    lit = field.field.forcing_at.cell_visibility(t)
+    sky = field.field.forcing_at.sky_view
+    centres = field.patch.cell_centres()
+    crown = field.patch.cell_normal @ UP > 0.7
+    under_pod = crown & (centres[:, 1] > 0.42)
+    open_span = crown & (centres[:, 1] > 0.20) & (centres[:, 1] < 0.38)
+    assert under_pod.sum() > 0 and open_span.sum() > 0
+    assert float(np.mean(lit[under_pod])) == 0.0
+    assert float(np.mean(lit[open_span])) == 1.0
+    # and the sky goes with the beam: 0.10 under the pod against 0.93 along the open span.
+    assert float(np.mean(sky[under_pod])) < 0.2
+    assert float(np.mean(sky[open_span])) > 0.9

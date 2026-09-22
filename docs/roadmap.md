@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PH.5` is phase P, size M, and unblocks 4 other step(s).
 
-#### Then, in order — 84 open steps
+#### Then, in order — 83 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -183,18 +183,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 | 4 | **`PT.14`** | PT | P | S | — | ready |
 | 5 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 6 | **`WM.4`** | WM | P | M | — | ready |
-| 7 | **`WM.6`** | WM | P | M | — | ready |
-| 8 | **`PT.9`** | PT | A | M | 3 | ready |
-| 9 | **`AT.10`** | AT | A | M | — | ready |
-| 10 | **`GT.2`** | GT | A | M | — | ready |
-| 11 | **`IG.2`** | IG | A | M | — | ready |
-| 12 | **`SC.4`** | SC | A | M | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 15 | **`SE.1`** | SE | B | M | — | ready |
+| 6 | **`WM.6`** | WM | P | M | — | ready |
+| 7 | **`PT.9`** | PT | A | M | 3 | ready |
+| 8 | **`AT.10`** | AT | A | M | — | ready |
+| 9 | **`GT.2`** | GT | A | M | — | ready |
+| 10 | **`IG.2`** | IG | A | M | — | ready |
+| 11 | **`SC.4`** | SC | A | M | — | ready |
+| 12 | **`IG.16`** | IG | B | M | — | ready |
+| 13 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 14 | **`SE.1`** | SE | B | M | — | ready |
+| 15 | **`SE.2`** | SE | B | M | — | ready |
 
-…and 69 more — `python scripts/next_step.py --queue 40`.
+…and 68 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -447,7 +447,7 @@ Leaving ADR 0087 standing as written will cost another session a week, so WM.5 i
 | WM.1 | ✅ **done.** `probe_warp_mesh.py` (no Kit) and `probe_warp_prim.py` (a USD prim): `wp.Mesh` + `mesh_query_point_no_sign` recover face and barycentrics from a world position, against a NumPy oracle. ADR 0087 gains an addendum. | **Measured.** Round trip **0.13 µm** vs the 3.4 mm budget (0.73 µm at 4.3 m: float32 grows with origin distance). Warp's (u, v) weight **v0, v1**, 1−u−v on v2 — the obvious reading misses by **0.56 m** on a 0.4 m box. Under 3.4 mm of error the face flips on 1.9–56 % of queries but the point moves ≤ 3.41 mm. Quads need triangulating. | — | M | P |
 | WM.2 | ✅ **done.** `irsim.thermal.mesh_field`: `TriangleMeshPatch` cuts each face into k² congruent cells on the barycentric grid (per-face level, Ptex style), `TriangleMeshField` composes `ThermalField`; `sphere_mesh` joins `raycast`. | **Measured.** A 0.25 m sphere under an overhead sun holds every face to its own root within **1 mK** across a **34.3 K** span; one facet lands at 295.0 K — 25 K under the cap, 9 K over the far side. Uniform forcing is **bit-identical in float32** to the scalar solve; the varying mean sits below it by Jensen, energy closing to 1e-6. | WM.1 | M | P |
 | WM.3 | ✅ **done.** `mesh_bridge.MeshPointBridge`: instance id picks the prim's `wp.Mesh`, the closest-point query gives (face, u, v), the mesh field gives the temperature. Additive; Warp accelerates, `closest_point_on_mesh` is oracle **and** no-Warp fallback. | **Measured.** Warp and the brute-force oracle agree on face, cell and sampled temperature for **100 %** of 4 000 pixels on a sphere, and both routes render the same frame. An exhaust pipe goes from **0.000 K** across the prim to **34.1 K** (12.9→47.0 °C). A pixel 50 mm off raises; unbound prims stay bit-identical. | WM.2 | M | P |
-| WM.4 | **Per-cell geometry from the mesh**: true per-face normals for the solar incidence term, ray-traced sky view factor and self-shadowing via `mesh_query_ray` (0.51 ms per 327 k rays measured). This is ADR 0088's own "revisit when". | The analytic parallel-rectangle form stays the oracle and the Monte Carlo estimator converges to it inside its stated standard error. A hull at 45° shows per-cell view factors varying across the surface where one shared patch normal gives one value; `PT.22` agrees cell-for-cell on one box and adds neighbour shadows. | WM.3, PT.22 | M | P |
+| WM.4 | ✅ **done.** `irsim.thermal.mesh_geometry`: a ray-traced sky view per cell on `PT.21`'s dome and a ray-traced beam on `PT.22`'s disc, through one `Occluders` query over the scene's occluders and the mesh's own triangles. Convex meshes skip it, exactly. NumPy, not `mesh_query_ray`. ADR 0088 addendum. | **Measured.** Convex traced = `(1 + n·up)/2` bit for bit; a mesh cell and a patch cell agree to the bit under one wall through two ray tests; wall foot 0.5000, overhang edge 0.5042; the pod over an arm's outer 60 mm takes its beam and all but 0.10 of its sky. | WM.3, PT.22 | M | P |
 | WM.5 | ✅ **done.** ADR 0110: cells per face on the mesh, located by a closest-point query that **derives** the parameterisation instead of asking the renderer to transport it. ADR 0087's curved-geometry limitation is superseded; its planar patch is not. | **Measured.** A record. The rejected routes are named with reasons: a UV atlas as the *solver* domain (metric distortion, seam severing, a conservative-rasterisation tax), CPM narrow bands (a grid finer than a 1 mm panel), transient surfels (no 48 h spin-up memory), and ADR 0087's two AOV routes. | WM.3 | S | P |
 | WM.6 | **Intrinsic-Delaunay-safe Laplacian** if PT.11's lateral conduction moves onto a mesh. A cotan Laplacian gives negative edge weights whenever two opposite angles sum past π, breaking the discrete maximum principle. | On a deliberately obtuse imported mesh, no cell leaves the range spanned by its neighbours and the forcing; the plain cotan operator fails this and produces a bright speck that looks like a bad pixel. Backward Euler is prefactored once per asset, so the 1 s fixed tick survives. | PT.11, WM.3 | M | P |
 | WM.7 | ✅ **done.** A surface's `mesh:` (schema **v14**): `MeshSpec` builds the primitive named, `Scene.mesh_fields` / `mesh_bindings()` carry it, `MeshCellForcing` gives each cell its own face's beam and sky view. `quad_flight_mesh.yaml` + its script. | **Measured.** The aerial mission with the arms as **tubes**: crown 52.8 °C over an underside on air at 26.2 °C — **26.6 K around one arm**, where the patched strip carries under 1 mK across its width. Spun up per cell, so it opens with the gradient grown. Cylinder faces wound outward — they were not, and the crown read cold. | WM.3 | M | P |
@@ -726,7 +726,7 @@ and are not restated here; the ones below either changed state or were being rep
 | # | risk | state | retired by |
 |---|---|---|---|
 | R2 | `omni.rtx.spg` cannot hold cross-frame state or read a LUT file from Lua | **Not retired.** Revision 3 said "retired by M2.3, M10.12" and M10.12 is open — and is removed from this plan. Two untried tests exist on the shipped 0.4.0 (the `:-N` suffix; a `cuda.stateful` output) | `DC.1`, or the `WM` lane making the capability unnecessary |
-| R3 | The AO AOV is not sky visibility | Bounded, not retired: there is no AO AOV on this build at all, and the fallback `V_s = (1 + n·up)/2` is unoccluded | `IG.7`(c) if the Replicator `occlusion` annotator delivers; otherwise `WM.4`'s ray-traced view factor |
+| R3 | The AO AOV is not sky visibility | Bounded further. There is still no AO AOV on this build, but nothing depends on one for a *solved* surface: `PT.21` traces the sky view for every patch cell and `WM.4` for every mesh cell, both through the scene's own occluders. What is left unoccluded is the G-buffer's `V_s` for prims with no field behind them | `IG.7`(c) if the Replicator `occlusion` annotator delivers, for the prims that carry no field |
 | R11 | The unit suite drifts past 30 s | **Materialised.** Measured 130 s, a 4.3× overrun. The `slow` marker the mitigation names was never implemented in the Makefile or pyproject | `GT.1` |
 | R13 | Estimated data is mistaken for measurement | **Violated where it matters most.** The three example configs mark `ratios_3d` ESTIMATED; the two Boson configs that actually get rendered and compared against reality do not — and those are the values `SC.2` shows are 7–19× out | `SC.3` |
 | R26 | The per-point ablation returns a negative | Live. The pre-committed answer is to redirect to the ISP, which the same evidence ranks first — but the two effect sizes are a near-tie (HTV d = 1.242 against target Sobel variance d = 1.224) measured on a different generator, so "ranks first" is not a ranking that survives. See open question 10 | `EV.9` |

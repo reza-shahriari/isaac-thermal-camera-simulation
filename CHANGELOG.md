@@ -12,6 +12,28 @@ working in one tree; two commits already exist whose whole subject is restoring 
 
 ### 2026-09-22
 
+#### Added
+- **What a mesh cell can see, traced** (`WM.4`, ADR 0088 addendum). `irsim.thermal.mesh_geometry`:
+  a per-cell sky view factor on `PT.21`'s 145-patch Tregenza dome and a per-cell beam on `PT.22`'s
+  solar disc, both against the scene's occluders *and* the mesh's own triangles through one
+  `Occluders` query — so a shadow and a sky view cannot disagree about where the geometry is.
+  `MeshCellForcing` takes the patch, the occluders and the traced factor; `Scene` wires them.
+  A **convex** mesh traces to the analytic `(1 + n·up)/2` **bit for bit** (the gated and open
+  quadratures are the same additions in the same order), so `cell_occluders` skips it — exactness,
+  not a speed heuristic — and every mesh shipped before this keeps its numbers. A mesh cell and a
+  patch cell agree to the bit about the sky at one point under one wall through two independent
+  ray-rectangle implementations; foot of a 60 m wall 0.5000, edge of a wide overhang 0.5042;
+  `PT.22`'s box as rectangles and as triangles cast identical mesh-cell shadows. In
+  `quad_flight_mesh.yaml` the motor pod covers each arm's outer 60 mm: those cells lose the whole
+  midday beam and all but 0.10 of their sky against 0.93 along the open span, and the arm's
+  crown-to-underside spread falls from 26.6 K to 22.1 K — the same body rectangles now shade the
+  meshed arms and the patched ones alike, where before they shaded only the patched ones.
+
+#### Changed
+- `ShadowRectangle.normal` is cached in `__post_init__` instead of crossing its axes on every
+  call. One scene's spin-up reached a million calls and spent more than half its wall clock inside
+  `np.cross`; the mesh scene's build went 32.5 s → 17.3 s, and every occluded patch benefits too.
+
 #### Fixed
 - **Three render drivers ran in one band each** (`IG.13`). `render_aerial_demo.py`,
   `render_car_ignition.py` and `render_vessel_departure.py` built their scene with

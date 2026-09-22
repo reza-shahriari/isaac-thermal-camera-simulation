@@ -49,6 +49,7 @@ __all__ = [
     "TriangleSoup",
     "box_mesh",
     "cylinder_mesh",
+    "disc_visibility",
     "penumbra_width_m",
     "rectangle_mesh",
     "solar_disc_rays",
@@ -427,19 +428,35 @@ def sunlit_fraction(
     *,
     lift_m: float = 0.0,
 ) -> NDArray[np.float64]:
-    """``(n_cells,)`` in [0, 1]: how much of the sun's disc each cell can see.
+    """``(n_cells,)`` in [0, 1]: how much of the sun's disc each cell of a **planar patch** sees.
+
+    The cell geometry half of :func:`disc_visibility` -- centres from the patch, lifted along its
+    one normal. A mesh cell lifts along its own face's normal instead and calls the other
+    function directly (`WM.4`).
+    """
+    centres = patch.cell_centres()
+    if lift_m:
+        centres = centres + lift_m * patch.normal
+    return disc_visibility(centres, sun_direction, occluders, n_rays)
+
+
+def disc_visibility(
+    points: Any,
+    sun_direction: Any,
+    occluders: Occluders | Sequence[ShadowRectangle],
+    n_rays: int = 7,
+) -> NDArray[np.float64]:
+    """``(n,)`` in [0, 1]: how much of the sun's disc each of ``points`` can see.
 
     ``occluders`` is anything with ``blocked`` (or a plain sequence of `ShadowRectangle`s, which
     is wrapped). ``n_rays = 1`` is `cell_shadow`'s hard edge exactly, to the bit. Like
-    `cell_shadow`, a cell facing away from the sun is returned as lit: ``max(0, n.s)`` in
-    `solar_loading` is what zeroes the beam there, and duplicating it here would make a
+    `cell_shadow`, a point on a surface facing away from the sun is returned as lit: ``max(0,
+    n.s)`` in `solar_loading` is what zeroes the beam there, and duplicating it here would make a
     self-shadowing test look like an occlusion result.
     """
     query = occluders if hasattr(occluders, "blocked") else RectangleOccluders(tuple(occluders))
     directions, weights = solar_disc_rays(sun_direction, n_rays)
-    centres = patch.cell_centres()
-    if lift_m:
-        centres = centres + lift_m * patch.normal
+    centres = np.atleast_2d(np.asarray(points, dtype=np.float64))
     n = centres.shape[0]
     lit = np.ones(n)
     blocked_rays = np.zeros(n, dtype=np.int64)

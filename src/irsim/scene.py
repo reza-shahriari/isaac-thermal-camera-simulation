@@ -644,7 +644,7 @@ class Scene:
             ),
             meshes=meshes,
             mesh_prims=mesh_prims,
-            mesh_fields=_build_mesh_fields(spec, build, meshes, world_frame),
+            mesh_fields=_build_mesh_fields(spec, build, meshes, world_frame, occluders),
             world_frame=world_frame,
             occluders=occluders,
             network=network,
@@ -836,6 +836,7 @@ def _build_mesh_fields(
     build: _ThermalBuild,
     meshes: Mapping[str, Any],
     world_frame: WorldFrame = ENU,
+    occluders: Mapping[str, ShadowRectangle] | None = None,
 ) -> dict[str, Any]:
     """A per-cell field for every surface that declared a mesh (ADR 0110, WM.7).
 
@@ -852,11 +853,13 @@ def _build_mesh_fields(
     """
     from irsim.thermal.facets import FacetProperties, spin_up
     from irsim.thermal.mesh_field import TriangleMeshField
+    from irsim.thermal.mesh_geometry import cell_occluders, mesh_sky_view
     from irsim.thermal.scene_forcing import MeshCellForcing
 
     out: dict[str, Any] = {}
     if build.field is None or spec.thermal is None:
         return out
+    casters = tuple((occluders or {}).values())
     for i, s in enumerate(spec.thermal.surfaces):
         mesh = meshes.get(s.name)
         if mesh is None:
@@ -868,11 +871,23 @@ def _build_mesh_fields(
             emissivity=np.full(n, float(props.emissivity[i])),
             solar_absorptivity=np.full(n, float(props.solar_absorptivity[i])),
         )
+        # WM.4: what the cells can actually see. `cell_occluders` returns None when nothing can
+        # stop a ray -- a convex mesh in a scene with no occluders, which is every mesh shipped
+        # so far -- and then the sky view is left analytic and the beam falls back to the
+        # surface's `shaded` flag, bit for bit what WM.7 produced. Tracing a convex mesh gives
+        # the same numbers anyway (`mesh_geometry`); skipping it is exactness, not a shortcut.
+        sky_view = None
+        if cell_occluders(mesh, casters) is not None:
+            sky_view = mesh_sky_view(mesh, casters, frame=world_frame)
         forcing = MeshCellForcing(
             surfaces=build.field.forcing_at,
             index=i,
             normals_world=mesh.cell_normal,
             frame=world_frame,
+            patch=mesh,
+            occluders=casters,
+            sky_view=sky_view,
+            penumbra_rays=spec.thermal.penumbra_rays,
         )
         # **Always** spun up per cell, where a patch only bothers under occluders. Every cell of
         # a mesh has its own normal, so no two of them share a forcing history and the per-prim

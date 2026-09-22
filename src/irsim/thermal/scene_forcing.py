@@ -380,11 +380,14 @@ class MeshCellForcing:
     ``V_s = (1 + n·up)/2``, which scales the diffuse solar and the longwave down together exactly
     as `PT.21` does for a patch.
 
-    **Self-shadowing is not modelled here.** The far side of a cylinder is dark because its normal
-    faces away, which is the cosine doing its job; a cell that another *part* of the same mesh
-    occludes still sees the beam. `WM.4` owns the ray-traced version, and until it lands this is
-    a convex-geometry assumption, true for the pipes, arms and bells this row was written for and
-    false for a mesh that folds over itself.
+    **With ``patch`` given, both stop being analytic (`WM.4`).** The beam is traced per cell
+    against the scene's occluders and against the mesh's own triangles, so a cell another part
+    of the object hides goes dark; and ``sky_view`` carries
+    :func:`~irsim.thermal.mesh_geometry.mesh_sky_view`'s traced factor, so a cell tucked under an
+    airframe loses the diffuse sun and the longwave it cannot see. Without a patch this is
+    `WM.7`'s convex-geometry form -- the cosine, and the surface's one ``shaded`` flag -- which a
+    convex mesh with nothing around it makes exactly right, and `mesh_geometry` skips the trace
+    for that reason rather than for speed.
     """
 
     surfaces: SceneSurfaceForcing
@@ -393,6 +396,18 @@ class MeshCellForcing:
     normals_world: Any
     frame: WorldFrame = ENU
     sky_view_longwave: bool = True
+    #: The cell geometry. Needed only to trace: without it the beam falls back to the surface's
+    #: own ``shaded`` flag, as `WM.7` shipped it.
+    patch: Any = None
+    #: Scene occluders in the patch's frame. The mesh's own triangles are added by
+    #: `mesh_geometry.cell_occluders` when the mesh is not convex, so an empty tuple here still
+    #: traces a mesh that folds over itself.
+    occluders: tuple[ShadowRectangle, ...] = ()
+    #: Per-cell sky view factors (`WM.4`); ``None`` leaves each cell the tilt's own
+    #: ``(1 + n·up)/2``, which is the unobstructed answer.
+    sky_view: Any = None
+    #: Rays across the sun's 0.53 deg disc (`PT.22`): 1 is the hard edge, 7/19/37 a ramp.
+    penumbra_rays: int = 1
 
     def __post_init__(self) -> None:
         n = np.asarray(self.normals_world, dtype=np.float64)
@@ -408,7 +423,46 @@ class MeshCellForcing:
         self.normals_world = n / norms[:, None]
         enu = np.asarray(self.frame.to_enu(self.normals_world), dtype=np.float64)
         object.__setattr__(self, "_normals_enu", enu)
-        object.__setattr__(self, "_sky_view", np.clip(0.5 * (1.0 + enu[:, 2]), 0.0, 1.0))
+        analytic = np.clip(0.5 * (1.0 + enu[:, 2]), 0.0, 1.0)
+        if self.penumbra_rays < 1:
+            raise ValueError("penumbra_rays must be at least 1 (1 is the hard-edged shadow)")
+        if self.sky_view is not None:
+            svf = np.asarray(self.sky_view, dtype=np.float64).reshape(-1)
+            if svf.shape != (n.shape[0],):
+                raise ValueError(f"sky_view has shape {svf.shape}, expected ({n.shape[0]},)")
+            if np.any((svf < 0.0) | (svf > 1.0)):
+                raise ValueError("sky view factors must lie in [0, 1]")
+            analytic = svf
+        #: After init this always holds the ``(n_cells,)`` factor the balance uses -- the traced
+        #: one when the caller supplied it, the tilt's own otherwise.
+        self.sky_view = analytic
+        self.occluders = tuple(self.occluders)
+        object.__setattr__(self, "_query", None)
+        object.__setattr__(self, "_origins", None)
+        if self.patch is None:
+            if self.occluders:
+                raise ValueError("occluders need the mesh patch they shade (WM.4)")
+            return
+        if self.patch.n_cells != n.shape[0]:
+            raise ValueError(
+                f"patch has {self.patch.n_cells} cells, forcing has {n.shape[0]} normals"
+            )
+        if self.patch.frame != "world":
+            raise ValueError(
+                f"patch frame {self.patch.frame!r} is not 'world': shadow in a moving frame needs "
+                "the frame's pose, which the thermal core does not carry (PT.9, WM)"
+            )
+        if self.occluders and self.surfaces.orientations[self.index].shaded:
+            raise ValueError(
+                "a surface cannot be both `shaded: true` and shaded per cell by occluders: two "
+                "shadow authorities. Drop the flag or the occluders."
+            )
+        from irsim.thermal.mesh_geometry import cell_occluders, cell_origins
+
+        # Built once: the cells do not move and neither do the occluders. `None` means nothing
+        # can stop a ray -- a convex mesh alone in the scene -- and the beam keeps WM.7's form.
+        object.__setattr__(self, "_query", cell_occluders(self.patch, self.occluders))
+        object.__setattr__(self, "_origins", cell_origins(self.patch))
 
     @property
     def n_cells(self) -> int:
@@ -420,18 +474,32 @@ class MeshCellForcing:
         return self.surfaces.weather
 
     @property
-    def sky_view(self) -> NDArray[np.float64]:
-        """``(n_cells,)`` V_s from each cell's own normal."""
-        return np.asarray(self._sky_view)  # type: ignore[attr-defined]
-
-    @property
     def normals_enu(self) -> NDArray[np.float64]:
         return np.asarray(self._normals_enu)  # type: ignore[attr-defined]
 
-    def cell_visibility(self, t_s: float) -> NDArray[np.float64]:
-        """The surface's own ``shaded`` flag, broadcast. Geometry-aware shadowing is `WM.4`'s."""
-        shaded = self.surfaces.orientations[self.index].shaded
-        return np.full(self.n_cells, 0.0 if shaded else 1.0)
+    def cell_visibility(self, t_s: float, sun: Any = None) -> NDArray[np.float64]:
+        """``(n_cells,)`` direct-beam visibility at ``t_s``.
+
+        Traced per cell when there is anything to trace against (`WM.4`); otherwise the surface's
+        own ``shaded`` flag, broadcast, which is what a convex mesh alone in a scene needs.
+        """
+        if self._query is None:  # type: ignore[attr-defined]
+            shaded = self.surfaces.orientations[self.index].shaded
+            return np.full(self.n_cells, 0.0 if shaded else 1.0)
+        if sun is None:
+            sun = self.surfaces.solar_terms(t_s)
+        if not sun.above_horizon:
+            return np.ones(self.n_cells)
+        from irsim.thermal.raycast import disc_visibility
+
+        return np.asarray(
+            disc_visibility(
+                self._origins,  # type: ignore[attr-defined]
+                self.frame.to_world(sun.direction_enu),
+                self._query,  # type: ignore[attr-defined]
+                self.penumbra_rays,
+            )
+        )
 
     def __call__(self, t_s: float) -> FacetForcing:
         t_air, h, _q_solar, q_lw, q_int = self.surfaces(t_s).arrays(self.surfaces.n_facets)
@@ -443,7 +511,7 @@ class MeshCellForcing:
             sun.dni_w_m2,
             sun.dhi_w_m2,
             self.sky_view,
-            self.cell_visibility(t_s),
+            self.cell_visibility(t_s, sun),
         )
         if self.sky_view_longwave:
             sample = self.surfaces.weather.at(t_s)

@@ -103,7 +103,7 @@ it already covers.
 **Hard, and deliberately deferred.**
 
 * **Smoothing across faces** needs edge adjacency — which cell of the neighbouring face sits across
-  this edge, in which orientation — and is `WM.4`'s, with the ray-traced per-cell sky view.
+  this edge, in which orientation — and is `WM.6`'s, with the Laplacian.
 * **Lateral conduction between cells.** `PT.11`'s operator is built on a rectangular grid's
   four-neighbour edges. The mesh equivalent is a cotan Laplacian, and `WM.6` exists because a naive
   one gives negative edge weights wherever two opposite angles sum past π, breaking the discrete
@@ -125,3 +125,16 @@ the planar path.
 A scene config can author a mesh field and one does, which is what turns this from a capability into
 a picture; or `WM.4` lands and the per-face normal and piecewise-constant sample are replaced by the
 ray-traced, adjacency-aware forms, at which point the error budget above needs re-measuring.
+
+## Addendum 2026-09-22 (WM.4): the sky view and the beam are traced
+
+Two of the four deferrals above are closed. `irsim.thermal.mesh_geometry` gives every cell a
+ray-traced sky view factor and a ray-traced beam, against the scene's occluders and against the
+mesh's own triangles, and `configs/scenes/quad_flight_mesh.yaml` uses both -- so the "no scene
+config can declare a mesh field" deferral, closed by `WM.7`, is now a scene whose cells are shaded
+by geometry rather than by a flag. The measurements and the convexity argument are recorded as an
+addendum on [ADR 0088](0088-spatial-heat-sources-and-sky-occlusion.md), whose "revisit when" this
+row answers.
+
+What is still deferred here is unchanged: the sample is piecewise constant within a cell, normals
+are per face, and there is no lateral conduction between cells (`WM.6`).

@@ -15,12 +15,17 @@
 #     on its own face normal. That is the whole difference: the sunlit crown and the shaded
 #     underside of one arm are different cells of one solve.
 #
-# What this scene does NOT do, so the frames are read correctly. A mesh cell's beam is gated by
-# the surface's own `shaded` flag and nothing else: the body and pod occluders that shade the
-# patched arms in quad_flight_pointwise.yaml do not shade these, because ray-traced
-# self-shadowing and neighbour shadowing on a mesh are `WM.4`'s. The far side of a tube is cold
-# here because its normal faces away, which is the cosine and not an occlusion test. For a convex
-# tube in the open those agree; for a mesh that folds over itself they would not.
+# What shades these cells (WM.4). The body and pod rectangles below shade the mesh arms exactly
+# as they shade the patched ones in quad_flight_pointwise.yaml: the beam is traced per cell, and
+# each cell's sky view is the fraction of the dome it can actually see rather than the tilt's
+# open-sky `(1 + n.up)/2`. Each arm runs from 0.15 to 0.45 m out, and its **motor pod covers the
+# last 60 mm**: those cells lose the whole midday beam and all but 0.10 of their sky, against
+# 0.93 along the open span. The inner end loses some sky to the body's side walls and keeps its
+# beam. A tube alone in the open would trace to exactly the analytic answer and the trace is
+# skipped for it; this one is not alone.
+#
+# Still not modelled: conduction between cells (`WM.6`) and per-vertex normals -- each cell is
+# balanced on its own face's normal, which is what §6.1 asks for and what a shading normal is not.
 #
 # World is ENU: x east, y north, z up. The mission is quad_flight_clear_noon.yaml's, unchanged.
 

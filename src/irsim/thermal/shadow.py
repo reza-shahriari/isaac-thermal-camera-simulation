@@ -59,10 +59,14 @@ class ShadowRectangle:
             raise ValueError("u_axis and v_axis must be perpendicular")
         if self.half_u_m <= 0.0 or self.half_v_m <= 0.0:
             raise ValueError("half extents must be positive")
+        # Cached rather than crossed on demand: the axes are frozen, and a shadow test asks for
+        # this three times per rectangle per ray batch. A spin-up of one scene reached a million
+        # calls and spent more than half its time inside `np.cross` (WM.4).
+        object.__setattr__(self, "_normal", np.asarray(np.cross(self.u_axis, self.v_axis)))
 
     @property
     def normal(self) -> NDArray[np.float64]:
-        return np.asarray(np.cross(self.u_axis, self.v_axis))
+        return np.asarray(self._normal)  # type: ignore[attr-defined]
 
 
 def box_faces(centre_m: Any, size_m: Any) -> tuple[ShadowRectangle, ...]:
