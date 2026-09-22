@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PT.9` is phase A, size M, and unblocks 3 other step(s).
 
-#### Then, in order — 73 open steps
+#### Then, in order — 72 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -183,18 +183,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`IG.16`** | IG | B | M | — | ready |
 | 4 | **`PT.10`** | PT | B | M | — | `PT.9` |
 | 5 | **`SE.2`** | SE | B | M | — | ready |
-| 6 | **`AT.7`** | AT | C | M | 1 | ready |
-| 7 | **`PH.10`** | PH | C | S | — | ready |
-| 8 | **`PH.11`** | PH | C | S | — | ready |
-| 9 | **`PH.12`** | PH | C | S | — | ready |
-| 10 | **`PH.9`** | PH | C | S | — | ready |
-| 11 | **`TC.8`** | TC | C | S | — | ready |
-| 12 | **`AT.6`** | AT | C | M | — | ready |
-| 13 | **`AT.9`** | AT | C | M | — | ready |
-| 14 | **`GT.7`** | GT | C | M | — | `PT.9` |
-| 15 | **`PT.13`** | PT | C | M | — | ready |
+| 6 | **`PH.10`** | PH | C | S | — | ready |
+| 7 | **`PH.11`** | PH | C | S | — | ready |
+| 8 | **`PH.12`** | PH | C | S | — | ready |
+| 9 | **`PH.9`** | PH | C | S | — | ready |
+| 10 | **`TC.8`** | TC | C | S | — | ready |
+| 11 | **`AT.6`** | AT | C | M | — | ready |
+| 12 | **`AT.9`** | AT | C | M | — | ready |
+| 13 | **`GT.7`** | GT | C | M | — | `PT.9` |
+| 14 | **`PT.13`** | PT | C | M | — | ready |
+| 15 | **`PT.16`** | PT | C | M | — | ready |
 
-…and 58 more — `python scripts/next_step.py --queue 40`.
+…and 57 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -541,7 +541,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.4 | ✅ **done.** The guard scans **every** module under `src/irsim`; the carve-out is `BAND_AWARE`, a path → (ceiling, reason) constant, tested for existence, still-load-bearing and no growth. Names widen to `BAND_KEYS`. `WEIGHT_T_REF_K`, `VISIBLE_RANGE_UM` and the `band == "visible"` branch are gone. ADR 0092. | **Measured.** 140 of 146 modules guarded, 6 exempt (was 72, by omission). `materials`/`io`/`thermal`/`validation` had **0** offences all along. Gauge: ×3 on free multipliers moves τ ≤**3.2e-14**. `BAND_CLASSES` kept: `AT.10`. | — | M | A |
 | AT.5 | ✅ **done.** The field is `grey_atmosphere`; `Scene.atmosphere` is a property that **raises** once a layered model stands beside it, naming the three ways out (`transfer_atmosphere`, `atmosphere_preset`, `grey_atmosphere`). Both live readers wanted the preset. | **Measured**, and larger than expected: at 5 km / 20° the grey model gives τ **0.057** against the layered **0.590**, L_path **45.1** against **18.7** W/m²/sr — the k-distribution, not a bug, but L1-only. **All eight shipped scenes carry a layered model**, so the primary name was wrong on every one. 8 cases. | — | S | A |
 | AT.6 | **Spec issue S40: the Level B (a, p) table.** Twelve of sixteen Level B materials carry ESTIMATED (a, p); the four fitted use `paint_proxy.csv`, whose header says "PROXY: PMMA, not paint", giving a = 0.75 against §4.2's 0.15–0.35. Oblique surfaces are most of a maritime or urban frame. | Either a measured pigmented-paint n/k table in the fit, or the four painted materials' `a` moved inside §4.2's range against a public angular measurement. S40 closes, or is restated with what remains unexplained. | RP.7 | M | C |
-| AT.7 | **Surface the extrapolated fraction at scene level.** `total_hemispherical_emissivity` fills everything outside the four nominal band ranges by extending the nearest band. Measured `extrapolated_fraction = 0.607` for every material at 300 K — 61 % of the weight that sets every surface temperature is an assumption, reported on the object and invisible to a scene author. | A scene build reports the worst fraction across its materials, and any Tier 4 report quoting an absolute apparent temperature carries it. | — | M | C |
+| AT.7 | ✅ **done.** `Scene.emissivity_extrapolation()` + `extrapolation_breakdown()` report it and decompose it; `validate_thermal_diurnal.py` prints it under the temperatures it quotes. Which reports carry it is a registry with a reason per exemption. ADR 0119. | **Measured.** Two corrections: the fraction is **bit-identical across all 20 materials** (0.6067 at 300 K, ε 0.113–0.943), so there is no *worst material*; and the total hides the claim — 0.508 **red tail** at 300 K vs 0.394 **interior gaps** at 800 K, the regime `PH.6`/`PH.7` render in. Not monotone: 0.509 at 1200 K. | — | M | C |
 | AT.8 | **Angle-dependent τ and the second-hit ray.** `directional_properties_for` moves ε(θ) and re-derives ρ but holds τ at its normal-incidence value, and `surface_radiance` defaults `L_behind = L_env`. The limb of every windscreen and shop window keeps full normal-incidence transmittance in NIR/SWIR. | The limb of a glass panel at 75° shows the transmittance falling toward total reflection, against a flat value today, with Fresnel as the oracle. Needs a second-hit AOV from the Isaac side before the behind-radiance half can improve; the angular half does not. | IG.4 | M | C |
 | AT.9 | **Urban aerosol preset, and an honest bound on the seven that exist.** `AerosolRegime` already admits `urban` and nothing uses it; all seven presets declare `status: ESTIMATED` from §7.2 midpoints calibrated to one dry Tucson anchor, with `valid_range_m: 500`. | An urban preset exists and a test asserts its per-band extinction ratio differs from rural by more than the presets' own stated uncertainty. Any range claim beyond 500 m in a report names the calibration anchor. | — | M | C |
 | AT.10 | ✅ **done.** `ATMOSPHERE_LADDER`: one wavelength-ordered, gap-free table 0.35-14.5 um, and a band's classes are derived by intersecting its own span (nominal **and** response). `BAND_CLASSES` is gone. ADR 0113. | **Measured.** LWIR and NIR bit-identical, MWIR within 1 ulp (wavelength order), visible within the anchor solver's 1.5e-14. SWIR gains `h2o_0p94`: **16.9 %** of the InGaAs band leaves `window`, tau **-6.5 % at 5 km**, 200 m exact. Holes at 1.8-2.0 / 6.0-7.0 um filled. The carve-out is 7 offences -> 2. | AT.4 | M | A |
@@ -867,7 +867,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0118 (0090–0118 were written after this section was first measured; 0093–0118 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8`, `SC.4` and `SE.1`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0119 (0090–0119 were written after this section was first measured; 0093–0119 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8`, `SC.4`, `SE.1` and `AT.7`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

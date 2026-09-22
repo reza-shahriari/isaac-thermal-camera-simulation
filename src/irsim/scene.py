@@ -56,13 +56,66 @@ from irsim.thermal.weather import WeatherSample, WeatherSeries
 from irsim.thermal.weather_io import load_weather_csv
 
 __all__ = [
+    "EPSILON_EVAL_K",
     "Scene",
+    "SceneExtrapolation",
     "build_network",
     "build_occluder",
     "build_target",
     "build_world_frame",
     "wrap_into_weather",
 ]
+
+
+#: The temperature at which a scene build evaluates every material's total hemispherical
+#: emissivity. It is a single fixed point, not the temperature each surface reaches: eps_hemi
+#: varies by 0.1 % over a 30 K swing (0.8531 to 0.8523 for painted aluminium), far below what the
+#: material data itself is worth, so re-evaluating it per surface per tick would buy nothing.
+#: Named here so the build and the report that describes it cannot use two different numbers.
+EPSILON_EVAL_K = 300.0
+
+
+@dataclass(frozen=True)
+class SceneExtrapolation:
+    """How much of a scene's emissivity is an extrapolation, and where it sits (AT.7).
+
+    `total_hemispherical_emissivity` fills every wavelength outside the four nominal band ranges
+    by extending the nearest band, and returns the Planck weight that came from doing so. Until
+    this existed the number was computed on every scene build and **thrown away** -- `.value` was
+    taken and the fraction discarded -- so 61 % of the weight that sets every surface temperature
+    was an assumption that no scene author could see.
+    """
+
+    #: Where the scene's eps_hemi was evaluated. See :data:`EPSILON_EVAL_K`.
+    evaluated_at_k: float
+    fraction: float
+    red_tail_fraction: float
+    interior_gap_fraction: float
+    blue_end_fraction: float
+    bands_used: tuple[str, ...]
+    #: Every library material the scene names, sorted. The fraction does **not** vary across
+    #: them -- it is bit-identical for all twenty shipped materials -- and they are listed so a
+    #: reader can see the scope the number covers rather than infer it.
+    materials: tuple[str, ...]
+
+    def summary(self) -> str:
+        """One line for any report that quotes an absolute temperature from this scene.
+
+        A scene that names no library material says so instead of quoting a fraction "for each"
+        of nothing -- `car_exhaust_plume.yaml` is one, since its targets are exhaust-line solvers
+        with their own thermal model and no surface taking eps from the library.
+        """
+        scope = (
+            "no library material in this scene, so it binds nothing here"
+            if not self.materials
+            else f"{len(self.materials)} material(s), identical for each"
+        )
+        return (
+            f"emissivity extrapolation: {self.fraction:.3f} of Planck's weight at "
+            f"{self.evaluated_at_k:.0f} K lies outside {'+'.join(self.bands_used)} and is filled "
+            f"by extending the nearest band ({self.red_tail_fraction:.3f} red tail, "
+            f"{self.interior_gap_fraction:.3f} interior gaps); {scope}"
+        )
 
 
 def build_patch(spec: PatchSpec) -> PlanarPatch:
@@ -501,6 +554,42 @@ class Scene:
         out.update(self.extra_consumers)
         return out
 
+    def material_names(self) -> tuple[str, ...]:
+        """Every library material this scene names, sorted -- surfaces and puddles alike."""
+        names: set[str] = set()
+        block = getattr(self.spec, "thermal", None)
+        for surface in getattr(block, "surfaces", ()) or ():
+            names.add(str(surface.material))
+            for water in getattr(surface, "water", ()) or ():
+                names.add(str(water.material))
+        return tuple(sorted(names))
+
+    def emissivity_extrapolation(self, temperature_k: float | None = None) -> SceneExtrapolation:
+        """How much of this scene's emissivity is an extrapolation, and where it sits (AT.7).
+
+        Reported at :data:`EPSILON_EVAL_K` by default, which is where the build *actually*
+        evaluated eps_hemi -- so the number describes the emissivity in the solver rather than a
+        hypothetical one. Pass ``temperature_k`` to ask what it would be for a hotter surface;
+        the answer is not monotone, because as the Planck peak leaves the far infrared the red
+        tail shrinks but the 1.7-3.0 and 5.0-7.5 µm holes swallow it instead.
+
+        The fraction does not depend on the materials, only on the band set and the temperature.
+        That is measured, not assumed -- see `tests/unit/test_emissivity_extrapolation.py`.
+        """
+        from irsim.materials.hemispherical import extrapolation_breakdown
+
+        at_k = EPSILON_EVAL_K if temperature_k is None else float(temperature_k)
+        breakdown = extrapolation_breakdown(at_k)
+        return SceneExtrapolation(
+            evaluated_at_k=at_k,
+            fraction=breakdown.extrapolated_fraction,
+            red_tail_fraction=breakdown.red_tail_fraction,
+            interior_gap_fraction=breakdown.interior_gap_fraction,
+            blue_end_fraction=breakdown.blue_end_fraction,
+            bands_used=breakdown.bands_used,
+            materials=self.material_names(),
+        )
+
     def surface_bindings(self) -> tuple[tuple[str, Any], ...]:
         """``(prim path, field)`` for every patched surface that named a prim (PT.17).
 
@@ -828,7 +917,7 @@ def _build_thermal_field(
                 f"have; known materials: {sorted(library.names)}"
             ) from exc
     properties = FacetProperties.stack(
-        [ThermalProperties.from_material(m, 300.0, data_dir=data_dir) for m in materials]
+        [ThermalProperties.from_material(m, EPSILON_EVAL_K, data_dir=data_dir) for m in materials]
     )
     forcing = SceneSurfaceForcing(
         weather=weather,
@@ -1214,7 +1303,7 @@ def _puddle(
             f"known materials: {sorted(library.names)}"
         )
     material = library[water.material]
-    optical = ThermalProperties.from_material(material, 300.0, data_dir=data_dir)
+    optical = ThermalProperties.from_material(material, EPSILON_EVAL_K, data_dir=data_dir)
     depth_m = float(water.depth_mm) / 1000.0
     inside = np.ones(patch.n_cells, dtype=bool)
     if water.region_m is not None:

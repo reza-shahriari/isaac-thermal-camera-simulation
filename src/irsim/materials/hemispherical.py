@@ -42,6 +42,7 @@ __all__ = [
     "band_hemispherical_emissivity",
     "TotalHemispherical",
     "total_hemispherical_emissivity",
+    "extrapolation_breakdown",
 ]
 
 #: A band holding less than this fraction of Planck's weight at the working temperature is not
@@ -104,10 +105,33 @@ class TotalHemispherical:
     #: §12.1 bands it is large -- most of the thermal tail lies beyond 13.5 µm.
     extrapolated_fraction: float
     bands_used: tuple[str, ...]
+    #: Where that extrapolated weight sits, summing to :attr:`extrapolated_fraction` (AT.7). The
+    #: total alone is not actionable, because the three are assumptions of very different
+    #: strength and which one dominates **flips with temperature**: at 300 K it is 0.508 red tail
+    #: against 0.099 interior gaps, and at 800 K it is 0.071 against 0.394.
+    red_tail_fraction: float = 0.0
+    #: Weight in the holes *between* configured bands -- 1.7-3.0 µm and 5.0-7.5 µm for the §12.1
+    #: set. "Extend the nearest band" is a far weaker claim here than in the tail: a real spectrum
+    #: is bounded either side and can do anything in between, and a reststrahlen feature lives
+    #: exactly there.
+    interior_gap_fraction: float = 0.0
+    #: Weight below the shortest configured band. Negligible at ambient; it is the one that would
+    #: grow for a genuinely hot source.
+    blue_end_fraction: float = 0.0
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.value <= 1.0:
             raise ValueError(f"total hemispherical emissivity {self.value} outside [0, 1]")
+
+    def summary(self) -> str:
+        """One line for a report that quotes an absolute temperature (AT.7)."""
+        return (
+            f"epsilon_hemi = {self.value:.4f} at {self.temperature_k:.1f} K over "
+            f"{'+'.join(self.bands_used)}; {self.extrapolated_fraction:.3f} of Planck's weight is "
+            f"extrapolated ({self.red_tail_fraction:.3f} red tail, "
+            f"{self.interior_gap_fraction:.3f} interior gaps, "
+            f"{self.blue_end_fraction:.3f} blue end)"
+        )
 
 
 def _planck(lam_um: NDArray[np.float64], t_k: float) -> NDArray[np.float64]:
@@ -179,9 +203,79 @@ def total_hemispherical_emissivity(
     # region is not contiguous, and trapezoid over `lam[outside]` would bridge every band with one
     # wide trapezoid and report far more extrapolation than there is (0.958 against 0.639 here).
     extrapolated = float(np.trapezoid(weight * outside.astype(np.float64), lam) / total_weight)
+    # AT.7: *where* that weight sits, on the same grid and the same mask, so the three parts add
+    # up to `extrapolated` by construction rather than by a second integration that could drift.
+    blue_edge = min(lo for lo, _ in ranges.values())
+    red_edge = max(hi for _, hi in ranges.values())
+
+    def _share(region: NDArray[np.bool_]) -> float:
+        masked = (outside & region).astype(np.float64)
+        return float(np.trapezoid(weight * masked, lam) / total_weight)
+
     return TotalHemispherical(
         value=value,
         temperature_k=float(temperature_k),
         extrapolated_fraction=extrapolated,
         bands_used=tuple(sorted(ranges)),
+        red_tail_fraction=_share(lam > red_edge),
+        interior_gap_fraction=_share((lam >= blue_edge) & (lam <= red_edge)),
+        blue_end_fraction=_share(lam < blue_edge),
+    )
+
+
+def extrapolation_breakdown(
+    temperature_k: float,
+    bands: dict[str, tuple[float, float]] | None = None,
+    lambda_min_um: float = 1.0,
+    lambda_max_um: float = 100.0,
+    n_lambda: int = 2001,
+) -> TotalHemispherical:
+    """The extrapolated fraction and its decomposition **without a material** (AT.7).
+
+    Measured across the whole shipped library, the fraction is **bit-identical for every
+    material** -- 0.606695073 at 300 K for all twenty -- because it is a property of the band set
+    and the Planck weight, not of anything the material does. So a report that wants to say how
+    much of a scene's emissivity is assumption does not need a material, and asking for one
+    invites the reader to think the number varies with it.
+
+    ``value`` is returned as :data:`math.nan`'s stand-in 0.0 here and carries no meaning; read
+    :attr:`~TotalHemispherical.extrapolated_fraction` and the three shares.
+    """
+    from irsim.config.bands import NOMINAL_RANGES_UM
+
+    ranges = dict(NOMINAL_RANGES_UM) if bands is None else dict(bands)
+    if not ranges:
+        raise ValueError("no bands to integrate over")
+    lam = np.linspace(lambda_min_um, lambda_max_um, n_lambda)
+    weight = _planck(lam, float(temperature_k))
+    total_weight = float(np.trapezoid(weight, lam))
+    shares = {
+        band: float(np.trapezoid(weight * ((lam >= lo) & (lam <= hi)), lam)) / total_weight
+        for band, (lo, hi) in ranges.items()
+    }
+    ranges = {b: r for b, r in ranges.items() if shares[b] >= NEGLIGIBLE_BAND_WEIGHT}
+    if not ranges:
+        raise ValueError(
+            f"no configured band carries Planck weight at {temperature_k:.1f} K (weights {shares})"
+        )
+    inside = np.zeros_like(lam, dtype=bool)
+    for lo, hi in ranges.values():
+        inside |= (lam >= lo) & (lam <= hi)
+    outside = ~inside
+    blue_edge = min(lo for lo, _ in ranges.values())
+    red_edge = max(hi for _, hi in ranges.values())
+
+    def _share(region: NDArray[np.bool_]) -> float:
+        return float(np.trapezoid(weight * (outside & region).astype(np.float64), lam)) / (
+            total_weight
+        )
+
+    return TotalHemispherical(
+        value=0.0,
+        temperature_k=float(temperature_k),
+        extrapolated_fraction=_share(np.ones_like(lam, dtype=bool)),
+        bands_used=tuple(sorted(ranges)),
+        red_tail_fraction=_share(lam > red_edge),
+        interior_gap_fraction=_share((lam >= blue_edge) & (lam <= red_edge)),
+        blue_end_fraction=_share(lam < blue_edge),
     )

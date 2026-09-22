@@ -11,6 +11,11 @@ shaded and sunlit twins separate the way shadow actually behaves. The Tier 3 che
 
 Writes a PNG if matplotlib is importable and a CSV either way, because the CSV is the thing that can
 be diffed between runs and the plot is the thing that can be looked at.
+
+Every curve here is an **absolute** temperature, so the run also prints what fraction of the
+emissivity behind it is extrapolated rather than measured (`AT.7`): at the 300 K these scenes
+evaluate eps_hemi at, 0.607 of Planck's weight lies outside the configured bands, four fifths of
+it in the tail beyond 13.5 um. A curve that sits a kelvin off is not necessarily a solver error.
 """
 
 from __future__ import annotations
@@ -69,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
         f"  scene spread: max {spread.max():.2f} K at {local[int(np.argmax(spread))]:.2f} local, "
         f"min {spread.min():.2f} K at {local[int(np.argmin(spread))]:.2f} local"
     )
+    # AT.7: this report quotes absolute surface temperatures, so it carries how much of the
+    # emissivity that produced them is an extension of the nearest band rather than data.
+    print(f"  {scene.emissivity_extrapolation().summary()}")
 
     try:
         import matplotlib

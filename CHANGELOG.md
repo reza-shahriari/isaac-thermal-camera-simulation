@@ -13,6 +13,17 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **The extrapolated emissivity fraction, reported and decomposed** (`AT.7`, ADR 0119).
+  `total_hemispherical_emissivity` always computed how much of ε rests on extending the nearest
+  band; every scene build took `.value` and **threw the fraction away**, so 61 % of the weight
+  setting every surface temperature was an invisible assumption. `Scene.emissivity_extrapolation()`
+  and `extrapolation_breakdown()` now report it, and `validate_thermal_diurnal.py` prints it under
+  the absolute temperatures it quotes. Two corrections to the row: the fraction is **bit-identical
+  for all twenty materials** (it is a property of the band set, not of any material — so there is
+  no "worst"), and the total hides which assumption is being made. At 300 K it is 0.508 **red
+  tail** beyond 13.5 µm, the defensible one; by 800 K it is 0.394 **interior gaps** (1.7–3.0 and
+  5.0–7.5 µm), the weak one — and `PH.6`/`PH.7` put the project in that regime. It is also not
+  monotone: 0.509 at 1200 K, because a flame's peak lands in the SWIR–MWIR hole.
 - **The sea model's angular validity envelope, recorded** (`SE.1`, ADR 0118).
   `irsim.atmosphere.sea_envelope` carries the 50° from-nadir limit published in-situ radiometry
   reaches, the exact spherical `sin θ = (1 + h/R) cos δ` that converts a camera depression into
