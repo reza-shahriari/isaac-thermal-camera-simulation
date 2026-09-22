@@ -29,6 +29,13 @@ dev = [
 validation = [
     "imageio>=2.31",
 ]
+# PH.12's two-node oracle. **Dev-only and never imported by `src/irsim`** (there is a test), and
+# not installed by `make install`: it exists so that PH.12's fourth acceptance criterion -- leaf
+# ISO 7730 clothing temperature against an independent comfort model -- can be run by anyone who
+# wants it, rather than being quietly dropped because no package was to hand.
+comfort = [
+    "pythermalcomfort>=2.8",
+]
 # Tier 5 training (roadmap ME.7). **Deliberately not a default and not installed by `make install`.**
 # torch is multi-gigabyte, `src/irsim` may never import it (enforced by tests/unit/test_layering.py),
 # and a Tier 4 report must not be blocked on it. The *scoring* metrics need none of this: they are

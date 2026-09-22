@@ -13,6 +13,16 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **People: skin and clothing are two temperatures** (`PH.12`, ADR 0122). `irsim.thermal.human` —
+  skin *authored* from ISO 7730's thermoregulated set point, clothing *solved* from the standard's
+  own implicit balance by bisection (the textbook fixed point **diverges for a coat in wind** at
+  1 m/s). At 0 °C in 1 clo: skin **34.07 °C**, clothing **13.96 °C**, a **20.1 K step across one
+  body**; indoors at 22 °C in 0.5 clo it is **4.9 K**. Two findings against the row: its 10–15 K
+  band is what the same equation gives at **10–15 °C air** — ISO 7730's own validity floor — so
+  the criterion was written for a condition the standard does not cover; and "wind lowers t_cl" is
+  the special case, since wind drives the coat toward *air*, warming it above 3 clo under a −40 °C
+  sky. The `pythermalcomfort` cross-check **does not run** (not installed); a `comfort` extra
+  declares it, the test skips loudly, and another test forbids `src/irsim` from importing it.
 - **Vegetation: leaves transpire** (`PH.11`, ADR 0121). `irsim.thermal.vegetation` — a leaf's
   temperature set by its stomata. Same sun, same wind, same air: a well-watered leaf sits
   **−1.93 K** below air at a 3.18 kPa deficit and a stressed one **+7.00 K** above it. The Idso
