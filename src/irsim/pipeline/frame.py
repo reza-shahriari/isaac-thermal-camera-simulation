@@ -33,10 +33,12 @@ from irsim.detector.params import BolometerParams, PhotonParams
 from irsim.detector.quantise import dn_max_for_bits, quantise
 from irsim.isp.display import run_display_branch
 from irsim.isp.radiometric import apparent_temperature
+from irsim.optics.projection import Intrinsics
 from irsim.optics.stage import apply_optics, invert_optics
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.detector import bolometer_lag, lag_interval_s
+from irsim.pipeline.plume import ExhaustPlume, inject_plumes
 from irsim.pipeline.point_target import PointTarget, inject_point_targets
 from irsim.pipeline.radiance import band_radiance, stage_illumination
 from irsim.pipeline.rotor_veil import RotorVeil, inject_rotor_veils
@@ -112,6 +114,7 @@ def run_frame(
     state: PipelineState,
     point_targets: Sequence[PointTarget] = (),
     rotor_veils: Sequence[RotorVeil] = (),
+    plumes: Sequence[ExhaustPlume] = (),
 ) -> Outputs:
     """One frame through stages 1-6 (stage 2 is the identity without an Atmosphere).
     Advances ``state.frame_index``."""
@@ -179,6 +182,29 @@ def run_frame(
     if rotor_veils:
         radiance_ss = inject_rotor_veils(
             radiance_ss, rotor_veils, config.atmosphere, sensor.band.band_id, state.t_s, lut, q
+        )
+    # stage 2d: exhaust plumes as per-pixel gas slabs (`PH.6`). Last of the stage-2 overlays: a
+    # plume is semi-transparent, so what it multiplies has to be everything already standing
+    # behind it -- the scene, a point target through it, a rotor blade in it.
+    if plumes:
+        if config.response is None:
+            raise ValueError(
+                "a plume needs the camera's R(λ) to integrate B_b(T_g) above the LUT's 1000 K "
+                "ceiling; build the config with PipelineConfig.from_sensor so it loads one"
+            )
+        radiance_ss = inject_plumes(
+            radiance_ss,
+            plumes,
+            Intrinsics.from_sensor(sensor, k),
+            sensor.optics.distortion,
+            config.response,
+            config.gas_tables,
+            planes.get("distance_m"),
+            config.atmosphere,
+            sensor.band.band_id,
+            state.t_s,
+            lut,
+            q,
         )
     # The M9 chain owns the thermal nodes and the drift, so it clocks first: stage 3 needs the
     # housing temperature it produces (M9.3), and stage 5 needs the pattern it advanced (M9.4).

@@ -32,7 +32,7 @@
 # ⚠️ `clear_midlat_summer_48h` declares "local = UTC+2" in its own header, so 01:00Z is 03:00
 # local -- the same pre-dawn hour, on a night that has been radiating to space since sunset.
 
-schema_version: 14
+schema_version: 15
 scene:
   name: car_ignition_clear_night
   description: "The same car and key, under a clear cold sky: the patch is there before the engine"

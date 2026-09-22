@@ -629,6 +629,15 @@ class ExhaustSolver:
     def temperature(self) -> float:
         return self.line.temperature(self._reports)
 
+    def gas_outlet_k(self) -> float:
+        """The gas leaving the last segment -- the tailpipe exit, where a plume starts (`PH.6`).
+
+        Not ``temperature()``: that is a *skin*, and a plume is made of what is inside the pipe.
+        The two differ by tens of kelvin at load and converge at rest, which is exactly the error
+        a scene would inherit if it authored the plume from the number the target reports.
+        """
+        return float(self.line.gas_out_k[-1])
+
     @property
     def state(self) -> SolverState:
         return self._state

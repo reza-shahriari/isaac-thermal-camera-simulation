@@ -181,7 +181,7 @@ def test_a_speed_schedule_interpolates_and_holds_flat_outside_itself() -> None:
 
 
 def test_the_schema_takes_a_schedule_or_a_constant_and_not_both(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    assert SCENE_SCHEMA_VERSION == 14
+    assert SCENE_SCHEMA_VERSION == 15
     assert load_scene_config(SCENE).schema_version == SCENE_SCHEMA_VERSION
     plain = SurfaceSpec(name="a", material="concrete")
     assert plain.speed_s is None and plain.speed_m_s is None and plain.vehicle_speed_m_s == 0.0

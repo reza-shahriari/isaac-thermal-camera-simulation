@@ -200,34 +200,67 @@ class SpeciesAbsorption:
         object.__setattr__(self, "kappa_per_m_atm", k)
 
     def at(self, t_gas_k: float, column_atm_m: float | None = None) -> float:
+        """The coefficient at one temperature and one column density."""
+        column = None if column_atm_m is None else np.float64(column_atm_m)
+        return float(self.kappa(np.float64(t_gas_k), column)[()])
+
+    def kappa(
+        self,
+        t_gas_k: NDArray[np.float64] | np.float64,
+        column_atm_m: NDArray[np.float64] | np.float64 | None = None,
+    ) -> NDArray[np.float64]:
+        """:meth:`at` over arrays -- one lookup for a whole plume's worth of pixels.
+
+        A per-pixel plume (`PH.6`) asks for this at every pixel it covers, so the two
+        interpolations are done over the arrays rather than pixel by pixel: linear in T (one
+        ``interp`` per column of the table), then linear in log X on the **optical depth** rather
+        than on the coefficient, because ``κ X`` is the smooth, monotone quantity and ``κ`` is the
+        one that falls like 1/X.
+        """
         t = self.temperatures_k
-        if not t[0] <= t_gas_k <= t[-1]:
+        t_gas = np.asarray(t_gas_k, dtype=np.float64)
+        if t_gas.size and (float(t_gas.min()) < t[0] or float(t_gas.max()) > t[-1]):
             raise ValueError(
-                f"T = {t_gas_k} K is outside the table's {t[0]:g}-{t[-1]:g} K; the table is a "
-                "line-by-line result and is not extrapolated"
+                f"T = {float(t_gas.min()):g}-{float(t_gas.max()):g} K reaches outside the table's "
+                f"{t[0]:g}-{t[-1]:g} K; the table is a line-by-line result and is not extrapolated"
             )
         if self.columns_atm_m is None:
-            return float(np.interp(t_gas_k, t, self.kappa_per_m_atm))
+            return np.asarray(np.interp(t_gas, t, self.kappa_per_m_atm))
         if column_atm_m is None:
             raise ValueError(
                 "this table varies with column density and needs p·L in atm·m; a band "
                 "coefficient read at one column and used at another is wrong by the ratio of "
                 "the two once the band's core has saturated (`PH.5`)"
             )
-        if column_atm_m <= 0.0:
+        column = np.asarray(column_atm_m, dtype=np.float64)
+        if column.size and float(column.min()) <= 0.0:
             raise ValueError("a column density must be positive")
         columns = self.columns_atm_m
-        row = np.array(
-            [np.interp(t_gas_k, t, self.kappa_per_m_atm[:, j]) for j in range(columns.shape[0])]
+        # (..., n_column): the table interpolated to each requested temperature.
+        rows = np.stack(
+            [np.interp(t_gas, t, self.kappa_per_m_atm[:, j]) for j in range(columns.shape[0])],
+            axis=-1,
         )
-        if column_atm_m <= columns[0]:
-            return float(row[0])  # optically thin: the coefficient stops depending on the path
-        optical_depth = row * columns
-        if column_atm_m >= columns[-1]:
-            return float(optical_depth[-1] / column_atm_m)  # saturated: τ* stops growing
-        log_tau = np.log(np.maximum(optical_depth, TINY_OPTICAL_DEPTH))
-        tau = float(np.exp(np.interp(np.log(column_atm_m), np.log(columns), log_tau)))
-        return tau / column_atm_m
+        depth = rows * columns
+        log_depth = np.log(np.maximum(depth, TINY_OPTICAL_DEPTH))
+        x = np.broadcast_to(column, rows.shape[:-1])
+        j = np.clip(np.searchsorted(columns, x) - 1, 0, columns.shape[0] - 2)
+        lo, hi = columns[j], columns[j + 1]
+        frac = (np.log(np.clip(x, columns[0], columns[-1])) - np.log(lo)) / (
+            np.log(hi) - np.log(lo)
+        )
+        take = np.take_along_axis
+        d_lo = take(log_depth, j[..., None], axis=-1)[..., 0]
+        d_hi = take(log_depth, (j + 1)[..., None], axis=-1)[..., 0]
+        out = np.exp(d_lo + frac * (d_hi - d_lo)) / x
+        # Outside the grid the limits are known, so they are used rather than refused: the
+        # coefficient stops depending on the path below it, and the optical depth stops growing
+        # above it.
+        thin = take(rows, np.zeros_like(j)[..., None], axis=-1)[..., 0]
+        thick = take(depth, np.full_like(j, columns.shape[0] - 1)[..., None], axis=-1)[..., 0]
+        out = np.where(x <= columns[0], thin, out)
+        out = np.where(x >= columns[-1], thick / x, out)
+        return np.asarray(out)
 
 
 @dataclass(frozen=True)

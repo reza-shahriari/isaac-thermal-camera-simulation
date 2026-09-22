@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import pathlib
 from typing import Any
 
@@ -62,11 +63,14 @@ SPECIES = ("co2", "h2o")
 MIN_SUPPORT_FRACTION = 0.99
 
 
-def _root(data_dir: str | pathlib.Path | None) -> pathlib.Path:
+DataDir = str | os.PathLike[str] | None
+
+
+def _root(data_dir: DataDir) -> pathlib.Path:
     return resolve_data_dir(data_dir) / GAS_TABLE_DIRNAME
 
 
-def available_gas_tables(data_dir: str | pathlib.Path | None = None) -> tuple[str, ...]:
+def available_gas_tables(data_dir: DataDir = None) -> tuple[str, ...]:
     """Every key with a committed sidecar, sorted."""
     root = _root(data_dir)
     return tuple(sorted(p.name[: -len("_gas.json")] for p in root.glob("*_gas.json")))
@@ -92,7 +96,7 @@ def _read_sidecar(path: pathlib.Path) -> dict[str, Any]:
 
 def load_gas_tables(
     key: str,
-    data_dir: str | pathlib.Path | None = None,
+    data_dir: DataDir = None,
     *,
     allow_partial_support: bool = False,
 ) -> GasBandTables:
@@ -145,7 +149,7 @@ def load_gas_tables(
 def gas_tables_for(
     band: str,
     response: SpectralResponse | None = None,
-    data_dir: str | pathlib.Path | None = None,
+    data_dir: DataDir = None,
     *,
     allow_partial_support: bool = False,
 ) -> GasBandTables:

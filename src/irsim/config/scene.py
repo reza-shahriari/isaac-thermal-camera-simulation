@@ -37,6 +37,7 @@ from pydantic import (
 )
 
 __all__ = [
+    "PlumeSpec",
     "SCENE_SCHEMA_VERSION",
     "MIN_SCENE_SCHEMA_VERSION",
     "MeshSpec",
@@ -53,7 +54,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 14  # v14: a surface's `mesh:` (ADR 0110, WM.7); v13 its
+SCENE_SCHEMA_VERSION = 15  # v15: an exhaust target's `plume:` (PH.6); v14 a
+# surface's `mesh:` (ADR 0110, WM.7); v13 its
 # speed schedule (ADR 0109, PT.9); v12 its
 # `water:` (ADR 0108, PH.3); v11
 # `thermal.penumbra_rays:` (ADR 0107, PT.22); v10
@@ -75,6 +77,42 @@ class SiteSpec(_Frozen):
     latitude_deg: float = Field(ge=-90.0, le=90.0)
     longitude_deg: float = Field(ge=-180.0, le=180.0)  # east positive
     altitude_m: float = Field(default=0.0, ge=-500.0, le=9000.0)
+
+
+class PlumeSpec(_Frozen):
+    """The gas cone leaving an exhaust, authored in **world** coordinates (schema v15, `PH.6`).
+
+    Only an ``exhaust`` target may carry one, and that is the point: the plume's temperature is
+    not authored here at all. It is the section's own solved gas temperature at the moment the
+    frame is taken (`TC.7`), so a plume cannot drift out of step with the pipe it leaves -- the
+    failure §6.6's independent schedules made easy.
+
+    What *is* authored is geometry and chemistry. ``origin_m`` and ``direction`` place the pipe
+    exit and point it; ``radius_tip_m`` is the pipe's own bore and ``radius_end_m`` the plume's
+    spread at ``length_m``; ``mixing_length_m`` is the distance over which entrainment takes the
+    excess temperature -- and the species with it -- down by 1/e. The partial pressures are the
+    gas at the exit: roughly 0.11 atm CO2 and 0.12 atm H2O for petrol at stoichiometry, less for
+    a lean diesel, and ``f_soot`` is a volume fraction (1e-7 to 1e-5 for a sooty flame; a modern
+    car is far below that and a smoky diesel is not).
+    """
+
+    origin_m: tuple[float, float, float]
+    direction: tuple[float, float, float]
+    length_m: float = Field(gt=0.0)
+    radius_tip_m: float = Field(gt=0.0)
+    radius_end_m: float = Field(gt=0.0)
+    mixing_length_m: float = Field(gt=0.0)
+    p_co2_atm: float = Field(default=0.0, ge=0.0, le=1.0)
+    p_h2o_atm: float = Field(default=0.0, ge=0.0, le=1.0)
+    f_soot: float = Field(default=0.0, ge=0.0)
+
+    @model_validator(mode="after")
+    def _has_something_to_absorb(self) -> PlumeSpec:
+        if self.p_co2_atm == self.p_h2o_atm == self.f_soot == 0.0:
+            raise ValueError("a plume with no CO2, no H2O and no soot is warm air, not a plume")
+        if sum(v * v for v in self.direction) <= 0.0:
+            raise ValueError("a plume's direction needs a direction")
+        return self
 
 
 class TargetSpec(_Frozen):
@@ -132,11 +170,18 @@ class TargetSpec(_Frozen):
     recovery_factor: float | None = Field(default=None, gt=0.0, le=1.0)
     #: ``exhaust`` only: which section's skin the target reports (TC.7, ADR 0105).
     section: str | None = None
+    #: ``exhaust`` only: the gas cone it blows, in world coordinates (schema v15, `PH.6`).
+    plume: PlumeSpec | None = None
 
     @model_validator(mode="after")
     def _fields_for_solver(self) -> TargetSpec:
         if self.section is not None and self.solver != "exhaust":
             raise ValueError(f"target {self.name!r}: only exhaust takes a `section`")
+        if self.plume is not None and self.solver != "exhaust":
+            raise ValueError(
+                f"target {self.name!r}: only an exhaust target takes a `plume` -- its temperature "
+                "is the section's own solved gas temperature, not an authored one (`PH.6`)"
+            )
         if self.solver == "vehicle_source":
             return self._vehicle_fields()
         if self.solver in ("engine", "exhaust"):

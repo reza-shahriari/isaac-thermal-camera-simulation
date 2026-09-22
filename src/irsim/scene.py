@@ -698,6 +698,50 @@ class Scene:
             out.update(self.network.temperatures_k)
         return out
 
+    def plumes_at(self, t_rel_s: float) -> tuple[Any, ...]:
+        """Every authored exhaust plume, in world coordinates, as the gas stands now (`PH.6`).
+
+        The geometry and the chemistry come from the config's ``plume:`` block; the **temperature
+        does not**. It is the tailpipe's own solved outlet gas at the solver's current instant
+        (`TC.7`), so a plume cannot drift out of step with the pipe it leaves -- and the ambient
+        it mixes into is the scene's weather, not a second authored number (CLAUDE.md #6).
+
+        Read *after* :meth:`advance_targets` has taken the step this frame belongs to, for the
+        same reason every other field on this object is: the solvers walk forward and nothing here
+        rewinds them (ADR 0093).
+        """
+        from irsim.pipeline.plume import WorldPlume
+
+        air_k = float(self.weather_at(t_rel_s).t_air_k)
+        out = []
+        for spec in self.spec.targets:
+            block = getattr(spec, "plume", None)
+            if block is None:
+                continue
+            solver = self.targets[spec.name]
+            outlet = getattr(solver, "gas_outlet_k", None)
+            if outlet is None:
+                raise ValueError(
+                    f"target {spec.name!r} carries a plume but its solver reports no outlet gas "
+                    "temperature; only the exhaust solver does (TC.7)"
+                )
+            out.append(
+                WorldPlume(
+                    origin_m=tuple(block.origin_m),
+                    direction=tuple(block.direction),
+                    length_m=block.length_m,
+                    radius_tip_m=block.radius_tip_m,
+                    radius_end_m=block.radius_end_m,
+                    mixing_length_m=block.mixing_length_m,
+                    t_tip_k=float(outlet()),
+                    t_air_k=air_k,
+                    p_co2_atm=block.p_co2_atm,
+                    p_h2o_atm=block.p_h2o_atm,
+                    f_soot=block.f_soot,
+                )
+            )
+        return tuple(out)
+
     def node_temperature_k(self, name: str) -> float:
         """One network node's current temperature (schema v9, TC.4)."""
         if self.network is None:

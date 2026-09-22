@@ -24,7 +24,7 @@
 # longitude ~ +30E. 01:00Z is 03:00 local -- two and a half hours before sunrise, well past the
 # point where yesterday's heat has been forgotten.
 
-schema_version: 14
+schema_version: 15
 scene:
   name: car_ignition_overcast_night
   description: "A cold car on asphalt starts its engine, 03:00 local under thick overcast"

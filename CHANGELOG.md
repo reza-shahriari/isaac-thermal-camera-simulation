@@ -13,6 +13,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **The exhaust plume, per pixel** (`PH.6`, ADR 0114). `irsim.pipeline.plume` — stage 2d of
+  `run_frame`: a truncated cone in camera space, one analytic ray/cone chord per pixel, `PH.4`'s
+  slab evaluated on it. Occlusion is the G-buffer's own depth plane; entrainment dilutes
+  temperature and species by one conserved-scalar factor, so a plume cannot cool without thinning.
+  Measured on `configs/scenes/car_exhaust_plume.yaml`: τ = **0.866** in MWIR against **0.979** in
+  LWIR and **+72.7 K** of peak apparent temperature against **+7.1 K**, for one authored plume.
+- **A plume is authored in a scene file** (`PH.6`). Schema **v15**: a `plume:` block on an
+  `exhaust` target, carrying geometry and chemistry only. Its temperature is `TC.7`'s solved
+  outlet **gas** at that instant — not `temperature()`, which is a skin some 50 K cooler — and the
+  air it mixes into is the scene's weather. `Scene.plumes_at` returns world-space plumes;
+  `WorldPlume.in_camera` gives the camera-space one, so nothing holds both frames at once.
+- `ExhaustSolver.gas_outlet_k()` — the gas leaving the last segment, which is what a plume is made
+  of (`PH.6`).
 - **Per-band hot-gas absorption tables, generated offline** (`PH.5`, ADR 0098 addendum).
   `data/gas/<key>_{co2,h2o}.npy` — float32 κ for CO₂ and H₂O over 300–2500 K **and over column
   density** — plus a sidecar that pins the source database by hash, read by
@@ -107,6 +120,13 @@ working in one tree; two commits already exist whose whole subject is restoring 
   solved with lateral conduction is 26 % smaller, so `WM.6` is worth about a quarter of it.
 
 #### Changed
+- **`SpeciesAbsorption.kappa` reads whole arrays** (`PH.6`). A per-pixel plume asks for the
+  coefficient at every pixel it covers, so the two interpolations — linear in T, linear in log X on
+  the *optical depth* — are done over arrays rather than pixel by pixel. `at()` is the scalar case
+  of it and returns the same number.
+- **`PipelineConfig` carries the camera's R(λ) and its band's gas tables** (`PH.6`). Stage 2d
+  integrates `B_b(T_g)` above the LUT's 1000 K ceiling, so it needs the response itself. Both are
+  `None` for a camera or band that has neither, and a plume then raises rather than rendering clear.
 - **`SpeciesAbsorption` carries a column-density axis** (`PH.5`). A band coefficient that goes
   inside one exponential is not a property of the gas alone. In a 3–5 µm camera essentially all of
   CO₂'s absorption sits in 4.2–4.45 µm, so the emission-weighted mean of κ(λ) — 200–360 1/(m·atm) —

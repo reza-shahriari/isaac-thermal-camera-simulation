@@ -34,7 +34,8 @@ from irsim.noise.electron import electron_budget
 from irsim.noise.stage import NoiseStage
 from irsim.optics.psf import optical_psf
 from irsim.radiometry.lut import BandLUT, Quantity
-from irsim.radiometry.lut_files import load_band_lut_for_config
+from irsim.radiometry.lut_files import load_band_lut_for_config, load_band_response_for_config
+from irsim.radiometry.spectral_response import SpectralResponse
 
 __all__ = ["Planes", "Stage", "PipelineConfig", "PipelineState", "RADIOMETRIC_RANGE_K"]
 
@@ -76,6 +77,14 @@ class PipelineConfig:
     #: measured against -- and is the default so that existing benches and goldens describe
     #: the radiometry alone. ``attach_sensor_chain`` turns it on.
     chain: Any = None  # SensorChain; Any avoids a cycle through irsim.pipeline.sensor_chain
+    #: The camera's own R(λ), kept because stage 2d integrates over it: a plume's band radiance
+    #: and soot's band-mean κ are quadratures, not LUT lookups, since the LUT stops at 1000 K and
+    #: a flame does not (`PH.6`).
+    response: SpectralResponse | None = None
+    #: The band's hot-gas absorption tables (`PH.5`). ``None`` for a band the model does not
+    #: reach — SWIR and NIR on the committed RadCal tables — and a plume carrying gas in such a
+    #: band raises in stage 2d rather than rendering as a clear one.
+    gas_tables: Any = None  # GasBandTables; Any avoids a cycle through irsim.pipeline.gas_slab
 
     @property
     def quantity(self) -> Quantity:
@@ -223,6 +232,22 @@ class PipelineConfig:
                 spec.fpa.pitch_um,
                 spec.optics.supersample_factor,
             )
+        # Stage 2d's two inputs (`PH.6`). Neither is fatal to build without: a camera with no
+        # response file on disk still renders everything but a plume, and a band the absorption
+        # model does not reach (SWIR, NIR) gets `None` here and a clear error there rather than
+        # a silent zero.
+        try:
+            response = load_band_response_for_config(sensor, data_dir)
+        except (FileNotFoundError, ValueError):
+            response = None
+        gas_tables = None
+        if response is not None:
+            from irsim.pipeline.gas_tables import gas_tables_for
+
+            try:
+                gas_tables = gas_tables_for(spec.band.band_id, response, data_dir)
+            except (FileNotFoundError, ValueError):
+                gas_tables = None
         built = cls(
             sensor=sensor,
             lut=lut,
@@ -239,6 +264,8 @@ class PipelineConfig:
             atmosphere=atmosphere,
             tau_override=tau_override,
             sky=sky,
+            response=response,
+            gas_tables=gas_tables,
         )
         if flat_field_enabled:
             from irsim.pipeline.flat_field import calibrate_flat_field

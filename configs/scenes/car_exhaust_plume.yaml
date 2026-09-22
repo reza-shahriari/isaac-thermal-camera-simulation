@@ -1,0 +1,73 @@
+# A car pulling away, and the gas it leaves behind. Schema v15.
+# Roadmap PH.6; ADR 0098 is the operator, ADR 0105 the pipe the gas comes out of.
+#
+# THE POINT OF THIS SCENE is that one authored plume produces two completely different pictures,
+# and neither of them was authored. Run it through an MWIR camera and the plume is the brightest
+# thing in frame; run the SAME scene file through an LWIR bolometer and it is a few kelvin of
+# haze you would miss. Nothing in this file says so. The difference is entirely in
+# `data/gas/*.npy`: hot CO2 absorbs and re-emits across 4.2-4.45 um, which is a fifth of a 3-5 um
+# camera's band and none of a 7.5-13.5 um one's. A scene that painted the plume as a hot prim
+# with an authored emissivity would show the same thing in both bands, which is the failure this
+# whole lane exists to remove -- and it is the failure that is easy to ship, because a single
+# frame of it looks completely reasonable.
+#
+# THE PLUME'S TEMPERATURE IS NOT IN THIS FILE EITHER. `plume:` carries geometry and chemistry;
+# the gas temperature is whatever TC.7's exhaust line has at its tailpipe outlet at that instant,
+# which follows the load profile below with the line's own lag. So the plume cools when the pipe
+# cools, and it is not possible to author the two inconsistently. The ambient it mixes into is
+# the scene's weather, for the same reason (CLAUDE.md #6).
+#
+# What the numbers are:
+#   * `load` takes the engine from idle to a light cruise over the first two minutes and holds
+#     it. The tailpipe outlet gas follows the line's own lag and settles near 595 K after twenty
+#     minutes, with the skin about 50 K behind it -- the MVFRI series' cruise range.
+#   * The cone is a 45 mm bore opening to 220 mm over a metre and a half: a jet spreading at
+#     about 6.5 degrees, which is the usual round-jet half-angle.
+#   * `mixing_length_m` is the distance over which entrainment takes the excess temperature down
+#     by 1/e -- and the species with it, because both ride the same conserved scalar. 0.7 m puts
+#     the plume within 15 % of ambient by the end of the cone, which is about what a hand behind
+#     a tailpipe finds.
+#   * 0.11 atm CO2 and 0.12 atm H2O is petrol near stoichiometry. A lean diesel is lower in both
+#     and carries soot, which `f_soot` would add: soot is grey-ish rather than banded, so a sooty
+#     plume is the one case where the two bands start to agree again.
+#
+# The rendered frames are IG.2's. `tests/unit/test_plume.py` measures the engine-free half from a
+# synthetic G-buffer: tau = 0.866 in MWIR against 0.979 in LWIR, +72.7 K of apparent temperature
+# against +7.1 K, for the same gas at the same moment.
+#
+# World is ENU: x east, y north, z up. The car faces east and the pipe blows west, behind it.
+
+schema_version: 15
+scene:
+  name: car_exhaust_plume
+  description: "a car at cruise load and its exhaust plume, bright in MWIR and faint in LWIR"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
+  start_utc: "2024-06-22T08:00:00Z"
+
+  targets:
+    # The shell, so the plume has a body to sit against. `airframe` is T_air(t) + offset, which a
+    # panel in the sun at this hour is within a couple of kelvin of.
+    - {name: shell, solver: airframe, offset_k: 2.0}
+
+    # THE EXHAUST. `solver: exhaust` is TC.7's line -- manifold, catalyst, pipe, tip as one solved
+    # gas stream in a wall, not four independent schedules. `section: tailpipe` makes the target report
+    # the tailpipe skin, which is what a camera under the car sees; the plume takes the *gas*
+    # leaving that section, which runs tens of kelvin hotter at load and converges with the skin
+    # at rest.
+    - name: tailpipe
+      solver: exhaust
+      section: tailpipe
+      load_s: [0.0,  30.0, 120.0, 1800.0]
+      load:   [0.05, 0.12, 0.20,  0.20]
+      plume:
+        origin_m: [-2.1, 0.0, 0.28]     # behind the rear bumper, at exhaust height
+        direction: [-1.0, 0.0, 0.08]    # west and very slightly up
+        length_m: 1.5
+        radius_tip_m: 0.045
+        radius_end_m: 0.22
+        mixing_length_m: 0.7
+        p_co2_atm: 0.11
+        p_h2o_atm: 0.12

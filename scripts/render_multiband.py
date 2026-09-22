@@ -70,6 +70,13 @@ SCENES: dict[str, tuple[str, list[str], int]] = {
 #: this accounts for every file in `configs/scenes/` that `SCENES` does not name, so a new scene
 #: cannot be added and quietly left unfilmed.
 UNSWEPT_SCENES: dict[str, str] = {
+    "car_exhaust_plume.yaml": (
+        "PH.6's reference scene: a tailpipe at cruise load and the gas cone it blows, one "
+        "exhaust target and no camera or prims yet. Its numbers are tests/unit/test_plume.py's "
+        "-- tau 0.866 in MWIR against 0.979 in LWIR from one authored plume -- measured on a "
+        "synthetic G-buffer; the rendered frames are IG.2's, and when a driver places the car "
+        "and its camera it joins the sweep."
+    ),
     "thermal_facet_scene.yaml": (
         "the §6.13 facet bench: seven surfaces, no camera and no prims. It is driven by "
         "scripts/validate_thermal_diurnal.py, which produces a diurnal curve, not a frame."
