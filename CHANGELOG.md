@@ -13,6 +13,23 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **Fire: the flame and what it heats** (`PH.7`, ADR 0115). `irsim.thermal.fire` — a `PoolFire`
+  authored by its convective heat release and pool diameter; `flame_flux_w_m2` puts
+  `F (α SEP − ε L_occluded)` into a cell's `q_internal`; Heskestad's centreline `ΔT₀` replaces the
+  weather's air above it, held at the tip's value inside the flame. That tip value is
+  **452.7 K above ambient independent of Q and D**, which is Heskestad's own definition of the mean
+  flame height and the check that a transcribed coefficient would fail. `Q_c` given in watts is
+  refused.
+- **`RadiantRectangle` carries a surface emissive power** (`PH.7`). `sep_w_m2` is the authored
+  product a flame is actually known by; `emitted_flux_w_m2` answers to a SEP **or** a temperature
+  and refuses both, because the two disagree by design. 135 kW/m² luminous and 40 kW/m²
+  smoke-obscured (Mudan, Considine), ESTIMATED to the literature's ranges.
+- **`flame_plume`** (`PH.7`): the flame as a soot slab a camera can see, on a cone standing on the
+  pool, its **mixing length solved** so the slab cools to exactly the centreline excess Heskestad
+  gives at the tip. One model, two consumers. Measured: the MWIR and LWIR band means of soot differ
+  by **2.47** — just the ratio of the bands' ⟨1/λ⟩ — against **5.49** for hot CO₂.
+- `G_STANDARD_M_S2` and `T_STD_ICAO_K` in `irsim.radiometry.constants`, for the buoyancy group and
+  an ambient density on the scene's own air temperature rather than on 15 °C.
 - **The exhaust plume, per pixel** (`PH.6`, ADR 0114). `irsim.pipeline.plume` — stage 2d of
   `run_frame`: a truncated cone in camera space, one analytic ray/cone chord per pixel, `PH.4`'s
   slab evaluated on it. Occlusion is the G-buffer's own depth plane; entrainment dilutes

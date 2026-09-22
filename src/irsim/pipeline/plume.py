@@ -73,10 +73,12 @@ from irsim.radiometry.lut import BandLUT, Quantity
 from irsim.radiometry.spectral_response import SpectralResponse
 
 __all__ = [
+    "FLAME_T_K",
     "PLUME_T_NODES",
     "ExhaustPlume",
     "PlumeCone",
     "WorldPlume",
+    "flame_plume",
     "chord_through_cone",
     "inject_plumes",
     "plume_window",
@@ -460,3 +462,59 @@ class WorldPlume:
             p_h2o_tip_atm=self.p_h2o_atm,
             f_soot_tip=self.f_soot,
         )
+
+
+#: The soot slab a luminous hydrocarbon flame is read as, kelvin. 1150-1300 K across the pool
+#: fires in the fire-protection literature; the midpoint is the default. It is what the *camera*
+#: sees, and it is not the same number as the flame's radiative surface emissive power
+#: (:mod:`irsim.thermal.fire`), which is what a *wall* sees -- 1200 K at ε = 1 is 118 kW/m², and
+#: so is 1500 K at ε = 0.41.
+FLAME_T_K = 1200.0
+
+
+def flame_plume(
+    fire: Any,
+    t_air_k: float,
+    *,
+    t_flame_k: float = FLAME_T_K,
+    f_soot: float = 2.0e-6,
+    tip_radius_m: float | None = None,
+) -> WorldPlume:
+    """A :class:`~irsim.thermal.fire.PoolFire` as a soot slab a camera can see (`PH.7`).
+
+    The cone stands on the pool and tapers to the mean flame height, and its **cooling is not
+    authored**: the mixing length is solved so that the slab reaches exactly the centreline excess
+    Heskestad's correlation gives at the flame tip. So the fire a camera sees and the air a
+    thermometer above it would read come from one model, and a scene cannot set them apart.
+
+    Soot only -- no CO2 or H2O table is consulted. A luminous flame's own emission is its soot,
+    which is grey-ish rather than banded (``κ ∝ 1/λ``), and that is why a fire looks far more
+    alike between MWIR and LWIR than an exhaust plume does. The band difference that remains is
+    the ratio of the bands' wavelengths and nothing more.
+    """
+    from irsim.thermal.fire import centreline_rise_k
+
+    height = float(fire.flame_height_m)
+    tip_rise = float(centreline_rise_k(height, fire, t_air_k))
+    excess = float(t_flame_k) - float(t_air_k)
+    if excess <= tip_rise:
+        raise ValueError(
+            f"a {t_flame_k:g} K flame is only {excess:.0f} K above this air, which is at or below "
+            f"the {tip_rise:.0f} K its own tip reaches by Heskestad's correlation: the slab would "
+            "have to warm as it rises"
+        )
+    mixing = height / math.log(excess / tip_rise)
+    radius = 0.5 * float(fire.diameter_m)
+    base = np.asarray(fire.base_m, dtype=np.float64).reshape(3)
+    axis = np.asarray(fire.axis, dtype=np.float64).reshape(3)
+    return WorldPlume(
+        origin_m=(float(base[0]), float(base[1]), float(base[2])),
+        direction=(float(axis[0]), float(axis[1]), float(axis[2])),
+        length_m=height,
+        radius_tip_m=radius,
+        radius_end_m=float(tip_radius_m) if tip_radius_m is not None else 0.35 * radius,
+        mixing_length_m=mixing,
+        t_tip_k=float(t_flame_k),
+        t_air_k=float(t_air_k),
+        f_soot=float(f_soot),
+    )

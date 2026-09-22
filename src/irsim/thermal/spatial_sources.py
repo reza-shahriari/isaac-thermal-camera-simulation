@@ -101,6 +101,12 @@ class RadiantRectangle:
     half_u_m: float
     half_v_m: float
     emissivity: float = 0.95
+    #: A flame's **surface emissive power**, W/m² (`PH.7`). Set it and this rectangle radiates
+    #: that, directly, instead of ``ε σ T⁴``. It is not a convenience: a flame's temperature and
+    #: emissivity are not separately knowable -- 1200 K at ε = 1 and 1500 K at ε = 0.41 are the
+    #: same 118 kW/m² -- so fire protection authors the product and nothing else.
+    #: :mod:`irsim.thermal.fire` has the values and the flux term that consumes them.
+    sep_w_m2: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "centre_m", np.asarray(self.centre_m, dtype=np.float64).reshape(3))
@@ -116,6 +122,29 @@ class RadiantRectangle:
             raise ValueError("half extents must be positive")
         if not 0.0 <= self.emissivity <= 1.0:
             raise ValueError("emissivity must lie in [0, 1]")
+        if self.sep_w_m2 is not None and self.sep_w_m2 < 0.0:
+            raise ValueError("surface emissive power cannot be negative")
+
+    def emitted_flux_w_m2(self, temperature_k: float | None = None) -> float:
+        """What leaves this rectangle's surface, W/m²: its authored SEP, else ``ε σ T⁴``.
+
+        A radiator answers to one of the two and not both. Passing a temperature to a rectangle
+        that carries a SEP is refused rather than ignored, because the two numbers disagree by
+        design -- the SEP is what was measured and the temperature is whatever someone put beside
+        it -- and silently preferring one would make which is used an implementation detail.
+        """
+        if self.sep_w_m2 is not None:
+            if temperature_k is not None:
+                raise ValueError(
+                    "this rectangle carries an authored surface emissive power, so it has no "
+                    "temperature to radiate at; pass one or the other (`PH.7`)"
+                )
+            return float(self.sep_w_m2)
+        if temperature_k is None:
+            raise ValueError("a rectangle with no authored SEP needs a temperature to radiate at")
+        if temperature_k <= 0.0:
+            raise ValueError("source temperature must be positive (kelvin)")
+        return float(self.emissivity * SIGMA_SB * float(temperature_k) ** 4)
 
     @property
     def normal(self) -> NDArray[np.float64]:

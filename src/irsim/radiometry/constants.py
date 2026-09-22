@@ -77,6 +77,12 @@ L_V_WATER_J_KG: Final[float] = 2.45e6
 C_P_AIR_J_KGK: Final[float] = 1005.0
 RHO_AIR_STD_KG_M3: Final[float] = 1.225
 P_STD_HPA: Final[float] = 1013.25
+# Standard gravity (CGPM 1901) and the ICAO sea-level temperature the standard density is quoted
+# at. Buoyancy-driven correlations -- Heskestad's fire plume (PH.7) -- need both: the first in the
+# group that sets the plume's strength, the second to put the ambient density on the scene's own
+# air temperature instead of on 15 C.
+G_STANDARD_M_S2: Final[float] = 9.80665
+T_STD_ICAO_K: Final[float] = 288.15
 # Ratio of the molar masses of water vapour and dry air: q = eps e / (p - (1 - eps) e).
 EPSILON_WATER_AIR: Final[float] = 0.622
 # Bulk transfer coefficient for latent heat (Dalton number) at 10 m in the 5-10 m/s range, COARE
