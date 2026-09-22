@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PH.5` is phase P, size M, and unblocks 4 other step(s).
 
-#### Then, in order — 81 open steps
+#### Then, in order — 80 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -183,18 +183,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 | 4 | **`PH.8`** | PH | P | M | — | `PH.7` |
 | 5 | **`PT.9`** | PT | A | M | 3 | ready |
-| 6 | **`AT.10`** | AT | A | M | — | ready |
-| 7 | **`GT.2`** | GT | A | M | — | ready |
-| 8 | **`IG.2`** | IG | A | M | — | ready |
-| 9 | **`SC.4`** | SC | A | M | — | ready |
-| 10 | **`IG.16`** | IG | B | M | — | ready |
-| 11 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 12 | **`SE.1`** | SE | B | M | — | ready |
-| 13 | **`SE.2`** | SE | B | M | — | ready |
-| 14 | **`AT.7`** | AT | C | M | 1 | ready |
-| 15 | **`PH.10`** | PH | C | S | — | ready |
+| 6 | **`GT.2`** | GT | A | M | — | ready |
+| 7 | **`IG.2`** | IG | A | M | — | ready |
+| 8 | **`SC.4`** | SC | A | M | — | ready |
+| 9 | **`IG.16`** | IG | B | M | — | ready |
+| 10 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 11 | **`SE.1`** | SE | B | M | — | ready |
+| 12 | **`SE.2`** | SE | B | M | — | ready |
+| 13 | **`AT.7`** | AT | C | M | 1 | ready |
+| 14 | **`PH.10`** | PH | C | S | — | ready |
+| 15 | **`PH.11`** | PH | C | S | — | ready |
 
-…and 66 more — `python scripts/next_step.py --queue 40`.
+…and 65 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -544,7 +544,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.7 | **Surface the extrapolated fraction at scene level.** `total_hemispherical_emissivity` fills everything outside the four nominal band ranges by extending the nearest band. Measured `extrapolated_fraction = 0.607` for every material at 300 K — 61 % of the weight that sets every surface temperature is an assumption, reported on the object and invisible to a scene author. | A scene build reports the worst fraction across its materials, and any Tier 4 report quoting an absolute apparent temperature carries it. | — | M | C |
 | AT.8 | **Angle-dependent τ and the second-hit ray.** `directional_properties_for` moves ε(θ) and re-derives ρ but holds τ at its normal-incidence value, and `surface_radiance` defaults `L_behind = L_env`. The limb of every windscreen and shop window keeps full normal-incidence transmittance in NIR/SWIR. | The limb of a glass panel at 75° shows the transmittance falling toward total reflection, against a flat value today, with Fresnel as the oracle. Needs a second-hit AOV from the Isaac side before the behind-radiance half can improve; the angular half does not. | IG.4 | M | C |
 | AT.9 | **Urban aerosol preset, and an honest bound on the seven that exist.** `AerosolRegime` already admits `urban` and nothing uses it; all seven presets declare `status: ESTIMATED` from §7.2 midpoints calibrated to one dry Tucson anchor, with `valid_range_m: 500`. | An urban preset exists and a test asserts its per-band extinction ratio differs from rural by more than the presets' own stated uncertainty. Any range claim beyond 500 m in a report names the calibration anchor. | — | M | C |
-| AT.10 | **One wavelength ladder for the atmosphere's spectral classes.** `BAND_CLASSES` is spectroscopy filed under camera names, and two tables disagree about the same air: NIR resolves the 0.94 µm water band (×10), SWIR's window swallows 0.90–0.98 µm at ×0.5. Holes at 1.80–2.00 / 6.00–7.00 µm. | Classes derive from one wavelength-ordered ladder by intersecting the response support, so a fifth band needs no `src/` edit. **Measured (AT.4):** 16.9 % of the InGaAs band leaves `window`; τ **−6.4 % at 5 km**, 200 m exact — why no test caught it. Own ADR + golden update. | AT.4 | M | A |
+| AT.10 | ✅ **done.** `ATMOSPHERE_LADDER`: one wavelength-ordered, gap-free table 0.35-14.5 um, and a band's classes are derived by intersecting its own span (nominal **and** response). `BAND_CLASSES` is gone. ADR 0113. | **Measured.** LWIR and NIR bit-identical, MWIR within 1 ulp (wavelength order), visible within the anchor solver's 1.5e-14. SWIR gains `h2o_0p94`: **16.9 %** of the InGaAs band leaves `window`, tau **-6.5 % at 5 km**, 200 m exact. Holes at 1.8-2.0 / 6.0-7.0 um filled. The carve-out is 7 offences -> 2. | AT.4 | M | A |
 
 ---
 

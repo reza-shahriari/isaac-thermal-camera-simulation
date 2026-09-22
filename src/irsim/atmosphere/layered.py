@@ -53,7 +53,10 @@ from irsim.thermal.weather import WeatherSeries
 __all__ = [
     "ANCHOR_DISTANCE_M",
     "SpectralClass",
-    "BAND_CLASSES",
+    "ATMOSPHERE_LADDER",
+    "LADDER_SPAN_UM",
+    "band_span_um",
+    "classes_for",
     "SOLAR_WEIGHT_T_K",
     "weight_reference_temperature",
     "class_weights",
@@ -86,33 +89,127 @@ class SpectralClass:
     opaque: bool = False
 
 
-# Class edges: H2O bands at 0.94, 1.1, 1.4, 2.7, 6.3 um and the rotational band beyond 13 um;
-# CO2 nu3 at 4.3 um (opaque within metres), the CO2/N2O complex 4.45-4.6 and 4.85-5.0 um.
-# Multipliers ESTIMATED; the window values are the R13 calibration (ADR 0071).
-BAND_CLASSES: dict[str, tuple[SpectralClass, ...]] = {
-    "lwir": (
-        SpectralClass("edges", ((7.0, 7.8), (13.2, 14.5)), "water", 40.0),
-        SpectralClass("lines", ((7.8, 8.3), (12.5, 13.2)), "water", 5.0),
-        SpectralClass("window", ((8.3, 12.5),), "water", 0.3),
-    ),
-    "mwir": (
-        SpectralClass("h2o_2p7", ((2.55, 2.95),), "water", 0.05, opaque=True),
-        SpectralClass("co2_4p3", ((4.17, 4.45),), "air", 0.5, opaque=True),
-        SpectralClass("h2o_wing", ((2.95, 3.35), (5.0, 6.0)), "water", 8.0),
-        SpectralClass("co2_n2o", ((4.45, 4.6), (4.85, 5.0)), "air", 2.0e-3),
-        SpectralClass("window", ((2.0, 2.55), (3.35, 4.17), (4.6, 4.85)), "water", 0.3),
-    ),
-    "swir": (
-        SpectralClass("h2o_1p4", ((1.33, 1.48),), "water", 0.05, opaque=True),
-        SpectralClass("h2o_1p1", ((1.10, 1.17),), "water", 10.0),
-        SpectralClass("window", ((0.80, 1.10), (1.17, 1.33), (1.48, 1.80)), "water", 0.5),
-    ),
-    "nir": (
-        SpectralClass("h2o_0p94", ((0.90, 0.98),), "water", 10.0),
-        SpectralClass("window", ((0.7, 0.90), (0.98, 1.10)), "water", 0.5),
-    ),
-    "visible": (SpectralClass("window", ((0.35, 0.80),), "water", 1.0),),
-}
+#: The spectroscopy, once, in wavelength order (`AT.10`, ADR 0113).
+#:
+#: Each rung is a contiguous interval of the spectrum with one extinction behaviour, and the
+#: rungs are **gap-free** from `LADDER_SPAN_UM[0]` to `LADDER_SPAN_UM[1]`. A band's spectral
+#: classes are *derived* from this by :func:`classes_for`, which is what makes a fifth band a
+#: config change rather than a `src/` edit -- and what stops two cameras disagreeing about the
+#: same air, which the per-band tables this replaces did: NIR resolved the 0.94 µm water band at
+#: ×10 while SWIR's window swallowed 0.90-0.98 µm at ×0.5, a factor of twenty on one sky.
+#:
+#: H2O bands at 0.94, 1.1, 1.4, 1.9, 2.7, 6.3 µm and the rotational edges beyond 13 µm; CO2 ν3
+#: at 4.3 µm (opaque within metres) and the CO2/N2O complex at 4.45-4.6 and 4.85-5.0 µm.
+#: Multipliers are ESTIMATED; the window values are the R13 calibration (ADR 0071). The 1.9 µm
+#: and 6.3 µm rungs fill holes the per-band tables left -- 1.80-2.00 and 6.00-7.00 µm belonged to
+#: no class at all, so a response reaching either raised rather than absorbing.
+ATMOSPHERE_LADDER: tuple[SpectralClass, ...] = (
+    SpectralClass("window_sw", ((0.35, 0.90),), "water", 0.5),
+    SpectralClass("h2o_0p94", ((0.90, 0.98),), "water", 10.0),
+    SpectralClass("window_sw", ((0.98, 1.10),), "water", 0.5),
+    SpectralClass("h2o_1p1", ((1.10, 1.17),), "water", 10.0),
+    SpectralClass("window_sw", ((1.17, 1.33),), "water", 0.5),
+    SpectralClass("h2o_1p4", ((1.33, 1.48),), "water", 0.05, opaque=True),
+    SpectralClass("window_sw", ((1.48, 1.80),), "water", 0.5),
+    SpectralClass("h2o_1p9", ((1.80, 2.00),), "water", 0.05, opaque=True),
+    SpectralClass("window", ((2.00, 2.55),), "water", 0.3),
+    SpectralClass("h2o_2p7", ((2.55, 2.95),), "water", 0.05, opaque=True),
+    SpectralClass("h2o_wing", ((2.95, 3.35),), "water", 8.0),
+    SpectralClass("window", ((3.35, 4.17),), "water", 0.3),
+    SpectralClass("co2_4p3", ((4.17, 4.45),), "air", 0.5, opaque=True),
+    SpectralClass("co2_n2o", ((4.45, 4.60),), "air", 2.0e-3),
+    SpectralClass("window", ((4.60, 4.85),), "water", 0.3),
+    SpectralClass("co2_n2o", ((4.85, 5.00),), "air", 2.0e-3),
+    SpectralClass("h2o_wing", ((5.00, 6.00),), "water", 8.0),
+    SpectralClass("h2o_6p3", ((6.00, 7.00),), "water", 0.05, opaque=True),
+    SpectralClass("edges", ((7.00, 7.80),), "water", 40.0),
+    SpectralClass("lines", ((7.80, 8.30),), "water", 5.0),
+    SpectralClass("window", ((8.30, 12.50),), "water", 0.3),
+    SpectralClass("lines", ((12.50, 13.20),), "water", 5.0),
+    SpectralClass("edges", ((13.20, 14.50),), "water", 40.0),
+)
+
+#: What the ladder covers. A band whose response leaves it is refused rather than given a
+#: nearest class: the numbers outside are spectroscopy nobody has written down here.
+LADDER_SPAN_UM = (
+    min(lo for rung in ATMOSPHERE_LADDER for lo, _ in rung.edges_um),
+    max(hi for rung in ATMOSPHERE_LADDER for _, hi in rung.edges_um),
+)
+
+
+def _ladder_is_ordered_and_gap_free() -> None:
+    """Checked at import, because a gap here is a band that raises at the far end of a render."""
+    edge = LADDER_SPAN_UM[0]
+    for rung in ATMOSPHERE_LADDER:
+        ((lo, hi),) = rung.edges_um
+        if lo != edge or hi <= lo:
+            raise ValueError(f"atmosphere ladder is not ordered and gap-free at {rung.name}")
+        edge = hi
+
+
+_ladder_is_ordered_and_gap_free()
+
+
+def band_span_um(band: str, response: SpectralResponse | None = None) -> tuple[float, float]:
+    """The wavelengths a band's classes have to cover: its nominal range **and** its response.
+
+    Both, because either alone has been wrong here. The nominal range alone was `AT.3`'s defect --
+    the NIR classes stopped at 1.05 µm while `nir_si.csv` reaches 1.10, carrying 0.188 % of the
+    band outside every class, which `class_weights` raises on. The response alone would let a
+    camera with a narrow filter shrink the model of the air it looks through.
+    """
+    lo, hi = nominal_range_for(band)
+    if response is not None:
+        r_lo, r_hi = response.support_um
+        lo, hi = min(lo, float(r_lo)), max(hi, float(r_hi))
+    return float(lo), float(hi)
+
+
+def classes_for(band: str, response: SpectralResponse | None = None) -> tuple[SpectralClass, ...]:
+    """A band's spectral classes, derived from the one ladder by the band's own span.
+
+    Every rung the span **overlaps** is taken whole -- not clipped to the span -- so the classes
+    always reach a little past the detector, which is the margin the hand-written tables carried
+    by eye. Rungs of the same name merge into one class with several intervals, in wavelength
+    order, which is the shape :class:`SpectralClass` already had.
+
+    Overlap is half-open, ``lo < span_hi and hi > span_lo``, so a band ending exactly on a rung
+    boundary does not pick up the rung beyond it: LWIR's response stops at 7.00 µm and does not
+    acquire the 6.3 µm water band, which carries none of its light.
+    """
+    lo, hi = band_span_um(band, response)
+    if lo < LADDER_SPAN_UM[0] or hi > LADDER_SPAN_UM[1]:
+        raise ValueError(
+            f"band {band!r} spans {lo}-{hi} um, outside the atmosphere ladder "
+            f"{LADDER_SPAN_UM[0]}-{LADDER_SPAN_UM[1]} um. Extend ATMOSPHERE_LADDER with the "
+            "spectroscopy for that region rather than letting the nearest class stand in for it."
+        )
+    merged: dict[str, list[tuple[float, float]]] = {}
+    seen: dict[str, SpectralClass] = {}
+    for rung in ATMOSPHERE_LADDER:
+        ((r_lo, r_hi),) = rung.edges_um
+        if r_lo >= hi or r_hi <= lo:
+            continue
+        if rung.name in seen:
+            other = seen[rung.name]
+            if (other.kind, other.multiplier, other.opaque) != (
+                rung.kind,
+                rung.multiplier,
+                rung.opaque,
+            ):
+                raise ValueError(f"ladder rung {rung.name!r} appears twice with different physics")
+        else:
+            seen[rung.name] = rung
+            merged[rung.name] = []
+        merged[rung.name].append((r_lo, r_hi))
+    if not merged:
+        raise ValueError(f"band {band!r} spans {lo}-{hi} um and overlaps no ladder rung")
+    return tuple(
+        SpectralClass(name, tuple(edges), seen[name].kind, seen[name].multiplier, seen[name].opaque)
+        for name, edges in merged.items()
+    )
+
+
 #: Planck weighting temperature for a *reflective* band's spectral-class shares (§7.1): its in-band
 #: radiance is borrowed sunlight, so how much of the band each class carries is set by the solar
 #: spectrum rather than by the scene. ``irsim.radiometry.solar`` models the TOA spectrum itself at
@@ -144,8 +241,8 @@ def class_weights(
 ) -> NDArray[np.float64]:
     """Planck-weighted share of the band per spectral class; sums to 1; every wavelength of the
     response must fall in some class (the class edges cover the nominal bands with margin)."""
-    classes = BAND_CLASSES[band]
     resp = response if response is not None else _nominal_response(band)
+    classes = classes_for(band, response)
     t_ref = weight_reference_temperature(band) if t_ref_k is None else t_ref_k
     grid = quadrature_grid(resp)
     dl = float(grid[1] - grid[0])
@@ -153,10 +250,16 @@ def class_weights(
     total = float(simpson(weight, dl))
     out = np.zeros(len(classes))
     covered = np.zeros(grid.shape, dtype=bool)
+    # The classes tile their span half-open, ``[lo, hi)``, so that a wavelength on a shared
+    # boundary belongs to exactly one of them. The set's **own top edge** is closed instead: a
+    # response whose support ends exactly there -- a top-hat does, at full height -- would
+    # otherwise fall outside every class and raise, which is what the nominal MWIR band did the
+    # moment its classes stopped being hand-written wider than the band (AT.10).
+    top = max(hi for c in classes for _, hi in c.edges_um)
     for i, c in enumerate(classes):
         mask = np.zeros(grid.shape, dtype=bool)
         for lo, hi in c.edges_um:
-            mask |= (grid >= lo) & (grid < hi)
+            mask |= (grid >= lo) & ((grid <= hi) if hi == top else (grid < hi))
         covered |= mask
         out[i] = float(simpson(np.where(mask, weight, 0.0), dl)) / total
     if np.any(weight[~covered] > 1e-6 * weight.max()):
@@ -503,15 +606,16 @@ class LayeredAtmosphere:
             if response is None:
                 # Loud, because the consequence is invisible in the output (AT.2). Without the
                 # camera's R(λ) the band is split by a nominal top-hat, and on the shipped InSb
-                # response that moves the MWIR `h2o_wing` weight from 0.0238 to 0.1303 -- a 5.5x
+                # response that moves the MWIR `h2o_wing` weight from 0.0192 to 0.1303 -- a 6.8x
                 # change in how much of the band is treated as a water wing -- while every frame
                 # still looks exactly like a frame.
                 warnings.warn(
                     f"LayeredAtmosphere has no spectral response for band {band!r}, so its "
                     "spectral-class weights come from a nominal top-hat rather than from the "
-                    "camera. Pass responses= (irsim.radiometry.lut_files."
+                    "camera -- and since AT.10 its spectral *classes* too, since they are derived "
+                    "from the band's own span. Pass responses= (irsim.radiometry.lut_files."
                     "load_band_response_for_config) -- measured on the shipped InSb MWIR "
-                    "response, this is a 5.5x error in the h2o_wing class weight.",
+                    "response, this is a 6.8x error in the h2o_wing class weight.",
                     stacklevel=2,
                 )
             self._weights[band] = class_weights(band, response)
@@ -529,7 +633,7 @@ class LayeredAtmosphere:
             sample.visibility_m, gamma_mol_vis
         )
         gamma_grey = gamma_mol + gamma_aer
-        classes = BAND_CLASSES[band]
+        classes = classes_for(band, self._responses.get(band))
         weights = self.weights(band)
         profile = self._preset.profile
         heights = np.array(

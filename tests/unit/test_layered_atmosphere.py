@@ -23,7 +23,7 @@ from irsim.atmosphere import (
     load_atmosphere_preset,
 )
 from irsim.atmosphere.beer_lambert import transmittance
-from irsim.atmosphere.layered import ANCHOR_DISTANCE_M, BAND_CLASSES
+from irsim.atmosphere.layered import ANCHOR_DISTANCE_M, classes_for
 from irsim.atmosphere.spectral import band_transmittance_spectral
 from irsim.config.sensor import SensorConfig
 from irsim.materials import MaterialTable
@@ -143,7 +143,7 @@ def test_horizontal_200m_anchor_matches_the_grey_preset(name: str) -> None:
     grey, layered = Atmosphere(preset, w), LayeredAtmosphere(preset, w)
     for band in ("lwir", "mwir", "swir", "nir", "visible"):
         es = layered.exponential_sum(band, 0.0)
-        free = np.array([not c.opaque for c in BAND_CLASSES[band]])
+        free = np.array([not c.opaque for c in classes_for(band)])
         tau_free = float(
             np.sum(
                 es.weights[free]

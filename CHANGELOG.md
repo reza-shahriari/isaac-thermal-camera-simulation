@@ -29,6 +29,27 @@ working in one tree; two commits already exist whose whole subject is restoring 
   crown-to-underside spread falls from 26.6 K to 22.1 K — the same body rectangles now shade the
   meshed arms and the patched ones alike, where before they shaded only the patched ones.
 
+- **One wavelength ladder for the atmosphere's spectral classes** (`AT.10`, ADR 0113).
+  `BAND_CLASSES` — five hand-written spectral-class tables keyed by camera band name — is replaced
+  by `ATMOSPHERE_LADDER`, one wavelength-ordered, gap-free table from 0.35 to 14.5 µm, from which
+  `classes_for(band, response)` derives a band's classes by intersecting its own span. That span is
+  the band's nominal range **and** its response, because either alone has been wrong here: the
+  nominal range alone was `AT.3`'s defect and the response alone would let a narrow filter shrink
+  the model of the air it looks through. Three faults go with the tables. Two of them **disagreed
+  about the same air** — NIR resolved the 0.94 µm water band at ×10 while SWIR's window swallowed
+  0.90–0.98 µm at ×0.5, a factor of twenty over one sky; deriving from the ladder moves **16.9 %**
+  of the Planck-weighted InGaAs band out of `window` and costs SWIR **6.5 % of its transmittance at
+  5 km**, with the 200 m anchor exact (which is why nothing caught it: the model is pinned where it
+  was fitted and wrong where it is extrapolated). Two stretches, **1.80–2.00 and 6.00–7.00 µm**,
+  belonged to no class at all and would have raised for any camera that reached them; they are the
+  1.9 and 6.3 µm water bands and are now modelled opaque, as the 1.4 and 2.7 µm bands already were.
+  And a fifth band needed a sixth table in `src/`: the `atmosphere/layered.py` carve-out is down
+  from **seven offences to two** (the two Koschmieder identifiers, which are the same photopic
+  definition `extinction.py` carries), and a test now refuses *any* carve-out that enumerates the
+  band registry. The calibrated bands are untouched — LWIR and NIR bit-identical, MWIR within one
+  ulp (wavelength order changes the summation order), `visible` within the anchor solver's
+  1.5e-14 — so ADR 0071's R13 sky calibration and every golden array still stand.
+
 - **Lateral conduction between a mesh's cells** (`WM.6`, ADR 0112). `irsim.thermal.mesh_conduction`
   extends `PT.11`'s term from a rectangular grid to a triangle mesh: a two-point flux
   `k δ w/(d_a + d_b)` within each face and across every shared mesh edge, faces of different levels

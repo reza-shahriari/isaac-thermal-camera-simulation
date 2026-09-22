@@ -335,13 +335,14 @@ BAND_AWARE: dict[str, tuple[int, str]] = {
         "gone -- the anchor is read as bands[ANCHOR_BAND] from the registry.",
     ),
     "atmosphere/layered.py": (
-        7,
-        "BAND_CLASSES: a second band registry, keyed by band name, holding the per-band "
-        "spectral-class tables (five keys) plus two Koschmieder identifiers. This is the carve-out "
-        "AT.4 kept and ADR 0092 records, and the only one of the six that is neither physics nor a "
-        "schema constraint. It is also measurably wrong: SWIR's table and NIR's table disagree "
-        "about the same air at 0.90-0.98 um by a factor of 20 (see AT.10). WEIGHT_T_REF_K and "
-        "VISIBLE_RANGE_UM used to live here too and are gone -- derived from the registry.",
+        2,
+        "The two Koschmieder identifiers, `gamma_aerosol_visible` and `aerosol_ratio_to_visible`: "
+        "the same physics `atmosphere/extinction.py`'s entry states, since meteorological optical "
+        "range is *defined* photopically and the ratio has to name what it is taken against. "
+        "BAND_CLASSES is gone (AT.10, ADR 0113) -- the five per-band spectral-class tables it held "
+        "are derived from one wavelength-ordered ladder by intersecting a band's own span, so a "
+        "fifth band needs no edit here. That was the one carve-out of the six that was neither "
+        "physics nor a schema constraint, and the one ADR 0092 recorded as debt.",
     ),
 }
 
@@ -518,21 +519,34 @@ def test_every_exemption_states_a_reason(rel: str) -> None:
     assert len(why) > 80, f"{rel}'s carve-out reason is too short to be one: {why!r}"
 
 
-def test_the_atmosphere_is_the_only_carve_out_that_is_not_physics_or_a_schema_key() -> None:
-    """Names the debt AT.4 chose not to pay, so it cannot quietly become permanent.
+def test_no_carve_out_is_a_band_registry_any_more() -> None:
+    """The debt AT.4 recorded and ADR 0092 named is paid, and this is what stops it returning.
 
-    Five of the six entries are a fact about the world (an LWIR-only sky depression, the
-    solar/thermal crossover) or a field name already written into YAML on disk. One is neither:
-    ``BAND_CLASSES`` is a spectroscopy table filed under camera names, and it is what stops a fifth
-    band rendering. ADR 0092 records the decision and AT.10 owns the fix.
+    Five of the six entries were always a fact about the world (an LWIR-only sky depression, the
+    solar/thermal crossover) or a field name already written into YAML on disk. The sixth was
+    neither: ``BAND_CLASSES``, a spectroscopy table filed under camera names, five keys that a
+    fifth band would have had to grow a sixth of. `AT.10` replaced it with one wavelength-ordered
+    ladder that bands are *derived* from, so `atmosphere/layered.py` is down to the two Koschmieder
+    identifiers -- the same photopic definition `atmosphere/extinction.py` carries.
+
+    The check is that **no carve-out enumerates the band registry**: an entry whose offences
+    include every band name is a second registry, whatever it is called.
     """
-    assert "atmosphere/layered.py" in BAND_AWARE
-    from irsim.atmosphere.layered import BAND_CLASSES
+    for rel in BAND_AWARE:
+        if rel == "config/bands.py":
+            continue  # the registry itself: naming every band is its whole job
+        offences = _offences_of(REPO / "src" / "irsim" / rel)
+        named = {b for b in BAND_KEYS if any(f"'{b}" in o or f'"{b}' in o for o in offences)}
+        assert named != set(BAND_KEYS), (
+            f"{rel} names every band in the registry, which makes it a second one; "
+            "derive from irsim.config.bands instead"
+        )
+    from irsim.atmosphere.layered import ATMOSPHERE_LADDER, classes_for
 
-    assert set(BAND_CLASSES) == set(BAND_KEYS), (
-        "BAND_CLASSES is keyed by band name, so its key set must track the registry's exactly; "
-        "a fifth band in irsim.config.bands with no class table here is a KeyError at render time"
-    )
+    # and the thing that replaced it is keyed by wavelength, not by camera.
+    assert all(len(rung.edges_um) == 1 for rung in ATMOSPHERE_LADDER)
+    for band in BAND_KEYS:
+        assert classes_for(band), f"{band} derives no spectral classes from the ladder"
 
 
 # -- the guard's ability to fail ---------------------------------------------------------------
