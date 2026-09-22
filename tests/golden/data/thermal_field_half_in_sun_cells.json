@@ -1,0 +1,13 @@
+{
+  "atol": 0.001,
+  "config_hash": "a49257902c861f52c0cd6d95f7123d3860487c2d303eb0a1bbbedcb2502bbdff",
+  "dtype": "float32",
+  "name": "thermal_field_half_in_sun_cells",
+  "numpy_version": "2.3.1",
+  "rtol": null,
+  "shape": [
+    32,
+    32
+  ],
+  "units": "K (1 mK)"
+}

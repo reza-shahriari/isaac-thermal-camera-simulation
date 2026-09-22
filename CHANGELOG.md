@@ -29,6 +29,20 @@ working in one tree; two commits already exist whose whole subject is restoring 
   crown-to-underside spread falls from 26.6 K to 22.1 K — the same body rectangles now shade the
   meshed arms and the patched ones alike, where before they shaded only the patched ones.
 
+- **Golden arrays beyond LWIR** (`GT.2`). All eight reference arrays came from one Boson LWIR
+  config, so the reflective-band chain and the sky/sea background — the two places drift is
+  hardest to see by eye — had no reference at all. Fifteen more, over the eight subjects the row
+  named: MWIR, SWIR and NIR frames through the shipped configs, their committed LUTs and the
+  material library's own table; the layered `τ(band, distance, elevation)` table; `L_sky(θ)` for
+  both emissive bands; the sea's apparent temperature against depression angle; a half-in-sun
+  thermal field after three hours; and the point-wise frame made by sampling it. The store goes
+  8 → 23. Each frame asserts it spans the converter without clipping (a saturated golden hides the
+  changes it exists to catch), and the reflective bands carry real solar irradiance from
+  `SolarIllumination`, since at 300 K their self-emission is ~1e-9 of LWIR's and an emission-only
+  golden would pin the dark current and nothing else. A test makes the case checkable rather than
+  rhetorical: the τ table **would have caught `AT.10`**, which moved SWIR 0.4148 → 0.3877 at 5 km
+  while all eight of the old goldens passed.
+
 - **One wavelength ladder for the atmosphere's spectral classes** (`AT.10`, ADR 0113).
   `BAND_CLASSES` — five hand-written spectral-class tables keyed by camera band name — is replaced
   by `ATMOSPHERE_LADDER`, one wavelength-ordered, gap-free table from 0.35 to 14.5 µm, from which

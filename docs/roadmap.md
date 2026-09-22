@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PH.5` is phase P, size M, and unblocks 4 other step(s).
 
-#### Then, in order — 80 open steps
+#### Then, in order — 79 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -183,18 +183,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 | 4 | **`PH.8`** | PH | P | M | — | `PH.7` |
 | 5 | **`PT.9`** | PT | A | M | 3 | ready |
-| 6 | **`GT.2`** | GT | A | M | — | ready |
-| 7 | **`IG.2`** | IG | A | M | — | ready |
-| 8 | **`SC.4`** | SC | A | M | — | ready |
-| 9 | **`IG.16`** | IG | B | M | — | ready |
-| 10 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 11 | **`SE.1`** | SE | B | M | — | ready |
-| 12 | **`SE.2`** | SE | B | M | — | ready |
-| 13 | **`AT.7`** | AT | C | M | 1 | ready |
-| 14 | **`PH.10`** | PH | C | S | — | ready |
-| 15 | **`PH.11`** | PH | C | S | — | ready |
+| 6 | **`IG.2`** | IG | A | M | — | ready |
+| 7 | **`SC.4`** | SC | A | M | — | ready |
+| 8 | **`IG.16`** | IG | B | M | — | ready |
+| 9 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 10 | **`SE.1`** | SE | B | M | — | ready |
+| 11 | **`SE.2`** | SE | B | M | — | ready |
+| 12 | **`AT.7`** | AT | C | M | 1 | ready |
+| 13 | **`PH.10`** | PH | C | S | — | ready |
+| 14 | **`PH.11`** | PH | C | S | — | ready |
+| 15 | **`PH.12`** | PH | C | S | — | ready |
 
-…and 65 more — `python scripts/next_step.py --queue 40`.
+…and 64 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -672,7 +672,7 @@ job. Several of these rows are not new features but *documented invariants that 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | GT.1 | ✅ **done, except the number.** `slow` is applied — 23 validation/end-to-end modules plus 10 tests over a second — and `make test` / `make test-slow` split the suite while `make check` runs both, so nothing escapes the gate by being slow. | **Measured.** 245 of 2,979 marked; fast tier ≈ **65 s of test time** against ~180 s. **30 s is unreachable:** 154 s of the 170 s is in test *bodies* (setup is 15 s), so it would mean marking everything over 0.2 s. Budget is now **open question 11**. | — | M | A |
-| GT.2 | **Goldens beyond LWIR.** All eight golden arrays come from one Boson LWIR config. Add one MWIR, one SWIR, one NIR, one aerial scene, one maritime scene, one layered slant-path atmosphere, one thermal field and one point-wise frame. | A single MWIR golden would have caught SC.1's 1.52× σ and the zero dark current. The two subsystems where drift is hardest to see by eye — the reflective-band chain and the sky/sea background — have no reference array at all. The `GoldenStaleError` machinery already separates stale from failing, so this is data. | SC.1 | M | A |
+| GT.2 | ✅ **done.** 15 new arrays over the eight subjects named: MWIR, SWIR and NIR frames through the real configs and LUTs; the layered tau(band, distance, elevation) table; L_sky(theta); the sea vs depression; a half-in-sun field and the point-wise frame from it. 8 -> 23. | **Measured.** Every frame spans the converter without clipping (asserted), and the reflective bands carry real solar irradiance -- emission-only would golden the dark current. A test shows the tau table **would have caught `AT.10`**: SWIR 0.4148 -> 0.3877 at 5 km, which every old golden passed. | SC.1 | M | A |
 | GT.3 | **Run `tests/integration` in an automated job.** 15 files, 4,480 lines, all auto-marked `isaac`, running nowhere; `warp_stages.py` at 38 % and six glue files at 0 % in the only gate that executes. | Split into a Warp-only subset needing a CUDA device but not Kit (ADR 0014's 2026-09-12 addendum measured `env.ensure_warp_on_path` from a bare `python.sh`) plus an Isaac subset run manually with its result recorded. Coverage rises above a stated floor and a regression fails a job. | GT.1 | L | X |
 | GT.4 | **`scripts/` into `make typecheck`, and the aperture guard's scope extended to it.** 6,495 lines, linted but never type-checked, containing every lane entry point; 21 of 29 scripts have no test, including all six render drivers, `fidelity_ablation.py`, `eval_detector.py` and `train_detector.py`. | mypy runs clean over `scripts/`. The AST aperture guard walks `scripts/` too — today it covers `src/irsim` and `src/irsim_isaac` only, which is the one real hole in non-negotiable #5's coverage. | — | M | X |
 | GT.5 | **Test `irsim_eval.decode`.** It is the entry point to the whole Tier 4 public-data lane and has no test at all; its own docstring names two decode facts (luma-plane-only, an unflagged colour range worth a 255/219 gain plus a 16-code offset) that bound every downstream number. Coverage 43 %, all incidental. | A synthetic clip encoded at a known range round-trips, and a range-flag regression fails. Needs ffmpeg and the `validation` extra, neither of which CI installs, so it follows the existing ffmpeg-gated pattern in `test_codec_floor.py`. | — | S | X |

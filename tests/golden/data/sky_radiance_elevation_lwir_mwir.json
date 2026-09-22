@@ -1,0 +1,13 @@
+{
+  "atol": null,
+  "config_hash": "7d569cda91c92b2b9e60c54505b19a9a0a9fe2b8206004926d8a2d71eac96001",
+  "dtype": "float32",
+  "name": "sky_radiance_elevation_lwir_mwir",
+  "numpy_version": "2.3.1",
+  "rtol": 1e-05,
+  "shape": [
+    2,
+    7
+  ],
+  "units": "W/m2/sr"
+}

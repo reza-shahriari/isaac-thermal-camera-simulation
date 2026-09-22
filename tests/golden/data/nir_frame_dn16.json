@@ -1,0 +1,13 @@
+{
+  "atol": 1.0,
+  "config_hash": "b2b2b96c40586ab1cc73121f39816cfc6214f7d654007ee5237facd52e12bf3b",
+  "dtype": "uint16",
+  "name": "nir_frame_dn16",
+  "numpy_version": "2.3.1",
+  "rtol": null,
+  "shape": [
+    128,
+    128
+  ],
+  "units": "DN16"
+}

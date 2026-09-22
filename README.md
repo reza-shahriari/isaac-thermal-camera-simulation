@@ -112,6 +112,20 @@ tile's mapping with no blending puts a **255-code** cliff there.
 plateau equalisation. The dark corners are the cos⁴ vignetting that plateau equalisation stretches
 on an un-flat-fielded camera. `flat_field_enabled=True` (M9.12) removes it -- that claim used to be here and was untrue: `TwoPointNuc` existed from M5 and nothing applied it. The atmosphere (stage 2) is still identity in this golden.
 
+**The golden store reaches past LWIR (`GT.2`).** All eight reference arrays used to come from one
+Boson LWIR config, which left the two subsystems where drift is hardest to see by eye — the
+reflective-band chain and the sky/sea background — with no reference at all. Fifteen more now
+cover the eight subjects that were missing: an **MWIR, SWIR and NIR frame** through the shipped
+configs, their committed LUTs and the library's own material table; the layered
+**τ(band, distance, elevation)** table; **L_sky(θ)**; the **sea's apparent temperature against
+depression angle**; a **half-in-sun thermal field**; and the **point-wise frame** made by sampling
+it. Each frame is asserted to span the converter without clipping, because a saturated golden hides
+the changes it exists to catch, and the reflective bands carry real solar irradiance from
+`SolarIllumination` — at 300 K their self-emission is ~1e-9 of LWIR's, so an emission-only golden
+would pin the dark current and nothing else. The worked example is checkable rather than claimed:
+a test shows the τ table **would have caught `AT.10`**, which moved SWIR from 0.4148 to 0.3877 at
+5 km while every one of the old eight goldens passed.
+
 **First light in Isaac Sim.** `python.sh scripts/render_aerial_demo.py --frames 4` renders the
 phase-1 aerial stage -- quadrotors at 120 m / 500 m / 1500 m, an aircraft at 2.5 km, a bird and a
 hot motor pod against sky -- through the whole camera model and writes the four outputs per frame

@@ -1,0 +1,13 @@
+{
+  "atol": 1.0,
+  "config_hash": "91af4319ee43a74028303c736c74c9a3933aeae33ff7c9c798f81599cd09df2b",
+  "dtype": "uint16",
+  "name": "pointwise_frame_dn16",
+  "numpy_version": "2.3.1",
+  "rtol": null,
+  "shape": [
+    32,
+    32
+  ],
+  "units": "DN16"
+}

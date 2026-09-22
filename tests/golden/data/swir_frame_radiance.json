@@ -1,0 +1,13 @@
+{
+  "atol": null,
+  "config_hash": "9387f1b771bc5302004a7102f7b48d64d5ff7def96624c49da56222f7adc0dae",
+  "dtype": "float32",
+  "name": "swir_frame_radiance",
+  "numpy_version": "2.3.1",
+  "rtol": 1e-05,
+  "shape": [
+    128,
+    128
+  ],
+  "units": "band"
+}

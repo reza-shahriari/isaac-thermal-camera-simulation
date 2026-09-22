@@ -1,0 +1,14 @@
+{
+  "atol": 1e-06,
+  "config_hash": "0ac73bf465d5ffb2bf2c60d444ad5fc17fdb64a7dd48a6953258828039eb5a8e",
+  "dtype": "float32",
+  "name": "layered_tau_band_distance_elevation",
+  "numpy_version": "2.3.1",
+  "rtol": null,
+  "shape": [
+    4,
+    7,
+    7
+  ],
+  "units": "transmittance"
+}

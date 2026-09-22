@@ -1,0 +1,13 @@
+{
+  "atol": null,
+  "config_hash": "b2b2b96c40586ab1cc73121f39816cfc6214f7d654007ee5237facd52e12bf3b",
+  "dtype": "float32",
+  "name": "nir_frame_radiance",
+  "numpy_version": "2.3.1",
+  "rtol": 1e-05,
+  "shape": [
+    128,
+    128
+  ],
+  "units": "band"
+}

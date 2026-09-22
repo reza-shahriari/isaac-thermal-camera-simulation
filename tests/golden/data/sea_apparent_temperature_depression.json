@@ -1,0 +1,12 @@
+{
+  "atol": 0.001,
+  "config_hash": "98f7fed699bd38642d471bc6f364d41468159ff56364c6e06101ab96167493a0",
+  "dtype": "float32",
+  "name": "sea_apparent_temperature_depression",
+  "numpy_version": "2.3.1",
+  "rtol": null,
+  "shape": [
+    10
+  ],
+  "units": "K (1 mK)"
+}
