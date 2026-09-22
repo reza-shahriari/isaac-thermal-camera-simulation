@@ -140,3 +140,17 @@ which is the cost argument ADR 0087 already made.
 `WM.6` gives a mesh lateral conduction, at which point rule 4 applies to T2 as it does to T1 and
 the arm scene's cell count should come down; or a scene needs a surface whose `L` is genuinely
 smaller than the geometry can express, which would be the first real argument for a finer tier.
+
+## Addendum 2026-09-22 (WM.6): the arm no longer breaks rule 4
+
+The consequence above — the meshed arms cut finer than carbon fibre's own `L`, and their 22.1 K
+crown-to-underside span an upper bound because nothing on a mesh conducted — is closed.
+[ADR 0112](0112-lateral-conduction-on-a-mesh.md) gives a mesh the lateral term, and the scene
+measures **15.4 K**, which is the traced shadow and the conduction together.
+
+Two things in this ADR change with it. **Rule 4 now applies to T2 as it does to T1**: a mesh cut
+finer than `L` no longer inflates a gradient, it just costs time, so over-resolution moved from an
+error to a price. And a second authoring constraint joins `L` for a mesh — ADR 0112's aspect rule,
+that a tube's rings should be about 1.4 times its circumferential arc, because the two-point flux
+between cells is exact at that shape and carries only three quarters of the conductivity it should
+for long thin quads. `quad_flight_mesh.yaml` is re-cut from 24 × 6 to 16 × 36 for it.

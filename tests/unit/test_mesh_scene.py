@@ -50,8 +50,12 @@ def _crown_and_underside(field, t: float) -> tuple[float, float]:  # type: ignor
 @pytest.mark.slow
 def test_an_arm_carries_a_gradient_around_its_circumference(scene) -> None:  # type: ignore[no-untyped-def]
     """The measurement the row exists for. On the pad at a 61° sun the crown of a 30 mm carbon
-    tube runs 26 K over the air its underside sits on, and both are cells of one solve on one
-    prim. The patched scene beside it gives each arm one value across its whole width."""
+    tube runs 16 K over the air its underside sits on, and both are cells of one solve on one
+    prim. The patched scene beside it gives each arm one value across its whole width.
+
+    The numbers are smaller than `WM.7` first reported them and more correct: `WM.4` traces the
+    motor pod's shadow onto the arm's outer end, and `WM.6` lets the tube conduct round itself,
+    which the fin equation says must cost a quarter of an unconducted gradient."""
     t = scene.t0_s + PAD_S
     air = float(scene.weather.at(t).t_air_k)
     assert set(scene.meshes) == {"arm_n", "arm_e"}
@@ -61,10 +65,10 @@ def test_an_arm_carries_a_gradient_around_its_circumference(scene) -> None:  # t
         field = scene.mesh_fields[name]
         field.advance_to(t)
         crown, underside = _crown_and_underside(field, t)
-        assert crown - underside > 20.0, (name, crown, underside)
-        assert abs(underside - air) < 1.5, (name, underside, air)
+        assert crown - underside > 14.0, (name, crown, underside)  # 15.4 K and 15.7 K measured
+        assert abs(underside - air) < 2.0, (name, underside, air)
         cells = np.asarray(field.temperature_at(t), dtype=np.float64)
-        assert float(np.ptp(cells)) > 25.0
+        assert float(np.ptp(cells)) > 22.0  # 24.3 K measured, crown to shaded end
 
 
 @pytest.mark.slow
@@ -88,16 +92,17 @@ def test_the_crown_is_the_side_that_faces_the_sun_and_not_the_other_one() -> Non
     # Binned rather than cell by cell: a quad of the tube is split into two triangles that are
     # not coplanar, so two cells at the same angular position have slightly different normals and
     # a strict per-cell ordering would be testing the tessellation, not the physics.
-    edges = np.linspace(-1.0, 1.0, 9)
+    # Five bins, not nine: a 16-sided tube has 16 distinct normals, so finer bins are empty.
+    edges = np.linspace(-1.0, 1.0, 6)
     means = [
         float(cells[side][(up[side] >= lo) & (up[side] < hi)].mean())
         for lo, hi in zip(edges[:-1], edges[1:], strict=True)
     ]
     assert np.all(np.diff(means) > 0.0), means
-    # 11.8 K between the bin facing straight down and the bin facing straight up, measured. It
-    # was 27 K before `WM.4` traced the body's shadow onto the arm: the inner third of the tube
-    # runs under the airframe's roof, which takes its midday beam and most of its sky.
-    assert means[-1] - means[0] > 10.0, means
+    # 15.3 K between the bin facing straight down and the bin facing straight up, measured. It
+    # was 27 K before `WM.4` traced the motor pod's shadow onto the arm's outer end and `WM.6`
+    # let the tube conduct round itself.
+    assert means[-1] - means[0] > 13.0, means
 
 
 @pytest.mark.slow
@@ -136,8 +141,8 @@ def test_the_mission_drives_the_tube_as_it_drives_the_deck() -> None:
     cruise = scene.t0_s + CRUISE_S
     field.advance_to(cruise)
     crown_cruise = _crown_and_underside(field, cruise)[0] - float(scene.weather.at(cruise).t_air_k)
-    assert crown_pad > 20.0, crown_pad
-    assert crown_cruise < 15.0, crown_cruise
+    assert crown_pad > 14.0, crown_pad  # 16.4 K above air, measured
+    assert crown_cruise < 12.0, crown_cruise  # 8.5 K above air, measured
 
 
 @pytest.mark.slow
@@ -150,7 +155,7 @@ def test_a_mesh_surface_opens_the_scene_with_its_gradient_already_grown() -> Non
     t = scene.t0_s
     field = scene.mesh_fields["arm_n"]
     opening = np.asarray(field.temperature_at(t), dtype=np.float64)
-    assert float(np.ptp(opening)) > 25.0, float(np.ptp(opening))
+    assert float(np.ptp(opening)) > 22.0, float(np.ptp(opening))  # 24.3 K measured
 
 
 # --- the bar: it reaches pixels ----------------------------------------------------------------
@@ -178,7 +183,7 @@ def test_the_scene_binds_its_meshes_to_prims_and_the_bridge_paints_them(scene) -
     plane = np.full(points.shape[0], 300.0, dtype=np.float32)
     out = bridge.apply(plane, ids, {"3": "/World/Quad/arm_n"}, points, t)
     assert float(np.ptp(plane)) == 0.0
-    assert float(np.ptp(out)) > 25.0
+    assert float(np.ptp(out)) > 22.0
     assert bridge.last_coverage["/World/Quad/arm_n"] == ids.size
 
 
@@ -316,3 +321,27 @@ def test_the_body_shadow_reaches_the_meshed_arm_as_it_reaches_the_patched_one(sc
     # and the sky goes with the beam: 0.10 under the pod against 0.93 along the open span.
     assert float(np.mean(sky[under_pod])) < 0.2
     assert float(np.mean(sky[open_span])) > 0.9
+
+
+def test_the_arms_are_cut_near_square_so_the_conduction_operator_is_right() -> None:
+    """`ADR 0112`'s authoring rule, on the scene that has to obey it.
+
+    The two-point flux between a mesh's cells is exact when a tube's quads are about 1.4 times
+    longer along the axis than around the circumference, and degrades either side of that: long
+    thin quads saturate at three quarters of the conductivity they should have, which renders a
+    tube's gradient a quarter too strong. The arms shipped at 12.7 to 1 until `WM.6` measured it.
+
+    Read off the config rather than the built mesh, because this is a statement about how the
+    scene is **authored** -- it is the thing a person editing the YAML gets wrong.
+    """
+    spec = load_scene_config(SCENE).scene.thermal
+    meshes = [s.mesh for s in spec.surfaces if s.mesh is not None]
+    assert meshes, "the scene declares no meshes; the check is pointed at the wrong file"
+    for mesh in meshes:
+        assert mesh.shape == "cylinder"
+        arc_m = 2.0 * np.pi * mesh.radius_m / mesh.segments
+        ring_m = mesh.length_m / mesh.rings
+        assert 1.0 < ring_m / arc_m < 2.0, (mesh.prim_path, ring_m / arc_m)
+        # and the cells are no finer than carbon fibre's own smoothing length (ADR 0111): at
+        # L = 8.8 mm a 5.9 mm arc is already past the point where extra cells buy resolution.
+        assert arc_m > 0.004, (mesh.prim_path, arc_m)

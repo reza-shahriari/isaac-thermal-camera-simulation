@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PH.5` is phase P, size M, and unblocks 4 other step(s).
 
-#### Then, in order — 82 open steps
+#### Then, in order — 81 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -182,19 +182,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`PH.6`** | PH | P | M | 1 | `PH.5` |
 | 3 | **`PH.7`** | PH | P | M | 1 | `PH.5` |
 | 4 | **`PH.8`** | PH | P | M | — | `PH.7` |
-| 5 | **`WM.6`** | WM | P | M | — | ready |
-| 6 | **`PT.9`** | PT | A | M | 3 | ready |
-| 7 | **`AT.10`** | AT | A | M | — | ready |
-| 8 | **`GT.2`** | GT | A | M | — | ready |
-| 9 | **`IG.2`** | IG | A | M | — | ready |
-| 10 | **`SC.4`** | SC | A | M | — | ready |
-| 11 | **`IG.16`** | IG | B | M | — | ready |
-| 12 | **`PT.10`** | PT | B | M | — | `PT.9` |
-| 13 | **`SE.1`** | SE | B | M | — | ready |
-| 14 | **`SE.2`** | SE | B | M | — | ready |
-| 15 | **`AT.7`** | AT | C | M | 1 | ready |
+| 5 | **`PT.9`** | PT | A | M | 3 | ready |
+| 6 | **`AT.10`** | AT | A | M | — | ready |
+| 7 | **`GT.2`** | GT | A | M | — | ready |
+| 8 | **`IG.2`** | IG | A | M | — | ready |
+| 9 | **`SC.4`** | SC | A | M | — | ready |
+| 10 | **`IG.16`** | IG | B | M | — | ready |
+| 11 | **`PT.10`** | PT | B | M | — | `PT.9` |
+| 12 | **`SE.1`** | SE | B | M | — | ready |
+| 13 | **`SE.2`** | SE | B | M | — | ready |
+| 14 | **`AT.7`** | AT | C | M | 1 | ready |
+| 15 | **`PH.10`** | PH | C | S | — | ready |
 
-…and 67 more — `python scripts/next_step.py --queue 40`.
+…and 66 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -449,7 +449,7 @@ Leaving ADR 0087 standing as written will cost another session a week, so WM.5 i
 | WM.3 | ✅ **done.** `mesh_bridge.MeshPointBridge`: instance id picks the prim's `wp.Mesh`, the closest-point query gives (face, u, v), the mesh field gives the temperature. Additive; Warp accelerates, `closest_point_on_mesh` is oracle **and** no-Warp fallback. | **Measured.** Warp and the brute-force oracle agree on face, cell and sampled temperature for **100 %** of 4 000 pixels on a sphere, and both routes render the same frame. An exhaust pipe goes from **0.000 K** across the prim to **34.1 K** (12.9→47.0 °C). A pixel 50 mm off raises; unbound prims stay bit-identical. | WM.2 | M | P |
 | WM.4 | ✅ **done.** `irsim.thermal.mesh_geometry`: a ray-traced sky view per cell on `PT.21`'s dome and a ray-traced beam on `PT.22`'s disc, through one `Occluders` query over the scene's occluders and the mesh's own triangles. Convex meshes skip it, exactly. NumPy, not `mesh_query_ray`. ADR 0088 addendum. | **Measured.** Convex traced = `(1 + n·up)/2` bit for bit; a mesh cell and a patch cell agree to the bit under one wall through two ray tests; wall foot 0.5000, overhang edge 0.5042; the pod over an arm's outer 60 mm takes its beam and all but 0.10 of its sky. | WM.3, PT.22 | M | P |
 | WM.5 | ✅ **done.** ADR 0110: cells per face on the mesh, located by a closest-point query that **derives** the parameterisation instead of asking the renderer to transport it. ADR 0087's curved-geometry limitation is superseded; its planar patch is not. | **Measured.** A record. The rejected routes are named with reasons: a UV atlas as the *solver* domain (metric distortion, seam severing, a conservative-rasterisation tax), CPM narrow bands (a grid finer than a 1 mm panel), transient surfels (no 48 h spin-up memory), and ADR 0087's two AOV routes. | WM.3 | S | P |
-| WM.6 | **Intrinsic-Delaunay-safe Laplacian** if PT.11's lateral conduction moves onto a mesh. A cotan Laplacian gives negative edge weights whenever two opposite angles sum past π, breaking the discrete maximum principle. | On a deliberately obtuse imported mesh, no cell leaves the range spanned by its neighbours and the forcing; the plain cotan operator fails this and produces a bright speck that looks like a bad pixel. Backward Euler is prefactored once per asset, so the 1 s fixed tick survives. | PT.11, WM.3 | M | P |
+| WM.6 | ✅ **done.** `irsim.thermal.mesh_conduction`: two-point flux between a mesh's cells, within each face and across every shared edge (levels matched by overlap), as the same `ConductionOperator` a patch uses. **Monotone over consistent**: the cotan weight goes negative on an obtuse face. ADR 0112. | **Measured.** = the cotan weight bit for bit on an equilateral face; level-free; linear-exact to 7e-16 there, 1.5-4.5 % when skewed; no cell leaves its neighbours' range on an obtuse mesh, where cotan is refused; a tube matches the fin equation's 0.744 to 1 %. | PT.11, WM.3 | M | P |
 | WM.7 | ✅ **done.** A surface's `mesh:` (schema **v14**): `MeshSpec` builds the primitive named, `Scene.mesh_fields` / `mesh_bindings()` carry it, `MeshCellForcing` gives each cell its own face's beam and sky view. `quad_flight_mesh.yaml` + its script. | **Measured.** The aerial mission with the arms as **tubes**: crown 52.8 °C over an underside on air at 26.2 °C — **26.6 K around one arm**, where the patched strip carries under 1 mK across its width. Spun up per cell, so it opens with the gradient grown. Cylinder faces wound outward — they were not, and the crown read cold. | WM.3 | M | P |
 ---
 

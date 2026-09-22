@@ -852,6 +852,7 @@ def _build_mesh_fields(
     reproduce.
     """
     from irsim.thermal.facets import FacetProperties, spin_up
+    from irsim.thermal.mesh_conduction import mesh_lateral_operator
     from irsim.thermal.mesh_field import TriangleMeshField
     from irsim.thermal.mesh_geometry import cell_occluders, mesh_sky_view
     from irsim.thermal.scene_forcing import MeshCellForcing
@@ -879,6 +880,15 @@ def _build_mesh_fields(
         sky_view = None
         if cell_occluders(mesh, casters) is not None:
             sky_view = mesh_sky_view(mesh, casters, frame=world_frame)
+        # WM.6: conduction between the mesh's cells, from the material's own k and thickness
+        # (ADR 0112). Without it a mesh renders every gradient at its full unconducted amplitude,
+        # which ADR 0111 measured as 26 % too much on the quadrotor's carbon arms.
+        thermal = build.materials[i].spec.thermal
+        conduction = (
+            mesh_lateral_operator(mesh, thermal.conductivity_w_mk, thermal.thickness_m)
+            if s.lateral_conduction
+            else None
+        )
         forcing = MeshCellForcing(
             surfaces=build.field.forcing_at,
             index=i,
@@ -900,8 +910,11 @@ def _build_mesh_fields(
             build.t0_s,
             hours=spec.thermal.spin_up_hours,
             dt_s=60.0,
+            conduction=conduction,
         ).temperatures_k
-        out[s.name] = TriangleMeshField(mesh, cells, forcing, build.t0_s, spun, spec.thermal.tick_s)
+        out[s.name] = TriangleMeshField(
+            mesh, cells, forcing, build.t0_s, spun, spec.thermal.tick_s, conduction=conduction
+        )
     return out
 
 

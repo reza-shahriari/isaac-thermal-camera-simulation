@@ -24,8 +24,15 @@
 # beam. A tube alone in the open would trace to exactly the analytic answer and the trace is
 # skipped for it; this one is not alone.
 #
-# Still not modelled: conduction between cells (`WM.6`) and per-vertex normals -- each cell is
-# balanced on its own face's normal, which is what §6.1 asks for and what a shading normal is not.
+# How the tubes are cut (WM.6, ADR 0112). The cells conduct to each other, and the two-point flux
+# between them is exact only when a quad is about 1.4 times longer along the tube than around it:
+# 16 segments give a 5.9 mm arc and 36 rings an 8.3 mm ring, which is 1.41. The arms shipped at
+# 24 x 6 -- a 12.7 : 1 quad -- until that was measured, and at that shape the operator carries
+# three quarters of the conductivity it should. 16 segments also puts the arc (5.9 mm) near carbon
+# fibre's own smoothing length L = 8.8 mm (ADR 0111), past which extra cells buy nothing.
+#
+# Still not modelled: per-vertex normals -- each cell is balanced on its own face's normal, which
+# is what §6.1 asks for and what a shading normal is not.
 #
 # World is ENU: x east, y north, z up. The mission is quad_flight_clear_noon.yaml's, unchanged.
 
@@ -108,8 +115,8 @@ scene:
           radius_m: 0.015
           length_m: 0.30
           axis: [0.0, 1.0, 0.0]
-          segments: 24
-          rings: 6
+          segments: 16
+          rings: 36
           capped: true
           level: 1
           frame: world
@@ -127,8 +134,8 @@ scene:
           radius_m: 0.015
           length_m: 0.30
           axis: [1.0, 0.0, 0.0]
-          segments: 24
-          rings: 6
+          segments: 16
+          rings: 36
           capped: true
           level: 1
           frame: world

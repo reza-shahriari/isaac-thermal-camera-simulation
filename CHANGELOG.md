@@ -29,6 +29,22 @@ working in one tree; two commits already exist whose whole subject is restoring 
   crown-to-underside spread falls from 26.6 K to 22.1 K — the same body rectangles now shade the
   meshed arms and the patched ones alike, where before they shaded only the patched ones.
 
+- **Lateral conduction between a mesh's cells** (`WM.6`, ADR 0112). `irsim.thermal.mesh_conduction`
+  extends `PT.11`'s term from a rectangular grid to a triangle mesh: a two-point flux
+  `k δ w/(d_a + d_b)` within each face and across every shared mesh edge, faces of different levels
+  matched by the length they overlap (as `TC.3`'s contactors match two patches), behind the same
+  `ConductionOperator` so ADR 0094's backward Euler and its prefactorisation are reused.
+  **Monotone over consistent**: the circumcentric dual-cotan weight is the consistent one and goes
+  negative on any obtuse face, which breaks the discrete maximum principle and renders as a bright
+  speck; `ConductionOperator` refuses a negative conductance, so that assembly fails at build
+  rather than in a frame. Measured: identical to the cotan weight on an equilateral face
+  (`√3 kδ`), independent of the level, linear-exact to 7e-16 there against 1.5–4.5 % when skewed,
+  energy conserved to 1e-9, and a carbon tube reproduces the fin equation's 0.744 to 1 %. The skew
+  error is an authoring rule — cut a tube so its rings are ~1.4× its circumferential arc — and
+  `quad_flight_mesh.yaml` is re-cut from 24 × 6 (a 12.7 : 1 quad, three quarters of the
+  conductivity it should have) to 16 × 36. The arm's crown-to-underside span is now **15.4 K**,
+  against 26.6 K before `WM.4` traced the pod's shadow and 22.1 K before this operator.
+
 - **ADR 0111 — temperature granularity tiers** (`PT.14`). Four of them, written down beside each
   other for the first time: one facet per prim, cells on a plane (ADR 0087), cells on a mesh
   (ADR 0110), and a network node, which is a mass and not a surface. No per-material tier, and no
