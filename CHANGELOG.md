@@ -13,6 +13,24 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **The point-wise aerial scene is rendered** (`PT.9` in-engine / `IG.2`, ADR 0123).
+  `configs/scenes/quad_outbound_pointwise.yaml` + `irsim_isaac.quad_outbound` +
+  `scripts/render_quad_outbound.py`: a ground camera films one quadrotor from **12 m to 150 m**
+  against sky, with the deck, the belly and two arms each solved **per cell** and bound to prims
+  that exist. Sun and throttle drive it together. Deck − belly is **29.3 K** in the rendered scene
+  and **29.3 K** in the engine-free oracle it was ported from, so the move into the stage frame is
+  provably a change of coordinates and not of physics; the arms carry **27 K** across one prim from
+  the deck's and the pods' own shadows. The target goes from **115 px** across to **12.7 px**.
+  Three decisions with teeth: the **camera moves and the aircraft does not** (an occluder in a
+  moving frame is refused by the thermal core, so a flying airframe would lose the self-shadowing
+  that is the whole signature); the boresight's 7.6° of margin to the horizon is **computed from
+  the sensor and the render refused** if a wider lens would put ADR 0060's analytic ground into a
+  sky-target frame; and every patched prim is **2 mm smaller than its patch**, which was measured
+  rather than anticipated — the first render raised on 150 deck pixels whose sampled position
+  landed a float's width outside the rectangle. Recorded honestly: the deck's 29 K excess is on
+  the *far side* of the aircraft from a camera looking up at it, which is the answer to the
+  question rather than a gap — an anti-UAV sensor reads a belly near ambient with four hot bells
+  on it. IR (two fixed spans), the camera's own AGC, and the companion RGB are all filmed.
 - **People: skin and clothing are two temperatures** (`PH.12`, ADR 0122). `irsim.thermal.human` —
   skin *authored* from ISO 7730's thermoregulated set point, clothing *solved* from the standard's
   own implicit balance by bisection (the textbook fixed point **diverges for a coat in wind** at

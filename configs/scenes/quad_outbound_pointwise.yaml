@@ -1,0 +1,116 @@
+# The aerial scenario as a **rendered** scene: a ground camera films one quadrotor flying out from
+# near to far, with the airframe solved **per cell** rather than as one number.
+# Schema: irsim.config.scene (v15). Roadmap PT.9/IG.2; ADR 0087 (the field), ADR 0095 (occluders),
+# ADR 0102 (in-plane conduction), ADR 0104 (the per-cell sky view), ADR 0109 (a speed that follows
+# the mission), ADR 0123 (this scene, and why it is authored in the stage frame).
+#
+# What this scene is for, and how it differs from `quad_flight_pointwise.yaml`:
+#
+#   * It is authored in the **stage frame** -- +X right, +Y up, -Z forward -- and declares
+#     `world_frame:` so the solar geometry is still computed in ENU. That is the same choice
+#     `car_ignition_clear_night.yaml` makes, and it is what lets every patch's `prim_path` land on
+#     a prim that actually exists on the Isaac stage at the same coordinates. The pad-frame ENU
+#     scene beside it stays as it is: it is the engine-free oracle, and moving it would move the
+#     numbers PT.9 was measured against.
+#   * The aircraft is **static in the stage and the camera moves**, out from 12 m to 150 m. The
+#     relative motion is what the picture needs -- the target shrinks as 1/R and the slant path in
+#     front of it grows -- and keeping the airframe still is not a shortcut but the only way the
+#     shadows are right: an occluder in a moving frame needs that frame's pose, which the thermal
+#     core does not carry (see `OccluderSpec`), so a patch that flies loses its self-shadowing.
+#     Flying the camera instead keeps the deck's own shadow on the inner arms, which is the whole
+#     point-wise signature.
+#   * The camera is aimed 20 deg above the horizontal at every range, which is more than half the
+#     vertical field, so the horizon is never in frame and every pixel that is not the aircraft is
+#     sky (ADR 0060 computes it analytically at each ray's own elevation).
+#
+# Sun **and** throttle drive the temperature together: the sun through each cell's own beam,
+# shadow and sky view, the throttle through the motors, the speed controllers and the pack, and
+# through the skin's convective speed (ADR 0109), which is what collapses the deck's excess when
+# the aircraft starts moving.
+#
+# The powered parts -- motors, speed controllers, the pack -- stay per-prim nodes, because
+# conducting their heat into the skin from a config still has no route (PT.9's remainder).
+
+schema_version: 15
+scene:
+  name: quad_outbound_pointwise
+  description: "A quadrotor filmed from the ground, 12 m to 150 m, point-wise airframe, clear midday"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  # Stage axes against the compass: +Y is up and -Z is north, so a heading of 0 puts the camera's
+  # boresight due north and the sun lands where the site and the clock say it does.
+  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}
+  targets:
+    # The per-prim airframe is kept so a prim that carries no patch still has a temperature.
+    - {name: airframe, solver: airframe, offset_k: 0.0}
+    - name: motor
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0, 1440.0, 1560.0, 1800.0]
+      throttle:   [0.15,  0.18,  0.85,  0.62,  0.66,   0.98,   0.95,   0.35,   0.20,   0.05]
+    - name: esc
+      solver: heat_source
+      source: esc
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0, 1440.0, 1560.0, 1800.0]
+      throttle:   [0.15,  0.18,  0.85,  0.62,  0.66,   0.98,   0.95,   0.35,   0.20,   0.05]
+    - name: battery
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0, 1440.0, 1560.0, 1800.0]
+      throttle:   [0.15,  0.18,  0.85,  0.62,  0.66,   0.98,   0.95,   0.35,   0.20,   0.05]
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 10.0
+    penumbra_rays: 7        # the pods stand 40 mm off the arms: a 0.4 mm ramp, but free here
+
+    # The body and two of the motor pods, as the boxes they are to the sun (ADR 0095). Every face
+    # here is a face of a prim `irsim_isaac.quad_outbound` authors, at the same coordinates -- the
+    # shadow and the picture come from one description of the aircraft.
+    occluders:
+      - {name: body_w,   centre_m: [-0.15, 0.30,  0.00], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_e,   centre_m: [ 0.15, 0.30,  0.00], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_s,   centre_m: [ 0.00, 0.30,  0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_n,   centre_m: [ 0.00, 0.30, -0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_top, centre_m: [ 0.00, 0.36,  0.00], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.15, half_v_m: 0.15}
+      - {name: pod_n_top, centre_m: [ 0.00, 0.37, -0.42], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_n_s,   centre_m: [ 0.00, 0.34, -0.39], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_e_top, centre_m: [ 0.42, 0.37,  0.00], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_e_s,   centre_m: [ 0.42, 0.34,  0.03], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
+
+    surfaces:
+      # The deck: 0.30 x 0.30 m of carbon on top of the body, the one surface a camera above sees.
+      - name: deck
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.15, 0.36, 0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/deck}
+
+      # The belly: the same plate facing down. tilt 180 means it sees no sky at all -- only the
+      # ground under it -- which is why a quadrotor read from below is nothing like one read from
+      # above, and from a *ground* camera the belly is most of what there is to read.
+      - name: belly
+        material: carbon_fibre
+        tilt_deg: 180.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.15, 0.24, 0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/belly}
+
+      # Two arms, north and east: 0.30 m of carbon tube from the body to the pod, 40 mm below the
+      # deck so the deck's own shadow falls across their inner half at a high sun.
+      - name: arm_n
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.025, 0.32, -0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 2, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/arm_n}
+      - name: arm_e
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [0.15, 0.32, 0.025], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 2, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/arm_e}

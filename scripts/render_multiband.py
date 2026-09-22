@@ -49,6 +49,11 @@ SCENES: dict[str, tuple[str, list[str], int]] = {
     # never been filmed in any band but the one their own driver defaults to -- including the
     # whole aerial point-target lane, which is the one the owner ranked first.
     "sky_target": ("render_aerial_demo.py", [], 90),
+    # PT.9's rendered point-wise aerial scene (ADR 0123). Worth filming in every band for the
+    # same reason the point-target lane is: the deck's excess over air comes from absorbed
+    # sunlight, so how much of it survives into the picture is a question about the band, and a
+    # reflective one reads the same airframe by what it reflects rather than by what it emits.
+    "drone_outbound": ("render_quad_outbound.py", [], 150),
     "vessel_departure": ("render_vessel_departure.py", [], 90),
     # The two car scenes differ only in cloud cover, and that is the point of filming both: an
     # overcast night sky radiates near air temperature and a clear one is 30 K colder, so the
