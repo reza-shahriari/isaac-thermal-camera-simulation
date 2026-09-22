@@ -13,6 +13,17 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **Snow: the melt cap** (`PH.10`, ADR 0120). `irsim.thermal.snow.melt_capped_step` holds a snow
+  surface at 273.15 K and routes the surplus into fusion at L_f = 334 kJ/kg. +200 W/m² holds the
+  cell at the cap **bit-exactly** and sheds **2.1557 mm w.e. per hour**. The flux is read **at**
+  the melt point rather than at an RK2 midpoint above it — clamping after a step under-reports the
+  melt by 0.1–1 % every step, one-signed. A step that carries a cell *through* the cap splits its
+  enthalpy so energy is conserved across the transition, and a finite pack hands back what it
+  cannot melt. The night needs no special case: with snow's ε_hemi of 0.9874 a clear calm night
+  sits **−12.73 K** below air, a breezy one −4.75 K, and overcast **identically 0.00 K** (a fully
+  overcast sky is a blackbody at air temperature, so the radiative term cancels). New constants
+  `L_F_WATER_J_KG` and `T_MELT_WATER_K`. The alpine ESSD 16 (2024) Tier 4 bar (0.7–1.3 K MAE) is
+  recorded, not run; no scene declares snow yet.
 - **The extrapolated emissivity fraction, reported and decomposed** (`AT.7`, ADR 0119).
   `total_hemispherical_emissivity` always computed how much of ε rests on extending the nearest
   band; every scene build took `.value` and **threw the fraction away**, so 61 % of the weight

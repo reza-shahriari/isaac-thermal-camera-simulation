@@ -71,6 +71,13 @@ SOLAR_CONSTANT_W_M2: Final[float] = 1361.0
 # Latent heat of vaporisation of water at 20 C, J kg^-1 (2.501e6 at 0 C, 2.45e6 at 20 C: Rogers &
 # Yau, A Short Course in Cloud Physics, Table 2.1). The roadmap's 2.45 MJ/kg is this value.
 L_V_WATER_J_KG: Final[float] = 2.45e6
+# Latent heat of fusion of water at 0 C, J kg^-1 (Rogers & Yau, Table 2.1: 3.34e5). A melting
+# snow surface is held at 273.15 K and every surplus joule goes here instead of into temperature,
+# which is why a snowfield reads flat at exactly freezing on a sunny spring afternoon (PH.10).
+L_F_WATER_J_KG: Final[float] = 3.34e5
+# The melting point of water at one atmosphere, K. The triple point is 273.16 K; the 0.01 K
+# difference is far below anything this project resolves, and 273.15 is what a snow model caps at.
+T_MELT_WATER_K: Final[float] = 273.15
 # Specific heat of dry air at constant pressure, J kg^-1 K^-1, and a standard-atmosphere density
 # at sea level, 15 C (ICAO): the Lewis relation h = rho c_p C_H U ties the sensible and latent
 # bulk fluxes together, and the psychrometric wet bulb is where they balance.
