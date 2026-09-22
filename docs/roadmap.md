@@ -174,7 +174,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `PT.9` is phase A, size M, and unblocks 3 other step(s).
 
-#### Then, in order — 71 open steps
+#### Then, in order — 70 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -183,18 +183,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`IG.16`** | IG | B | M | — | ready |
 | 4 | **`PT.10`** | PT | B | M | — | `PT.9` |
 | 5 | **`SE.2`** | SE | B | M | — | ready |
-| 6 | **`PH.11`** | PH | C | S | — | ready |
-| 7 | **`PH.12`** | PH | C | S | — | ready |
-| 8 | **`PH.9`** | PH | C | S | — | ready |
-| 9 | **`TC.8`** | TC | C | S | — | ready |
-| 10 | **`AT.6`** | AT | C | M | — | ready |
-| 11 | **`AT.9`** | AT | C | M | — | ready |
-| 12 | **`GT.7`** | GT | C | M | — | `PT.9` |
-| 13 | **`PT.13`** | PT | C | M | — | ready |
-| 14 | **`PT.16`** | PT | C | M | — | ready |
-| 15 | **`XD.1`** | XD | X | S | 8 | ready |
+| 6 | **`PH.12`** | PH | C | S | — | ready |
+| 7 | **`PH.9`** | PH | C | S | — | ready |
+| 8 | **`TC.8`** | TC | C | S | — | ready |
+| 9 | **`AT.6`** | AT | C | M | — | ready |
+| 10 | **`AT.9`** | AT | C | M | — | ready |
+| 11 | **`GT.7`** | GT | C | M | — | `PT.9` |
+| 12 | **`PT.13`** | PT | C | M | — | ready |
+| 13 | **`PT.16`** | PT | C | M | — | ready |
+| 14 | **`XD.1`** | XD | X | S | 8 | ready |
+| 15 | **`EV.1`** | EV | X | M | 5 | ready |
 
-…and 56 more — `python scripts/next_step.py --queue 40`.
+…and 55 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -523,7 +523,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | PH.8 | ✅ **done.** `irsim.detector.gain_state`: `fpa.gain_ceiling_k` is the state's intrascene ceiling (Boson 140/500 °C), clipped on the at-aperture **radiance** plane and used as the radiometric range's top, so a clipped pixel lands on the top code. ADR 0116. | **Measured.** A 400 °C object rails high gain at 65535 reading 413 K; low gain reads 668 K. Person/room **252 DN** calm → **1.0 DN** with fire under `agc_linear` (FLIR: 0.7 %), **90 DN** under plateau. A kelvin ceiling misses the rail at ε = 0.6 and is **119 K wrong** at ε = 0.4. | PH.7 | M | P |
 | PH.9 | **Steam and droplet plumes.** The slab of `PH.4` with a droplet extinction from `cloud.py`'s Mie tables scaled by liquid water content, emitting at the droplet temperature. | For one LWC the MWIR extinction exceeds the LWIR extinction; the plume's apparent temperature never exceeds the authored droplet temperature; a pure-gas H₂O slab at 373 K has τ_LWIR ≥ 0.9 (NIRATAM) — the steam a LWIR camera sees is droplets, not gas. | PH.6 | S | C |
 | PH.10 | ✅ **done.** `snow.melt_capped_step` caps at 273.15 K and melts the surplus at L_f; the flux is read **at** the cap, not at an RK2 midpoint above it. A finite pack hands back what it cannot melt. No scene declares snow. ADR 0120. | **Measured.** +200 W/m² holds the cell **bit-exactly** at 273.15 K, shedding **2.1557 mm w.e./h**. Clamping after RK2 under-reports melt 0.1–1 % **every step, one-signed**. Night needs no special case: ε_hemi 0.9874 gives **−12.73 K** clear calm, −4.75 K breezy, **exactly 0.00 K** overcast. ESSD 16 bar 0.7–1.3 K recorded. | PH.1 | S | C |
-| PH.11 | **Vegetation: leaves transpire.** `PH.1`'s latent term with a stomatal resistance from the material and a leaf's tiny capacity, under `TC.1`'s guard (a 630 J m⁻² K⁻¹ leaf breaks a 60 s explicit tick). | g_s → 0 converges to the dry reference (above air in sun); a well-watered leaf sits below air at high VPD; the slope of (T_leaf − T_air) against VPD lies in [−3.8, −1.1] °C/kPa (Idso baselines); the Campbell–Norman closed form agrees with the stepped steady state to 0.1 K. | PH.1, TC.1 | S | C |
+| PH.11 | ✅ **done.** `vegetation.py` — a leaf **solved, not stepped** (15.4 s τ breaks a 60 s tick), with **its own** boundary layer, not the bulk one. Oracle is Campbell & Norman in molar units. No scene declares vegetation. ADR 0121. | **Measured.** Watered **−1.93 K** vs stressed **+7.00 K** at 3.18 kPa — nine kelvin from r_s alone. Idso slope **−1.84 °C/kPa**, inside [−3.8, −1.1]. The bulk boundary layer (435 vs **33 s/m**) gave **+6.4 K** — wrong *sign*. C&N agrees **0.10 K** near air, 0.37 K at 4.6 K out, **4e-10 K** degenerate. | PH.1, TC.1 | S | C |
 | PH.12 | **People: skin and clothing are two temperatures on one prim.** `irsim.thermal.human`: skin at 35.7 − 0.028 (M − W) °C, ε ≈ 0.98; a clothing surface solved from the ISO 7730 balance with I_cl = 0.155·clo and h_c = max(2.38 |Δt|^0.25, 12.1 √v); two patches per human prim. | I_cl = 0 gives t_cl = t_sk; 1 clo at 0 °C air lands the clothing 10–15 °C below skin; more wind lowers t_cl; one condition matches pythermalcomfort's two-node model (MIT, a dev-only oracle never imported by `src/irsim`) to 0.5 K. | PT.17 | S | C |
 | PH.13 | ✅ **done.** ADR 0098: the per-band slab in radiance space, the ~8 % RadCal envelope as the phenomena tier, transport kept outside the renderer (DIRSIG/FDS), Leckner/Hottel rejected for the image path and kept for heating, and the deferrals: scattering, gradients along the ray, buoyancy, flicker, an Isaac-side volume. | **Measured.** A record. The options list names the rejected routes: a grey emissivity knob (PH.4's test: > 900 K between bands vs 150 K), a Planck-mean coefficient in a band camera, Hottel/Leckner totals, an emissive prim through ADR 0014's fp16 path. | — | S | P |
 
@@ -867,7 +867,7 @@ answer arrives — so the plan cannot stall on silence.
 
 ## ADR number allocation
 
-The highest ADR is 0120 (0090–0120 were written after this section was first measured; 0093–0120 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8`, `SC.4`, `SE.1`, `AT.7` and `PH.10`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
+The highest ADR is 0121 (0090–0121 were written after this section was first measured; 0093–0121 by `PT.8`, `TC.1`, `PT.18`, `TC.2`, `TC.4`, `PH.13`, `TC.3`, `TC.5`, `PH.1`, `PT.11`, `PT.12`, `PT.21`, `TC.7`, `PT.15`, `PT.22`, `PH.3`, `PT.9`, `WM.5`, `PT.14`, `WM.6`, `AT.10`, `PH.6`, `PH.7`, `PH.8`, `SC.4`, `SE.1`, `AT.7`, `PH.10` and `PH.11`). Four numbers below 0089 are cited and were never written: **0042** (the Level B
 angular model, cited by `directional.py:21`, `angular.py:24` and four test files), **0079** (sea-water
 optical constants and the Cox–Munk slope model, cited by `sea.py:36`, `nk.py:23` and ADR 0078's own
 Consequences), and **0062** and **0069**, which are cited only by the roadmap itself as forward

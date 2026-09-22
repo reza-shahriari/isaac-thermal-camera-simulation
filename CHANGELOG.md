@@ -13,6 +13,18 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **Vegetation: leaves transpire** (`PH.11`, ADR 0121). `irsim.thermal.vegetation` — a leaf's
+  temperature set by its stomata. Same sun, same wind, same air: a well-watered leaf sits
+  **−1.93 K** below air at a 3.18 kPa deficit and a stressed one **+7.00 K** above it. The Idso
+  non-water-stressed slope comes out **−1.84 °C/kPa**, inside the published [−3.8, −1.1], and the
+  band was recorded as an acceptance rather than fitted to. Two decisions with teeth: a leaf is
+  **solved, not stepped** (630 J m⁻² K⁻¹ gives a 15.4 s time constant, so the midpoint rule is
+  stable only to 30.8 s and a 60 s tick diverges — `TC.1`'s guard), and a leaf has **its own
+  boundary layer** (33 s/m at 2 m/s against the bulk formulation's 435 s/m; using the bulk one
+  gave +6.4 K where the answer is −1.9 K, the wrong *sign* of the only effect here). The oracle is
+  Campbell & Norman's closed form in **molar** units, independent of this project's SI mass-based
+  balance: they agree to **0.10 K** near air, **0.37 K** at 4.6 K of departure, and to **4e-10 K**
+  in the degenerate case where both linearisations vanish. No scene declares vegetation yet.
 - **Snow: the melt cap** (`PH.10`, ADR 0120). `irsim.thermal.snow.melt_capped_step` holds a snow
   surface at 273.15 K and routes the surplus into fusion at L_f = 334 kJ/kg. +200 W/m² holds the
   cell at the cap **bit-exactly** and sheds **2.1557 mm w.e. per hour**. The flux is read **at**
