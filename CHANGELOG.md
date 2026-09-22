@@ -13,6 +13,12 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-22
 
 #### Added
+- **Fire on the camera: gain state, rail and AGC** (`PH.8`, ADR 0116). `irsim.detector.gain_state`
+  and `fpa.gain_ceiling_k` — the intrascene ceiling of the state a camera is running in (Boson
+  Rev 340: 140 °C high, 500 °C low), applied to the at-aperture **radiance** plane as stage 2e and
+  used as the top of the radiometric range, so a clipped pixel lands exactly on the converter's top
+  code. A 400 °C object rails high gain at DN 65535 reading 413 K and reads 668 K at DN 45 780 in
+  low gain. Defaults to `None`, so every camera and golden written before this is unchanged.
 - **Fire: the flame and what it heats** (`PH.7`, ADR 0115). `irsim.thermal.fire` — a `PoolFire`
   authored by its convective heat release and pool diameter; `flame_flux_w_m2` puts
   `F (α SEP − ε L_occluded)` into a cell's `q_internal`; Heskestad's centreline `ΔT₀` replaces the
@@ -137,6 +143,9 @@ working in one tree; two commits already exist whose whole subject is restoring 
   solved with lateral conduction is 26 % smaller, so `WM.6` is worth about a quarter of it.
 
 #### Changed
+- **Golden config hashes regenerated** (`PH.8`). Adding `fpa.gain_ceiling_k` moves `config_hash` on
+  23 stored sidecars even though every one has it as `null`. Every golden **array** was verified
+  bit-identical before `make golden-update` ran; only the hash moved.
 - **`SpeciesAbsorption.kappa` reads whole arrays** (`PH.6`). A per-pixel plume asks for the
   coefficient at every pixel it covers, so the two interpolations — linear in T, linear in log X on
   the *optical depth* — are done over arrays rather than pixel by pixel. `at()` is the scalar case

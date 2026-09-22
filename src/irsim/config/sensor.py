@@ -235,6 +235,14 @@ class _FpaCommon(_Frozen):
     fpa_t_cal_k: float | None = Field(default=None, gt=0)
     fpa_gain_coeffs_per_k: tuple[float, ...] = ()
     fpa_offset_coeffs_dn_per_k: tuple[float, ...] = ()
+    #: The **intrascene ceiling** of the gain state this camera is running in, kelvin (`PH.8`,
+    #: ADR 0116). A Boson's two are 140 °C (high gain) and 500 °C (low gain);
+    #: :data:`irsim.detector.gain_state.BOSON_GAIN_CEILING_K` has them. ``None`` is a core with no
+    #: ceiling modelled, which is every camera in this repository before `PH.8` and is what keeps
+    #: their goldens describing the pipeline. Applied to the at-aperture **radiance** plane --
+    #: never to a temperature, which is a different operation once a pixel is a scene and not a
+    #: blackbody.
+    gain_ceiling_k: float | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _fpa_node(self) -> _FpaCommon:

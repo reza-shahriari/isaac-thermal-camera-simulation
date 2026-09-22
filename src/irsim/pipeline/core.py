@@ -133,6 +133,19 @@ class PipelineConfig:
         frame time on the weather axis is ``PipelineState.t_s``. ``tau_override`` is the L1
         fallback: a constant τ at every distance, path radiance still at the weather's T_air.
         """
+        # The gain state is the *transfer*, not only a clip (`PH.8`, ADR 0116): a Boson's high and
+        # low states share one converter and differ in how much scene they map onto it. Taking the
+        # ceiling as the top of the radiometric range is what makes a clipped pixel land exactly on
+        # the top code instead of somewhere arbitrary below it -- one number, so the rail and the
+        # clip cannot disagree.
+        ceiling_k = sensor.sensor.fpa.gain_ceiling_k
+        if ceiling_k is not None:
+            if ceiling_k <= radiometric_range_k[0]:
+                raise ValueError(
+                    f"gain_ceiling_k = {ceiling_k} K is at or below the radiometric range's floor "
+                    f"{radiometric_range_k[0]} K; the state would hold no scene at all"
+                )
+            radiometric_range_k = (radiometric_range_k[0], ceiling_k)
         fidelity = sensor.sensor.fidelity
         noise_enabled = fidelity.noise if noise_enabled is None else noise_enabled
         psf_enabled = fidelity.optical_psf if psf_enabled is None else psf_enabled

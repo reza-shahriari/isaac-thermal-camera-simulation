@@ -2,6 +2,7 @@
 
     stage 1  band radiance     ε₀ L_B(T) + (1−ε₀) L_env on the k× G-buffer (irsim.pipeline.radiance)
     stage 2  atmosphere        τL + (1−τ)L_B(T_air) on the k× grid   (irsim.pipeline.atmosphere)
+    stage 2e gain state        min(L, L_B(T_ceiling)) in radiance      (irsim.detector.gain_state)
     stage 3  optics            PSF, box ↓k, aperture·cos⁴·A_d, +Φ_self (irsim.optics.stage)
     stage 4  detector          Φ → signal in DN with per-pixel noise    (irsim.detector, ADR 0026)
     stage 5  noise             + correlated 3-D components              (irsim.noise.stage)
@@ -29,6 +30,7 @@ from numpy.typing import NDArray
 
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.detector.bolometer import MicrobolometerDetector
+from irsim.detector.gain_state import clip_to_gain_ceiling, gain_ceiling_radiance
 from irsim.detector.params import BolometerParams, PhotonParams
 from irsim.detector.quantise import dn_max_for_bits, quantise
 from irsim.isp.display import run_display_branch
@@ -206,6 +208,14 @@ def run_frame(
             lut,
             q,
         )
+    # stage 2e: the gain state's intrascene ceiling (`PH.8`). Last thing in scene-radiance units
+    # and the first place a fire stops being radiometry and starts being a camera problem. In
+    # radiance and never in kelvin: what arrives is ε L_B(T) + (1 − ε) L_env plus the path, which
+    # is not L_B of anything, so a ceiling on temperature would rail a low-emissivity flame that
+    # does not rail and miss a cold reflector that does (ADR 0116).
+    ceiling_k = sensor.fpa.gain_ceiling_k
+    if ceiling_k is not None:
+        radiance_ss = clip_to_gain_ceiling(radiance_ss, gain_ceiling_radiance(ceiling_k, lut, q))
     # The M9 chain owns the thermal nodes and the drift, so it clocks first: stage 3 needs the
     # housing temperature it produces (M9.3), and stage 5 needs the pattern it advanced (M9.4).
     t_fpa_k = state.housing_temp_k

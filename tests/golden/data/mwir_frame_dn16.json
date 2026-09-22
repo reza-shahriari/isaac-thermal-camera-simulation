@@ -1,6 +1,6 @@
 {
   "atol": 1.0,
-  "config_hash": "59bf76d3b42174d09db9d8801b2cf4ffb84b700e9ac55de180a313ab10801b21",
+  "config_hash": "d1f427389d29bc3c474bc83f83ca67f100163a867dd31ac4f198c58d75c630b6",
   "dtype": "uint16",
   "name": "mwir_frame_dn16",
   "numpy_version": "2.3.1",
