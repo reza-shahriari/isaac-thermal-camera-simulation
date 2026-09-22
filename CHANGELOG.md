@@ -50,6 +50,13 @@ working in one tree; two commits already exist whose whole subject is restoring 
   these three attached it unconditionally. They now skip the chain and say so on stderr, as the
   other three already did -- the camera is shutterless anyway, so there is no FFC to freeze, and
   defects and 3-D noise still apply. Guarded by the same AST test.
+- **...and then asked for a flat field their camera could not hold** (`IG.13`). The third of three,
+  in the same three drivers, each hidden behind the last. `calibrate_flat_field`'s default hot
+  point is ADR 0021's +200 C -- a *bolometer* range; the modelled InSb camera fills its well at
+  366 K, so that point drives it 16x past its converter and the two-point fit becomes an
+  extrapolation that arrives as inverted vignetting, reading as a lens problem rather than a
+  calibration one. `PipelineConfig.from_sensor` is right to refuse; the three drivers now catch
+  the refusal, say what they are dropping and render without a flat field, as the other three did.
 
 ### 2026-09-21
 

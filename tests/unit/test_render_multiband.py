@@ -298,3 +298,45 @@ def test_every_swept_driver_skips_the_m9_chain_when_the_camera_has_no_calibratio
             f"{scene}: {script} attaches the M9 chain without checking for a radiometric "
             "calibration, so it raises on every photon-FPA band"
         )
+
+
+def test_every_swept_driver_survives_a_flat_field_its_camera_cannot_hold(driver):
+    """The third of three: `calibrate_flat_field`'s default hot point is ADR 0021's +200 C, a
+    *bolometer* range. The modelled InSb camera fills its well at 366 K, so that point drives it
+    16x past its converter and the two-point fit becomes an extrapolation -- which arrives as
+    inverted vignetting, a picture that reads as a lens problem rather than as a calibration one.
+    `PipelineConfig.from_sensor` is right to refuse; a driver that does not catch the refusal
+    cannot render MWIR at all.
+
+    Three of the six did not catch it, and it only surfaced after the quantity and the sensor
+    chain were fixed: each defect hid the next, one band at a time. The check is for the retry,
+    not for the message -- the point is a frame with no flat field rather than no frame.
+    """
+    for scene, (script, _args, _frames) in driver.SCENES.items():
+        tree = ast.parse((SCRIPTS / script).read_text("utf-8"))
+        calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "from_sensor"
+        ]
+        assert calls, f"{script} builds no PipelineConfig"
+        disabled = [
+            call
+            for call in calls
+            for kw in call.keywords
+            if kw.arg == "flat_field_enabled"
+            and isinstance(kw.value, ast.Constant)
+            and kw.value.value is False
+        ]
+        assert disabled, (
+            f"{scene}: {script} never retries without the flat field, so a camera whose ADC "
+            "cannot hold the hot calibration point renders nothing"
+        )
+        handlers = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ExceptHandler)
+            and getattr(node.type, "id", "") == "ValueError"
+            and any(call in ast.walk(node) for call in disabled)
+        ]
+        assert handlers, f"{scene}: {script} disables the flat field outside an except ValueError"

@@ -138,9 +138,13 @@ band its `--sensor` default names and raised in the other three -- the aerial po
 among them, which is the lane ranked first. Fixing it uncovered a fourth, hidden behind it in the
 same three drivers: they attached the M9 sensor chain unconditionally, and `attach_sensor_chain`
 needs a radiometric calibration to turn the NUC residual's millikelvin into DN (ADR 0056), which a
-photon FPA does not have. `tests/unit/test_render_multiband.py` now reads every swept driver by
-AST and fails if one builds a `Scene` without the sensor's quantity or attaches the chain without
-checking for a calibration.
+photon FPA does not have. And behind *that*, a fifth: `calibrate_flat_field`'s default hot
+calibration point is ADR 0021's +200 C, a bolometer range, which drives the modelled InSb camera
+16x past its converter -- the same three drivers did not catch the refusal and so could not render
+MWIR at all. Each defect hid the next, one band at a time, and only running the sweep found any of
+them. `tests/unit/test_render_multiband.py` now reads every swept driver by AST and fails if one
+builds a `Scene` without the sensor's quantity, attaches the sensor chain without checking for a
+calibration, or never retries without the flat field.
 
 **The companion visible frame has a real sky (ADR 0073).** `--rgb` used to write a flat grey void
 with six grey squares in it, which told a reader nothing about where the camera pointed or what

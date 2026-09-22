@@ -190,14 +190,31 @@ def main() -> int:
     if unresolved:
         print(f"unmapped prims: {unresolved}", file=sys.stderr)
 
-    pipeline = PipelineConfig.from_sensor(
-        sensor,
-        table,
-        lut,
-        sky=scene.sky_models[spec.band.band_id],
-        atmosphere=scene.layered,
-        flat_field_enabled=not args.no_flat_field,
-    )
+    # **The flat field is refused when its hot calibration point is outside the ADC.**
+    # `calibrate_flat_field` defaults to ADR 0021's -40..+200 C, which is a *bolometer* range:
+    # the modelled InSb camera fills its well at 366 K, so a 473 K calibration point drives it
+    # 16x over and the two-point fit becomes an extrapolation that comes back as inverted
+    # vignetting. Falling back to no flat field, loudly, is better than a picture with a
+    # calibration artefact in it that reads as a lens problem.
+    try:
+        pipeline = PipelineConfig.from_sensor(
+            sensor,
+            table,
+            lut,
+            sky=scene.sky_models[spec.band.band_id],
+            atmosphere=scene.layered,
+            flat_field_enabled=not args.no_flat_field,
+        )
+    except ValueError as exc:
+        print(f"{spec.name}: no flat field -- {exc}", file=sys.stderr)
+        pipeline = PipelineConfig.from_sensor(
+            sensor,
+            table,
+            lut,
+            sky=scene.sky_models[spec.band.band_id],
+            atmosphere=scene.layered,
+            flat_field_enabled=False,
+        )
     # ADR 0056: the M9 chain's NUC residual is authored in millikelvin and needs a radiometric
     # calibration to reach DN. A photon FPA has none (M11.6), and a photon camera in this
     # repository is shutterless by configuration anyway, so there is no FFC to model either.
