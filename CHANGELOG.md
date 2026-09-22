@@ -98,6 +98,14 @@ working in one tree; two commits already exist whose whole subject is restoring 
   these three attached it unconditionally. They now skip the chain and say so on stderr, as the
   other three already did -- the camera is shutterless anyway, so there is no FFC to freeze, and
   defects and 3-D noise still apply. Guarded by the same AST test.
+- **A point target outside the frame stopped a whole render** (`IG.13`). The fourth of four, and
+  the only one not in the driver: the aerial scene places its point targets by angle, so a target
+  the Boson sees at the edge of its field lands at x = 700 px on the InSb's 640 px frame, and
+  `splat` raised rather than the camera ignoring it. `IrCamera.point_targets()` now drops a target
+  outside the frame and records it on `last_offscreen_targets` for the driver to report, using
+  `splat`'s own safe interval — half a supersample cell in from each edge, which
+  `tests/unit/test_point_target.py` pins from both sides.
+
 - **...and then asked for a flat field their camera could not hold** (`IG.13`). The third of three,
   in the same three drivers, each hidden behind the last. `calibrate_flat_field`'s default hot
   point is ADR 0021's +200 C -- a *bolometer* range; the modelled InSb camera fills its well at

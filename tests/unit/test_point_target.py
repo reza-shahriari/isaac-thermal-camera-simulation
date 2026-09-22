@@ -230,3 +230,25 @@ def test_through_the_chain(tophat_lwir_lut: BandLUT) -> None:
             assert np.count_nonzero(excess > 1e-6 * excess.max()) == 1
         else:
             assert np.count_nonzero(excess > 1e-3 * excess.max()) > 1, "the PSF spreads it"
+
+
+@pytest.mark.parametrize("k", [1, 2, 4])
+def test_the_safe_interval_for_a_splat_is_half_a_supersample_cell_in_from_each_edge(k: int) -> None:
+    """`IrCamera` drops an analytic target outside the frame instead of failing the render, and
+    the bounds it uses have to be `splat`'s own or it either raises anyway or throws away a
+    target it could have injected.
+
+    `splat` spreads over the four supersample cells around the position, so the last safe place is
+    ``0.5/k`` in from either edge -- and one cell further out, the weight on the missing cell
+    stops being zero and it raises. The aerial demo found this by rendering: its targets are
+    placed by angle, so the InSb's narrower field puts one at x = 700 px on a 640 px frame and the
+    whole MWIR render stopped at that `ValueError`.
+    """
+    width = height = 8
+    base = np.zeros((height * k, width * k), dtype=np.float32)
+    margin = 0.5 / k
+    for x, y in ((margin, margin), (width - margin, height - margin), (margin, height - margin)):
+        splat(base, 1.0, (x, y), k)  # must not raise
+    for x, y in ((margin * 0.5, 4.0), (4.0, margin * 0.5), (width - margin * 0.5, 4.0)):
+        with pytest.raises(ValueError, match="outside"):
+            splat(base, 1.0, (x, y), k)

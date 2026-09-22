@@ -144,7 +144,11 @@ calibration point is ADR 0021's +200 C, a bolometer range, which drives the mode
 MWIR at all. Each defect hid the next, one band at a time, and only running the sweep found any of
 them. `tests/unit/test_render_multiband.py` now reads every swept driver by AST and fails if one
 builds a `Scene` without the sensor's quantity, attaches the sensor chain without checking for a
-calibration, or never retries without the flat field.
+calibration, or never retries without the flat field. A fifth turned up behind those: the aerial
+scene places its point targets by **angle**, so the InSb's narrower field put one at x = 700 px on
+a 640 px frame and the whole MWIR render stopped inside `splat`. A target outside the field of view
+is a target you cannot see, not a failure, so `IrCamera` now drops it and reports it on
+`last_offscreen_targets` — with `splat`'s own bounds, half a supersample cell in from each edge.
 
 **The companion visible frame has a real sky (ADR 0073).** `--rgb` used to write a flat grey void
 with six grey squares in it, which told a reader nothing about where the camera pointed or what

@@ -267,8 +267,20 @@ def main() -> int:
 
     written = []
     t_render = time.time()
+    reported_offscreen = False
     for index in range(args.frames):
         outputs = camera.get_outputs(rt_subframes=args.rt_subframes)
+        # A target outside the field of view is a target you cannot see, not a failure. It is the
+        # *narrower* camera in the same scene that finds them: these targets are placed by angle,
+        # so the InSb's field puts one at x = 700 px on a 640 px frame. Said once, not per frame.
+        if camera.last_offscreen_targets and not reported_offscreen:
+            reported_offscreen = True
+            for name, (u, v) in camera.last_offscreen_targets:
+                print(
+                    f"  {name}: outside this camera's frame at ({u:.0f}, {v:.0f}) px "
+                    f"({spec.fpa.width}x{spec.fpa.height}); not injected",
+                    file=sys.stderr,
+                )
         # The companion visible frame, already box-filtered onto the IR pixel grid, so the pair is
         # registered by construction rather than by calibration. An `extra_plane`, not an output:
         # nothing in the radiometric chain reads it, and the sidecar's unit string says so.

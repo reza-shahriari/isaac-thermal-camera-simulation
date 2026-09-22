@@ -460,6 +460,11 @@ class IrCamera:
         self._camera_to_world: NDArray[np.float64] | None = None
         self._rgb_problem: str | None = None
         self._last: _Frame | None = None
+        #: ``(name, (u, v))`` for every analytic target the last `point_targets()` call found
+        #: outside the frame. A driver reports these rather than failing: a target beyond the
+        #: field of view is a target you cannot see, and a narrower camera in the same scene is
+        #: exactly when that happens.
+        self.last_offscreen_targets: list[tuple[str, tuple[float, float]]] = []
         self._stage = stage
         self._up_axis = up_axis
         #: Rotor discs keyed by the prim whose transform carries them (ADR 0081). They author
@@ -869,6 +874,7 @@ class IrCamera:
         t_abs = self.scene.t0_s + self._t_rel_s
 
         out: list[PointTarget] = []
+        self.last_offscreen_targets = []
         for target in self.analytic_targets:
             offset = np.asarray(target.world_position, dtype=np.float64) - self._camera_position
             range_m = float(np.linalg.norm(offset))
@@ -908,6 +914,19 @@ class IrCamera:
                 target.world_position, self._camera_position, self._camera_to_world
             )
             u, v = project_usd(np.array([cam]), native, distortion)
+            # A target the camera cannot see is not an error, it is a target out of frame -- and
+            # a *different* camera in the same scene is exactly when that happens: the aerial
+            # demo places its targets by angle, and the InSb's narrower field puts one of them at
+            # x = 700 px on a 640 px frame, which stopped the whole MWIR render at `splat`. The
+            # bounds are `splat`'s own: it spreads over the four supersample cells around the
+            # position, so half a supersample cell in from either edge is the last safe place.
+            margin = 0.5 / float(sensor.optics.supersample_factor)
+            if not (
+                margin <= float(u[0]) <= native.width - margin
+                and margin <= float(v[0]) <= native.height - margin
+            ):
+                self.last_offscreen_targets.append((target.name, (float(u[0]), float(v[0]))))
+                continue
             out.append(
                 PointTarget(
                     area_m2=target.area_m2,
