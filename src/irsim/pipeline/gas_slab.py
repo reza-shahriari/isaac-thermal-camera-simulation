@@ -59,6 +59,7 @@ from typing import Any, Literal
 import numpy as np
 from numpy.typing import NDArray
 
+from irsim.atmosphere.droplets import droplet_band_kappa_per_m
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.atmosphere.model import Atmosphere
 from irsim.radiometry.band_integration import (
@@ -90,6 +91,9 @@ __all__ = [
 
 #: The guard: below 300 K it is not a hot gas; above 2500 K it is outside every table.
 GAS_T_MIN_K = 300.0
+#: Floor for a droplet-only slab: below freezing the scatterers are ice, whose refractive index is
+#: not ``data/nk/water.csv`` and whose habit is not a sphere, so Mie on liquid water stops applying.
+WATER_T_MIN_K = 273.15
 GAS_T_MAX_K = 2500.0
 
 SlabQuantity = Literal["lb", "lb_q"]
@@ -101,6 +105,13 @@ class GasSlab:
 
     ``p_co2_atm`` and ``p_h2o_atm`` are partial pressures in atmospheres; ``f_soot`` is the soot
     volume fraction (a sooty flame is 1e-7 to 1e-5); ``length_m`` is the path through the gas.
+
+    ``lwc_kg_m3`` and ``droplet_radius_um`` add **condensed water** (`PH.9`), which is what makes a
+    steam plume visible to a thermal camera: at 373 K over a metre, pure water *vapour* leaves an
+    LWIR optical depth of 0.17, and a 5 g/m^3 droplet load leaves six times that. The droplets are
+    taken to be at the slab's own temperature, which is right for condensing steam -- droplet and
+    vapour are in equilibrium at the saturation temperature -- and is the assumption to revisit for
+    a spray injected into hot gas.
     """
 
     t_gas_k: float
@@ -108,24 +119,50 @@ class GasSlab:
     p_co2_atm: float = 0.0
     p_h2o_atm: float = 0.0
     f_soot: float = 0.0
+    lwc_kg_m3: float = 0.0
+    droplet_radius_um: float = 0.0
 
     def __post_init__(self) -> None:
-        if not GAS_T_MIN_K <= self.t_gas_k <= GAS_T_MAX_K:
+        # A droplet-only slab needs no absorption table, so the 300 K floor -- which exists because
+        # `PH.5`'s tables start there -- does not apply to it. Fog and a cooling steam plume live
+        # below it and are the cases this slab would otherwise refuse for a reason it does not have.
+        floor = WATER_T_MIN_K if self.droplets_only else GAS_T_MIN_K
+        if not floor <= self.t_gas_k <= GAS_T_MAX_K:
             raise ValueError(
-                f"gas temperature {self.t_gas_k} K is outside {GAS_T_MIN_K:g}-{GAS_T_MAX_K:g} K: "
+                f"slab temperature {self.t_gas_k} K is outside {floor:g}-{GAS_T_MAX_K:g} K: "
                 "below is not a hot gas, above is outside every absorption table"
             )
         if self.length_m <= 0.0:
             raise ValueError("a slab needs a positive path length")
-        for name in ("p_co2_atm", "p_h2o_atm", "f_soot"):
+        for name in ("p_co2_atm", "p_h2o_atm", "f_soot", "lwc_kg_m3", "droplet_radius_um"):
             if getattr(self, name) < 0.0:
                 raise ValueError(f"{name} cannot be negative")
         if self.p_co2_atm > 1.0 or self.p_h2o_atm > 1.0:
             raise ValueError("a partial pressure above 1 atm is not a gas at ambient pressure")
-        if self.p_co2_atm == 0.0 and self.p_h2o_atm == 0.0 and self.f_soot == 0.0:
+        if self.lwc_kg_m3 > 0.0 and self.droplet_radius_um <= 0.0:
             raise ValueError(
-                "a slab with no CO2, no H2O and no soot is empty air: author at least one species"
+                "liquid water needs a droplet radius: extinction goes as 1/r at fixed water "
+                "content, so the size is not a detail that can be defaulted"
             )
+        if (
+            self.p_co2_atm == 0.0
+            and self.p_h2o_atm == 0.0
+            and self.f_soot == 0.0
+            and self.lwc_kg_m3 == 0.0
+        ):
+            raise ValueError(
+                "a slab with no CO2, no H2O, no soot and no droplets is empty air: author one"
+            )
+
+    @property
+    def droplets_only(self) -> bool:
+        """Condensed water and nothing else -- the case that needs no gas table."""
+        return (
+            self.lwc_kg_m3 > 0.0
+            and self.p_co2_atm == 0.0
+            and self.p_h2o_atm == 0.0
+            and self.f_soot == 0.0
+        )
 
     @property
     def species(self) -> tuple[str, ...]:
@@ -319,6 +356,9 @@ def slab_optical_depth(
 ) -> float:
     """``κ_b(T_g) · L`` for the mixture; ``tables`` may be omitted for a soot-only slab."""
     kappa = soot_band_kappa_per_m(response, slab.f_soot, slab.t_gas_k)
+    kappa += droplet_band_kappa_per_m(
+        response, slab.lwc_kg_m3, slab.droplet_radius_um, slab.t_gas_k
+    )
     if slab.species:
         if tables is None:
             raise ValueError(

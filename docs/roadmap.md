@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 72 open steps
+#### Then, in order — 71 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -186,16 +186,16 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 5 | **`SE.2`** | SE | B | M | — | ready |
 | 6 | **`GT.7`** | GT | C | M | 1 | ready |
 | 7 | **`AI.3`** | AI | B | M | — | `GT.7` |
-| 8 | **`PH.9`** | PH | C | S | — | ready |
-| 9 | **`TC.8`** | TC | C | S | — | ready |
-| 10 | **`AT.6`** | AT | C | M | — | ready |
-| 11 | **`AT.9`** | AT | C | M | — | ready |
-| 12 | **`PT.13`** | PT | C | M | — | ready |
-| 13 | **`PT.16`** | PT | C | M | — | ready |
-| 14 | **`XD.1`** | XD | X | S | 8 | ready |
-| 15 | **`EV.1`** | EV | X | M | 5 | ready |
+| 8 | **`TC.8`** | TC | C | S | — | ready |
+| 9 | **`AT.6`** | AT | C | M | — | ready |
+| 10 | **`AT.9`** | AT | C | M | — | ready |
+| 11 | **`PT.13`** | PT | C | M | — | ready |
+| 12 | **`PT.16`** | PT | C | M | — | ready |
+| 13 | **`XD.1`** | XD | X | S | 8 | ready |
+| 14 | **`EV.1`** | EV | X | M | 5 | ready |
+| 15 | **`XD.2`** | XD | X | M | 4 | `XD.1` |
 
-…and 57 more — `python scripts/next_step.py --queue 40`.
+…and 56 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -523,7 +523,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | PH.6 | ✅ **done.** `irsim.pipeline.plume` (stage 2d): a cone in camera space, one analytic chord per pixel, `PH.4`'s slab on it; occlusion is the depth plane; entrainment dilutes T and species by one factor. Schema v15 `plume:` on an exhaust target takes `TC.7`'s outlet **gas**, not the skin. `car_exhaust_plume.yaml`. ADR 0114. | **Measured.** One scene, two cameras: τ **0.866** MWIR / **0.979** LWIR, peak ΔT_app **+72.7 K** / **+7.1 K**. A grey table makes them agree to 0.02 % — the control. τ monotone along the plume; chords exact. Frames need IG.2. 21 cases. | PH.5, TC.7 | M | P |
 | PH.7 | ✅ **done.** `irsim.thermal.fire`: `sep_w_m2` on `RadiantRectangle` is an authored emissive power that **refuses** a temperature; `q_int = F (α SEP − ε L_occ)`, α for the flame and ε for the sky. Heskestad's ΔT₀ replaces T_air, held at the tip inside the flame; `flame_plume` solves the slab's cooling from it. ADR 0115. | **Measured.** The tip is **452.7 K** above ambient for a 50 kW ring and a 40 MW pool alike — Q and D cancel. Continuous, monotone, → 0. F = 0.10 at 120 kW/m² lands at T_air + α·12 kW/h to 1e-9. Σ F ≤ 1. Watts refused. Soot 2.47× vs CO₂ 5.49×. | PH.5 | M | P |
 | PH.8 | ✅ **done.** `irsim.detector.gain_state`: `fpa.gain_ceiling_k` is the state's intrascene ceiling (Boson 140/500 °C), clipped on the at-aperture **radiance** plane and used as the radiometric range's top, so a clipped pixel lands on the top code. ADR 0116. | **Measured.** A 400 °C object rails high gain at 65535 reading 413 K; low gain reads 668 K. Person/room **252 DN** calm → **1.0 DN** with fire under `agc_linear` (FLIR: 0.7 %), **90 DN** under plateau. A kelvin ceiling misses the rail at ε = 0.6 and is **119 K wrong** at ε = 0.4. | PH.7 | M | P |
-| PH.9 | **Steam and droplet plumes.** The slab of `PH.4` with a droplet extinction from `cloud.py`'s Mie tables scaled by liquid water content, emitting at the droplet temperature. | For one LWC the MWIR extinction exceeds the LWIR extinction; the plume's apparent temperature never exceeds the authored droplet temperature; a pure-gas H₂O slab at 373 K has τ_LWIR ≥ 0.9 (NIRATAM) — the steam a LWIR camera sees is droplets, not gas. | PH.6 | S | C |
+| PH.9 | ✅ **done.** `irsim.atmosphere.mie` (Bohren-Huffman, SciPy-free, downward `Dₙ` recursion) and `irsim.atmosphere.droplets`; `GasSlab` gains `lwc_kg_m3` and `droplet_radius_um`. ADR 0135. | **Measured.** `cloud.py` has **no Mie tables** — the row's premise — so `Q_ext` is computed from `data/nk/water.csv`, oracle the exact Rayleigh limit to 2e-4. At 373 K over 1 m in LWIR: vapour **0.169**, 5 g/m³ of 5 µm droplets **1.02**, equal at **0.83 g/m³**. MWIR beats LWIR **4.1×** at 2 µm but **0.99×** at 20 µm — both geometric. 13 cases. | PH.6 | S | C |
 | PH.10 | ✅ **done.** `snow.melt_capped_step` caps at 273.15 K and melts the surplus at L_f; the flux is read **at** the cap, not at an RK2 midpoint above it. A finite pack hands back what it cannot melt. No scene declares snow. ADR 0120. | **Measured.** +200 W/m² holds the cell **bit-exactly** at 273.15 K, shedding **2.1557 mm w.e./h**. Clamping after RK2 under-reports melt 0.1–1 % **every step, one-signed**. Night needs no special case: ε_hemi 0.9874 gives **−12.73 K** clear calm, −4.75 K breezy, **exactly 0.00 K** overcast. ESSD 16 bar 0.7–1.3 K recorded. | PH.1 | S | C |
 | PH.11 | ✅ **done.** `vegetation.py` — a leaf **solved, not stepped** (15.4 s τ breaks a 60 s tick), with **its own** boundary layer, not the bulk one. Oracle is Campbell & Norman in molar units. No scene declares vegetation. ADR 0121. | **Measured.** Watered **−1.93 K** vs stressed **+7.00 K** at 3.18 kPa — nine kelvin from r_s alone. Idso slope **−1.84 °C/kPa**, inside [−3.8, −1.1]. The bulk boundary layer (435 vs **33 s/m**) gave **+6.4 K** — wrong *sign*. C&N agrees **0.10 K** near air, 0.37 K at 4.6 K out, **4e-10 K** degenerate. | PH.1, TC.1 | S | C |
 | PH.12 | ✅ **done (3 of 4 criteria).** `thermal/human.py` — skin **authored** from the ISO 7730 set point, clothing **solved** by bisection (the textbook fixed point diverges in wind). Two patches per prim is scene authoring, not shipped. ADR 0122. | **Measured.** 0 °C/1 clo: skin **34.07**, coat **13.96 °C**, step **20.1 K** — the row's 10–15 K is the same equation at **10–15 °C air**, ISO 7730's validity floor. Wind *warms* the coat above **3 clo** under a −40 °C sky. ⚠️ `pythermalcomfort` check **not run** — not installed; `comfort` extra declares it, test skips loudly. | PT.17 | S | C |
