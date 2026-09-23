@@ -13,6 +13,21 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **The position decode is no longer its own oracle, and the probe decodes with the production
+  function** (`IG.2`). `test_camera_space_positions_reach_world_space` built its input as
+  `(truth - cam) @ rot` -- literally the inverse of the expression `world_positions` applies -- so
+  it passed for *either* transpose convention as long as the test picked the same one; the same
+  inversion sat under `_synthetic_position_aov`, which feeds four more tests. Separately,
+  `position_frame_residuals` carried its own copy of `pos @ rot.T + cam`, and that copy was the
+  only one an in-sim render ever exercised, so a render could confirm the probe while the shipped
+  arithmetic drifted. The probe now calls `world_positions`; the oracles are geometric -- a camera
+  pose written out as three **named world-space axes**, camera-space points stated in the units
+  camera space is defined in ("12 m ahead, 3 m to the right"), a wall cast ray-by-ray and required
+  to decode back onto its authored plane `z = -20` to **1e-9 m**, and `pinhole_rays` anchored to
+  the camera's own right/up/forward vectors. **Measured:** flipping the decode alone turns 7 tests
+  red, and flipping the decode *and* `pinhole_rays` together -- the combination the old tests were
+  blind to -- still turns 5 red. This is the transpose ADR 0014's M10.19 addendum records costing
+  the project a horizon 164 rows out of place.
 - **The focus pulled from a cloudy sky onto a cube** (`OC.12`, `scripts/focus_sky_demo.py`).
   `OC.3` put two cubes at two ranges and focused on either; this answers what a *background* looks
   like when the lens leaves it. One cube at 3 m against sky, the focus held on the sky, pulled to
