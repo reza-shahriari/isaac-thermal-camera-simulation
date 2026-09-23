@@ -80,8 +80,16 @@ _ARM_DIRECTIONS: tuple[tuple[str, float, float], ...] = (
     ("w", -1.0, 0.0),
 )
 
-#: Motor axis to motor axis across the diagonal, metres -- how multirotor frames are quoted.
-SPAN_M = 2.0 * 0.42 * math.sqrt(2.0)
+#: Opposite motor axis to opposite motor axis, metres. **This frame is a plus, not an X**: its
+#: four arms run due N, E, S and W (see :data:`_ARM_DIRECTIONS`), so two opposite motors are
+#: ``2 x 0.42`` apart and not ``2 x 0.42 x sqrt 2``. The sqrt-2 form was authored here first, from
+#: the X-quad convention every multirotor spec sheet quotes, and it overstated this aircraft by
+#: 41 %; the number is now derived from the layout rather than asserted beside it.
+SPAN_M = 2.0 * 0.42
+
+#: Diagonally opposite propeller tips -- what a camera sees of a flying one, and what the readout
+#: quotes while the discs are on. 0.84 m of airframe plus a rotor diameter.
+TIP_TO_TIP_M = SPAN_M + 2.0 * QUAD_ROTOR.radius_m
 
 
 def pointwise_quad_parts() -> tuple[Part, ...]:
@@ -283,6 +291,11 @@ class QuadOutboundStage:
     track: OutboundTrack
     parts: tuple[Part, ...]
     prim_to_target: dict[str, str]
+    #: The extent the readout quotes, metres. Defaults to this module's own heavy-lift span; a
+    #: caller authoring another airframe passes that aircraft's own number, because "span" is a
+    #: property of the machine and quoting one aircraft's against another's picture is how a
+    #: pixel count silently becomes meaningless.
+    span_m: float = SPAN_M
     errors: dict[str, str] = field(default_factory=dict)
 
     def thermal_nodes(self) -> tuple[str, ...]:
@@ -290,11 +303,13 @@ class QuadOutboundStage:
         return tuple(sorted({p.thermal_node for p in self.parts}))
 
     def pixels_across(self, t_rel_s: float, ifov_mrad: float) -> dict[str, float]:
-        """Span, motor and deck in native pixels at a point on the track."""
+        """Span and the largest and smallest part, in native pixels, at a point on the track."""
+        largest = max(p.largest_dimension_m() for p in self.parts)
+        smallest = min(p.largest_dimension_m() for p in self.parts)
         return {
-            "span": self.track.pixels_across(t_rel_s, SPAN_M, ifov_mrad),
-            "deck": self.track.pixels_across(t_rel_s, 0.30, ifov_mrad),
-            "motor": self.track.pixels_across(t_rel_s, 0.06, ifov_mrad),
+            "span": self.track.pixels_across(t_rel_s, self.span_m, ifov_mrad),
+            "largest_part": self.track.pixels_across(t_rel_s, largest, ifov_mrad),
+            "smallest_part": self.track.pixels_across(t_rel_s, smallest, ifov_mrad),
         }
 
     def aim_camera(self, t_rel_s: float) -> None:
@@ -324,11 +339,18 @@ def build_quad_outbound(
     camera_path: str = "/World/IrCamera",
     quad_path: str = "/World/Targets/quad",
     track: OutboundTrack | None = None,
+    parts: tuple[Part, ...] | None = None,
+    span_m: float | None = None,
     dome: DomeSpec | None = None,
     dome_texture_path: str | os.PathLike[str] | None = None,
     dome_height: int = DOME_HEIGHT,
 ) -> QuadOutboundStage:
-    """Author the stage: the environment dome, a camera on the track, and one static quadrotor.
+    """Author the stage: the environment dome, a camera on the track, and one static aircraft.
+
+    ``parts`` chooses the airframe -- this module's own heavy-lift frame by default, or a named
+    real aircraft such as :data:`irsim_isaac.phantom3.PHANTOM_3`. The stage itself does not care
+    which: the scene config is what binds a field to a prim path, so an aircraft and the scene
+    that describes it travel together and the stage is the thing they are both mounted on.
 
     No ground plane and no sky geometry (ADR 0060). The aircraft is the only geometry, so every
     pixel that is not the aircraft is sky -- and because the boresight stays above the horizon,
@@ -341,6 +363,7 @@ def build_quad_outbound(
     from irsim_isaac.aircraft_pass import look_at_quaternion
 
     the_track = OutboundTrack() if track is None else track
+    the_parts = POINTWISE_QUAD if parts is None else parts
 
     ctx = omni.usd.get_context()
     ctx.new_stage()
@@ -357,7 +380,7 @@ def build_quad_outbound(
     except Exception as exc:  # noqa: BLE001 - a dark companion frame must not stop the IR render
         errors["environment"] = f"{type(exc).__name__}: {exc}"
 
-    prim_to_target = author_parts(stage, quad_path, POINTWISE_QUAD, look_binder=bind_visible_look)
+    prim_to_target = author_parts(stage, quad_path, the_parts, look_binder=bind_visible_look)
     # The aircraft carries no transform at all: its prim coordinates *are* the scene config's
     # world coordinates, which is what lets every patch stay in the world frame and keep its
     # occluders (see this module's docstring).
@@ -375,7 +398,8 @@ def build_quad_outbound(
         camera_path=camera_path,
         quad_path=quad_path,
         track=the_track,
-        parts=POINTWISE_QUAD,
+        parts=the_parts,
         prim_to_target=prim_to_target,
+        span_m=SPAN_M if span_m is None else float(span_m),
         errors=errors,
     )

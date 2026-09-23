@@ -1,0 +1,115 @@
+# A **DJI Phantom 3** filmed from the ground as it flies out, under broken cumulus, with the
+# airframe solved per cell. Schema: irsim.config.scene (v15). Roadmap PT.9; ADR 0087 (the field),
+# ADR 0095 (occluders), ADR 0104 (the per-cell sky view), ADR 0109 (the mission's own speed),
+# ADR 0123 (camera moves, aircraft still), ADR 0124 (this airframe and this material).
+#
+# This is `quad_outbound_pointwise.yaml`'s scene with the *aircraft* changed, and it changes the
+# answer in two ways that are properties of the real machine and not of the simulator:
+#
+#   * **350 mm diagonal against 840 mm.** A Phantom is 2.4x smaller across its motors than the
+#     outbound heavy-lift frame and 1.9x across its props, so it falls under a pixel at roughly
+#     half the range. The track is shortened to match (6 m -> 80 m): filming a Phantom from 150 m
+#     produces five pixels, which is the honest picture and not a watchable one.
+#   * **White ABS against carbon.** `abs_plastic_white` absorbs 0.25 of the short-wave flux where
+#     `carbon_fibre` absorbs 0.90, so the sunlit skin of this aircraft runs far cooler over air
+#     than the other one's. That is the whole of it: at the same 1.5 mm the two carry almost the
+#     same heat per square metre (2205 J m^-2 K^-1 against 2520, 12 % apart), so the difference
+#     is absorbed sunlight and not thermal mass.
+#
+# **The sky has cloud in it** (ADR 0076). The weather is `scattered_cumulus_48h.csv` at 0.45 --
+# SCT, 3-4 oktas -- and the render seeds one `SkyFixedCloud` from it that the infrared background
+# samples per ray *and* the visible dome bakes into its texture, so the two bands cannot show
+# cloud in different parts of the sky. A cloud base is *warmer* than the clear sky beside it in
+# LWIR and usually *brighter* in the visible, so the same object reads opposite ways in the pair;
+# that is the phenomenology and not a fault.
+#
+# **09:30 local, not noon.** The sun at 40 degrees rather than 61 puts the shell's own shadow
+# nearly 30 mm down each arm instead of 13, which is the difference between a gradient that can
+# be measured on an 84 mm patch and one that cannot. A morning sortie is also when these aircraft
+# actually fly.
+#
+# The mission is **20 minutes**, because a Phantom 3's published flight time is 23 and a scene
+# that flew it for thirty would be describing an aircraft that does not exist.
+#
+# No `esc` target: a Phantom's speed controllers are on the mainboard inside the shell and
+# present no surface (see irsim_isaac.phantom3). Their heat reaches a camera only by conduction
+# into the skin, which a scene config still has no route for -- PT.9's remainder.
+
+schema_version: 15
+scene:
+  name: phantom3_outbound_pointwise
+  description: "A DJI Phantom 3 filmed from the ground, 6 m to 80 m, point-wise, broken cumulus"
+  weather_file: weather/scattered_cumulus_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T07:30:00Z"
+  # Stage axes against the compass: +Y up, -Z north. The aircraft's nose is along -Z too, so it
+  # is pointed due north and a heading of 0 puts the camera's boresight on its tail.
+  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}
+  targets:
+    - {name: airframe, solver: airframe, offset_k: 0.0}
+    - name: motor
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 80.0, 200.0, 400.0, 600.0, 720.0, 800.0, 960.0, 1040.0, 1200.0]
+      throttle:   [0.15, 0.18,  0.85,  0.62,  0.66,  0.98,  0.95,  0.35,   0.20,   0.05]
+    - name: battery
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 80.0, 200.0, 400.0, 600.0, 720.0, 800.0, 960.0, 1040.0, 1200.0]
+      throttle:   [0.15, 0.18,  0.85,  0.62,  0.66,  0.98,  0.95,  0.35,   0.20,   0.05]
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 10.0
+    penumbra_rays: 7
+
+    # Every face here is a face of a prim `irsim_isaac.phantom3` authors, at the same coordinates.
+    occluders:
+      - {name: shell_top,   centre_m: [ 0.000, 0.336,  0.000], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.068, half_v_m: 0.068}
+      - {name: shell_fwd,   centre_m: [ 0.000, 0.300, -0.068], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.068, half_v_m: 0.031}
+      - {name: shell_aft,   centre_m: [ 0.000, 0.300,  0.068], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.068, half_v_m: 0.031}
+      - {name: shell_left,  centre_m: [-0.068, 0.300,  0.000], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.068, half_v_m: 0.031}
+      - {name: shell_right, centre_m: [ 0.068, 0.300,  0.000], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.068, half_v_m: 0.031}
+      - {name: pod_fr_top,  centre_m: [ 0.12374, 0.332, -0.12374], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.014, half_v_m: 0.014}
+      - {name: pod_fl_top,  centre_m: [-0.12374, 0.332, -0.12374], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.014, half_v_m: 0.014}
+
+    surfaces:
+      # The top shell: 140 x 140 mm of white ABS, the surface the sun actually reaches.
+      - name: shell_top
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 80.0, 200.0, 600.0, 800.0, 1040.0, 1200.0]
+        speed_m_s: [1.0,  1.0,   7.0,  12.0,   9.0,    1.0,    1.0]
+        patch: {origin_m: [-0.07, 0.336, 0.07], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 10, n_v: 10, du_m: 0.014, dv_m: 0.014, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/shell_top}
+
+      # The belly: the same plate facing down. tilt 180 means it sees no sky at all, and from a
+      # ground camera this is most of the aircraft there is to read.
+      - name: shell_belly
+        material: abs_plastic_white
+        tilt_deg: 180.0
+        speed_s:   [0.0, 80.0, 200.0, 600.0, 800.0, 1040.0, 1200.0]
+        speed_m_s: [1.0,  1.0,   7.0,  12.0,   9.0,    1.0,    1.0]
+        patch: {origin_m: [-0.07, 0.264, 0.07], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 10, n_v: 10, du_m: 0.014, dv_m: 0.014, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/shell_belly}
+
+      # The two front arms, on the diagonals: 98 x 39 mm of patch **over** a 90 x 32 mm stub, so
+      # the grid overhangs the geometry by 4 mm along and 3.5 mm across. That is the direction
+      # the inset runs for a patch that wraps a solid rather than sitting on a plate: every pixel
+      # of the prim has to land in the patch, and an arm seen from below presents its end caps
+      # and both side faces, none of which are on the top plane the grid is drawn on. Authoring
+      # it the other way round -- patch inside prim, as for the plates -- put 1204 arm pixels
+      # outside every patch on the first render. The shell's own top edge shades the inner end
+      # and the motor pod the outer one.
+      - name: arm_fr
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 80.0, 200.0, 600.0, 800.0, 1040.0, 1200.0]
+        speed_m_s: [1.0,  1.0,   7.0,  12.0,   9.0,    1.0,    1.0]
+        patch: {origin_m: [0.0434871, 0.310, -0.0710649], u_axis: [0.7071067811865476, 0.0, 0.7071067811865476], v_axis: [0.7071067811865476, 0.0, -0.7071067811865476], n_u: 3, n_v: 7, du_m: 0.013, dv_m: 0.014, thickness_m: 0.03, frame: world, prim_path: /World/Targets/quad/arm_fr}
+      - name: arm_fl
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 80.0, 200.0, 600.0, 800.0, 1040.0, 1200.0]
+        speed_m_s: [1.0,  1.0,   7.0,  12.0,   9.0,    1.0,    1.0]
+        patch: {origin_m: [-0.0710649, 0.310, -0.0434871], u_axis: [0.7071067811865476, 0.0, -0.7071067811865476], v_axis: [-0.7071067811865476, 0.0, -0.7071067811865476], n_u: 3, n_v: 7, du_m: 0.013, dv_m: 0.014, thickness_m: 0.03, frame: world, prim_path: /World/Targets/quad/arm_fl}

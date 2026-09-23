@@ -37,11 +37,39 @@ from typing import Any
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
+#: The airframes this driver can fly, and the scene and track each one belongs with. Held as
+#: plain data so the defaults resolve before Kit boots; the geometry is imported inside `main`.
+#:
+#: **The track is part of the airframe, not a global.** A Phantom is a fifth of the heavy-lift
+#: frame across, so flying it to 150 m would put it under three pixels for most of the clip --
+#: the honest picture of a small drone at long range, and not one anybody can watch. Each
+#: aircraft therefore carries the range band at which it is the subject of the frame.
+AIRFRAMES: dict[str, dict[str, Any]] = {
+    "heavy_lift": {
+        "scene": "quad_outbound_pointwise.yaml",
+        "near_m": 12.0,
+        "far_m": 150.0,
+        "out": "outputs/quad_outbound",
+    },
+    "phantom3": {
+        "scene": "phantom3_outbound_pointwise.yaml",
+        "near_m": 6.0,
+        "far_m": 80.0,
+        "out": "outputs/phantom3_outbound",
+    },
+}
+
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--out", default="outputs/quad_outbound")
+parser.add_argument(
+    "--airframe",
+    default="phantom3",
+    choices=sorted(AIRFRAMES),
+    help="which aircraft to fly. Each carries its own scene config and range band",
+)
+parser.add_argument("--out", default=None)
 parser.add_argument("--frames", type=int, default=300)
 parser.add_argument("--sensor", default=str(REPO / "configs/sensors/flir_boson_640_lwir.yaml"))
-parser.add_argument("--scene", default=str(REPO / "configs/scenes/quad_outbound_pointwise.yaml"))
+parser.add_argument("--scene", default=None)
 parser.add_argument(
     "--interval-s",
     type=float,
@@ -49,8 +77,8 @@ parser.add_argument(
     help="scene seconds per captured frame. frames x interval must fit inside the flight profile",
 )
 parser.add_argument("--fps", type=float, default=30.0, help="playback rate of the encoded video")
-parser.add_argument("--near-m", type=float, default=12.0)
-parser.add_argument("--far-m", type=float, default=150.0)
+parser.add_argument("--near-m", type=float, default=None)
+parser.add_argument("--far-m", type=float, default=None)
 parser.add_argument(
     "--elevation-deg",
     type=float,
@@ -90,12 +118,36 @@ parser.add_argument(
 )
 parser.add_argument("--palette", default=None, help="default: the sensor ISP's own palette")
 parser.add_argument("--no-flat-field", action="store_true")
-parser.add_argument("--cloud-seed", type=int, default=None)
+# **Cloud is on by default** (ADR 0076). One `SkyFixedCloud` is seeded from the scene's own
+# weather and sampled by BOTH the infrared background, per ray, and the visible dome's texture,
+# so the pair cannot show cloud in different parts of the sky. On a weather file whose cloud
+# fraction is near zero this costs nothing and draws nothing; on a broken sky it is the clutter
+# a sky-background detector actually has to live with.
+parser.add_argument("--cloud-seed", type=int, default=7)
+parser.add_argument("--no-cloud", action="store_true", help="a bare sky, for the comparison")
+# `generate_sky_cloud` defaults to a half-degree grid, which is the whole sky at a resolution
+# suited to a wide survey. Through a 31 x 25 degree field at 0.86 mrad per pixel, half a degree
+# is **ten pixels**, and the coverage mask reads as blocks rather than as cloud. A sixth of a
+# degree puts a grid cell at about three pixels, which is under the PSF and so invisible as
+# structure. It costs 4.7 MB and one second.
+parser.add_argument("--cloud-cells-per-deg", type=float, default=6.0)
 parser.add_argument("--no-overlay", action="store_true", help="no burnt-in readout")
 parser.add_argument("--keep-frames", action="store_true", help="keep the PNG sequence")
 parser.add_argument("--integration-ms", type=float, default=None)
 
 args = parser.parse_args()
+
+_AIRFRAME = AIRFRAMES[args.airframe]
+if args.scene is None:
+    args.scene = str(REPO / "configs" / "scenes" / _AIRFRAME["scene"])
+if args.out is None:
+    args.out = _AIRFRAME["out"]
+if args.near_m is None:
+    args.near_m = _AIRFRAME["near_m"]
+if args.far_m is None:
+    args.far_m = _AIRFRAME["far_m"]
+if args.no_cloud:
+    args.cloud_seed = None
 
 t_boot = time.time()
 from isaacsim import SimulationApp  # noqa: E402
@@ -147,11 +199,26 @@ def main() -> int:
     from irsim_isaac.pipeline.point_bridge import bindings_from_scene
     from irsim_isaac.quad_outbound import (
         AIM_ELEVATION_DEG,
-        SPAN_M,
         OutboundTrack,
         build_quad_outbound,
-        rotor_mounts,
     )
+
+    if args.airframe == "phantom3":
+        from irsim_isaac.phantom3 import PHANTOM_3 as PARTS
+        from irsim_isaac.phantom3 import TIP_TO_TIP_M as SPAN_M
+        from irsim_isaac.phantom3 import rotor_mounts
+
+        # A Phantom's props nearly touch, so tip to tip is what a camera sees of a flying one --
+        # 589 mm against the 350 mm diagonal DJI quotes. The readout says which it is quoting.
+        span_label = "prop tip to tip"
+    else:
+        from irsim_isaac.quad_outbound import POINTWISE_QUAD as PARTS
+        from irsim_isaac.quad_outbound import TIP_TO_TIP_M as SPAN_M
+        from irsim_isaac.quad_outbound import rotor_mounts
+
+        # Tip to tip for this one too, so the two aircraft are quoted on the same measurement.
+        # Its motors are 0.84 m apart -- a plus-configuration frame, not an X.
+        span_label = "prop tip to tip"
     from irsim_isaac.visible_sky import dome_spec_from_scene
 
     out_dir = pathlib.Path(args.out)
@@ -217,20 +284,34 @@ def main() -> int:
         f"{track.target_altitude_m(span_s):.0f} m above the camera"
     )
     print(
-        f"span {SPAN_M:.2f} m: {track.pixels_across(0.0, SPAN_M, ifov_mrad):.0f} px at the start, "
-        f"{track.pixels_across(span_s, SPAN_M, ifov_mrad):.1f} px at the end; "
-        f"deck {track.pixels_across(0.0, 0.30, ifov_mrad):.0f} -> "
-        f"{track.pixels_across(span_s, 0.30, ifov_mrad):.1f} px"
+        f"{args.airframe}: {SPAN_M:.3f} m {span_label}, "
+        f"{track.pixels_across(0.0, SPAN_M, ifov_mrad):.0f} px at the start -> "
+        f"{track.pixels_across(span_s, SPAN_M, ifov_mrad):.1f} px at the end"
     )
 
     cloud = None
     if args.cloud_seed is not None and scene.environment is not None:
+        fraction = float(scene.weather.at(scene.t0_s).cloud_fraction)
+        per_deg = max(1.0, float(args.cloud_cells_per_deg))
         cloud = generate_sky_cloud(
             scene.environment.clouds.beta,
-            float(scene.weather.at(scene.t0_s).cloud_fraction),
+            fraction,
             int(args.cloud_seed),
+            n_elevation=int(round(90.0 * per_deg)),
+            n_azimuth=int(round(360.0 * per_deg)),
         )
-        print(f"cloud: seed {args.cloud_seed}, covering {cloud.fraction:.1%} of the sky")
+        print(
+            f"cloud: seed {args.cloud_seed}, covering {cloud.fraction:.1%} of the sky at "
+            f"beta = {scene.environment.clouds.beta} (from the shared weather's {fraction:.2f}), "
+            f"{per_deg:g} cells/deg = {1e3 / per_deg / ifov_mrad * 1e-3 * 17.45:.1f} px per cell; "
+            "the infrared background samples it per ray and the dome bakes the same object"
+        )
+        if fraction < 0.1:
+            print(
+                f"  note: this scene's weather carries only {fraction:.2f} of cloud, so a "
+                f"{hfov_deg:.0f} x {vfov_deg:.0f} deg field will rarely contain any",
+                file=sys.stderr,
+            )
     dome = None
     if not args.no_dome:
         # heading 0: the scene's `world_frame:` puts north on the stage's -Z, so the dome, the sun
@@ -241,7 +322,13 @@ def main() -> int:
             f"{dome.sun_azimuth_deg:.1f} deg azimuth, turbidity {dome.turbidity:.2f}"
         )
 
-    stage = build_quad_outbound(track=track, dome=dome, dome_texture_path=out_dir / "env_dome.exr")
+    stage = build_quad_outbound(
+        track=track,
+        parts=PARTS,
+        span_m=SPAN_M,
+        dome=dome,
+        dome_texture_path=out_dir / "env_dome.exr",
+    )
     if stage.errors:
         print(f"stage errors: {stage.errors}", file=sys.stderr)
     missing = set(stage.thermal_nodes()) - set(scene.targets)
@@ -288,6 +375,7 @@ def main() -> int:
 
             pipeline = attach_sensor_chain(pipeline, scene.weather, t0_s=scene.t0_s)
 
+    surface_tilts = {srf.name: float(srf.tilt_deg) for srf in scene.spec.thermal.surfaces}
     bindings = [] if args.no_fields else bindings_from_scene(scene)
     if args.no_fields:
         print("  --no-fields: rendering the pre-ADR-0087 picture, one temperature per prim")
@@ -397,6 +485,27 @@ def main() -> int:
             "point_wise": not args.no_fields,
         },
     )
+
+    # The readout names the scene's **own** surfaces rather than a fixed list, so an aircraft
+    # whose parts are called something else still gets a legible frame. The two quoted on the
+    # caption line are the up-facing and down-facing pair -- the contrast that says what the
+    # sun did to this airframe -- picked off the declared tilt rather than off the name.
+    # The *largest* surface on each side, not the alphabetically first: on both scenes an arm
+    # sorts before the main skin, and an arm is half in its own shadow, so naming it here would
+    # caption the frame with a shaded strip while calling it the sunlit side.
+    def widest(names: list[str]) -> list[str]:
+        cells = {
+            n: scene.patches[n].n_u * scene.patches[n].n_v for n in names if n in scene.patches
+        }
+        return [max(cells, key=lambda n: cells[n])] if cells else []
+
+    up_facing = widest([n for n, srf in surface_tilts.items() if srf < 90.0])
+    down_facing = widest([n for n, srf in surface_tilts.items() if srf >= 90.0])
+    sunlit_shaded = (up_facing + down_facing) or sorted(scene.surface_fields)[:2]
+    gauge_fields = (
+        sunlit_shaded + [n for n in sorted(scene.surface_fields) if n not in sunlit_shaded][:1]
+    )
+
     history: list[dict[str, float]] = []
     planes_written = 0
     t_render = time.time()
@@ -476,16 +585,11 @@ def main() -> int:
                 [
                     f"T+{minutes:02d}:{seconds:02d}   range {r:6.1f} m   "
                     f"span {1e3 * SPAN_M / r / ifov_mrad:5.1f} px",
-                    f"throttle {u * 100:3.0f}%   deck {cell['deck'] - 273.15:5.1f}C   "
-                    f"belly {cell['belly'] - 273.15:5.1f}C",
+                    f"throttle {u * 100:3.0f}%   "
+                    + "   ".join(f"{n} {cell[n] - 273.15:5.1f}C" for n in sunlit_shaded),
                     f"1 frame / {args.interval_s:g} s time-lapse   {caption}",
                 ],
-                {
-                    "deck   ": cell["deck"],
-                    "belly  ": cell["belly"],
-                    "arm N  ": cell["arm_n"],
-                    "motor  ": node["motor"],
-                },
+                {**{f"{n:7.7s}": cell[n] for n in gauge_fields}, "motor  ": node["motor"]},
                 scale,
                 bare=args.no_overlay,
             )
@@ -511,8 +615,8 @@ def main() -> int:
         if index % 25 == 0 or index == args.frames - 1:
             print(
                 f"  frame {index:4d}  T+{t_rel:7.1f}s  R={range_m:6.1f}m  u={throttle:4.2f}  "
-                f"deck {cells['deck'] - 273.15:5.1f}C  belly {cells['belly'] - 273.15:5.1f}C  "
-                f"motor {temps['motor'] - 273.15:5.1f}C"
+                + "  ".join(f"{n} {cells[n] - 273.15:5.1f}C" for n in sunlit_shaded)
+                + f"  motor {temps['motor'] - 273.15:5.1f}C"
             )
     render_s = time.time() - t_render
     camera.close()
@@ -525,7 +629,7 @@ def main() -> int:
             videos[kind] = str(
                 encode_mp4(
                     str(frames_dir / f"{kind}_*.png"),
-                    out_dir / f"quad_outbound_{kind}.mp4",
+                    out_dir / f"{args.airframe}_outbound_{kind}.mp4",
                     fps=args.fps,
                 )
             )
@@ -557,8 +661,17 @@ def main() -> int:
         "ifov_mrad": round(ifov_mrad, 4),
         "span_px_first": first["span_px"],
         "span_px_last": last["span_px"],
-        "deck_minus_belly_k_first": round(first["cell_deck_k"] - first["cell_belly_k"], 3),
-        "deck_minus_belly_k_last": round(last["cell_deck_k"] - last["cell_belly_k"], 3),
+        "airframe": args.airframe,
+        "span_m": SPAN_M,
+        "span_label": span_label,
+        "cloud_seed": args.cloud_seed,
+        "sunlit_minus_shaded": sunlit_shaded,
+        "sunlit_minus_shaded_k_first": round(
+            first[f"cell_{sunlit_shaded[0]}_k"] - first[f"cell_{sunlit_shaded[-1]}_k"], 3
+        ),
+        "sunlit_minus_shaded_k_last": round(
+            last[f"cell_{sunlit_shaded[0]}_k"] - last[f"cell_{sunlit_shaded[-1]}_k"], 3
+        ),
         "patch_coverage": {k: round(float(v), 4) for k, v in camera.patch_coverage.items()},
         "display_spans": {
             k: {"kind": v.kind, "low": v.low, "high": v.high} for k, v in spans.items()
@@ -576,7 +689,8 @@ def main() -> int:
     print(
         f"\n{args.frames} frames in {render_s:.0f} s. "
         f"target {first['span_px']:.0f} px -> {last['span_px']:.1f} px across; "
-        f"deck - belly {summary['deck_minus_belly_k_first']:.1f} K\n{videos}\nwrote {path}"
+        f"{sunlit_shaded[0]} - {sunlit_shaded[-1]} "
+        f"{summary['sunlit_minus_shaded_k_first']:.1f} K\n{videos}\nwrote {path}"
     )
     return 0
 

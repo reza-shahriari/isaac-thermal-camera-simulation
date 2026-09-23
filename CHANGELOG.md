@@ -10,6 +10,51 @@ repeated `Added` / `Changed` / `Fixed` headings was a single merge hotspot for t
 working in one tree; two commits already exist whose whole subject is restoring lost entries.
 `tests/unit/test_changelog_structure.py` fails on a repeated heading inside a dated section.
 
+### 2026-09-23
+
+#### Added
+- **A named aircraft: the DJI Phantom 3** (`PT.9`, ADR 0124). `irsim_isaac.phantom3` +
+  `configs/scenes/phantom3_outbound_pointwise.yaml`, laid out from DJI's published specification
+  — 350 mm diagonal, 9450 propellers (239 mm, 5.0 in pitch, so a geometric pitch angle of 12.7°
+  at 75 % radius), 2312 motors, the battery in the rear of the shell — with the shell plan, body
+  depth, gimbal and skids ESTIMATED from photographs scaled on that diagonal and labelled so. The
+  prop clearance is not authored anywhere: it falls out of the other two numbers at **8 mm**,
+  which is why 9450 is the largest propeller this frame takes. `scripts/render_quad_outbound.py`
+  grows `--airframe`, so one driver flies both aircraft, each with its own scene and range band.
+- **`abs_plastic_white`**, because a Phantom is not carbon and the difference is the whole result.
+  Sunlit skin over air: **+2.3 K** for white ABS against **+24.4 K** for the carbon deck, from a
+  solar absorptivity of **0.25** against **0.90**. Against a 50 mK NETD both are visible — 2.3 K
+  is forty-six NETD — but the margin is an order of magnitude apart. In LWIR the pigment does
+  nothing: ε = 0.95 against 0.90, both near-blackbodies, so a thermal camera sees the consequence
+  of the paint and never the paint. **Not a thermal-mass effect**, and a test now says so: at the
+  same 1.5 mm the two carry 2205 and 2520 J m⁻² K⁻¹, 12 % apart. A first draft asserted "half the
+  heat, twice as responsive" in three places; it was measured, it was wrong, and it was removed.
+- **Cloud in both bands, by default** (ADR 0076, wired at last). New weather fixture
+  `scattered_cumulus_48h.csv` at cloud **0.45** — SCT, 3–4 oktas — because the existing fixtures
+  are 0.05 (a sky with nothing in it) and 0.98 (no gaps and no sun). One `SkyFixedCloud` seeded
+  from the scene's own weather is sampled per ray by the infrared background *and* baked into the
+  visible dome, so the pair cannot disagree about where the cloud is. The grid had to go finer
+  than the survey default: half a degree is **ten pixels** through this camera and reads as
+  blocks, so the driver asks for six cells per degree (~3 px, under the PSF).
+
+#### Fixed
+- **`quad_outbound.SPAN_M` overstated its own aircraft by 41 %** (ADR 0124). It was authored as
+  `2 × 0.42 × √2`, the X-quad form every multirotor spec sheet quotes; that frame is a **plus**,
+  with arms due N/E/S/W, so opposite motors are `2 × 0.42` = **0.84 m** apart, not 1.19 m. It
+  survived a review, a test suite and a 300-frame render because nothing measured it — the
+  burnt-in readout of `outputs/quad_outbound` says "span 115.5 px" where the motors span 82 and
+  the propeller tips 111. Both airframes' spans are now derived from the authored motor prims,
+  with a test measuring them off the layout; the driver quotes prop tip to tip for both, so the
+  two aircraft are compared on the same measurement. **The images are unaffected — only the
+  number printed beside them.**
+- **A patched arm and a patched plate inset in opposite directions** (ADR 0124). A plate wants
+  its prim *inside* its patch; a solid arm wants its patch *outside* its prim, because from below
+  an arm presents its end caps and both side faces, none of which lie on the plane the grid is
+  drawn on. Authoring the arms like the plates put **1204 pixels** outside every patch on the
+  first Phantom render. `tests/unit/test_rendered_airframes.py` now samples every face of every
+  patched prim, rotated by its own yaw, against the real `PlanarPatch.contains`, for every
+  rendered airframe — no formula restated, so the test can disagree with the scene file.
+
 ### 2026-09-22
 
 #### Added

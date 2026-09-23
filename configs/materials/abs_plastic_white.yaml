@@ -1,0 +1,43 @@
+# White ABS: the moulded shell of a consumer quadrotor. Section 16.2 (LWIR/MWIR/thermal); the
+# NIR/SWIR emissivities are ESTIMATED from the ~0.75-0.85 solar-band reflectance of TiO2-pigmented
+# ABS, which is what makes these aircraft white.
+#
+# **Why this is not car_paint_white.** The optics are close -- both are white dielectrics over a
+# substrate -- but the *thermal* half is not, and it is the half that sets the temperature. Paint
+# on a steel panel carries 7800*470*0.0012 = 4399 J m^-2 K^-1; a 1.5 mm ABS shell carries
+# 1050*1400*0.0015 = 2205, about half. A drone shell therefore swings roughly twice as fast as a
+# painted panel of the same colour, which is why a small aircraft's skin tracks its own shading
+# and its own airspeed instead of averaging over them.
+#
+# And the contrast that matters against carbon_fibre: alpha 0.25 against 0.90. The same sun puts
+# under a third of the short-wave flux into this surface, so a white consumer drone runs far
+# cooler in daylight than a black composite one -- a weaker signature for the same aircraft class,
+# which is a detection fact and not a modelling convenience. Note that this is the *only* large
+# difference from carbon: at the same 1.5 mm the two carry 2205 and 2520 J m^-2 K^-1, 12 % apart,
+# so nothing here should be explained by thermal mass.
+schema_version: 1
+material:
+  name: abs_plastic_white
+  source: literature
+  reference: "docs/physics-model.md section 16.2; ABS bulk properties from polymer handbooks; NIR/SWIR ESTIMATED"
+  thermal:
+    density_kg_m3: 1050
+    specific_heat_j_kgk: 1400
+    conductivity_w_mk: 0.17
+    thickness_m: 0.0015
+    # White, TiO2-pigmented. 0.25 is the middle of the 0.22-0.30 range quoted for white plastics;
+    # the pigment is what holds it down, and a sun-yellowed shell would be higher.
+    solar_absorptivity: 0.25
+  optical:
+    # Organic polymers are strong absorbers across the thermal infrared -- the C-H stretch near
+    # 3.4 um and the fingerprint bands through 8-14 um leave almost nothing to reflect -- so the
+    # pigment that makes the shell white in the visible does nothing at all in LWIR. A white
+    # drone and a black one are both near-blackbodies to a thermal camera; they differ in how
+    # much sunlight they absorbed on the way to that temperature.
+    emissivity_per_band: {nir: 0.12, swir: 0.22, mwir: 0.90, lwir: 0.95}
+    # A moulded gloss shell, smoother than a sprayed panel.
+    roughness_per_band: {nir: 0.25, swir: 0.22, mwir: 0.12, lwir: 0.08}
+    # Level B, reusing the M7.5 paint-proxy (PMMA) fit: this is the same optically smooth
+    # dielectric class that fit was taken over -- section 4.2 asks for one fit per material class
+    # and baked, not one per material. Not independently fitted; ESTIMATED by class membership.
+    angular_model: {type: empirical, a: 0.75, p: 4.0}
