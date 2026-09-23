@@ -13,6 +13,28 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **A cost budget for cells and prims** (`GT.7`, `tests/unit/test_cost_budget.py`). The sizing this
+  lane rests on is Fraunhofer's: 1,313,410 triangles with a 10-layer stack through five day-night
+  cycles in 252 s, in MATLAB, on one i7-8700. Measured here, **102,400 cells over a 48 h spin-up
+  take 11.5 s** — 39 ns per cell per tick, and 56 us per cell-day against that reference's 38 us,
+  the same order for a model carrying one layer where theirs carried ten. So 10⁵ cells is
+  affordable and a patch authored coarsely to keep the solve cheap is trading accuracy for nothing.
+  One bound prim costs **32.7 ms** per frame at 640x512.
+
+  It also removed a duplicated pass. `PlanarPatch.sample` needs both the patch coordinates and the
+  inside test, and got them by computing the coordinates twice — once itself, once inside
+  `contains`. `local_coords` is three dot products over every pixel of the frame and measured
+  **5.3 ms of a 23.5 ms sample** at 640x512, so 22 % of the sampling cost was being spent to throw
+  a result away. `contains_local` takes coordinates that are already computed, and `contains` is
+  now a one-line wrapper over it.
+
+  **The optimisation is guarded by counting calls, not seconds.** A timing assertion on a shared
+  workstation is red whenever somebody else's render is running, and would have to be loosened
+  until it caught nothing; counting `local_coords` calls during a `sample` cannot flake at all. The
+  two genuine timing budgets are set roughly an order of magnitude above the measured value for the
+  same reason — the regression worth catching is an accidental O(n²) or a per-cell Python loop, not
+  a 20 % drift — and a third test asserts the *ratio* between two cell counts rather than any
+  clock, which says the same thing on a machine of any speed.
 - **Steam and droplet plumes** (`PH.9`, `irsim.atmosphere.mie`, `irsim.atmosphere.droplets`,
   ADR 0135). A thermal camera sees a steam plume because steam has **condensed**: at 373 K over a
   metre in LWIR, pure saturated water vapour leaves an optical depth of **0.169**, while 5 g/m³ of

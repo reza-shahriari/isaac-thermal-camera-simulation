@@ -160,14 +160,24 @@ class PlanarPatch:
 
     def contains(self, points: Any) -> NDArray[np.bool_]:
         """Inside the patch's **slab**: in the rectangle *and* within ``thickness_m`` of it."""
-        uvw = self.local_coords(points)
+        return self.contains_local(self.local_coords(points))
+
+    def contains_local(self, uvw: Any) -> NDArray[np.bool_]:
+        """:meth:`contains` for points already in patch coordinates.
+
+        Split out for `GT.7`. :meth:`sample` needs both the coordinates and the inside test, and
+        computing the coordinates is the expensive half -- three dot products over every pixel of
+        the frame. Calling :meth:`contains` from :meth:`sample` computed them a second time and
+        threw the first copy away, which measured **27 %** of the sampling cost at 640x512.
+        """
+        local = np.asarray(uvw, dtype=np.float64)
         span_u, span_v = self.extent_m
         return np.asarray(
-            (uvw[..., 0] >= 0.0)
-            & (uvw[..., 0] <= span_u)
-            & (uvw[..., 1] >= 0.0)
-            & (uvw[..., 1] <= span_v)
-            & (np.abs(uvw[..., 2]) <= self.thickness_m)
+            (local[..., 0] >= 0.0)
+            & (local[..., 0] <= span_u)
+            & (local[..., 1] >= 0.0)
+            & (local[..., 1] <= span_v)
+            & (np.abs(local[..., 2]) <= self.thickness_m)
         )
 
     # -- the lookup -------------------------------------------------------------------------
@@ -188,7 +198,7 @@ class PlanarPatch:
         grid = flat.reshape(self.shape)
 
         uvw = self.local_coords(points)
-        inside = self.contains(points)
+        inside = self.contains_local(uvw)  # GT.7: not `contains(points)`, which recomputes uvw
         # Continuous cell coordinate: 0.0 at the centre of cell 0, 1.0 at the centre of cell 1.
         cu = np.clip(uvw[..., 0] / self.du_m - 0.5, 0.0, self.n_u - 1.0)
         cv = np.clip(uvw[..., 1] / self.dv_m - 0.5, 0.0, self.n_v - 1.0)

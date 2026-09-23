@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 71 open steps
+#### Then, in order — 70 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.2`** | IG | A | M | — | ready |
 | 2 | **`AI.2`** | AI | A | L | — | ready |
 | 3 | **`AI.4`** | AI | B | S | — | ready |
-| 4 | **`IG.16`** | IG | B | M | — | ready |
-| 5 | **`SE.2`** | SE | B | M | — | ready |
-| 6 | **`GT.7`** | GT | C | M | 1 | ready |
-| 7 | **`AI.3`** | AI | B | M | — | `GT.7` |
-| 8 | **`TC.8`** | TC | C | S | — | ready |
-| 9 | **`AT.6`** | AT | C | M | — | ready |
-| 10 | **`AT.9`** | AT | C | M | — | ready |
-| 11 | **`PT.13`** | PT | C | M | — | ready |
-| 12 | **`PT.16`** | PT | C | M | — | ready |
-| 13 | **`XD.1`** | XD | X | S | 8 | ready |
-| 14 | **`EV.1`** | EV | X | M | 5 | ready |
-| 15 | **`XD.2`** | XD | X | M | 4 | `XD.1` |
+| 4 | **`AI.3`** | AI | B | M | — | ready |
+| 5 | **`IG.16`** | IG | B | M | — | ready |
+| 6 | **`SE.2`** | SE | B | M | — | ready |
+| 7 | **`TC.8`** | TC | C | S | — | ready |
+| 8 | **`AT.6`** | AT | C | M | — | ready |
+| 9 | **`AT.9`** | AT | C | M | — | ready |
+| 10 | **`PT.13`** | PT | C | M | — | ready |
+| 11 | **`PT.16`** | PT | C | M | — | ready |
+| 12 | **`XD.1`** | XD | X | S | 8 | ready |
+| 13 | **`EV.1`** | EV | X | M | 5 | ready |
+| 14 | **`XD.2`** | XD | X | M | 4 | `XD.1` |
+| 15 | **`XD.3`** | XD | B | M | — | `XD.2` |
 
-…and 56 more — `python scripts/next_step.py --queue 40`.
+…and 55 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -758,7 +758,7 @@ left of it is one thing: the solved cells do not reach a pixel.
 | GT.4 | **`scripts/` into `make typecheck`, and the aperture guard's scope extended to it.** 6,495 lines, linted but never type-checked, containing every lane entry point; 21 of 29 scripts have no test, including all six render drivers, `fidelity_ablation.py`, `eval_detector.py` and `train_detector.py`. | mypy runs clean over `scripts/`. The AST aperture guard walks `scripts/` too — today it covers `src/irsim` and `src/irsim_isaac` only, which is the one real hole in non-negotiable #5's coverage. | — | M | X |
 | GT.5 | **Test `irsim_eval.decode`.** It is the entry point to the whole Tier 4 public-data lane and has no test at all; its own docstring names two decode facts (luma-plane-only, an unflagged colour range worth a 255/219 gain plus a 16-code offset) that bound every downstream number. Coverage 43 %, all incidental. | A synthetic clip encoded at a known range round-trips, and a range-flag regression fails. Needs ffmpeg and the `validation` extra, neither of which CI installs, so it follows the existing ffmpeg-gated pattern in `test_codec_floor.py`. | — | S | X |
 | GT.6 | **Record Tier 3 manual passes with their commit hash** in `docs/validation/tier3-checklist.md`, and commit a small contact sheet per pass. `outputs/` is gitignored, so the owner's way of reading renders is invisible to everyone but the author. | A test parses the checklist: every pass row carries a date, a commit hash that resolves (`git cat-file -e`) and a contact-sheet path that exists; the five rows pointing at open steps (M10.11, M10.19, MM.8) are marked open. Red today: no pass is recorded and the parser finds no rows. | RP.6 | S | X |
-| GT.7 | **A cost-budget test that pins the cell and prim budget.** Fraunhofer ran 1,313,410 triangles with a 10-layer stack through five day–night cycles in **252 s** in MATLAB on one i7-8700, so 10⁵–10⁶ cells is affordable and nobody should coarsen a patch for speed. | A 10⁵-cell field over a 48 h spin-up completes inside a stated budget, in the **slow** tier — which is why GT.1 lands first. Also pins the render cost: `PointwiseTemperature.apply` measured 79 ms per frame at 640×512 for one bound prim, ~30 % of it a duplicated `local_coords` pass. | GT.1, PT.9 | M | C |
+| GT.7 | ✅ **done.** `tests/unit/test_cost_budget.py` (slow tier), and the duplicated pass removed: `PlanarPatch.contains_local` lets `sample` reuse the coordinates it already computed instead of `contains` recomputing them. | **Measured.** 102,400 cells over a 48 h spin-up in **11.5 s** (39 ns/cell/tick) against a 90 s budget — 10⁵ cells is affordable, so nobody should coarsen a patch. `apply` is **32.7 ms**/frame at 640×512. The duplicated `local_coords` was **5.3 ms of 23.5 ms**; that one is asserted by *counting calls*, not seconds, so it cannot flake. 5 cases. | GT.1, PT.9 | M | C |
 | GT.8 | **`--lane` answers with a startable step.** `next_step.py --lane PT` prints `PT.9` although it waits on `WM.3`; the single-head and `--queue` outputs gain the `waiting on` column the published block already has. | Red today: `--lane PT` names a blocked head. After: the head printed for a lane is its first step whose deps are all ticked, or the line says what it waits on; `test_roadmap_queue.py` gains a `--lane` case. | — | S | X |
 
 ---
