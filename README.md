@@ -817,6 +817,15 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   driver runs on a synthetic G-buffer), so the scene's 234,923 solved cells do not reach a pixel
   yet; and the camera must look **up** at the aircraft, since with no ground plane a downward ray
   samples the sky model below the horizon and returns near-air temperature.
+- **Most of an imported mesh cannot carry a temperature, and now something says so** (`AI.3`,
+  ADR 0137). `prep_asset.py` measures the prepared archive against two budgets. Affordability is
+  gated at 1,300,000 faces and 200,000 per prim, from `GT.7`'s cost measurement. Usefulness is
+  reported: a cell holds one temperature, and two cells closer than `sqrt(alpha x tick)` cannot
+  hold different ones, so across `configs/materials/` the floor at a 60 s tick runs from **1.11 mm**
+  on the slowest material to **71 mm** on bare aluminium. The Phantom 4 is **1,532,656 faces**
+  against the budget with **77 %** of them below the floor — one prim carries 100,926 faces over
+  2.7 cm², a **73 µm** cell. It is therefore refused by default (`--allow-over-budget` overrides,
+  `--dissolve-deg` fixes). Decimating to a per-material target edge length is not built.
 - **An imported asset's thermal mesh is not its render mesh, and decimation must preserve area**
   (ADR 0132). The solver's geometry is a planar-dissolved copy sized to the physics -- collapse
   decimation removed 37 % of the Phantom 4's area, which is 37 % of its emitted signal -- and the

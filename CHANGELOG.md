@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **A geometry budget for imported assets** (`AI.3`, ADR 0137). `irsim.io.asset_budget` measures a
+  prepared `.npz` archive engine-free and `scripts/prep_asset.py` now refuses an asset over it.
+  Two budgets, because there are two questions. *Affordability*: 1,300,000 faces total and 200,000
+  per prim, from `GT.7`'s cost measurement against Fraunhofer's reference scene — gated, with
+  `--allow-over-budget` to override. *Usefulness*: a **resolution floor** derived rather than
+  chosen, `sqrt(alpha x 60 s) = 1.11 mm` at the slowest material in `configs/materials/`, below
+  which no material this project carries can hold two different temperatures because conduction
+  erases the difference inside one tick — reported, not gated, because the lever that fixes it
+  (`--dissolve-deg`) is the caller's.
+  Measured on the only imported asset this project has: the Phantom 4 is **1,532,656 faces**
+  against a 1.3 M budget, **77 %** of them finer than the floor, with one prim carrying 100,926
+  faces over 2.7 cm² — a **73 µm** cell, fifteen times below the floor and roughly two hundred
+  times below what its painted aluminium can resolve. Before this, nothing counted, so the first
+  import too heavy to solve was discovered by waiting for the solve.
+
 ### Changed
 - **One weather state now owns the sky *and* the surfaces** (`AT.16`, ADR 0136). The sky moved to
   `isaac-weather-fx` last week; the thermal solver did not, so `--weather broken_cumulus` lit a

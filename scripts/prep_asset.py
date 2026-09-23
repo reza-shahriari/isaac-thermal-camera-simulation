@@ -454,6 +454,25 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
         help="refuse the mesh emit if any prim's area moves by more than this",
     )
     ap.add_argument("--threshold", type=float, default=None, help="coverage gate override")
+    # AI.3. Nothing counted the geometry until this, so the first import too heavy to solve was
+    # discovered by waiting for the solve. The budget is GT.7's measurement, not a guess.
+    ap.add_argument(
+        "--face-budget",
+        type=int,
+        default=None,
+        help="total faces the thermal archive may carry (default: GT.7's 1,300,000)",
+    )
+    ap.add_argument(
+        "--faces-per-prim",
+        type=int,
+        default=None,
+        help="faces any one prim may carry (default 200,000)",
+    )
+    ap.add_argument(
+        "--allow-over-budget",
+        action="store_true",
+        help="report the geometry budget but do not fail on it",
+    )
     ap.add_argument(
         "--skip-convert",
         action="store_true",
@@ -503,7 +522,30 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
     records = [PrimRecord.from_dict(d) for d in json.loads(out_prims.read_text(encoding="utf-8"))]
     report = audit(records, MaterialResolver(rules, names, asset=asset), args.threshold)
     print(report.render())
-    return 0 if report.passed else 1
+    ok = report.passed
+
+    # The geometry budget (AI.3), whenever the thermal archive exists -- emitted just now or by an
+    # earlier run. It is read engine-free from the `.npz`, so this costs nothing and the answer is
+    # about the mesh that will actually be solved rather than the one Blender imported.
+    archive = out_dir / f"{asset.name}.meshes.npz"
+    if archive.exists():
+        from irsim.io.asset_budget import GeometryBudget, measure_geometry
+        from irsim.io.assets import load_asset_meshes
+
+        defaults = GeometryBudget()
+        budget = GeometryBudget(
+            total_faces=args.face_budget or defaults.total_faces,
+            faces_per_prim=args.faces_per_prim or defaults.faces_per_prim,
+        )
+        geometry = measure_geometry(load_asset_meshes(archive), budget, asset=asset.name)
+        print()
+        print(geometry.render())
+        if not geometry.passed and not args.allow_over_budget:
+            ok = False
+    elif args.emit_mesh:
+        print(f"no mesh archive at {archive}: the geometry budget was not checked")
+
+    return 0 if ok else 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:

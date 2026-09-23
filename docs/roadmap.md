@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 68 open steps
+#### Then, in order — 67 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.2`** | IG | A | M | — | ready |
 | 2 | **`AI.2`** | AI | A | L | — | ready |
 | 3 | **`AI.4`** | AI | B | S | — | ready |
-| 4 | **`AI.3`** | AI | B | M | — | ready |
-| 5 | **`IG.16`** | IG | B | M | — | ready |
-| 6 | **`SE.2`** | SE | B | M | — | ready |
-| 7 | **`TC.8`** | TC | C | S | — | ready |
-| 8 | **`AT.6`** | AT | C | M | — | ready |
-| 9 | **`AT.9`** | AT | C | M | — | ready |
-| 10 | **`PT.16`** | PT | C | M | — | ready |
-| 11 | **`EV.1`** | EV | X | M | 5 | ready |
-| 12 | **`XD.2`** | XD | X | M | 4 | ready |
-| 13 | **`XD.3`** | XD | B | M | — | `XD.2` |
-| 14 | **`XD.10`** | XD | C | L | — | `XD.2` |
-| 15 | **`IG.3`** | IG | X | S | 3 | ready |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`SE.2`** | SE | B | M | — | ready |
+| 6 | **`TC.8`** | TC | C | S | — | ready |
+| 7 | **`AT.6`** | AT | C | M | — | ready |
+| 8 | **`AT.9`** | AT | C | M | — | ready |
+| 9 | **`PT.16`** | PT | C | M | — | ready |
+| 10 | **`EV.1`** | EV | X | M | 5 | ready |
+| 11 | **`XD.2`** | XD | X | M | 4 | ready |
+| 12 | **`XD.3`** | XD | B | M | — | `XD.2` |
+| 13 | **`XD.10`** | XD | C | L | — | `XD.2` |
+| 14 | **`IG.3`** | IG | X | S | 3 | ready |
+| 15 | **`EV.5`** | EV | X | M | 3 | `EV.1` |
 
-…and 53 more — `python scripts/next_step.py --queue 40`.
+…and 52 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -744,7 +744,7 @@ left of it is one thing: the solved cells do not reach a pixel.
 |---|---|---|---|---|---|
 | AI.1 | ✅ **done.** Per-asset material map (`configs/assets/`), a new precedence rung above the semantic class, and `scripts/prep_asset.py` — import, rescale, USD, prim dump, audit, all on the CPU via Blender's bundled `pxr`. | **Measured.** The committed Phantom 4 dump goes 20/41 → 41/41, and two *confident* global hits are corrected: the shell's areal heat capacity halves (4399 → 2205 J m⁻² K⁻¹) and the motor housings go ε 0.09 → 0.90. 16 cases; reverting the rung turns 5 red. | — | M | A |
 | AI.2 | **Put the Phantom 4 in a scene.** 🟡 **Mostly shipped:** schema v16 binds a field to a prepared asset's prims (ADR 0132) and `render_phantom4.py` flies it in LWIR and colour, mounted by the rotation its own `world_frame:` implies (ADR 0133). **Left:** 234,923 solved cells reach no pixel — `MeshPointBridge` has never been driven by a render. | Green: 41/41 prims mapped, motor prims peak 19.6 K over the shell. **Red:** a bridge bound to an imported prim, carrying the mount rotation, showing a gradient *across* one prim. | AI.1 | L | A |
-| AI.3 | **A triangle budget for imported assets.** The Phantom 4 is 2,486,459 triangles against `GT.7`'s cited 1.3 M affordable figure, and its 31,068 loose shells make per-face cell counts hard to predict. | `prep_asset.py` reports cells-per-prim and refuses, or decimates, above a stated budget. Red today: nothing counts, so the first import that is too heavy is discovered by waiting. | AI.1, GT.7 | M | B |
+| AI.3 | ✅ **done.** `irsim.io.asset_budget` measures a prepared archive engine-free and `prep_asset.py` refuses over it: 1.3 M faces total (GT.7's reference), 200 k per prim, plus a *resolution floor* derived from conduction — `sqrt(alpha x 60 s)` = 1.11 mm at the library's slowest material. ADR 0137. | **Measured.** The Phantom 4 is 1,532,656 faces against that budget, and **77 %** of them are finer than the floor; one prim holds 100,926 faces over 2.7 cm2 — a 73 um cell. 19 tests. | AI.1, GT.7 | M | B |
 | AI.4 | **Exercise the `materialBind` subset path with a real asset.** `prep_asset.py` reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data — and it is the branch that stops a multi-material building mapping entirely to slot 0. | A committed fixture with subsets audits per subset, and a mesh carrying both a subset and a direct binding is reported rather than silently resolved from the binding. | AI.1 | S | B |
 
 ---
