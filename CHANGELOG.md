@@ -54,6 +54,16 @@ working in one tree; two commits already exist whose whole subject is restoring 
   depth, and the LWIR emissivity is derived per ray from it rather than authored as one
   transmittance. `clouds.tau` stays and every preset that authors it is bit-identical; authoring
   both is refused, because they are two answers to one question.
+- **A cloud with a third dimension** (`AT.12`, ADR 0127). `irsim.atmosphere.cloud_deck`: a
+  horizontal map of column depth at the LCL, each column given a top from its own depth and an
+  analytic vertical profile. The infrared band ray-marches it (`SkyModel.radiance_field_from_deck`)
+  and `irsim_isaac.cloud_volume` voxelises **the same function** into a NanoVDB volume for the
+  visible band, so the volume the path tracer renders is the field the radiometry integrates.
+  `--cloud-volume` on the outbound driver. Measured on the Phantom clip's frame geometry: the
+  cloud spans **19.7 K** against the plane-parallel sheet's 1.25 K, the emission level runs
+  **12–834 m** above the base instead of sitting on it, and the largest histogram bin falls from
+  55.4 % of the frame to 39.6 %. A **vertical** ray still reproduces ADR 0126 to the bit, because
+  the profile `6u(1−u)` integrates to exactly the column thickness.
 - **A third display span, `sky`**, on the outbound clip (ADR 0126). Neither existing span reaches
   the sky — `ir` starts at the coolest airframe node — so cloud and clear zenith both landed on
   display code 0 and the only picture carrying the sky was the camera's own AGC. The new span is
@@ -61,6 +71,14 @@ working in one tree; two commits already exist whose whole subject is restoring 
   times the sensor's NETD. The AGC video is still written beside it.
 
 #### Fixed
+- **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
+  `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power
+  spectrum, and on a 2-D field the variance per octave goes as `f^(2−β)` — so `beta: 1.8` puts more
+  variance at the smallest scale the grid carries than at the largest. Measured on a 487² grid at
+  25 m: the autocorrelation length is **125 m** at β = 1.8 and **1250 m** at β = 2.8. Published
+  cloud slopes near −5/3 are *transect* slopes, one less than an isotropic field's radial exponent.
+  The deck synthesises at `beta + 1` and says so; the hemispherical `SkyFixedCloud` is deliberately
+  left alone, because changing it would move the cloud in every scene shipped since MS.3.
 - **A cloud had no optical depth and no distance, so it rendered as one flat white level covered
   in amplified noise** (`AT.11`, ADR 0126). Measured on `outputs/phantom3_outbound/frame_000120`:
   **53.9 %** of a 640×512 LWIR frame sat within 0.25 K of one apparent temperature, and inside

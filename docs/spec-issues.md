@@ -15,9 +15,9 @@ update the status here in the same commit.
 | S2 | §6.1: absorbed solar `(1−α_sol)^c Q_sol` → `α_sol Q_sol` in the displayed balance | the prose two lines below already said so; M6.7's monotone-α test encodes it |
 | T4 | §12.2: `spectral_response: "responses/boson_vox.csv"` → `"spectra/responses/boson_vox.csv"` (relative to `data/`, µm, peak-normalised) | the path was stated four ways; M0.8's loader and ADR 0008 fix the layout as `data/spectra/responses/` |
 
-**Where the sixty-nine rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20). The `status`
-column on each row is the ledger; this is its summary. **Thirty-eight** rows are carried by an ADR that
-exists, **twenty-three** by code with no ADR, and **eight** are open: `S9`, `S15` and `S16` are edits
+**Where the seventy rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S50` by `AT.12`).
+The `status` column on each row is the ledger; this is its summary. **Thirty-nine** rows are carried
+by an ADR that exists, **twenty-three** by code with no ADR, and **eight** are open: `S9`, `S15` and `S16` are edits
 to `docs/physics-model.md` that belong to the spec owner, **`S13` is open again** — see its row —
 and `S46`–`S49` are the gaps the 2026-09-18 audit found between the spec and the owner's
 requirements (participating media, snow, vegetation, people), each owned by a
@@ -25,7 +25,7 @@ roadmap row in phase P or C; `S41`, lateral conduction, shipped in
 `PT.11`, `S42`, part-to-part conduction, as the thermal network in `TC.2` and its schema in `TC.4`,
 `S43`, the solved engine, in `TC.5`, `S44`, the shadow term's provider, across `PT.18`,
 `PT.21` and `PT.22`, and `S45`, latent heat and the water body, across `PH.1` and `PH.3`, so
-sixty-one of the sixty-nine rows have shipped.
+sixty-two of the seventy rows have shipped.
 (`S8` is counted as code: its half of the fix shipped in M9.1 and only the spec's wording is left.)
 
 This paragraph used to read "Everything else is open", which had been wrong for months: it listed
@@ -86,6 +86,7 @@ cell exists, and no row may be `open` while the ADR its resolution names is alre
 | S46 | §2 is surface-only; §6.6's plume row and any fire or flame need emission and absorption along the ray, which no term provides; revision 5 deferred the plume without a step past a trigger that had fired | Add §7.5: a per-band gas slab L = τ_b L_behind + (1 − τ_b) B_b(T_g) with κ_b(T) tables per species generated offline, applied at the target's range; MWIR Tier 3 plume test — `PH.4`–`PH.7`. `PH.4` shipped the slab kernel (`irsim.pipeline.gas_slab`, soot by quadrature, gas species from tables); the HITEMP/RadCal tables, the plume and the flame are `PH.5`–`PH.7` | open — `PH.5` |
 | S47 | §16.2 snow is a material; a snow surface is a phase-changing state capped at 273.15 K by the latent heat of fusion, and the cap is its LWIR signature | Add a melt cap and melt rate to §6 — `PH.10` | open — `PH.10` |
 | S48 | §16.2 vegetation is a leaf material; a canopy is a low-capacity element cooled by transpiration by day, several K below air at midday vapour-pressure deficit, and not at night | A stomatal resistance in the S45 latent term — `PH.11` | open — `PH.11` |
+| S50 | `CloudSpec.beta` is authored at 1.8 and `generate_cloud_field` applies it as the **radial** exponent of a 2-D power spectrum. On a 2-D field the variance per octave goes as f^(2−β), so 1.8 puts more variance at the smallest scale the grid carries than at the largest: measured on a 487² grid at 25 m, the autocorrelation length is **125 m** at β = 1.8 against **1250 m** at β = 2.8. Published cloud-field slopes near −5/3 are **transect** slopes, which are one less than an isotropic field's radial exponent, so 1.8 as authored is the literature's number read in the wrong convention. | ADR 0127: `AT.12`'s deck synthesises at `beta + 1` (`TRANSECT_TO_RADIAL_SLOPE`) and says so. The hemispherical `SkyFixedCloud` is deliberately **not** changed — it would move the cloud in every scene shipped since MS.3 — so whether the preset's authored 1.8 should become 2.67 is left to the owner and recorded in the roadmap's *Recommended, but for the owner to settle*. | ADR 0127 |
 | S49 | §6.6 gives humans a ΔT row; a person is exposed skin near 35.7 − 0.028 (M − W) °C and a clothing surface set by insulation, wind and the radiant environment — two temperatures on one prim | A two-region person object with the ISO 7730 clothing balance — `PH.12` | open — `PH.12` |
 
 

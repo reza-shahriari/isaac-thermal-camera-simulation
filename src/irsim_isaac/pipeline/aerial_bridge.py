@@ -49,6 +49,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.atmosphere.cloud import SkyFixedCloud, generate_sky_cloud, sky_angles
+from irsim.atmosphere.cloud_deck import CloudDeck
 from irsim.atmosphere.sea import SeaModel
 from irsim.atmosphere.sky import SkyModel
 from irsim.pipeline.environment import ground_temperature_k
@@ -140,6 +141,7 @@ class AerialThermalBridge:
         sky: SkyModel | None = None,
         tick_hz: float = DEFAULT_TICK_HZ,
         cloud_seed: int | None = None,
+        cloud_deck: bool = False,
         sea: SeaModel | None = None,
     ) -> None:
         # A prim's name resolves to a phase-1 *target solver* or to a phase-2 §12.3 *thermal
@@ -213,6 +215,19 @@ class AerialThermalBridge:
             self.cloud = generate_sky_cloud(
                 beta, float(scene.weather.at(scene.t0_s).cloud_fraction), int(cloud_seed)
             )
+        #: The same field given a **top** (AT.12, ADR 0127), so a ray crosses towers and gaps
+        #: instead of entering an infinite sheet and never leaving it. Optional because it costs
+        #: a march per pixel and a plane-parallel sheet is right for a camera looking straight up;
+        #: it is what an *oblique* aim needs, which is every one of these clips.
+        self.deck: CloudDeck | None = None
+        if cloud_deck:
+            if cloud_seed is None or sky is None:
+                raise ValueError(
+                    "a cloud deck needs a seed and a sky model: it takes its coverage, spectral "
+                    "slope, base height and optical depth from the same weather and preset the "
+                    "hemispherical field does (AT.12)"
+                )
+            self.deck = sky.cloud_deck(scene.t0_s, int(cloud_seed))
 
         # The first bracket has to name **everything a tick will report**, not just the targets.
         # `Scene.advance_targets` returns the network's nodes under their own names as well
@@ -435,8 +450,16 @@ class AerialThermalBridge:
             # stencil, and the infrared frame is where that matters most -- a hard mask puts a
             # step of tens of kelvin along every cloud boundary, which is exactly the edge
             # statistic a detector keys on (ADR 0125).
-            depth = self.cloud.density(elev[above], azim[above])
-            out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], depth)
+            if self.deck is not None:
+                # The cloud has a top, so the ray is integrated through it rather than looked up
+                # by the elevation it entered at. A ray straight up gets the same answer the
+                # branch below would give it, by the deck's construction (AT.12).
+                out[above] = self.sky.apparent_temperature_field_from_deck(
+                    t_abs, elev[above], azim[above], self.deck
+                )
+            else:
+                depth = self.cloud.density(elev[above], azim[above])
+                out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], depth)
         else:
             out[above] = self.sky.apparent_temperature_k(t_abs, elev[above])
         return out

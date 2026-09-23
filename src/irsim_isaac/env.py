@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 __all__ = [
+    "render_device",
     "GPU_ENV_VAR",
     "ensure_warp_on_path",
     "has_isaac",
@@ -153,6 +154,27 @@ GPU_ENV_VAR = "IRSIM_GPU"
 #: The A6000 on this machine. The other card is the one the owner works on, so a render that
 #: spreads onto it takes memory somebody is using.
 DEFAULT_GPU = 0
+
+
+def render_device() -> str:
+    """The CUDA device string for work that runs beside the render, e.g. ``"cuda:0"``.
+
+    The same card ``simulation_app_config`` pins the renderer to, read from the same variable, so
+    a helper that allocates on the GPU (AT.12 voxelises a cloud deck through Warp) cannot land on
+    the card the owner is working on while the renderer sits on the other one. ``all`` gives back
+    the bare ``"cuda"``, which is the caller's framework choosing.
+    """
+    # The same remapping `simulation_app_config` applies, because an index only means the card
+    # `nvidia-smi` prints once CUDA is ordered by PCI bus. A caller that reaches this function
+    # first would otherwise get the *other* card, which is the one the owner is working on.
+    os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+    raw = os.environ.get(GPU_ENV_VAR, "").strip()
+    if raw.lower() in {"all", "*"}:
+        return "cuda"
+    try:
+        return f"cuda:{DEFAULT_GPU if not raw else int(raw)}"
+    except ValueError:
+        raise ValueError(f"{GPU_ENV_VAR}={raw!r} is neither a GPU index nor 'all'") from None
 
 
 def simulation_app_config(**overrides: Any) -> dict[str, Any]:

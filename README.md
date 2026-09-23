@@ -306,6 +306,29 @@ runs 0.68 → 0.49 down the frame, and 73 mK of NETD occupies **0.3 of one displ
 still flat to within a kelvin, and at an oblique aim that is not what a real cumulus field looks
 like — that needs a cloud with a third dimension.
 
+**A cloud with an inside (`AT.12`, ADR 0127).** Even with the right optical depth, a
+*plane-parallel* cloud is flat: every ray that enters an infinite sheet stays in it, so the core
+spanned 1.25 K. Looking straight up that is correct — a cumulus base is flat because it is the
+lifting condensation level — but these clips aim at 20°, where a real cumulus field is towers and
+a ray climbing 1.2 km travels **3.3 km horizontally** through them.
+
+So cloud is now a **deck**: a horizontal map of column depth at the LCL, each column given a top
+from its own depth and a vertical profile `6u(1−u)`, whose integral over the column is exactly the
+column thickness — so a **vertical ray reproduces the sheet to the bit** and the third dimension is
+provably a generalisation. Obliquely it is not: the cloud spans **19.7 K**, the emission level runs
+**12–834 m** above the base instead of sitting on it, and the largest histogram bin falls from
+55.4 % of the frame to 39.6 %.
+
+The same deck is the visible band's cloud. `irsim_isaac.cloud_volume` voxelises the *same
+function* the infrared march integrates into a NanoVDB grid and binds it to a `UsdVol.Volume`, so
+the companion frame carries real participating geometry a camera can fly toward rather than cloud
+painted on a dome at infinity — and the two bands cannot be different clouds, because they are one
+object. Two things that had to be got right and were not, first time: the field is synthesised **on
+the deck in metres** (projecting the hemispherical field down and extruding it makes tall thin fins,
+and the frame came out as vertical streaks), and the march sizes its own step count from the
+geometry (a fixed 48 steps put samples 68 m apart across a 25 m grid, which drew bands along every
+cloud edge).
+
 **A close-up is a different measurement (ADR 0125).** `--close-up` holds the aircraft filling the
 frame for the whole mission, so the only thing changing is temperature: the four motor bells run
 22 → 65 → 22 °C while the skin, the skids and the gimbal sit at their own levels. The framing is

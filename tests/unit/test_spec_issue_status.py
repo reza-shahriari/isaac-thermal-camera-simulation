@@ -44,6 +44,7 @@ WORDS = {
     22: "twenty-two",
     23: "twenty-three",
     37: "thirty-seven",
+    39: "thirty-nine",
     38: "thirty-eight",
     56: "fifty-six",
     57: "fifty-seven",
@@ -51,7 +52,9 @@ WORDS = {
     59: "fifty-nine",
     60: "sixty",
     61: "sixty-one",
+    62: "sixty-two",
     69: "sixty-nine",
+    70: "seventy",
 }
 
 
@@ -81,13 +84,14 @@ def _adrs_in(text: str) -> list[str]:
 # --- every row carries a status -------------------------------------------------------------------
 
 
-def test_the_file_still_holds_sixty_nine_issues() -> None:
+def test_the_file_still_holds_seventy_issues() -> None:
     """If this moves, the summary paragraph's counts move with it and the tests below say so.
 
-    Sixty until 2026-09-20; `S41`–`S49` were opened by roadmap revision 6 for the owner's per-point,
-    part-to-part, water and fire requirements.
+    Sixty until 2026-09-20; `S41`-`S49` were opened by roadmap revision 6 for the owner's
+    per-point, part-to-part, water and fire requirements, and `S50` by `AT.12` for the cloud
+    field's spectral-slope convention.
     """
-    assert len(_rows()) == 69
+    assert len(_rows()) == 70
 
 
 def test_every_row_has_a_non_empty_status() -> None:

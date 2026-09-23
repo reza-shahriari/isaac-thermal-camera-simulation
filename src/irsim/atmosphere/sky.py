@@ -58,6 +58,11 @@ from irsim.atmosphere.cloud import (
     generate_cloud_field,
     lifting_condensation_level_m,
 )
+from irsim.atmosphere.cloud_deck import (
+    TRANSECT_TO_RADIAL_SLOPE,
+    CloudDeck,
+    generate_cloud_deck,
+)
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.atmosphere.skylight import DiffuseSkylight
 from irsim.config.environment import EnvironmentSpec
@@ -307,6 +312,88 @@ class SkyModel:
         return np.asarray(
             self._lut.apparent_temperature(
                 self.radiance_field(t_s, elevation_rad, density), self._q
+            ),
+            dtype=np.float64,
+        )
+
+    # -- the cloud with a top (AT.12, ADR 0127) ---------------------------------------------
+    def cloud_deck(self, t_s: float, seed: int, **kwargs: Any) -> CloudDeck:
+        """A cumulus deck at *this scene's* LCL, coverage, spectral slope and optical depth.
+
+        A factory rather than a constructor call in the driver, for the same reason
+        `dome_spec_from_scene` exists: four of the deck's six inputs are already decided by the
+        shared weather and the environment preset, and a caller passing its own would render a
+        cloud at one altitude or coverage in the visible band and another in the infrared.
+        """
+        optical_depth = self._env.clouds.optical_depth
+        if optical_depth is None:
+            raise ValueError(
+                "a cloud deck needs clouds.optical_depth (ADR 0126); this preset authors "
+                "clouds.tau, which is a plane-parallel sheet and has no top"
+            )
+        return generate_cloud_deck(
+            # The preset's `beta` read as the *transect* slope the literature quotes, which
+            # is one less than the radial exponent a 2-D synthesis needs. At the authored 1.8
+            # a radial synthesis has its variance at the smallest scales and comes out as
+            # texture rather than as clouds; see TRANSECT_TO_RADIAL_SLOPE.
+            beta=self._env.clouds.beta + TRANSECT_TO_RADIAL_SLOPE,
+            cloud_fraction=float(self.weather.at(t_s).cloud_fraction),
+            seed=int(seed),
+            base_m=self.cloud_base_m(t_s),
+            optical_depth=optical_depth,
+            **kwargs,
+        )
+
+    def radiance_field_from_deck(
+        self,
+        t_s: float,
+        elevation_rad: Any,
+        azimuth_rad: Any,
+        deck: CloudDeck,
+        *,
+        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        steps: int | None = None,
+    ) -> NDArray[np.float64]:
+        """Per-pixel sky radiance with the cloud **marched** rather than looked up by elevation.
+
+        Same blend as :meth:`radiance_field` and the same
+        :func:`~irsim.atmosphere.cloud.cloud_radiance_at_range`, with two quantities that a
+        plane-parallel sheet could not supply: the emissivity comes from the optical depth the ray
+        actually accumulated crossing towers and gaps, and ``L_B`` is evaluated at *that ray's*
+        emission level rather than at the base. A ray straight up gets the same answer as
+        :meth:`radiance_field` does, by the deck's construction.
+
+        The atmosphere in front of the cloud is still taken at the deck's **base**: the entry
+        point is where a ray first meets cloud and the extra few hundred metres to the emitting
+        level are inside it, where the cloud's own opacity dominates the air's.
+        """
+        el = np.asarray(elevation_rad, dtype=np.float64)
+        march = deck.march(el, azimuth_rad, origin_m=origin_m, steps=steps)
+        lapse = self._atm.preset.profile.lapse_rate_k_per_m
+        t_emit = self.cloud_base_temperature_k(t_s) - lapse * march.emission_height_m
+        l_base = np.asarray(self._lut.lookup(t_emit, self._q), dtype=np.float64)
+        deg = np.degrees(el)
+        tau_grid, beyond_grid = self._cloud_path(t_s)
+        return cloud_radiance_at_range(
+            self.clear_radiance(t_s, el),
+            np.interp(deg, ELEVATION_GRID_DEG, beyond_grid),
+            np.interp(deg, ELEVATION_GRID_DEG, tau_grid),
+            l_base,
+            march.emissivity(),
+        )
+
+    def apparent_temperature_field_from_deck(
+        self,
+        t_s: float,
+        elevation_rad: Any,
+        azimuth_rad: Any,
+        deck: CloudDeck,
+        **kwargs: Any,
+    ) -> NDArray[np.float64]:
+        return np.asarray(
+            self._lut.apparent_temperature(
+                self.radiance_field_from_deck(t_s, elevation_rad, azimuth_rad, deck, **kwargs),
+                self._q,
             ),
             dtype=np.float64,
         )

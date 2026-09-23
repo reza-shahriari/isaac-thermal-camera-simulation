@@ -337,7 +337,9 @@ class IrCamera:
     and the thermal solvers all run on the same time base as a real 60 Hz core would.
     ``frame_period_s`` overrides that period, which turns the object into a time-lapse camera
     (ADR 0074) -- one capture every N seconds of scene time, with every stage told the truth about
-    how much time passed. ``cloud_seed`` puts structured cloud into the background (ADR 0076);
+    how much time passed. ``cloud_seed`` puts structured cloud into the background (ADR 0076),
+    and ``cloud_deck`` gives that cloud a top so a ray crosses towers and gaps instead of an
+    infinite sheet (AT.12) -- which is also the object the visible band's volume is built from;
     pass the same seed to the visible dome and the two bands show the same sky.
     """
 
@@ -361,6 +363,7 @@ class IrCamera:
         strict_patch_coverage: bool = True,
         frame_period_s: float | None = None,
         cloud_seed: int | None = None,
+        cloud_deck: bool = False,
         sea: Any = None,
         background_prim_paths: Sequence[str] = (),
         moving_prim_paths: Sequence[str] = (),
@@ -419,7 +422,12 @@ class IrCamera:
         # `cloud_seed` puts MS.3's structured cloud into the background (ADR 0076). Without one
         # the background is the uniform blend it has always been, bit for bit.
         self.bridge = AerialThermalBridge(
-            scene, prim_to_target, band=band, cloud_seed=cloud_seed, sea=sea
+            scene,
+            prim_to_target,
+            band=band,
+            cloud_seed=cloud_seed,
+            cloud_deck=cloud_deck,
+            sea=sea,
         )
         # Prims that are *in* the picture but whose temperature is not a solver node: the sea
         # (MM.6, ADR 0078). They occlude, they set the horizon, and their apparent temperature

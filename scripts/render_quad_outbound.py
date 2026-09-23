@@ -145,6 +145,21 @@ parser.add_argument("--no-cloud", action="store_true", help="a bare sky, for the
 # degree puts a grid cell at about three pixels, which is under the PSF and so invisible as
 # structure. It costs 4.7 MB and one second.
 parser.add_argument("--cloud-cells-per-deg", type=float, default=6.0)
+# **A cloud with a top, in both bands** (AT.12). The same field laid on a horizontal deck at the
+# LCL, marched per ray for the infrared and written as a NanoVDB volume for the visible one --
+# real participating geometry in the stage rather than cloud painted on a dome at infinity. Costs
+# a ray march per pixel and needs the path tracer, so it implies `--rgb`.
+parser.add_argument(
+    "--cloud-volume",
+    action="store_true",
+    help="cloud as a real volume: a deck marched for LWIR and voxelised for RGB (AT.12)",
+)
+parser.add_argument(
+    "--cloud-voxel-m",
+    type=float,
+    default=25.0,
+    help="voxel size of the cloud volume, metres (default 25)",
+)
 parser.add_argument("--no-overlay", action="store_true", help="no burnt-in readout")
 parser.add_argument("--keep-frames", action="store_true", help="keep the PNG sequence")
 parser.add_argument("--integration-ms", type=float, default=None)
@@ -172,11 +187,18 @@ if args.far_m is None:
     args.far_m = _AIRFRAME["far_m"]
 if args.no_cloud:
     args.cloud_seed = None
+    args.cloud_volume = False
+if args.cloud_volume:
+    # The RTX renderer documents volume rendering under `PathTracing` only, and `--rgb` is what
+    # puts this build into it. Implied rather than required, because a volume authored into a
+    # stage the renderer will not integrate is a silent no-op: the frame comes back with no cloud
+    # in it and nothing says why.
+    args.rgb = True
 
 t_boot = time.time()
 from isaacsim import SimulationApp  # noqa: E402
 
-from irsim_isaac.env import simulation_app_config  # noqa: E402
+from irsim_isaac.env import render_device, simulation_app_config  # noqa: E402
 
 app = SimulationApp(simulation_app_config())
 boot_s = time.time() - t_boot
@@ -243,6 +265,7 @@ def main() -> int:
         # Tip to tip for this one too, so the two aircraft are quoted on the same measurement.
         # Its motors are 0.84 m apart -- a plus-configuration frame, not an X.
         span_label = "prop tip to tip"
+    from irsim_isaac.cloud_volume import author_cloud_volume, write_nanovdb
     from irsim_isaac.visible_sky import dome_spec_from_scene
 
     out_dir = pathlib.Path(args.out)
@@ -364,11 +387,41 @@ def main() -> int:
                 f"{hfov_deg:.0f} x {vfov_deg:.0f} deg field will rarely contain any",
                 file=sys.stderr,
             )
+    deck = None
+    volume = None
+    if args.cloud_volume:
+        if cloud is None or scene.environment is None:
+            print("--cloud-volume needs a cloud field and an environment preset", file=sys.stderr)
+            return 1
+        sky_model = scene.sky_models.get(spec.band.band_id)
+        if sky_model is None or scene.environment.clouds.optical_depth is None:
+            print(
+                "--cloud-volume needs a scene whose environment preset authors "
+                "clouds.optical_depth (ADR 0126); clouds.tau is a plane-parallel sheet with no "
+                "top to voxelise",
+                file=sys.stderr,
+            )
+            return 1
+        deck = sky_model.cloud_deck(scene.t0_s, int(args.cloud_seed))
+        volume = write_nanovdb(
+            deck, out_dir / "cloud_deck.nvdb", voxel_m=args.cloud_voxel_m, device=render_device()
+        )
+        print(
+            f"cloud deck: base {deck.base_m:.0f} m, tops to {deck.top_m:.0f} m, "
+            f"footprint +/-{deck.half_extent_m / 1e3:.1f} km, visible OD {deck.optical_depth:g} "
+            f"at full depth; volume {volume.caption}"
+        )
     dome = None
     if not args.no_dome:
         # heading 0: the scene's `world_frame:` puts north on the stage's -Z, so the dome, the sun
         # light and the scene's own solar geometry are all in the one frame.
-        dome = dome_spec_from_scene(scene, cloud=cloud, heading_deg=0.0)
+        #
+        # **The dome's cloud is switched off when the volume carries it**, or the frame would show
+        # both: a painted cloud at infinity and the real one in front of it, in the same places,
+        # which reads as haze rather than as a mistake.
+        dome = dome_spec_from_scene(
+            scene, cloud=None if args.cloud_volume else cloud, heading_deg=0.0
+        )
         print(
             f"environment: sun {dome.sun_elevation_deg:.1f} deg elevation, "
             f"{dome.sun_azimuth_deg:.1f} deg azimuth, turbidity {dome.turbidity:.2f}"
@@ -383,6 +436,11 @@ def main() -> int:
     )
     if stage.errors:
         print(f"stage errors: {stage.errors}", file=sys.stderr)
+    if volume is not None and deck is not None:
+        import omni.usd
+
+        prim = author_cloud_volume(omni.usd.get_context().get_stage(), "/World/Cloud", volume)
+        print(f"cloud volume: {prim.GetPath()} -> {volume.path.name}")
     missing = set(stage.thermal_nodes()) - set(scene.targets)
     if missing:
         print(f"scene has no solver for: {sorted(missing)}", file=sys.stderr)
@@ -458,6 +516,7 @@ def main() -> int:
         strict_thermal_nodes=False,
         strict_patch_coverage=not args.lenient_coverage,
         cloud_seed=args.cloud_seed,
+        cloud_deck=args.cloud_volume,
         rotor_mounts=None if args.no_rotors else rotor_mounts(0.0),
         # IG.6's `motion_px` is deliberately not requested. The aircraft is static in the stage
         # and the camera slews; the tracker reads prim transforms, so it would report zero motion
@@ -762,6 +821,17 @@ def main() -> int:
         "span_m": SPAN_M,
         "span_label": span_label,
         "cloud_seed": args.cloud_seed,
+        "cloud_volume": None
+        if volume is None
+        else {
+            "path": volume.path.name,
+            "voxel_m": volume.voxel_m,
+            "shape": list(volume.shape),
+            "min_world_m": list(volume.min_world_m),
+            "base_m": None if deck is None else deck.base_m,
+            "top_m": None if deck is None else deck.top_m,
+            "optical_depth": None if deck is None else deck.optical_depth,
+        },
         "sunlit_minus_shaded": sunlit_shaded,
         "sunlit_minus_shaded_k_first": round(
             first[f"cell_{sunlit_shaded[0]}_k"] - first[f"cell_{sunlit_shaded[-1]}_k"], 3
