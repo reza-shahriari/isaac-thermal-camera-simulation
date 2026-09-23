@@ -31,7 +31,7 @@
 # The powered parts -- motors, speed controllers, the pack -- stay per-prim nodes, because
 # conducting their heat into the skin from a config still has no route (PT.9's remainder).
 
-schema_version: 16
+schema_version: 17
 scene:
   name: quad_outbound_pointwise
   description: "A quadrotor filmed from the ground, 12 m to 150 m, point-wise airframe, clear midday"

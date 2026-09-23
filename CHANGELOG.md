@@ -42,6 +42,50 @@ repeated `Added` / `Changed` / `Fixed` headings was a single merge hotspot for t
 working in one tree; two commits already exist whose whole subject is restoring lost entries.
 `tests/unit/test_changelog_structure.py` fails on a repeated heading inside a dated section.
 
+### 2026-09-24
+
+#### Added
+- **A raster can replace a surface's solve, or steer it** (`PT.13`). `irsim.thermal.maps`, plus
+  schema v17 `temperature_map:` and `parameter_maps:` on a surface. These are DIRSIG's two escape
+  hatches and this project needs both for the same reason it needs them: a skin whose temperature
+  somebody else already knows. A **temperature map** *is* the surface — the Map Temperature
+  Solver — so no energy balance runs on it; a **parameter map** varies one `FacetProperties`
+  field across the cells the solver then runs on — MappedTherm — so one prim can carry a painted
+  panel and a bare one without being two prims. `PlanarPatch` was already a raster with a
+  projection, so draping one is a resample and nothing more.
+
+  **The round trip is bit-identical, not merely accurate.** A raster already at the patch's own
+  `n_v × n_u` is returned with no arithmetic at all, because at that shape it is a relabelling
+  and not a resample — the moment it needs arithmetic to survive, the hatch has started inventing
+  values the file somebody else solved does not contain. A raster that genuinely is resampled
+  holds **0.1 mK** against the closed form, an order inside the row's own 1 mK bar.
+
+  **Units are declared and never inferred, and the declaration is checked.** Published thermal
+  frames are in Celsius far more often than in kelvin and both load as plain float rasters; a
+  20 °C raster read as kelvin is 20 K, which is not a cold surface but an impossible one, and
+  which renders as a uniform floor rather than as an error. The guard is the band LUTs' own
+  200–1000 K domain — a temperature nothing downstream could turn into radiance — so it is a
+  bound with a reason rather than a round number. It is **asymmetric and the message says so**:
+  kelvin mislabelled Celsius lands 273 K higher, inside the range, where no bound separates it
+  from a real exhaust and only a reader catches it.
+
+  **The parameter hatch is measured against the solver, not against itself.** A weather deck
+  mapped α = 0.2 and the same deck mapped α = 0.8 sit **12.87 K** apart; a half-and-half raster
+  then reproduces *both* uniform solves, cell for cell, to **0.0000 mK** on one surface, with
+  lateral conduction off so the halves are genuinely independent.
+
+#### Fixed
+- **A parameter map reached the solver but not its history** (`PT.13`, found by the test above).
+  The field was started from the **per-prim** spun state, which is one number produced by the
+  library's own α, so a mapped absorptivity changed nothing at t0 and crept in over the first
+  ticks: a deck mapped 0.2 and a deck mapped 0.8 both returned 299.807 K. A map is part of a
+  surface's past in exactly the way a shadow is — the comment beside the occluder branch already
+  said so — and the per-cell spin-up now runs whenever either is present. The two paths that
+  cannot do that, a layered stack and a cabin panel, both of which begin from one scalar, now
+  **refuse** a parameter map with that reason rather than reproducing the bug quietly.
+- **`AT.16` sat in no phase cell**, so `test_roadmap_phase_table` was red at `HEAD` for everyone.
+  Its own row declares phase A, so it is filed in the A cell; nothing was guessed.
+
 ### 2026-09-23
 
 #### Added

@@ -35,7 +35,7 @@
 # present no surface (see irsim_isaac.phantom3). Their heat reaches a camera only by conduction
 # into the skin, which a scene config still has no route for -- PT.9's remainder.
 
-schema_version: 16
+schema_version: 17
 scene:
   name: phantom3_outbound_pointwise
   description: "A DJI Phantom 3 filmed from the ground, 6 m to 80 m, point-wise, broken cumulus"

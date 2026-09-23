@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 69 open steps
+#### Then, in order — 68 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -188,14 +188,14 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 7 | **`TC.8`** | TC | C | S | — | ready |
 | 8 | **`AT.6`** | AT | C | M | — | ready |
 | 9 | **`AT.9`** | AT | C | M | — | ready |
-| 10 | **`PT.13`** | PT | C | M | — | ready |
-| 11 | **`PT.16`** | PT | C | M | — | ready |
-| 12 | **`EV.1`** | EV | X | M | 5 | ready |
-| 13 | **`XD.2`** | XD | X | M | 4 | ready |
-| 14 | **`XD.3`** | XD | B | M | — | `XD.2` |
-| 15 | **`XD.10`** | XD | C | L | — | `XD.2` |
+| 10 | **`PT.16`** | PT | C | M | — | ready |
+| 11 | **`EV.1`** | EV | X | M | 5 | ready |
+| 12 | **`XD.2`** | XD | X | M | 4 | ready |
+| 13 | **`XD.3`** | XD | B | M | — | `XD.2` |
+| 14 | **`XD.10`** | XD | C | L | — | `XD.2` |
+| 15 | **`IG.3`** | IG | X | S | 3 | ready |
 
-…and 54 more — `python scripts/next_step.py --queue 40`.
+…and 53 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -275,7 +275,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -405,7 +405,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.10 | ✅ **done.** `vessel_pointwise.py` + `vessel_pointwise_clear_day.yaml`: a weather-deck field and two faces of the **one** deckhouse prim, vessel static and camera moving (ADR 0123). Boxes from `maritime_demo.vessel_boxes`. | **Measured.** Deck span **5.49 K**, deckhouse sunlit − shaded **5.21 K**. The shadow is where the sun puts it — 3.42 m forward at 44.6°, outboard strakes 4.85 K warmer at the *same* stations. Roofed deck **1.3 K** over its own cast shadow (sky view). Occluders off: uniform, **0.061 mK** from the scalar — the WM.2 bar. Frames need IG.2. | PT.9 | M | B |
 | PT.11 | ✅ **done.** `lateral_operator(patch, k, δ)`: K = k δ · side/gap per four-neighbour edge as a `ConductionOperator` on the IMEX step; every patched surface builds it from its material's k and thickness (`lateral_conduction: false` opts out); the car bonnet takes steel's. ADR 0102. | **Measured.** A 20 K step on 5 mm aluminium cells matches the semi-infinite sheet's erf to 0.6 % at 60 s; k → 0 is bit-identical; at 5 cm the explicit limit is 6.4 s and a 60 s implicit tick holds the maximum principle where forward Euler explodes; the steel bonnet is 5 % smoother. 6 cases. | — | L | P |
 | PT.12 | ✅ **done.** `irsim.thermal.layers`: `LayerStack` (§6.4's R = δ/2k + δ/2k between layers, optional deep node) and `layered_field`, each layer a `CoupledFields` member joined by a contactor at 1/R, stepped implicitly; `layers: N` on a patched surface (default 1). ADR 0103. | **Measured.** Two layers reproduce `LumpedTwoNodeSolver` to < 1 mK on both nodes over 6 h; a 1 mm steel skin peaks at 12:19 and a 6-layer 0.3 m asphalt surface at 13:45; the lumped 0.3 m slab is 5.6 K warmer than the 6-layer one at 04:00; `layers: 6` on a scene's road binds its surface view. 5 cases. | — | M | P |
-| PT.13 | **Temperature-map and parameter-map ingest.** DIRSIG's Map Temperature Solver is a single-band raster in °C applied by UV or drape projection; MappedTherm does the same for parameters. `PlanarPatch` is already a raster with a projection. The escape hatch for prescribed aerial skins, externally solved hulls and draping public thermal frames onto geometry. | A float32 raster round-trips through a patch to 1 mK. A °C raster mis-declared as K raises. A parameter map varying α_sol gives the per-cell equilibrium the scalar solver predicts. | PT.2 | M | C |
+| PT.13 | ✅ **done.** `irsim.thermal.maps` + schema v17 `temperature_map:` / `parameter_maps:`. A raster **is** the surface (DIRSIG's map solver) or varies one `FacetProperties` field across it (MappedTherm). Units are declared, never inferred. | **Measured.** A raster at the patch's shape round-trips **bit-identically**; a resampled ramp to **0.1 mK**. A deck mapped α 0.2 vs 0.8 differs **12.87 K**, and a half-and-half raster reproduces both uniform solves to **0.0000 mK**. A 20 °C raster declared K is refused against the LUT domain. 20 cases. | PT.2 | M | C |
 | PT.14 | ✅ **done.** ADR 0111: four tiers (per prim, cells on a plane, cells on a mesh, and a network node, which is a mass and not a surface), what each costs, and the rule for picking one. No per-material tier, and none chosen by range. | **A record, with numbers.** Cells are nearly free per tick (8× the cells for 1.75× the time; the forcing is the fixed 0.8 ms) and cost at build. Cell size is set by `L = √(kδ/h)` from the committed library — 9 mm on carbon, 145 mm on an aircraft skin — not by the pixel count. | WM.5 | S | P |
 | PT.15 | ✅ **done.** Both exported from `irsim.thermal`; the cabin is a `LumpedMember` of its panels' `CoupledFields` (one implicit operator over panels *and* air) and a layered surface takes §6.4's R₂d/T_deep from `back:`. Schema v10 `thermal.cabin:`; `parked_car_cabin.yaml` + its script (ADR 0106). | **Measured.** Reproduces `CabinNode`'s equilibrium to **0.021 K** at a 2 s tick, roof **+4.84 K** on ADR 0038's panels. Scene: cabin 68.7 °C, roof +1.6 K over an adiabatic bonnet (not 4.8: only the roof faces the sun), night roof −3.8 K vs air. Frame: IG.2. | PT.12, TC.2 | M | P |
 | PT.17 | ✅ **done.** A `PlanarThermalField` per patched surface, on its library material and spun-up state, forced by `CellForcing`; `Scene.surface_fields`, `surface_bindings()`, `bindings_from_scene`. Both car scenes declare bonnet and road; `build_car_demo` reads and checks them. | **Measured.** Under uniform forcing every cell equals the per-prim value **bit for bit** (contract 1 mK); a bonnet grid 24 cm off the skin and a road grid short of the footprint are refused; no patch keeps the hand-built grids; an unknown material fails at load naming the surface. 14 cases. | — | M | P |

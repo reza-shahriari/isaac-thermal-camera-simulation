@@ -37,7 +37,7 @@
 #
 # World is ENU: x east, y north, z up. The car faces east and the pipe blows west, behind it.
 
-schema_version: 16
+schema_version: 17
 scene:
   name: car_exhaust_plume
   description: "a car at cruise load and its exhaust plume, bright in MWIR and faint in LWIR"

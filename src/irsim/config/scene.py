@@ -47,6 +47,8 @@ __all__ = [
     "BackSpec",
     "WaterSpec",
     "CabinPanelSpec",
+    "TemperatureMapSpec",
+    "ParameterMapSpec",
     "CabinSpec",
     "TargetSpec",
     "SceneSpec",
@@ -54,8 +56,10 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 16  # v16: a surface mesh read from a prepared
-# asset archive (ADR 0132, AI.2); v15 an
+SCENE_SCHEMA_VERSION = 17  # v17: a surface's `temperature_map:` /
+# `parameter_maps:` (PT.13); v16 a surface mesh
+# read from a prepared asset archive (ADR 0132,
+# AI.2); v15 an
 # exhaust target's `plume:` (PH.6); v14 a
 # surface's `mesh:` (ADR 0110, WM.7); v13 its
 # speed schedule (ADR 0109, PT.9); v12 its
@@ -570,6 +574,37 @@ class FilmSpec(_Frozen):
         return self
 
 
+class TemperatureMapSpec(_Frozen):
+    """A raster that *is* this surface's temperature -- DIRSIG's Map Temperature Solver (PT.13).
+
+    ``path`` names a 2-D float ``.npy`` under the data root, row 0 at ``v = 0`` and column 0 at
+    ``u = 0``, resampled bilinearly onto the patch's cells (exact and arithmetic-free when the
+    raster is already ``n_v`` by ``n_u``).
+
+    ``units`` has **no default**. It is the one fact about the file this code is not entitled to
+    assume: published thermal frames are in Celsius far more often than in kelvin, both load as
+    plain floats, and a 20 degC raster read as kelvin is 20 K -- not a cold surface but an
+    impossible one, which renders as a uniform floor rather than as an error.
+
+    A surface with a temperature map is **not solved**: the map is the answer, spin-up and energy
+    balance do not run on it, and it is static in time (a map is a measurement of one moment).
+    """
+
+    path: str = Field(min_length=1)
+    units: Literal["K", "degC"]
+
+
+class ParameterMapSpec(_Frozen):
+    """A raster driving one `FacetProperties` field per cell -- DIRSIG's MappedTherm (PT.13).
+
+    The surface is still solved; only the parameter varies across it. This is how one prim
+    carries a painted panel and a bare one without being two prims.
+    """
+
+    parameter: Literal["emissivity", "solar_absorptivity", "heat_capacity_j_m2_k"]
+    path: str = Field(min_length=1)
+
+
 class WaterSpec(_Frozen):
     """Standing water on part of a patched surface: a puddle, a pond, a flooded verge (PH.3).
 
@@ -696,6 +731,10 @@ class SurfaceSpec(_Frozen):
     #: Needs ``layers`` ≥ 2 -- a single layer with a deep boundary is `LumpedTwoNodeSolver`'s
     #: substrate-less case, which `layered_field` refuses.
     back: BackSpec | None = None
+    #: PT.13: a raster that replaces the solve on this surface. Needs a `patch:`.
+    temperature_map: TemperatureMapSpec | None = None
+    #: PT.13: rasters that vary a material parameter across the cells the solver then runs on.
+    parameter_maps: list[ParameterMapSpec] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
@@ -757,6 +796,48 @@ class SurfaceSpec(_Frozen):
             raise ValueError(
                 f"surface {self.name!r}: a `back:` boundary needs `layers: 2` or more (the deep "
                 "node sits under the last layer, not under the surface itself)"
+            )
+        # PT.13: both maps are rasters over a rectangular grid, so both need one.
+        for field_name in ("temperature_map", "parameter_maps"):
+            if getattr(self, field_name) and self.patch is None:
+                raise ValueError(
+                    f"surface {self.name!r}: `{field_name}:` (PT.13) needs a `patch:` -- a map is "
+                    "resampled onto cells, and a per-prim surface has none"
+                )
+        if self.temperature_map is not None:
+            # A prescribed surface is not solved, so anything that only means something inside a
+            # solve is an authoring error rather than a term quietly ignored. Each of these would
+            # otherwise be read by a person as having an effect it does not have.
+            for field_name, owner in (
+                ("parameter_maps", "PT.13"),
+                ("film", "PH.2"),
+                ("water", "PH.3"),
+                ("back", "PT.15"),
+            ):
+                if getattr(self, field_name):
+                    raise ValueError(
+                        f"surface {self.name!r}: `{field_name}:` ({owner}) has no meaning beside "
+                        "a `temperature_map:` -- the map *is* the temperature, so nothing that "
+                        "feeds an energy balance on this surface is read"
+                    )
+            if self.layers != 1:
+                raise ValueError(
+                    f"surface {self.name!r}: `layers:` (PT.12) has no meaning beside a "
+                    "`temperature_map:` -- a map prescribes the surface, not a slab under it"
+                )
+        if self.parameter_maps and self.layers > 1:
+            raise ValueError(
+                f"surface {self.name!r}: `parameter_maps:` (PT.13) with `layers:` (PT.12) is "
+                "refused. A layered surface starts its solve from the per-prim spun state, one "
+                "number for the whole surface, so a per-cell parameter would not be in the "
+                "history the stack begins from -- it would creep in over the first ticks rather "
+                "than being the surface's past."
+            )
+        seen = [m.parameter for m in self.parameter_maps]
+        if len(set(seen)) != len(seen):
+            raise ValueError(
+                f"surface {self.name!r}: parameter_maps names {sorted(seen)} with a repeat; two "
+                "rasters for one parameter is two authorities on the same number"
             )
         if self.film is not None and self.patch is None:
             raise ValueError(

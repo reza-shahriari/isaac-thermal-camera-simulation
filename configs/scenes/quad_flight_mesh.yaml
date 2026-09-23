@@ -36,7 +36,7 @@
 #
 # World is ENU: x east, y north, z up. The mission is quad_flight_clear_noon.yaml's, unchanged.
 
-schema_version: 16
+schema_version: 17
 scene:
   name: quad_flight_mesh
   description: "The 30-min quadrotor mission with the arms as meshed tubes, clear midday"

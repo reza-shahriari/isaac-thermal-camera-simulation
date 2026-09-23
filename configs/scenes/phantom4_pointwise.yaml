@@ -54,7 +54,7 @@
 # and here it does not. That is the honest limitation of this scene, and `AI.3`'s triangle budget
 # is what would make the trace affordable rather than merely skippable.
 
-schema_version: 16
+schema_version: 17
 scene:
   name: phantom4_pointwise
   description: "A DJI Phantom 4 Pro hovering at midday, solved on a real asset's triangles"

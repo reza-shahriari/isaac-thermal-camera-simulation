@@ -22,7 +22,7 @@
 # The hull's 290.5 K and the bulk SST in configs/environments/sea_clear_day.yaml still name the
 # same water twice; that WART is `vessel_departure_clear_day.yaml`'s and MM.4's, not this file's.
 
-schema_version: 16
+schema_version: 17
 scene:
   name: vessel_pointwise_clear_day
   description: "A 26 m patrol craft held still, deck and deckhouse per cell, 10:00 local"

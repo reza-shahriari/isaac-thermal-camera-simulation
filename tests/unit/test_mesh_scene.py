@@ -191,7 +191,7 @@ def test_the_scene_binds_its_meshes_to_prims_and_the_bridge_paints_them(scene) -
 
 
 def test_the_schema_takes_a_mesh_and_refuses_what_has_no_meaning_on_one() -> None:
-    assert SCENE_SCHEMA_VERSION == 16
+    assert SCENE_SCHEMA_VERSION == 17
     assert load_scene_config(SCENE).schema_version == SCENE_SCHEMA_VERSION
 
     cylinder = MeshSpec(

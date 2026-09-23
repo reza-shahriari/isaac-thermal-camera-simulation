@@ -562,7 +562,17 @@ class Scene:
         out.update({f"target:{k}": v for k, v in self.targets.items()})
         if self.thermal is not None:
             out["thermal"] = self.thermal.forcing_at
-        out.update({f"field:{k}": v.field.forcing_at for k, v in self.surface_fields.items()})
+        # PT.13: a surface whose temperature is a **map** is not solved, so it reads no weather
+        # and is not a consumer of the shared series. Listing it would need a forcing it does not
+        # have; giving it one would be inventing a second answer for a surface that already has
+        # its answer. Non-negotiable #6 is about the objects that *read* the weather.
+        out.update(
+            {
+                f"field:{k}": v.field.forcing_at
+                for k, v in self.surface_fields.items()
+                if hasattr(v, "field")
+            }
+        )
         if self.network is not None:
             out["network"] = self.network
         out.update(self.extra_consumers)
@@ -761,14 +771,19 @@ class Scene:
         luts: Mapping[str, BandLUT] | None = None,
         data_dir: str | os.PathLike[str] | None = None,
         quantity: Quantity = "lb",
+        weather_override: WeatherSeries | None = None,
         skylights: Mapping[str, Any] | None = None,
         responses: Mapping[str, SpectralResponse] | None = None,
     ) -> Scene:
+        """As :meth:`from_config`, from a path. ``weather_override`` is passed straight through,
+        so a driver that synthesises its weather (``irsim.thermal.weather_fx_series``) does not
+        have to load the config itself just to reach the injection point."""
         return cls.from_config(
             load_scene_config(path),
             luts,
             data_dir,
             quantity,
+            weather_override=weather_override,
             skylights=skylights,
             responses=responses,
         )
@@ -1100,6 +1115,29 @@ def _build_mesh_fields(
     return out
 
 
+def _prescribed_field(surface: Any, patch: Any, t0_s: float, data_dir: Any) -> Any:
+    """PT.13: the surface's temperature raster, draped onto its patch (DIRSIG's map solver)."""
+    from irsim.thermal.maps import PrescribedPatchField, load_raster, temperature_map_to_cells
+
+    spec = surface.temperature_map
+    raster = load_raster(spec.path, data_dir=data_dir)
+    kelvin = temperature_map_to_cells(raster, patch, units=spec.units)
+    return PrescribedPatchField(patch, kelvin, t0_s)
+
+
+def _mapped_properties(surface: Any, patch: Any, cells: Any, data_dir: Any) -> Any:
+    """PT.13: `cells` with each `parameter_maps:` raster substituted, or `cells` itself."""
+    if not surface.parameter_maps:
+        return cells
+    from irsim.thermal.maps import MapEntry, apply_parameter_maps, load_raster
+
+    entries = [
+        MapEntry(m.parameter, load_raster(m.path, data_dir=data_dir))
+        for m in surface.parameter_maps
+    ]
+    return apply_parameter_maps(cells, patch, entries)
+
+
 def _build_surface_fields(
     spec: SceneSpec,
     build: _ThermalBuild,
@@ -1151,6 +1189,15 @@ def _build_surface_fields(
             emissivity=np.full(n, float(props.emissivity[i])),
             solar_absorptivity=np.full(n, float(props.solar_absorptivity[i])),
         )
+        # PT.13: a temperature map replaces the solve outright, so it is taken before anything
+        # that costs work -- no forcing, no sky view, no spin-up runs on a prescribed surface.
+        if s.temperature_map is not None:
+            out[s.name] = _prescribed_field(s, patch, build.t0_s, data_dir)
+            continue
+        # PT.13: a parameter map varies one `FacetProperties` field across the cells the solver
+        # then runs on. It is applied *here*, before the forcing and the spin-up, so a mapped
+        # absorptivity is part of the surface's history and not a term switched on at t0.
+        cells = _mapped_properties(s, patch, cells, data_dir)
         # PT.21: the sky each cell sees, through the same occluders that cast the beam. An
         # unobstructed cell keeps the tilt's own factor exactly; nothing to compute without
         # occluders, and a moving-frame patch is refused by `CellForcing` for the beam already.
@@ -1225,6 +1272,14 @@ def _build_surface_fields(
             out[s.name] = coupled.fields[s.name]
             continue
         if s.name in panel_order:
+            if s.parameter_maps:
+                raise ValueError(
+                    f"surface {s.name!r}: `parameter_maps:` (PT.13) on a cabin panel is refused. "
+                    "A panel's start is the per-prim spun state (ADR 0106) -- one number for the "
+                    "whole panel -- so a per-cell parameter would be absent from the history the "
+                    "coupled solve begins from, and the map would creep in over the first ticks "
+                    "instead of being the surface's past."
+                )
             # A cabin panel: its own cells and forcing, held for the coupled solve below. Its
             # start is the per-prim spun state; the whole system is then spun up together, so a
             # per-panel spin-up against an adiabatic back would only be thrown away.
@@ -1232,10 +1287,16 @@ def _build_surface_fields(
                 s.name, patch, cells, forcing, np.full(n, float(build.spun_k[i])), conduction
             )
             continue
-        if casters:
+        if casters or s.parameter_maps:
             # The shadow is part of the surface's history, not a term switched on at t0: a cell
             # under an overhang has been under it all morning. So the field is spun up on its
             # own per-cell forcing, through the same wrap the per-prim spin-up uses.
+            #
+            # PT.13 joins it for the same reason and it is not a nicety: without this a mapped
+            # absorptivity changes nothing at t0, because the field would start from the *scalar*
+            # spun state that the library's own alpha produced, and the map would only creep in
+            # over the first ticks. Measured before the fix: a deck mapped 0.2 and the same deck
+            # mapped 0.8 returned the identical 299.807 K.
             spun = spin_up(
                 cells,
                 build.wrap(forcing),

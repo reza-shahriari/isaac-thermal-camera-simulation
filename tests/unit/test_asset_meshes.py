@@ -212,7 +212,7 @@ def test_the_guard_lets_a_convex_mesh_through_however_big_it_is() -> None:
 def _scene_text(material_a: str, material_b: str, self_occluding: str = "false") -> str:
     """A two-surface scene on the *same* fixture prim, differing only in material."""
     return f"""
-schema_version: 16
+schema_version: 17
 scene:
   name: asset_alpha_contrast
   description: "One imported prim, solved twice, differing only in solar absorptivity"

@@ -14,7 +14,7 @@
 # this profile is deliberately slow -- minutes per phase, against a real motor's minutes-scale
 # response. Do not shorten it to make a snappier video; see ADR 0074.
 
-schema_version: 16
+schema_version: 17
 scene:
   name: quad_flight_clear_noon
   description: "Heavy-lift quadrotor, 30 min mission, clear midday, US Standard atmosphere"
