@@ -94,5 +94,9 @@ module = [
     # exactly one function and everything else about the messages is checked without it.
     "rclpy.*",
     "sensor_msgs.*",
+    # isaac-weather-fx is a git submodule that ships as a Kit extension directory rather than as
+    # an installed distribution, so it is on `sys.path` only after `ensure_weather_fx_on_path`.
+    # Every use of it goes through `irsim.atmosphere.weather_fx`, which is checked.
+    "weather_fx.*",
 ]
 ignore_missing_imports = true

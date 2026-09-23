@@ -1,0 +1,4 @@
+[submodule "third_party/isaac-weather-fx"]
+	path = third_party/isaac-weather-fx
+	url = https://github.com/reza-shahriari/isaac-weather-fx.git
+	branch = main

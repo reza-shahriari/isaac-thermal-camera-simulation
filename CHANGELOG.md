@@ -13,6 +13,36 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **Steam and droplet plumes** (`PH.9`, `irsim.atmosphere.mie`, `irsim.atmosphere.droplets`,
+  ADR 0135). A thermal camera sees a steam plume because steam has **condensed**: at 373 K over a
+  metre in LWIR, pure saturated water vapour leaves an optical depth of **0.169**, while 5 g/m³ of
+  5 µm droplets leaves **1.02**. The two are equal at **0.83 g/m³**, which is the number a scene
+  author needs and which the roadmap row did not have.
+
+  Two of that row's premises did not survive contact with the repository. **There are no Mie
+  tables** — `cloud.py` carries one measured band ratio and says deriving it from Mie theory is out
+  of scope — so `Q_ext` is computed here from `data/nk/water.csv` (Segelstein, 0.65–15.6 µm, both
+  bands covered), by Bohren & Huffman's `BHMIE` in NumPy with no SciPy. The logarithmic derivative
+  recurs **downward**; upward is unstable once `k` is appreciable, and for water in LWIR it is
+  (`k = 0.05` at 10 µm, `0.20` at 12 µm), so the obvious implementation passes a transparent test
+  case and fails the case the module exists for. And the row's criterion, "τ_LWIR ≥ 0.9 for a
+  pure-gas slab", **names no path length** — measured, it holds only inside about 40 cm and falls
+  to 0.844 over a metre — so it is restated as the comparison it was standing in for.
+
+  The oracle is the **exact Rayleigh limit**, not a published table value: `Q_sca = (8/3)x⁴|K|²`
+  and `Q_abs = 4x·Im K` pin the `a₁`/`b₁` coefficients and the `2/x²` normalisation, matched to
+  2e-4 including an absorbing case. `GasSlab` gains `lwc_kg_m3` and `droplet_radius_um`, and the
+  droplets sit at the slab's own temperature — right for condensing steam, which is in equilibrium
+  at the saturation temperature, and the assumption to revisit for a spray into hot gas.
+
+  Three results worth carrying. `PH.9`'s band criterion is true **only for small droplets**: MWIR
+  extincts **4.1×** harder than LWIR at 2 µm and **2.5×** at 5 µm, but by 20 µm the ratio is 0.99,
+  because both bands are then past `x = 6` and `Q_ext` has settled near 2 in each — asserted in its
+  own test so nobody reads the criterion as "MWIR is always more opaque". Extinction goes as
+  **1/r** at fixed water content, so the same water spread over smaller droplets is *more* opaque
+  and a plume does not clear as it condenses further. And a **droplet-only slab is allowed below
+  the 300 K floor**, down to freezing: that floor exists because `PH.5`'s absorption tables start
+  at 300 K, and fog at 285 K was being refused for a reason that did not apply to it.
 - **The maritime lane's deck stopped being one number** (`PT.10`). `vessel_pointwise.py` +
   `configs/scenes/vessel_pointwise_clear_day.yaml` + `tests/unit/test_vessel_pointwise.py`. The
   vessel scenes carried three temperatures for three prims -- a hull pinned near the sea, a
@@ -374,7 +404,39 @@ working in one tree; two commits already exist whose whole subject is restoring 
   ones, so a green lamp behind the centre of mass is the tail. Three independent parts, in an asset
   whose 41 prims are all named `GeometryNode_<n>` and carry no hint of function.
 
+- **The sky, the sun, the moon and the weather move to `isaac-weather-fx`**, added as a git
+  submodule at `third_party/isaac-weather-fx` and extended there rather than vendored. It had no
+  sky at all before this — fog, rain, snow and wind only — so the whole celestial and cloud
+  subsystem is new work in that repository: NOAA solar position and Meeus lunar theory, a
+  Preetham daylight sky with a moonlit night and a starlight floor, `sky` and `clouds` state
+  sections (so its generated UI panel, its JSON presets and its Python API pick them all up),
+  a `SkyEffect` authoring the dome, sun and moon into the session layer, and a randomiser that
+  draws a **regime** first and the parameters within it.
+- **One cloud, both bands** (`irsim.atmosphere.weather_fx`, `irsim_isaac.weather_fx_stage`).
+  `WeatherFxDeck` presents a weather-fx `CloudField` through the deck contract
+  `SkyModel.radiance_field_from_deck` already had — optical depth and emission height per ray —
+  so every line of this project's infrared radiometry is reused and only *which array says where
+  the cloud is* changes. The visible companion is authored from the **same** field by weather-fx's
+  own effect. Measured on a rendered frame with a genuine mix of cloud and clear sky, the
+  infrared apparent temperature and the visible luminance correlate at **Pearson 0.83 /
+  Spearman 0.75** over sky pixels; the bands agreeing is now structural rather than maintained.
+- `--weather`, `--weather-seed`, `--weather-preset` and `--weather-hour` on
+  `scripts/render_phantom4.py`, which switch the sky from this project's dome to weather-fx's and
+  hand the same cloud to both bands.
+
+
 #### Fixed
+- **A cloud deck raised rather than rendering as soon as any part of the frame was below the
+  horizon** (`AerialThermalBridge._deck_temperature`). The march is evaluated over the whole frame
+  and the below-horizon answers discarded by a `where`, but the clear-sky column refuses a
+  negative elevation. Latent since `AT.12`: every driver that marched a deck kept its entire frame
+  above the horizon, and the first one that did not was the Phantom 4 filmed from below. The
+  elevation is now clamped at the horizon before the march, which changes no rendered pixel.
+- **The generated sky dome washed out almost to white** (in the submodule). The exposure took the
+  median over the whole latitude-longitude map, whose ground half is far darker than its sky, so
+  the median fell and the intensity rose; and the target was 1000 against a **measured** 300 for
+  this build. The twilight fade is now divided back out too, so a moonless night is not exposed up
+  to look like noon.
 - **A bin boundary was a step, and two kernels disagreed across it** (`OC.13`, ADR 0134 addendum).
   `OC.11` left a residual it named: the layers' blurred coverage `sum_b K_b * cover_b` did not stay
   at one across a bin boundary, because adjacent bins carry different kernels and the wider one

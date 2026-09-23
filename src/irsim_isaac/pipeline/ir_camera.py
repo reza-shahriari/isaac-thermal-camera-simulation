@@ -365,6 +365,7 @@ class IrCamera:
         frame_period_s: float | None = None,
         cloud_seed: int | None = None,
         cloud_deck: bool = False,
+        weather_fx_clouds: Any = None,
         sea: Any = None,
         background_prim_paths: Sequence[str] = (),
         moving_prim_paths: Sequence[str] = (),
@@ -428,6 +429,7 @@ class IrCamera:
             band=band,
             cloud_seed=cloud_seed,
             cloud_deck=cloud_deck,
+            weather_fx_clouds=weather_fx_clouds,
             # The extra AOV samples exist to antialias geometry; the marched sky is computed once
             # per native pixel and interpolated back. Measured against a converged reference, the
             # frame's error is dominated by the march's own quadrature and not by that

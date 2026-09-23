@@ -94,6 +94,24 @@ parser.add_argument("--rt-subframes", type=int, default=16)
 parser.add_argument("--settle", type=int, default=16)
 parser.add_argument("--span", default=None, help="display span 'loC,hiC'; default from the solve")
 parser.add_argument("--no-rgb", action="store_true", help="infrared only; no visible companion")
+# --- the sky comes from the isaac-weather-fx submodule ------------------------------------------
+# One weather, both bands: the visible dome, the sun and the moon are authored by weather-fx's own
+# SkyEffect, and the infrared band marches the *same* CloudField through `WeatherFxDeck`. Before
+# this the two bands ran two cloud models and agreed only as well as two implementations ever do.
+parser.add_argument(
+    "--weather",
+    default=None,
+    help="weather-fx regime name (clear, fair_cumulus, broken_cumulus, overcast, haze, rain, "
+    "fog, snow, storm), or 'random'. Omit for the project's own dome.",
+)
+parser.add_argument("--weather-seed", type=int, default=None, help="seed for --weather random")
+parser.add_argument("--weather-preset", default=None, help="a weather-fx JSON preset to load")
+parser.add_argument(
+    "--weather-hour",
+    type=float,
+    default=None,
+    help="override the hour (UTC) of whatever weather was drawn, to film one day twice",
+)
 parser.add_argument("--no-overlay", action="store_true", help="bare frames, no readout")
 # IG.13: the float32 planes and their sidecar are the *frame*; the videos beside them are the
 # look. An 8-bit display PNG has had the AGC, the palette and a 256-level quantisation applied to
@@ -192,6 +210,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     from irsim_isaac.pipeline.materials_usd import prim_records
     from irsim_isaac.stage import author_environment
     from irsim_isaac.visible_sky import dome_spec_from_scene
+    from irsim_isaac.weather_fx_stage import author_weather_fx_sky, weather_state
 
     out = REPO / args.out
     out.mkdir(parents=True, exist_ok=True)
@@ -258,9 +277,44 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     )
     print(f"asset: centroid {centre.round(3).tolist()}, {span_m:.3f} m across")
 
-    # --- the environment, for the companion frame only (ADR 0073) -------------------------------
+    # --- the environment ------------------------------------------------------------------------
+    weather_sky = None
+    if args.weather or args.weather_preset:
+        # weather-fx owns the sky. `author_weather_fx_sky` writes the dome, the sun and the moon
+        # into the session layer through the extension's own effect -- the same code its UI panel
+        # drives -- and hands back the cloud field for the infrared band to march.
+        regime = None if args.weather in (None, "random") else args.weather
+        state = weather_state(
+            seed=args.weather_seed if (args.weather == "random" or regime) else args.weather_seed,
+            regime=regime,
+            preset_json=args.weather_preset,
+            latitude_deg=scene.spec.site.latitude_deg,
+            longitude_deg=scene.spec.site.longitude_deg,
+            date_utc=scene.spec.start_utc.strftime("%Y-%m-%d"),
+            hour_utc=(
+                args.weather_hour
+                if args.weather_hour is not None
+                else scene.spec.start_utc.hour + scene.spec.start_utc.minute / 60.0
+            ),
+        )
+        weather_sky = author_weather_fx_sky(stage, state, texture_dir=out)
+        print(f"weather-fx: {weather_sky.describe()}")
+        stats = weather_sky.stats()
+        print(
+            f"  sun {stats['sun_elevation_deg']:+.1f} deg / {stats['sun_azimuth_deg']:.0f} deg, "
+            f"moon {stats['moon_elevation_deg']:+.1f} deg {stats['moon_phase']} "
+            f"({stats['moon_lux']:.3f} lx), daylight {stats['daylight']:.3f}"
+        )
+        if weather_sky.deck is not None:
+            print(
+                f"  cloud: {weather_sky.deck.cover * 100:.0f} % cover, base "
+                f"{weather_sky.deck.base_m:.0f} m, top {weather_sky.deck.top_m:.0f} m, "
+                f"tau {weather_sky.deck.optical_depth:.0f} -- marched by BOTH bands"
+            )
+
+    # --- or this project's own dome, for the companion frame only (ADR 0073) ---------------------
     dome = None
-    if not args.no_rgb:
+    if weather_sky is None and not args.no_rgb:
         # Baked once, at mid-mission: the sun moves 7 degrees across a 28-minute clip, which is
         # below what a baked latlong texture would show, and re-baking it 96 times would cost more
         # than the render. `heading_deg=0` is not a default here -- the mount put the scene's own
@@ -275,10 +329,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             f"environment: sun {dome.sun_elevation_deg:.1f} deg elevation, "
             f"{dome.sun_azimuth_deg:.1f} deg azimuth, turbidity {dome.turbidity:.2f}"
         )
-    try:
-        author_environment(stage, dome, out / "env_dome.exr", 512)
-    except Exception as exc:  # noqa: BLE001 - a dark companion must not stop the infrared render
-        print(f"environment: {type(exc).__name__}: {exc}", file=sys.stderr)
+    if weather_sky is None:
+        try:
+            author_environment(stage, dome, out / "env_dome.exr", 512)
+        except Exception as exc:  # noqa: BLE001 - a dark companion must not stop the render
+            print(f"environment: {type(exc).__name__}: {exc}", file=sys.stderr)
 
     # --- materials, through the per-asset map (ADR 0128) ----------------------------------------
     library = MaterialLibrary.load()
@@ -369,6 +424,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # the mount slews.
         moving_prim_paths=[ASSET_ROOT],
         heading_deg=0.0,
+        # The infrared band marches the same cloud the dome was baked from. `None` leaves the
+        # background clear, which is what a cloudless weather means.
+        weather_fx_clouds=None if weather_sky is None else weather_sky.deck,
         frame_period_s=interval_s,
         strict_patch_coverage=False,
         strict_materials=True,
@@ -561,6 +619,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "temperature_granularity": (
             "per prim. The scene's 234,923 mesh cells are solved but IrCamera takes planar "
             "SurfaceBindings only; wiring MeshPointBridge into the camera is AI.2's remainder."
+        ),
+        "weather_fx": (
+            None
+            if weather_sky is None
+            else {"state": weather_sky.state.to_dict(), **weather_sky.stats()}
         ),
         "companion_frame": (
             "not captured (--no-rgb)"

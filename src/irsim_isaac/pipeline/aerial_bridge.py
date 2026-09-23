@@ -142,6 +142,7 @@ class AerialThermalBridge:
         tick_hz: float = DEFAULT_TICK_HZ,
         cloud_seed: int | None = None,
         cloud_deck: bool = False,
+        weather_fx_clouds: Any = None,
         deck_stride: int = 1,
         sea: SeaModel | None = None,
     ) -> None:
@@ -229,6 +230,19 @@ class AerialThermalBridge:
                     "hemispherical field does (AT.12)"
                 )
             self.deck = sky.cloud_deck(scene.t0_s, int(cloud_seed))
+        if weather_fx_clouds is not None:
+            # The isaac-weather-fx submodule owns the cloud instead. It satisfies the same
+            # `march` contract, so every line of the radiometry below is untouched -- what
+            # changes is which array says where the cloud is. The point is that the *visible*
+            # companion is now driven by that same field through weather-fx's own renderer
+            # backend, so the two bands cannot draw cloud in different places (ADR 0076's rule,
+            # finally structural rather than maintained by hand).
+            if sky is None:
+                raise ValueError(
+                    "a weather-fx cloud field still needs this project's sky model: the covered "
+                    "pixels read eps L_B(T_emit) + tau L_clear and both terms come from it"
+                )
+            self.deck = weather_fx_clouds
         #: March the deck every ``deck_stride`` pixels and interpolate between, which is how a
         #: supersampled frame stops costing sixteen marches per delivered pixel. Pass the
         #: camera's own supersample factor: the extra samples exist to antialias *geometry*, and
@@ -450,20 +464,21 @@ class AerialThermalBridge:
         above = ~below
         if not above.any():
             return out
-        if self.cloud is not None and azimuth_rad is not None:
+        # `density`, not `sample`: a cloud edge is a fringe of falling optical depth, not a
+        # stencil, and the infrared frame is where that matters most -- a hard mask puts a step of
+        # tens of kelvin along every cloud boundary, which is exactly the edge statistic a
+        # detector keys on (ADR 0125).
+        if self.deck is not None and azimuth_rad is not None:
+            # The cloud has a top, so the ray is integrated through it rather than looked up by
+            # the elevation it entered at. A ray straight up gets the same answer the branch
+            # below would give it, by the deck's construction (AT.12). A weather-fx field arrives
+            # here too: it satisfies the same march contract.
             azim = np.asarray(azimuth_rad, dtype=np.float64)
-            # `density`, not `sample`: a cloud edge is a fringe of falling optical depth, not a
-            # stencil, and the infrared frame is where that matters most -- a hard mask puts a
-            # step of tens of kelvin along every cloud boundary, which is exactly the edge
-            # statistic a detector keys on (ADR 0125).
-            if self.deck is not None:
-                # The cloud has a top, so the ray is integrated through it rather than looked up
-                # by the elevation it entered at. A ray straight up gets the same answer the
-                # branch below would give it, by the deck's construction (AT.12).
-                out = np.where(above, self._deck_temperature(t_abs, elev, azim), out)
-            else:
-                depth = self.cloud.density(elev[above], azim[above])
-                out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], depth)
+            out = np.where(above, self._deck_temperature(t_abs, elev, azim), out)
+        elif self.cloud is not None and azimuth_rad is not None:
+            azim = np.asarray(azimuth_rad, dtype=np.float64)
+            depth = self.cloud.density(elev[above], azim[above])
+            out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], depth)
         else:
             out[above] = self.sky.apparent_temperature_k(t_abs, elev[above])
         return out
@@ -477,7 +492,12 @@ class AerialThermalBridge:
         2-D grid, because a flat list of directions has no neighbours to interpolate between.
         """
         assert self.sky is not None and self.deck is not None
-        el = np.asarray(elev, dtype=np.float64)
+        # **Clamped at the horizon.** The caller evaluates this over the whole frame and throws
+        # the below-horizon answers away with a `where`, but the clear-sky column refuses a
+        # negative elevation -- so a frame with any ground in it raised rather than rendering.
+        # Latent since AT.12: every driver that marched a deck kept its whole frame above the
+        # horizon, and the first one that did not was the aircraft filmed from below.
+        el = np.maximum(np.asarray(elev, dtype=np.float64), 0.0)
         az = np.asarray(azim, dtype=np.float64)
         k = self.deck_stride
         if k <= 1 or el.ndim != 2 or min(el.shape) < 2 * k:
