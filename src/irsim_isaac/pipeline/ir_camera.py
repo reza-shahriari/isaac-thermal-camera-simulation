@@ -99,6 +99,7 @@ from irsim_isaac.pipeline.aerial_bridge import (
 )
 from irsim_isaac.pipeline.gbuffer_isaac import (
     AOV_NAMES,
+    FORWARD_AXIS_VECTOR,
     UP_AXIS_VECTOR,
     AovReader,
     PositionFrame,
@@ -658,10 +659,13 @@ class IrCamera:
         material_id = material_id_plane(
             instance_id, labels, self.resolutions, strict=self.strict_materials
         )
-        up_vector = UP_AXIS_VECTOR[self._up_axis or "Y"]
+        axis = self._up_axis or "Y"
+        up_vector = UP_AXIS_VECTOR[axis]
         elevation = elevation_from_rays(rays, up=up_vector)
         # Only used when the bridge carries a cloud field (ADR 0076); cheap enough not to branch.
-        azimuth = azimuth_from_rays(rays, up=up_vector)
+        # The forward must travel with the up axis: the default (0, 0, -1) is perpendicular to
+        # Y-up and *parallel* to Z-up, so passing up alone made every Z-up stage raise.
+        azimuth = azimuth_from_rays(rays, up=up_vector, forward=FORWARD_AXIS_VECTOR[axis])
 
         self.bridge.advance_to(self._t_rel_s)
         temperature = self.bridge.temperature_plane(

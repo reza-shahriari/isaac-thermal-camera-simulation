@@ -321,3 +321,43 @@ def test_the_first_bracket_names_every_node_a_tick_will_report() -> None:
     # And the nodes really do move afterwards, so the seeding is a starting point and not a pin.
     later = bridge.advance_to(120.0)
     assert later["block"] - first["block"] > 1.0, (first["block"], later["block"])
+
+
+def test_every_up_axis_has_a_forward_that_is_not_parallel_to_it() -> None:
+    """The pair that made every Z-up stage raise "forward must not be parallel to up" (AI.2).
+
+    `azimuth_from_rays` defaults `forward` to (0, 0, -1), which is perpendicular to Y-up and
+    **parallel** to Z-up, so a camera that passed its up axis alone crashed the moment it rendered
+    a Z-up stage -- which is every stage carrying an imported asset, since a prepared asset brings
+    its own convention (ADR 0128). Only perpendicularity matters: `sky_angles` states that the
+    sampling needs the mapping to be stable, not that zero lands on any particular bearing.
+    """
+    import numpy as np
+
+    from irsim_isaac.pipeline.gbuffer_isaac import FORWARD_AXIS_VECTOR, UP_AXIS_VECTOR
+
+    assert set(FORWARD_AXIS_VECTOR) == set(UP_AXIS_VECTOR)
+    for axis, up in UP_AXIS_VECTOR.items():
+        forward = np.asarray(FORWARD_AXIS_VECTOR[axis], dtype=np.float64)
+        u = np.asarray(up, dtype=np.float64)
+        assert np.isclose(float(np.dot(forward, u)), 0.0), axis
+        assert np.isclose(float(np.linalg.norm(forward)), 1.0), axis
+
+
+def test_a_z_up_camera_gets_a_usable_azimuth() -> None:
+    """Red before the fix: this raised rather than returning angles."""
+    import numpy as np
+
+    from irsim_isaac.pipeline.aerial_bridge import azimuth_from_rays
+    from irsim_isaac.pipeline.gbuffer_isaac import FORWARD_AXIS_VECTOR, UP_AXIS_VECTOR
+
+    rays = np.zeros((4, 4, 3), dtype=np.float64)
+    rays[..., 0] = 0.6
+    rays[..., 2] = 0.8
+    az = azimuth_from_rays(rays, up=UP_AXIS_VECTOR["Z"], forward=FORWARD_AXIS_VECTOR["Z"])
+    assert az.shape == (4, 4)
+    assert np.all(np.isfinite(az))
+    assert np.all((az >= 0.0) & (az < 2.0 * np.pi))
+
+    with pytest.raises(ValueError, match="parallel"):
+        azimuth_from_rays(rays, up=UP_AXIS_VECTOR["Z"])

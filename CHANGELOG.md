@@ -13,6 +13,24 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **The Phantom 4 renders** (`scripts/render_phantom4.py`, AI.2's in-engine half). A 62 MB
+  third-party FBX that nobody here modelled now produces LWIR frames on the A6000: 41 prims,
+  2,486,459 triangles, **41/41 materials resolved in Kit** through `configs/assets/phantom4.yaml`
+  (48.8 % through the global globs alone). 16 frames over a 28-minute mission, white-hot
+  grayscale, mp4 written. The aircraft reads **-12.4 .. 26.7 C** against a **-27.9 C** sky.
+- **`scripts/probe_isaac_asset.py`** re-measures ADR 0128's claims with **Kit's** OpenUSD rather
+  than Blender's, since the whole asset pipeline was built and verified on the CPU. Kit agrees:
+  same prim count, same triangle count, `metersPerUnit` 1.0, upAxis Z, and the same 48.8 % -> 100 %.
+- **Fixed: every Z-up stage crashed the moment it rendered** (`FORWARD_AXIS_VECTOR`).
+  `IrCamera.planes` passed its up axis to `azimuth_from_rays` but not a matching `forward`, and
+  that default is (0, 0, -1) -- perpendicular to Y-up and **parallel** to Z-up, so the call raised
+  "forward must not be parallel to up". Every stage in the repo was Y-up, so nothing had ever hit
+  it; an imported asset brings its own convention and hits it immediately. The two are now a
+  declared pair beside `UP_AXIS_VECTOR`, with a test that no up axis lacks a perpendicular
+  forward.
+- The Phantom 4 scene's throttle schedule now runs to **1680 s**, DJI's published flight time for
+  the aircraft. It ended at 1200 s, and the solver refuses a time outside its schedule rather than
+  extrapolating one -- so a clip longer than 20 minutes stopped rather than inventing a mission.
 - **A real 3D model is now solvable geometry** (`irsim.io.assets`, `MeshSpec(asset=…, prim=…)`,
   schema v16, ADR 0132). `configs/scenes/phantom4_pointwise.yaml` is the **first scene in this
   project whose geometry was not authored in Python** -- six prims of a DJI Phantom 4 Pro FBX,

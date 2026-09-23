@@ -61,13 +61,19 @@ scene:
     - name: motor
       solver: heat_source
       source: motor
-      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0]
-      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.20]
+      # 28 minutes: DJI's published flight time for a Phantom 4 Pro. A schedule that ended
+      # sooner would describe an aircraft that does not exist, and the solver refuses a
+      # time outside it rather than extrapolating one.
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.62,   0.58,   0.30,   0.05]
     - name: battery
       solver: heat_source
       source: battery
-      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0]
-      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.20]
+      # 28 minutes: DJI's published flight time for a Phantom 4 Pro. A schedule that ended
+      # sooner would describe an aircraft that does not exist, and the solver refuses a
+      # time outside it rather than extrapolating one.
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.62,   0.58,   0.30,   0.05]
 
   thermal:
     spin_up_hours: 6.0
@@ -79,13 +85,13 @@ scene:
       - name: shell_upper
         material: abs_plastic_white
         tilt_deg: 0.0
-        mesh: {asset: phantom4, prim: GeometryNode_205, cell_m: 0.01, self_occluding: false}
+        mesh: {asset: phantom4, prim: GeometryNode_205, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_205/GeometryNode_205}
 
       # 57,814 faces over 0.035 m^2 -- the lower body and leg shells.
       - name: shell_lower
         material: abs_plastic_white
         tilt_deg: 0.0
-        mesh: {asset: phantom4, prim: GeometryNode_357, cell_m: 0.01, self_occluding: false}
+        mesh: {asset: phantom4, prim: GeometryNode_357, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_357/GeometryNode_357}
 
       # A 43 x 47 cm plate 1.7 cm thick: all four propellers as one prim. Thin, low inertia, and
       # the part of the aircraft moving fastest through its own boundary layer.
@@ -94,7 +100,7 @@ scene:
         tilt_deg: 0.0
         speed_s:   [0.0, 120.0, 600.0, 1080.0, 1200.0]
         speed_m_s: [2.0,  12.0,  14.0,   12.0,    2.0]
-        mesh: {asset: phantom4, prim: GeometryNode_447, cell_m: 0.01, self_occluding: false}
+        mesh: {asset: phantom4, prim: GeometryNode_447, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_447/GeometryNode_447}
 
       # --- black mouldings: the same sun, four times the absorptivity -------------------------
       # 28,563 faces over 0.022 m^2. alpha 0.94 against the shell's 0.25, which is the largest
@@ -102,7 +108,7 @@ scene:
       - name: black_mouldings
         material: car_paint_black
         tilt_deg: 0.0
-        mesh: {asset: phantom4, prim: GeometryNode_3, cell_m: 0.01, self_occluding: false}
+        mesh: {asset: phantom4, prim: GeometryNode_3, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_3/GeometryNode_3}
 
       # --- the motor housings ------------------------------------------------------------------
       # 34,746 faces over 0.0093 m^2, at the four motor stations. eps 0.90: a matte housing emits
@@ -110,7 +116,7 @@ scene:
       - name: motor_housings
         material: aircraft_aluminium_painted
         tilt_deg: 0.0
-        mesh: {asset: phantom4, prim: GeometryNode_121, cell_m: 0.01, self_occluding: false}
+        mesh: {asset: phantom4, prim: GeometryNode_121, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_121/GeometryNode_121}
 
       # --- grey coated bodywork ----------------------------------------------------------------
       # 63,039 faces over 0.0147 m^2 -- the gimbal and camera housing under the nose, which sees
@@ -118,4 +124,4 @@ scene:
       - name: gimbal_housing
         material: painted_composite
         tilt_deg: 90.0
-        mesh: {asset: phantom4, prim: GeometryNode_219, cell_m: 0.01, self_occluding: false}
+        mesh: {asset: phantom4, prim: GeometryNode_219, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_219/GeometryNode_219}

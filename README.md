@@ -665,6 +665,14 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   The sky-view factor is therefore the unoccluded geometric form -- exact under an open sky,
   optimistic in a street -- and the image-plane velocity is synthesised from the per-prim transforms
   (`IG.6`) rather than read from the renderer's motion AOV, which stays unverified (`IG.5`).
+- **A third-party asset renders (AI.2).** `scripts/render_phantom4.py` films the prepared DJI
+  Phantom 4 Pro in LWIR -- 41 prims, 2.49 M triangles, 41/41 materials resolved **inside Kit** --
+  and `scripts/probe_isaac_asset.py` re-measures ADR 0128's CPU-side claims with Kit's own
+  OpenUSD. Two limits are real and stated: temperature is **per prim**, because `IrCamera` takes
+  planar `SurfaceBinding`s and `MeshPointBridge` has never been driven by a render (its only
+  driver runs on a synthetic G-buffer), so the scene's 234,923 solved cells do not reach a pixel
+  yet; and the camera must look **up** at the aircraft, since with no ground plane a downward ray
+  samples the sky model below the horizon and returns near-air temperature.
 - **An imported asset's thermal mesh is not its render mesh, and decimation must preserve area**
   (ADR 0132). The solver's geometry is a planar-dissolved copy sized to the physics -- collapse
   decimation removed 37 % of the Phantom 4's area, which is 37 % of its emitted signal -- and the

@@ -75,6 +75,7 @@ __all__ = [
     "PositionFrame",
     "MotionConvention",
     "UP_AXIS_VECTOR",
+    "FORWARD_AXIS_VECTOR",
     "RawAovs",
     "GeometryPlanes",
     "AovReader",
@@ -107,6 +108,16 @@ MotionConvention = Literal["pixels", "ndc", "uv"]
 UP_AXIS_VECTOR: dict[str, tuple[float, float, float]] = {
     "Y": (0.0, 1.0, 0.0),
     "Z": (0.0, 0.0, 1.0),
+}
+
+#: A reference bearing on the horizon for each up axis, used where an azimuth has to be measured
+#: from *something*. It must only be perpendicular to its own up vector: `sky_angles` states that
+#: only stability matters for sampling, not where zero lands. Kept beside `UP_AXIS_VECTOR` because
+#: the two are a pair -- passing an up axis without its companion forward is what made every Z-up
+#: stage raise "forward must not be parallel to up" (AI.2).
+FORWARD_AXIS_VECTOR: dict[str, tuple[float, float, float]] = {
+    "Y": (0.0, 0.0, -1.0),
+    "Z": (0.0, 1.0, 0.0),
 }
 
 #: Annotators to try per channel, in preference order, as measured by
