@@ -43,6 +43,7 @@ the camera, that binding has to carry this rotation with it.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import math
 import pathlib
@@ -94,10 +95,12 @@ parser.add_argument("--rt-subframes", type=int, default=16)
 parser.add_argument("--settle", type=int, default=16)
 parser.add_argument("--span", default=None, help="display span 'loC,hiC'; default from the solve")
 parser.add_argument("--no-rgb", action="store_true", help="infrared only; no visible companion")
-# --- the sky comes from the isaac-weather-fx submodule ------------------------------------------
+# --- the weather comes from the isaac-weather-fx submodule --------------------------------------
 # One weather, both bands: the visible dome, the sun and the moon are authored by weather-fx's own
 # SkyEffect, and the infrared band marches the *same* CloudField through `WeatherFxDeck`. Before
 # this the two bands ran two cloud models and agreed only as well as two implementations ever do.
+# One weather, both *halves* too (ADR 0136): the surfaces are integrated through a series
+# synthesised from the same state, so the sun in the frame is the sun that warmed the paint.
 parser.add_argument(
     "--weather",
     default=None,
@@ -111,6 +114,14 @@ parser.add_argument(
     type=float,
     default=None,
     help="override the hour (UTC) of whatever weather was drawn, to film one day twice",
+)
+# The scene config still names a measured CSV, and `--weather-csv` is how you get it back:
+# a validation run wants the day that was actually recorded, not a synthesised one.
+parser.add_argument(
+    "--weather-csv",
+    action="store_true",
+    help="keep the scene's measured weather file for the thermal solve, and let weather-fx "
+    "drive the sky only",
 )
 parser.add_argument("--no-overlay", action="store_true", help="bare frames, no readout")
 # IG.13: the float32 planes and their sidecar are the *frame*; the videos beside them are the
@@ -191,6 +202,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
 
     from irsim.atmosphere.skylight import skylight_for_sensor
     from irsim.config.loader import band_hash, config_hash, load_sensor_config
+    from irsim.config.scene import load_scene_config
     from irsim.io.dataset import FrameWriter
     from irsim.io.png import write_png
     from irsim.isp.palette import palette_table, quantise_display
@@ -203,6 +215,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         load_band_response_for_config,
     )
     from irsim.scene import Scene
+    from irsim.thermal.weather_fx_series import weather_series_from_state
     from irsim_eval.video import encode_mp4, ffmpeg_available, overlay_readout
     from irsim_isaac.aircraft_pass import look_at_quaternion
     from irsim_isaac.asset_flight import FigureEightTrack, world_frame_to_stage
@@ -223,14 +236,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     lut = load_band_lut_for_config(sensor, REPO / "data" / "lut")
     response = load_band_response_for_config(sensor, REPO / "data")
     skylight = skylight_for_sensor(sensor, "lb")
-    scene = Scene.from_file(
-        REPO / args.scene,
-        {band: lut},
-        responses={band: response},
-        quantity="lb",
-        skylights={band: skylight},
-    )
-    world = scene.spec.world_frame
+    # The *config* first, not the scene: the weather-fx state is drawn from the site and the
+    # clock it names, and the scene is then built around whichever weather won (below).
+    scene_config = load_scene_config(REPO / args.scene)
+    spec = scene_config.scene
+    scene_start = spec.start_utc
+    world = spec.world_frame
     mount = world_frame_to_stage(world.up, world.north)
     print(
         f"mount: scene world_frame up={tuple(world.up)} north={tuple(world.north)} "
@@ -288,15 +299,26 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             seed=args.weather_seed if (args.weather == "random" or regime) else args.weather_seed,
             regime=regime,
             preset_json=args.weather_preset,
-            latitude_deg=scene.spec.site.latitude_deg,
-            longitude_deg=scene.spec.site.longitude_deg,
-            date_utc=scene.spec.start_utc.strftime("%Y-%m-%d"),
+            latitude_deg=spec.site.latitude_deg,
+            longitude_deg=spec.site.longitude_deg,
+            date_utc=spec.start_utc.strftime("%Y-%m-%d"),
             hour_utc=(
                 args.weather_hour
                 if args.weather_hour is not None
-                else scene.spec.start_utc.hour + scene.spec.start_utc.minute / 60.0
+                else spec.start_utc.hour + spec.start_utc.minute / 60.0
             ),
         )
+        # `--weather-hour` films this scene at another hour, so the *scene's* clock moves with
+        # it. Left where the config put it, the frame would be lit at one hour and its surfaces
+        # integrated to another, and nothing downstream can tell.
+        scene_start = dt.datetime.strptime(state.sky.date_utc, "%Y-%m-%d").replace(
+            tzinfo=dt.timezone.utc
+        ) + dt.timedelta(hours=float(state.sky.hour_utc))
+        if scene_start != spec.start_utc:
+            spec = spec.model_copy(update={"start_utc": scene_start})
+            scene_config = scene_config.model_copy(update={"scene": spec})
+            print(f"  scene clock moved to {scene_start:%Y-%m-%d %H:%M} UTC")
+
         weather_sky = author_weather_fx_sky(stage, state, texture_dir=out)
         print(f"weather-fx: {weather_sky.describe()}")
         stats = weather_sky.stats()
@@ -311,6 +333,41 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 f"{weather_sky.deck.base_m:.0f} m, top {weather_sky.deck.top_m:.0f} m, "
                 f"tau {weather_sky.deck.optical_depth:.0f} -- marched by BOTH bands"
             )
+
+    # --- the weather the *surfaces* see, which must be the weather the sky shows ----------------
+    # CLAUDE.md #6 is about one object reaching both consumers; this is the other half of it. If
+    # weather-fx is drawing an overcast June morning and the solver is integrating a March day out
+    # of a CSV, both halves are individually plausible and the frame is simply wrong. So unless
+    # `--weather-csv` asks for the measured file, the series is synthesised from the same state.
+    weather_override = None
+    if weather_sky is not None and not args.weather_csv:
+        weather_override = weather_series_from_state(
+            weather_sky.state,
+            # The cover the field actually built, not the one that was asked for: a thresholded
+            # noise field lands where it lands, and the sky emissivity should use what the camera
+            # is looking at.
+            measured_cover=None if weather_sky.deck is None else weather_sky.deck.cover,
+        )
+        sample = weather_override.at_datetime(scene_start)
+        print(
+            f"  surface weather from weather-fx: air {sample.t_air_k - 273.15:.1f} C, "
+            f"RH {sample.rh_fraction * 100:.0f} %, wind {sample.wind_speed_m_s:.1f} m/s, "
+            f"DNI {sample.dni_w_m2:.0f} + DHI {sample.dhi_w_m2:.0f} W/m2, "
+            f"visibility {sample.visibility_m / 1000.0:.1f} km"
+        )
+        if sample.precip_mm_h > 0.0:
+            print(f"    precipitation {sample.precip_mm_h:.2f} mm/h")
+    elif weather_sky is not None:
+        print(f"  surface weather from {spec.weather_file} (--weather-csv)")
+
+    scene = Scene.from_config(
+        scene_config,
+        {band: lut},
+        responses={band: response},
+        quantity="lb",
+        weather_override=weather_override,
+        skylights={band: skylight},
+    )
 
     # --- or this project's own dome, for the companion frame only (ADR 0073) ---------------------
     dome = None
@@ -624,6 +681,21 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             None
             if weather_sky is None
             else {"state": weather_sky.state.to_dict(), **weather_sky.stats()}
+        ),
+        # ADR 0136: a reader has to be able to tell a measured day from a synthesised one, and
+        # the file format cannot say it -- both are a WeatherSeries by the time anything reads
+        # them. The state above is what makes a synthesised day reproducible.
+        "weather_source": (
+            {
+                "surface": "measured CSV: " + spec.weather_file,
+                "sky": "weather-fx" if weather_sky is not None else "irsim dome (ADR 0073)",
+            }
+            if weather_override is None
+            else {
+                "surface": "synthesised from the weather-fx state (ADR 0136)",
+                "sky": "weather-fx, the same state",
+                "content_hash": weather_override.content_hash,
+            }
         ),
         "companion_frame": (
             "not captured (--no-rgb)"
