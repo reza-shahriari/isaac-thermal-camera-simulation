@@ -58,6 +58,7 @@ per CLAUDE.md.
 | `SC` | Sensor chain and published-reference anchoring |
 | `EV` | Evaluation methodology and sim-to-real |
 | `XD` | External data anchors: public datasets and public measurements |
+| `AI` | Asset ingestion: third-party 3D models into a scene |
 | `IG` | Isaac glue integrity |
 | `GT` | Gates, tests and tooling |
 | `DC` | Decisions, deferrals and probes |
@@ -174,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 70 open steps
+#### Then, in order — 74 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.2`** | IG | A | M | — | ready |
-| 2 | **`IG.16`** | IG | B | M | — | ready |
-| 3 | **`PT.10`** | PT | B | M | — | ready |
-| 4 | **`SE.2`** | SE | B | M | — | ready |
-| 5 | **`PH.9`** | PH | C | S | — | ready |
-| 6 | **`TC.8`** | TC | C | S | — | ready |
-| 7 | **`AT.6`** | AT | C | M | — | ready |
-| 8 | **`AT.9`** | AT | C | M | — | ready |
-| 9 | **`GT.7`** | GT | C | M | — | ready |
-| 10 | **`PT.13`** | PT | C | M | — | ready |
-| 11 | **`PT.16`** | PT | C | M | — | ready |
-| 12 | **`XD.1`** | XD | X | S | 8 | ready |
-| 13 | **`EV.1`** | EV | X | M | 5 | ready |
-| 14 | **`XD.2`** | XD | X | M | 4 | `XD.1` |
-| 15 | **`XD.3`** | XD | B | M | — | `XD.2` |
+| 2 | **`AI.2`** | AI | A | L | — | ready |
+| 3 | **`AI.4`** | AI | B | S | — | ready |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`PT.10`** | PT | B | M | — | ready |
+| 6 | **`SE.2`** | SE | B | M | — | ready |
+| 7 | **`GT.7`** | GT | C | M | 1 | ready |
+| 8 | **`AI.3`** | AI | B | M | — | `GT.7` |
+| 9 | **`PH.9`** | PH | C | S | — | ready |
+| 10 | **`TC.8`** | TC | C | S | — | ready |
+| 11 | **`AT.6`** | AT | C | M | — | ready |
+| 12 | **`AT.9`** | AT | C | M | — | ready |
+| 13 | **`PT.13`** | PT | C | M | — | ready |
+| 14 | **`PT.16`** | PT | C | M | — | ready |
+| 15 | **`XD.1`** | XD | X | S | 8 | ready |
 
-…and 55 more — `python scripts/next_step.py --queue 40`.
+…and 59 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -274,8 +275,8 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
-| **A — Aerial to the bar** | `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
-| **B — Maritime to the same bar** | `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **B — Maritime to the same bar** | `AI.3`, `AI.4`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
@@ -324,6 +325,7 @@ for Tier 3, and `M7` resolves to `1a0f13c`, the commit `RP.7` separately identif
 | M8 atmosphere, grey and layered | done | `e4caef9` | Layered exponential-sum slant path, R13-anchored. Per-pixel slant path was never in scope: `AT.1` |
 | M9 sensor chain | done | `d38c3f0` | 3-D noise, FPN, bad pixels, NUC residual, budget test. M9.8's IIR wiring is recorded by ADR 0082 |
 | M10 Isaac pipeline | partial | `b2f89f2` | AOVs, IrCamera, Warp stage twins, six demo stages. M10.12 and M10.13a/b/e blocked: see `DC.1` |
+| AI asset ingestion | partial | `pending` | Per-asset material map + CPU Blender prep (ADR 0128), solvable geometry (ADR 0132), and the asset flies in both bands (ADR 0133). Phantom 4: 48.8% -> 100%. Still one temperature per prim: `AI.2`'s remainder |
 | M11 multi-band and aerial extras | done | `3553b33` | `72e8142` shipped the NIR config and response. Specular lobe not wired per pixel (ADR 0067) |
 | M12 Tier 4 acceptance | partial | `e22c010` | The run fails and says so. `EV.1`-`EV.4` redo it before its attribution is used |
 | ME evaluation data lane | partial | `2cac77d` | ME.5 measured 365 clips on a hashed archive. ME.7 blocked on labels, not compute: `EV.11`, `XD.11` |
@@ -717,6 +719,22 @@ job. Several of these rows are not new features but *documented invariants that 
 | IG.14 | **One lane driver behind the six render scripts.** Measured: 281 identical lines between `render_quad_flight` and `render_aircraft_pass`, 73 % line similarity. They have already drifted — only three call `write_frame`, only one exposes `flat_field_enabled`. | Adding a lane stops meaning copying 500 lines, and a fix like IG.13 stops meaning fixing it three times. Each existing driver's output is bit-identical before and after the refactor, which is the test. | IG.13 | M | X |
 | IG.15 | **Live IR in the Isaac viewport.** The owner's standing requirement. `display_render_var` is RGBA-unorm-only, so this means publishing an 8-bit grayscale AOV (or deliberately overwriting `LdrColor`, which is the documented way to reach existing consumers). | The white-hot display stream appears in the viewport during a render, matching the written PNG to within the AGC's own quantisation. Note the hazard the SPG docs state: AOV name collisions are **silent** and the built-in shadows yours, so the `Ir*` prefix is load-bearing. | DC.1 | M | X |
 | IG.16 | **Take the Warp ISP's host readbacks off the per-frame path.** `replace_bad_pixels_warp` calls `counters.numpy()` **inside its pass loop** — a device sync per iteration to read two ints. `agc_lut_warp` pulls the whole 2^bit_depth histogram, plus a second array in plateau mode, then uploads the table. | The loop condition becomes a device flag and the LUT is built in a kernel; M10.7b's bit-exact replacement and M10.8's ±1 display code still hold. Raised by external review; both readbacks verified. | — | M | B |
+
+---
+
+## AI — Asset ingestion
+
+`AI.1` shipped the half that is engine-free: a third-party model can now be converted, mapped and
+audited on the CPU (ADR 0128). `AI.2` is most of the way through the other half — the Phantom 4 is
+solvable geometry (ADR 0132) and it now flies on a stage in both bands (ADR 0133) — and what is
+left of it is one thing: the solved cells do not reach a pixel.
+
+| id | what | verification (red today → green after) | deps | size | phase |
+|---|---|---|---|---|---|
+| AI.1 | ✅ **done.** Per-asset material map (`configs/assets/`), a new precedence rung above the semantic class, and `scripts/prep_asset.py` — import, rescale, USD, prim dump, audit, all on the CPU via Blender's bundled `pxr`. | **Measured.** The committed Phantom 4 dump goes 20/41 → 41/41, and two *confident* global hits are corrected: the shell's areal heat capacity halves (4399 → 2205 J m⁻² K⁻¹) and the motor housings go ε 0.09 → 0.90. 16 cases; reverting the rung turns 5 red. | — | M | A |
+| AI.2 | **Put the Phantom 4 in a scene.** 🟡 **Mostly shipped:** schema v16 binds a field to a prepared asset's prims (ADR 0132) and `render_phantom4.py` flies it in LWIR and colour, mounted by the rotation its own `world_frame:` implies (ADR 0133). **Left:** 234,923 solved cells reach no pixel — `MeshPointBridge` has never been driven by a render. | Green: 41/41 prims mapped, motor prims peak 19.6 K over the shell. **Red:** a bridge bound to an imported prim, carrying the mount rotation, showing a gradient *across* one prim. | AI.1 | L | A |
+| AI.3 | **A triangle budget for imported assets.** The Phantom 4 is 2,486,459 triangles against `GT.7`'s cited 1.3 M affordable figure, and its 31,068 loose shells make per-face cell counts hard to predict. | `prep_asset.py` reports cells-per-prim and refuses, or decimates, above a stated budget. Red today: nothing counts, so the first import that is too heavy is discovered by waiting. | AI.1, GT.7 | M | B |
+| AI.4 | **Exercise the `materialBind` subset path with a real asset.** `prep_asset.py` reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data — and it is the branch that stops a multi-material building mapping entirely to slot 0. | A committed fixture with subsets audits per subset, and a mesh carrying both a subset and a direct binding is reported rather than silently resolved from the binding. | AI.1 | S | B |
 
 ---
 

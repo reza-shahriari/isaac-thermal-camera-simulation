@@ -266,7 +266,54 @@ working in one tree; two commits already exist whose whole subject is restoring 
   better than **invar**, since the residue is `α_housing − β` and a large expansion cancels more of
   it. `athermal: true` is the default and is every camera written before v11, hashing identically.
 
+- **The imported Phantom 4 flies, in both bands** (`scripts/render_phantom4.py`,
+  `irsim_isaac.asset_flight`, ADR 0133). One circuit of a lemniscate in front of a ground observer,
+  over the aircraft's whole 28-minute mission, filmed as an infrared clip, a visible clip and the
+  two side by side. An orbit would have been easier and would show a target that translates but
+  never turns — its aspect angle is ±90° for the whole pass. The eight crosses its own track, so
+  one circuit takes the line of sight through both broadsides and tail-on while the slant range
+  swings **2.24:1** and the aircraft grows from **70 px to 157 px** across; measured over the
+  shipped clip, aspect covers −178° to +178° and the motors reach **19.6 K** over an airframe that
+  stays inside half a kelvin of itself. The one hard constraint
+  is elevation: this scene authors no terrain, so an aircraft below the observer's horizon would be
+  backed by sky-model radiance at near-air temperature instead of cold sky. The track holds
+  **10.5–52.6°**, and a test says so rather than a comment.
+- **An imported asset is mounted by its scene's own `world_frame:` block**
+  (`irsim_isaac.asset_flight.world_frame_to_stage`, ADR 0133) — the 3×3 taking a scene's world
+  coordinates into stage axes, satisfying `M·up = +Y`, `M·north = −Z`, `M·(north × up) = +X` by
+  construction. Written down as a function with tests rather than as a `rotateX 90` in a driver,
+  because the sign of a hand-typed axis swap is a coin flip and a mirrored mount renders a
+  perfectly convincing aircraft facing the wrong way. Refuses a degenerate or left-handed frame
+  instead of guessing. A scene already authored in stage axes mounts with the identity and pays
+  nothing.
+- The airframe's **nose direction** in the asset's own axes, measured from the archive rather than
+  assumed: the gimbal camera body at −53 mm from the airframe centroid, its lens at −55 mm, and
+  `Green_light` at **+64 mm** — DJI puts red status LEDs on the front arms and green on the rear
+  ones, so a green lamp behind the centre of mass is the tail. Three independent parts, in an asset
+  whose 41 prims are all named `GeometryNode_<n>` and carry no hint of function.
+
 #### Fixed
+- **The imported aircraft rendered rolled, and the stage's up axis was why** (ADR 0133). The first
+  Phantom 4 stills came back with the aircraft apparently pitched over and rolled about thirty
+  degrees, with nothing wrong in the physics. ADR 0128's principle — *the asset's frame is the
+  stage's frame* — had the driver author a **Z-up** stage to match the archive, and
+  `look_at_quaternion` builds its mount around a world up vector whose default is the stage
+  convention `(0, 1, 0)`. On a Z-up stage that levels the camera against a horizontal axis, which
+  rolls the horizon by whatever angle the geometry happens to give, and raises nothing: a rolled
+  camera is a valid camera. The stage is now the renderer's Y-up and the asset carries the one
+  rotation its scene config already declares. That was not the only breakage, only the visible one
+  — `visible_sky.stage_direction`, `latlong_directions` and the `DistantLight` of
+  `stage.author_environment` all read +Y as up and −Z as north, so the companion visible frame
+  would have shown a differently lit sky from the infrared one it is registered against.
+- `render_phantom4.py` wrote its float32 planes with a bare `np.save` and **no sidecar**, so no
+  frame it produced carried the config or band hash it came from (ADR 0004, `IG.13`). It now binds
+  a `FrameWriter` like every other driver, with `--float-format` and `--plane-stride`. Caught by
+  `tests/unit/test_frame_writer.py`, which asks the question of each driver by name rather than
+  trusting a new one to remember.
+- The Phantom 4 driver's frame interval was computed as `mission / (frames − 1)`, which overshoots
+  the mission by one interval because `IrCamera` advances its clock before handing back a frame —
+  and the throttle schedule is right to refuse a time past the end of a flight rather than
+  extrapolate one.
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
   **26 %** of the pixels and the infrared band over **57 %** of the *same* pixels, which ADR 0076

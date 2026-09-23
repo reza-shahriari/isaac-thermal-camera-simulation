@@ -31,10 +31,19 @@
 # nothing yet joins them. They must agree, and a follow-on should derive one from the other.
 #
 # Frame: the archive is world-space metres in the FBX's own frame, Z up, with the aircraft sitting
-# near y = +0.49 m. Nothing re-transforms it -- the prep tool already applied `scale_to_metres`,
-# and a second application is exactly the silent 100x this pipeline exists to prevent. There is no
-# ground plane and no occluder list: an airborne aircraft's only occluder is itself, which the
-# per-cell sky view factor traces on the mesh (ADR 0104).
+# near y = +0.49 m. The surfaces below are authored in *those* coordinates and nothing rescales
+# them -- the prep tool already applied `scale_to_metres`, and a second application is exactly the
+# silent 100x this pipeline exists to prevent.
+#
+# **`world_frame:` is load-bearing twice over (ADR 0133).** It tells the solver which way is up,
+# as it always has, and it is now also what mounts the aircraft on a render stage: the stage is
+# the renderer's Y-up, and `irsim_isaac.asset_flight.world_frame_to_stage` turns the block below
+# into the single rotation between the two rather than leaving a driver to type `rotateX 90` and
+# hope. Declaring it wrongly here now shades the patches wrongly *and* mounts the aircraft
+# wrongly, which is one symptom more than before and not one failure mode more.
+#
+# There is no ground plane and no occluder list: an airborne aircraft's only occluder is itself,
+# which the per-cell sky view factor traces on the mesh (ADR 0104).
 #
 # **`self_occluding: false` on every surface, and it is a decision, not a default.** Tracing one
 # of these prims against itself costs cells x faces: 41,127 x 41,103 is 1.69 **billion**
