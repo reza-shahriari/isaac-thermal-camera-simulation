@@ -1,0 +1,93 @@
+# DJI Phantom 4 Pro, as the third-party FBX in `3d_models/` carries it (ADR 0128).
+# Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py`.
+#
+# **Why this file exists at all.** The global globs in `configs/materials/mapping.yaml` map 20 of
+# this asset's 41 prims -- 48.8 %, below ADR 0047's 95 % gate -- and two of the twenty they *do*
+# map, they map wrongly for an aircraft:
+#
+#   * `*white*` -> `car_paint_white` is right for a car park and wrong here. This shell is moulded
+#     ABS, not paint on steel: 2205 against 4399 J m^-2 K^-1, so the real surface swings about
+#     twice as fast as the global rule would predict. `abs_plastic_white` exists for exactly this.
+#   * `*metal*` -> `bare_aluminium` puts eps = 0.09 on the motor housings, which makes them read as
+#     *reflected sky* rather than as their own temperature. `irsim_isaac/phantom3.py:249` already
+#     records this trap for the same part on the previous airframe; this file follows that
+#     precedent rather than rediscovering it.
+#
+# **How the ambiguous names were settled.** Not by reading them. Each source material's Principled
+# BSDF was dumped (base colour, alpha, metallic) and the decision made from that, because names in
+# a product-visualisation asset describe an artist's intent and the shader describes the surface:
+#
+#   material                alpha  metallic  base      reading
+#   tran_plastic            0.737  0.871     0.56 grey genuinely translucent -> the only tau > 0 entry
+#   tran_plastic_bump       0.488  0.000     0.83      more translucent still
+#   Glass                   0.807  0.000     0.00      translucent, at the camera -> a lens element
+#   Glass_Black             1.000  1.000     0.015     OPAQUE despite the name -> not glass
+#   metal_radial            1.000  0.000     0.80      NOT metallic despite the name
+#   Copper                  1.000  0.701     copper    genuinely copper-coloured, at the motors
+#
+# **Geometry identified by measurement, not by name.** Every prim is called `GeometryNode_<n>`, so
+# parts were identified by size and position: `GeometryNode_447` spans 60.2 x 61.8 cm, which is the
+# published 589 mm tip-to-tip, so it is all four propellers as one prim; the `Copper` prims sit at
+# the motor stations. The asset is grouped by *material*, not by function -- one prim is "all the
+# white plastic", scattered over 987 disconnected shells -- which is why no prim here is a part.
+# That is fine for material and not fine for temperature; see ADR 0128 on why the mesh field
+# (ADR 0110) makes it fine for temperature too.
+#
+# **`source: estimated` everywhere it matters.** Four of these are judgement, flagged in place.
+# Nothing here is a measurement of this aircraft.
+
+schema_version: 1
+asset:
+  name: phantom4
+  source_file: 3d_models/phantom4.fbx
+  # The FBX is authored in centimetres and declares no unit. 60.21 model units across against a
+  # published 589 mm tip-to-tip is centimetres to within 2 %. Left unapplied this aircraft enters
+  # the stage 60 m wide and still renders a plausible image, which is the whole hazard.
+  scale_to_metres: 0.01
+
+  materials:
+    # --- the shell and the propellers: moulded white ABS, NOT painted steel -------------------
+    white_plastic_matte: abs_plastic_white
+    _DJI_Phantom_4_Prowhite_plastic_matte: abs_plastic_white
+
+    # --- black mouldings ----------------------------------------------------------------------
+    # ESTIMATED. Chosen for solar absorptivity (0.94), which is what sets a small black part's
+    # daytime temperature; its areal heat capacity is a painted steel panel's and so about 2x too
+    # heavy for a moulding. The error is in the time constant, not the equilibrium.
+    Black_plastic_matte: car_paint_black
+    _DJI_Phantom_4_ProBlack_plastic_matte: car_paint_black
+    light_black: car_paint_black
+
+    # --- motor housings, arms and matte metal -------------------------------------------------
+    # eps 0.90, not bare_aluminium's 0.09. A matte/anodised housing emits; it does not mirror.
+    Metal_Matte: aircraft_aluminium_painted
+    _DJI_Phantom_4_ProMetal_Matte: aircraft_aluminium_painted
+
+    # --- genuinely polished trim --------------------------------------------------------------
+    # The one place bare_aluminium is right: metallic 0.987, and it is a trim ring, not a housing.
+    chrome_shiny: bare_aluminium
+
+    # --- motor windings -----------------------------------------------------------------------
+    # ESTIMATED, and the most consequential guess in this file. These prims sit at the motor
+    # stations and are the hottest surfaces on the aircraft. Bare copper is eps ~ 0.03; enamelled
+    # winding under varnish is ~ 0.85-0.90, so the coated value is used. If a motor ever needs to
+    # be right rather than plausible, this is the line to replace with a measurement.
+    Copper: aircraft_aluminium_painted
+
+    # --- grey coated bodywork, camera housing and decals --------------------------------------
+    gray_matte: painted_composite
+    camera_static: painted_composite
+    symbol_camera: painted_composite
+    metal_radial: painted_composite      # metallic 0.0 -- the name is wrong, the shader is not
+    Glass_Black: painted_composite       # alpha 1.0 -- opaque, so not the glass the name claims
+    red_light: painted_composite         # alpha 1.0 -- an opaque lens cover, not a window
+    Green_light: painted_composite
+
+    # --- the genuinely translucent surfaces ---------------------------------------------------
+    # glass_windshield is the library's only tau > 0 entry. In LWIR these are opaque anyway
+    # (eps 0.88); the mapping matters in SWIR and NIR, where they transmit.
+    Glass: glass_windshield
+    Crystal: glass_windshield            # the second camera lens element, beside `Glass`
+    _DJI_Phantom_4_ProGlass_Black: glass_windshield
+    tran_plastic: glass_windshield       # ESTIMATED -- a translucent polymer, not silica
+    tran_plastic_bump: glass_windshield  # ESTIMATED -- as above

@@ -1,0 +1,248 @@
+[
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_406/GeometryNode_406",
+  "material_name": "_DJI_Phantom_4_ProGlass_Black",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_33/GeometryNode_33",
+  "material_name": "Copper",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_246/GeometryNode_246",
+  "material_name": "light_black",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_76/GeometryNode_76",
+  "material_name": "Glass",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_205/GeometryNode_205",
+  "material_name": "_DJI_Phantom_4_Prowhite_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_14/GeometryNode_14",
+  "material_name": "Copper",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_57/GeometryNode_57",
+  "material_name": "Copper",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_49/GeometryNode_49",
+  "material_name": "Copper",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_99/GeometryNode_99",
+  "material_name": "Green_light",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_41/GeometryNode_41",
+  "material_name": "Copper",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_189/GeometryNode_189",
+  "material_name": "_DJI_Phantom_4_ProMetal_Matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_257/GeometryNode_257",
+  "material_name": "Metal_Matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_346/GeometryNode_346",
+  "material_name": "white_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_25/GeometryNode_25",
+  "material_name": "Copper",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_110/GeometryNode_110",
+  "material_name": "Metal_Matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_230/GeometryNode_230",
+  "material_name": "gray_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_357/GeometryNode_357",
+  "material_name": "white_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_137/GeometryNode_137",
+  "material_name": "camera_static",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_447/GeometryNode_447",
+  "material_name": "_DJI_Phantom_4_Prowhite_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_334/GeometryNode_334",
+  "material_name": "tran_plastic_bump",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_65/GeometryNode_65",
+  "material_name": "Crystal",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_219/GeometryNode_219",
+  "material_name": "gray_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_159/GeometryNode_159",
+  "material_name": "chrome_shiny",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_121/GeometryNode_121",
+  "material_name": "Metal_Matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_3/GeometryNode_3",
+  "material_name": "Black_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_148/GeometryNode_148",
+  "material_name": "chrome_shiny",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_293/GeometryNode_293",
+  "material_name": "symbol_camera",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_238/GeometryNode_238",
+  "material_name": "gray_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_129/GeometryNode_129",
+  "material_name": "Metal_Matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_395/GeometryNode_395",
+  "material_name": "_DJI_Phantom_4_ProBlack_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_270/GeometryNode_270",
+  "material_name": "metal_radial",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_326/GeometryNode_326",
+  "material_name": "tran_plastic",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_455/GeometryNode_455",
+  "material_name": "_DJI_Phantom_4_Prowhite_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_282/GeometryNode_282",
+  "material_name": "red_light",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_88/GeometryNode_88",
+  "material_name": "Glass_Black",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_428/GeometryNode_428",
+  "material_name": "_DJI_Phantom_4_ProMetal_Matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_436/GeometryNode_436",
+  "material_name": "_DJI_Phantom_4_Prowhite_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_306/GeometryNode_306",
+  "material_name": "tran_plastic",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_318/GeometryNode_318",
+  "material_name": "tran_plastic",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_365/GeometryNode_365",
+  "material_name": "white_plastic_matte",
+  "semantic_class": null,
+  "override": null
+ },
+ {
+  "path": "/World/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/GeometryNode_417/GeometryNode_417",
+  "material_name": "_DJI_Phantom_4_ProMetal_Matte",
+  "semantic_class": null,
+  "override": null
+ }
+]

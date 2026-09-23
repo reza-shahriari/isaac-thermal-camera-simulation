@@ -13,6 +13,25 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **Third-party assets can enter the simulator** (`scripts/prep_asset.py`, `configs/assets/`,
+  ADR 0128). Until now every piece of geometry was generated in Python; there was no import path.
+  The tool imports FBX/OBJ/glTF/USD, applies the asset's `scale_to_metres`, exports USD with
+  `UsdPreviewSurface`, walks it into engine-free prim records and audits them. **All of it on the
+  CPU** -- Blender ships a complete `pxr` (OpenUSD 26.03), so the inspect -> map -> audit loop
+  never boots Kit and never touches CUDA.
+- **Per-asset material mapping** (`irsim.materials.mapping.AssetMapping`, ADR 0128) -- a new
+  precedence rung between the `thermal:material` override and the semantic class, matching source
+  material names exactly and case-insensitively rather than by glob. ADR 0047's own "Revisit when"
+  clause named this file. A miss stays loud; this adds a rung, not a default.
+- **`configs/assets/phantom4.yaml`** -- a 62 MB DJI Phantom 4 Pro FBX (41 meshes, 21 materials,
+  2.49 M triangles) goes from **48.8 % to 100 %** coverage, and two *confident* global hits become
+  correct: `*white*` -> `car_paint_white` (paint on steel, 4399 J m^-2 K^-1) becomes the moulded
+  `abs_plastic_white` (2205 -- the global rule made the shell twice as sluggish as it is), and
+  `*metal*` -> `bare_aluminium` (eps 0.09, a mirror showing reflected sky) becomes
+  `aircraft_aluminium_painted` (eps 0.90) on the motor housings. Four entries are ESTIMATED and
+  flagged in place; the consequential one is `Copper`, which sits at the motor stations.
+- `--asset` on `scripts/audit_materials.py`, and `docs/research/2026-09-23-asset-ingestion-survey.md`
+  (the sourced evidence base, with its confirmed/unconfirmed split).
 - **The colour bar** (`irsim_eval.video.palette_scale`, ADR 0125). A fixed-span frame now carries
   the palette beside it with Celsius ticks, drawn from the *same lookup table the display branch
   indexed* rather than from a gradient that resembles it. The gauge says what each named part is;

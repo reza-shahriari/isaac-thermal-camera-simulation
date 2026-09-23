@@ -2,7 +2,12 @@
 """Audit the thermal-material coverage of an asset from an engine-free prim dump (M7.17).
 
     python scripts/audit_materials.py prims.json [--rules configs/materials/mapping.yaml]
+                                                 [--asset phantom4]
                                                  [--threshold 0.95] [--band lwir]
+
+``--asset`` layers a per-asset material map (``configs/assets/<name>.yaml``) above the global
+globs, which is how an imported asset states its own truth without changing every other scene
+(ADR 0128).
 
 ``prims.json`` is a list of records the Isaac adapter writes without any physics:
 
@@ -32,7 +37,13 @@ from collections.abc import Sequence
 
 def main(argv: Sequence[str] | None = None) -> int:
     from irsim.materials.library import MaterialLibrary
-    from irsim.materials.mapping import MaterialResolver, PrimRecord, audit, load_mapping_rules
+    from irsim.materials.mapping import (
+        MaterialResolver,
+        PrimRecord,
+        audit,
+        load_asset_mapping,
+        load_mapping_rules,
+    )
     from irsim.materials.table import MaterialTable
 
     ap = argparse.ArgumentParser(
@@ -52,6 +63,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--rules", type=pathlib.Path, default=None, help="mapping.yaml (default: configs/materials)"
     )
     ap.add_argument(
+        "--asset",
+        default=None,
+        help="per-asset mapping: a name in configs/assets or a path to one (ADR 0128)",
+    )
+    ap.add_argument(
         "--threshold", type=float, default=None, help="coverage threshold (default: from the rules)"
     )
     ap.add_argument("--band", default="lwir", help="band whose packed table fixes the ids")
@@ -68,6 +84,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     library = MaterialLibrary.load(args.materials)
     names = MaterialTable.from_library(library, args.band).names
     rules = load_mapping_rules(args.rules, known_materials=library.names)
+    asset = (
+        None
+        if args.asset is None
+        else load_asset_mapping(args.asset, known_materials=library.names)
+    )
     app = None
     if args.stage is not None:
         records, app = _open_stage_and_walk(args.stage, args.root)
@@ -79,7 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         from irsim_isaac.pipeline.materials_usd import dump_prim_records
 
         print(f"wrote {dump_prim_records(records, args.dump_prims)}")
-    report = audit(records, MaterialResolver(rules, names), args.threshold)
+    report = audit(records, MaterialResolver(rules, names, asset=asset), args.threshold)
     print(report.render())
     status = 0 if report.passed else 1
     if app is not None:
