@@ -209,15 +209,30 @@ def test_phantom4_map_has_no_unused_entries(
     assert in_map == in_asset
 
 
-def test_phantom4_scale_puts_the_aircraft_at_its_published_size(phantom4: AssetMapping) -> None:
-    """60.21 source units across, published 589 mm tip-to-tip -- so the source is centimetres.
+#: The prepared asset's true axis-aligned extent, in source units, measured from its **vertices**
+#: (not from `o.bound_box`, which is a local AABB and inflates under this asset's rotated parent
+#: chain -- an earlier revision of this test quoted the inflated 60.21 and was wrong).
+PHANTOM4_EXTENT_UNITS = (41.05, 46.37, 20.67)
 
-    Left at 1.0 this aircraft enters a scene 60 m wide, which still renders a plausible image and
-    is the reason the factor is authored rather than guessed at import time.
+
+def test_phantom4_scale_puts_the_aircraft_at_its_published_size(phantom4: AssetMapping) -> None:
+    """The height is what pins the factor: 20.67 units against DJI's published 196 mm.
+
+    Left at 1.0 this aircraft enters a scene 41 m wide, which still renders a plausible image and
+    is the reason the factor is authored rather than guessed at import time. The neighbouring
+    factors are not close calls -- millimetres would make this aircraft 2 cm tall and metres 20 m.
     """
     assert phantom4.scale_to_metres == 0.01
-    span_m = 60.21 * phantom4.scale_to_metres
-    assert span_m == pytest.approx(0.589, abs=0.02)
+    height_m = PHANTOM4_EXTENT_UNITS[2] * phantom4.scale_to_metres
+    assert height_m == pytest.approx(0.196, abs=0.015)
+
+    # An X-quad's 350 mm diagonal puts each motor at 350/(2*sqrt 2) = 123.7 mm on both axes, and a
+    # 239 mm propeller reaches 119.5 mm beyond that: ~486 mm subtended on each axis.
+    for across in PHANTOM4_EXTENT_UNITS[:2]:
+        assert 0.35 < across * phantom4.scale_to_metres < 0.55
+
+    for wrong in (0.001, 1.0):
+        assert not 0.15 < PHANTOM4_EXTENT_UNITS[2] * wrong < 0.25
 
 
 def test_every_committed_asset_config_loads_and_targets_real_materials(

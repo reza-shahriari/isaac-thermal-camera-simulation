@@ -36,9 +36,17 @@ prims; one prim is "all the white plastic", scattered over 987 islands. There is
 prim and no "leg" prim. Splitting by loose parts — the obvious automatic fix — yields 31,068
 objects and is not a route.
 
-**3. Nothing in the file is in metres.** 60.21 source units across against DJI's published 589 mm
-tip-to-tip: centimetres, declared nowhere. Left unapplied the aircraft enters a stage 60 m wide
-and still renders a perfectly plausible thermal image.
+**3. Nothing in the file is in metres.** The model's axis-aligned extent is 41.05 x 46.37 x 20.67
+source units. Read as centimetres that is 207 mm tall against DJI's published 196 mm, and
+410 x 464 mm across against the ~486 mm an X-quad's 350 mm diagonal and 239 mm propellers subtend
+on the axes; millimetres would make it 2 cm tall and metres 20 m. Centimetres, declared nowhere.
+Left unapplied the aircraft enters a stage 41 m wide and still renders a perfectly plausible
+thermal image.
+
+*(Corrected after first publication: this paragraph originally read "60.21 units ... 589 mm
+tip-to-tip". That came from transforming `o.bound_box` -- a **local** AABB -- by a rotated parent
+chain and re-taking min/max, which inflates the box. The conclusion, `scale_to_metres: 0.01`, is
+unchanged and is confirmed independently by the height; the evidence for it was wrong.)*
 
 Separately, the survey established that Blender ships a complete `pxr` — OpenUSD 26.03 on the
 5.2 LTS build, verified here — so USD can be read and written on the CPU without Kit. That matters

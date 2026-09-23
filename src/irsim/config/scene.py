@@ -54,7 +54,9 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 15  # v15: an exhaust target's `plume:` (PH.6); v14 a
+SCENE_SCHEMA_VERSION = 16  # v16: a surface mesh read from a prepared
+# asset archive (ADR 0132, AI.2); v15 an
+# exhaust target's `plume:` (PH.6); v14 a
 # surface's `mesh:` (ADR 0110, WM.7); v13 its
 # speed schedule (ADR 0109, PT.9); v12 its
 # `water:` (ADR 0108, PH.3); v11
@@ -407,21 +409,33 @@ class MeshSpec(_Frozen):
     tyre or a motor bell can then carry a temperature that varies around its circumference, which
     is what one shared patch normal cannot express.
 
-    **The shape is generated here, not read from USD.** `src/irsim/` may not import `pxr`
-    (CLAUDE.md #1), so the engine-free core builds the primitive the author names. That covers the
-    cases ADR 0087 listed as Hard, and it keeps a scene loadable and solvable with no renderer
-    present. Ingesting a real asset's triangles is the Isaac side's job -- `probe_warp_prim.py`
-    measured what it takes (triangulating quads, applying the local-to-world transform, and that
-    an analytic gprim exposes no points at all) -- and is the follow-on to this row.
+    **Two sources, and neither imports an engine.** Either the author names a generated
+    primitive (``shape:``) or names a prim in a **prepared asset archive** (``asset:`` +
+    ``prim:``, ADR 0128, schema v16). The archive is an ``.npz`` of world-space triangles written
+    by ``scripts/prep_asset.py`` running inside Blender, so `src/irsim/` still never imports `pxr`
+    (CLAUDE.md #1) and a scene stays loadable and solvable with no renderer present. This is the
+    follow-on `probe_warp_prim.py` measured the cost of; it landed on the Blender side rather than
+    the Isaac side, because Blender's OpenUSD runs on the CPU and Kit's does not.
+
+    **The archive is the *thermal* mesh, not the render mesh.** They need not match: the
+    closest-point query locates a pixel on whichever mesh the field carries, so the renderer keeps
+    the asset's full tessellation while the solver carries one sized to the physics. What bounds
+    the divergence is the bridge's distance tolerance, not an equality.
 
     ``level`` is cells per face edge, so a face carries ``level²``; ``cell_m`` picks a level per
-    face from a target cell size instead. ``frame`` and ``prim_path`` mean exactly what they mean
-    on a patch.
+    face from a target cell size instead. On an imported prim ``cell_m`` is strongly preferred:
+    a product-visualisation asset ships triangles far smaller than any thermal gradient, and
+    ``level`` would multiply an already excessive face count. ``frame`` and ``prim_path`` mean
+    exactly what they mean on a patch.
     """
 
-    shape: Literal["cylinder", "sphere"]
-    centre_m: tuple[float, float, float]
-    radius_m: float = Field(gt=0.0)
+    shape: Literal["cylinder", "sphere"] | None = None
+    #: A prepared asset: a name resolving under ``data/assets/``, or a path to a ``.npz``.
+    asset: str | None = None
+    #: Which prim of that archive. Mutually exclusive with `shape`.
+    prim: str | None = None
+    centre_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    radius_m: float | None = Field(default=None, gt=0.0)
     #: Cylinders only; a sphere has none and refuses one.
     length_m: float | None = Field(default=None, gt=0.0)
     axis: tuple[float, float, float] = (0.0, 0.0, 1.0)
@@ -432,11 +446,36 @@ class MeshSpec(_Frozen):
     capped: bool = True
     level: int = Field(default=1, ge=1, le=32)
     cell_m: float | None = Field(default=None, gt=0.0)
+    #: Whether the mesh shades itself. ``None`` is "trace it unless it is convex", which is exact
+    #: and is what every generated mesh uses. An **imported** asset usually has to say ``false``
+    #: explicitly: self-occlusion tracing costs cells x faces, and a real asset's prim carries
+    #: tens of thousands of both, so the trace that is free on a 16-facet tube does not finish on
+    #: a 60,000-face shell. Saying ``false`` falls back to the analytic ``(1 + cos beta)/2`` per
+    #: cell -- the same unoccluded form the in-sim path already uses (ADR 0045) -- and is honest
+    #: for an airframe in free air, where the only occluder is the aircraft itself. A scene that
+    #: leaves this ``None`` on a mesh over the budget is refused rather than left to run for hours.
+    self_occluding: bool | None = None
     frame: str = Field(default="world", min_length=1)
     prim_path: str | None = None
 
     @model_validator(mode="after")
     def _shape_fields_match_the_shape(self) -> MeshSpec:
+        generated, imported = self.shape is not None, self.asset is not None
+        if generated == imported:
+            raise ValueError("a mesh names exactly one of `shape:` (generated) or `asset:`")
+        if imported:
+            if self.prim is None:
+                raise ValueError("an asset mesh needs `prim:` naming which prim to solve")
+            for field in ("radius_m", "length_m"):
+                if getattr(self, field) is not None:
+                    raise ValueError(f"an asset mesh has no {field}; its geometry is in the file")
+            if self.cell_m is not None and self.level != 1:
+                raise ValueError("a mesh takes `level` or `cell_m`, not both")
+            return self
+        if self.prim is not None:
+            raise ValueError("`prim:` names a prim in an asset archive; a generated mesh has none")
+        if self.radius_m is None:
+            raise ValueError("a generated mesh needs radius_m")
         if self.shape == "cylinder" and self.length_m is None:
             raise ValueError("a cylinder mesh needs length_m")
         if self.shape == "sphere" and self.length_m is not None:

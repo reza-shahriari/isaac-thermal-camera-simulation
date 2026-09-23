@@ -143,18 +143,32 @@ def build_patch(spec: PatchSpec) -> PlanarPatch:
 def build_mesh(spec: Any) -> Any:
     """A declared `mesh:` block as the triangle mesh the solver runs on (ADR 0110, WM.7).
 
-    The geometry is generated rather than read from an asset, because the engine-free core may not
-    import `pxr` (CLAUDE.md #1) and a scene has to be loadable and solvable with no renderer. The
-    shapes are the ones ADR 0087 listed as Hard: a cylinder is a pipe, an arm, a mast or a motor
-    bell, and a sphere is a bell housing or a dome.
+    Two sources. A **generated** primitive (`shape:`) covers the cases ADR 0087 listed as Hard --
+    a cylinder is a pipe, an arm, a mast or a motor bell, a sphere is a bell housing or a dome --
+    and a **prepared asset** (`asset:` + `prim:`, ADR 0128) reads a real model's triangles out of
+    an engine-free `.npz`. Neither imports `pxr`, so a scene stays loadable and solvable with no
+    renderer present (CLAUDE.md #1).
     """
     from irsim.thermal.mesh_field import TriangleMeshPatch
     from irsim.thermal.raycast import cylinder_mesh, sphere_mesh
 
+    if spec.asset is not None:
+        # A prepared third-party asset (ADR 0128). The archive already holds world-space metres,
+        # so nothing here transforms anything -- the prep tool applied the asset's scale, and a
+        # second application is exactly the silent 100x this design exists to prevent.
+        from irsim.io.assets import load_asset_meshes
+
+        mesh = load_asset_meshes(spec.asset)[str(spec.prim)]
+        if spec.cell_m is not None:
+            return TriangleMeshPatch.by_cell_size(
+                mesh.vertices_m, mesh.faces, spec.cell_m, frame=spec.frame
+            )
+        return TriangleMeshPatch.uniform(mesh.vertices_m, mesh.faces, spec.level, frame=spec.frame)
+
     if spec.shape == "cylinder":
         soup = cylinder_mesh(
             spec.centre_m,
-            spec.radius_m,
+            float(spec.radius_m),
             float(spec.length_m),
             spec.axis,
             spec.segments,
@@ -162,7 +176,7 @@ def build_mesh(spec: Any) -> Any:
             capped=spec.capped,
         )
     else:
-        soup = sphere_mesh(spec.centre_m, spec.radius_m, spec.rings, spec.segments)
+        soup = sphere_mesh(spec.centre_m, float(spec.radius_m), spec.rings, spec.segments)
     if spec.cell_m is not None:
         return TriangleMeshPatch.by_cell_size(
             soup.vertices, soup.faces, spec.cell_m, frame=spec.frame
@@ -964,6 +978,34 @@ def _build_thermal_field(
     )
 
 
+#: Tracing a mesh against itself costs roughly cells x faces ray-triangle tests, once for the sky
+#: view and **again every tick** for the solar disc. A generated tube (1,152 cells against 1,152
+#: faces, 1.3e6) is affordable; an imported prim is not. Above this product a scene must *decide*,
+#: by setting `self_occluding:` either way, rather than inherit a default that happens to cost
+#: hours -- the failure mode being a scene that never finishes rather than one that raises.
+#:
+#: **Calibrated, not guessed.** Measured on an imported prim: 3,320 cells against 3,215 faces --
+#: a product of 1.07e7 -- spent **248 s** in `disc_visibility` over a single 6 h spin-up, so this
+#: ceiling is about half a minute of tracing. Every mesh shipped before ADR 0128 stays under it.
+MESH_SELF_OCCLUSION_BUDGET = 2_000_000
+
+
+def _refuse_untraceable_mesh(name: str, mesh: Any) -> None:
+    """Refuse a mesh whose self-occlusion trace would not finish, naming both ways out."""
+    from irsim.thermal.mesh_geometry import is_convex, mesh_soup
+
+    cost = int(mesh.n_cells) * int(mesh.n_faces)
+    if cost <= MESH_SELF_OCCLUSION_BUDGET or is_convex(mesh_soup(mesh)):
+        return
+    raise ValueError(
+        f"surface {name!r}: self-occlusion tracing this mesh would cost about "
+        f"{cost:,} ray-triangle tests ({mesh.n_cells:,} cells x {mesh.n_faces:,} faces), over the "
+        f"{MESH_SELF_OCCLUSION_BUDGET:,} budget. Set `self_occluding: false` on its `mesh:` block "
+        "to use the analytic (1 + cos beta)/2 sky view -- honest for an airframe in free air, and "
+        "what the in-sim path already does -- or `true` to accept the cost deliberately."
+    )
+
+
 def _build_mesh_fields(
     spec: SceneSpec,
     build: _ThermalBuild,
@@ -1011,8 +1053,14 @@ def _build_mesh_fields(
         # surface's `shaded` flag, bit for bit what WM.7 produced. Tracing a convex mesh gives
         # the same numbers anyway (`mesh_geometry`); skipping it is exactness, not a shortcut.
         sky_view = None
-        if cell_occluders(mesh, casters) is not None:
-            sky_view = mesh_sky_view(mesh, casters, frame=world_frame)
+        self_occluding = s.mesh.self_occluding if s.mesh is not None else None
+        if self_occluding is None:
+            _refuse_untraceable_mesh(s.name, mesh)
+        blockers = cell_occluders(mesh, casters, self_occluding=self_occluding)
+        if blockers is not None:
+            sky_view = mesh_sky_view(
+                mesh, casters, frame=world_frame, self_occluding=self_occluding
+            )
         # WM.6: conduction between the mesh's cells, from the material's own k and thickness
         # (ADR 0112). Without it a mesh renders every gradient at its full unconducted amplitude,
         # which ADR 0111 measured as 26 % too much on the quadrotor's carbon arms.
@@ -1031,6 +1079,7 @@ def _build_mesh_fields(
             occluders=casters,
             sky_view=sky_view,
             penumbra_rays=spec.thermal.penumbra_rays,
+            self_occluding=self_occluding,
         )
         # **Always** spun up per cell, where a patch only bothers under occluders. Every cell of
         # a mesh has its own normal, so no two of them share a forcing history and the per-prim

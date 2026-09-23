@@ -408,6 +408,13 @@ class MeshCellForcing:
     sky_view: Any = None
     #: Rays across the sun's 0.53 deg disc (`PT.22`): 1 is the hard edge, 7/19/37 a ramp.
     penumbra_rays: int = 1
+    #: Whether the mesh shades **itself**, for the beam as well as the sky view. ``None`` keeps
+    #: "trace unless convex", which is exact and is what every generated mesh uses. It is a
+    #: parameter because the trace costs cells x faces *per tick*: measured on an imported prim,
+    #: 3,320 cells against 3,215 faces spent **248 s** in `disc_visibility` over one 6 h spin-up,
+    #: and the same switch has to reach the beam and the sky view or the scene still will not
+    #: finish (ADR 0128, ADR 0132).
+    self_occluding: bool | None = None
 
     def __post_init__(self) -> None:
         n = np.asarray(self.normals_world, dtype=np.float64)
@@ -461,7 +468,11 @@ class MeshCellForcing:
 
         # Built once: the cells do not move and neither do the occluders. `None` means nothing
         # can stop a ray -- a convex mesh alone in the scene -- and the beam keeps WM.7's form.
-        object.__setattr__(self, "_query", cell_occluders(self.patch, self.occluders))
+        object.__setattr__(
+            self,
+            "_query",
+            cell_occluders(self.patch, self.occluders, self_occluding=self.self_occluding),
+        )
         object.__setattr__(self, "_origins", cell_origins(self.patch))
 
     @property

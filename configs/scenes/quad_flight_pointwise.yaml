@@ -26,7 +26,7 @@
 # over the deck than that. The mission's throttle profile is quad_flight_clear_noon.yaml's,
 # unchanged, so the two scenes are the same flight.
 
-schema_version: 15
+schema_version: 16
 scene:
   name: quad_flight_pointwise
   description: "The 30-min quadrotor mission with a point-wise airframe, clear midday"

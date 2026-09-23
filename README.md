@@ -648,6 +648,14 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   The sky-view factor is therefore the unoccluded geometric form -- exact under an open sky,
   optimistic in a street -- and the image-plane velocity is synthesised from the per-prim transforms
   (`IG.6`) rather than read from the renderer's motion AOV, which stays unverified (`IG.5`).
+- **An imported asset's thermal mesh is not its render mesh, and decimation must preserve area**
+  (ADR 0132). The solver's geometry is a planar-dissolved copy sized to the physics -- collapse
+  decimation removed 37 % of the Phantom 4's area, which is 37 % of its emitted signal -- and the
+  prep tool refuses to write an archive whose area moved. Self-occlusion tracing is a scene's
+  decision, not a default: it costs cells x faces per tick, 248 s for one 3,320-cell prim, so a
+  scene over the budget is refused rather than left to run for hours. `self_occluding: false`
+  falls back to the analytic (1 + cos beta)/2 sky view, honest for an airframe in free air and
+  wrong for the gimbal that genuinely sits in the body's shadow.
 - **An imported asset supplies material identity and geometry, and nothing thermal** (ADR 0128).
   No asset format carries thickness, interior-vs-exterior classification, sky view factors or heat
   sources, so those stay authored by hand -- `configs/assets/<name>.yaml` holds optical truth only.

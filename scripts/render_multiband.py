@@ -99,6 +99,14 @@ SCENES: dict[str, tuple[str, list[str], int]] = {
 #: this accounts for every file in `configs/scenes/` that `SCENES` does not name, so a new scene
 #: cannot be added and quietly left unfilmed.
 UNSWEPT_SCENES: dict[str, str] = {
+    "phantom4_pointwise.yaml": (
+        "AI.2's reference scene: the first in this project whose geometry was not authored in "
+        "Python. It needs a mesh archive that is generated rather than committed -- "
+        "`scripts/prep_asset.py --asset phantom4 --emit-mesh` writes 18 MB from a 62 MB source "
+        "FBX that is not in git either -- so a sweep that ran it on a fresh checkout would fail "
+        "for a missing file rather than a missing camera. It also has no camera or prims yet: "
+        "authoring the asset onto an Isaac stage is the in-engine half and is still open."
+    ),
     "car_exhaust_plume.yaml": (
         "PH.6's reference scene: a tailpipe at cruise load and the gas cone it blows, one "
         "exhaust target and no camera or prims yet. Its numbers are tests/unit/test_plume.py's "

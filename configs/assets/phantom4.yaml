@@ -26,9 +26,8 @@
 #   Copper                  1.000  0.701     copper    genuinely copper-coloured, at the motors
 #
 # **Geometry identified by measurement, not by name.** Every prim is called `GeometryNode_<n>`, so
-# parts were identified by size and position: `GeometryNode_447` spans 60.2 x 61.8 cm, which is the
-# published 589 mm tip-to-tip, so it is all four propellers as one prim; the `Copper` prims sit at
-# the motor stations. The asset is grouped by *material*, not by function -- one prim is "all the
+# parts were identified by size and position: `GeometryNode_447` is a 43 x 47 cm plate only 1.7 cm
+# thick, so it is all four propellers as one prim; the `Copper` prims sit at the motor stations. The asset is grouped by *material*, not by function -- one prim is "all the
 # white plastic", scattered over 987 disconnected shells -- which is why no prim here is a part.
 # That is fine for material and not fine for temperature; see ADR 0128 on why the mesh field
 # (ADR 0110) makes it fine for temperature too.
@@ -40,9 +39,16 @@ schema_version: 1
 asset:
   name: phantom4
   source_file: 3d_models/phantom4.fbx
-  # The FBX is authored in centimetres and declares no unit. 60.21 model units across against a
-  # published 589 mm tip-to-tip is centimetres to within 2 %. Left unapplied this aircraft enters
-  # the stage 60 m wide and still renders a plausible image, which is the whole hazard.
+  # The FBX is authored in centimetres and declares no unit. The model's true axis-aligned extent
+  # is 41.05 x 46.37 x 20.67 units; read as centimetres that is a 207 mm tall aircraft against a
+  # published 196 mm, and 410 x 464 mm across against the ~486 mm an X-quad's 350 mm diagonal and
+  # 239 mm props subtend on the axes. Millimetres would make it 2 cm tall and metres 20 m, so the
+  # factor is not in doubt. Left unapplied this aircraft enters the stage 41 m wide and still
+  # renders a perfectly plausible image, which is the whole hazard.
+  #
+  # Measure the extent from the *vertices*, never from `o.bound_box`: that is a LOCAL box, and
+  # transforming its eight corners under this asset's rotated parent chain and re-taking min/max
+  # inflates 41 x 46 cm to 60 x 62. An earlier revision of this file quoted the inflated number.
   scale_to_metres: 0.01
 
   materials:

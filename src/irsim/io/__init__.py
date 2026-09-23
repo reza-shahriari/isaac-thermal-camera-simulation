@@ -5,6 +5,11 @@ plane in physical units never reaches an integer or half-float container, howeve
 resulting picture looks (roadmap M10.10a).
 """
 
+from irsim.io.assets import (
+    AssetMesh,
+    AssetMeshes,
+    load_asset_meshes,
+)
 from irsim.io.dataset import (
     PLANE_UNITS,
     FrameRecord,
@@ -17,6 +22,9 @@ from irsim.io.exr import exr_bytes, read_exr, write_exr
 from irsim.io.png import png_bytes, write_png
 
 __all__ = [
+    "AssetMesh",
+    "AssetMeshes",
+    "load_asset_meshes",
     "write_png",
     "png_bytes",
     "write_exr",

@@ -13,6 +13,29 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **A real 3D model is now solvable geometry** (`irsim.io.assets`, `MeshSpec(asset=…, prim=…)`,
+  schema v16, ADR 0132). `configs/scenes/phantom4_pointwise.yaml` is the **first scene in this
+  project whose geometry was not authored in Python** -- six prims of a DJI Phantom 4 Pro FBX,
+  234,923 cells over 0.1628 m^2 (55 % of the aircraft for 11 % of its triangles), built in 13.6 s.
+  The result is the physics the lane exists for: black mouldings reach **65.9 C** where the white
+  shell tops out at **33.8 C** (alpha 0.94 against 0.25), and every surface carries a *span* --
+  7.8 K on the propellers to 39.7 K on the mouldings -- instead of one value per object.
+- **Decimation that preserves area** (`prep_asset.py --emit-mesh`). Collapse decimation removed
+  **37 %** of this asset's surface area at ratio 0.05 -- area sets both the radiated power and the
+  convective load, so that is 37 % of the emitted signal, silently, on geometry that still looks
+  right. The cause is structural: 31,068 disconnected shells, and a collapse budget spends itself
+  destroying the small ones. Planar dissolve at 3 deg removes 38 % of the triangles for
+  **+0.056 %** area. The tool gates on area and refuses to write an archive that moved, weighting
+  the gate so a 1.1e-5 m^2 sliver is reported rather than blocking; 126 zero-area triangles are
+  dropped and counted, because a facet with no area has no normal.
+- **`self_occluding:` on a mesh, and a budget that refuses rather than hangs** (ADR 0132). Tracing
+  a mesh against itself costs cells x faces, once for the sky view and **again every tick** for
+  the solar disc: one imported prim of 3,320 cells spent **248 s** in `disc_visibility` over a 6 h
+  spin-up, and the largest bound prim would be 1.69e9 ray-triangle tests. Over
+  `MESH_SELF_OCCLUSION_BUDGET` a scene that did not decide is refused with a message naming both
+  ways out. The switch reaches the beam as well as the sky view -- routing it to only one leaves
+  the scene just as unable to finish, which is how this was found. With it, that scene builds in
+  **1.0 s**.
 - **Third-party assets can enter the simulator** (`scripts/prep_asset.py`, `configs/assets/`,
   ADR 0128). Until now every piece of geometry was generated in Python; there was no import path.
   The tool imports FBX/OBJ/glTF/USD, applies the asset's `scale_to_metres`, exports USD with

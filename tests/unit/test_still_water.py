@@ -266,7 +266,7 @@ def test_a_puddle_is_a_region_of_the_road_and_reads_cold_on_a_hot_afternoon(tmp_
 
 
 def test_the_schema_takes_water_only_where_it_can_put_it(tmp_path) -> None:  # type: ignore[no-untyped-def]
-    assert SCENE_SCHEMA_VERSION == 15
+    assert SCENE_SCHEMA_VERSION == 16
     load_scene_config(_puddled(tmp_path, "        water: {depth_mm: 5.0}\n"))
     with pytest.raises(ValueError, match="already lays a film"):
         text = (REPO / "configs/scenes/wet_road_noon.yaml").read_text()

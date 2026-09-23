@@ -1,0 +1,121 @@
+# A **DJI Phantom 4 Pro** hovering in clear midday air, solved point-wise on the triangles of a
+# real third-party FBX rather than on generated boxes. Schema: irsim.config.scene (v16).
+# Roadmap AI.2; ADR 0128 (the asset pipeline), ADR 0110 (the field lives on the mesh),
+# ADR 0072 (the heat sources), ADR 0109 (the mission's own speed).
+#
+# **This is the first scene in the project whose geometry was not authored in Python.** Every
+# earlier aircraft is `phantom3_parts()`'s eighteen boxes and cylinders. These surfaces are the
+# asset's own triangles, prepared on the CPU by:
+#
+#     python scripts/prep_asset.py --asset phantom4 --emit-mesh --dissolve-deg 3.0
+#
+# The archive is generated, not in git (`data/assets/` is ignored), so this scene needs that
+# command run once before it will load. It boots no Kit and touches no GPU.
+#
+# **Why only six prims of forty-one.** The asset carries 1,532,782 triangles after decimation and
+# the solver puts at least one cell on every face, which is roughly a hundred times finer than any
+# thermal gradient on a 0.29 m^2 aircraft -- a product-visualisation asset is tessellated for
+# silhouettes, not for physics. The six bound here are the largest of each thermally distinct
+# material and carry 0.16 m^2, **55 % of the aircraft's area**, for 11 % of its triangles. The
+# general fix -- a triangle budget in the prep tool -- is `AI.3`, and until it lands a scene
+# chooses its prims by hand. The unbound prims still have a temperature: the per-prim `airframe`
+# target covers them, exactly as it does in `quad_flight_mesh.yaml`.
+#
+# **The prim names are meaningless and that is the asset's fault, not a lapse here.** Every prim
+# is `GeometryNode_<n>`; the asset is grouped by *material*, not by function, so `GeometryNode_205`
+# is not a part but "all the white plastic in one region", spread over hundreds of disconnected
+# shells. Each is annotated below with what it measures out as.
+#
+# **`material:` duplicates `configs/assets/phantom4.yaml`.** The asset map resolves the *source*
+# material name for the renderer; this field names the library material for the *solver*, and
+# nothing yet joins them. They must agree, and a follow-on should derive one from the other.
+#
+# Frame: the archive is world-space metres in the FBX's own frame, Z up, with the aircraft sitting
+# near y = +0.49 m. Nothing re-transforms it -- the prep tool already applied `scale_to_metres`,
+# and a second application is exactly the silent 100x this pipeline exists to prevent. There is no
+# ground plane and no occluder list: an airborne aircraft's only occluder is itself, which the
+# per-cell sky view factor traces on the mesh (ADR 0104).
+#
+# **`self_occluding: false` on every surface, and it is a decision, not a default.** Tracing one
+# of these prims against itself costs cells x faces: 41,127 x 41,103 is 1.69 **billion**
+# ray-triangle tests for `shell_upper` alone, and the scene would never finish rather than fail.
+# So each cell takes the analytic (1 + cos beta)/2 sky view -- the same unoccluded form the in-sim
+# path already uses (ADR 0045), and defensible for an airframe in free air whose only occluder is
+# itself. What it costs is real: the gimbal under the nose genuinely sits in the body's shadow,
+# and here it does not. That is the honest limitation of this scene, and `AI.3`'s triangle budget
+# is what would make the trace affordable rather than merely skippable.
+
+schema_version: 16
+scene:
+  name: phantom4_pointwise
+  description: "A DJI Phantom 4 Pro hovering at midday, solved on a real asset's triangles"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+
+  targets:
+    - {name: airframe, solver: airframe, offset_k: 0.0}
+    - name: motor
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.20]
+    - name: battery
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.20]
+
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0
+
+    surfaces:
+      # --- white ABS: the shell and the propellers -------------------------------------------
+      # The largest white region, 41,119 faces over 0.046 m^2 -- the upper body shell.
+      - name: shell_upper
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        mesh: {asset: phantom4, prim: GeometryNode_205, cell_m: 0.01, self_occluding: false}
+
+      # 57,814 faces over 0.035 m^2 -- the lower body and leg shells.
+      - name: shell_lower
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        mesh: {asset: phantom4, prim: GeometryNode_357, cell_m: 0.01, self_occluding: false}
+
+      # A 43 x 47 cm plate 1.7 cm thick: all four propellers as one prim. Thin, low inertia, and
+      # the part of the aircraft moving fastest through its own boundary layer.
+      - name: propellers
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 600.0, 1080.0, 1200.0]
+        speed_m_s: [2.0,  12.0,  14.0,   12.0,    2.0]
+        mesh: {asset: phantom4, prim: GeometryNode_447, cell_m: 0.01, self_occluding: false}
+
+      # --- black mouldings: the same sun, four times the absorptivity -------------------------
+      # 28,563 faces over 0.022 m^2. alpha 0.94 against the shell's 0.25, which is the largest
+      # single contrast on this aircraft in daylight and nothing to do with its temperature source.
+      - name: black_mouldings
+        material: car_paint_black
+        tilt_deg: 0.0
+        mesh: {asset: phantom4, prim: GeometryNode_3, cell_m: 0.01, self_occluding: false}
+
+      # --- the motor housings ------------------------------------------------------------------
+      # 34,746 faces over 0.0093 m^2, at the four motor stations. eps 0.90: a matte housing emits
+      # its own temperature. Mapping this to `bare_aluminium` (eps 0.09) would make it a mirror.
+      - name: motor_housings
+        material: aircraft_aluminium_painted
+        tilt_deg: 0.0
+        mesh: {asset: phantom4, prim: GeometryNode_121, cell_m: 0.01, self_occluding: false}
+
+      # --- grey coated bodywork ----------------------------------------------------------------
+      # 63,039 faces over 0.0147 m^2 -- the gimbal and camera housing under the nose, which sees
+      # far less sky than anything on top of the aircraft.
+      - name: gimbal_housing
+        material: painted_composite
+        tilt_deg: 90.0
+        mesh: {asset: phantom4, prim: GeometryNode_219, cell_m: 0.01, self_occluding: false}
