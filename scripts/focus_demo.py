@@ -21,6 +21,7 @@ camera's own R(lambda)-weighted LUT and is stated as such.
 from __future__ import annotations
 
 import argparse
+import functools
 import pathlib
 from dataclasses import dataclass
 
@@ -48,10 +49,18 @@ class Layer:
     mask: NDArray[np.float64]
 
 
+@functools.cache
 def radiance_table() -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """(T, L_band) on a 0.05 K grid -- the demo's stand-in for the camera's band LUT."""
+    """(T, L_band) on a 0.05 K grid -- the demo's stand-in for the camera's band LUT.
+
+    Cached: it is 4001 band integrals, 0.7 s, and every frame of a sweep wants the same table.
+    The arrays are made read-only so a caller cannot mutate what the next caller will be handed.
+    """
     lb = np.array([band_radiance_tophat(*BAND_UM, float(t)) for t in T_GRID_K], dtype=np.float64)
-    return T_GRID_K, lb
+    grid = T_GRID_K.copy()
+    grid.setflags(write=False)
+    lb.setflags(write=False)
+    return grid, lb
 
 
 def two_cube_scene(

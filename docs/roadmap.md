@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 75 open steps
+#### Then, in order — 74 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`PT.16`** | PT | C | M | — | ready |
 | 15 | **`XD.1`** | XD | X | S | 8 | ready |
 
-…and 60 more — `python scripts/next_step.py --queue 40`.
+…and 59 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -644,7 +644,7 @@ only ground clutter falls back to inpainting with a measured error bound (`OC.8`
 | OC.9 | ✅ **done.** `autofocus` (passive contrast detection: normalised Tenengrad, multiplicative probe, step that widens when stalled) and `track` (a `semantic_id`'s median range, holding when it leaves frame). | **Measured.** The measure peaks at the true range; it converges from 40 m to 8 m and then does **not** hunt (<5 % over ten frames); it lags a closing target and arrives inside the 5.4–16 m depth of field once it stops; a flat scene never moves the lens. 15 cases. | OC.5 | M | X |
 | OC.10 | ✅ **done.** Thermal defocus from the lens and housing materials, folded into an **effective focus distance** so every downstream stage gets it free. Schema v11; `athermal: true` is the default. | **Measured.** β(Ge) = 126.2e-6/K; −1.44 µm per kelvin for a 14 mm lens in aluminium; a **20 K rise moves focus from infinity to 6.8 m**, inside the 16.3 m hyperfocal, leaving 28.7 µm of blur at 1 km. Aluminium beats invar. Hashes and goldens unchanged. 10 cases. | OC.4 | M | X |
 | OC.11 | ✅ **done.** The layered composite tells a **surface from a stack**: `over` only across a gap, added where layers abut. ADR 0134. | **Measured** against the `over` chain kept as the test's reference. Slicing one receding surface left `alpha(1-alpha)(L_surface - L_behind)` at every bin edge — **8.6 K** on `OC.12`'s cube, RMS **1.31 → 2.32 K** as the cap went 3 → 8, so the error grew with the only quality knob. Now **0.16 K**, RMS falling with the cap; `OC.7`'s 1e-12 untouched. 7 cases. | OC.6 | M | X |
-| OC.12 | **A cube against a cloudy sky, with the focus pulled from one to the other.** `scripts/focus_sky_demo.py`, on the `OC.6`/`OC.7` path with the sky as the analytic background. | Red today: no demo shows what a *background* looks like when the lens leaves it — `OC.3` focuses on either of two cubes and the only thing behind them is a constant. After: the sky's contrast measure drops by more than 2x when the lens moves to the cube, and the cube's rises. | OC.11 | M | X |
+| OC.12 | ✅ **done.** `scripts/focus_sky_demo.py`: one cube against a **cloudy** sky, the focus pulled from sky to cube and back on the shipped `OC.6`/`OC.7` path with the sky as the analytic background. | **Measured** with `OC.9`'s focus measure per region, because a whole-frame one cannot tell the two settings apart: the sky loses **3.1x** of its contrast when the lens leaves it, the cube **1.7x**. A **clear** sky moves **1.002x** across the same pull and holds three orders of magnitude less structure — defocus is a low-pass filter — so the scene carries cloud. 6 cases. | OC.11 | M | X |
 | OC.13 | **Fractional layer membership.** A pixel belongs partly to the two W020 bins either side of it rather than wholly to one, so the geometry's blurred coverage stops rippling across hard bin boundaries. | Red today: `sum_i K_i * cover_i` ripples **±0.5 %** across a bin edge, and where it dips the background fills the difference — the whole of what `OC.11` left, 0.5 % of contrast against the 25 % it removed, below NETD in RMS. After: the ripple is under 0.05 % and `test_continuous_depth.py` asserts the interior to the flat-field tolerance. | OC.11 | M | X |
 
 ---

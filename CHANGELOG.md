@@ -13,6 +13,30 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **The focus pulled from a cloudy sky onto a cube** (`OC.12`, `scripts/focus_sky_demo.py`).
+  `OC.3` put two cubes at two ranges and focused on either; this answers what a *background* looks
+  like when the lens leaves it. One cube at 3 m against sky, the focus held on the sky, pulled to
+  the cube, held, and pulled back — a loop, with each frame carrying its focus distance and both
+  blur circles. It runs on the shipped `OC.6`/`OC.7` path rather than its own compositing, with the
+  sky's radiance along **every** ray handed in as `background_radiance`, which is the case `OC.7`
+  exists for and is exact here because a sky's radiance is a function of ray direction with no
+  geometry in it. Measured with `OC.9`'s focus measure per region: the sky loses **3.1x** of its
+  contrast when the lens leaves it and the cube **1.7x**, and the two blur circles cross at 32 µm
+  with the lens at 5.8 m. Two numbers, not one, because a whole-frame measure cannot tell the two
+  settings apart — something is sharp either way.
+
+  **A clear sky cannot show this, and that is physics rather than a shortcoming of the demo.**
+  Defocus is a low-pass filter, so it can only remove detail that was there; a clear LWIR sky is a
+  smooth `1/sin(theta)` ramp through the column and a smooth ramp convolved with any normalised
+  kernel is very nearly itself. Measured: the same pull that costs a cloudy sky 3.4x of its contrast
+  costs a clear one **1.002x** — 0.2 % — and the clear sky carries **three orders of magnitude** less
+  structure to begin with, 6.9e-8 against 8.4e-5. A demo built on a clear sky would have rendered two
+  frames a reader could not tell apart, and been a fair picture of the physics while being a useless
+  picture of focus. `test_a_clear_sky_barely_changes_at_all` asserts it rather than leaving it here. The high spatial frequencies in a real sky are **cloud edges**, so
+  the demo carries the project's own sky-fixed cloud field at an eighth of a degree — the half-degree
+  survey default is ten Boson pixels per cell, and a cloud whose smallest feature is twenty pixels
+  wide barely registers a 5.4-pixel blur circle. Clear sky 250 K, cloud base 282 K from the LCL and
+  the lapse rate, cube faces 296-314 K.
 - **The Phantom 4 renders** (`scripts/render_phantom4.py`, AI.2's in-engine half). A 62 MB
   third-party FBX that nobody here modelled now produces LWIR frames on the A6000: 41 prims,
   2,486,459 triangles, **41/41 materials resolved in Kit** through `configs/assets/phantom4.yaml`
