@@ -70,6 +70,15 @@ working in one tree; two commits already exist whose whole subject is restoring 
   linear over the scene's own sky-to-target range: **63 K across 256 codes, 0.25 K each**, five
   times the sensor's NETD. The AGC video is still written beside it.
 
+- **The `OC` focus lane in `docs/roadmap.md`** — ten steps for the focus distance no camera in
+  this repo has. The audit behind it: `OpticsSpec` carries no focus field, `psf.py` builds one
+  kernel from one scalar and convolves the whole plane with it regardless of `distance_m`, and the
+  camera prim never sets `focusDistance` or `fStop`. The lane settles that defocus is a
+  **post-process on the supersampled radiance**, because the renderer emits geometry and ids only
+  and blurring a temperature would average the wrong quantity, and that the model is **Hopkins**
+  rather than the geometric disk, because geometric optics needs a 14-pixel blur circle at F/1.0 in
+  LWIR and every defocus this project renders is below that.
+
 #### Fixed
 - **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
   `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power

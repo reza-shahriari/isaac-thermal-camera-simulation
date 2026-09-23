@@ -501,6 +501,13 @@ docs/               physics-model.md and ADRs
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
+- **Every camera is in perfect focus at every range** (`OC` lane). There is no focus distance in
+  `OpticsSpec`, the optical PSF is one kernel applied to the whole plane independent of
+  `distance_m`, and the camera prim leaves `focusDistance` and `fStop` unset, so the RTX camera is a
+  pinhole. `mtf.py`'s cascade names `MTF_defocus`, but ADR 0059 folded it into the aberration
+  Gaussian and `SC.4` solved that Gaussian from an **in-focus** datasheet figure. The error is
+  negligible for the aerial lane — a Boson at 100 m is 0.02 waves — and reaches 1.9x the contrast at
+  Nyquist for a target at 10 m, or several pixels of blur for the 50 mm MWIR lens inside 40 m.
 - No 3-D conduction as a solid, but the two halves of it: a patch conducts in its plane from its material's k and δ (`PT.11`, ADR 0102) and through its thickness as an N-layer stack (`PT.12`, ADR 0103), with an adiabatic back by default and §6.4's R₂d/T_deep from `back:` when a scene declares one (`PT.15`). A panel's back can also be a **cabin** (`PT.15`, ADR 0106): one air-and-trim node solved with its panels on the same operator. The engine bay is a solved four-node network (`TC.5`, ADR 0100) and the exhaust line a solved gas stream in a wall (`TC.7`, ADR 0105); brakes and tyres are still §6.6 schedules. A `PlanarThermalField`
   (ADR 0087) gives a surface a temperature *field* rather than one value, but its cells are still
   independent §6.1 facets: heat spreads across a panel only insofar as the *forcing* spreads, not by

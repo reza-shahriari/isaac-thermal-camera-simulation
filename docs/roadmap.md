@@ -275,9 +275,9 @@ row says so and names the step that closes it.
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
 | **A — Aerial to the bar** | `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
-| **B — Maritime to the same bar** | `PT.10`, `AT.14`, `SE.1`–`SE.3`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
-| **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
-| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
+| **B — Maritime to the same bar** | `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
+| **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
+| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
 **Dependency shape.** Phase 0 blocks nothing technically but blocks *knowing what is true*, and three
 sessions share this tree. `AT.1` and `SC.1` are the two critical-priority physics defects and are
@@ -585,6 +585,54 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.12 | **Record the size-of-source effect** (~0.8–1.0 K for uncooled microbolometers per VDI/VDE 5585, against ~0.1–0.2 K for cooled MCT) as a known omission in `docs/spec-issues.md`. | A spec-issue row with the number. It is larger than several effects the chain does model, so leaving it unrecorded misstates the chain's own error budget. | RP.7 | S | X |
 | SC.13 | **Close the ISP temporal-filter question.** `sensor_chain.py:241` says the filter "stays an identity until ME.5's temporal PSD on flat sky shows whether real cores low-pass their output at all". ME.5 landed and measured a one-pole time constant of 2563 frames at a drift fraction of 0.9276, above the 0.5 the report itself calls untrustworthy. | The answer — "not measurable on this set" — is recorded in the ADR and the dangling conditional is removed, so the next session does not re-open a question that was answered. | — | S | X |
 | SC.14 | **Carry M9.9's two open criteria rather than dropping them.** The Tier 3 sensor-chain bench landed amber with an aerial edge-asymmetry band (legacy ME.4) and the real-vs-synthetic comparison (legacy ME.6) open; both need statistics measured from public real imagery. This row keeps them tracked and is what `test_tier3_sensor_chain.py` asserts against. | The test reads this row and fails if it stops naming both, or if it is marked done while `EV.6` and `XD` have not supplied the measured bands. An untracked criterion is one nobody will close. | EV.6, XD.1 | S | X |
+
+---
+
+## OC — Optical focus and defocus
+
+Raised by the owner on 2026-09-23: *"the focusing parameters like focus distance is not being added for
+IR camera at all"*. Correct, in all three places it could live. `OpticsSpec` has no focus field; `psf.py`
+builds **one** kernel from a single scalar `aberration_sigma_um` and `stage.py:75` convolves the whole
+plane with it, independent of `distance_m`; and the camera prim sets `focalLength` and the apertures but
+never `focusDistance` or `fStop`, so the RTX camera is a pinhole. The cascade in `mtf.py:3` names
+`MTF_defocus`, but ADR 0059 folded it into the aberration Gaussian and `SC.4` then solved that Gaussian
+from FLIR's on-axis MTF at Nyquist — an **in-focus** figure. The one number that could have carried
+defocus is authored to mean its opposite.
+
+**This is post-process, not a render setting, and that is not a preference.** `gbuffer_isaac.py:6` —
+"the renderer is asked for geometry and ids only" — so there is no radiance image in the renderer for
+RTX depth of field to blur; enabling `fStop` would blur a distance plane and an instance id. Blurring
+temperature would be wrong anyway, because L(T) is nonlinear and the blur is an average over radiance
+(the same class of error as non-negotiable #3). The correct plane is the supersampled band radiance, and
+that is exactly where `apply_optics` already convolves. The render product is **already** created at
+supersample × native, so `distance_m` arrives on the same grid the convolution runs on.
+
+**Hopkins, not the geometric disk.** Geometric optics needs W020 > 2λ, i.e. a blur circle of 16 N λ —
+168 µm, or **14 pixels**, for a Boson at F/1.0, reached only inside 1.2 m. Every defocus this project
+will render is in the diffraction-dominated transition band, where measured at Nyquist for the Boson at
+10 m focused at infinity the three candidates give Hopkins 0.356, geometric 0.173 and a Gaussian 0.184 —
+the cheap models lose about half the contrast. Hopkins subsumes diffraction (it reduces to
+`mtf_diffraction` exactly at W020 = 0, checked to 1e-9 in `OC.2`), so it replaces the first cascade
+factor rather than multiplying onto it, and `SC.4`'s aberration sigma stays valid untouched.
+
+**Partial occlusion is bounded, not ignored.** A gather blur cannot let background leak in behind a
+defocused foreground silhouette, because a single-layer G-buffer has no behind. `OC.6`–`OC.8` attack it
+in the order that costs least: splatting fixes the outward half with no new data, the sky and sea cases
+have an **analytic** hidden layer this pipeline can evaluate exactly for zero render cost (`OC.7`), and
+only ground clutter falls back to inpainting with a measured error bound (`OC.8`).
+
+| id | what | verification (red today → green after) | deps | size | phase |
+|---|---|---|---|---|---|
+| OC.1 | **Defocus geometry.** `irsim.optics.defocus`: blur-circle diameter, W020 in waves, hyperfocal distance and the near/far DOF limits, from focal length, f-number, pitch and focus distance. Pure geometry, no kernels, no config. | Focus distance round-trips from the blur circle; c is exactly 0 at s = s_f and monotone either side; hyperfocal gives c = one pitch at both H/2 and infinity, which is the definition. Regime helper agrees that a Boson needs 168 µm of blur before geometric optics is valid. Red today: no such module. | — | S | X |
+| OC.2 | **Hopkins OTF and the band-averaged kernel bank.** The defocus OTF as its quadrature, averaged over the band response the radiometry already loads, on a W020 grid and interpolated — with `geometric` (jinc) and `gaussian` selectable beside it. | **The oracle test:** Hopkins at W020 = 0 equals `mtf_diffraction` to 1e-9. The models agree within 2 percent once W020 > 2λ and disagree by 1.9x at 0.23λ, and the test asserts **both**, so swapping them fails it. Band averaging fills the monochromatic zeros. Kernels stay non-negative and sum to 1. | OC.1 | M | X |
+| OC.3 | **Two cubes, one in focus.** A `two_depth_slab` G-buffer fixture in `conftest.py` and `scripts/focus_demo.py`, which convolves it with `OC.2`'s bank and writes stills plus a focus-sweep **video**. No config and no pipeline yet — the point is a blurred image after three steps. | Focus near: the near cube's edge width equals the in-focus PSF and the far cube's equals the predicted blur circle, both to a stated sub-pixel tolerance; focus far: they swap. Total radiance is conserved across the sweep to 1e-6. Red today: nothing in this repo can produce a defocused frame. | OC.2 | S | X |
+| OC.4 | **`FocusSpec` on `OpticsSpec`** — mode `infinity` (default), `hyperfocal` or `fixed` with its distance, plus `defocus_model` and `defocus_apply` on `FidelitySpec` so each is an ablation switch inside the config hash. | Every existing golden array **bit-identical** under the default, because infinity gives W020 = 0 gives the present diffraction kernel. Schema round-trips; the hash is unchanged for the default and changes for each switch. `hyperfocal` states its acceptable circle of confusion rather than assuming one pitch silently. | OC.2 | S | X |
+| OC.5 | **Global application.** One kernel chosen from a scene-representative range, built in `PipelineConfig.from_sensor` and passed to `apply_optics` as today. Correct where depth spread is narrow, which is the aerial lane and open sea. | The slant-edge MTF estimator already in `test_tier2_mtf.py` measures the **rendered** MTF at Nyquist and matches the predicted Hopkins value at three focus distances, inside the estimator's own sampling floor. Sky pixels stay sharp. | OC.4 | M | X |
+| OC.6 | **Layered application.** Bucket by W020, blur each layer **with its coverage mask**, composite back to front with the blurred alpha, so a defocused foreground edge is semi-transparent instead of a hard cut. Splat, not gather, for the outward half. | On the `OC.3` fixture the near cube's blurred silhouette passes background through in proportion to its blurred coverage, and the gather's hard-cut artefact is measured and shown removed. **Sky is forced to the infinity bucket via `sky_mask`**: `distance_m = 0` there, and a naive depth-to-blur map smears the whole sky. | OC.5 | L | B |
+| OC.7 | **The analytic hidden layer.** Sky and sea radiance are functions of ray direction this pipeline already evaluates, so the background behind a defocused silhouette can be **computed exactly** rather than inpainted — `SkyModel.clear_radiance` takes the elevation the G-buffer carries. No second render pass. | Against a two-layer reference built from two rendered G-buffers, the analytic fill matches inside the sky model's own tolerance, where `OC.6`'s alpha alone leaves a dark fringe. This is what makes the aerial and maritime lanes exact rather than bounded. | OC.6 | M | B |
+| OC.8 | **The clutter fallback and the error bound.** Where the hidden background is another object rather than sky or sea, fill by push-pull extrapolation from visible background neighbours, and **measure** what that costs in the occlusion band of width c/2. | The residual error in the band is reported as a number in apparent temperature against the two-layer reference, for three depth ratios, and recorded in the ADR. Red today: the plan says "bounded" and no bound exists. A second rendered depth layer is written up as the exact escape hatch and deliberately not scheduled. | OC.6 | M | C |
+| OC.9 | **`autofocus` and `track` focus modes.** Passive contrast-maximising AF over the rendered frame with a hysteresis band, and a mode that holds focus on a named prim's range. | AF converges to the prescribed range on the `OC.3` fixture within one depth-of-field, and does **not** hunt: focus distance is stable frame to frame on a static scene and lags a moving target by a stated number of frames. Red today: focus cannot change during a sequence at all. | OC.5 | M | X |
+| OC.10 | **Thermal defocus.** Germanium dn/dT is about +400e-6 per K, some 250x a visible glass, so an unathermalised IR lens walks out of focus as its housing warms. Drive W020 from the housing temperature the chain already solves, with an `athermal` switch that cancels it. | Focus drifts with `HousingTemperature` in coupled mode over a diurnal run and the defocus it produces is reported in waves; an athermalised lens holds focus across -40 to +60 C. Red today: the housing temperature is solved, used for self-emission, and never reaches the optics. | OC.4 | M | X |
 
 ---
 
