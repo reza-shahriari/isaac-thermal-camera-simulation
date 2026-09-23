@@ -35,6 +35,7 @@ from irsim.detector.params import BolometerParams, PhotonParams
 from irsim.detector.quantise import dn_max_for_bits, quantise
 from irsim.isp.display import run_display_branch
 from irsim.isp.radiometric import apparent_temperature
+from irsim.optics.defocus import scene_defocus_um
 from irsim.optics.projection import Intrinsics
 from irsim.optics.stage import apply_optics, invert_optics
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
@@ -224,7 +225,21 @@ def run_frame(
         state.housing_temp_k = housing_k
     # stage 3
     lb_housing_now = float(lut.lookup(state.housing_temp_k, q)[()])
-    flux = apply_optics(radiance_ss, sensor, lb_housing_now, supersample=k, psf=config.psf)
+    # `OC.5`: one kernel for the frame, chosen from the median range of the geometry actually in
+    # it. `config.defocus_bank` is None unless the camera names a defocus model, and then this is
+    # `config.psf` exactly as before. The G-buffer's `distance_m` is already on the k× grid -- the
+    # same grid the convolution runs on -- because the render product is created supersampled.
+    psf = config.psf
+    if config.defocus_bank is not None:
+        state.defocus_w020_um = scene_defocus_um(
+            planes["distance_m"],
+            sensor.optics.focal_length_mm,
+            sensor.optics.f_number,
+            config.focus_distance_m,
+            planes.get("sky_mask"),
+        )
+        psf = config.defocus_bank.kernel_for(state.defocus_w020_um)
+    flux = apply_optics(radiance_ss, sensor, lb_housing_now, supersample=k, psf=psf)
     # stages 4-5 (detector noise, correlated noise)
     signal = _detector_signal(flux, config, state)
     # §11.1's post-ADC half, when a chain is attached: defects, replacement, the NUC residual, the

@@ -32,7 +32,7 @@ from irsim.isp.radiometric import RadiometricCalibration
 from irsim.materials.table import MaterialTable
 from irsim.noise.electron import electron_budget
 from irsim.noise.stage import NoiseStage
-from irsim.optics.psf import optical_psf
+from irsim.optics.psf import DefocusKernelBank, optical_psf
 from irsim.radiometry.lut import BandLUT, Quantity
 from irsim.radiometry.lut_files import load_band_lut_for_config, load_band_response_for_config
 from irsim.radiometry.spectral_response import SpectralResponse
@@ -61,6 +61,12 @@ class PipelineConfig:
     sensor_seed: int
     noise_enabled: bool
     psf: NDArray[np.float64] | None  # optical PSF at the k× pitch; None = no optical blur
+    #: `OC.5`: cached defocus kernels. `None` when the camera names no defocus model, which is
+    #: every camera written before schema v10 -- and then `psf` is used exactly as before.
+    defocus_bank: DefocusKernelBank | None = None
+    #: Where the lens is focused, metres, `None` for infinity. Carried beside the bank so the
+    #: frame loop does not have to reach back into the config to compute a blur circle.
+    focus_distance_m: float | None = None
     atmosphere: Atmosphere | LayeredAtmosphere | None = None  # stage 2; None = identity
     tau_override: float | None = (
         None  # L1 fallback: constant τ, path radiance at the weather's T_air
@@ -245,6 +251,22 @@ class PipelineConfig:
                 spec.fpa.pitch_um,
                 spec.optics.supersample_factor,
             )
+        # `OC.5`. The bank is built only when a defocus model is named AND the fidelity switch
+        # allows it; otherwise `psf` stays the single in-focus kernel and nothing downstream
+        # changes -- which is what keeps every golden written before `OC` bit-identical. The
+        # in-focus path deliberately keeps `optical_psf` rather than `defocus_psf` at W020 = 0:
+        # the two agree to 7e-7 of the peak, but that is the radial-interpolation floor and not
+        # zero, and a golden refresh is not worth a code path nobody asked to change (ADR 0129).
+        defocus_bank = None
+        if psf_enabled and spec.defocus_enabled:
+            defocus_bank = DefocusKernelBank(
+                lam,
+                spec.optics.f_number,
+                spec.optics.mtf.aberration_sigma_um,
+                spec.fpa.pitch_um,
+                spec.optics.supersample_factor,
+                spec.optics.mtf.defocus_model,
+            )
         # Stage 2d's two inputs (`PH.6`). Neither is fatal to build without: a camera with no
         # response file on disk still renders everything but a plume, and a band the absorption
         # model does not reach (SWIR, NIR) gets `None` here and a clear error there rather than
@@ -274,6 +296,8 @@ class PipelineConfig:
             sensor_seed=sensor_seed,
             noise_enabled=noise_enabled,
             psf=psf,
+            defocus_bank=defocus_bank,
+            focus_distance_m=spec.focus_distance_m,
             atmosphere=atmosphere,
             tau_override=tau_override,
             sky=sky,
@@ -306,6 +330,10 @@ class PipelineState:
 
     frame_index: int = 0
     housing_temp_k: float = 300.0
+    #: `OC.5`: the W020 the last frame's global kernel carried, µm. Written by the frame loop so a
+    #: run can report how defocused it was without recomputing the median range; 0.0 means either
+    #: in focus or no defocus model.
+    defocus_w020_um: float = 0.0
     t_s: float = (
         0.0  # frame time on the scene weather's axis (Scene.t0_s + t_rel); stage 2 reads it
     )

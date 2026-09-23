@@ -11,6 +11,7 @@ from irsim.optics.defocus import (
     depth_of_field_m,
     geometric_regime_blur_um,
     hyperfocal_distance_m,
+    scene_defocus_um,
 )
 from irsim.optics.housing import HousingTemperature, HousingTempMode
 from irsim.optics.motion import BACKGROUND_OBJECT_ID, image_plane_motion, transform_points
@@ -53,6 +54,7 @@ __all__ = [
     "depth_of_field_m",
     "geometric_regime_blur_um",
     "hyperfocal_distance_m",
+    "scene_defocus_um",
     "image_plane_motion",
     "transform_points",
     "BACKGROUND_OBJECT_ID",

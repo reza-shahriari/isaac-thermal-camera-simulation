@@ -144,6 +144,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
   which camera it was. A focus distance authored with `defocus_model: none` is refused rather than
   silently ignored.
 
+- **Defocus reaches the pipeline** (`OC.5`, ADR 0129). `PipelineConfig.from_sensor` builds a
+  `DefocusKernelBank` whenever the camera names a defocus model and fidelity allows it, and stage 3
+  picks the frame's kernel from the **median** range of the geometry actually in frame — the median
+  and not the mean, because a frame that is nine tenths sky and one tenth foreground should be
+  focused for the foreground. Sky is excluded through `sky_mask`, since `distance_m = 0` there and
+  a median that counted it would defocus the frame hardest of all; a frame with no geometry takes
+  the defocus of an object at infinity, which is what it is looking at. `PipelineState` now reports
+  `defocus_w020_um`. Kernels are quantised to a quarter of a supersample cell of blur circle —
+  below what the box filter can resolve — and cached, so an unchanging scene builds one kernel and
+  a thousand-frame sequence does not pay the Hopkins quadrature a thousand times. A camera that
+  names no model gets no bank and keeps the single in-focus `optical_psf`, so every golden array is
+  bit-identical.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over

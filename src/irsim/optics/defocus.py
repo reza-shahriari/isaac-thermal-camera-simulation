@@ -32,6 +32,7 @@ __all__ = [
     "depth_of_field_m",
     "geometric_regime_blur_um",
     "hyperfocal_distance_m",
+    "scene_defocus_um",
 ]
 
 FloatArray = NDArray[np.float64]
@@ -154,3 +155,33 @@ def depth_of_field_m(
     near = s_m * (h_m - f_m) / (h_m + s_m - 2.0 * f_m)
     far = float("inf") if s_m >= h_m else s_m * (h_m - f_m) / (h_m - s_m)
     return (float(near), float(far))
+
+
+def scene_defocus_um(
+    distance_m: object,
+    focal_length_mm: float,
+    f_number: float,
+    focus_distance_m: float | None = None,
+    sky_mask: object = None,
+) -> float:
+    """The single W020 (µm) one global kernel should carry for this frame (`OC.5`).
+
+    The representative range is the **median** of the geometry in frame, not the mean: a frame that
+    is nine-tenths sky and one-tenth foreground should be focused for the foreground, and a mean
+    over a distance plane containing a horizon is dominated by whichever pixels happen to be far.
+
+    Sky is excluded by ``sky_mask``, and — belt and braces — so is any non-positive or sub-focal
+    distance, because `irsim.config.gbuffer` writes ``distance_m = 0`` on sky pixels and a median
+    that includes them is a median of the wrong population. A frame with no geometry at all takes
+    the defocus of an object at infinity, which is what it is looking at.
+    """
+    d = np.asarray(distance_m, dtype=np.float64)
+    keep = np.isfinite(d) & (d > focal_length_mm * 1e-3)
+    if sky_mask is not None:
+        keep &= ~np.asarray(sky_mask, dtype=bool)
+    representative = float(np.median(d[keep])) if np.any(keep) else 1e9
+    return float(
+        defocus_w020_um(
+            blur_circle_um(representative, focal_length_mm, f_number, focus_distance_m), f_number
+        )
+    )

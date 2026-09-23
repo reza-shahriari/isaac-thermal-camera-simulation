@@ -176,3 +176,56 @@ def defocus_psf(  # noqa: PLR0913
     if total <= 0.0:
         raise ValueError("degenerate PSF")
     return np.asarray(kernel / total, dtype=np.float64)
+
+
+class DefocusKernelBank:
+    """Cached PSF kernels on a quantised W020 grid (`OC.5`, ADR 0129).
+
+    A kernel costs a 2049-node Simpson quadrature per radial sample, which is fine once per scene
+    and not fine once per frame of a thousand-frame sequence. W020 is quantised so that the blur
+    circle it describes moves by less than a quarter of a supersample cell between neighbours --
+    below what the box filter can resolve, so the quantisation is invisible in the output -- and the
+    kernel for each quantised value is built once and kept.
+    """
+
+    def __init__(  # noqa: PLR0913
+        self,
+        wavelength_um: float,
+        f_number: float,
+        sigma_aberr_um: float,
+        pitch_um: float,
+        supersample: int = 1,
+        model: str = "hopkins",
+        band: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+    ) -> None:
+        self.wavelength_um, self.f_number = float(wavelength_um), float(f_number)
+        self.sigma_aberr_um, self.pitch_um = float(sigma_aberr_um), float(pitch_um)
+        self.supersample, self.model, self.band = int(supersample), model, band
+        sample_um = self.pitch_um / self.supersample
+        #: c = 8 F W020, so a quarter-cell step in c is this step in W020.
+        self.step_um = sample_um / (4.0 * 8.0 * self.f_number)
+        self._cache: dict[int, FloatArray] = {}
+
+    def quantise(self, w020_um: float) -> float:
+        """The grid value a request lands on -- exposed so a test can assert the step, not guess."""
+        return round(max(0.0, float(w020_um)) / self.step_um) * self.step_um
+
+    def kernel_for(self, w020_um: float) -> FloatArray:
+        key = int(round(max(0.0, float(w020_um)) / self.step_um))
+        cached = self._cache.get(key)
+        if cached is None:
+            cached = defocus_psf(
+                self.wavelength_um,
+                self.f_number,
+                key * self.step_um,
+                self.sigma_aberr_um,
+                self.pitch_um,
+                self.supersample,
+                self.model,
+                self.band,
+            )
+            self._cache[key] = cached
+        return cached
+
+    def __len__(self) -> int:
+        return len(self._cache)
