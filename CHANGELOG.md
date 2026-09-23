@@ -107,6 +107,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
   quarter-wave boundary — and **0.47 at 5 m**. Geometric optics does not become valid until 168 µm
   of blur, fourteen pixels. Nothing reads this yet; no rendered output changes.
 
+- **The defocus OTF** (`irsim.optics.mtf`, `OC.2`, ADR 0129). Hopkins' quadrature, which carries
+  diffraction and defocus in one term and equals `mtf_diffraction` at zero defocus to the 7.7e-9
+  Simpson floor — so it replaces the cascade's first factor rather than multiplying onto it, and
+  ADR 0117's in-focus aberration Gaussian is untouched. The geometric disk and a Gaussian are
+  selectable beside it for ablation; at Nyquist for a Boson at 10 m they give 0.173 and 0.203
+  against Hopkins' 0.356 and an in-focus 0.461. `bessel_j1` is the integral representation, so
+  SciPy is still not a dependency. **Two planning assumptions corrected:** the geometric rule of
+  thumb is an asymptote, not a threshold — the gap is still 0.07 at W020 = 2λ — and **defocus is
+  achromatic**, because λ cancels out of Hopkins' `a = 8π W020 s/λ` once `s = ξλF` is substituted.
+  Band averaging therefore cannot smear the defocus zeros; it is worth having for the diffraction
+  cut-off, which runs 133 to 74 cyc/mm across the LWIR band, and moves the contrast-carrying part
+  of the OTF by under 0.3 %.
+
 #### Fixed
 - **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
   `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power
