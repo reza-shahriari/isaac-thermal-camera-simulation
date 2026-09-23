@@ -528,6 +528,30 @@ def main() -> int:
         spans["skin"] = DisplaySpan(
             kind="apparent_t", low=float(cell_lo) - 0.5, high=float(cell_hi) + 0.5
         )
+        # **A third span, for the sky the aircraft is flying against**, on the outbound clip only
+        # (in the close-up the airframe is most of the frame and there is little sky to read).
+        #
+        # Neither span above reaches it. `ir` starts at the coolest airframe node and `skin` is
+        # tighter still, so cloud at 15 C and a clear zenith at -27 C both land on code 0 and the
+        # only picture carrying the sky is the camera's own AGC. That one is a plateau-
+        # equalising AGC with DDE, and on this scene it is given a frame where 60 % of the pixels
+        # sit inside half a kelvin of each other: it hands that plateau an enormous local gain,
+        # so what it draws over the cloud is amplified NETD, not cloud. Measured on
+        # `frame_000120`: 0.44 K of real spread inside the cloud came out as **43 display codes**
+        # of speckle.
+        #
+        # This span is linear over the scene's own sky-to-target range, so 60 K falls across 256
+        # codes at 0.23 K each -- four times the sensor's NETD, which puts the noise back under
+        # the quantisation where a real thermal sky image has it.
+        sky_model = probe.sky_models.get(spec.band.band_id)
+        if sky_model is not None and not args.close_up:
+            top_el = math.radians(track.elevation_deg) + 0.5 * math.radians(vfov_deg)
+            coldest = float(
+                np.min(sky_model.apparent_temperature_k(probe.t0_s, np.array([top_el])))
+            )
+            spans["sky"] = DisplaySpan(
+                kind="apparent_t", low=coldest - 2.0, high=max(float(hi_k), coldest + 10.0) + 2.0
+            )
     palette_name = args.palette or spec.isp.palette
     palette = palette_table(palette_name)
     for kind, one in spans.items():

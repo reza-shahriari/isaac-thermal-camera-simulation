@@ -49,8 +49,35 @@ working in one tree; two commits already exist whose whole subject is restoring 
   visible dome, so the pair cannot disagree about where the cloud is. The grid had to go finer
   than the survey default: half a degree is **ten pixels** through this camera and reads as
   blocks, so the driver asks for six cells per degree (~3 px, under the PSF).
+- **`clouds.optical_depth`** on the environment schema, and `configs/environments/scattered_cumulus.yaml`
+  authoring it (`AT.11`, ADR 0126). A preset now says how *deep* a cloud is, in visible optical
+  depth, and the LWIR emissivity is derived per ray from it rather than authored as one
+  transmittance. `clouds.tau` stays and every preset that authors it is bit-identical; authoring
+  both is refused, because they are two answers to one question.
+- **A third display span, `sky`**, on the outbound clip (ADR 0126). Neither existing span reaches
+  the sky — `ir` starts at the coolest airframe node — so cloud and clear zenith both landed on
+  display code 0 and the only picture carrying the sky was the camera's own AGC. The new span is
+  linear over the scene's own sky-to-target range: **63 K across 256 codes, 0.25 K each**, five
+  times the sensor's NETD. The AGC video is still written beside it.
 
 #### Fixed
+- **A cloud had no optical depth and no distance, so it rendered as one flat white level covered
+  in amplified noise** (`AT.11`, ADR 0126). Measured on `outputs/phantom3_outbound/frame_000120`:
+  **53.9 %** of a 640×512 LWIR frame sat within 0.25 K of one apparent temperature, and inside
+  that region the true spread was **0.073 K** — the sensor's own NETD and nothing else — which the
+  plateau-equalising AGC with DDE rendered as display codes **106 to 255**. Both halves of that
+  have one cause: every shipped preset authored `tau: 0.0`, so `ε = 1` for every covered ray, and
+  `L_B(T_base)` was evaluated as though the cloud were at the sensor rather than a kilometre away
+  with warmer air in front of it. Now: `ε = 1 − exp(−0.5 m τ_vis)` along a ray of airmass
+  `m = 1/sin θ`, which at the diffusivity factor *is* Shaw & Nugent's published `1 − exp(−0.79 τ)`
+  exactly (0.79 = 1.58 × 0.5); and `L = L_clear + τ(R, θ) ε [L_B(T_base) − L_beyond(R, θ)]` with
+  `R = z_base / sin θ`. The clear-sky limit is exact rather than approximate, because the layered
+  model's band transmittance and its `sky_beyond` carry the same spectral-class weights.
+  Measured, same scene and seed, preset swapped: the cloud **core** spans **1.25 K** against
+  0.000 K, transmittance to the base runs 0.68 → 0.49 from the top of the frame to the bottom, and
+  73 mK of NETD occupies **0.3 of one display code** instead of 149. Named and not fixed: a
+  plane-parallel deck still has no *sides*, so an optically thick core is flat to within a kelvin
+  — that needs a cloud with a third dimension (`AT.12`).
 - **A cloud was a stencil, and it rendered as flat blobs in both bands** (ADR 0125).
   `SkyFixedCloud.sample` returned a boolean, so every covered texel got one flat value and every
   cloud had a one-sample cliff round it — no thin edges, no internal structure, and in LWIR a step

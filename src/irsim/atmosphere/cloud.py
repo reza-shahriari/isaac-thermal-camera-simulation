@@ -8,16 +8,22 @@ No cloud section exists in the spec; §5.3(a) only says T_sky → T_air under ov
   (RH = 1) puts the base at the surface, so a thick overcast reads T_air (§5.3 a).
 * **Base temperature** by the environmental lapse rate of the atmosphere preset,
   T_base = T_air − Γ z_LCL (the cloud is in equilibrium with its surroundings).
-* **Radiance** of a cloud pixel: ε_cloud L_B(T_base) + τ_cloud L_clear(θ), with τ_cloud authored
-  in the environment preset and ε_cloud = 1 − τ_cloud derived (thick → ε = 1; the clear column
-  emission stays behind thin cloud). Per band through the LUT.
+* **Radiance** of a cloud pixel, two ways, chosen by what the environment preset authors:
+
+  - ``tau:`` -- the original. ε_cloud L_B(T_base) + τ_cloud L_clear(θ), ε_cloud = 1 − τ_cloud
+    derived. One opacity for every cloud, and the cloud sits at zero range.
+  - ``optical_depth:`` -- ADR 0126, and what a scene should author now. The cloud has a *visible
+    optical depth*, its LWIR emissivity follows ε = 1 − exp(−0.5 m τ_vis) along a ray of airmass
+    m (:func:`cloud_emissivity`, :func:`cloud_airmass`), and it sits at the LCL, so the kilometres
+    of air in front of it attenuate its excess over the clear sky
+    (:func:`cloud_radiance_at_range`). Anchored on Shaw & Nugent 2013 (Eur. J. Phys. 34 S111).
 * **Spatial structure** from a seeded Gaussian 1/f^β field (power spectral density ∝ f^{−β}) on
   the image plane, thresholded at the (1 − c) quantile so exactly the weather's cloud fraction c
   is covered. The generator is a fixture for clutter statistics, not a cloud simulation; its PSD
   slope is verified by a self-test and the ME.5 display-domain bands are the only physical bound
   (deferred until the evaluation lane lands them).
 
-docs/physics-model.md §5.3(a); ADR 0070
+docs/physics-model.md §5.3(a); ADR 0070, ADR 0125, ADR 0126
 """
 
 from __future__ import annotations
@@ -43,6 +49,13 @@ __all__ = [
     "generate_cloud_field",
     "psd_slope",
     "cloud_radiance",
+    "CLOUD_OD_RATIO",
+    "DIFFUSIVITY_FACTOR",
+    "OPAQUE_OPTICAL_DEPTH",
+    "CLOUD_AIRMASS_FLOOR_DEG",
+    "cloud_emissivity",
+    "cloud_airmass",
+    "cloud_radiance_at_range",
 ]
 
 ESPY_M_PER_K = 125.0  # z_LCL / (T - T_dew), Espy's rule (Lawrence 2005)
@@ -176,6 +189,126 @@ def cloud_radiance(
     return np.asarray(
         np.where(d >= 1.0, cloudy, np.where(d <= 0.0, clear, blend)), dtype=np.float64
     )
+
+
+#: A water cloud's absorption optical depth in the sensing band, as a fraction of the extinction
+#: optical depth the preset authors (which is at 0.55 um, where cloud optical depth is
+#: conventionally quoted). Shaw & Nugent 2013 (Eur. J. Phys. 34 S111) §4: "the LWIR cloud OD is
+#: estimated as half the visible cloud OD", citing the droplet-size-distribution results of their
+#: refs 29-30.
+#:
+#: **This is a per-band quantity carried as one number**, and the 0.5 is measured for the 8-14 um
+#: window only. It is a default rather than a constant precisely so a band that needs its own
+#: ratio passes one, instead of this module growing a band table -- but until a scene does, a
+#: non-thermal band using it is ESTIMATED and says so here rather than in a docstring nobody
+#: reads. Deriving the ratio per band from droplet Mie theory is not in scope; measuring it is.
+CLOUD_OD_RATIO = 0.5
+
+#: Elsasser diffusivity factor: the effective slant path of *hemispherically integrated* flux
+#: through a plane-parallel layer, 1/cos(53 deg) ~ 5/3, conventionally 1.58-1.66. It is what
+#: separates a flux from a ray here, and it is the reason the published emissivity relation
+#: carries the number it does -- see :func:`cloud_emissivity`.
+DIFFUSIVITY_FACTOR = 1.58
+
+#: Visible optical depth beyond which a cloud emits as a blackbody in the LWIR window and its OD
+#: can no longer be retrieved from a radiance measurement. Shaw & Nugent 2013 §4: "The cloud OD
+#: can be estimated from ICI images up to a value of approximately 4." At 4 the ray emissivity is
+#: 0.865 and the flux emissivity 0.958, so the last of the contrast really has gone by then.
+OPAQUE_OPTICAL_DEPTH = 4.0
+
+#: Elevation below which the plane-parallel airmass 1/sin(theta) stops being used, in degrees.
+#: A flat deck's airmass diverges at the horizon and the Earth's curvature bounds it long before
+#: that; the cap matters little radiometrically, because the transmittance to a deck that far away
+#: has already gone to zero, but an unbounded 1/sin overflows on the horizon row of a frame.
+CLOUD_AIRMASS_FLOOR_DEG = 1.5
+
+
+def cloud_emissivity(
+    optical_depth: Any, path_factor: float = DIFFUSIVITY_FACTOR
+) -> NDArray[np.float64]:
+    """LWIR emissivity of a cloud of visible optical depth ``tau_vis``.
+
+    ``eps = 1 - exp(-path_factor * CLOUD_OD_RATIO * tau_vis)``: Beer-Lambert on the cloud's
+    own LWIR absorption depth, which is half its visible one, along a path ``path_factor`` times
+    the vertical.
+
+    The default ``path_factor`` is the diffusivity factor, and at that value this **is** the
+    published relation: Shaw & Nugent 2013 §4 give the LWIR emissivity of a thin cloud as
+    ``1 - exp(-0.79 tau)``, and 0.79 = 1.58 x 0.5 exactly. That number is quoted for a
+    hemispherically integrated flux, so a *ray* wants its own airmass instead
+    (:func:`cloud_airmass`) and the decomposition is what lets one function serve both.
+
+    This replaces authoring a transmittance directly. A cloud does not have one opacity: it has a
+    liquid water path, which varies across it and along the ray through it, and the emissivity
+    that follows saturates exponentially rather than switching. Authoring ``tau_cloud`` made every
+    covered pixel identical, which is what a rendered sky full of flat white blobs looks like.
+
+    docs/physics-model.md has no cloud section (§5.3(a) only says T_sky -> T_air under overcast);
+    ADR 0126.
+    """
+    tau = np.asarray(optical_depth, dtype=np.float64)
+    if np.any(tau < 0.0):
+        raise ValueError("a visible optical depth cannot be negative")
+    if path_factor <= 0.0:
+        raise ValueError("the path factor must be positive")
+    return np.asarray(1.0 - np.exp(-path_factor * CLOUD_OD_RATIO * tau), dtype=np.float64)
+
+
+def cloud_airmass(
+    elevation_rad: Any, floor_deg: float = CLOUD_AIRMASS_FLOOR_DEG
+) -> NDArray[np.float64]:
+    """Slant path through a plane-parallel deck as a multiple of its thickness: ``1 / sin(theta)``.
+
+    Clamped below ``floor_deg`` (see :data:`CLOUD_AIRMASS_FLOOR_DEG`). This is the *ray* factor
+    that :func:`cloud_emissivity` takes in place of the diffusivity default, and it is why a bank
+    seen edge-on low in the frame is opaque where the same bank overhead is not.
+    """
+    el = np.asarray(elevation_rad, dtype=np.float64)
+    floor = math.radians(float(floor_deg))
+    return np.asarray(1.0 / np.sin(np.clip(np.abs(el), floor, 0.5 * math.pi)), dtype=np.float64)
+
+
+def cloud_radiance_at_range(
+    l_clear: Any, l_beyond: Any, transmittance: Any, l_base: Any, emissivity: Any
+) -> NDArray[np.float64]:
+    """Sky radiance with a cloud deck at a **finite range**, not painted on the sky at zero range.
+
+    ``L = L_clear + tau(R) eps (L_B(T_base) - L_beyond(R))``, where ``tau(R)`` is the band
+    transmittance from the sensor to the cloud base along the ray and ``L_beyond(R)`` is the
+    column's own emission from the base outwards as seen *from* the base
+    (:meth:`~irsim.atmosphere.layered.LayeredAtmosphere.sky_beyond`). It is exact rather than a
+    blend: inserting an emitter of emissivity ``eps`` at range R gives
+    ``L_path(R) + tau(R) [eps L_base + (1 - eps) L_beyond]``, and ``L_clear = L_path(R) +
+    tau(R) L_beyond`` by the definition of ``L_beyond``, so the two differ by exactly this term.
+
+    **Why the range matters more than it sounds.** Without it a cloud reads ``L_B(T_base)`` at
+    every elevation, so every opaque pixel in a frame carries one identical value -- measured on a
+    rendered 640x512 aerial frame, 55 % of the pixels fell inside a single 2.3 K histogram bin.
+    With it, the cloud's excess over the clear sky is attenuated by the kilometres of air in front
+    of it, which vary as 1/sin(theta), and the strongest spatial structure in the frame becomes
+    the limb gradient rather than the cloud -- which is what a calibrated all-sky LWIR image
+    actually shows (Shaw & Nugent 2013, figure 7(a): "the overall spatial pattern in this image is
+    dominated by the variation of atmospheric path length with angle from the zenith").
+
+    ``l_base`` may be a scalar or an array: one temperature for a plane-parallel deck, or one
+    per ray once the cloud has a top and the emitting level varies (AT.12).
+
+    ``eps = 0`` returns ``l_clear`` bit for bit, so a clear ray is untouched by construction.
+
+    ADR 0126.
+    """
+    clear = np.asarray(l_clear, dtype=np.float64)
+    beyond = np.asarray(l_beyond, dtype=np.float64)
+    tau = np.asarray(transmittance, dtype=np.float64)
+    eps = np.asarray(emissivity, dtype=np.float64)
+    if np.any(eps < 0.0) or np.any(eps > 1.0):
+        raise ValueError("cloud emissivity must lie in [0, 1]")
+    if np.any(tau < 0.0) or np.any(tau > 1.0):
+        raise ValueError("transmittance to the cloud base must lie in [0, 1]")
+    # `l_base` is a scalar for a plane-parallel deck, whose one base temperature every ray
+    # reads, and an array once the deck has a top and each ray emits from its own level (AT.12).
+    excess = tau * eps * (np.asarray(l_base, dtype=np.float64) - beyond)
+    return np.asarray(np.where(eps > 0.0, clear + excess, clear), dtype=np.float64)
 
 
 def sky_angles(

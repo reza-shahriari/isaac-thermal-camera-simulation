@@ -41,7 +41,7 @@ scene:
   description: "A DJI Phantom 3 filmed from the ground, 6 m to 80 m, point-wise, broken cumulus"
   weather_file: weather/scattered_cumulus_48h.csv
   atmosphere_preset: us_standard_clear
-  environment_preset: clear_dry
+  environment_preset: scattered_cumulus
   site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
   start_utc: "2024-06-21T07:30:00Z"
   # Stage axes against the compass: +Y up, -Z north. The aircraft's nose is along -Z too, so it

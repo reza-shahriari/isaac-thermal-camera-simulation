@@ -22,8 +22,16 @@ def _raw() -> dict:  # type: ignore[type-arg]
 
 
 def test_presets_load_and_share_band_keys() -> None:
-    # sea_clear_day (MM.5) differs from clear_dry only below the horizon: ground.mode 'sea'.
-    assert available_environments() == ("clear_dry", "humid", "overcast", "sea_clear_day")
+    # sea_clear_day (MM.5) differs from clear_dry only below the horizon: ground.mode 'sea';
+    # scattered_cumulus (AT.11) differs from it only in the clouds block, which authors an
+    # optical depth rather than a transmittance.
+    assert available_environments() == (
+        "clear_dry",
+        "humid",
+        "overcast",
+        "scattered_cumulus",
+        "sea_clear_day",
+    )
     presets = [load_environment_preset(n) for n in available_environments()]
     keys = {frozenset(p.sky.delta_t_clear_k) for p in presets}
     assert keys == {frozenset({"lwir", "mwir", "swir", "nir"})}

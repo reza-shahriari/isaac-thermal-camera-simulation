@@ -50,7 +50,9 @@ __all__ = [
     "available_environments",
 ]
 
-ENVIRONMENT_SCHEMA_VERSION = 2  # v2: optional clouds block (MS.3)
+# v2: optional clouds block (MS.3). `clouds.optical_depth` (ADR 0126) is additive within v2:
+# a preset that does not author it keeps the `tau` model bit for bit, so nothing to bump.
+ENVIRONMENT_SCHEMA_VERSION = 2
 ENVIRONMENT_DIR = pathlib.Path(__file__).resolve().parents[3] / "configs" / "environments"
 Regime = Literal["clear", "humid", "overcast"]
 # §5.3: zenith clear-sky depression in the LWIR window by regime (kelvin)
@@ -161,17 +163,58 @@ class NightSpec(_Frozen):
 
 
 class CloudSpec(_Frozen):
-    """Cloud clutter (MS.3, ADR 0070): τ_cloud authored (0 = thick, ε_cloud = 1 − τ derived), the
-    1/f^β spectral slope of the spatial structure, and bounds on the LCL base height. The cloud
-    fraction itself is weather (WeatherSeries.cloud_fraction), never authored here."""
+    """Cloud clutter (MS.3, ADR 0070): the 1/f^β spectral slope of the spatial structure, bounds
+    on the LCL base height, and the cloud's opacity **one way or the other**. The cloud fraction
+    itself is weather (WeatherSeries.cloud_fraction), never authored here.
+
+    Two ways to say how opaque a cloud is, and a preset picks exactly one (ADR 0126):
+
+    * ``optical_depth`` -- the cloud's **visible** optical depth at full depth. What a scene
+      should author. The LWIR emissivity is derived from it by
+      :func:`~irsim.atmosphere.cloud.cloud_emissivity` and varies along the ray, so a cloud thins
+      toward its edges and low cloud is more opaque than the same cloud overhead. Fair-weather
+      cumulus run roughly 5-20; stratocumulus higher; thin cirrus below 1. Anything past
+      :data:`~irsim.atmosphere.cloud.OPAQUE_OPTICAL_DEPTH` is a blackbody and indistinguishable.
+    * ``tau`` -- the original: one transmittance for the whole cloud, ε = 1 − τ. Every covered
+      pixel then carries the same radiance, which renders as flat blobs. Kept so that every scene
+      authored before ADR 0126 is bit-identical, not because it is the better model.
+
+    Authoring both is refused rather than silently resolved: they are two answers to one question.
+    """
 
     tau: float = Field(default=0.0, ge=0.0, le=0.99)
+    #: Visible optical depth at full cloud depth. ``None`` selects the ``tau`` model above.
+    optical_depth: float | None = Field(default=None, gt=0.0, le=200.0)
     beta: float = Field(default=1.8, ge=0.5, le=4.0)
     min_base_m: float = Field(default=0.0, ge=0.0)  # 0: saturated air puts the base at the surface
     max_base_m: float = Field(default=8000.0, gt=0.0)
 
+    @model_validator(mode="after")
+    def _one_opacity(self) -> CloudSpec:
+        if self.optical_depth is not None and "tau" in self.model_fields_set:
+            raise ValueError(
+                "author clouds.optical_depth (visible OD, ADR 0126) or clouds.tau (one "
+                "transmittance, ADR 0070), not both -- they are two answers to one question"
+            )
+        return self
+
     @property
     def emissivity(self) -> float:
+        """ε = 1 − τ, the ``tau`` model's one emissivity.
+
+        **Raises** when ``optical_depth`` is authored, rather than returning 1 − 0 = 1 and letting
+        a caller render an opaque cloud from a preset that asked for a thin one. The emissivity is
+        then not a property of the preset at all: it depends on the ray, so it belongs to
+        :func:`~irsim.atmosphere.cloud.cloud_emissivity` and the caller must go there with an
+        airmass. (Same shape as ``Scene.atmosphere`` after AT.5, and for the same reason.)
+        """
+        if self.optical_depth is not None:
+            raise AttributeError(
+                "this preset authors clouds.optical_depth, so the cloud has no single emissivity "
+                "-- it depends on the slant path. Use irsim.atmosphere.cloud.cloud_emissivity("
+                "optical_depth, path_factor) with cloud_airmass(elevation) for a ray, or the "
+                "DIFFUSIVITY_FACTOR default for a flux."
+            )
         return 1.0 - self.tau
 
 

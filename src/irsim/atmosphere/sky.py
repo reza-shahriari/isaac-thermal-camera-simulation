@@ -14,9 +14,17 @@ L_clear,B(θ) = L_path,B(∞, θ). One object serves both paths (ADR 0035):
 
 Cloud (MS.3, ADR 0070): with cloud fraction c from the shared WeatherSeries, the base at the
 lifting condensation level of the same weather and T_base by the preset's lapse rate, the
-blend is L_sky = (1 − c ε) L_clear + c ε L_B(T_base), ε = 1 − τ_cloud (thick → ε = 1; at c = 1
-the sky is L_B(T_base) at every angle and tilt; with RH = 1 the base is at the surface and the sky
-reads T_air). ``radiance_field`` adds the seeded 1/f^β structure per pixel.
+blend is L_sky = (1 − c ε) L_clear + c ε L_B(T_base) (at c = 1 the sky is L_B(T_base) at every
+angle and tilt; with RH = 1 the base is at the surface and the sky reads T_air).
+``radiance_field`` adds the seeded 1/f^β structure per pixel.
+
+Where ε comes from is the preset's choice (ADR 0126). ``clouds.tau`` gives one ε = 1 − τ for every
+cloud at zero range — the original, kept bit-identical. ``clouds.optical_depth`` gives the cloud a
+*visible optical depth* instead: the flux quantities (``radiance``, ``effective_radiance``) take
+its diffusivity-weighted emissivity, and the **image** path (``radiance_field``) takes the ray's
+own slant emissivity and puts the cloud at the LCL, so the air in front of it attenuates its
+excess over the clear sky as 1/sin θ. That last part is what stops every opaque pixel in a frame
+carrying one identical value.
 
 The spec's T_sky = T_air − ΔT (1 − c) cos^q(θ_zen) (§5.3 a) is **not authored** here: ``fit_cos_q``
 derives (ΔT, q) from the layered model and reports the fit error, and ADR 0044 records that the
@@ -26,7 +34,7 @@ as a saturating column, not as a power of cos θ_zen), so the elevation LUT is t
 Constructor takes the LayeredAtmosphere (which holds the one WeatherSeries) and exposes it as
 ``.weather`` for the Scene's identity check; a scalar air temperature is refused (CLAUDE.md #6).
 
-docs/physics-model.md §5.3(a), §7.1
+docs/physics-model.md §5.3(a), §7.1; ADR 0126
 """
 
 from __future__ import annotations
@@ -40,9 +48,13 @@ from numpy.typing import NDArray
 from scipy.optimize import least_squares
 
 from irsim.atmosphere.cloud import (
+    DIFFUSIVITY_FACTOR,
     CloudField,
+    cloud_airmass,
     cloud_base_temperature_k,
+    cloud_emissivity,
     cloud_radiance,
+    cloud_radiance_at_range,
     generate_cloud_field,
     lifting_condensation_level_m,
 )
@@ -118,6 +130,8 @@ class SkyModel:
                 "with the wrong brightness"
             )
         self._cache: dict[float, tuple[NDArray[np.float64], NDArray[np.float64]]] = {}
+        #: (tau to the cloud base, L beyond it) on the elevation grid; see `_cloud_path`.
+        self._path_cache: dict[float, tuple[NDArray[np.float64], NDArray[np.float64]]] = {}
 
     # -- identity -------------------------------------------------------------------------
     @property
@@ -183,14 +197,64 @@ class SkyModel:
         lapse = self._atm.preset.profile.lapse_rate_k_per_m
         return cloud_base_temperature_k(sample.t_air_k, self.cloud_base_m(t_s), lapse)
 
+    def _flux_emissivity(self) -> float:
+        """The cloud's emissivity to a **hemispherically integrated flux**, which is what the
+        uniform blend in :meth:`radiance` and :meth:`effective_radiance` needs.
+
+        For an ``optical_depth`` preset this is Shaw & Nugent's published ``1 − exp(−0.79 τ_vis)``
+        exactly, because the diffusivity factor is the flux's own airmass. For a ``tau`` preset it
+        is the authored ``1 − τ``, unchanged.
+        """
+        clouds = self._env.clouds
+        if clouds.optical_depth is None:
+            return float(clouds.emissivity)
+        return float(cloud_emissivity(clouds.optical_depth, DIFFUSIVITY_FACTOR)[()])
+
     def _cloud(self, t_s: float) -> tuple[float, float]:
-        """(effective covered fraction c (1 − τ), the cloud's own radiance L_B(T_base))."""
+        """(effective covered fraction c ε, the cloud's own radiance L_B(T_base))."""
         sample = self.weather.at(t_s)
-        eps = self._env.clouds.emissivity
         l_base = float(
             self._lut.lookup(np.float64(self.cloud_base_temperature_k(t_s)), self._q)[()]
         )
-        return sample.cloud_fraction * eps, l_base
+        return sample.cloud_fraction * self._flux_emissivity(), l_base
+
+    def _cloud_path(self, t_s: float) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """``(τ(0 → base, θ), L_beyond(base, θ))`` on the elevation grid, cached per time.
+
+        The slant range to a plane-parallel deck at ``z_base`` is ``z_base / sin θ``, so both
+        quantities are functions of elevation alone and go on the same 0.5° grid the clear-sky
+        radiance already uses. 181 evaluations of the layered model per time step, once.
+
+        ``L_beyond`` is the column emission from the base outwards *as seen from the base*, which
+        is exactly what an opaque cloud occults; it is the layered model's own ``sky_beyond`` and
+        not an approximation of it, so a cloud of emissivity 0 returns the clear sky identically.
+        """
+        key = float(t_s)
+        if key not in self._path_cache:
+            base_m = self.cloud_base_m(key)
+            tau = np.empty(ELEVATION_GRID_DEG.size)
+            beyond = np.empty(ELEVATION_GRID_DEG.size)
+            for i, deg in enumerate(ELEVATION_GRID_DEG):
+                el = max(math.radians(float(deg)), ELEVATION_FLOOR_RAD)
+                # A base at the surface (saturated air) is the overcast limit: the cloud is at
+                # zero range, nothing attenuates it, and this reduces to the old behaviour.
+                slant = base_m / math.sin(el) if base_m > 0.0 else 0.0
+                # The band transmittance Sum_k w_k tau_k, paired with `sky_beyond`'s tau_k-weighted
+                # mean: the two are built so that L_path(R) + tau_band L_beyond = L_clear holds
+                # **exactly** (both sides are Sum_k w_k L_sky,k), so eps = 0 and eps = 1 are exact
+                # and the k-distribution approximation only enters in between.
+                tau[i] = (
+                    float(self._atm.transmittance(self._band, key, slant, el)[()])
+                    if slant > 0.0
+                    else 1.0
+                )
+                beyond[i] = (
+                    self._atm.sky_beyond(self._band, key, slant, el, self._q)
+                    if slant > 0.0
+                    else self._atm.sky_radiance(self._band, key, el, self._q)
+                )
+            self._path_cache[key] = (tau, beyond)
+        return self._path_cache[key]
 
     def cloud_field(self, t_s: float, shape: tuple[int, int], seed: int) -> CloudField:
         """The seeded 1/f^β structure covering the weather's cloud fraction of an image plane."""
@@ -198,16 +262,44 @@ class SkyModel:
             shape, self._env.clouds.beta, self.weather.at(t_s).cloud_fraction, seed
         )
 
+    def cloud_ray_emissivity(self, elevation_rad: Any, density: Any) -> NDArray[np.float64]:
+        """LWIR emissivity of the cloud along each ray, from its visible OD and the ray's airmass.
+
+        Only defined for an ``optical_depth`` preset; a ``tau`` preset has one emissivity and no
+        ray dependence, and :attr:`CloudSpec.emissivity` is the answer there.
+        """
+        optical_depth = self._env.clouds.optical_depth
+        if optical_depth is None:
+            raise ValueError(
+                "this environment preset authors clouds.tau, which has no per-ray emissivity"
+            )
+        d = np.asarray(density, dtype=np.float64)
+        return cloud_emissivity(optical_depth * d * cloud_airmass(elevation_rad), 1.0)
+
     def radiance_field(self, t_s: float, elevation_rad: Any, density: Any) -> NDArray[np.float64]:
         """Per-pixel sky radiance with structured cloud.
 
         ``density`` is `SkyFixedCloud.density`'s 0-to-1 depth along each ray, or a boolean
-        coverage mask, which is that quantity at its two ends. A ray at full depth reads
-        ``ε L_B(T_base) + τ L_clear`` exactly as it always did.
+        coverage mask, which is that quantity at its two ends.
+
+        Which model runs is the preset's choice (ADR 0126). Under ``clouds.tau`` a ray at full
+        depth reads ``ε L_B(T_base) + τ L_clear`` exactly as it always did. Under
+        ``clouds.optical_depth`` the emissivity comes from the ray's own slant optical depth and
+        the cloud is placed at the LCL, so the air in front of it attenuates it.
         """
         clear = self.clear_radiance(t_s, elevation_rad)
         _, l_base = self._cloud(t_s)
-        return cloud_radiance(clear, l_base, self._env.clouds.tau, density)
+        if self._env.clouds.optical_depth is None:
+            return cloud_radiance(clear, l_base, self._env.clouds.tau, density)
+        deg = np.degrees(np.asarray(elevation_rad, dtype=np.float64))
+        tau_grid, beyond_grid = self._cloud_path(t_s)
+        return cloud_radiance_at_range(
+            clear,
+            np.interp(deg, ELEVATION_GRID_DEG, beyond_grid),
+            np.interp(deg, ELEVATION_GRID_DEG, tau_grid),
+            l_base,
+            self.cloud_ray_emissivity(elevation_rad, density),
+        )
 
     def apparent_temperature_field(
         self, t_s: float, elevation_rad: Any, density: Any

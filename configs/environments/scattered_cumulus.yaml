@@ -1,0 +1,31 @@
+# Environment preset: clear air with fair-weather cumulus (docs/physics-model.md section 5.3-5.5,
+# ADR 0126). Illumination-model settings only; the cloud *fraction*, humidity and temperature come
+# from the WeatherSeries (CLAUDE.md #6) -- this preset says only how opaque a cloud is and how its
+# structure is distributed.
+#
+# Between the clouds the air is the same clear dry column as `clear_dry`, which is what SCT (3-4
+# oktas) means: the gaps are clear sky, not haze. Only the `clouds` block differs.
+schema_version: 2
+environment:
+  name: scattered_cumulus
+  description: "Clear air with fair-weather cumulus: visible OD 12 at full depth, base at the LCL"
+  regime: clear
+  sky:
+    delta_t_clear_k: {lwir: 62.0, mwir: 15.0, swir: 0.0, nir: 0.0}   # section 5.3: 55-70 K LWIR
+    q: 0.75
+  ground: {mode: air}
+  solar: {enabled: true, glint_model: specular}
+  night:
+    airglow_irradiance_nw_cm2: 10.0       # section 5.5 default (range 3.5-39)
+    airglow_shape_file: null
+    k_cloud: 0.5
+    moon: {enabled: true, phase_fraction: 0.5}
+  clouds:
+    # Visible optical depth at full cloud depth. ESTIMATED from the published range for continental
+    # fair-weather cumulus (roughly 5-20; stratocumulus higher, cirrus below 1); 12 sits mid-range.
+    # The LWIR emissivity follows from it -- 1 - exp(-0.79 x 12) = 0.9999 for a flux through the
+    # core, but the *edges* fall off exponentially and a ray low in the frame sees more cloud than
+    # the same ray overhead. Past OD ~4 a cloud is a blackbody and its depth is unrecoverable from
+    # a radiance measurement (Shaw & Nugent 2013), so the number only matters near the fringe.
+    optical_depth: 12.0
+    beta: 1.8                              # 1/f^1.8 spatial structure (MS.3)
