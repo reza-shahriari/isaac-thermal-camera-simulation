@@ -32,7 +32,13 @@ from numpy.typing import NDArray
 from irsim.optics.defocus import blur_circle_um, defocus_w020_um
 from irsim.optics.psf import DefocusKernelBank, apply_psf
 
-__all__ = ["DEFAULT_MAX_LAYERS", "depth_layers", "layered_defocus"]
+__all__ = [
+    "DEFAULT_MAX_LAYERS",
+    "depth_layers",
+    "estimate_background",
+    "layered_defocus",
+    "push_pull_fill",
+]
 
 FloatArray = NDArray[np.float64]
 
@@ -129,7 +135,11 @@ def layered_defocus(  # noqa: PLR0913
     weight are scaled alike and the quotient is the field.
 
     ``background_radiance`` (`OC.7`) removes the guess where the answer is known. It is the
-    radiance of each pixel's ray **with all geometry removed** -- for a sky or sea background that
+    backmost layer **completed**: the radiance each pixel's ray would report with everything in
+    front of that layer removed, so it carries both what the layer shows where it is visible and
+    what it would show where a nearer layer hides it. It therefore **replaces** the backmost layer
+    in the composite rather than sitting behind it. For a scene whose backdrop is sky or sea that is
+    the radiance of each ray with all geometry removed -- for a sky or sea background that
     is an analytic function of ray direction this pipeline already evaluates, so it costs no second
     render pass and it is exact. Given it, the composite starts from an opaque backmost layer
     carrying the true background, the accumulated weight stays 1, and the normalisation above
@@ -152,22 +162,30 @@ def layered_defocus(  # noqa: PLR0913
         # only where sky is visible. Seeding the composite with it as a fully opaque backmost layer
         # fills the occlusion gap with the truth, and the accumulated weight then stays 1 -- the
         # normalisation below becomes the identity rather than a guess.
-        colour = np.broadcast_to(np.asarray(background_radiance, dtype=np.float64), x.shape).astype(
-            np.float64
+        #
+        # It is **blurred first**, with the backmost layer's kernel. The background is a scene
+        # plane like any other and the lens defocuses it too; seeding it sharp leaves the hidden
+        # region -- the only place the seed survives, since a layer covers it everywhere else --
+        # carrying an unblurred background inside an otherwise blurred frame. The error is
+        # invisible wherever the hidden background is locally uniform, which is why it took a scene
+        # with structure hidden *entirely* behind the foreground to surface it (`OC.8`).
+        background = np.broadcast_to(
+            np.asarray(background_radiance, dtype=np.float64), x.shape
+        ).astype(np.float64)
+        colour = apply_psf(
+            background,
+            _kernel_for_layer(bank, layers[0][1], focal_length_mm, f_number, focus_distance_m),
         )
         weight = np.ones(x.shape, dtype=np.float64)
+        # The background plane is the backmost layer, *completed* -- it already carries what that
+        # layer shows where it is visible as well as what it would show where the foreground hides
+        # it. Compositing the layer as well would count its visible part twice, which is a real
+        # 1.5 K error and not a rounding one (`OC.8`).
+        layers = layers[1:]
     for mask, representative_m in layers:
-        if np.isinf(representative_m):
-            c_um = (
-                0.0
-                if focus_distance_m is None
-                else float(blur_circle_um(1e9, focal_length_mm, f_number, focus_distance_m))
-            )
-        else:
-            c_um = float(
-                blur_circle_um(representative_m, focal_length_mm, f_number, focus_distance_m)
-            )
-        kernel = bank.kernel_for(float(defocus_w020_um(c_um, f_number)))
+        kernel = _kernel_for_layer(
+            bank, representative_m, focal_length_mm, f_number, focus_distance_m
+        )
         cover = mask.astype(np.float64)
         premultiplied = apply_psf(np.asarray(x, dtype=np.float64) * cover, kernel)
         alpha = np.clip(apply_psf(cover, kernel), 0.0, 1.0)
@@ -175,3 +193,106 @@ def layered_defocus(  # noqa: PLR0913
         weight = alpha + weight * (1.0 - alpha)
     out = np.divide(colour, weight, out=np.zeros_like(colour), where=weight > 1e-12)
     return np.asarray(out, dtype=x.dtype)
+
+
+def _kernel_for_layer(
+    bank: DefocusKernelBank,
+    representative_m: float,
+    focal_length_mm: float,
+    f_number: float,
+    focus_distance_m: float | None,
+) -> FloatArray:
+    """The kernel a layer at ``representative_m`` earns; ``inf`` is an object at infinity."""
+    if np.isinf(representative_m):
+        c_um = (
+            0.0
+            if focus_distance_m is None
+            else float(blur_circle_um(1e9, focal_length_mm, f_number, focus_distance_m))
+        )
+    else:
+        c_um = float(blur_circle_um(representative_m, focal_length_mm, f_number, focus_distance_m))
+    return bank.kernel_for(float(defocus_w020_um(c_um, f_number)))
+
+
+def push_pull_fill(
+    values: NDArray[np.floating], known: NDArray[np.bool_], levels: int = 8
+) -> FloatArray:
+    """Fill ``~known`` by push-pull extrapolation from the known neighbourhood (`OC.8`).
+
+    The classic pyramid fill: average value and coverage down by 2 until the hole is smaller than a
+    cell (*push*), then walk back up substituting the coarser estimate wherever coverage is still
+    missing (*pull*). It is smooth, needs no iteration count to converge, and costs O(N).
+
+    This is the **fallback**, for where `OC.7`'s analytic background does not exist -- ground
+    clutter, where the thing behind the foreground is another object nobody rendered. It is an
+    estimate and is measured as one: `test_occlusion_bound.py` reports what it costs in apparent
+    temperature against a two-layer reference, beside what `OC.6`'s normalisation costs and what
+    `OC.7` costs where it applies.
+    """
+    v = np.asarray(values, dtype=np.float64)
+    w = np.asarray(known, dtype=np.float64)
+    if v.shape != w.shape:
+        raise ValueError("values and known must have the same shape")
+    pyramid = [(v * w, w)]
+    for _ in range(max(0, levels - 1)):
+        num, den = pyramid[-1]
+        if min(num.shape) <= 2:
+            break
+        pyramid.append((_halve(num), _halve(den)))
+    filled_num, filled_den = pyramid[-1]
+    for num, den in reversed(pyramid[:-1]):
+        up_num = _double(filled_num, num.shape)
+        up_den = _double(filled_den, den.shape)
+        gap = den <= 0.0
+        filled_num = np.where(gap, up_num, num)
+        filled_den = np.where(gap, up_den, den)
+    out = np.divide(filled_num, filled_den, out=np.zeros_like(filled_num), where=filled_den > 1e-12)
+    return np.asarray(np.where(known, v, out))
+
+
+def _halve(a: FloatArray) -> FloatArray:
+    """2x2 box decimation, padding an odd edge by replication so no sample is dropped."""
+    h, w = a.shape
+    a = a[: h - h % 2, : w - w % 2] if (h % 2 or w % 2) else a
+    return np.asarray(a.reshape(a.shape[0] // 2, 2, a.shape[1] // 2, 2).mean(axis=(1, 3)))
+
+
+def _double(a: FloatArray, shape: tuple[int, ...]) -> FloatArray:
+    """Nearest-neighbour upsample to exactly ``shape``.
+
+    ``_halve`` drops an odd last row or column, so doubling can land one short; the edge is
+    replicated rather than left unfilled, which would otherwise put a zero-coverage stripe down the
+    side of any frame with an odd dimension at some pyramid level.
+    """
+    out = np.repeat(np.repeat(a, 2, axis=0), 2, axis=1)
+    out = out[: shape[0], : shape[1]]
+    if out.shape[0] < shape[0]:
+        out = np.vstack([out, np.repeat(out[-1:], shape[0] - out.shape[0], axis=0)])
+    if out.shape[1] < shape[1]:
+        out = np.hstack([out, np.repeat(out[:, -1:], shape[1] - out.shape[1], axis=1)])
+    return np.asarray(out)
+
+
+def estimate_background(  # noqa: PLR0913
+    radiance_ss: NDArray[np.floating],
+    distance_m: object,
+    focal_length_mm: float,
+    f_number: float,
+    focus_distance_m: float | None = None,
+    sky_mask: object = None,
+    max_layers: int = DEFAULT_MAX_LAYERS,
+) -> FloatArray:
+    """A background plane guessed from the frame itself, for scenes with no analytic one (`OC.8`).
+
+    Everything in the farthest layer is taken as known background and pushed into the region the
+    nearer layers occupy. Where a scene *has* an analytic background (`OC.7`) this is strictly
+    worse and should not be used; where it has none, it is better than letting `OC.6`'s
+    normalisation invent the fill, and the difference is measured rather than asserted.
+    """
+    layers = depth_layers(
+        distance_m, focal_length_mm, f_number, focus_distance_m, sky_mask, max_layers
+    )
+    if not layers:
+        return np.asarray(radiance_ss, dtype=np.float64)
+    known = layers[0][0]  # the farthest layer, sky included
+    return push_pull_fill(np.asarray(radiance_ss, dtype=np.float64), np.asarray(known, dtype=bool))

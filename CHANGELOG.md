@@ -182,6 +182,20 @@ working in one tree; two commits already exist whose whole subject is restoring 
   it is confined to the silhouette — under 1 % of its peak more than sixteen pixels away. The plane
   is precision-critical, because it is a temperature and float16 spaces 0.25 K at 300 K.
 
+- **The partial-occlusion bound, measured** (`OC.8`, ADR 0131). `push_pull_fill` and
+  `estimate_background` supply a background for scenes with no analytic one, and
+  `test_occlusion_bound.py` reports what each of the three fills costs in apparent temperature
+  against a two-layer reference at three depth ratios: normalisation alone **2.87–5.06 K**,
+  push-pull **2.57–5.03 K**, the analytic background **0.0000 K**. The error is local — under 5 %
+  of its own peak outside a band about the silhouette — so the bound is a bound on a band, not on a
+  frame. The uncomfortable finding is that push-pull buys 1–10 % and not an order of magnitude: an
+  extrapolation from the visible background cannot recover structure that was never visible, and an
+  earlier version of the measurement scored it a perfect 0.00 K only because the hidden feature also
+  continued into the visible region. **Two defects in `OC.7` as first written** were found by this
+  measurement and fixed: the background seed was not blurred, and it was composited behind the
+  backmost layer instead of replacing it — about 1.5 K each, and both invisible on any scene whose
+  hidden background looks like its visible one.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
