@@ -140,3 +140,42 @@ def test_the_ablation_switch_takes_the_defocus_away(materials, boson_lut) -> Non
     a = run_frame(_scene(), on, PipelineState()).signal_dn
     b = run_frame(_scene(), off, PipelineState()).signal_dn
     assert not np.array_equal(a, b), "the ablation must actually change the picture"
+
+
+def test_the_layered_switch_reaches_the_frame(materials, boson_lut) -> None:
+    """`OC.6` wiring, on a scene where it can be told apart from `OC.5`.
+
+    The near slab is the **majority** of the frame, so the median range `OC.5` picks is the near
+    one and its single kernel smears the far background's own edge. Layering must not. A scene
+    where the median lands on the background would show nothing, because the global kernel would
+    then already be the in-focus one -- which is the trap this test was written into once.
+    """
+    t_k = np.full((64, 64), 280.0, np.float32)
+    t_k[:, :40] = 350.0  # the near slab
+    t_k[:, 52:] = 330.0  # a step in the far background, clear of the silhouette
+    distance = np.full((64, 64), 200.0, np.float32)
+    distance[:, :40] = 3.0
+    scene = {
+        "temperature_k": t_k,
+        "encoded_t": encode_temperature(t_k),
+        "normal_dot_view": np.ones((64, 64), np.float32),
+        "distance_m": distance,
+        "material_id": np.ones((64, 64), np.int32),
+        "sky_view_factor": np.zeros((64, 64), np.float32),
+    }
+
+    def _run(how: str) -> np.ndarray:
+        d = load_sensor_config(BOSON_YAML).model_dump(mode="json")
+        d["sensor"]["fpa"].update(width=64, height=64)
+        d["sensor"]["optics"]["supersample_factor"] = 1
+        d["sensor"]["optics"]["mtf"].update(defocus_model="hopkins", defocus_apply=how)
+        config = _config(SensorConfig.model_validate(d), materials, boson_lut)
+        return np.asarray(run_frame(scene, config, PipelineState()).signal_dn, dtype=np.float64)
+
+    glob, layered = _run("global"), _run("layered")
+    assert not np.array_equal(glob, layered), "the switch must reach the frame"
+    sharp = _edge_width_px(layered[32, 46:60])
+    smeared = _edge_width_px(glob[32, 46:60])
+    assert sharp < smeared, (
+        f"the far background must survive layering: {sharp:.2f} vs {smeared:.2f}"
+    )

@@ -36,6 +36,7 @@ from irsim.detector.quantise import dn_max_for_bits, quantise
 from irsim.isp.display import run_display_branch
 from irsim.isp.radiometric import apparent_temperature
 from irsim.optics.defocus import scene_defocus_um
+from irsim.optics.layered import layered_defocus
 from irsim.optics.projection import Intrinsics
 from irsim.optics.stage import apply_optics, invert_optics
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
@@ -238,7 +239,22 @@ def run_frame(
             config.focus_distance_m,
             planes.get("sky_mask"),
         )
-        psf = config.defocus_bank.kernel_for(state.defocus_w020_um)
+        if sensor.optics.mtf.defocus_apply == "layered":
+            # `OC.6`: each depth gets its own kernel and the layers composite back to front, so
+            # `apply_optics` must not blur again -- the convolution has already happened, on the
+            # same k× grid and still before the box filter, which is the order that matters.
+            radiance_ss = layered_defocus(
+                radiance_ss,
+                planes["distance_m"],
+                config.defocus_bank,
+                sensor.optics.focal_length_mm,
+                sensor.optics.f_number,
+                config.focus_distance_m,
+                planes.get("sky_mask"),
+            )
+            psf = None
+        else:
+            psf = config.defocus_bank.kernel_for(state.defocus_w020_um)
     flux = apply_optics(radiance_ss, sensor, lb_housing_now, supersample=k, psf=psf)
     # stages 4-5 (detector noise, correlated noise)
     signal = _detector_signal(flux, config, state)

@@ -157,6 +157,20 @@ working in one tree; two commits already exist whose whole subject is restoring 
   names no model gets no bank and keeps the single in-focus `optical_psf`, so every golden array is
   bit-identical.
 
+- **Depth-varying defocus** (`irsim.optics.layered`, `OC.6`, ADR 0129). `defocus_apply: layered`
+  splits the frame into depth layers, blurs each with the kernel its own range earns together with
+  its coverage, and composites back to front with the blurred coverage as alpha. Two details carry
+  the weight. Bins are equal width in **W020**, not equal counts: an equal-count split puts the
+  median in whatever fills most of the frame and collapses a near/far scene to a single layer,
+  which silently turns the stage back into `OC.5` — an earlier version of the test passed against
+  exactly that. And the composite is `over` **normalised by the accumulated alpha**, because a
+  plain `over` leaves a deficit wherever a defocused layer's alpha opened a gap no farther layer
+  fills, and that deficit reads as a dark fringe along every out-of-focus silhouette. The
+  normalisation fills it with the layers that *are* there, which is a defensible guess and not the
+  truth — `OC.7` replaces it with the exact answer for sky and sea. Measured: a far background's
+  own edge stays 1.8x sharper than one global kernel leaves it while the near slab still gains
+  1.7 px of blur in quadrature, and a flat field survives any focus to 1e-9.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
