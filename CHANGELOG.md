@@ -13,6 +13,29 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **A real 3D model is now solvable geometry** (`irsim.io.assets`, `MeshSpec(asset=…, prim=…)`,
+  schema v16, ADR 0132). `configs/scenes/phantom4_pointwise.yaml` is the **first scene in this
+  project whose geometry was not authored in Python** -- six prims of a DJI Phantom 4 Pro FBX,
+  234,923 cells over 0.1628 m^2 (55 % of the aircraft for 11 % of its triangles), built in 13.6 s.
+  The result is the physics the lane exists for: black mouldings reach **65.9 C** where the white
+  shell tops out at **33.8 C** (alpha 0.94 against 0.25), and every surface carries a *span* --
+  7.8 K on the propellers to 39.7 K on the mouldings -- instead of one value per object.
+- **Decimation that preserves area** (`prep_asset.py --emit-mesh`). Collapse decimation removed
+  **37 %** of this asset's surface area at ratio 0.05 -- area sets both the radiated power and the
+  convective load, so that is 37 % of the emitted signal, silently, on geometry that still looks
+  right. The cause is structural: 31,068 disconnected shells, and a collapse budget spends itself
+  destroying the small ones. Planar dissolve at 3 deg removes 38 % of the triangles for
+  **+0.056 %** area. The tool gates on area and refuses to write an archive that moved, weighting
+  the gate so a 1.1e-5 m^2 sliver is reported rather than blocking; 126 zero-area triangles are
+  dropped and counted, because a facet with no area has no normal.
+- **`self_occluding:` on a mesh, and a budget that refuses rather than hangs** (ADR 0132). Tracing
+  a mesh against itself costs cells x faces, once for the sky view and **again every tick** for
+  the solar disc: one imported prim of 3,320 cells spent **248 s** in `disc_visibility` over a 6 h
+  spin-up, and the largest bound prim would be 1.69e9 ray-triangle tests. Over
+  `MESH_SELF_OCCLUSION_BUDGET` a scene that did not decide is refused with a message naming both
+  ways out. The switch reaches the beam as well as the sky view -- routing it to only one leaves
+  the scene just as unable to finish, which is how this was found. With it, that scene builds in
+  **1.0 s**.
 - **Third-party assets can enter the simulator** (`scripts/prep_asset.py`, `configs/assets/`,
   ADR 0128). Until now every piece of geometry was generated in Python; there was no import path.
   The tool imports FBX/OBJ/glTF/USD, applies the asset's `scale_to_metres`, exports USD with
@@ -209,6 +232,21 @@ working in one tree; two commits already exist whose whole subject is restoring 
   because a real payload does not snap to infinity when the target goes behind a cloud.
   `PipelineState` now carries `focus_distance_m` and the servo, since where the lens *is* depends on
   what the camera has been looking at and not on what the document says.
+
+- **Thermal defocus** (`irsim.optics.thermal_defocus`, `OC.10`, schema **v11**, ADR 0129). The
+  distinctly infrared focus effect, and the one this project already had the input for and was not
+  using: `HousingTemperature` has solved the lens housing over a diurnal run since M9.3, for the
+  self-emission term, and nothing else read it. Germanium's dn/dT is 396e-6 K⁻¹, some 250 times a
+  visible glass, so `dz/dT = f·[α_housing − ((dn/dT)/(n−1) − α_lens)]` comes out at −1.44 µm per
+  kelvin for a 14 mm lens in an aluminium barrel. It is folded into an **effective focus distance**
+  rather than added as a new blur term, because a thermal image-plane shift is the same defocus as
+  looking at the wrong distance — so the global kernel, the layered composite and the autofocus
+  servo all get it without a thermal term of their own, and the servo *fights* the drift through
+  the picture the way an unathermalised motorised core does. A **20 K rise takes a lens focused at
+  infinity to 6.8 m**, inside its own 16.3 m hyperfocal, so distant targets go soft. One result
+  worth stating because it is the opposite of the instinct: an **aluminium** barrel athermalises
+  better than **invar**, since the residue is `α_housing − β` and a large expansion cancels more of
+  it. `athermal: true` is the default and is every camera written before v11, hashing identically.
 
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
