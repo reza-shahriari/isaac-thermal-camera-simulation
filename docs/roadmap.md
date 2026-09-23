@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 70 open steps
+#### Then, in order — 69 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -190,12 +190,12 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 9 | **`AT.9`** | AT | C | M | — | ready |
 | 10 | **`PT.13`** | PT | C | M | — | ready |
 | 11 | **`PT.16`** | PT | C | M | — | ready |
-| 12 | **`XD.1`** | XD | X | S | 8 | ready |
-| 13 | **`EV.1`** | EV | X | M | 5 | ready |
-| 14 | **`XD.2`** | XD | X | M | 4 | `XD.1` |
-| 15 | **`XD.3`** | XD | B | M | — | `XD.2` |
+| 12 | **`EV.1`** | EV | X | M | 5 | ready |
+| 13 | **`XD.2`** | XD | X | M | 4 | ready |
+| 14 | **`XD.3`** | XD | B | M | — | `XD.2` |
+| 15 | **`XD.10`** | XD | C | L | — | `XD.2` |
 
-…and 55 more — `python scripts/next_step.py --queue 40`.
+…and 54 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -551,6 +551,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.11 | ✅ **done.** `clouds.optical_depth` replaces an authored transmittance: ε = 1 − exp(−0.5 m τ) per ray at airmass m = 1/sin θ, which at the diffusivity factor **is** Shaw & Nugent's 1 − exp(−0.79 τ). The cloud sits at the LCL, so the air in front attenuates its excess. A `sky` display span. ADR 0126. | **Measured.** **53.9 %** of a rendered LWIR frame lay within 0.25 K of one value; the spread inside it was **0.073 K**, drawn as codes **106–255**. After: core spans **1.25 K**, τ to the base 0.68 → 0.49 down the frame. 15 cases. | — | M | A |
 | AT.12 | ✅ **done, one half in the engine.** `cloud_deck`: column depth at the LCL, each column given a top and the profile 6u(1−u), whose integral is the thickness — a vertical ray is ADR 0126 to the bit. LWIR marches it, the dome bakes it. The NanoVDB volume is written; **this build's IndeX plugin refuses it**. ADR 0127. | **Measured.** Cloud spans **19.7 K** against the sheet's 1.25 K; emission level **12–834 m** above base; largest bin 55 % → **40 %**. Three corrections: the angular field makes fins, 48 steps alias, every supersample costs 107 s/frame. 21 cases. | AT.11 | L | A |
 | AT.15 | ✅ **done.** The deck is a field of *towers*: column depth rises with the field's excess over the condensation threshold, clipped by the inversion, where it was a soft threshold — a flat-topped mesa. Band-limited at 400 m, tiled, marched by the **dome** too and lit by a two-stream reflectance in the same τ. ADR 0130. | **Measured.** Largest 0.25 K bin **53.9 % → 39.6 % → 6.4 %**; in-cloud spread **28.8 K**; dome/LWIR coverage was 26 % / 57 % of the same pixels, now identical. Step size carries the error, not stride: 0.073 → 0.029 for 3x. 25 cases. | AT.12 | M | A |
+| AT.16 | ✅ **done.** The thermal solver's weather is synthesised from the *same* weather-fx state the sky is drawn from: `diurnal_series` there, `weather_series_from_state` here, injected through `Scene.from_config(weather_override=)`. `--weather-csv` keeps the measured file. ADR 0136. | **Measured.** Irradiance from the real sun elevation with Kasten-Czeplak cloud attenuation: overcast keeps 25 % of the global and broken cloud *raises* diffuse above clear. Air anchored on the state's own hour, floored at the dew point. 36 + 13 tests. | AT.15 | M | A |
 | AT.13 | **Get a volume into this build at all, then probe the AOVs.** AT.12 writes a NanoVDB that Warp reads back with the right name, type and bounds, and IndeX still refuses it after both the version stamp and the metadata counts are fixed. Then: a volume is not a surface, so a ray through cloud may report no hit at all. | First a volume that loads, or NVIDIA's answer on why not. Then one cube and a flat target behind it, `PathTracing`, with depth, instance, alpha and the **Volumes** AOV dumped: the volume appears in a named plane, or the refusal is recorded. | AT.12, IG.3 | S | X |
 | AT.14 | **Volumetric infrared: per-ray optical depth from the engine.** Replace AT.12's analytic march with the renderer's own integration, so the cloud the infrared band integrates is the cloud the path tracer lit. The band-dependent half stays ours: an MDL volume material carries no thermal absorption coefficient. | A frame in which an aircraft passes **behind** a cloud and is attenuated by that cloud's own optical depth, against today, where a target is never occluded by cloud. AT.12's march stays the oracle, agreeing to a stated tolerance. | AT.13 | L | B |
 ---
@@ -690,7 +691,7 @@ effort in the whole plan.
 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
-| XD.1 | **Correct four `datasets.yaml` fields.** Anti-UAV410 is 640×512 at 25 Hz (indexed `null`); LRDDv3's paper states CC BY 4.0 and names an Autel EVO II Dual 640T V3 (indexed `unstated` / `undocumented`, export-control access note kept); Anti-UAV600, 723 k frames and the largest IR anti-UAV set, is missing entirely. | These are gates in `fetch_validation_data.py` and analyser preconditions, so a wrong field is a silently wrong refusal or permission. A 25 Hz clip fitted at 30 Hz returns a time constant wrong by a factor and looks plausible. | — | S | X |
+| XD.1 | ✅ **done, and the row itself was wrong.** `anti_uav_600` indexed — 600 sequences, 723k IR frames, the largest here; `lrddv3`'s licence and camera corrected; `anti_uav_410`'s two fields left null on purpose. | **Verified at source 2026-09-24.** The row asked for **CC BY 4.0** on `lrddv3`: that is the *paper's* arXiv badge, the dataset page names **CDLA-Permissive-2.0**, and this field opens the fetch gate — so the row would have granted a permission the frames lack. Camera confirmed. 640×512/25 Hz is the RGBT *parent's*, and `probe_clip` reads it from the file. 5 cases. | — | S | X |
 | XD.2 | **A `radiometric` signal path and a `bit_depth` field.** `irsim_eval.data.Sequence` refuses anything but 8-bit — right when every indexed set was 8-bit, and now the thing standing between the project and its own fix. Each analyser declares which path it needs. | A display-output set still cannot reach a radiometric-only analyser, and a radiometric set reaches the noise analysers that currently skip. This is the enabling refactor for XD.3–XD.5 and XD.10 and lands before them. | XD.1 | M | X |
 | XD.3 | **MassMIND** — 16-bit LWIR maritime, FLIR ADK, published NETD < 50 mK, 640×512, CC BY-NC-SA 4.0, 2,916 Boston Harbor images with 7-class sky/water/obstacle masks. | Brings the maritime lane to the bar the aerial lane reached, and the masks give **labelled flat windows**, replacing the heuristic finder that EV.3 shows returns `[]` on every rendered clip. Index honestly: the 16-bit values are ADK counts, linear in radiance, not calibrated temperature. | XD.2 | M | B |
 | XD.4 | **LTIR v1.0** — the only 16-bit public source found that is made of *sequences* (20, 8-/16-bit variant), so the only one that can carry temporal PSD, FFC and fixed-pattern-growth work without a codec floor. | Indexed with ADR 0068's provenance fields and `licence: unstated`. The temporal analysers run on one 16-bit sequence and the 1/f knee they report lies inside the band `SC.5` declares for a Boson-class core; on the 8-bit variant of the same sequence they disagree by the codec floor. Red today: they skip. | XD.2 | M | X |

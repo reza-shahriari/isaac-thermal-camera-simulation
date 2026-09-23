@@ -84,7 +84,10 @@ def test_an_agc_signature_may_not_be_measured_on_the_set_that_has_no_agc(
     halmstad = manifest.datasets["halmstad_drone_detection"]
     assert not halmstad.may_run("agc_signature")
     assert "agc_signature" in halmstad.excluded_analysers
-    assert manifest.usable_for("agc_signature") == ["anti_uav_410"]
+    # Two sets now, both display output through an undocumented ISP. `anti_uav_600` joined in
+    # `XD.1`; it is the same kind of picture as `anti_uav_410` and twice the size of it, so an
+    # AGC signature measured on one can be checked against the other rather than taken alone.
+    assert manifest.usable_for("agc_signature") == ["anti_uav_410", "anti_uav_600"]
 
 
 def test_an_exclusion_beats_an_inclusion(manifest: Manifest) -> None:
@@ -116,9 +119,21 @@ def test_single_frame_sets_are_priors_and_nothing_temporal(manifest: Manifest) -
 
 
 def test_unstated_is_recorded_rather_than_assumed(manifest: Manifest) -> None:
-    """Five of the six publishers stated no terms, and the index says so in those words."""
+    """Five of the seven publishers stated no terms, and the index says so in those words.
+
+    `lrddv3` left this set in `XD.1`: its publisher *did* state terms, on the dataset page rather
+    than in the paper, and the index had recorded the absence of a licence it had not gone and
+    read. `anti_uav_600` joined it for the opposite reason -- its repository states a licence
+    loudly, and that licence is the code's.
+    """
     unstated = {k for k, v in manifest.datasets.items() if not v.licence_known}
-    assert unstated == {"anti_uav_410", "cst_anti_uav", "lrddv3", "irstd_1k", "nuaa_sirst"}
+    assert unstated == {
+        "anti_uav_410",
+        "anti_uav_600",
+        "cst_anti_uav",
+        "irstd_1k",
+        "nuaa_sirst",
+    }
     assert all(manifest.datasets[k].licence == UNSTATED for k in unstated)
 
 
@@ -283,3 +298,76 @@ def test_the_manifest_file_is_the_one_the_package_ships(manifest: Manifest) -> N
     raw = yaml.safe_load(manifest_path().read_text(encoding="utf-8"))
     assert set(raw["datasets"]) == set(manifest.datasets)
     assert raw["schema_version"] == manifest.schema_version
+
+
+# --- XD.1: the four fields, and which of them is load-bearing -----------------------------------
+
+
+def test_the_range_set_carries_the_datas_licence_and_not_the_papers(manifest: Manifest) -> None:
+    """`XD.1` asked for CC BY 4.0 here. That is the **paper's** arXiv licence, not the data's.
+
+    The dataset page states its own terms -- "fully free to use for commercial or R&D purposes
+    under CDLA-v2", linking CDLA-Permissive-2.0 -- and this field gates `plan`, so writing the
+    paper's badge into it would have opened the gate on terms the frames do not carry. That is
+    precisely the "silently wrong permission" the row was written to prevent, arrived at from the
+    other direction.
+    """
+    lrddv3 = manifest.datasets["lrddv3"]
+    assert lrddv3.licence == "CDLA-Permissive-2.0"
+    assert lrddv3.licence_known, "a stated licence must open the gate"
+    assert decisions(plan(manifest, ["lrddv3"])) == {"lrddv3": "manual"}
+
+    note = (lrddv3.licence_note or "").lower()
+    assert "cc by 4.0" in note and "arxiv" in note, "the note must name the licence it is not"
+    assert "redistribute" in note and "export" in note, "and the two conditions on top of it"
+
+
+def test_a_code_licence_is_not_a_data_licence(manifest: Manifest) -> None:
+    """Anti-UAV600's repository says MIT, and means its toolkit.
+
+    The set therefore stays `unstated` and stays refused. This is the same substitution as the
+    `lrddv3` case and the opposite outcome, which is why both are asserted: the question is never
+    "is a licence written down nearby" but "is this a grant over these frames".
+    """
+    dataset = manifest.datasets["anti_uav_600"]
+    assert dataset.licence == UNSTATED
+    assert decisions(plan(manifest, ["anti_uav_600"])) == {"anti_uav_600": "refused"}
+    note = (dataset.licence_note or "").lower()
+    assert "mit" in note and "project" in note, "the note must say what the MIT licence covers"
+
+
+def test_the_largest_infrared_set_is_indexed(manifest: Manifest) -> None:
+    """It was missing entirely, and it is the biggest one: 600 sequences, over 723k frames."""
+    dataset = manifest.datasets["anti_uav_600"]
+    assert dataset.clips == 600
+    assert dataset.frames is not None and dataset.frames >= 723_000
+    assert "infrared only" in (dataset.signal_path or "").lower()
+    biggest = max((d for d in manifest.datasets.values() if d.frames), key=lambda d: d.frames or 0)
+    assert biggest is dataset, "nothing indexed should be larger"
+
+
+def test_the_stored_rate_and_the_camera_rate_are_different_numbers(manifest: Manifest) -> None:
+    """LRDDv3's camera records IR at 30 fps and the set stores 5. Both are true; only one is usable.
+
+    They live in different fields because an analyser must fit against the rate of the file it is
+    reading. A one-pole fit run at the camera's 30 against frames stored at 5 returns a time
+    constant wrong by six, and looks entirely plausible.
+    """
+    dataset = manifest.datasets["lrddv3"]
+    assert dataset.frame_rate_hz == 5.0
+    assert dataset.sensor_frame_rate_hz == 30.0
+    assert dataset.frame_rate_hz != dataset.sensor_frame_rate_hz
+
+
+def test_an_unsourced_frame_rate_is_not_written_into_the_index(manifest: Manifest) -> None:
+    """The one field `XD.1` asked for that is deliberately still null.
+
+    640x512 at 25 Hz describes the Anti-UAV **RGBT** parent set; no primary source states it for
+    these 410 IR sequences, and the entry's own note says they vary. `decode.probe_clip` reads
+    both from the file rather than from here, so a number written in cannot reach a temporal fit
+    and cannot earn its way in on usefulness either -- it would only be an unchecked claim in a
+    file whose whole job is to separate checked from unchecked.
+    """
+    dataset = manifest.datasets["anti_uav_410"]
+    assert dataset.resolution is None
+    assert dataset.frame_rate_hz is None

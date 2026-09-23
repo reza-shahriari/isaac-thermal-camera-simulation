@@ -5,6 +5,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **One weather state now owns the sky *and* the surfaces** (`AT.16`, ADR 0136). The sky moved to
+  `isaac-weather-fx` last week; the thermal solver did not, so `--weather broken_cumulus` lit a
+  frame from weather-fx's cloudy morning while its surfaces warmed through a different day out of
+  a measured CSV. Both halves were individually plausible, which is why nothing caught it.
+  weather-fx now synthesises the surface meteorology from the same state
+  (`weather_fx.core.meteorology.diurnal_series`, 36 tests there), and
+  `irsim.thermal.weather_fx_series.weather_series_from_state` wraps the columns in a
+  `WeatherSeries` — where the ranges are checked, the arrays become immutable float64, and the
+  content hash that keys every spin-up cache and golden comes from. It is injected through
+  `Scene.from_config(weather_override=...)`, the parameter that already existed, so the
+  one-weather guard (CLAUDE.md #6) is unchanged.
+
+### Added
+- `scripts/render_phantom4.py --weather-csv`: keep the scene's measured weather file for the
+  thermal solve and let weather-fx draw the sky only. The escape hatch for a validation run, where
+  the point is the day that was actually recorded.
+- `Scene.from_file(weather_override=...)` passes through to `from_config`, so a driver does not
+  have to load the scene config itself just to reach the injection point.
+- Irradiance in weather-fx is now computed from the real sun elevation per sample with
+  Kasten-Czeplak cloud attenuation: full overcast keeps **25 %** of the global rather than the
+  `1 - cover` a naive model gives, and broken cloud puts the diffuse *above* its clear-sky value,
+  because the bright side of a cumulus is a light source. A scene given `GHI x (1 - cover)` runs
+  several kelvin cold at midday.
+- Snow's water-equivalent rate is derived from the flake population (number density, diameter
+  range, fall speed) rather than added as a second parameter to keep consistent with the first.
+
+### Fixed
+- weather-fx's seasonal temperature draw was anchored on the new year instead of the warmest day,
+  putting the northern hemisphere's maximum in mid-January: a December at 59 °N drew 17 °C, which
+  reads as ordinary in a log line and is six months out.
+
 Grouped by the day an entry was written (`RP.2`). One `[Unreleased]` section carrying twenty
 repeated `Added` / `Changed` / `Fixed` headings was a single merge hotspot for three sessions
 working in one tree; two commits already exist whose whole subject is restoring lost entries.
@@ -448,6 +480,38 @@ working in one tree; two commits already exist whose whole subject is restoring 
 
 
 #### Fixed
+- **Two dataset licences were read off the wrong document** (`XD.1`, `data/validation/datasets.yaml`).
+  The `licence` field is not documentation: `licence_known` is what opens `fetch_validation_data.py`'s
+  gate, so a wrong value there is a silently wrong refusal or permission. Re-checked at the
+  publishers' own pages on 2026-09-24, and two of the three entries turned on a single distinction —
+  **a licence written down nearby is not a grant over the frames**.
+
+  **LRDDv3 was recorded as `unstated` and is CDLA-Permissive-2.0.** `XD.1` asked for CC BY 4.0 here;
+  that is the arXiv badge on the *paper*. The dataset page states "the dataset is fully free to use
+  for commercial or R&D purposes under CDLA-v2" and links `cdla.dev/permissive-2-0`. Two conditions
+  sit on top of it and neither is in the licence: access is "based on the US export regulations",
+  and "you may then use it for any application you wish, but may not redistribute" — which
+  CDLA-Permissive-2.0 itself permits. The publisher's condition is narrower than the licence it
+  names, so the narrower one governs. The set moves from `refused` to `manual`. Its camera is an
+  **Autel Robotics EVO II Dual 640T V3**, confirmed from the paper's full text, recording IR at
+  640x512 and **30 fps** where the set stores frames sampled at **5** — carried in `frame_rate_hz`
+  and `sensor_frame_rate_hz` respectively, because a one-pole fit run at the camera's rate against
+  the stored frames is wrong by six and looks plausible.
+
+  **Anti-UAV600 was missing entirely**, and it is the largest infrared set indexed: 600 sequences,
+  over 723k frames, infrared-only (the repository states that "410 and 600 versions only contain IR
+  videos while 300 version contains both"). Its repository announces the MIT License over the
+  *project* and states nothing about the data, so it is indexed `unstated` and is refused by
+  default — the same substitution as LRDDv3 and the opposite outcome, which is why both are now
+  asserted by test. It doubles the sets available for an AGC signature.
+
+  **Anti-UAV410's resolution and frame rate are deliberately still null.** `XD.1` asked for 640x512
+  at 25 Hz. The repository states neither, the TPAMI paper is paywalled, and those figures describe
+  the Anti-UAV **RGBT** parent set — a different, RGB+IR collection, where 410 is IR-only — reported
+  by a secondary aggregator that cites no table for them. `decode.probe_clip` reads resolution and
+  rate from the file and not from this index, by explicit design, so writing an unsourced number in
+  would reach no analyser and would only put an unchecked claim in the file whose job is to separate
+  checked from unchecked. The search is recorded in the entry so nobody repeats it.
 - **A cloud deck raised rather than rendering as soon as any part of the frame was below the
   horizon** (`AerialThermalBridge._deck_temperature`). The march is evaluated over the whole frame
   and the below-horizon answers discarded by a `where`, but the clear-sky column refuses a

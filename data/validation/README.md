@@ -29,12 +29,13 @@ unless asked explicitly, so using data on unknown terms is always a deliberate a
 |---|---|---|---|
 | `halmstad_drone_detection` | CC0-1.0 | direct | primary |
 | `anti_uav_410` | unstated | manual | supplement |
+| `anti_uav_600` | unstated | manual | supplement |
 | `cst_anti_uav` | unstated | unreleased | supplement |
-| `lrddv3` | unstated | manual | supplement |
+| `lrddv3` | CDLA-Permissive-2.0 | manual | supplement |
 | `irstd_1k` | unstated | manual | prior |
 | `nuaa_sirst` | unstated | manual | prior |
 
-Fields last checked against the publishers' own pages: **2026-09-13**.
+Fields last checked against the publishers' own pages: **2026-09-24**.
 
 ## `halmstad_drone_detection`
 
@@ -101,6 +102,35 @@ Ten-second clips are too short for an FFC *interval* distribution (the Boson's i
 
 The sensor being undocumented is the binding constraint: with no pitch, focal length or NETD there is no way to convert a measured box size into a range or a measured contrast into kelvin. Use it for shape-of-the-picture statistics only.
 
+## `anti_uav_600`
+
+**Anti-UAV600 (Zhu et al., 2023)**
+
+The largest infrared anti-UAV set indexed here -- 600 sequences and over 723k frames, against Anti-UAV410's 410 and ~438k boxes -- and the only one built for targets that *appear and reappear* rather than being handed an initial box. That makes it the set for the statistic this simulator most needs from reality: how often a small sky target is there at all, across enough frames for the answer to mean something.
+
+| field | value |
+|---|---|
+| licence | unstated |
+| licence note | The repository says "the project of Anti-UAV is released under the MIT License". That covers the **project** -- the toolkit and baselines -- and the repository states no licence for the data. The arXiv paper separately carries CC BY-NC-SA 4.0, which is the submission licence for the paper and not for the frames. Neither is a grant over the dataset, so this stays `unstated` and the fetch gate keeps refusing it until somebody reads the terms at the source. Recording MIT here because it is the word on the repository's front page is the mistake this note exists to stop. |
+| access | manual |
+| paper | arXiv:2306.15767 |
+| code | https://github.com/ZhaoJ9014/Anti-UAV |
+| sensor | undocumented |
+| bit depth (native / stored) | None / 8 |
+| codec | lossy |
+| clips | 600 |
+| frames | 723000 |
+| label format | per-sequence json boxes |
+| sha256 | not downloaded |
+
+**Signal path.** Infrared only -- the repository states that "410 and 600 versions only contain IR videos while 300 version contains both RGB videos and IR videos", which is what makes this the largest IR set of the family rather than the largest set. Display output through an undocumented ISP, as Anti-UAV410, so AGC, DDE and any temporal filtering are baked in and nothing measured here separates the sensor from its ISP.
+
+**May be used for:** `target_size_and_scr`, `contrast_polarity`, `agc_signature`, `cloud_clutter_psd`.
+
+**Must not be used for:** `noise_3d`, `temporal_psd`, `ffc_freeze` -- see the signal path above.
+
+Indexed 2026-09-24 from the paper abstract and the repository; the frame count is the paper's "over 723K" and is therefore a floor. Resolution, frame rate and sensor are stated by neither source: measure the first on load and do not assume the family's 640x512 / 25 Hz applies, which is the same caution `anti_uav_410` carries and for the same reason. The set exists to be a *population*, not a radiometric reference -- with no pitch, focal length or NETD there is no route from a box size to a range or from a contrast to kelvin.
+
 ## `cst_anti_uav`
 
 **CST Anti-UAV (Xie et al., ICCV 2025 Workshops)**
@@ -136,12 +166,12 @@ The only indexed set with per-image **range** labels, which is the one thing nee
 
 | field | value |
 |---|---|
-| licence | unstated |
-| licence note | Access requires a request form and is stated to be subject to US export control regulations. That is an access restriction, not a licence; read the form's terms before use and do not assume the data may be redistributed or published from. |
+| licence | CDLA-Permissive-2.0 |
+| licence note | Read this one carefully, because two licences are in play and only one of them is the data's. The **paper** on arXiv carries CC BY 4.0; that is the arXiv submission licence and says nothing about the frames. The **dataset** page states "the dataset is fully free to use for commercial or R&D purposes under CDLA-v2" and links CDLA-Permissive-2.0. Taking the paper's badge for the data's terms is the specific error this note exists to stop -- `XD.1` asked for exactly that substitution and it is why the field was re-checked at the source instead. Two conditions sit on top of the licence and neither is in it. The page states "the only restriction on the dataset is the access based on the US export regulations", and it also states "if approved, you may then use it for any application you wish, but may not redistribute" -- which CDLA-Permissive-2.0 itself *does* permit. The publisher's own condition is narrower than the licence it names, so the narrower one governs: do not redistribute the frames, and treat access as export-controlled. |
 | access | manual |
 | paper | arXiv:2605.25942 |
 | site | https://research.coe.drexel.edu/ece/imaple/lrddv3/ |
-| sensor | undocumented thermal, 640x512 |
+| sensor | Autel Robotics EVO II Dual 640T V3 |
 | resolution | [640, 512] |
 | frame rate (Hz) | 5.0 |
 | bit depth (native / stored) | None / 8 |
@@ -149,7 +179,7 @@ The only indexed set with per-image **range** labels, which is the one thing nee
 | thermal images | 29630 |
 | sha256 | not downloaded |
 
-**Signal path.** Frames sampled at 5 fps from video. UNVERIFIED whether the thermal frames are Y16-derived or display output. At 5 fps nothing temporal can be measured: no FFC freeze, no temporal PSD.
+**Signal path.** The camera records IR at 640x512 and 30 fps and the set stores frames sampled from that at 5 fps, so the two rates are different numbers and are carried in different fields -- an analyser must fit against the 5 fps of the file it is reading, never the camera's 30. UNVERIFIED whether the thermal frames are Y16-derived or display output. At 5 fps nothing temporal can be measured: no FFC freeze, no temporal PSD.
 
 **May be used for:** `target_size_and_scr`, `size_vs_range`.
 
