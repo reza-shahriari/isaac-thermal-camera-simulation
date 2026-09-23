@@ -58,6 +58,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.atmosphere.cloud import SkyFixedCloud, sky_angles
+from irsim.atmosphere.cloud_deck import CloudDeck
 from irsim.scene import Scene
 from irsim.thermal.solar import sun_position_utc
 
@@ -198,6 +199,13 @@ class DomeSpec:
     #: The scene's cloud field, shared with the infrared background (ADR 0076). ``None`` leaves
     #: the dome clear, which is what it was before and what a clear-sky scene wants anyway.
     cloud: SkyFixedCloud | None = None
+    #: The cloud **deck**, when the infrared band is marching one (AT.12). Takes precedence over
+    #: ``cloud``, and must: a deck in the infrared band beside the hemispherical field on the dome
+    #: would put cloud in different parts of the sky in the two halves of a frame pair, which is
+    #: precisely what ADR 0076 exists to prevent. The dome **marches** it, exactly as the infrared
+    #: background does, and turns the same optical depth into this band's opacity -- at a cost the
+    #: dome can afford: it is baked once, where a frame is marched three hundred times.
+    deck: CloudDeck | None = None
     #: Effective reflectance of a cloud **base**, which is the side a ground sensor sees. Not the
     #: 0.7-0.9 of a sunlit cloud top: a base is lit by light that has already been through the
     #: cloud, and whether it ends up brighter or darker than the sky beside it is left to the
@@ -407,7 +415,28 @@ def environment_map(spec: DomeSpec, height: int = 512) -> NDArray[np.float32]:
     scale = _twilight_scale(spec.sun_elevation_deg)
     image = xyy_to_linear_rgb(luminance * scale, cx, cy)
 
-    if spec.cloud is not None:
+    if spec.deck is not None:
+        # **Marched, not sampled.** The infrared band integrates the deck along each ray, so the
+        # visible band has to as well or the two disagree about where the cloud is -- which ADR
+        # 0076 forbids and which a viewer spots instantly: taking the column depth where the ray
+        # crosses the base reads a *vertical* thickness for an *oblique* look, so the dome showed
+        # a few thin wisps over the same sky in which the infrared frame showed a wall of cumulus.
+        # Over a rendered frame the two coverages were 26% and 57% of the same pixels.
+        alpha = np.zeros(up.shape, dtype=np.float64)
+        above = up > 0.0
+        if above.any():
+            el = np.arcsin(np.clip(up[above], -1.0, 1.0))
+            az = np.arctan2(direction[..., 0][above], -direction[..., 2][above])
+            tau = spec.deck.march(el, az).optical_depth
+            # The authored optical depth is the visible one, so this band's opacity is Beer's law
+            # on it directly, where the infrared band applies `CLOUD_OD_RATIO` first.
+            alpha[above] = 1.0 - np.exp(-tau)
+        lit = alpha > 0.0
+        if lit.any():
+            base = _cloud_base(spec, image[lit], scale)
+            a = alpha[lit][..., None]
+            image[lit] = (1.0 - a) * image[lit] + a * base
+    elif spec.cloud is not None:
         elevation, azimuth = sky_angles(direction)
         above = up > 0.0
         # The same 0-to-1 depth the infrared background samples (ADR 0125), not a stencil. A
@@ -498,6 +527,7 @@ def dome_spec_from_scene(
     camera_height_m: float = 2.0,
     ground_albedo: tuple[float, float, float] | None = None,
     cloud: SkyFixedCloud | None = None,
+    deck: CloudDeck | None = None,
 ) -> DomeSpec:
     """Read the dome's inputs off the scene, so the visible frame cannot describe a different day.
 
@@ -523,6 +553,7 @@ def dome_spec_from_scene(
         visibility_m=weather.visibility_m,
         camera_height_m=float(camera_height_m),
         cloud=cloud,
+        deck=deck,
     )
     return spec if ground_albedo is None else replace(spec, ground_albedo=ground_albedo)
 

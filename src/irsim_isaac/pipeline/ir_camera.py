@@ -427,6 +427,9 @@ class IrCamera:
             band=band,
             cloud_seed=cloud_seed,
             cloud_deck=cloud_deck,
+            # The extra AOV samples exist to antialias geometry; the marched sky has no
+            # edges at that scale, so it is computed once per native pixel (AT.12).
+            deck_stride=max(1, self.optics.supersample // 2),
             sea=sea,
         )
         # Prims that are *in* the picture but whose temperature is not a solver node: the sea

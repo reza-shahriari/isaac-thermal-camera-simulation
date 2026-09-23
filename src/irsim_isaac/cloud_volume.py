@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import ctypes
 import pathlib
+import struct
 from dataclasses import dataclass
 from typing import Any
 
@@ -46,6 +47,7 @@ from irsim_isaac.env import ensure_warp_on_path
 __all__ = [
     "DENSITY_GRID_NAME",
     "NANOVDB_NO_CHECKSUM",
+    "INDEX_NANOVDB_VERSION",
     "CloudVolume",
     "write_nanovdb",
     "author_cloud_volume",
@@ -59,6 +61,40 @@ DENSITY_GRID_NAME = "density"
 #: because the name lives inside the region a full checksum covers.
 NANOVDB_NO_CHECKSUM = 0xFFFFFFFFFFFFFFFF
 
+#: The NanoVDB grid version the Omniverse renderer's IndeX plugin accepts, as (major, minor,
+#: patch). **Measured** on this build by authoring a volume and reading the render log:
+#:
+#:     INDEX main error: VDB subset: The NanoVDB version used on the application side is not
+#:     compatible with the version utilized by NVIDIA IndeX.
+#:      * Application NanoVDB version: 32.8,
+#:      * IndeX NanoVDB version: 32.7.
+#:
+#: Warp 1.16's allocator stamps 32.8.0 into the grid header, so every volume it writes is refused
+#: by this renderer -- not a subtle failure, but a total one: the volume never loads and the frame
+#: comes back with no cloud in it.
+#:
+#: The grid is **re-stamped** to 32.7.0 rather than regenerated, because the two minor versions
+#: share a byte-identical `GridData` header and `FloatGrid` tree layout -- the fields Warp itself
+#: declares to read the grid back (magic, checksum, version, flags, gridIndex, gridCount,
+#: gridSize, gridName, map, worldBBox, voxelSize, gridClass, gridType, blindMetadataOffset,
+#: blindMetadataCount, data0..2) are the same in both, and a 32.8 FloatGrid contains nothing a
+#: 32.7 reader does not know. That reasoning is not a proof, so it is **verified by rendering**:
+#: an accepted volume draws cloud and a misread one does not, and neither is quiet.
+#:
+#: Revisit when Isaac Sim's bundled Warp and its IndeX plugin agree again; the shim is a
+#: four-byte write and removing it is deleting one argument.
+INDEX_NANOVDB_VERSION = (32, 7, 0)
+
+
+def _packed_version(version: tuple[int, int, int]) -> int:
+    """NanoVDB packs (major, minor, patch) into one uint32 as 11/11/10 bits."""
+    major, minor, patch = version
+    return (int(major) << 21) | (int(minor) << 10) | int(patch)
+
+
+def _unpack_version(packed: int) -> tuple[int, int, int]:
+    return (packed >> 21, (packed >> 10) & 0x7FF, packed & 0x3FF)
+
 
 @dataclass(frozen=True)
 class CloudVolume:
@@ -70,13 +106,21 @@ class CloudVolume:
     min_world_m: tuple[float, float, float]
     max_density_per_m: float
     file_bytes: int
+    #: ``(written, as generated)`` NanoVDB grid versions. They differ when the renderer's IndeX
+    #: plugin is behind the bundled Warp; see :data:`INDEX_NANOVDB_VERSION`.
+    nanovdb_version: tuple[tuple[int, int, int], tuple[int, int, int]] = ((0, 0, 0), (0, 0, 0))
 
     @property
     def caption(self) -> str:
         nx, ny, nz = self.shape
+        written, generated = self.nanovdb_version
+        stamp = ".".join(str(v) for v in written)
+        if written != generated:
+            stamp += " (Warp wrote " + ".".join(str(v) for v in generated) + ")"
         return (
             f"{nx}x{ny}x{nz} voxels at {self.voxel_m:g} m "
-            f"({self.file_bytes / 1e6:.1f} MB), peak {self.max_density_per_m:.5f} /m"
+            f"({self.file_bytes / 1e6:.1f} MB), peak {self.max_density_per_m:.5f} /m, "
+            f"NanoVDB {stamp}"
         )
 
 
@@ -107,6 +151,7 @@ def write_nanovdb(
     voxel_m: float = DEFAULT_CELL_M,
     device: str = "cuda:0",
     grid_name: str = DENSITY_GRID_NAME,
+    nanovdb_version: tuple[int, int, int] | None = INDEX_NANOVDB_VERSION,
 ) -> CloudVolume:
     """Voxelise ``deck`` and write it as a named NanoVDB grid.
 
@@ -127,8 +172,9 @@ def write_nanovdb(
     volume = wp.Volume.load_from_numpy(
         grid, min_world=min_world, voxel_size=float(voxel_m), bg_value=0.0, device=device
     )
-    _name_grid(volume, grid_name)
+    versions = _stamp_grid(volume, grid_name, nanovdb_version)
     volume.save_to_nvdb(str(out))
+    _fill_file_metadata(out)
     return CloudVolume(
         path=out,
         voxel_m=float(voxel_m),
@@ -136,16 +182,26 @@ def write_nanovdb(
         min_world_m=(float(min_world[0]), float(min_world[1]), float(min_world[2])),
         max_density_per_m=float(grid.max()),
         file_bytes=out.stat().st_size,
+        nanovdb_version=versions,
     )
 
 
-def _name_grid(volume: Any, name: str) -> None:
-    """Write ``name`` into the grid header in place, and clear the now-stale checksum.
+def _stamp_grid(
+    volume: Any, name: str, version: tuple[int, int, int] | None
+) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    """Name the grid, optionally re-stamp its version, and clear the now-stale checksum.
 
-    ``warp.Volume.allocate`` leaves the name empty, and an unnamed grid cannot be bound by a
-    `UsdVol.Volume` field relationship. The buffer is the volume's own device array read back to
-    NumPy, edited and written back, rather than the file patched afterwards, so the file's
-    metadata (which `save_to_nvdb` derives from this same header) stays consistent with it.
+    Two edits, both to the grid header, both because of what the consumers need:
+
+    * ``warp.Volume.allocate`` leaves the **name** empty, and an unnamed grid cannot be bound by a
+      `UsdVol.Volume` field relationship.
+    * The bundled Warp stamps a NanoVDB **version** the renderer's IndeX plugin refuses; see
+      :data:`INDEX_NANOVDB_VERSION`. ``None`` leaves it alone, which is what a caller writing a
+      file for Warp itself wants.
+
+    The buffer is the volume's own device array read back to NumPy, edited and written back,
+    rather than the file patched afterwards, so the file metadata `save_to_nvdb` derives from this
+    same header stays consistent with it. Returns ``(written, as generated)``.
     """
     encoded = name.encode("utf-8")
     if len(encoded) > 255:
@@ -153,11 +209,63 @@ def _name_grid(volume: Any, name: str) -> None:
     buffer = volume.array().numpy()
     header = _GridData.from_buffer(buffer)
     header.gridName = encoded
-    # The name sits inside the range a full NanoVDB checksum covers, so leaving the old value
-    # would present a grid that fails its own integrity check. The sentinel says "not computed",
-    # which is a state the format defines rather than a value that happens not to match.
+    generated = _unpack_version(int(header.version))
+    written = generated if version is None else tuple(int(v) for v in version)
+    if version is not None:
+        header.version = _packed_version(written)  # type: ignore[arg-type]
+    # The name and the version both sit inside the range a full NanoVDB checksum covers, so
+    # leaving the old value would present a grid that fails its own integrity check. The sentinel
+    # says "not computed", which is a state the format defines rather than a value that happens
+    # not to match.
     header.checksum = NANOVDB_NO_CHECKSUM
     volume.array().assign(buffer)
+    return written, generated  # type: ignore[return-value]
+
+
+#: Byte size of NanoVDB's `GridData` header, which `TreeData` follows immediately.
+_GRID_DATA_BYTES = 672
+#: Byte size of `nanovdb::io::FileMetaData`, which follows the 16-byte file header.
+_FILE_META_BYTES = 176
+
+
+def _fill_file_metadata(path: pathlib.Path) -> dict[str, int]:
+    """Copy the tree's own node, tile and voxel counts into the file metadata block.
+
+    ``warp.Volume.save_to_nvdb`` writes a `FileMetaData` with ``voxelCount``, ``nodeCount`` and
+    ``tileCount`` left at **zero** -- it only fills the fields it needs to read its own files back.
+    Warp does not care; a consumer that sizes its storage from them gets nothing, which is exactly
+    what the Omniverse renderer reported:
+
+        IndeX Direct carb-volume importer: unable to create VDB subset
+        (failed to generate VDB subset grid storage of size 56657696)
+
+    -- the grid *size* was right and the allocation still produced nothing. The counts are not
+    derived or guessed here: they are read straight out of the grid's own `TreeData`, which sits
+    immediately after the 672-byte `GridData` header and carries ``mNodeCount[3]``,
+    ``mTileCount[3]`` and ``mVoxelCount``. The root node is one, by definition of a tree.
+
+    Returns what was written, so a caller can log it and a test can assert it is not all zeros.
+    """
+    data = bytearray(path.read_bytes())
+    (magic,) = struct.unpack_from("<Q", data, 0)
+    if magic not in (0x304244566F6E614E, 0x314244566F6E614E):
+        raise ValueError(f"{path} does not start with a NanoVDB file magic")
+    (name_size,) = struct.unpack_from("<I", data, 16 + 136)
+    grid = 16 + _FILE_META_BYTES + name_size
+    tree = grid + _GRID_DATA_BYTES
+    node_count = struct.unpack_from("<3I", data, tree + 32)
+    tile_count = struct.unpack_from("<3I", data, tree + 44)
+    (voxel_count,) = struct.unpack_from("<Q", data, tree + 56)
+    struct.pack_into("<Q", data, 16 + 24, voxel_count)  # FileMetaData.voxelCount
+    struct.pack_into("<4I", data, 16 + 140, *node_count, 1)  # nodeCount, root included
+    struct.pack_into("<3I", data, 16 + 156, *tile_count)
+    path.write_bytes(bytes(data))
+    return {
+        "voxels": int(voxel_count),
+        "leaf_nodes": int(node_count[0]),
+        "lower_nodes": int(node_count[1]),
+        "upper_nodes": int(node_count[2]),
+    }
 
 
 def author_cloud_volume(

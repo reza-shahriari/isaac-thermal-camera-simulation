@@ -53,7 +53,6 @@ from numpy.typing import NDArray
 from irsim.atmosphere.cloud import (
     CLOUD_AIRMASS_FLOOR_DEG,
     CLOUD_OD_RATIO,
-    DEFAULT_EDGE_SOFTNESS,
     generate_cloud_field,
 )
 
@@ -61,15 +60,18 @@ __all__ = [
     "DEFAULT_THICKNESS_M",
     "DEFAULT_CELL_M",
     "DEFAULT_MIN_ELEVATION_DEG",
+    "DEFAULT_SMALLEST_CLOUD_M",
+    "DEFAULT_DEPTH_SCALE_SIGMA",
     "MAX_MARCH_STEPS",
     "MIN_MARCH_STEPS",
-    "MARCH_SAMPLES_PER_CELL",
+    "MARCH_STEP_M",
     "CloudDeck",
     "MarchResult",
     "TRANSECT_TO_RADIAL_SLOPE",
     "vertical_profile",
     "deck_field",
     "generate_cloud_deck",
+    "resample_bilinear",
 ]
 
 #: Geometric thickness of a column at full depth, metres. ESTIMATED: continental fair-weather
@@ -83,22 +85,58 @@ DEFAULT_THICKNESS_M = 1200.0
 #: does not have and does not throw away structure it does.
 DEFAULT_CELL_M = 25.0
 
-#: Lowest elevation the deck is built out to. The horizontal extent is ``base / tan(this)``, which
-#: diverges at the horizon; below it a ray leaves the deck's footprint and reads clear sky.
+#: Lowest elevation the deck's *tile* is sized for. The tile's half-period is ``base / tan(this)``,
+#: so the shallowest ray of interest crosses one whole tile before it repeats. The deck itself has
+#: no edge: the depth map is periodic (see :meth:`CloudDeck.column_depth`).
 DEFAULT_MIN_ELEVATION_DEG = 10.0
+
+#: Field excess, in standard deviations above the condensation threshold, at which a column
+#: reaches the capping inversion and stops growing.
+#:
+#: This is what makes the deck a field of *towers* rather than a field of mesas. A cumulus grows
+#: as far above its base as the thermal that made it can carry it, and the strength of a thermal
+#: in a field of them is distributed about a mean -- so cloud-top height rises with the synthesised
+#: field's excess over the threshold rather than jumping to full thickness the moment the threshold
+#: is crossed. The inversion clips the strongest towers, which is why a fair-weather cumulus field
+#: has a common top and rounded shoulders below it rather than one flat lid.
+#:
+#: At 1.5 sigma and the 0.45 coverage the presets author, the mean cloudy column comes out about
+#: half the deck's thickness and 12% of cloudy columns reach the inversion -- a 600 m mean depth at
+#: a 1.2 km cap, which is fair-weather cumulus. ESTIMATED: the value is chosen for that outcome,
+#: not measured. The quantity that is anchored is the *column* optical depth, which is independent
+#: of it.
+DEFAULT_DEPTH_SCALE_SIGMA = 1.5
+
+#: Diameter of the smallest cumulus the deck carries, metres.
+#:
+#: A ``1/f^beta`` field is *scale-free*: it has structure at every size down to the grid, so a 25 m
+#: cell gets 25 m clouds. A cumulus field does not work that way. Its size distribution has a
+#: mode near half a kilometre and falls off sharply below it, because a parcel that small entrains
+#: dry air faster than it can condense and evaporates -- there is a smallest cloud, and it is
+#: hundreds of metres across, not tens.
+#:
+#: Leaving the small scales in is not a cosmetic error in an infrared frame, because the two bands
+#: read the deck differently: the dome samples the depth map at the point each ray crosses the
+#: base, so a 25 m speck is a 25 m speck, while the infrared band *integrates along the ray*, so
+#: the same speck smears over the kilometres the ray spends in the deck. That is how a frame ends
+#: up covered in bright marks with nothing in the visible image to match them.
+#:
+#: Applied as a Gaussian roll-off at ``smallest_cloud_m / 4``, which leaves ~2% of the variance
+#: below ``smallest_cloud_m``. ESTIMATED: 400 m is the low end of the observed fair-weather
+#: cumulus mode, not a measurement of this scene.
+DEFAULT_SMALLEST_CLOUD_M = 400.0
 
 #: Cap on the samples per ray, and the floor. A march has to resolve the depth map along the
 #: ray, and an oblique ray crosses the map **horizontally**: at 20 degrees a ray climbing 1.2 km
-#: travels 3.3 km sideways, so 48 steps put its samples 68 m apart across a 25 m grid and the
-#: undersampling shows up as horizontal banding at every cloud edge -- visible immediately in a
-#: rendered frame. :meth:`CloudDeck.adequate_steps` sizes the march from the geometry instead and
-#: clamps it here. 256 is where the banding stopped being visible in the preview frames, at
-#: 4.2 s for a 640x512 frame against 0.6 s at 48.
+#: travels 3.3 km sideways, so 48 steps put its samples 68 m apart and the undersampling shows up
+#: as horizontal banding at every cloud edge -- visible immediately in a rendered frame.
+#: :meth:`CloudDeck.adequate_steps` sizes the march from the geometry instead and clamps it here.
 MAX_MARCH_STEPS = 256
 MIN_MARCH_STEPS = 32
 
-#: Horizontal samples per depth-map cell the step count aims for.
-MARCH_SAMPLES_PER_CELL = 2.0
+#: Sample spacing along the ray the step count aims for, metres. See
+#: :meth:`CloudDeck.adequate_steps` for the measurement that chose it.
+MARCH_STEP_M = 36.0
 
 
 def vertical_profile(u: Any) -> NDArray[np.float64]:
@@ -110,7 +148,10 @@ def vertical_profile(u: Any) -> NDArray[np.float64]:
     """
     x = np.asarray(u, dtype=np.float64)
     inside = (x >= 0.0) & (x <= 1.0)
-    return np.asarray(np.where(inside, 6.0 * x * (1.0 - x), 0.0), dtype=np.float64)
+    # Clamped before the product, not after: a column with a very small depth puts `u` in the
+    # millions, and 6u(1-u) on that overflows to -inf before `where` gets to discard it.
+    clamped = np.where(inside, x, 0.0)
+    return np.asarray(np.where(inside, 6.0 * clamped * (1.0 - clamped), 0.0), dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -170,42 +211,54 @@ class CloudDeck:
         return self.base_m + self.thickness_m
 
     def adequate_steps(self, elevation_rad: Any) -> int:
-        """Samples per ray that resolve the depth map along the shallowest ray in the array.
+        """Steps that keep the march's sample spacing to :data:`MARCH_STEP_M` along the shallowest
+        ray in the array, clamped to [:data:`MIN_MARCH_STEPS`, :data:`MAX_MARCH_STEPS`].
 
-        A ray crossing the deck at elevation theta travels ``thickness / tan(theta)`` horizontally
-        and ``thickness`` vertically; the march has to sample whichever is longer at
-        :data:`MARCH_SAMPLES_PER_CELL` per cell, clamped to
-        [:data:`MIN_MARCH_STEPS`, :data:`MAX_MARCH_STEPS`].
+        **Path length is the criterion, not cells per cloud.** The march is a midpoint rule over an
+        integrand with a jump in it -- the cloud's own boundary -- so it converges at first order
+        and the error is set by how precisely a step lands on that boundary, which is a distance
+        in metres and has nothing to do with the grid. Measured over a rendered frame against a
+        1536-step reference: 36 m steps hold the band emissivity to 0.02 at the 99th percentile,
+        72 m steps to 0.044, and 100 m steps to 0.061 -- and 0.02 of emissivity is 0.8 K against
+        the 40 K a cloud stands above a clear zenith.
 
         The **minimum** elevation in the array sets it, not the mean: the step count is one number
         for the whole march, and sizing it on a typical ray leaves the shallow ones aliased --
-        which is where the banding is worst, because those are the rays that cross the most cells.
+        which is where the banding is worst, because those are the rays that spend longest in the
+        deck.
         """
         el = np.abs(np.asarray(elevation_rad, dtype=np.float64))
         lowest = float(np.min(el[el > 0.0])) if np.any(el > 0.0) else 0.5 * math.pi
         lowest = max(lowest, math.radians(CLOUD_AIRMASS_FLOOR_DEG))
-        horizontal = self.thickness_m / math.tan(lowest)
-        need = MARCH_SAMPLES_PER_CELL * max(horizontal, self.thickness_m) / self.cell_m
+        need = self.thickness_m / math.sin(lowest) / MARCH_STEP_M
         return int(min(MAX_MARCH_STEPS, max(MIN_MARCH_STEPS, math.ceil(need))))
 
     def column_depth(self, x_m: Any, z_m: Any) -> NDArray[np.float64]:
-        """Bilinear sample of the depth map at stage (X, Z); zero outside the deck's footprint."""
+        """Bilinear sample of the depth map at stage (X, Z). The deck **tiles**: it has no edge.
+
+        The depth map is an inverse FFT of a synthesised spectrum, so it is exactly periodic in
+        both axes -- sample ``j`` and sample ``j + n`` are the same number, not merely similar
+        ones. Wrapping the lookup is therefore seamless to the bit, and it removes the artefact a
+        finite footprint has: a ray shallower than :data:`DEFAULT_MIN_ELEVATION_DEG` used to leave
+        the map and read clear sky, which put a hard, straight, cold band across the bottom of
+        every oblique frame where a real cumulus field puts its densest wall.
+
+        The tile is ``n * cell_m`` across -- 12 km at the shipped settings, against the 8 km the
+        shallowest ray in a 25-degree frame reaches -- so a frame sees at most one repeat.
+        """
         n = self.depth.shape[0]
         centre = 0.5 * (n - 1)
-        fx = np.asarray(x_m, dtype=np.float64) / self.cell_m + centre
-        fz = np.asarray(z_m, dtype=np.float64) / self.cell_m + centre
-        inside = (fx >= 0.0) & (fx <= n - 1) & (fz >= 0.0) & (fz <= n - 1)
-        cx = np.clip(fx, 0.0, n - 1.001)
-        cz = np.clip(fz, 0.0, n - 1.001)
-        i0 = cx.astype(np.int64)
-        j0 = cz.astype(np.int64)
-        tx = cx - i0
-        tz = cz - j0
-        i1 = np.minimum(i0 + 1, n - 1)
-        j1 = np.minimum(j0 + 1, n - 1)
+        fx = np.mod(np.asarray(x_m, dtype=np.float64) / self.cell_m + centre, n)
+        fz = np.mod(np.asarray(z_m, dtype=np.float64) / self.cell_m + centre, n)
+        i0 = fx.astype(np.int64) % n
+        j0 = fz.astype(np.int64) % n
+        tx = fx - i0
+        tz = fz - j0
+        i1 = (i0 + 1) % n
+        j1 = (j0 + 1) % n
         top = self.depth[i0, j0] * (1.0 - tz) + self.depth[i0, j1] * tz
         bottom = self.depth[i1, j0] * (1.0 - tz) + self.depth[i1, j1] * tz
-        return np.asarray(np.where(inside, top * (1.0 - tx) + bottom * tx, 0.0))
+        return np.asarray(top * (1.0 - tx) + bottom * tx)
 
     def density_at(self, x_m: Any, y_m: Any, z_m: Any) -> NDArray[np.float64]:
         """Visible extinction per metre at a stage point. The one definition of the cloud's shape.
@@ -311,6 +364,43 @@ class CloudDeck:
         return np.ascontiguousarray(grid, dtype=np.float32), (-half, float(height[0]), -half)
 
 
+def resample_bilinear(values: Any, shape: tuple[int, int]) -> NDArray[np.float64]:
+    """Bilinear resize of a 2-D array onto ``shape``, corners aligned.
+
+    Here so that a marched sky can be computed on a coarse grid and put back on a fine one. That
+    is worth doing because the two grids exist for different reasons: an infrared camera's AOVs
+    are rendered **supersampled** so that *geometry* edges antialias, and at this project's
+    factor of four that is sixteen times as many rays. The cloud field behind the geometry has no
+    edges at that scale -- its finest feature is a depth-map cell, which subtends about a native
+    pixel at the ranges these scenes work at -- so marching every subpixel spends sixteen times
+    the work to recover a value a box filter would have averaged back anyway.
+
+    Not used for anything with an edge in it. The aircraft's own pixels never come from here;
+    they are masked out before this result is applied.
+    """
+    v = np.asarray(values, dtype=np.float64)
+    if v.ndim != 2:
+        raise ValueError(f"resample_bilinear takes a 2-D array, got {v.shape}")
+    rows, cols = int(shape[0]), int(shape[1])
+    if rows < 1 or cols < 1:
+        raise ValueError("the target shape must be positive")
+    out = v
+    for axis, (have, want) in enumerate(((v.shape[0], rows), (v.shape[1], cols))):
+        if have == want:
+            continue
+        if have == 1:
+            out = np.repeat(out, want, axis=axis)
+            continue
+        pos = np.linspace(0.0, have - 1.0, want)
+        i0 = np.floor(pos).astype(np.int64)
+        i1 = np.minimum(i0 + 1, have - 1)
+        frac = (pos - i0).reshape((-1, 1) if axis == 0 else (1, -1))
+        lo = np.take(out, i0, axis=axis)
+        hi = np.take(out, i1, axis=axis)
+        out = lo * (1.0 - frac) + hi * frac
+    return np.asarray(out, dtype=np.float64)
+
+
 def _direction(el: Any, az: Any, up: Any, forward: Any) -> NDArray[np.float64]:
     """The inverse of :func:`~irsim.atmosphere.cloud.sky_angles`, in the same convention.
 
@@ -352,15 +442,36 @@ def _direction(el: Any, az: Any, up: Any, forward: Any) -> NDArray[np.float64]:
 TRANSECT_TO_RADIAL_SLOPE = 1.0
 
 
+def _low_pass(field: NDArray[np.float64], sigma_cells: float) -> NDArray[np.float64]:
+    """Circular Gaussian blur at ``sigma_cells``, renormalised to zero mean and unit variance.
+
+    Done in the Fourier domain both because the field was synthesised there and because a
+    circular convolution keeps it exactly periodic, which is what lets the deck tile
+    (:meth:`CloudDeck.column_depth`). The renormalisation matters: the threshold and the depth
+    ramp are both expressed in standard deviations of the field, and a blur removes variance, so
+    without it a smoothed field would come out systematically shallower as well as smoother.
+    """
+    n = field.shape[0]
+    fy = np.fft.fftfreq(n)[:, None]
+    fx = np.fft.fftfreq(n)[None, :]
+    f2 = fx * fx + fy * fy
+    kernel = np.exp(-2.0 * (math.pi * sigma_cells) ** 2 * f2)
+    out = np.real(np.fft.ifft2(np.fft.fft2(field) * kernel))
+    sd = float(out.std())
+    return np.asarray((out - out.mean()) / (sd if sd > 0.0 else 1.0), dtype=np.float64)
+
+
 def deck_field(
     n: int,
     *,
     beta: float,
     cloud_fraction: float,
     seed: int,
-    softness: float = DEFAULT_EDGE_SOFTNESS,
+    depth_scale: float = DEFAULT_DEPTH_SCALE_SIGMA,
+    smooth_cells: float = 0.0,
 ) -> NDArray[np.float64]:
-    """A 0-to-1 column-depth map on the deck plane: 1/f^beta structure, thresholded at ``1 - c``.
+    """A 0-to-1 column-depth map on the deck plane: 1/f^beta structure, thresholded at ``1 - c``
+    and then **grown with height** rather than switched on.
 
     Built **in metres on the deck**, not by projecting the hemispherical field down onto it. That
     distinction is the whole geometry of a cumulus field and getting it wrong is visible
@@ -373,24 +484,40 @@ def deck_field(
     Synthesised here, a cloud is about as wide as it is tall, which is what a fair-weather cumulus
     is, and an oblique ray enters one side and leaves the other.
 
+    **The height is a ramp, not a switch**, and that is the load-bearing part. A threshold with a
+    soft edge -- which is what a plane-parallel *membership* map wants, and what this function
+    used to return -- makes every covered column the deck's full thickness, so the deck is a field
+    of flat-topped mesas with vertical walls. Straight up that is invisible, because a vertical ray
+    through a mesa and a vertical ray through a tower of the same column depth read the same. At 20
+    degrees it is the whole picture: an oblique ray runs *along* a 1.2 km wall for kilometres, so
+    the marched optical depth smears into vertical streaks and saturates -- tau averaged 7 over a
+    rendered frame, which is opaque everywhere, which is the flat white the analytic fix of AT.11
+    was meant to remove. Growing the top with the field's excess instead gives a tower rounded
+    shoulders, and a ray crosses it rather than grazing a wall.
+
+    ``depth = smoothstep(min(1, (field - threshold) / depth_scale))``: zero at the threshold,
+    rising with the excess, clipped by the capping inversion at :data:`DEFAULT_DEPTH_SCALE_SIGMA`
+    sigma above it. The smoothstep rounds both ends -- no cusp where a tower meets the inversion
+    and no crease where it meets the clear air.
+
     ``beta`` is the **radial** exponent this function applies; see
     :data:`TRANSECT_TO_RADIAL_SLOPE` for why a caller holding a published transect slope adds one
     to it first. The threshold is taken at the ``1 - cloud_fraction`` quantile exactly as the
-    hemispherical field's is, so the authored coverage still means what it did -- over the deck,
-    which is what a camera near the zenith sees and slightly less than what an oblique one does,
-    since a tilted view foreshortens the gaps between towers.
+    hemispherical field's is, and because the ramp is zero exactly at the threshold the authored
+    coverage comes out *exact* -- the fraction of columns with any cloud in them is ``c`` to within
+    a cell, where the old smoothstep spread cloud half its softness past the threshold.
     """
     if n < 8 or n % 2 == 0:
         raise ValueError("the deck grid must be odd and at least 8 cells across")
+    if depth_scale <= 0.0:
+        raise ValueError("depth_scale must be positive: it is an excess in sigma, not a flag")
     field = generate_cloud_field((n, n), beta, cloud_fraction, seed).field
     if cloud_fraction <= 0.0:
         return np.zeros((n, n), dtype=np.float64)
+    if smooth_cells > 0.0:
+        field = _low_pass(field, smooth_cells)
     threshold = float(np.quantile(field, 1.0 - cloud_fraction))
-    if softness <= 0.0:
-        return np.asarray(field >= threshold, dtype=np.float64)
-    # The same smoothstep on the field's own excess in sigma that `SkyFixedCloud.density` uses
-    # (ADR 0125), so a cloud thins toward its edge here for the same reason and by the same law.
-    x = np.clip((field - threshold) / softness + 0.5, 0.0, 1.0)
+    x = np.clip((field - threshold) / depth_scale, 0.0, 1.0)
     return np.asarray(x * x * (3.0 - 2.0 * x), dtype=np.float64)
 
 
@@ -404,12 +531,13 @@ def generate_cloud_deck(
     thickness_m: float = DEFAULT_THICKNESS_M,
     cell_m: float = DEFAULT_CELL_M,
     min_elevation_deg: float = DEFAULT_MIN_ELEVATION_DEG,
+    smallest_cloud_m: float = DEFAULT_SMALLEST_CLOUD_M,
 ) -> CloudDeck:
     """A cumulus deck over the camera: seeded, reproducible, and the one cloud both bands read.
 
-    The footprint runs out to ``base / tan(min_elevation_deg)``, because that expression diverges
-    at the horizon. A ray below it leaves the deck and reads clear sky -- wrong in the same
-    direction as the horizon itself, which is why the drivers keep the horizon out of frame.
+    The tile runs out to ``base / tan(min_elevation_deg)``, so the shallowest ray a driver aims at
+    crosses one whole period before the map repeats. The deck has no edge -- see
+    :meth:`CloudDeck.column_depth`.
     """
     if base_m <= 0.0:
         raise ValueError("a deck needs a base above the camera; a base at the surface is fog")
@@ -417,7 +545,13 @@ def generate_cloud_deck(
     n = int(round(2.0 * half / cell_m))
     n += 1 if n % 2 == 0 else 2  # odd, so one cell sits exactly overhead
     return CloudDeck(
-        depth=deck_field(n, beta=beta, cloud_fraction=cloud_fraction, seed=seed),
+        depth=deck_field(
+            n,
+            beta=beta,
+            cloud_fraction=cloud_fraction,
+            seed=seed,
+            smooth_cells=max(0.0, float(smallest_cloud_m)) / 4.0 / float(cell_m),
+        ),
         cell_m=float(cell_m),
         base_m=float(base_m),
         thickness_m=float(thickness_m),

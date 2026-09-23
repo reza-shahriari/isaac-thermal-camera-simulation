@@ -145,14 +145,23 @@ parser.add_argument("--no-cloud", action="store_true", help="a bare sky, for the
 # degree puts a grid cell at about three pixels, which is under the PSF and so invisible as
 # structure. It costs 4.7 MB and one second.
 parser.add_argument("--cloud-cells-per-deg", type=float, default=6.0)
-# **A cloud with a top, in both bands** (AT.12). The same field laid on a horizontal deck at the
-# LCL, marched per ray for the infrared and written as a NanoVDB volume for the visible one --
-# real participating geometry in the stage rather than cloud painted on a dome at infinity. Costs
-# a ray march per pixel and needs the path tracer, so it implies `--rgb`.
+# **A cloud with a top** (AT.12): the field laid on a horizontal deck at the LCL, each column
+# given its own top, marched per ray for the infrared band. The visible dome bakes the same deck,
+# so the two bands cannot disagree about where the cloud is (ADR 0076).
+parser.add_argument(
+    "--cloud-deck",
+    action="store_true",
+    help="cloud with a top: marched per ray for LWIR, the same deck baked into the dome (AT.12)",
+)
+# Additionally write the deck as a NanoVDB volume and put it in the stage as real participating
+# geometry, clearing the dome's cloud. **Blocked on this build** -- Isaac Sim 6.1's IndeX plugin
+# refuses the grid ("unable to create VDB subset") even after the version stamp is matched -- so
+# it is off by default and the render says so. Kept because it is the artefact `AT.13` probes
+# with, and because the failure is loud: the companion frame comes back with no cloud in it.
 parser.add_argument(
     "--cloud-volume",
     action="store_true",
-    help="cloud as a real volume: a deck marched for LWIR and voxelised for RGB (AT.12)",
+    help="also author the deck as a UsdVol.Volume (AT.12; refused by this build's IndeX plugin)",
 )
 parser.add_argument(
     "--cloud-voxel-m",
@@ -187,8 +196,10 @@ if args.far_m is None:
     args.far_m = _AIRFRAME["far_m"]
 if args.no_cloud:
     args.cloud_seed = None
+    args.cloud_deck = False
     args.cloud_volume = False
 if args.cloud_volume:
+    args.cloud_deck = True
     # The RTX renderer documents volume rendering under `PathTracing` only, and `--rgb` is what
     # puts this build into it. Implied rather than required, because a volume authored into a
     # stage the renderer will not integrate is a silent no-op: the frame comes back with no cloud
@@ -389,28 +400,39 @@ def main() -> int:
             )
     deck = None
     volume = None
-    if args.cloud_volume:
-        if cloud is None or scene.environment is None:
-            print("--cloud-volume needs a cloud field and an environment preset", file=sys.stderr)
+    if args.cloud_deck:
+        if args.cloud_seed is None or scene.environment is None:
+            print("--cloud-deck needs a cloud seed and an environment preset", file=sys.stderr)
             return 1
         sky_model = scene.sky_models.get(spec.band.band_id)
         if sky_model is None or scene.environment.clouds.optical_depth is None:
             print(
-                "--cloud-volume needs a scene whose environment preset authors "
+                "--cloud-deck needs a scene whose environment preset authors "
                 "clouds.optical_depth (ADR 0126); clouds.tau is a plane-parallel sheet with no "
-                "top to voxelise",
+                "top to give it",
                 file=sys.stderr,
             )
             return 1
         deck = sky_model.cloud_deck(scene.t0_s, int(args.cloud_seed))
-        volume = write_nanovdb(
-            deck, out_dir / "cloud_deck.nvdb", voxel_m=args.cloud_voxel_m, device=render_device()
+        march_steps = deck.adequate_steps(
+            np.radians(np.array([track.elevation_deg - 0.5 * vfov_deg]))
         )
         print(
             f"cloud deck: base {deck.base_m:.0f} m, tops to {deck.top_m:.0f} m, "
-            f"footprint +/-{deck.half_extent_m / 1e3:.1f} km, visible OD {deck.optical_depth:g} "
-            f"at full depth; volume {volume.caption}"
+            f"tiling every {2 * deck.half_extent_m / 1e3:.1f} km, visible OD "
+            f"{deck.optical_depth:g} at full depth, {deck.depth.shape[0]}^2 cells of "
+            f"{deck.cell_m:g} m, mean column {deck.depth[deck.depth > 0].mean():.2f} of the "
+            f"deck over {100 * (deck.depth > 0).mean():.0f}% of it, "
+            f"{march_steps} march steps at the frame's lowest ray"
         )
+        if args.cloud_volume:
+            volume = write_nanovdb(
+                deck,
+                out_dir / "cloud_deck.nvdb",
+                voxel_m=args.cloud_voxel_m,
+                device=render_device(),
+            )
+            print(f"cloud volume: {volume.caption}")
     dome = None
     if not args.no_dome:
         # heading 0: the scene's `world_frame:` puts north on the stage's -Z, so the dome, the sun
@@ -419,8 +441,14 @@ def main() -> int:
         # **The dome's cloud is switched off when the volume carries it**, or the frame would show
         # both: a painted cloud at infinity and the real one in front of it, in the same places,
         # which reads as haze rather than as a mistake.
+        # The dome bakes whichever cloud the infrared band is reading: the deck when there is
+        # one, the hemispherical field otherwise, and **nothing** when a volume is carrying it --
+        # or the frame would show cloud twice, in the same places, which reads as haze.
         dome = dome_spec_from_scene(
-            scene, cloud=None if args.cloud_volume else cloud, heading_deg=0.0
+            scene,
+            cloud=None if deck is not None else cloud,
+            deck=None if args.cloud_volume else deck,
+            heading_deg=0.0,
         )
         print(
             f"environment: sun {dome.sun_elevation_deg:.1f} deg elevation, "
@@ -516,7 +544,7 @@ def main() -> int:
         strict_thermal_nodes=False,
         strict_patch_coverage=not args.lenient_coverage,
         cloud_seed=args.cloud_seed,
-        cloud_deck=args.cloud_volume,
+        cloud_deck=args.cloud_deck,
         rotor_mounts=None if args.no_rotors else rotor_mounts(0.0),
         # IG.6's `motion_px` is deliberately not requested. The aircraft is static in the stage
         # and the camera slews; the tracker reads prim transforms, so it would report zero motion
@@ -605,11 +633,26 @@ def main() -> int:
         sky_model = probe.sky_models.get(spec.band.band_id)
         if sky_model is not None and not args.close_up:
             top_el = math.radians(track.elevation_deg) + 0.5 * math.radians(vfov_deg)
+            # The **clear** sky at the top of the frame, not the cloud-blended average: with 45 %
+            # coverage the blend sits 20 K above the coldest thing in the picture, and a span
+            # starting there puts every gap in the cloud on display code 0 -- which is the defect
+            # this span exists to remove.
             coldest = float(
-                np.min(sky_model.apparent_temperature_k(probe.t0_s, np.array([top_el])))
+                np.min(
+                    sky_model.lut.apparent_temperature(
+                        sky_model.clear_radiance(probe.t0_s, np.array([top_el])),
+                        sky_model.quantity,
+                    )
+                )
             )
+            # Top of the span is the **skin**, not the hottest node: stretching it to the motors
+            # at 65 C spends half the display on four bells and leaves the cloud and the airframe
+            # sharing the lower half. The motors clip white instead, which is the correct reading
+            # of a part that is off this scale and the same choice `skin` makes.
             spans["sky"] = DisplaySpan(
-                kind="apparent_t", low=coldest - 2.0, high=max(float(hi_k), coldest + 10.0) + 2.0
+                kind="apparent_t",
+                low=coldest - 2.0,
+                high=max(float(cell_hi), coldest + 10.0) + 2.0,
             )
     palette_name = args.palette or spec.isp.palette
     palette = palette_table(palette_name)
@@ -821,6 +864,15 @@ def main() -> int:
         "span_m": SPAN_M,
         "span_label": span_label,
         "cloud_seed": args.cloud_seed,
+        "cloud_deck": None
+        if deck is None
+        else {
+            "base_m": deck.base_m,
+            "top_m": deck.top_m,
+            "tile_m": 2.0 * deck.half_extent_m,
+            "cell_m": deck.cell_m,
+            "optical_depth": deck.optical_depth,
+        },
         "cloud_volume": None
         if volume is None
         else {
@@ -828,9 +880,6 @@ def main() -> int:
             "voxel_m": volume.voxel_m,
             "shape": list(volume.shape),
             "min_world_m": list(volume.min_world_m),
-            "base_m": None if deck is None else deck.base_m,
-            "top_m": None if deck is None else deck.top_m,
-            "optical_depth": None if deck is None else deck.optical_depth,
         },
         "sunlit_minus_shaded": sunlit_shaded,
         "sunlit_minus_shaded_k_first": round(

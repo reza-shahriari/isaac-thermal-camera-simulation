@@ -49,7 +49,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.atmosphere.cloud import SkyFixedCloud, generate_sky_cloud, sky_angles
-from irsim.atmosphere.cloud_deck import CloudDeck
+from irsim.atmosphere.cloud_deck import CloudDeck, resample_bilinear
 from irsim.atmosphere.sea import SeaModel
 from irsim.atmosphere.sky import SkyModel
 from irsim.pipeline.environment import ground_temperature_k
@@ -142,6 +142,7 @@ class AerialThermalBridge:
         tick_hz: float = DEFAULT_TICK_HZ,
         cloud_seed: int | None = None,
         cloud_deck: bool = False,
+        deck_stride: int = 1,
         sea: SeaModel | None = None,
     ) -> None:
         # A prim's name resolves to a phase-1 *target solver* or to a phase-2 §12.3 *thermal
@@ -228,6 +229,11 @@ class AerialThermalBridge:
                     "hemispherical field does (AT.12)"
                 )
             self.deck = sky.cloud_deck(scene.t0_s, int(cloud_seed))
+        #: March the deck every ``deck_stride`` pixels and interpolate between, which is how a
+        #: supersampled frame stops costing sixteen marches per delivered pixel. Pass the
+        #: camera's own supersample factor: the extra samples exist to antialias *geometry*, and
+        #: the sky behind it has no edges at that scale. 1 marches every ray.
+        self.deck_stride = max(1, int(deck_stride))
 
         # The first bracket has to name **everything a tick will report**, not just the targets.
         # `Scene.advance_targets` returns the network's nodes under their own names as well
@@ -454,15 +460,34 @@ class AerialThermalBridge:
                 # The cloud has a top, so the ray is integrated through it rather than looked up
                 # by the elevation it entered at. A ray straight up gets the same answer the
                 # branch below would give it, by the deck's construction (AT.12).
-                out[above] = self.sky.apparent_temperature_field_from_deck(
-                    t_abs, elev[above], azim[above], self.deck
-                )
+                out = np.where(above, self._deck_temperature(t_abs, elev, azim), out)
             else:
                 depth = self.cloud.density(elev[above], azim[above])
                 out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], depth)
         else:
             out[above] = self.sky.apparent_temperature_k(t_abs, elev[above])
         return out
+
+    def _deck_temperature(self, t_abs: float, elev: Any, azim: Any) -> NDArray[np.float64]:
+        """The marched sky over the whole frame, on a grid `deck_stride` coarser if that helps.
+
+        Marching a supersampled frame is sixteen times the rays for a field whose finest feature
+        is about one *native* pixel, so at stride k the march runs on every k-th sample and the
+        result is interpolated back. Falls back to marching everything when the array is not a
+        2-D grid, because a flat list of directions has no neighbours to interpolate between.
+        """
+        assert self.sky is not None and self.deck is not None
+        el = np.asarray(elev, dtype=np.float64)
+        az = np.asarray(azim, dtype=np.float64)
+        k = self.deck_stride
+        if k <= 1 or el.ndim != 2 or min(el.shape) < 2 * k:
+            return np.asarray(
+                self.sky.apparent_temperature_field_from_deck(t_abs, el, az, self.deck)
+            )
+        coarse = self.sky.apparent_temperature_field_from_deck(
+            t_abs, el[::k, ::k], az[::k, ::k], self.deck
+        )
+        return resample_bilinear(coarse, el.shape)
 
     def sky_temperature(self, elevation_rad: Any) -> NDArray[np.float64]:
         """MS.2's apparent sky temperature; elevations must be above the horizon."""

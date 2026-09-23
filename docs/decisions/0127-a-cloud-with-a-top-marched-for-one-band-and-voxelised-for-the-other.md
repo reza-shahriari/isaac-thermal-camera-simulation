@@ -65,6 +65,27 @@ sizes the march from `max(thickness/tan θ, thickness)` at two samples per cell,
 [32, 256]. 256 is where the banding stopped being visible, at 4.2 s per 640×512 frame against
 0.6 s at 48.
 
+**The volume does not load on this build, and that is recorded rather than worked around.**
+Isaac Sim 6.1's RTX renderer routes VDB assets through its IndeX plugin, and that plugin refuses
+the grid. Two causes were found and fixed and a third was not:
+
+1. Warp 1.16 stamps NanoVDB **32.8** into the grid header; the plugin accepts **32.7** and said
+   so in the log. `INDEX_NANOVDB_VERSION` re-stamps it, and the log's version line then reports
+   32.7 on both sides.
+2. `warp.Volume.save_to_nvdb` leaves `voxelCount`, `nodeCount` and `tileCount` at **zero** in the
+   file metadata — it fills only what it needs to read its own files back. `_fill_file_metadata`
+   copies them out of the grid's own `TreeData`. A consumer sizing its storage from those fields
+   would otherwise get nothing, which matches the reported "failed to generate VDB subset grid
+   storage".
+3. It still fails. Whatever remains is inside the plugin.
+
+So `--cloud-volume` is **off by default** and `--cloud-deck` is the flag that works: the visible
+dome bakes the deck's own column depth where each ray crosses the base — the deck seen as a sheet,
+which puts the cloud in the right *places* at a cost the dome can afford, and keeps ADR 0076's
+rule that the two bands cannot disagree. The volume code is kept, because both fixes are correct,
+because the failure is loud (the companion frame comes back with no cloud in it), and because a
+written `.nvdb` is the artefact `AT.13`'s AOV probe needs.
+
 **NanoVDB, not OpenVDB.** There is no OpenVDB writer in this environment — no `pyopenvdb` on any
 interpreter here — but Isaac Sim ships `omni.warp.core`, and `warp.Volume` round-trips a dense
 NumPy array to `.nvdb`, which Omniverse documents as loadable beside `.vdb`. Warp's allocator
@@ -89,6 +110,7 @@ Measured on the Phantom clip's own frame geometry, same scene, same seed, sheet 
 | emission height above base | 0 m, always | **12 – 834 m** |
 | largest single histogram bin | 55.4 % of the frame | **39.6 %** |
 | cost per 640×512 frame | ~0 | 0.6 s at 48 steps, 4.2 s at 256 |
+| cost per **rendered** frame, 300-frame clip | 7 s | 11 s |
 
 The cloud now has an inside: a ray entering a tower low leaves it through the far flank, and the
 level it emits from is where it ran out of cloud, not where it started.
@@ -107,6 +129,9 @@ level it emits from is where it ran out of cloud, not where it started.
 * **No advection, no shadowing on the aircraft, no cloud–cloud shadowing.** The deck is static
   over a clip, and the volume is lit by the path tracer but casts nothing onto the target in the
   infrared path, which reads geometry from AOVs.
+* **The volume does not load at all on this build** (see the Decision), so the visible band's
+  cloud is the dome baking the deck as a sheet rather than participating geometry a camera
+  can enter. The infrared half is unaffected: it marches the deck directly.
 * **Whether the volume reaches the AOVs at all is untested** — the infrared band is computed from
   AOVs and a volume is not a surface, so cloud in front of the aircraft does not occlude it in
   LWIR. That is `AT.13` (the probe) and `AT.14` (the fix).
@@ -121,6 +146,15 @@ variation inside it would be drawing texture, not physics.
 blocked on a question nobody here has measured — whether Replicator exposes a volume to any AOV on
 this build. `AT.13` is that probe, one cube and a dump. Shipping the engine-free march first also
 leaves an oracle the in-engine path can be checked against, which is this project's usual shape.
+
+**Marching every supersampled ray.** The camera's AOVs are rendered at four times native so
+that *geometry* edges antialias, which is sixteen times the rays — and measured, that took the
+render from 7 s to **107 s** a frame. The cloud behind the geometry has no edges at that scale, so
+the march runs once per native pixel and is interpolated back (`resample_bilinear`), at 11 s a
+frame. The cost of that approximation is measured against an unfiltered full march on a patch at
+the real supersampled pitch: **median 0.05 K, 99th percentile under 1 K** on a field spanning 20 K,
+with the worst pixels on cloud edges where the box filter over the same sixteen samples would have
+smoothed anyway.
 
 **A finer depth map instead of more march steps.** Backwards: the banding came from sampling the
 map too coarsely *along the ray*, so a finer map makes it worse for the same step count.

@@ -132,19 +132,33 @@ working in one tree; two commits already exist whose whole subject is restoring 
   7e-7 of the peak, the radial-interpolation floor, so `OC.5` must either keep the in-focus path on
   `optical_psf` or refresh the goldens deliberately.
 
-- **Focus as config** (schema **v10**, `OC.4`, ADR 0129). `optics.focus` takes `infinity` (the
-  default), `hyperfocal` — which resolves against the detector pitch unless `coc_um` says otherwise,
-  because the acceptable circle of confusion is a convention and belongs in the document — or
-  `fixed` with a `distance_m`. `optics.mtf.defocus_model` selects `none`/`gaussian`/`geometric`/
-  `hopkins` and `defocus_apply` selects `global` or `layered`; `fidelity.defocus` is the ablation
-  and can switch defocus off but never on. **Every default is the pre-v10 camera and is dropped
-  from the config hash**, so a v9 document and a v10 document that spells the defaults out hash
-  identically and every golden array written before `OC` stays valid — while naming a model, a
-  focus distance or the ablation each changes the hash, which is what makes a run's provenance say
-  which camera it was. A focus distance authored with `defocus_model: none` is refused rather than
-  silently ignored.
-
 #### Fixed
+- **The two bands were reading two different clouds, and the infrared one was a field of mesas**
+  (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
+  **26 %** of the pixels and the infrared band over **57 %** of the *same* pixels, which ADR 0076
+  forbids. Three causes. (1) `deck_field` mapped the synthesised field through a soft threshold,
+  which is a *membership* function — right for a plane-parallel sheet and wrong read as a top
+  height, because it makes every covered column the deck's full 1.2 km. The deck was flat-topped
+  blocks with vertical walls, invisible looking up and the whole picture at 20°, where an oblique
+  ray runs *along* a wall: marched optical depth averaged **7.07** and reached **27.8**, opaque
+  everywhere. Depth now rises with the field's excess over the condensation threshold and is
+  clipped by the capping inversion, so a tower has rounded shoulders and a ray crosses it.
+  (2) A `1/f^β` field is scale-free, so a 25 m grid carried 25 m clouds; the dome sampled them as
+  specks and the march smeared each one over the kilometres a ray spends in the deck — *"some
+  random points those are not in the rgb at all"*. Band-limited at **400 m**, the low end of the
+  observed fair-weather cumulus mode. (3) The deck ended at `base / tan(10°)` and read clear sky
+  beyond, putting a hard cold band across the bottom of every oblique frame; the depth map is an
+  inverse FFT and therefore exactly periodic, so it now **tiles** seamlessly and has no edge.
+  And the dome **marches** the deck rather than sampling its column depth at the base crossing,
+  taking `α = 1 − exp(−τ)` from the same integration the infrared band applies `CLOUD_OD_RATIO`
+  to. Measured after: the largest 0.25 K bin holds **6.4 %** of the frame (53.9 % before ADR 0126,
+  39.6 % after 0127), in-cloud spread is **28.8 K** p1–p99, the emission level runs **15–1065 m**
+  above the base, and the two bands draw cloud in the same pixels by construction. The march is
+  now sized by **path length** (36 m steps, measured against a 1536-step reference) instead of by
+  grid cells, which made it cheap enough to march at half the native pitch: the interpolation
+  error at a cloud edge falls from **1.39 K** p99 / 4.6 K worst to **0.46 K** / 2.2 K. Known and
+  unfixed: a cloud is still a vertical extrusion rather than a 3-D body, the visible cloud's
+  interior has no shading, and every base sits at one altitude — AT.13 and AT.14 own those.
 - **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
   `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power
   spectrum, and on a 2-D field the variance per octave goes as `f^(2−β)` — so `beta: 1.8` puts more

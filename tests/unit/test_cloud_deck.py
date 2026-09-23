@@ -28,7 +28,8 @@ import pytest
 from irsim.atmosphere.cloud import CLOUD_OD_RATIO, generate_sky_cloud, psd_slope, sky_angles
 from irsim.atmosphere.cloud_deck import (
     DEFAULT_MIN_ELEVATION_DEG,
-    MARCH_SAMPLES_PER_CELL,
+    DEFAULT_SMALLEST_CLOUD_M,
+    MARCH_STEP_M,
     MAX_MARCH_STEPS,
     MIN_MARCH_STEPS,
     TRANSECT_TO_RADIAL_SLOPE,
@@ -36,6 +37,7 @@ from irsim.atmosphere.cloud_deck import (
     _direction,
     deck_field,
     generate_cloud_deck,
+    resample_bilinear,
     vertical_profile,
 )
 from irsim.config.loader import load_sensor_config
@@ -98,11 +100,17 @@ def test_a_vertical_ray_reproduces_the_plane_parallel_model(deck: CloudDeck) -> 
     """
     az = np.zeros(1)
     el = np.full(1, 0.5 * math.pi)
-    overhead = float(deck.depth[deck.depth.shape[0] // 2, deck.depth.shape[1] // 2])
-    assert overhead > 0.2, "pick a seed whose field puts cloud overhead, or this proves nothing"
-    expected = deck.optical_depth * overhead
-    coarse = float(deck.march(el, az, steps=8).optical_depth[0])
-    fine = float(deck.march(el, az, steps=256).optical_depth[0])
+    # A deep column, found rather than assumed: since the depth map became a *height* ramp the
+    # deepest columns are a small minority, and the cell directly overhead is usually not one.
+    n = deck.depth.shape[0]
+    i, j = np.unravel_index(int(np.argmax(deck.depth)), deck.depth.shape)
+    centre = 0.5 * (n - 1)
+    origin = ((i - centre) * deck.cell_m, 0.0, (j - centre) * deck.cell_m)
+    column = float(deck.depth[i, j])
+    assert column > 0.9, "the deepest column should reach the capping inversion"
+    expected = deck.optical_depth * column
+    coarse = float(deck.march(el, az, origin_m=origin, steps=8).optical_depth[0])
+    fine = float(deck.march(el, az, origin_m=origin, steps=256).optical_depth[0])
     assert fine == pytest.approx(expected, rel=1e-4)
     assert abs(fine - expected) < abs(coarse - expected), "the error must fall with more steps"
 
@@ -118,11 +126,16 @@ def test_every_column_is_its_own_authored_optical_depth(deck: CloudDeck) -> None
     for i in range(x.size):
         ox, oz = float(x.flat[i]), float(z.flat[i])
         one = deck.march(np.full(1, 0.5 * math.pi), np.zeros(1), origin_m=(ox, 0.0, oz), steps=256)
-        expected = deck.optical_depth * float(deck.column_depth(ox, oz)[()])
-        # 3e-3 rather than the 1e-4 the overhead column reaches, and the difference is quadrature
-        # rather than physics: the march spaces its steps over the *deck's* full thickness, so a
-        # column that only fills a third of it is resolved by a third of the steps, and the
-        # profile's truncation at the column top lands between two of them.
+        depth = float(deck.column_depth(ox, oz)[()])
+        # A column thinner than a few steps is not a physics case, it is an empty quadrature: the
+        # march spaces 256 steps over the deck's *full* 1.2 km, so a column filling 1% of it has
+        # two samples in it and a column filling 0.01% has none. Checked where the march can see.
+        if depth < 0.05:
+            continue
+        expected = deck.optical_depth * depth
+        # 3e-3 rather than the 1e-4 the deepest column reaches, and the difference is quadrature
+        # rather than physics: a column that only fills a third of the deck is resolved by a third
+        # of the steps, and the profile's truncation at the column top lands between two of them.
         assert float(one.optical_depth[0]) == pytest.approx(expected, rel=3e-3, abs=1e-6)
     assert marched.optical_depth.shape == x.shape  # the vectorised path has the right shape
 
@@ -169,15 +182,36 @@ def test_the_emission_level_varies_across_a_frame(deck: CloudDeck) -> None:
 
 
 def test_a_ray_that_never_reaches_the_deck_takes_nothing_from_it(deck: CloudDeck) -> None:
-    """Pointing down, along the horizon or outside the footprint: zero, so the blend is clear."""
+    """Pointing down or along the horizon: zero, so the blend falls back to clear sky exactly."""
     below = deck.march(np.radians(np.array([-30.0, -1.0, 0.0])), np.zeros(3))
     assert np.array_equal(below.optical_depth, np.zeros(3))
     assert np.array_equal(below.emission_height_m, np.zeros(3))
-    # Below the footprint's own elevation the ray leaves the deck sideways before it climbs.
+
+
+def test_the_deck_has_no_edge_because_it_tiles(deck: CloudDeck) -> None:
+    """A ray shallower than the tile's own elevation still finds cloud, and finds it seamlessly.
+
+    The deck used to stop at ``base / tan(10 deg)`` and read clear sky beyond, which put a hard
+    straight cold band across the bottom of every oblique frame -- exactly where a real cumulus
+    field puts its densest wall, because that is the direction with the longest slant path. The
+    depth map is an inverse FFT and therefore exactly periodic, so wrapping the lookup costs
+    nothing and is continuous to the bit.
+    """
     grazing = deck.march(
         np.radians(np.full(1, 0.5 * DEFAULT_MIN_ELEVATION_DEG)), np.zeros(1), steps=64
     )
-    assert float(grazing.optical_depth[0]) == pytest.approx(0.0, abs=1e-9)
+    assert float(grazing.optical_depth[0]) > 1.0, "a 5 degree ray runs the length of the deck"
+    # Seamless: one period apart is the same column, not merely a similar one.
+    period = deck.depth.shape[0] * deck.cell_m
+    x = np.array([-311.0, 0.0, 517.0, 2400.0])
+    z = np.array([77.0, -1290.0, 640.0, -33.0])
+    assert np.allclose(deck.column_depth(x, z), deck.column_depth(x + period, z - period), atol=0.0)
+    # And continuous across the seam: the step over the wrap is no larger than a typical step.
+    edge = 0.5 * period
+    walk = np.linspace(edge - 5 * deck.cell_m, edge + 5 * deck.cell_m, 401)
+    jump = np.abs(np.diff(deck.column_depth(walk, np.zeros_like(walk))))
+    inland = np.abs(np.diff(deck.column_depth(walk - 0.25 * period, np.zeros_like(walk))))
+    assert jump.max() <= 4.0 * max(float(inland.max()), 1e-6)
 
 
 def test_the_emissivity_is_the_same_beer_lambert_law_as_the_sheet(deck: CloudDeck) -> None:
@@ -234,12 +268,60 @@ def test_the_deck_field_is_cloud_shaped_rather_than_one_bank(deck: CloudDeck) ->
     assert 0.2 < deck.thickness_m / length_m < 5.0
 
 
-def test_the_deck_keeps_the_authored_coverage_and_slope() -> None:
-    """The threshold still means coverage, and the synthesis still has the slope it was given."""
+def test_the_deck_keeps_the_authored_coverage_exactly() -> None:
+    """The threshold still means coverage -- and now means it *exactly*, which it did not before.
+
+    The depth map is a ramp that is zero at the threshold and positive above it, so the set of
+    columns carrying any cloud at all is the set above the quantile, to within the tie-breaking
+    of a single cell. The old smoothstep spread cloud half its softness *past* the threshold, so
+    an authored 0.45 came out as covered area somewhere above it.
+    """
     for fraction in (0.2, 0.45, 0.7):
         depth = deck_field(257, beta=2.8, cloud_fraction=fraction, seed=3)
-        assert float((depth >= 0.5).mean()) == pytest.approx(fraction, abs=0.02)
+        assert float((depth > 0.0).mean()) == pytest.approx(fraction, abs=2e-3)
+        # A ramp, not a switch: covered columns take a range of depths rather than one.
+        covered = depth[depth > 0.0]
+        assert float(np.percentile(covered, 90) - np.percentile(covered, 10)) > 0.4
     assert psd_slope(deck_field(257, beta=2.8, cloud_fraction=0.99, seed=3)) < -1.5
+
+
+def test_the_deck_carries_no_cloud_smaller_than_a_cloud() -> None:
+    """The band limit, which is what stopped the infrared frame filling with marks.
+
+    The two bands read the deck differently -- the dome samples it where a ray crosses the base,
+    the infrared band integrates it along the ray -- so structure far below the cloud scale does
+    not merely look wrong, it looks wrong *differently in each band*: a 25 m speck stays a speck
+    on the dome and smears over kilometres in the march. Measured as the power left above the
+    band limit's own frequency, which is where the roll-off is defined, not as an eyeball.
+    """
+    cell_m = 25.0
+    smooth = deck_field(
+        487,
+        beta=2.8,
+        cloud_fraction=0.45,
+        seed=7,
+        smooth_cells=DEFAULT_SMALLEST_CLOUD_M / 4 / cell_m,
+    )
+    raw = deck_field(487, beta=2.8, cloud_fraction=0.45, seed=7)
+
+    def power_between(field: np.ndarray, small_m: float, large_m: float) -> float:
+        """Absolute power in the band of spatial scales [small_m, large_m], per unit area."""
+        p = np.abs(np.fft.fft2(field - field.mean())) ** 2 / field.size**2
+        fy = np.fft.fftfreq(field.shape[0])[:, None]
+        fx = np.fft.fftfreq(field.shape[1])[None, :]
+        f = np.sqrt(fx * fx + fy * fy)
+        band = (f >= cell_m / large_m) & (f < cell_m / small_m)
+        return float(p[band].sum())
+
+    below = DEFAULT_SMALLEST_CLOUD_M
+    loose = power_between(raw, 0.0 + 2 * cell_m, below)
+    tight = power_between(smooth, 0.0 + 2 * cell_m, below)
+    assert loose > 0.0, "the premise of the limit is gone: the raw field has no small scales"
+    assert tight < 0.1 * loose, "the sub-cloud scales must be gone, not merely reduced"
+    # And the limit must not eat the clouds themselves: the kilometre band survives.
+    assert power_between(smooth, 1000.0, 4000.0) == pytest.approx(
+        power_between(raw, 1000.0, 4000.0), rel=0.15
+    )
 
 
 def test_reading_beta_as_a_transect_slope_is_what_makes_a_cloud_a_cloud() -> None:
@@ -400,10 +482,8 @@ def test_the_march_sizes_itself_from_the_geometry(deck: CloudDeck) -> None:
     shallow = deck.adequate_steps(np.radians(np.array([5.0])))
     assert MIN_MARCH_STEPS <= zenith < oblique <= MAX_MARCH_STEPS
     assert shallow == MAX_MARCH_STEPS  # the cap, which is a cost decision and is stated as one
-    # Vertically the march only has to resolve the thickness: 2 samples per 25 m cell over 1200 m.
-    assert zenith == pytest.approx(
-        MARCH_SAMPLES_PER_CELL * deck.thickness_m / deck.cell_m, rel=0.02
-    )
+    # Vertically the path *is* the thickness, so the count is that over the step length.
+    assert zenith == pytest.approx(deck.thickness_m / MARCH_STEP_M, rel=0.05)
     # The lowest ray in the array sets it, because the step count is one number for the march.
     el, _ = _frame_angles(64, 64)
     assert deck.adequate_steps(el) == deck.adequate_steps(np.array([el.min()]))
@@ -416,3 +496,100 @@ def test_a_finer_march_changes_the_answer_less_and_less(deck: CloudDeck) -> None
     mid = deck.march(el, az, steps=128).optical_depth
     fine = deck.march(el, az, steps=MAX_MARCH_STEPS).optical_depth
     assert float(np.abs(mid - fine).mean()) < float(np.abs(coarse - fine).mean())
+
+
+def test_the_dome_bakes_the_deck_when_the_infrared_band_is_marching_one() -> None:
+    """One object in both bands, still (ADR 0076), now that the object has a top.
+
+    A deck in the infrared band beside the hemispherical field on the dome would put cloud in
+    different parts of the sky in the two halves of a frame pair -- each internally consistent and
+    plausible, which is the worst kind of wrong. The dome takes the deck's own column depth where
+    each ray crosses the base.
+    """
+    from irsim_isaac.visible_sky import DomeSpec, environment_map, latlong_directions
+
+    deck = generate_cloud_deck(
+        beta=2.8, cloud_fraction=0.45, seed=7, base_m=1000.0, optical_depth=12.0
+    )
+    base = DomeSpec(sun_elevation_deg=40.0, sun_azimuth_deg=150.0, dni_w_m2=800.0, dhi_w_m2=180.0)
+    clear = environment_map(base, height=64)
+    clouded = environment_map(
+        DomeSpec(**{**base.__dict__, "deck": deck}),
+        height=64,
+    )
+    up = latlong_directions(64)[..., 1]
+    moved = np.any(np.abs(clouded - clear) > 1e-6, axis=-1)
+    assert moved[up > 0.0].mean() > 0.1, "the dome drew no cloud at all"
+    # Below the horizon is terrain and must be untouched: a deck is above the camera.
+    assert not moved[up < 0.0].any()
+    # And the cloud lands exactly where the *infrared* band's cloud is -- which is the whole
+    # point of ADR 0076 and the thing that was wrong: the dome used to sample the column depth
+    # where the ray crosses the base, a **vertical** thickness read for an **oblique** look, so
+    # it drew a few thin wisps over the same sky in which the march found a wall of cumulus.
+    directions = latlong_directions(64)
+    # Low in the sky, which is where the two readings diverge and where these clips point: a
+    # vertical thickness and a slant path through a 1.2 km deck agree near the zenith by
+    # construction and disagree by a factor of several at 10 degrees.
+    elevated = (directions[..., 1] > 0.05) & (directions[..., 1] < 0.35)
+    el = np.arcsin(np.clip(directions[..., 1][elevated], -1.0, 1.0))
+    az = np.arctan2(directions[..., 0][elevated], -directions[..., 2][elevated])
+    marched = deck.march(el, az).optical_depth
+    assert np.array_equal(moved[elevated], marched > 0.0)
+    # Not a repeat of the same arithmetic: the sampled answer really is a different cloud, so a
+    # dome that agreed with *it* would be the bug this asserts against.
+    t = deck.base_m / directions[..., 1][elevated]
+    sampled = deck.column_depth(t * directions[..., 0][elevated], t * directions[..., 2][elevated])
+    assert float((marched > 0.0).mean()) > 1.5 * float((sampled > 0.0).mean())
+
+
+def test_marching_every_second_ray_and_interpolating_is_the_same_picture(
+    scene: Scene, deck: CloudDeck
+) -> None:
+    """The saving that makes a supersampled frame affordable, and the bound on what it costs.
+
+    An infrared camera's AOVs are rendered at four times native so that *geometry* edges
+    antialias: sixteen times the rays. The cloud behind that geometry is smooth at a fraction of
+    that pitch, so the march runs at half the native pitch and is interpolated back. This measures
+    the difference against marching every ray -- on the sky, which is all this path ever supplies.
+    """
+    sky = scene.sky_models[BAND]
+    # A patch of the real frame at the real **supersampled** pitch -- the sensor's 0.857 mrad IFOV
+    # over four samples -- rather than a coarse stand-in, because the whole question is how much
+    # the field moves between adjacent supersamples.
+    pitch = 0.8571e-3 / 4.0
+    rows, cols = 512, 640
+    el = math.radians(AIM_ELEVATION_DEG) + (np.arange(rows) - 0.5 * rows)[
+        :, None
+    ] * pitch * np.ones((1, cols))
+    az = (np.arange(cols) - 0.5 * cols)[None, :] * pitch * np.ones((rows, 1))
+    full = np.asarray(sky.apparent_temperature_field_from_deck(scene.t0_s, el, az, deck))
+    coarse = np.asarray(
+        sky.apparent_temperature_field_from_deck(scene.t0_s, el[::2, ::2], az[::2, ::2], deck)
+    )
+    upsampled = resample_bilinear(coarse, el.shape)
+    err = np.abs(upsampled - full)
+    # Stated rather than hidden: this is an approximation and it has a size, and the size is set
+    # by the cloud edges, where 40 K crosses a pixel. Measured *after* the box filter over the
+    # sixteen supersamples as well, because that is what the frame actually keeps -- it barely
+    # helps (p99 0.46 K, worst 2.2 K), since bilinear error over a 4x4 block is correlated and
+    # does not average away. At stride 4 the same numbers are 1.39 K and 4.6 K, which is why the
+    # camera marches at half the native pitch and not at a quarter of it.
+    assert float(np.percentile(err, 99)) < 0.6
+    assert float(np.median(err)) < 0.03
+
+
+def test_resampling_leaves_an_unchanged_shape_alone_and_keeps_the_corners() -> None:
+    a = np.arange(12.0).reshape(3, 4)
+    assert np.array_equal(resample_bilinear(a, (3, 4)), a)
+    big = resample_bilinear(a, (9, 16))
+    assert big.shape == (9, 16)
+    for (i, j), (bi, bj) in (
+        ((0, 0), (0, 0)),
+        ((0, 3), (0, 15)),
+        ((2, 0), (8, 0)),
+        ((2, 3), (8, 15)),
+    ):
+        assert big[bi, bj] == pytest.approx(a[i, j], abs=1e-12)
+    assert np.all(np.diff(big, axis=1) >= -1e-12)  # monotone in, monotone out
+    with pytest.raises(ValueError, match="2-D array"):
+        resample_bilinear(np.zeros(4), (2, 2))
