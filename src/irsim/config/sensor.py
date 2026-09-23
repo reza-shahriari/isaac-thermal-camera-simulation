@@ -47,6 +47,7 @@ __all__ = [
     "NucSpec",
     "FpaTempMode",
     "IspSpec",
+    "FocusSpec",
     "OutputsSpec",
 ]
 
@@ -60,7 +61,11 @@ __all__ = [
 # blinking classes (M9.5a, ADR 0055). All three default, so existing configs are unchanged.
 # 8: nuc.shutterless_tau_s, the scene-based-correction time constant that bounds a shutterless
 # core's residual (M9.7, ADR 0057). Defaults, and is unused outside `mode: shutterless`.
-SCHEMA_VERSION = 9  # v9: the optional `fidelity:` block (ME.8)
+# 9: the optional `fidelity:` block (ME.8).
+# 10: `optics.focus` and `optics.mtf.defocus_model`/`defocus_apply` (`OC.4`, ADR 0129). Every
+# default is the pre-v10 camera -- focused at infinity with no defocus model -- so a v9 document is
+# a valid v10 document describing exactly the camera it described before.
+SCHEMA_VERSION = 10
 #: The oldest version this loader still accepts. v9 added `fidelity:` as an **optional** block whose
 #: default is full fidelity, so every v8 document is a valid v9 document and describes exactly the
 #: camera it described before. A range is the honest representation of a backwards-compatible
@@ -77,6 +82,11 @@ AgcMode = Literal["linear", "plateau_equalization", "plateau_local", "none"]
 Polarity = Literal["white_hot", "black_hot"]
 # §11.4 lists ironbow/rainbow/lava/arctic and §12.2 gray/ironbow/rainbow/lava: both accepted (S27).
 Palette = Literal["gray", "ironbow", "rainbow", "lava", "arctic"]
+# `OC.4`: how the lens is focused, and which model turns the resulting W020 into an OTF.
+# `infinity` + `none` is what every configuration written before v10 describes.
+FocusMode = Literal["infinity", "hyperfocal", "fixed"]
+DefocusModel = Literal["none", "gaussian", "geometric", "hopkins"]
+DefocusApply = Literal["global", "layered"]
 
 # Regime-vs-wavelength consistency (§12.1): self-emission at scene temperatures is negligible
 # below ~2.5 µm and reflected sunlight is negligible beyond ~3 µm.
@@ -150,6 +160,35 @@ class DistortionSpec(_Frozen):
         return self
 
 
+class FocusSpec(_Frozen):
+    """Where the lens is focused (`OC.4`; docs/physics-model.md §8.3 names no such field).
+
+    ``infinity`` is the default and is what every camera in this repository described before v10:
+    a collimated-target lab setup, and a fair model of a lens focused past its hyperfocal.
+
+    ``hyperfocal`` is the fixed-focus core most Bosons actually are. It needs an **acceptable**
+    circle of confusion, which is a convention and not a measurement -- one detector pitch is the
+    usual choice for a sampled imager, and ``coc_um`` defaults to the pitch rather than being
+    silently assumed somewhere downstream.
+
+    ``fixed`` is a lens focused once at a known range and needs ``distance_m``.
+    """
+
+    mode: FocusMode = "infinity"
+    distance_m: float | None = Field(default=None, gt=0)
+    coc_um: float | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _consistency(self) -> FocusSpec:
+        if self.mode == "fixed" and self.distance_m is None:
+            raise ValueError("focus mode 'fixed' requires distance_m")
+        if self.mode != "fixed" and self.distance_m is not None:
+            raise ValueError(f"focus mode {self.mode!r} does not take distance_m")
+        if self.mode != "hyperfocal" and self.coc_um is not None:
+            raise ValueError("coc_um is only meaningful for focus mode 'hyperfocal'")
+        return self
+
+
 class MtfSpec(_Frozen):
     """Optional MTF parameters the spec leaves open (§8.3; ADR 0017 schema-gap policy).
 
@@ -161,6 +200,12 @@ class MtfSpec(_Frozen):
     aberration_sigma_um: float = Field(default=0.0, ge=0)
     reference_wavelength_um: float | None = Field(default=None, gt=0)
     apply_motion_mtf: bool = False
+    #: `OC.4`, ADR 0129. `hopkins` carries diffraction and defocus in one term and is the only one
+    #: valid in the transition band this project works in; `geometric` and `gaussian` are ablations.
+    #: `none` is the pre-v10 camera -- perfectly focused at every range.
+    defocus_model: DefocusModel = "none"
+    #: `global` is one kernel for the frame (`OC.5`); `layered` buckets by depth (`OC.6`).
+    defocus_apply: DefocusApply = "global"
 
 
 RECTILINEAR_MODELS = frozenset({"brown_conrady"})
@@ -189,6 +234,7 @@ class OpticsSpec(_Frozen):
     vignetting_map: str | None = None
     supersample_factor: int = Field(default=4, ge=SUPERSAMPLE_MIN, le=SUPERSAMPLE_MAX)
     mtf: MtfSpec = Field(default_factory=MtfSpec)
+    focus: FocusSpec = Field(default_factory=FocusSpec)
 
     @model_validator(mode="after")
     def _consistency(self) -> OpticsSpec:
@@ -463,6 +509,10 @@ class FidelitySpec(_Frozen):
     #: The optical PSF at the supersampled pitch (ADR 0059). ``false`` removes the optical MTF;
     #: the detector's own box MTF is geometry and stays.
     optical_psf: bool = True
+    #: `OC.4`. The defocus term, independently of which model `optics.mtf.defocus_model` names --
+    #: `false` renders the same camera perfectly focused, which is the ablation that measures what
+    #: focus is worth. It cannot switch defocus *on*: that is the model's job.
+    defocus: bool = True
     #: §10.4 dead/hot/flickering pixels and their replacement (M9 chain).
     bad_pixels: bool = True
     #: §11.2's post-FFC residual gain and offset drift (ADR 0056).
@@ -543,6 +593,45 @@ class SensorSpec(_Frozen):
     def active_width_um(self) -> float:
         """Side of the square active area, √fill_factor · pitch (the box width of MTF_det, §8.3)."""
         return math.sqrt(self.fpa.fill_factor) * self.fpa.pitch_um
+
+    @model_validator(mode="after")
+    def _focus_consistency(self) -> SensorSpec:
+        """A focus distance with no defocus model would change nothing, silently.
+
+        The reverse is fine and meaningful: `infinity` with a model is a lens focused past its
+        hyperfocal, which still defocuses everything close. Only the combination that *looks* like
+        it does something and does not is refused.
+        """
+        if self.optics.focus.mode != "infinity" and self.optics.mtf.defocus_model == "none":
+            raise ValueError(
+                f"optics.focus.mode is {self.optics.focus.mode!r} but optics.mtf.defocus_model is "
+                "'none', so the focus distance would change nothing; name a model or drop the focus"
+            )
+        return self
+
+    @property
+    def focus_distance_m(self) -> float | None:
+        """Where this camera is focused, in metres, or ``None`` for infinity (`OC.4`).
+
+        ``hyperfocal`` is resolved here rather than at the call site because it depends on the
+        pitch, which lives in a different block: H = f²/(F c) + f with c defaulting to one detector
+        pitch. Resolving it once means the acceptable circle of confusion is stated in the config
+        and nowhere else.
+        """
+        from irsim.optics.defocus import hyperfocal_distance_m
+
+        focus = self.optics.focus
+        if focus.mode == "infinity":
+            return None
+        if focus.mode == "fixed":
+            return focus.distance_m
+        coc_um = focus.coc_um if focus.coc_um is not None else self.fpa.pitch_um
+        return hyperfocal_distance_m(self.optics.focal_length_mm, self.optics.f_number, coc_um)
+
+    @property
+    def defocus_enabled(self) -> bool:
+        """Both switches have to agree: a model must be named **and** fidelity must allow it."""
+        return self.optics.mtf.defocus_model != "none" and self.fidelity.defocus
 
     @property
     def reference_wavelength_um(self) -> float:

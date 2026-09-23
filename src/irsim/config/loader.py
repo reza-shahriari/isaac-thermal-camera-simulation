@@ -29,7 +29,7 @@ from typing import Any
 
 import yaml
 
-from irsim.config.sensor import FULL_FIDELITY, SensorConfig
+from irsim.config.sensor import FULL_FIDELITY, FocusSpec, SensorConfig
 
 __all__ = [
     "DEFAULT_DATA_DIR",
@@ -147,6 +147,10 @@ def _canonical(obj: Any) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), allow_nan=False)
 
 
+#: `OC.4`: the focus block a pre-v10 document implies, dropped from the hash when it is unchanged.
+DEFAULT_FOCUS = FocusSpec().model_dump(mode="json")
+
+
 def _dump_with_file_hashes(
     config: SensorConfig, data_dir: str | os.PathLike[str] | None
 ) -> dict[str, Any]:
@@ -170,6 +174,18 @@ def _dump_with_file_hashes(
     # which is the whole point of the block.
     if sensor.get("fidelity") == FULL_FIDELITY.model_dump(mode="json"):
         del sensor["fidelity"]
+    # `OC.4`, same rule for the same reason: a v9 document and a v10 document that spell out
+    # `focus: {mode: infinity}` and `defocus_model: none` describe one camera -- the perfectly
+    # focused one every render before v10 used -- so they must hash the same, and every golden
+    # written before `OC` stays valid. A focus distance or a named model survives this and changes
+    # the hash, which is the point.
+    optics = sensor.get("optics", {})
+    if optics.get("focus") == DEFAULT_FOCUS:
+        del optics["focus"]
+    mtf = optics.get("mtf", {})
+    for key, default in (("defocus_model", "none"), ("defocus_apply", "global")):
+        if mtf.get(key) == default:
+            mtf.pop(key, None)
     root = resolve_data_dir(data_dir)
     for field in DATA_PATH_FIELDS:
         raw = _get(sensor, field)
