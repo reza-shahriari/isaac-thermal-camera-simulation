@@ -195,3 +195,29 @@ KINEMATIC_VISCOSITY_FRESH_WATER: Final[float] = 1.004e-6  # m^2 s^-1, 20 degC
 THERMAL_CONDUCTIVITY_FRESH_WATER: Final[float] = 0.598  # W m^-1 K^-1
 DENSITY_FRESH_WATER: Final[float] = 998.2  # kg m^-3
 SPECIFIC_HEAT_FRESH_WATER: Final[float] = 4182.0  # J kg^-1 K^-1
+
+
+# --- IR lens and housing thermo-mechanical constants (`OC.10`, ADR 0129) -----------------------
+# Germanium's thermo-optic coefficient is the largest of any common IR material and is why an
+# unathermalised LWIR lens walks out of focus with ambient temperature. Values at 10 um, 300 K.
+# Sources: standard IR optical-design references and manufacturer data sheets for Ge, Si, ZnSe and
+# AMTIR-1 (a Ge-As-Se chalcogenide); CTEs are the bulk linear values at room temperature.
+#: dn/dT, K^-1.
+DN_DT_GERMANIUM: Final[float] = 396e-6
+DN_DT_SILICON: Final[float] = 160e-6
+DN_DT_ZNSE: Final[float] = 61e-6
+DN_DT_AMTIR1: Final[float] = 72e-6
+#: Refractive index at 10 um (AMTIR-1 and ZnSe quoted at 10 um as well).
+N_GERMANIUM_10UM: Final[float] = 4.0032
+N_SILICON_10UM: Final[float] = 3.4179
+N_ZNSE_10UM: Final[float] = 2.4065
+N_AMTIR1_10UM: Final[float] = 2.4976
+#: Linear coefficients of thermal expansion, K^-1.
+CTE_GERMANIUM: Final[float] = 5.7e-6
+CTE_SILICON: Final[float] = 2.6e-6
+CTE_ZNSE: Final[float] = 7.1e-6
+CTE_AMTIR1: Final[float] = 12.0e-6
+CTE_ALUMINIUM: Final[float] = 23.1e-6
+CTE_STEEL: Final[float] = 11.7e-6
+CTE_TITANIUM: Final[float] = 8.6e-6
+CTE_INVAR: Final[float] = 1.2e-6

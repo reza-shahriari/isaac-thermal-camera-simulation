@@ -29,6 +29,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.atmosphere.layered import LayeredAtmosphere
+from irsim.config.sensor import SensorSpec
 from irsim.detector.bolometer import MicrobolometerDetector
 from irsim.detector.gain_state import clip_to_gain_ceiling, gain_ceiling_radiance
 from irsim.detector.params import BolometerParams, PhotonParams
@@ -41,6 +42,7 @@ from irsim.optics.layered import layered_defocus
 from irsim.optics.projection import Intrinsics
 from irsim.optics.psf import apply_psf
 from irsim.optics.stage import apply_optics, invert_optics
+from irsim.optics.thermal_defocus import effective_focus_distance_m, thermal_defocus_um
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.detector import bolometer_lag, lag_interval_s
@@ -52,7 +54,14 @@ from irsim.pipeline.rotor_veil import RotorVeil, inject_rotor_veils
 __all__ = ["Outputs", "run_frame"]
 
 
-def _resolve_focus(planes, sensor, config, state, radiance_ss, k):
+def _resolve_focus(  # noqa: PLR0913
+    planes: Planes,
+    sensor: SensorSpec,
+    config: PipelineConfig,
+    state: PipelineState,
+    radiance_ss: NDArray[np.floating[Any]],
+    k: int,
+) -> float | None:
     """Where the lens is this frame (`OC.9`).
 
     The static modes answer from the config every frame. `track` reads the median range of the
@@ -62,20 +71,37 @@ def _resolve_focus(planes, sensor, config, state, radiance_ss, k):
     is a mode a scene asks for rather than the default.
     """
     focus = sensor.optics.focus
+    optics = sensor.optics
+    # `OC.10`: a thermal image-plane shift is the same defocus as looking at the wrong distance, so
+    # it is folded into an *effective* focus distance here and every stage downstream gets it free.
+    # The housing node (M9.3) has been solving this input since long before anything read it.
+    dz_um = (
+        0.0
+        if optics.athermal
+        else thermal_defocus_um(
+            optics.focal_length_mm,
+            state.housing_temp_k - optics.focus_reference_temp_k,
+            optics.lens_material,
+            optics.housing_material,
+        )
+    )
+
+    def _effective(commanded: float | None) -> float | None:
+        return effective_focus_distance_m(commanded, optics.focal_length_mm, dz_um)
+
     if not focus.is_dynamic:
-        return config.focus_distance_m
+        return _effective(config.focus_distance_m)
     if focus.mode == "track":
         ids = planes.get("semantic_id", planes["material_id"])
+        target_id = focus.track_semantic_id
+        assert target_id is not None  # the schema refuses `track` without one
         tracked = track_distance_m(
-            planes["distance_m"], ids, int(focus.track_semantic_id), planes.get("sky_mask")
+            planes["distance_m"], ids, int(target_id), planes.get("sky_mask")
         )
         if tracked is not None:
-            return tracked
-        return (
-            state.focus_distance_m
-            if state.focus_distance_m is not None
-            else config.focus_distance_m
-        )
+            return _effective(tracked)
+        held = state.focus_distance_m
+        return held if held is not None else _effective(config.focus_distance_m)
     if state.autofocus is None:
         state.autofocus = AutofocusServo(
             distance_m=float(focus.start_distance_m),
@@ -84,19 +110,23 @@ def _resolve_focus(planes, sensor, config, state, radiance_ss, k):
             hysteresis=float(focus.autofocus_hysteresis),
         )
     bank = config.defocus_bank
+    assert bank is not None  # only reached when a bank exists (stage 3 guards it)
     plane = np.asarray(radiance_ss, dtype=np.float64)
 
     def _evaluate(distance_m: float) -> float:
         w020 = scene_defocus_um(
             planes["distance_m"],
-            sensor.optics.focal_length_mm,
-            sensor.optics.f_number,
-            distance_m,
+            optics.focal_length_mm,
+            optics.f_number,
+            _effective(distance_m),
             planes.get("sky_mask"),
         )
         return focus_measure(apply_psf(plane, bank.kernel_for(w020)))
 
-    return state.autofocus.update(_evaluate)
+    # The servo commands a lens position; the thermal shift then moves the image plane under it,
+    # and the servo can only see the result through the picture -- so it fights the drift rather
+    # than knowing about it, which is what an unathermalised motorised core actually does.
+    return _effective(state.autofocus.update(_evaluate))
 
 
 @dataclass(frozen=True)

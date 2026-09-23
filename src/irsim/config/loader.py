@@ -186,6 +186,17 @@ def _dump_with_file_hashes(
     for key, default in (("defocus_model", "none"), ("defocus_apply", "global")):
         if mtf.get(key) == default:
             mtf.pop(key, None)
+    # `OC.10`, same rule again: an athermal lens is the pre-v11 camera, and the two material names
+    # and the reference temperature describe nothing while it is athermal.
+    v11_defaults: tuple[tuple[str, Any], ...] = (
+        ("athermal", True),
+        ("lens_material", "germanium"),
+        ("housing_material", "aluminium"),
+        ("focus_reference_temp_k", 293.15),
+    )
+    for key, default in v11_defaults:
+        if optics.get(key) == default:
+            optics.pop(key, None)
     root = resolve_data_dir(data_dir)
     for field in DATA_PATH_FIELDS:
         raw = _get(sensor, field)

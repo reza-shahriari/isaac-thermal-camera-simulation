@@ -43,6 +43,12 @@ from irsim.optics.self_emission import (
     stack_transmittance,
 )
 from irsim.optics.stage import apply_optics, invert_optics, optics_field
+from irsim.optics.thermal_defocus import (
+    effective_focus_distance_m,
+    thermal_defocus_um,
+    thermal_defocus_w020_um,
+    thermo_optic_coefficient,
+)
 from irsim.optics.vignetting import cos4_at_radius, cos4_field, field_angle_map
 
 __all__ = [
@@ -59,6 +65,10 @@ __all__ = [
     "geometric_regime_blur_um",
     "hyperfocal_distance_m",
     "scene_defocus_um",
+    "effective_focus_distance_m",
+    "thermal_defocus_um",
+    "thermal_defocus_w020_um",
+    "thermo_optic_coefficient",
     "image_plane_motion",
     "transform_points",
     "BACKGROUND_OBJECT_ID",

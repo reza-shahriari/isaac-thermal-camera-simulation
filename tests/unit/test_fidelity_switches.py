@@ -99,15 +99,16 @@ def test_a_v8_document_is_still_readable_and_hashes_the_same() -> None:
     describes exactly the camera it described before -- and `schema_version` is deliberately not
     part of the hash, because it describes the document format and not the sensor.
 
-    `OC.4` added v10 (`optics.focus` and the defocus switches) under the same rule and is covered
-    here too: all three versions of one camera must hash alike, or every golden array written
-    before `OC` would read as a different sensor."""
-    assert MIN_SCHEMA_VERSION == 8 and SCHEMA_VERSION == 10
+    `OC.4` added v10 (`optics.focus` and the defocus switches) and `OC.10` v11 (the thermal-defocus
+    materials) under the same rule, and both are covered here: all four versions of one camera must
+    hash alike, or every golden array written before `OC` would read as a different sensor."""
+    assert MIN_SCHEMA_VERSION == 8 and SCHEMA_VERSION == 11
     old = _boson_dict() | {"schema_version": 8}
-    new = _boson_dict() | {"schema_version": 10}
-    assert config_hash(SensorConfig.model_validate(old)) == config_hash(
-        SensorConfig.model_validate(_boson_dict() | {"schema_version": 9})
-    )
+    new = _boson_dict() | {"schema_version": 11}
+    for between in (9, 10):
+        assert config_hash(SensorConfig.model_validate(old)) == config_hash(
+            SensorConfig.model_validate(_boson_dict() | {"schema_version": between})
+        )
     assert config_hash(SensorConfig.model_validate(old)) == config_hash(
         SensorConfig.model_validate(new)
     )

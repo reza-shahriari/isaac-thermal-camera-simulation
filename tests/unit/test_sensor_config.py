@@ -55,7 +55,7 @@ def test_boson_matches_spec_16_1_exactly(boson: SensorConfig) -> None:
     assert s.noise.netd_mk_at_300k == 50.0
     assert s.noise.ratios_3d.vh == 0.30 and s.noise.ratios_3d.t == 0.02
     assert s.isp.clip_percentiles == (0.005, 0.995)
-    assert boson.schema_version == 10
+    assert boson.schema_version == 11
 
 
 def test_pixel_area_and_nyquist(boson: SensorConfig) -> None:

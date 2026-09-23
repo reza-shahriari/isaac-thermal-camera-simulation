@@ -15,8 +15,9 @@ update the status here in the same commit.
 | S2 | §6.1: absorbed solar `(1−α_sol)^c Q_sol` → `α_sol Q_sol` in the displayed balance | the prose two lines below already said so; M6.7's monotone-α test encodes it |
 | T4 | §12.2: `spectral_response: "responses/boson_vox.csv"` → `"spectra/responses/boson_vox.csv"` (relative to `data/`, µm, peak-normalised) | the path was stated four ways; M0.8's loader and ADR 0008 fix the layout as `data/spectra/responses/` |
 
-**Where the seventy rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S50` by `AT.12`).
-The `status` column on each row is the ledger; this is its summary. **Thirty-nine** rows are carried
+**Where the seventy-one rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S50` by
+`AT.12`, `S51` by `OC.1`).
+The `status` column on each row is the ledger; this is its summary. **Forty** rows are carried
 by an ADR that exists, **twenty-three** by code with no ADR, and **eight** are open: `S9`, `S15` and `S16` are edits
 to `docs/physics-model.md` that belong to the spec owner, **`S13` is open again** — see its row —
 and `S46`–`S49` are the gaps the 2026-09-18 audit found between the spec and the owner's
@@ -25,7 +26,7 @@ roadmap row in phase P or C; `S41`, lateral conduction, shipped in
 `PT.11`, `S42`, part-to-part conduction, as the thermal network in `TC.2` and its schema in `TC.4`,
 `S43`, the solved engine, in `TC.5`, `S44`, the shadow term's provider, across `PT.18`,
 `PT.21` and `PT.22`, and `S45`, latent heat and the water body, across `PH.1` and `PH.3`, so
-sixty-two of the seventy rows have shipped.
+sixty-three of the seventy-one rows have shipped.
 (`S8` is counted as code: its half of the fix shipped in M9.1 and only the spec's wording is left.)
 
 This paragraph used to read "Everything else is open", which had been wrong for months: it listed
@@ -114,6 +115,7 @@ cell exists, and no row may be `open` while the ADR its resolution names is alre
 | T18 | §7.2 table, haze row: the "5 km vis" label is inconsistent with its own τ columns — Koschmieder at 5 km gives τ_vis(200 m) = 0.855, not 0.45–0.65, and the SWIR column would need an aerosol extinction ratio above 1; the four columns are reproduced at V ≈ 1.5 km with wavelength-ordered ratios | ADR 0049 takes the τ values as authoritative; the `haze` preset is checked at V = 1.5 km | ADR 0049 |
 | T19 | §7.3 calls w "precipitable water (g·m⁻³)"; precipitable water is a column amount (mm or kg m⁻²), the quantity in the Magnus expression is the absolute humidity (water-vapour density) | `irsim.atmosphere.humidity` names it `absolute_humidity_g_m3`; the 216.7 factor is derived from R_v (M8.2) | code — M8.2 |
 | T20 | §5.3(a) says "under overcast, `T_sky → T_air`"; a cloud radiates at its **base** temperature, which is Γ_env z_LCL colder (6.5 K for a 1 km base, > 100× a Boson NETD). The spec's limit is the saturated-air special case (z_LCL = 0, i.e. fog) | MS.3 / ADR 0070: the overcast limit is `L_B(T_base)`; tests needing a sky at `T_air` use cloud = 1 with RH = 1 | ADR 0070 |
+| S51 | §8.3 names `MTF_defocus` in the cascade and then declines to define it — "in practice fit a Gaussian … rather than deriving it" — so the spec gives the slot and no model, and ADR 0059 folded it into the aberration Gaussian that `SC.4` then solved from an **in-focus** datasheet figure. No camera in the repository had a focus distance at all until `OC.1` | Hopkins' defocus OTF, with the geometric disk and a Gaussian as selectable ablations; the geometric disk is invalid everywhere this project renders (168 µm, fourteen pixels, at F/1.0 in LWIR) — ADR 0129 | ADR 0129 |
 
 ---
 

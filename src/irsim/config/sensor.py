@@ -65,7 +65,10 @@ __all__ = [
 # 10: `optics.focus` and `optics.mtf.defocus_model`/`defocus_apply` (`OC.4`, ADR 0129). Every
 # default is the pre-v10 camera -- focused at infinity with no defocus model -- so a v9 document is
 # a valid v10 document describing exactly the camera it described before.
-SCHEMA_VERSION = 10
+# 11: `optics.athermal`, `lens_material`, `housing_material` and `focus_reference_temp_k`
+# (`OC.10`, ADR 0129). `athermal: true` is the default and is the pre-v11 camera, so a v10 document
+# is a valid v11 document describing exactly the camera it described before.
+SCHEMA_VERSION = 11
 #: The oldest version this loader still accepts. v9 added `fidelity:` as an **optional** block whose
 #: default is full fidelity, so every v8 document is a valid v9 document and describes exactly the
 #: camera it described before. A range is the honest representation of a backwards-compatible
@@ -87,6 +90,10 @@ Palette = Literal["gray", "ironbow", "rainbow", "lava", "arctic"]
 FocusMode = Literal["infinity", "hyperfocal", "fixed", "autofocus", "track"]
 DefocusModel = Literal["none", "gaussian", "geometric", "hopkins"]
 DefocusApply = Literal["global", "layered"]
+# `OC.10`: the lens and housing materials whose CTE and dn/dT set the thermal focus shift. The
+# numbers live in `irsim.radiometry.constants` and the derivation in `irsim.optics.thermal_defocus`.
+LensMaterial = Literal["germanium", "silicon", "zinc_selenide", "amtir1"]
+HousingMaterial = Literal["aluminium", "steel", "titanium", "invar"]
 
 # Regime-vs-wavelength consistency (§12.1): self-emission at scene temperatures is negligible
 # below ~2.5 µm and reflected sunlight is negligible beyond ~3 µm.
@@ -252,6 +259,16 @@ class OpticsSpec(_Frozen):
     supersample_factor: int = Field(default=4, ge=SUPERSAMPLE_MIN, le=SUPERSAMPLE_MAX)
     mtf: MtfSpec = Field(default_factory=MtfSpec)
     focus: FocusSpec = Field(default_factory=FocusSpec)
+    #: `OC.10`, ADR 0129. Germanium's dn/dT is ~250x a visible glass, so an unathermalised IR lens
+    #: walks out of focus as its housing warms. `true` -- the default and what every camera here
+    #: described before v11 -- models the passive athermalisation a real core is sold with as an
+    #: exact cancellation, which is the right level for a data sheet that says "thermal gradient
+    #: compensation" and quotes no residual. `false` derives the shift from the two materials.
+    athermal: bool = True
+    lens_material: LensMaterial = "germanium"
+    housing_material: HousingMaterial = "aluminium"
+    #: The temperature the lens was focused at; the thermal shift is measured from here.
+    focus_reference_temp_k: float = Field(default=293.15, gt=0)
 
     @model_validator(mode="after")
     def _consistency(self) -> OpticsSpec:

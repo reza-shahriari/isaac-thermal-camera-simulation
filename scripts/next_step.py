@@ -62,13 +62,6 @@ SIZE_RANK = {"S": 0, "M": 1, "L": 2}
 #: needs a reason a reader can disagree with. Keep this list short: every entry is a claim that the
 #: rule is wrong, and a long list means the rule is wrong.
 PROMOTED: dict[str, str] = {
-    "OC.10": (
-        "Carries the focus lane the owner asked for on 2026-09-23, having found that no camera in "
-        "this repo has a focus distance at all. The mechanical key sorts the lane last -- it is "
-        "phase X and each step unblocks only its own lane -- but every frame the project has ever "
-        "rendered is in perfect focus at every range, which is a statement about the camera that "
-        "is not true of any camera. Move this entry to the lane's next open step as it advances."
-    ),
     "RP.3": (
         "Makes stage_own_hunk.sh the default commit path. It unblocks nothing, so the mechanical "
         "key sorts it ninth -- but three sessions share this tree and a whole-file write has "

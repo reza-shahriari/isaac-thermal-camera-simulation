@@ -172,9 +172,12 @@ def layered_defocus(  # noqa: PLR0913
         background = np.broadcast_to(
             np.asarray(background_radiance, dtype=np.float64), x.shape
         ).astype(np.float64)
-        colour = apply_psf(
-            background,
-            _kernel_for_layer(bank, layers[0][1], focal_length_mm, f_number, focus_distance_m),
+        colour = np.asarray(
+            apply_psf(
+                background,
+                _kernel_for_layer(bank, layers[0][1], focal_length_mm, f_number, focus_distance_m),
+            ),
+            dtype=np.float64,
         )
         weight = np.ones(x.shape, dtype=np.float64)
         # The background plane is the backmost layer, *completed* -- it already carries what that

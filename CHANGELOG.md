@@ -210,6 +210,21 @@ working in one tree; two commits already exist whose whole subject is restoring 
   `PipelineState` now carries `focus_distance_m` and the servo, since where the lens *is* depends on
   what the camera has been looking at and not on what the document says.
 
+- **Thermal defocus** (`irsim.optics.thermal_defocus`, `OC.10`, schema **v11**, ADR 0129). The
+  distinctly infrared focus effect, and the one this project already had the input for and was not
+  using: `HousingTemperature` has solved the lens housing over a diurnal run since M9.3, for the
+  self-emission term, and nothing else read it. Germanium's dn/dT is 396e-6 K⁻¹, some 250 times a
+  visible glass, so `dz/dT = f·[α_housing − ((dn/dT)/(n−1) − α_lens)]` comes out at −1.44 µm per
+  kelvin for a 14 mm lens in an aluminium barrel. It is folded into an **effective focus distance**
+  rather than added as a new blur term, because a thermal image-plane shift is the same defocus as
+  looking at the wrong distance — so the global kernel, the layered composite and the autofocus
+  servo all get it without a thermal term of their own, and the servo *fights* the drift through
+  the picture the way an unathermalised motorised core does. A **20 K rise takes a lens focused at
+  infinity to 6.8 m**, inside its own 16.3 m hyperfocal, so distant targets go soft. One result
+  worth stating because it is the opposite of the instinct: an **aluminium** barrel athermalises
+  better than **invar**, since the residue is `α_housing − β` and a large expansion cancels more of
+  it. `athermal: true` is the default and is every camera written before v11, hashing identically.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
