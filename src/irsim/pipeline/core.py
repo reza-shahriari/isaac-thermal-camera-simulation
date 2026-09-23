@@ -32,6 +32,7 @@ from irsim.isp.radiometric import RadiometricCalibration
 from irsim.materials.table import MaterialTable
 from irsim.noise.electron import electron_budget
 from irsim.noise.stage import NoiseStage
+from irsim.optics.autofocus import AutofocusServo
 from irsim.optics.psf import DefocusKernelBank, optical_psf
 from irsim.radiometry.lut import BandLUT, Quantity
 from irsim.radiometry.lut_files import load_band_lut_for_config, load_band_response_for_config
@@ -330,6 +331,12 @@ class PipelineState:
 
     frame_index: int = 0
     housing_temp_k: float = 300.0
+    #: `OC.9`: where the lens is *now*, metres, `None` for infinity. For the static focus modes
+    #: this is the config's value every frame; for `autofocus` and `track` it is what the servo or
+    #: the tracker arrived at, which is why it lives in the state and not in the config.
+    focus_distance_m: float | None = None
+    #: `OC.9`: the contrast-detection servo, created on the first frame of an `autofocus` run.
+    autofocus: AutofocusServo | None = None
     #: `OC.5`: the W020 the last frame's global kernel carried, µm. Written by the frame loop so a
     #: run can report how defocused it was without recomputing the median range; 0.0 means either
     #: in focus or no defocus model.

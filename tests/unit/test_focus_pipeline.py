@@ -215,3 +215,54 @@ def test_the_background_plane_reaches_the_layered_stage(materials, boson_lut) ->
     assert delta.max() > 1.0, "the background must reach the composite"
     assert delta[:, :20].max() < 0.02 * delta.max(), "deep inside the slab nothing should change"
     assert delta[:, 55:].max() < 0.02 * delta.max(), "and nothing in the open background either"
+
+
+def _dynamic(focus: dict) -> SensorConfig:
+    d = load_sensor_config(BOSON_YAML).model_dump(mode="json")
+    d["sensor"]["fpa"].update(width=64, height=64)
+    d["sensor"]["optics"]["supersample_factor"] = 1
+    d["sensor"]["optics"]["mtf"]["defocus_model"] = "hopkins"
+    d["sensor"]["optics"]["focus"] = focus
+    return SensorConfig.model_validate(d)
+
+
+def test_tracking_follows_the_named_target_and_holds_when_it_leaves(materials, boson_lut) -> None:
+    """`OC.9`: a payload told what to look at focuses on that object's range, and does not snap to
+    infinity because the target went behind a cloud."""
+    scene = _scene(distance_m=300.0)
+    # `semantic_id`, not `material_id`: what a payload tracks is an object, and the material table
+    # has no opinion about which object a pixel belongs to.
+    scene["semantic_id"] = np.ones((64, 64), np.uint32)
+    scene["semantic_id"][20:40, 20:40] = 7
+    scene["distance_m"] = scene["distance_m"].copy()
+    scene["distance_m"][20:40, 20:40] = 12.0
+    config = _config(_dynamic({"mode": "track", "track_semantic_id": 7}), materials, boson_lut)
+    state = PipelineState()
+    run_frame(scene, config, state)
+    assert state.focus_distance_m == pytest.approx(12.0)
+
+    gone = {**scene, "semantic_id": np.ones((64, 64), np.uint32)}
+    run_frame(gone, config, state)
+    assert state.focus_distance_m == pytest.approx(12.0), "focus must hold when the target leaves"
+
+
+def test_autofocus_moves_the_lens_across_frames(materials, boson_lut) -> None:
+    rng = np.random.default_rng(0)
+    t_k = np.full((64, 64), 280.0, np.float32)
+    t_k[16:48, 16:48] = (320.0 + rng.uniform(0.0, 20.0, (32, 32))).astype(np.float32)
+    scene = {
+        "temperature_k": t_k,
+        "encoded_t": encode_temperature(t_k),
+        "normal_dot_view": np.ones((64, 64), np.float32),
+        "distance_m": np.full((64, 64), 6.0, np.float32),
+        "material_id": np.ones((64, 64), np.int32),
+        "sky_view_factor": np.zeros((64, 64), np.float32),
+    }
+    config = _config(
+        _dynamic({"mode": "autofocus", "start_distance_m": 60.0}), materials, boson_lut
+    )
+    state = PipelineState()
+    walk = [run_frame(scene, config, state) and state.focus_distance_m for _ in range(25)]
+    assert walk[0] is not None
+    assert walk[-1] < 60.0, f"the servo must move toward the 6 m scene: {walk[-1]:.2f} m"
+    assert walk[-1] < walk[0], "and keep moving the right way"

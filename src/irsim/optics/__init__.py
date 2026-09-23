@@ -4,6 +4,7 @@ docs/physics-model.md §8
 """
 
 from irsim.optics.aperture import aperture_factor, cone_half_angle, fpa_irradiance, pixel_power
+from irsim.optics.autofocus import AutofocusServo, focus_measure, track_distance_m
 from irsim.optics.defocus import (
     blur_circle_um,
     defocus_w020_um,
@@ -47,6 +48,9 @@ from irsim.optics.vignetting import cos4_at_radius, cos4_field, field_angle_map
 __all__ = [
     "HousingTemperature",
     "HousingTempMode",
+    "AutofocusServo",
+    "focus_measure",
+    "track_distance_m",
     "aperture_factor",
     "blur_circle_um",
     "defocus_w020_um",

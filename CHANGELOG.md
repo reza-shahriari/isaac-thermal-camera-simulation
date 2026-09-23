@@ -196,6 +196,20 @@ working in one tree; two commits already exist whose whole subject is restoring 
   backmost layer instead of replacing it — about 1.5 K each, and both invisible on any scene whose
   hidden background looks like its visible one.
 
+- **Focus that moves** (`irsim.optics.autofocus`, `OC.9`, ADR 0129). Two new focus modes.
+  `autofocus` is a model of **passive contrast detection**, not a shortcut: the servo may only look
+  at the picture, it probes one multiplicative step either side of where it is, and it climbs. The
+  focus measure is a **normalised** Tenengrad — an unnormalised one rises with scene radiance, so a
+  servo using it would "focus" by finding the hottest frame of a diurnal run. The probe step widens
+  when the servo stalls, which is what a viewer sees as hunting and is real: far from focus the
+  contrast measure is nearly flat, because a small lens move barely changes a large blur.
+  Convergence is asserted **to the depth of field** rather than to the metre, since a contrast
+  measure cannot resolve a lens position finer than the band the blur stays inside. `track` follows
+  a `semantic_id`'s median range and **holds its last position** when the target leaves frame,
+  because a real payload does not snap to infinity when the target goes behind a cloud.
+  `PipelineState` now carries `focus_distance_m` and the servo, since where the lens *is* depends on
+  what the camera has been looking at and not on what the document says.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over

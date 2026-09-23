@@ -62,7 +62,7 @@ SIZE_RANK = {"S": 0, "M": 1, "L": 2}
 #: needs a reason a reader can disagree with. Keep this list short: every entry is a claim that the
 #: rule is wrong, and a long list means the rule is wrong.
 PROMOTED: dict[str, str] = {
-    "OC.9": (
+    "OC.10": (
         "Carries the focus lane the owner asked for on 2026-09-23, having found that no camera in "
         "this repo has a focus distance at all. The mechanical key sorts the lane last -- it is "
         "phase X and each step unblocks only its own lane -- but every frame the project has ever "

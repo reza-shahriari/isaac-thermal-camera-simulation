@@ -35,9 +35,11 @@ from irsim.detector.params import BolometerParams, PhotonParams
 from irsim.detector.quantise import dn_max_for_bits, quantise
 from irsim.isp.display import run_display_branch
 from irsim.isp.radiometric import apparent_temperature
+from irsim.optics.autofocus import AutofocusServo, focus_measure, track_distance_m
 from irsim.optics.defocus import scene_defocus_um
 from irsim.optics.layered import layered_defocus
 from irsim.optics.projection import Intrinsics
+from irsim.optics.psf import apply_psf
 from irsim.optics.stage import apply_optics, invert_optics
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
@@ -48,6 +50,53 @@ from irsim.pipeline.radiance import band_radiance, stage_illumination
 from irsim.pipeline.rotor_veil import RotorVeil, inject_rotor_veils
 
 __all__ = ["Outputs", "run_frame"]
+
+
+def _resolve_focus(planes, sensor, config, state, radiance_ss, k):
+    """Where the lens is this frame (`OC.9`).
+
+    The static modes answer from the config every frame. `track` reads the median range of the
+    pixels carrying its semantic id, and holds its last position when the target leaves frame --
+    a real payload does not snap to infinity because the target went behind a cloud. `autofocus`
+    steps a contrast-detection servo, which costs three extra convolutions per frame and is why it
+    is a mode a scene asks for rather than the default.
+    """
+    focus = sensor.optics.focus
+    if not focus.is_dynamic:
+        return config.focus_distance_m
+    if focus.mode == "track":
+        ids = planes.get("semantic_id", planes["material_id"])
+        tracked = track_distance_m(
+            planes["distance_m"], ids, int(focus.track_semantic_id), planes.get("sky_mask")
+        )
+        if tracked is not None:
+            return tracked
+        return (
+            state.focus_distance_m
+            if state.focus_distance_m is not None
+            else config.focus_distance_m
+        )
+    if state.autofocus is None:
+        state.autofocus = AutofocusServo(
+            distance_m=float(focus.start_distance_m),
+            step_ratio=float(focus.autofocus_step_ratio),
+            damping=float(focus.autofocus_damping),
+            hysteresis=float(focus.autofocus_hysteresis),
+        )
+    bank = config.defocus_bank
+    plane = np.asarray(radiance_ss, dtype=np.float64)
+
+    def _evaluate(distance_m: float) -> float:
+        w020 = scene_defocus_um(
+            planes["distance_m"],
+            sensor.optics.focal_length_mm,
+            sensor.optics.f_number,
+            distance_m,
+            planes.get("sky_mask"),
+        )
+        return focus_measure(apply_psf(plane, bank.kernel_for(w020)))
+
+    return state.autofocus.update(_evaluate)
 
 
 @dataclass(frozen=True)
@@ -232,11 +281,13 @@ def run_frame(
     # same grid the convolution runs on -- because the render product is created supersampled.
     psf = config.psf
     if config.defocus_bank is not None:
+        focus_m = _resolve_focus(planes, sensor, config, state, radiance_ss, k)
+        state.focus_distance_m = focus_m
         state.defocus_w020_um = scene_defocus_um(
             planes["distance_m"],
             sensor.optics.focal_length_mm,
             sensor.optics.f_number,
-            config.focus_distance_m,
+            focus_m,
             planes.get("sky_mask"),
         )
         if sensor.optics.mtf.defocus_apply == "layered":
@@ -256,7 +307,7 @@ def run_frame(
                 config.defocus_bank,
                 sensor.optics.focal_length_mm,
                 sensor.optics.f_number,
-                config.focus_distance_m,
+                focus_m,
                 planes.get("sky_mask"),
                 background_radiance=background_l,
             )

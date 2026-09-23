@@ -84,7 +84,7 @@ Polarity = Literal["white_hot", "black_hot"]
 Palette = Literal["gray", "ironbow", "rainbow", "lava", "arctic"]
 # `OC.4`: how the lens is focused, and which model turns the resulting W020 into an OTF.
 # `infinity` + `none` is what every configuration written before v10 describes.
-FocusMode = Literal["infinity", "hyperfocal", "fixed"]
+FocusMode = Literal["infinity", "hyperfocal", "fixed", "autofocus", "track"]
 DefocusModel = Literal["none", "gaussian", "geometric", "hopkins"]
 DefocusApply = Literal["global", "layered"]
 
@@ -177,6 +177,19 @@ class FocusSpec(_Frozen):
     mode: FocusMode = "infinity"
     distance_m: float | None = Field(default=None, gt=0)
     coc_um: float | None = Field(default=None, gt=0)
+    #: `OC.9`. `track` follows this semantic id's median range; `autofocus` starts here and climbs.
+    track_semantic_id: int | None = Field(default=None, ge=0)
+    start_distance_m: float = Field(default=50.0, gt=0)
+    #: The servo's multiplicative probe step, its damping, and the fractional improvement below
+    #: which it does not move -- the last being what stops it hunting on a static scene.
+    autofocus_step_ratio: float = Field(default=0.12, gt=0, lt=1)
+    autofocus_damping: float = Field(default=0.6, gt=0, le=1)
+    autofocus_hysteresis: float = Field(default=0.005, ge=0)
+
+    @property
+    def is_dynamic(self) -> bool:
+        """`OC.9`: the focus distance is resolved per frame, not once from the config."""
+        return self.mode in ("autofocus", "track")
 
     @model_validator(mode="after")
     def _consistency(self) -> FocusSpec:
@@ -186,6 +199,10 @@ class FocusSpec(_Frozen):
             raise ValueError(f"focus mode {self.mode!r} does not take distance_m")
         if self.mode != "hyperfocal" and self.coc_um is not None:
             raise ValueError("coc_um is only meaningful for focus mode 'hyperfocal'")
+        if self.mode == "track" and self.track_semantic_id is None:
+            raise ValueError("focus mode 'track' requires track_semantic_id")
+        if self.mode != "track" and self.track_semantic_id is not None:
+            raise ValueError("track_semantic_id is only meaningful for focus mode 'track'")
         return self
 
 
@@ -625,6 +642,10 @@ class SensorSpec(_Frozen):
             return None
         if focus.mode == "fixed":
             return focus.distance_m
+        if focus.is_dynamic:
+            # `OC.9`: where the lens starts. Where it *is* lives in `PipelineState`, because it
+            # depends on what the camera has been looking at, not on what the document says.
+            return focus.start_distance_m
         coc_um = focus.coc_um if focus.coc_um is not None else self.fpa.pitch_um
         return hyperfocal_distance_m(self.optics.focal_length_mm, self.optics.f_number, coc_um)
 
