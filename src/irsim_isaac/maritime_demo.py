@@ -49,6 +49,7 @@ __all__ = [
     "DepartureTrack",
     "MaritimeDemoScene",
     "DEMO_VESSELS",
+    "vessel_boxes",
     "build_maritime_demo",
     "describe",
 ]
@@ -374,6 +375,34 @@ def _author_water(
     return path
 
 
+def vessel_boxes(length_m: float) -> dict[str, tuple[tuple[float, float, float], ...]]:
+    """``part -> (centre, full extent)`` in the vessel's own frame, from its length alone.
+
+    Centreline at x = 0, waterline at y = 0, amidships at z = 0, hull along X. The hull sits half
+    in the water; the superstructure and the stack are stacked on it, with the stack small and
+    tall -- it is the one part that is hundreds of kelvin above everything else, so its *size* is
+    what decides whether it survives the PSF.
+
+    Engine-free and separate from the authoring because a second maritime stage needs the same
+    boxes: :mod:`irsim_isaac.vessel_pointwise` binds a temperature **field** to these faces, and a
+    patch authored against a different set of numbers would sit off the prim and render part of a
+    vessel as a field and part as a flat value (PT.10, and the failure ADR 0087 exists to remove).
+    """
+    beam = max(0.22 * length_m, 2.0)
+    hull_h = max(0.10 * length_m, 1.2)
+    return {
+        "hull": ((0.0, 0.25 * hull_h, 0.0), (length_m, hull_h, beam)),
+        "superstructure": (
+            (0.0, hull_h + 0.30 * length_m * 0.18, 0.0),
+            (0.30 * length_m, 0.36 * length_m * 0.18 * 2, 0.7 * beam),
+        ),
+        "stack": (
+            (-0.06 * length_m, hull_h + 0.16 * length_m, 0.0),
+            (0.07 * length_m, 0.10 * length_m, 0.22 * beam),
+        ),
+    }
+
+
 def _box(
     stage: Any, path: str, centre: tuple[float, float, float], size: tuple[float, float, float]
 ) -> Any:
@@ -484,22 +513,7 @@ def build_maritime_demo(
         # bow-away, which is what a departing vessel shows.
         xform.AddRotateYOp().Set(float(heading_deg))
 
-        beam = max(0.22 * length_m, 2.0)
-        hull_h = max(0.10 * length_m, 1.2)
-        # Hull sits half in the water; superstructure and stack are stacked on it, with the stack
-        # small and tall -- it is the one part that is hundreds of kelvin above everything else, so
-        # its *size* is what decides whether it survives the PSF.
-        parts = {
-            "hull": ((0.0, 0.25 * hull_h, 0.0), (length_m, hull_h, beam)),
-            "superstructure": (
-                (0.0, hull_h + 0.30 * length_m * 0.18, 0.0),
-                (0.30 * length_m, 0.36 * length_m * 0.18 * 2, 0.7 * beam),
-            ),
-            "stack": (
-                (-0.06 * length_m, hull_h + 0.16 * length_m, 0.0),
-                (0.07 * length_m, 0.10 * length_m, 0.22 * beam),
-            ),
-        }
+        parts = vessel_boxes(length_m)
         paths: dict[str, str] = {}
         for part, (centre, size) in parts.items():
             path = f"{root}/{part}"

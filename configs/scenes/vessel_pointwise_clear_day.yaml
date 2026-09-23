@@ -1,0 +1,99 @@
+# The maritime scenario as a **point-wise** scene: one vessel, static in the stage, with its deck
+# and deckhouse solved per cell rather than as one number each.
+# Schema: irsim.config.scene (v16). Roadmap PT.10; ADR 0087 (the field), ADR 0095 (occluders),
+# ADR 0123 (static target, moving camera, and why), ADR 0078 (the analytic sea behind it).
+#
+# What this scene is for. `vessel_departure_clear_day.yaml` beside it carries the maritime lane's
+# coarse signature -- a hull pinned near the sea, a deckhouse near air temperature and one very hot
+# funnel, three numbers for three prims. That is the defect ADR 0087 exists to remove. A real
+# weather deck at 17:00 local is not one number: the deckhouse stands 3.37 m above it and lays a
+# shadow down four metres of it, and the deckhouse's own west and east faces are a sunlit side and
+# a shaded side of the same prim.
+#
+# The vessel is STATIC in the stage and a camera moves instead, which is `quad_outbound_pointwise`'s
+# choice for the same reason (ADR 0123): `OccluderSpec` carries no pose for a moving frame, so a
+# vessel that steams loses its self-shadowing -- and the self-shadowing is the whole point here.
+# `vessel_departure_clear_day.yaml` keeps the moving vessel and the per-prim temperatures.
+#
+# Every coordinate below is a coordinate of a prim `irsim_isaac.vessel_pointwise` authors, which in
+# turn takes its boxes from `maritime_demo.vessel_boxes` -- so the shadow and the picture come from
+# one description of the boat. `tests/unit/test_vessel_pointwise.py` checks it cell by cell.
+#
+# The hull's 290.5 K and the bulk SST in configs/environments/sea_clear_day.yaml still name the
+# same water twice; that WART is `vessel_departure_clear_day.yaml`'s and MM.4's, not this file's.
+
+schema_version: 16
+scene:
+  name: vessel_pointwise_clear_day
+  description: "A 26 m patrol craft held still, deck and deckhouse per cell, 10:00 local"
+  weather_file: weather/coastal_sea_breeze_48h.csv      # relative to the data root
+  atmosphere_preset: us_standard_clear
+  environment_preset: sea_clear_day
+  site: {latitude_deg: 36.8, longitude_deg: -5.4, altitude_m: 0.0}
+  # 10:00 local (UTC+1). The hour is chosen against the weather series, not for the sun alone: the
+  # sea breeze on this coast climbs from 3 m/s at dawn to 9 m/s by mid-afternoon, and h(U) is what
+  # decides how far a sunlit surface gets from the air. Swept hour by hour over the whole day, the
+  # deck's own span peaks at 7.7 K at local noon and the deckhouse's sunlit-to-shaded step at
+  # 5.3 K in mid-morning; 09:00Z is where both are above 5 K at once (5.49 K and 5.21 K).
+  # At that hour the sun is 44.6 deg up and bearing 92 -- due east -- so the deckhouse's shadow
+  # runs 3.37 / tan(44.6) = 3.4 m forward along the deck and its EAST face is the sunlit one.
+  start_utc: "2024-06-21T09:00:00Z"
+  # Stage axes against the compass: +Y up, -Z north, so +X is east and the sun is at -X.
+  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}
+  targets:
+    # Pinned by the water it floats in, and constant: see the WART note above.
+    - {name: hull, solver: prescribed, schedule_s: [0.0, 1800.0], schedule_k: [290.5, 290.5]}
+    # The per-prim fallback for anything above the waterline that carries no patch. `airframe` is
+    # T_air(t) + offset, which is what an unpowered skin on a vessel lying still does.
+    - {name: superstructure, solver: airframe, offset_k: 3.5}
+    # The engine. Cold alongside, then cruise power from t = 0 -- the same schedule the departure
+    # scene uses, because it is the same boat ringing for the same power.
+    - name: stack
+      solver: prescribed
+      schedule_s: [0.0,   60.0,  120.0, 240.0, 360.0, 480.0, 600.0, 900.0, 1200.0, 1800.0]
+      schedule_k: [305.0, 338.3, 364.0, 399.8, 421.5, 434.7, 442.7, 451.5, 454.0,  455.0]
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 10.0
+    penumbra_rays: 7        # the deckhouse edge is 3.4 m up: a 32 mm ramp on the deck
+
+    # The deckhouse as the box it is to the sun (ADR 0095). Each face is a face of the prim
+    # `vessel_pointwise.POINTWISE_VESSEL` authors, at the same coordinates. The funnel is left out
+    # deliberately: it stands 3.1 m up on the deckhouse roof, so at this sun its shadow lands on
+    # the roof and never reaches the deck -- an occluder that occludes nothing is a coordinate to
+    # get wrong for no return.
+    occluders:
+      - {name: house_top, centre_m: [ 0.000, 5.689,  0.000], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], half_u_m: 3.900, half_v_m: 2.002}
+      - {name: house_w,   centre_m: [-3.900, 4.004,  0.000], u_axis: [0.0, 0.0, 1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 2.002, half_v_m: 1.6848}
+      - {name: house_e,   centre_m: [ 3.900, 4.004,  0.000], u_axis: [0.0, 0.0, 1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 2.002, half_v_m: 1.6848}
+      - {name: house_n,   centre_m: [ 0.000, 4.004, -2.002], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 3.900, half_v_m: 1.6848}
+      - {name: house_s,   centre_m: [ 0.000, 4.004,  2.002], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 3.900, half_v_m: 1.6848}
+
+    surfaces:
+      # The weather deck: 25.9 x 5.62 m of painted plate at the deckhouse's own base level, so the
+      # two are flush. This is the surface the deckhouse shadow falls on, and the patch is a little
+      # larger than the prim so a pixel at the sheer is still inside it.
+      - name: weather_deck
+        material: car_paint_white
+        tilt_deg: 0.0
+        vehicle_speed_m_s: 0.0
+        patch: {origin_m: [-13.0, 2.319, -2.86], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 26, n_v: 8, du_m: 1.0, dv_m: 0.715, thickness_m: 0.05, frame: world, prim_path: /World/Targets/vessel/weather_deck}
+
+      # The deckhouse's west face: facing away from a sun bearing 92, so this is the shaded side.
+      - name: house_west
+        material: car_paint_white
+        tilt_deg: 90.0
+        azimuth_deg: 270.0
+        vehicle_speed_m_s: 0.0
+        patch: {origin_m: [-3.9, 2.269, -2.052], u_axis: [0.0, 0.0, 1.0], v_axis: [0.0, 1.0, 0.0], n_u: 9, n_v: 7, du_m: 0.456, dv_m: 0.496, thickness_m: 0.05, frame: world, prim_path: /World/Targets/vessel/superstructure}
+
+      # The same prim's east face, square into the sun. Same material, same air, same hour and the
+      # same solver -- the only difference is which way it points, which is what makes the step
+      # between these two a property of the geometry rather than of anything authored.
+      - name: house_east
+        material: car_paint_white
+        tilt_deg: 90.0
+        azimuth_deg: 90.0
+        vehicle_speed_m_s: 0.0
+        patch: {origin_m: [3.9, 2.269, -2.052], u_axis: [0.0, 0.0, 1.0], v_axis: [0.0, 1.0, 0.0], n_u: 9, n_v: 7, du_m: 0.456, dv_m: 0.496, thickness_m: 0.05, frame: world, prim_path: /World/Targets/vessel/superstructure}

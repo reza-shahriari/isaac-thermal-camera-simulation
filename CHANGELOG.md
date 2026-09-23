@@ -13,6 +13,41 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **The maritime lane's deck stopped being one number** (`PT.10`). `vessel_pointwise.py` +
+  `configs/scenes/vessel_pointwise_clear_day.yaml` + `tests/unit/test_vessel_pointwise.py`. The
+  vessel scenes carried three temperatures for three prims -- a hull pinned near the sea, a
+  deckhouse near air temperature and one very hot funnel -- and a weather deck that was a single
+  scalar. This binds fields to the deck and to two faces of the **one** deckhouse prim, and holds
+  the vessel still while a camera moves, which is `quad_outbound_pointwise.yaml`'s choice for the
+  same reason (ADR 0123): `OccluderSpec` carries no pose for a moving frame, and the self-shadowing
+  is the whole signature here.
+
+  The boxes come from `maritime_demo.vessel_boxes`, extracted from the demo stage's authoring
+  rather than retyped, so the two maritime stages cannot describe two different boats -- a patch
+  authored against the wrong description does not fail, it renders part of a deck at the per-prim
+  fallback. One part is new: a thin **weather deck** plate flush with the deckhouse's base. A box
+  prim's top face cannot carry a patch on its own, because the hull's *sides* are the same prim and
+  their pixels project into the same rectangle; the quadrotor's deck and belly are separate plates
+  for exactly this reason.
+
+  **The hour is chosen against the weather series, not the sun.** This coast's sea breeze climbs
+  from 3 m/s at dawn to 9 m/s by mid-afternoon and h(U) decides how far a sunlit plate gets from
+  the air, so the largest sun is not the largest signature: swept hour by hour, the deck's own span
+  peaks at **7.7 K** at local noon while the deckhouse's sunlit-to-shaded step peaks at **5.3 K**
+  in mid-morning. 09:00Z is where both are above 5 K at once -- **5.49 K** across the deck and
+  **5.21 K** between the two faces of one deckhouse.
+
+  **Measured, and located, not merely present.** The shadow is asserted where the sun puts it:
+  3.42 m forward of the deckhouse's west face at 44.6 deg of elevation, 4.71 K colder than the deck
+  clear of it, with the strakes outboard of the 4.0 m deckhouse on the 5.7 m deck 4.85 K warmer at
+  the *same* stations -- which is what makes it a shadow rather than a gradient along the hull, and
+  is how the test first failed. The deck **under** the house is **1.3 K warmer** than the deck in
+  its cast shadow: both have no beam at all, but one is roofed and loses almost nothing to the cold
+  sky, and a model treating shadow as a single flag gets that sign backwards for free. Take the
+  occluders away and the field collapses onto the scalar it replaced -- uniform to **0.000 K**,
+  within **0.061 mK** of `surface_temperature_k` -- which is the WM.2 redistribution bar and what
+  makes the step above the deckhouse's rather than the discretisation's. 11 cases. The rendered
+  frames are the in-engine half and wait on `IG.2`.
 - **The position decode is no longer its own oracle, and the probe decodes with the production
   function** (`IG.2`). `test_camera_space_positions_reach_world_space` built its input as
   `(truth - cam) @ rot` -- literally the inverse of the expression `world_positions` applies -- so

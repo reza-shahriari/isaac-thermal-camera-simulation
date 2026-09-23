@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 73 open steps
+#### Then, in order — 72 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -183,19 +183,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`AI.2`** | AI | A | L | — | ready |
 | 3 | **`AI.4`** | AI | B | S | — | ready |
 | 4 | **`IG.16`** | IG | B | M | — | ready |
-| 5 | **`PT.10`** | PT | B | M | — | ready |
-| 6 | **`SE.2`** | SE | B | M | — | ready |
-| 7 | **`GT.7`** | GT | C | M | 1 | ready |
-| 8 | **`AI.3`** | AI | B | M | — | `GT.7` |
-| 9 | **`PH.9`** | PH | C | S | — | ready |
-| 10 | **`TC.8`** | TC | C | S | — | ready |
-| 11 | **`AT.6`** | AT | C | M | — | ready |
-| 12 | **`AT.9`** | AT | C | M | — | ready |
-| 13 | **`PT.13`** | PT | C | M | — | ready |
-| 14 | **`PT.16`** | PT | C | M | — | ready |
-| 15 | **`XD.1`** | XD | X | S | 8 | ready |
+| 5 | **`SE.2`** | SE | B | M | — | ready |
+| 6 | **`GT.7`** | GT | C | M | 1 | ready |
+| 7 | **`AI.3`** | AI | B | M | — | `GT.7` |
+| 8 | **`PH.9`** | PH | C | S | — | ready |
+| 9 | **`TC.8`** | TC | C | S | — | ready |
+| 10 | **`AT.6`** | AT | C | M | — | ready |
+| 11 | **`AT.9`** | AT | C | M | — | ready |
+| 12 | **`PT.13`** | PT | C | M | — | ready |
+| 13 | **`PT.16`** | PT | C | M | — | ready |
+| 14 | **`XD.1`** | XD | X | S | 8 | ready |
+| 15 | **`EV.1`** | EV | X | M | 5 | ready |
 
-…and 58 more — `python scripts/next_step.py --queue 40`.
+…and 57 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -402,7 +402,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.7 | ✅ **done.** `build_car_demo(spin_up=True)`: both fields spun up through `spin_up_hours` with the car present (occlusion, cold radiators, shadow), cached; `emission_factor` on the balance returns one reflection off a grey body (ADR 0088 addendum); `spin_up=False` is the old start. | **Measured.** Clear night frame 0: a **4.5 K** standing patch, 24 h and 48 h spin-ups identical to 0.1 mK; overcast +0.009 K (the missing reflection had made it −2.1 K); the engine's 30 min growth is 1.81 K either way; `spin_up=False` is the uniform start bit for bit. The old pin is inverted. | — | M | P |
 | PT.8 | ✅ **done.** `ThermalField(keep_ticks=, on_tick=)`: a `deque` ring (`None` keeps all, the per-prim default), a running SHA-256 fed per tick, a hook that sees every tick in order. `PlanarThermalField` defaults to the bracketing pair; a query outside the window raises (ADR 0093). | **Measured.** A day of the 10 400-cell road holds **166 KB** of ticks against ~240 MB before; the ring's hash equals the full history's, rebuilt from the hook, byte for byte; 500 queries inside the window are bit-identical to the unbounded field's; a query before it names `keep_ticks`. 10 cases. | — | S | P |
 | PT.9 | ✅ **done, engine-free and rendered, on two airframes.** `quad_outbound_pointwise.yaml` and `phantom3_outbound_pointwise.yaml` (a **DJI Phantom 3**, ADR 0124) film per-cell skins against sky, now with cloud in both bands. Camera moves, aircraft still (ADR 0123). | **Measured.** Sunlit skin over air **+24.4 K** carbon vs **+2.3 K** white ABS (α 0.90 vs 0.25, both ε≈0.9 in LWIR); deck − belly 29.3 K rendered = 29.3 K in the oracle. Corrections: `SPAN_M` overstated 41 %, 1204 arm pixels outside every patch. 32 cases. | PT.1, PT.2, PT.5, WM.3 | M | A |
-| PT.10 | **Point-wise on the maritime lane.** Deck and superstructure fields on the vessel scenes. The sea is already per-ray (ADR 0078/0080) by a different mechanism; the hull is not. | The vessel frame shows a sunlit-deck vs shadowed-superstructure step of ≥ 5 K across the hull prim, against 0.000 K today. Runs the same conservation test as WM.2: the area-weighted mean matches the per-prim value it replaces to within the forcing difference, so the change is provably a redistribution. | PT.9 | M | B |
+| PT.10 | ✅ **done.** `vessel_pointwise.py` + `vessel_pointwise_clear_day.yaml`: a weather-deck field and two faces of the **one** deckhouse prim, vessel static and camera moving (ADR 0123). Boxes from `maritime_demo.vessel_boxes`. | **Measured.** Deck span **5.49 K**, deckhouse sunlit − shaded **5.21 K**. The shadow is where the sun puts it — 3.42 m forward at 44.6°, outboard strakes 4.85 K warmer at the *same* stations. Roofed deck **1.3 K** over its own cast shadow (sky view). Occluders off: uniform, **0.061 mK** from the scalar — the WM.2 bar. Frames need IG.2. | PT.9 | M | B |
 | PT.11 | ✅ **done.** `lateral_operator(patch, k, δ)`: K = k δ · side/gap per four-neighbour edge as a `ConductionOperator` on the IMEX step; every patched surface builds it from its material's k and thickness (`lateral_conduction: false` opts out); the car bonnet takes steel's. ADR 0102. | **Measured.** A 20 K step on 5 mm aluminium cells matches the semi-infinite sheet's erf to 0.6 % at 60 s; k → 0 is bit-identical; at 5 cm the explicit limit is 6.4 s and a 60 s implicit tick holds the maximum principle where forward Euler explodes; the steel bonnet is 5 % smoother. 6 cases. | — | L | P |
 | PT.12 | ✅ **done.** `irsim.thermal.layers`: `LayerStack` (§6.4's R = δ/2k + δ/2k between layers, optional deep node) and `layered_field`, each layer a `CoupledFields` member joined by a contactor at 1/R, stepped implicitly; `layers: N` on a patched surface (default 1). ADR 0103. | **Measured.** Two layers reproduce `LumpedTwoNodeSolver` to < 1 mK on both nodes over 6 h; a 1 mm steel skin peaks at 12:19 and a 6-layer 0.3 m asphalt surface at 13:45; the lumped 0.3 m slab is 5.6 K warmer than the 6-layer one at 04:00; `layers: 6` on a scene's road binds its surface view. 5 cases. | — | M | P |
 | PT.13 | **Temperature-map and parameter-map ingest.** DIRSIG's Map Temperature Solver is a single-band raster in °C applied by UV or drape projection; MappedTherm does the same for parameters. `PlanarPatch` is already a raster with a projection. The escape hatch for prescribed aerial skins, externally solved hulls and draping public thermal frames onto geometry. | A float32 raster round-trips through a patch to 1 mK. A °C raster mis-declared as K raises. A parameter map varying α_sol gives the per-cell equilibrium the scalar solver predicts. | PT.2 | M | C |
