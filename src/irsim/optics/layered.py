@@ -13,6 +13,12 @@ Blurring the premultiplied radiance rather than gathering is what makes this a s
 defocused layer spreads its own energy outward over whatever is behind it, and its edge becomes
 genuinely semi-transparent instead of a hard cut.
 
+**But that formula is only right between layers that occlude each other** (`OC.11`). Slicing one
+receding surface into depth layers puts two slices of the *same* surface either side of a bin edge,
+and they do not hide each other -- composited with ``over`` they leave a seam worth a quarter of
+the surface-to-background contrast ruled along every bin boundary. :func:`layered_defocus` applies
+``over`` only across a genuine depth gap and adds otherwise; the reasoning is there.
+
 **What this does not fix.** Where a defocused foreground uncovers background, the background's
 radiance behind it was never rendered -- a single-layer G-buffer has no behind -- so the alpha
 opens a hole onto whatever the farther layers happened to put there. `OC.7` fills that hole
@@ -26,6 +32,8 @@ literally would put the sky in the nearest layer and blur it hardest of all.
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -34,10 +42,12 @@ from irsim.optics.psf import DefocusKernelBank, apply_psf
 
 __all__ = [
     "DEFAULT_MAX_LAYERS",
+    "DepthLayer",
     "depth_layers",
     "estimate_background",
     "layered_defocus",
     "push_pull_fill",
+    "separated",
 ]
 
 FloatArray = NDArray[np.float64]
@@ -47,6 +57,41 @@ FloatArray = NDArray[np.float64]
 DEFAULT_MAX_LAYERS = 8
 
 
+class DepthLayer(NamedTuple):
+    """One layer: where it is in frame, how far away, and **the depth range it spans**.
+
+    ``span_m`` is not bookkeeping. Two layers whose spans abut are two slices of one surface that
+    recedes through both; two layers with a clear gap between their spans are separate things with
+    empty space in between. The composite has to tell those apart -- see :func:`layered_defocus`
+    and :func:`separated` -- because only the second pair occludes.
+
+    The span is the layer's own min and max range, **not** its bin edges. A bin is equal-width in
+    W020 and W020 is V-shaped about the focus distance, so one bin can hold pixels from either
+    side of focus and its span is then the whole scene. That is the correct reading: a surface
+    reaching through focus is one surface.
+    """
+
+    mask: NDArray[np.bool_]
+    distance_m: float
+    span_m: tuple[float, float]
+
+
+def separated(far: DepthLayer, near: DepthLayer) -> bool:
+    """Is there empty space between these two layers, or are they one surface?
+
+    True when the gap between their depth spans is wider than either layer is deep. The comparison
+    is against the layers' own extents rather than a distance in metres, so it carries from a
+    0.6 m cube to a 200 m ground plane without a constant to tune: a gap that is large *for this
+    scene* is what separates two objects, and a surface sliced into layers leaves gaps of one depth
+    sample, which is small for any scene.
+    """
+    gap_m = far.span_m[0] - near.span_m[1]  # the void between the near layer's back and the far
+    if not np.isfinite(gap_m):  # sky is behind everything and touches nothing
+        return True
+    deepest_m = max(far.span_m[1] - far.span_m[0], near.span_m[1] - near.span_m[0])
+    return bool(gap_m > deepest_m)
+
+
 def depth_layers(  # noqa: PLR0913
     distance_m: object,
     focal_length_mm: float,
@@ -54,8 +99,8 @@ def depth_layers(  # noqa: PLR0913
     focus_distance_m: float | None = None,
     sky_mask: object = None,
     max_layers: int = DEFAULT_MAX_LAYERS,
-) -> list[tuple[NDArray[np.bool_], float]]:
-    """Split a distance plane into (mask, representative distance) layers, **farthest first**.
+) -> list[DepthLayer]:
+    """Split a distance plane into :class:`DepthLayer` records, **farthest first**.
 
     Bins are equal width in **W020**, not in distance and not in equal counts. W020 is what picks
     the kernel, so equal-width bins in it bound the blur error inside a layer directly: with eight
@@ -76,9 +121,9 @@ def depth_layers(  # noqa: PLR0913
     sky = np.zeros(d.shape, dtype=bool) if sky_mask is None else np.asarray(sky_mask, dtype=bool)
     geometry = ~sky & np.isfinite(d) & (d > focal_length_mm * 1e-3)
 
-    layers: list[tuple[NDArray[np.bool_], float]] = []
+    layers: list[DepthLayer] = []
     if np.any(sky):
-        layers.append((sky, float("inf")))
+        layers.append(DepthLayer(sky, float("inf"), (float("inf"), float("inf"))))
     if not np.any(geometry) or len(layers) >= max_layers:
         return layers
 
@@ -89,15 +134,17 @@ def depth_layers(  # noqa: PLR0913
     lo, hi = float(w[geometry].min()), float(w[geometry].max())
     n = max_layers - len(layers)
     if n <= 1 or hi - lo <= 0.0:
-        return [*layers, (geometry, float(np.median(d[geometry])))]
+        span = (float(d[geometry].min()), float(d[geometry].max()))
+        return [*layers, DepthLayer(geometry, float(np.median(d[geometry])), span)]
     edges = np.linspace(lo, hi, n + 1)
     index = np.clip(np.digitize(w, edges[1:-1], right=False), 0, n - 1)
     bins = []
     for b in range(n):
         mask = geometry & (index == b)
         if np.any(mask):
-            bins.append((mask, float(np.median(d[mask]))))
-    bins.sort(key=lambda item: item[1], reverse=True)  # farthest first
+            span = (float(d[mask].min()), float(d[mask].max()))
+            bins.append(DepthLayer(mask, float(np.median(d[mask])), span))
+    bins.sort(key=lambda item: item.distance_m, reverse=True)  # farthest first
     return [*layers, *bins]
 
 
@@ -116,23 +163,52 @@ def layered_defocus(  # noqa: PLR0913
 
     Returns a plane of the same shape and dtype.
 
-    The composite is ``over`` **normalised by the accumulated alpha**::
+    The composite is ``over`` **between layers that occlude** and **additive between layers that
+    do not**, normalised at the end by the accumulated alpha::
 
-        colour = premultiplied + colour * (1 - alpha)
-        weight = alpha         + weight * (1 - alpha)
-        out    = colour / weight
+        keep   = (1 - alpha) if this layer occludes the accumulation else 1
+        colour = premultiplied + colour * keep
+        alpha_total = alpha    + alpha_total * keep
+        out    = colour / alpha_total
 
-    The normalisation is not cosmetic and is worth understanding, because it is where the
-    partial-occlusion approximation actually lives. A plain ``over`` leaves a deficit wherever a
-    defocused layer's alpha has opened a gap that no farther layer fills -- the background behind
-    it was never rendered -- and that deficit reads as a dark fringe along every out-of-focus
-    silhouette. Dividing by the accumulated weight fills the gap with the layers that *are* there,
-    in proportion to how much of each is visible. That is a defensible guess and not the truth;
-    `OC.7` replaces it with the exact answer wherever the thing behind is sky or sea, and `OC.8`
-    measures what the guess costs in ground clutter.
+    **Only some layers occlude, and using ``over`` for all of them is a real error** (`OC.11`).
+    Two layers from *consecutive* W020 bins are two slices of one surface that recedes through
+    both -- a ground plane, the flank of a vehicle, the receding face of any solid. Such slices do
+    not hide each other: at a pixel on the boundary between them the aperture bundle lands partly
+    on one slice and partly on the other, so their contributions **add**. Composite them with
+    ``over`` instead and the far slice is multiplied by ``1 - alpha_near``, which leaves a deficit
 
-    A uniform field therefore survives any focus exactly: every kernel sums to one, so colour and
-    weight are scaled alike and the quotient is the field.
+        alpha (1 - alpha) (L_surface - L_behind)
+
+    along every bin boundary -- peaking at a quarter of the surface-to-background contrast, at
+    ``alpha = 1/2``. That is a **dark seam ruled across the surface at each bin edge**, and because
+    more bins mean more edges it grows worse as ``max_layers`` rises, which inverts the knob it is
+    meant to be. Measured on a 0.6 m cube at 3 m against sky: **8.6 K** peak, and RMS over the
+    cube rising 1.31 -> 1.44 -> 2.32 K as the cap goes 3 -> 4 -> 8.
+
+    Layers with an **empty bin between them** are a different matter: nothing in the scene lies at
+    the depths in between, so they are separate objects with space between them, and the nearer
+    one does occlude. That pair keeps ``over``. The test is the bin index rather than a tuned
+    distance because it asks the question that matters -- *is there anything in between?* -- and
+    reads the answer off a histogram the binning has already computed.
+
+    Two layers that happen to land in adjacent bins while being genuinely separate objects are
+    treated as one surface, which is harmless: adjacent bins differ by an eighth of the frame's
+    W020 range, so their kernels, and therefore the two compositing rules, nearly agree.
+
+    The **background** never gets this exemption. It is complete -- it has coverage at every pixel,
+    including behind the geometry -- so everything geometric is genuinely in front of it, and it is
+    composited under the accumulated geometry alpha.
+
+    The normalisation is where the partial-occlusion approximation lives. Without a background
+    plane, a defocused layer's alpha opens a gap that no farther layer fills, because what was
+    behind it was never rendered; dividing by the accumulated weight fills that gap with the layers
+    that *are* there, in proportion to how much of each is visible. That is a defensible guess and
+    not the truth; `OC.7` replaces it with the exact answer wherever the thing behind is sky or
+    sea, and `OC.8` measures what the guess costs in ground clutter.
+
+    A uniform field survives any focus exactly under either rule: every kernel sums to one, so
+    colour and weight are scaled alike and the quotient is the field.
 
     ``background_radiance`` (`OC.7`) removes the guess where the answer is known. It is the
     backmost layer **completed**: the radiance each pixel's ray would report with everything in
@@ -141,8 +217,8 @@ def layered_defocus(  # noqa: PLR0913
     in the composite rather than sitting behind it. For a scene whose backdrop is sky or sea that is
     the radiance of each ray with all geometry removed -- for a sky or sea background that
     is an analytic function of ray direction this pipeline already evaluates, so it costs no second
-    render pass and it is exact. Given it, the composite starts from an opaque backmost layer
-    carrying the true background, the accumulated weight stays 1, and the normalisation above
+    render pass and it is exact. Given it, the geometry is composited over a background that
+    carries the truth everywhere, the accumulated weight stays 1, and the normalisation above
     becomes the identity. This is what makes the aerial and maritime lanes exact rather than
     bounded; `OC.8` is what is left for ground clutter, where no such function exists.
     """
@@ -154,10 +230,8 @@ def layered_defocus(  # noqa: PLR0913
     )
     if not layers:
         return x
-    if background_radiance is None:
-        colour = np.zeros(x.shape, dtype=np.float64)
-        weight = np.zeros(x.shape, dtype=np.float64)
-    else:
+    background: FloatArray | None = None
+    if background_radiance is not None:
         # `OC.7`: the radiance of the ray with all geometry removed, known for every pixel and not
         # only where sky is visible. Seeding the composite with it as a fully opaque backmost layer
         # fills the occlusion gap with the truth, and the accumulated weight then stays 1 -- the
@@ -169,31 +243,47 @@ def layered_defocus(  # noqa: PLR0913
         # carrying an unblurred background inside an otherwise blurred frame. The error is
         # invisible wherever the hidden background is locally uniform, which is why it took a scene
         # with structure hidden *entirely* behind the foreground to surface it (`OC.8`).
-        background = np.broadcast_to(
-            np.asarray(background_radiance, dtype=np.float64), x.shape
-        ).astype(np.float64)
-        colour = np.asarray(
+        plane = np.broadcast_to(np.asarray(background_radiance, dtype=np.float64), x.shape).astype(
+            np.float64
+        )
+        background = np.asarray(
             apply_psf(
-                background,
-                _kernel_for_layer(bank, layers[0][1], focal_length_mm, f_number, focus_distance_m),
+                plane,
+                _kernel_for_layer(
+                    bank, layers[0].distance_m, focal_length_mm, f_number, focus_distance_m
+                ),
             ),
             dtype=np.float64,
         )
-        weight = np.ones(x.shape, dtype=np.float64)
         # The background plane is the backmost layer, *completed* -- it already carries what that
         # layer shows where it is visible as well as what it would show where the foreground hides
         # it. Compositing the layer as well would count its visible part twice, which is a real
         # 1.5 K error and not a rounding one (`OC.8`).
         layers = layers[1:]
-    for mask, representative_m in layers:
+
+    colour = np.zeros(x.shape, dtype=np.float64)
+    alpha_total = np.zeros(x.shape, dtype=np.float64)
+    previous: DepthLayer | None = None
+    for layer in layers:
         kernel = _kernel_for_layer(
-            bank, representative_m, focal_length_mm, f_number, focus_distance_m
+            bank, layer.distance_m, focal_length_mm, f_number, focus_distance_m
         )
-        cover = mask.astype(np.float64)
-        premultiplied = apply_psf(np.asarray(x, dtype=np.float64) * cover, kernel)
-        alpha = np.clip(apply_psf(cover, kernel), 0.0, 1.0)
-        colour = premultiplied + colour * (1.0 - alpha)
-        weight = alpha + weight * (1.0 - alpha)
+        cover = layer.mask.astype(np.float64)
+        premultiplied = np.asarray(
+            apply_psf(np.asarray(x, dtype=np.float64) * cover, kernel), dtype=np.float64
+        )
+        alpha = np.clip(np.asarray(apply_psf(cover, kernel), dtype=np.float64), 0.0, 1.0)
+        keep = 1.0 - alpha if previous is not None and separated(previous, layer) else 1.0
+        colour = premultiplied + colour * keep
+        alpha_total = alpha + alpha_total * keep
+        previous = layer
+
+    if background is None:
+        weight = alpha_total
+    else:
+        fill = np.clip(1.0 - alpha_total, 0.0, 1.0)
+        colour = colour + background * fill
+        weight = alpha_total + fill
     out = np.divide(colour, weight, out=np.zeros_like(colour), where=weight > 1e-12)
     return np.asarray(out, dtype=x.dtype)
 
@@ -297,5 +387,5 @@ def estimate_background(  # noqa: PLR0913
     )
     if not layers:
         return np.asarray(radiance_ss, dtype=np.float64)
-    known = layers[0][0]  # the farthest layer, sky included
+    known = layers[0].mask  # the farthest layer, sky included
     return push_pull_fill(np.asarray(radiance_ss, dtype=np.float64), np.asarray(known, dtype=bool))

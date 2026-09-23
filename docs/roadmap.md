@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 74 open steps
+#### Then, in order — 75 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`PT.16`** | PT | C | M | — | ready |
 | 15 | **`XD.1`** | XD | X | S | 8 | ready |
 
-…and 59 more — `python scripts/next_step.py --queue 40`.
+…and 60 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -278,7 +278,7 @@ row says so and names the step that closes it.
 | **A — Aerial to the bar** | `AI.1`, `AI.2`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
-| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
+| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
 **Dependency shape.** Phase 0 blocks nothing technically but blocks *knowing what is true*, and three
 sessions share this tree. `AT.1` and `SC.1` are the two critical-priority physics defects and are
@@ -618,6 +618,13 @@ the cheap models lose about half the contrast. Hopkins subsumes diffraction (it 
 `mtf_diffraction` at W020 = 0, checked to the 7.7e-9 quadrature floor in `OC.2`), so it replaces the first cascade
 factor rather than multiplying onto it, and `SC.4`'s aberration sigma stays valid untouched.
 
+**A receding surface is one surface.** Slicing a frame into depth layers puts two slices of the
+*same* surface either side of a bin edge, and `over` treats the nearer one as hiding the farther
+one. It does not: the aperture bundle lands on both, so they add. Compositing them with `over`
+leaves a quarter of the surface-to-background contrast as a seam along every bin boundary — 8.6 K
+on `OC.12`'s cube, growing with `max_layers` — and `OC.11` fixes it by asking whether there is
+empty space between two layers before letting one occlude the other (ADR 0134).
+
 **Partial occlusion is bounded, not ignored.** A gather blur cannot let background leak in behind a
 defocused foreground silhouette, because a single-layer G-buffer has no behind. `OC.6`–`OC.8` attack it
 in the order that costs least: splatting fixes the outward half with no new data, the sky and sea cases
@@ -636,6 +643,9 @@ only ground clutter falls back to inpainting with a measured error bound (`OC.8`
 | OC.8 | ✅ **done.** `push_pull_fill`/`estimate_background` for scenes with no analytic backdrop, and the bound itself. ADR 0131. | **Measured** against a two-layer reference at three depth ratios, in apparent temperature: normalisation **2.87–5.06 K**, push-pull **2.57–5.03 K**, analytic **0.0000 K**; error under 5 % of peak outside the silhouette band. Push-pull buys 1–10 %, not an order of magnitude — and found two 1.5 K defects in `OC.7`. 7 cases. | OC.6 | M | C |
 | OC.9 | ✅ **done.** `autofocus` (passive contrast detection: normalised Tenengrad, multiplicative probe, step that widens when stalled) and `track` (a `semantic_id`'s median range, holding when it leaves frame). | **Measured.** The measure peaks at the true range; it converges from 40 m to 8 m and then does **not** hunt (<5 % over ten frames); it lags a closing target and arrives inside the 5.4–16 m depth of field once it stops; a flat scene never moves the lens. 15 cases. | OC.5 | M | X |
 | OC.10 | ✅ **done.** Thermal defocus from the lens and housing materials, folded into an **effective focus distance** so every downstream stage gets it free. Schema v11; `athermal: true` is the default. | **Measured.** β(Ge) = 126.2e-6/K; −1.44 µm per kelvin for a 14 mm lens in aluminium; a **20 K rise moves focus from infinity to 6.8 m**, inside the 16.3 m hyperfocal, leaving 28.7 µm of blur at 1 km. Aluminium beats invar. Hashes and goldens unchanged. 10 cases. | OC.4 | M | X |
+| OC.11 | ✅ **done.** The layered composite tells a **surface from a stack**: `over` only across a gap, added where layers abut. ADR 0134. | **Measured** against the `over` chain kept as the test's reference. Slicing one receding surface left `alpha(1-alpha)(L_surface - L_behind)` at every bin edge — **8.6 K** on `OC.12`'s cube, RMS **1.31 → 2.32 K** as the cap went 3 → 8, so the error grew with the only quality knob. Now **0.16 K**, RMS falling with the cap; `OC.7`'s 1e-12 untouched. 7 cases. | OC.6 | M | X |
+| OC.12 | **A cube against a cloudy sky, with the focus pulled from one to the other.** `scripts/focus_sky_demo.py`, on the `OC.6`/`OC.7` path with the sky as the analytic background. | Red today: no demo shows what a *background* looks like when the lens leaves it — `OC.3` focuses on either of two cubes and the only thing behind them is a constant. After: the sky's contrast measure drops by more than 2x when the lens moves to the cube, and the cube's rises. | OC.11 | M | X |
+| OC.13 | **Fractional layer membership.** A pixel belongs partly to the two W020 bins either side of it rather than wholly to one, so the geometry's blurred coverage stops rippling across hard bin boundaries. | Red today: `sum_i K_i * cover_i` ripples **±0.5 %** across a bin edge, and where it dips the background fills the difference — the whole of what `OC.11` left, 0.5 % of contrast against the 25 % it removed, below NETD in RMS. After: the ripple is under 0.05 % and `test_continuous_depth.py` asserts the interior to the flat-field tolerance. | OC.11 | M | X |
 
 ---
 

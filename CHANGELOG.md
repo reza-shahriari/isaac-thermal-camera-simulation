@@ -58,21 +58,22 @@ working in one tree; two commits already exist whose whole subject is restoring 
   ADR 0128). Until now every piece of geometry was generated in Python; there was no import path.
   The tool imports FBX/OBJ/glTF/USD, applies the asset's `scale_to_metres`, exports USD with
   `UsdPreviewSurface`, walks it into engine-free prim records and audits them. **All of it on the
-  CPU** -- Blender ships a complete `pxr` (OpenUSD 26.03), so the inspect -> map -> audit loop
-  never boots Kit and never touches CUDA.
-- **Per-asset material mapping** (`irsim.materials.mapping.AssetMapping`, ADR 0128) -- a new
+  CPU** — Blender ships a complete `pxr` (OpenUSD 26.03), so the inspect → map → audit loop never
+  boots Kit and never touches CUDA.
+- **Per-asset material mapping** (`irsim.materials.mapping.AssetMapping`, ADR 0128) — a new
   precedence rung between the `thermal:material` override and the semantic class, matching source
   material names exactly and case-insensitively rather than by glob. ADR 0047's own "Revisit when"
   clause named this file. A miss stays loud; this adds a rung, not a default.
-- **`configs/assets/phantom4.yaml`** -- a 62 MB DJI Phantom 4 Pro FBX (41 meshes, 21 materials,
+- **`configs/assets/phantom4.yaml`** — a 62 MB DJI Phantom 4 Pro FBX (41 meshes, 21 materials,
   2.49 M triangles) goes from **48.8 % to 100 %** coverage, and two *confident* global hits become
-  correct: `*white*` -> `car_paint_white` (paint on steel, 4399 J m^-2 K^-1) becomes the moulded
-  `abs_plastic_white` (2205 -- the global rule made the shell twice as sluggish as it is), and
-  `*metal*` -> `bare_aluminium` (eps 0.09, a mirror showing reflected sky) becomes
-  `aircraft_aluminium_painted` (eps 0.90) on the motor housings. Four entries are ESTIMATED and
+  correct: `*white*` → `car_paint_white` (paint on steel, 4399 J m⁻² K⁻¹) becomes the moulded
+  `abs_plastic_white` (2205 — the global rule made the shell twice as sluggish as it is), and
+  `*metal*` → `bare_aluminium` (ε 0.09, a mirror showing reflected sky) becomes
+  `aircraft_aluminium_painted` (ε 0.90) on the motor housings. Four entries are `ESTIMATED` and
   flagged in place; the consequential one is `Copper`, which sits at the motor stations.
 - `--asset` on `scripts/audit_materials.py`, and `docs/research/2026-09-23-asset-ingestion-survey.md`
   (the sourced evidence base, with its confirmed/unconfirmed split).
+
 - **The colour bar** (`irsim_eval.video.palette_scale`, ADR 0125). A fixed-span frame now carries
   the palette beside it with Celsius ticks, drawn from the *same lookup table the display branch
   indexed* rather than from a gradient that resembles it. The gauge says what each named part is;
@@ -124,6 +125,13 @@ working in one tree; two commits already exist whose whole subject is restoring 
   **12–834 m** above the base instead of sitting on it, and the largest histogram bin falls from
   55.4 % of the frame to 39.6 %. A **vertical** ray still reproduces ADR 0126 to the bit, because
   the profile `6u(1−u)` integrates to exactly the column thickness.
+- **`--cloud-deck`** on the outbound driver, separately from `--cloud-volume` (`AT.12`). The deck
+  half works on this build: the infrared band marches it and the visible dome bakes the same deck,
+  so the two bands still read one object. The **volume** half does not — Isaac Sim 6.1's IndeX
+  plugin refuses the grid ("unable to create VDB subset") even after the NanoVDB version stamp is
+  matched to its own 32.7 and the file metadata's node and voxel counts are filled in from the
+  tree. Both fixes are kept, because they are correct and because the artefact is what `AT.13`
+  probes with, but the flag is off by default and the driver says what it is.
 - **A third display span, `sky`**, on the outbound clip (ADR 0126). Neither existing span reaches
   the sky — `ir` starts at the coolest airframe node — so cloud and clear zenith both landed on
   display code 0 and the only picture carrying the sky was the camera's own AGC. The new span is
@@ -293,6 +301,35 @@ working in one tree; two commits already exist whose whole subject is restoring 
   whose 41 prims are all named `GeometryNode_<n>` and carry no hint of function.
 
 #### Fixed
+- **A receding surface was composited as a stack of occluders** (`OC.11`, ADR 0134). `OC.6`'s
+  layered defocus used `over` between every pair of depth layers. That is right between a
+  foreground and the background behind it, and wrong between two slices of the **same** surface
+  receding through two bins: those do not hide each other — the aperture bundle at their shared
+  boundary lands partly on each, so they add. Composited with `over` the farther slice is
+  multiplied by `1 - alpha_near` and the deficit is exactly `alpha (1 - alpha) (L_surface -
+  L_behind)`, filled with whatever is behind — so a **dark seam** is ruled across the surface at
+  every bin edge. Measured on a 0.6 m cube at 3 m against a 250 K sky: **8.6 K peak**, with RMS over
+  the cube's interior **rising 1.31 → 1.44 → 2.32 K** as `max_layers` went 3 → 4 → 8. Two things
+  made it more than cosmetic: the error grew with the stage's only quality knob, so the shipped
+  default of 8 was its worst setting; and continuously receding surfaces are not a corner case —
+  ground, sea and the flank of any vehicle are all of them, so every lane past the aerial one meets
+  it. `OC.6`'s own tests missed it because they measured a flat slab against a flat background with
+  empty space between the two, where `over` is correct.
+
+  `DepthLayer` now carries the depth range each layer spans and `separated` decides: `over` between
+  layers with a gap wider than either layer is deep, addition between layers that abut. The
+  comparison is against the layers' own extents rather than a distance in metres, so it carries from
+  a 0.6 m cube to a 200 m ground plane with nothing to tune. The span is deliberately **not** the
+  bin index — bins are equal-width in W020 and W020 is V-shaped about focus, so sorting layers by
+  range walks the indices up and back down and two neighbours in the composite are routinely several
+  bins apart; a first version of the fix tested bin adjacency and was wrong for that reason. The
+  background keeps `over` unconditionally: it is complete, so all geometry is genuinely in front of
+  it. Peak **8.6 K → 0.16 K**, and RMS now **falls** with the cap (0.0125 → 0.0076 where the old
+  composite ran 0.209 → 0.497). `OC.7`'s 1e-12 exactness is untouched.
+  `tests/unit/test_continuous_depth.py` keeps the old composite as its reference, so a revert fails
+  rather than passes quietly. What remains is a **±0.5 % ripple** in the geometry's blurred coverage
+  at each hard bin boundary — 0.5 % of contrast against the 25 % removed, below NETD in RMS — whose
+  fix is fractional layer membership (`OC.13`).
 - **The imported aircraft rendered rolled, and the stage's up axis was why** (ADR 0133). The first
   Phantom 4 stills came back with the aircraft apparently pitched over and rolled about thirty
   degrees, with nothing wrong in the physics. ADR 0128's principle — *the asset's frame is the

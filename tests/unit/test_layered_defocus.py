@@ -55,10 +55,10 @@ def test_layers_run_farthest_first_with_sky_at_the_back(bank) -> None:
     sky[:10, :] = True
     distance[sky] = 0.0  # the gbuffer convention
     layers = depth_layers(distance, FOCAL_MM, F_NUMBER, None, sky, DEFAULT_MAX_LAYERS)
-    ranges = [r for _, r in layers]
+    ranges = [layer.distance_m for layer in layers]
     assert ranges[0] == float("inf"), "sky is behind everything"
     assert ranges == sorted(ranges, reverse=True), f"layers must run far to near: {ranges}"
-    assert sum(int(m.sum()) for m, _ in layers) == distance.size, "the layers must partition"
+    assert sum(int(layer.mask.sum()) for layer in layers) == distance.size, "layers partition"
 
 
 def test_a_flat_field_survives_any_focus(bank) -> None:
