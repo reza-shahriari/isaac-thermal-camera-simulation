@@ -4,6 +4,14 @@ docs/physics-model.md §8
 """
 
 from irsim.optics.aperture import aperture_factor, cone_half_angle, fpa_irradiance, pixel_power
+from irsim.optics.defocus import (
+    blur_circle_um,
+    defocus_w020_um,
+    defocus_waves,
+    depth_of_field_m,
+    geometric_regime_blur_um,
+    hyperfocal_distance_m,
+)
 from irsim.optics.housing import HousingTemperature, HousingTempMode
 from irsim.optics.motion import BACKGROUND_OBJECT_ID, image_plane_motion, transform_points
 from irsim.optics.mtf import (
@@ -39,6 +47,12 @@ __all__ = [
     "HousingTemperature",
     "HousingTempMode",
     "aperture_factor",
+    "blur_circle_um",
+    "defocus_w020_um",
+    "defocus_waves",
+    "depth_of_field_m",
+    "geometric_regime_blur_um",
+    "hyperfocal_distance_m",
     "image_plane_motion",
     "transform_points",
     "BACKGROUND_OBJECT_ID",

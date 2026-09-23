@@ -98,6 +98,15 @@ working in one tree; two commits already exist whose whole subject is restoring 
   rather than the geometric disk, because geometric optics needs a 14-pixel blur circle at F/1.0 in
   LWIR and every defocus this project renders is below that.
 
+- **Defocus geometry** (`irsim.optics.defocus`, `OC.1`). Blur-circle diameter from focal length,
+  f-number, object distance and focus distance, the wavefront error W020 that follows from it, the
+  hyperfocal distance and the depth-of-field limits. The oracle is the thin-lens construction --
+  image distances and similar triangles on the exit pupil -- so a wrong algebraic simplification
+  fails the test rather than being confirmed by it. A Boson focused at infinity is at **0.02 waves
+  at 100 m**, which is why the aerial lane never needed this, **0.23 at 10 m** — right at Rayleigh's
+  quarter-wave boundary — and **0.47 at 5 m**. Geometric optics does not become valid until 168 µm
+  of blur, fourteen pixels. Nothing reads this yet; no rendered output changes.
+
 #### Fixed
 - **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
   `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power
