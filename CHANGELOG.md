@@ -120,6 +120,18 @@ working in one tree; two commits already exist whose whole subject is restoring 
   cut-off, which runs 133 to 74 cyc/mm across the LWIR band, and moves the contrast-carrying part
   of the OTF by under 0.3 %.
 
+- **A two-cube focus demo** (`scripts/focus_demo.py`, `OC.3`). One command writes a near-focused
+  frame, a far-focused frame, hyperfocal and infinity, plus a 72-frame focus-sweep MP4 — engine-free,
+  from a synthetic two-depth scene, at Boson 640 optics. Each layer is blurred with the kernel its
+  own range earns and composited back to front using its **blurred coverage as alpha**, so a
+  defocused edge is semi-transparent rather than a hard cut. Blur is applied in radiance, never in
+  Kelvin (non-negotiable #3), and a test pins the half-covered edge to the radiance-blended
+  temperature rather than the Kelvin mean — 6.7 K apart on a 250/315 K edge. The measured 10-90 %
+  edge width tracks the blur circle **in quadrature**, with a line-spread constant stable inside
+  0.05 across focus distances from 3 m to 80 m. `defocus_psf` reproduces `optical_psf` in focus to
+  7e-7 of the peak, the radial-interpolation floor, so `OC.5` must either keep the in-focus path on
+  `optical_psf` or refresh the goldens deliberately.
+
 #### Fixed
 - **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
   `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power
