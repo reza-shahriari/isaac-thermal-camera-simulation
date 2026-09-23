@@ -43,8 +43,10 @@ from irsim.atmosphere.cloud import (
     cloud_emissivity,
     cloud_radiance,
     cloud_radiance_at_range,
+    cloud_reflectance,
     generate_sky_cloud,
 )
+from irsim.atmosphere.cloud_deck import generate_cloud_deck
 from irsim.config.environment import CloudSpec, load_environment_preset
 from irsim.config.loader import load_sensor_config
 from irsim.radiometry.lut_files import load_band_lut_for_config, load_band_response_for_config
@@ -313,3 +315,47 @@ def test_the_cloud_base_temperature_matches_the_papers_modelled_altostratus() ->
     """
     altostratus = cloud_base_temperature_k(288.15, 2400.0, 0.0065)
     assert altostratus == pytest.approx(271.6, abs=1.5)
+
+
+# -- what the visible band does with the same optical depth ---------------------------------
+
+
+def test_a_cloud_returns_more_light_the_deeper_it_is_and_never_more_than_all_of_it() -> None:
+    """The two-stream reflectance, which is what stops a marched cloud drawing as a flat shape.
+
+    Three properties, each of which would be a visible defect if it failed: it is zero where
+    there is no cloud (so a cloud edge meets clear sky continuously), it rises monotonically
+    with optical depth (so a cumulus has an inside), and it stays inside [0, 1) however deep the
+    cloud (so a conservatively scattering layer never returns more light than reached it).
+    """
+    tau = np.array([0.0, 0.5, 1.0, 3.0, 10.0, 30.0, 100.0, 1e6])
+    mu0 = math.cos(math.radians(40.0))
+    r = cloud_reflectance(tau, mu0)
+    assert float(r[0]) == 0.0
+    assert np.all(np.diff(r) > 0.0)
+    assert np.all((r >= 0.0) & (r < 1.0))
+    assert float(r[-1]) > 0.99, "an arbitrarily deep cloud is arbitrarily close to white"
+    # The published form, restated independently rather than recomputed from the same expression.
+    g = 0.85
+    expected = [(1 - g) * t / (2 * mu0 + (1 - g) * t) for t in tau]
+    assert np.allclose(r, expected, atol=0.0)
+
+
+def test_the_reflectance_is_a_spread_and_not_one_value_over_a_real_frame() -> None:
+    """The whole reason it replaced a constant: over a marched frame it must actually vary.
+
+    A constant reflectance draws every cloudy pixel the same, which once the opacity saturates
+    is a grey cut-out with a hard edge -- what the dome did before it marched the deck.
+    """
+    deck = generate_cloud_deck(
+        beta=2.8, cloud_fraction=0.45, seed=7, base_m=1071.0, optical_depth=12.0
+    )
+    el = np.radians(np.linspace(8.0, 32.0, 96))[:, None] * np.ones((1, 120))
+    az = np.radians(np.linspace(-15.0, 15.0, 120))[None, :] * np.ones((96, 1))
+    tau = deck.march(el, az).optical_depth
+    r = cloud_reflectance(tau, math.cos(math.radians(40.0)))
+    cloudy = tau > 0.5
+    assert cloudy.mean() > 0.2, "the test frame must contain cloud"
+    lo, hi = np.percentile(r[cloudy], [5, 95])
+    assert hi - lo > 0.25, f"only {hi - lo:.2f} of reflectance across a frame of cumulus"
+    assert float(r[cloudy].max()) > 0.8 and float(r[cloudy].min()) < 0.3

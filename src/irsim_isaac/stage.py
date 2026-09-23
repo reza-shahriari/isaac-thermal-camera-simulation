@@ -33,10 +33,16 @@ __all__ = [
     "bind_visible_look",
 ]
 
-#: Rows in the generated environment map; the map is twice as wide. 512 puts a pixel every 0.35
-#: degrees, which is finer than the softest thing in it (the solar aureole) and small enough that
-#: the uncompressed float32 EXR stays under 4 MB.
-DOME_HEIGHT = 512
+#: Rows in the generated environment map; the map is twice as wide.
+#:
+#: 512 was chosen when the softest thing on the dome was the solar aureole, and a texel every 0.35
+#: degrees is finer than that. A **marched cloud** is not soft: its opacity is 1 - e^{-tau} on a
+#: path that crosses a cloud boundary, so it goes from clear to opaque within one texel, and a
+#: 640x512 frame magnifies each texel to seven pixels -- which drew a visible staircase along
+#: every cloud edge in the companion frame (AT.15, ADR 0130). 1024 halves it to 3.6 pixels and
+#: buys real structure with it, at 27 s of bake and a 25 MB uncompressed float32 EXR, both once
+#: per render. A clear dome is unaffected in cost: the expense is the march, not the resolution.
+DOME_HEIGHT = 1024
 
 #: Visible-light appearance of each target material: (linear sRGB albedo, roughness, metallic).
 #: This is *appearance only* -- the infrared properties come from the material library through the

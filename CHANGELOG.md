@@ -13,29 +13,6 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
-- **A real 3D model is now solvable geometry** (`irsim.io.assets`, `MeshSpec(asset=…, prim=…)`,
-  schema v16, ADR 0132). `configs/scenes/phantom4_pointwise.yaml` is the **first scene in this
-  project whose geometry was not authored in Python** -- six prims of a DJI Phantom 4 Pro FBX,
-  234,923 cells over 0.1628 m^2 (55 % of the aircraft for 11 % of its triangles), built in 13.6 s.
-  The result is the physics the lane exists for: black mouldings reach **65.9 C** where the white
-  shell tops out at **33.8 C** (alpha 0.94 against 0.25), and every surface carries a *span* --
-  7.8 K on the propellers to 39.7 K on the mouldings -- instead of one value per object.
-- **Decimation that preserves area** (`prep_asset.py --emit-mesh`). Collapse decimation removed
-  **37 %** of this asset's surface area at ratio 0.05 -- area sets both the radiated power and the
-  convective load, so that is 37 % of the emitted signal, silently, on geometry that still looks
-  right. The cause is structural: 31,068 disconnected shells, and a collapse budget spends itself
-  destroying the small ones. Planar dissolve at 3 deg removes 38 % of the triangles for
-  **+0.056 %** area. The tool gates on area and refuses to write an archive that moved, weighting
-  the gate so a 1.1e-5 m^2 sliver is reported rather than blocking; 126 zero-area triangles are
-  dropped and counted, because a facet with no area has no normal.
-- **`self_occluding:` on a mesh, and a budget that refuses rather than hangs** (ADR 0132). Tracing
-  a mesh against itself costs cells x faces, once for the sky view and **again every tick** for
-  the solar disc: one imported prim of 3,320 cells spent **248 s** in `disc_visibility` over a 6 h
-  spin-up, and the largest bound prim would be 1.69e9 ray-triangle tests. Over
-  `MESH_SELF_OCCLUSION_BUDGET` a scene that did not decide is refused with a message naming both
-  ways out. The switch reaches the beam as well as the sky view -- routing it to only one leaves
-  the scene just as unable to finish, which is how this was found. With it, that scene builds in
-  **1.0 s**.
 - **Third-party assets can enter the simulator** (`scripts/prep_asset.py`, `configs/assets/`,
   ADR 0128). Until now every piece of geometry was generated in Python; there was no import path.
   The tool imports FBX/OBJ/glTF/USD, applies the asset's `scale_to_metres`, exports USD with
@@ -233,21 +210,6 @@ working in one tree; two commits already exist whose whole subject is restoring 
   `PipelineState` now carries `focus_distance_m` and the servo, since where the lens *is* depends on
   what the camera has been looking at and not on what the document says.
 
-- **Thermal defocus** (`irsim.optics.thermal_defocus`, `OC.10`, schema **v11**, ADR 0129). The
-  distinctly infrared focus effect, and the one this project already had the input for and was not
-  using: `HousingTemperature` has solved the lens housing over a diurnal run since M9.3, for the
-  self-emission term, and nothing else read it. Germanium's dn/dT is 396e-6 K⁻¹, some 250 times a
-  visible glass, so `dz/dT = f·[α_housing − ((dn/dT)/(n−1) − α_lens)]` comes out at −1.44 µm per
-  kelvin for a 14 mm lens in an aluminium barrel. It is folded into an **effective focus distance**
-  rather than added as a new blur term, because a thermal image-plane shift is the same defocus as
-  looking at the wrong distance — so the global kernel, the layered composite and the autofocus
-  servo all get it without a thermal term of their own, and the servo *fights* the drift through
-  the picture the way an unathermalised motorised core does. A **20 K rise takes a lens focused at
-  infinity to 6.8 m**, inside its own 16.3 m hyperfocal, so distant targets go soft. One result
-  worth stating because it is the opposite of the instinct: an **aluminium** barrel athermalises
-  better than **invar**, since the residue is `α_housing − β` and a large expansion cancels more of
-  it. `athermal: true` is the default and is every camera written before v11, hashing identically.
-
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
@@ -270,11 +232,38 @@ working in one tree; two commits already exist whose whole subject is restoring 
   to. Measured after: the largest 0.25 K bin holds **6.4 %** of the frame (53.9 % before ADR 0126,
   39.6 % after 0127), in-cloud spread is **28.8 K** p1–p99, the emission level runs **15–1065 m**
   above the base, and the two bands draw cloud in the same pixels by construction. The march is
-  now sized by **path length** (36 m steps, measured against a 1536-step reference) instead of by
-  grid cells, which made it cheap enough to march at half the native pitch: the interpolation
-  error at a cloud edge falls from **1.39 K** p99 / 4.6 K worst to **0.46 K** / 2.2 K. Known and
+  now sized by **path length** in metres instead of by grid cells, and per ray rather than per
+  frame. Measuring that properly -- against a converged reference, interpolated back up and
+  box-filtered to native as a frame actually is -- overturned a decision made an hour earlier on a
+  worse measurement: the frame's error is dominated by the march's **quadrature**, not by the
+  interpolation from the marched grid to the supersampled one. Halving the stride moves the 99th
+  percentile of the band emissivity from **0.029 to 0.024** and costs **five times** as much;
+  going from 36 m steps to 12 m moves it from **0.073 to 0.029** (1.3 K against the 44 K a cloud
+  stands above a clear zenith) for three times. So the camera marches once per native pixel and
+  the steps go into the quadrature. Known and
   unfixed: a cloud is still a vertical extrusion rather than a 3-D body, the visible cloud's
-  interior has no shading, and every base sits at one altitude — AT.13 and AT.14 own those.
+  interior is lit as a slab rather than as a body, and every base sits at one altitude — AT.13
+  and AT.14 own those.
+- **A marched cloud drew as a flat grey cut-out in the visible band** (`AT.15`, ADR 0130). Found
+  by looking at the first rendered pair after the dome started marching: the infrared frame had a
+  cumulus field and the visible frame had paper shapes of it. `_cloud_base` returned one
+  Lambertian radiance for every cloudy texel, which was fine while the opacity was a vertical
+  column depth and carried the gradation itself; once `α = 1 − exp(−τ)` saturates over a cloud's
+  body, one radiance is a flat shape with a hard edge. The brightness now comes from the same
+  optical depth the opacity does, through the two-stream reflectance of a conservatively
+  scattering layer, `R = (1−g)τ / (2μ₀ + (1−g)τ)` at `g = 0.85` — which is the reason a cloud
+  *has* an inside: a thin edge returns almost nothing and is the sky behind it, a deep core
+  returns nearly everything and is white. Measured over a marched frame the reflectance spans
+  **0.3 to 0.9** where a constant spans nothing, and cloud sits at **1.23x** the clear sky's
+  luminance at the median with thin edges darker and cores brighter, where the constant put every
+  cloudy texel at a flat 1.8x. Absorption is neglected, right in the visible and not in the near
+  infrared, and the function says so.
+- **A marched cloud edge drew a staircase on the visible dome** (`AT.15`, ADR 0130).
+  `DOME_HEIGHT` was 512 rows, a texel every 0.35 deg, chosen when the softest thing on the dome
+  was the solar aureole; a marched cloud's opacity crosses from clear to opaque inside one texel,
+  and a 640x512 frame magnifies each texel to **seven pixels**. Now 1024 rows -- 3.6 pixels, and
+  real structure with it -- at 27 s of bake and a 25 MB EXR, both once per render. A clear dome
+  pays neither: the cost is the march, not the resolution.
 - **A cloud field's spectral slope was read in the wrong convention** (spec issue S50, ADR 0127).
   `generate_cloud_field` applies the authored `beta` as the **radial** exponent of a 2-D power
   spectrum, and on a 2-D field the variance per octave goes as `f^(2−β)` — so `beta: 1.8` puts more

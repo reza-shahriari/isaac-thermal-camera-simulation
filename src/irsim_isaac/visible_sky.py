@@ -57,7 +57,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from irsim.atmosphere.cloud import SkyFixedCloud, sky_angles
+from irsim.atmosphere.cloud import SkyFixedCloud, cloud_reflectance, sky_angles
 from irsim.atmosphere.cloud_deck import CloudDeck
 from irsim.scene import Scene
 from irsim.thermal.solar import sun_position_utc
@@ -423,17 +423,20 @@ def environment_map(spec: DomeSpec, height: int = 512) -> NDArray[np.float32]:
         # a few thin wisps over the same sky in which the infrared frame showed a wall of cumulus.
         # Over a rendered frame the two coverages were 26% and 57% of the same pixels.
         alpha = np.zeros(up.shape, dtype=np.float64)
+        depth = np.zeros(up.shape, dtype=np.float64)
         above = up > 0.0
         if above.any():
             el = np.arcsin(np.clip(up[above], -1.0, 1.0))
             az = np.arctan2(direction[..., 0][above], -direction[..., 2][above])
-            tau = spec.deck.march(el, az).optical_depth
+            depth[above] = spec.deck.march(el, az).optical_depth
             # The authored optical depth is the visible one, so this band's opacity is Beer's law
             # on it directly, where the infrared band applies `CLOUD_OD_RATIO` first.
-            alpha[above] = 1.0 - np.exp(-tau)
+            alpha[above] = 1.0 - np.exp(-depth[above])
         lit = alpha > 0.0
         if lit.any():
-            base = _cloud_base(spec, image[lit], scale)
+            # Brightness from the same optical depth, not a constant: a marched cloud is opaque
+            # over most of its body, so a single reflectance would draw it as one flat grey shape.
+            base = _cloud_base(spec, image[lit], scale, optical_depth=depth[lit])
             a = alpha[lit][..., None]
             image[lit] = (1.0 - a) * image[lit] + a * base
     elif spec.cloud is not None:
@@ -458,7 +461,10 @@ def environment_map(spec: DomeSpec, height: int = 512) -> NDArray[np.float32]:
 
 
 def _cloud_base(
-    spec: DomeSpec, sky_behind: NDArray[np.float64], scale: float
+    spec: DomeSpec,
+    sky_behind: NDArray[np.float64],
+    scale: float,
+    optical_depth: NDArray[np.float64] | None = None,
 ) -> NDArray[np.float64]:
     """A Lambertian cloud base under the downwelling irradiance, blended by the cloud's opacity.
 
@@ -483,8 +489,11 @@ def _cloud_base(
         spec.dni_w_m2 * math.sin(math.radians(max(spec.sun_elevation_deg, 0.0))) + spec.dhi_w_m2,
         0.0,
     )
-    base = spec.cloud_base_albedo * irradiance / math.pi * LUMINOUS_EFFICACY_DAYLIGHT_LM_W * scale
-    return np.asarray(np.full_like(sky_behind, base))
+    lit = irradiance / math.pi * LUMINOUS_EFFICACY_DAYLIGHT_LM_W * scale
+    if optical_depth is None:
+        return np.asarray(np.full_like(sky_behind, spec.cloud_base_albedo * lit))
+    albedo = cloud_reflectance(optical_depth, math.cos(spec.sun_zenith_rad()))
+    return np.asarray(albedo[..., None] * lit * np.ones_like(sky_behind))
 
 
 def _terrain(

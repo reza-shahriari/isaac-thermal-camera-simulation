@@ -427,9 +427,12 @@ class IrCamera:
             band=band,
             cloud_seed=cloud_seed,
             cloud_deck=cloud_deck,
-            # The extra AOV samples exist to antialias geometry; the marched sky has no
-            # edges at that scale, so it is computed once per native pixel (AT.12).
-            deck_stride=max(1, self.optics.supersample // 2),
+            # The extra AOV samples exist to antialias geometry; the marched sky is computed once
+            # per native pixel and interpolated back. Measured against a converged reference, the
+            # frame's error is dominated by the march's own quadrature and not by that
+            # interpolation -- marching at half this pitch costs five times as much and moves the
+            # 99th percentile of the band emissivity from 0.029 to 0.024 (AT.15, ADR 0130).
+            deck_stride=self.optics.supersample,
             sea=sea,
         )
         # Prims that are *in* the picture but whose temperature is not a solver node: the sea

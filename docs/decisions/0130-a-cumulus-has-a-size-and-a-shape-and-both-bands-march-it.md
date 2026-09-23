@@ -80,11 +80,34 @@ band applies `CLOUD_OD_RATIO` to the same number first. One geometry, one integr
 It is baked once per render, so the cost is a one-off where a frame is marched three hundred
 times.
 
-**The march is sized by path length, not by cells.** It is a midpoint rule over an integrand with
-a jump in it — the cloud's own boundary — so it converges at first order and the error is set by
-how precisely a step lands on that boundary, which is a distance in metres. Measured against a
-1536-step reference over a rendered frame: 36 m steps hold the band emissivity to 0.02 at the 99th
-percentile, 72 m to 0.044, 100 m to 0.061. `MARCH_STEP_M` = 36 m.
+**And the cloud's brightness comes from the same optical depth**, through the two-stream
+reflectance of a conservatively scattering layer, `R = (1−g)τ / (2μ₀ + (1−g)τ)` at `g` = 0.85.
+This was not in the plan; it became necessary the moment the dome marched, and the rendered frame
+is what showed it. `_cloud_base` returned one Lambertian radiance for every cloudy texel, which
+was defensible while `α` was the vertical column depth and mostly small — the *opacity* carried
+the gradation. Once `α = 1 − exp(−τ)` saturates over the body of a cloud, one radiance draws that
+body as a flat grey shape with a hard edge, and the first rendered pair showed exactly that: the
+infrared frame had a cumulus field and the visible frame had paper cut-outs of it. The reflectance
+is the reason a cloud *has* an inside — a thin edge returns almost nothing and is the sky behind
+it, a deep core returns nearly everything and is white. Measured over a marched frame it spans
+0.3 to 0.9 where a constant spans nothing.
+
+Absorption is neglected, which is right in the visible and would not be in the near infrared.
+
+**And the dome's resolution had to go up with it.** `DOME_HEIGHT` was 512 rows — a texel every
+0.35°, chosen when the softest thing on the dome was the solar aureole. A marched cloud is not
+soft: its opacity crosses from clear to opaque within one texel, and a 640×512 frame magnifies
+each texel to seven pixels, which drew a visible staircase along every cloud edge in the companion
+frame. 1024 rows halves it to 3.6 pixels and carries real structure with it, at 27 s of bake and a
+25 MB EXR — both once per render, and a clear dome pays neither, since the cost is the march.
+
+**The march is sized by path length, not by cells, and per ray rather than per frame.** It is a
+midpoint rule over an integrand with a jump in it — the cloud's own boundary — so it converges at
+first order and the error is set by how precisely a step lands on that boundary, which is a
+distance in metres. `MARCH_STEP_M` is that distance; `adequate_steps` remains the array-wide
+answer a caller needs to size a cost, but the march itself gives each ray the count its own path
+needs, because the path is four times longer at 8° than at 33° and one number for the array marches
+the top of an oblique frame four times more finely than it can use.
 
 ## Consequences
 
@@ -97,11 +120,29 @@ Measured on the same frame geometry, after:
   dome's drawn set equals the set where the marched optical depth is non-zero, and separately
   asserts that the old sampled quantity is a *different* cloud, so a dome that agreed with it
   would be the bug.
-* **The camera marches at half the native pitch**, not a quarter. The cloud edge now carries 40 K
-  across a pixel, so the interpolation error at stride 4 was 1.39 K at p99 and 4.6 K at worst;
-  at stride 2 it is 0.46 K and 2.2 K. The box filter over the supersamples barely helps, because
-  bilinear error over a 4 × 4 block is correlated and does not average away. Sizing the march by
-  path length made this affordable: a 20° ray now takes 98 steps where it took 256.
+* **The march's step size, not its stride, is where the frame's error lives.** This was measured
+  the wrong way round first, and the wrong answer shipped for an afternoon. Comparing a strided
+  march against a denser march of *the same quadrature* makes interpolation look like the whole
+  story — it was the only term that differed — and on that basis the camera was set to march at
+  half the native pitch, which tripled the cost of a frame. Measured properly, against a converged
+  reference, with the result interpolated back up and box-filtered to native as a frame actually
+  is:
+
+  | step | stride 4 (native) | stride 2 | cost, stride 4 |
+  |---|---|---|---|
+  | 36 m | 0.073 | 0.073 | 2.2 s |
+  | 18 m | 0.039 | 0.040 | 4.5 s |
+  | 12 m | 0.029 | 0.024 | 6.5 s |
+
+  (99th percentile of the band emissivity error; 0.029 is 1.3 K against the 44 K a cloud stands
+  above a clear zenith.) The stride is worth almost nothing and costs five times; the step size is
+  worth a factor of two and a half. `MARCH_STEP_M` = 12 m, `MAX_MARCH_STEPS` = 512, and the camera
+  marches once per native pixel.
+
+* **Each ray gets its own step count.** `MARCH_STEP_M` is a spacing in metres, so the count is the
+  path over it, and the path is four times longer at 8° than at 33°. One number for the array —
+  which is what `adequate_steps` still returns, because a caller sizing a cost needs one — marches
+  the top of an oblique frame four times more finely than it can use.
 
 ### What this does not fix
 
@@ -110,12 +151,17 @@ Measured on the same frame geometry, after:
   tapering upward. A real cumulus bulges above its base. A single compact column, marched, comes
   out as an elliptical skirt with a tower over it, which is recognisably a cloud and is not a
   cauliflower. Genuine 3-D shape needs the volume in the renderer: **AT.13**, then **AT.14**.
-* **The visible cloud has no internal shading.** `_cloud_base` is one Lambertian radiance for
-  every cloudy texel, so now that α saturates over the body of a cloud the body is flat. Edges
-  still gradate. A two-stream reflectance in τ would be one line and is deliberately *not* taken
-  here: what a ground observer sees at 20° is mostly sunlit cloud *sides*, and the geometry that
-  decides how much of a ray's path was lit is the same geometry AT.14 is about. Recorded rather
-  than guessed.
+* **The cloud is lit as a slab, not as a body.** The two-stream reflectance answers "how much of
+  the light that reached this much cloud comes back", which is the right question for a layer and
+  an approximation for a tower seen from the side. It carries no information about *where* the sun
+  is relative to the cloud, so a cumulus has no bright side and no shadowed side — only a bright
+  core and thin edges. The geometry that would fix it is the geometry AT.14 is about.
+* **An attempted march optimisation is recorded here because it was wrong in an instructive way.**
+  Dropping a ray once its band optical depth passes 12 saves 20 % and cannot move the infrared
+  answer, since everything past it is behind e^{-12}. It moves the *visible* one: the reflectance
+  above is still climbing at τ = 24 (0.70) and does not approach white until several times that,
+  so the truncation put a ceiling on how bright a deep cloud could be, in one band only. Measured,
+  then removed. Per-ray step counts were kept, because those are exact.
 * **Every base is at one altitude.** Real cumulus bases vary by ±50–150 m across a field, and a
   perfectly flat base is a degenerate geometry for a near-horizontal ray, which skims it for
   kilometres. This is part of why the frame's lower third is a continuous wall.

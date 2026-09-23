@@ -53,6 +53,8 @@ __all__ = [
     "DIFFUSIVITY_FACTOR",
     "OPAQUE_OPTICAL_DEPTH",
     "CLOUD_AIRMASS_FLOOR_DEG",
+    "CLOUD_ASYMMETRY",
+    "cloud_reflectance",
     "cloud_emissivity",
     "cloud_airmass",
     "cloud_radiance_at_range",
@@ -68,6 +70,46 @@ ESPY_M_PER_K = 125.0  # z_LCL / (T - T_dew), Espy's rule (Lawrence 2005)
 #: is what this was before, is the one value that is definitely wrong: it makes every cloud edge
 #: a step discontinuity at the sampling resolution, in both bands.
 DEFAULT_EDGE_SOFTNESS = 0.45
+
+#: Scattering asymmetry parameter of cloud droplets, in the band this quantity is carried for.
+#:
+#: Like :data:`CLOUD_OD_RATIO` this is a **per-band** number held as one value, because a deck
+#: carries one optical depth and each band derives what it needs from it. 0.85 is the standard
+#: value for liquid water droplets against visible light -- forward-scattering, since the droplets
+#: are far larger than the wavelength -- and it is what the two-stream reflectance below needs.
+CLOUD_ASYMMETRY = 0.85
+
+
+def cloud_reflectance(
+    optical_depth: Any, cos_sun_zenith: float, asymmetry: float = CLOUD_ASYMMETRY
+) -> NDArray[np.float64]:
+    """Fraction of the light reaching a cloud that comes back out of it, from its optical depth.
+
+    The two-stream result for a **conservatively scattering** layer -- droplets that scatter
+    without absorbing, which is what liquid water does across the visible:
+
+        R = (1 - g) tau / (2 mu0 + (1 - g) tau)
+
+    It is the one expression that makes a rendered cloud look like a cloud rather than a cut-out,
+    because it is the reason a cloud *has* an inside: a thin edge returns almost nothing and is
+    the sky behind it, a deep core returns nearly everything and is white, and the whole range
+    between them is where a cumulus's texture lives. A constant reflectance -- which is what the
+    dome used before it marched the deck, and what remains right for a cloud whose optical depth
+    is not known -- draws every cloudy pixel the same value, and once the opacity saturates that
+    is a flat grey shape with a hard edge.
+
+    At g = 0.85 and a 40 degree sun: tau = 1 gives 0.10, tau = 10 gives 0.54, tau = 30 gives 0.78.
+
+    Absorption is neglected, which is right in the visible and would not be in the near infrared,
+    where a thick cloud is measurably darker than this. Stated rather than assumed: this function
+    is called for the visible dome only.
+    """
+    tau = np.maximum(np.asarray(optical_depth, dtype=np.float64), 0.0)
+    if not 0.0 <= asymmetry < 1.0:
+        raise ValueError("the asymmetry parameter must lie in [0, 1)")
+    mu0 = float(np.clip(cos_sun_zenith, 1e-3, 1.0))
+    scaled = (1.0 - float(asymmetry)) * tau
+    return np.asarray(scaled / (2.0 * mu0 + scaled), dtype=np.float64)
 
 
 def lifting_condensation_level_m(

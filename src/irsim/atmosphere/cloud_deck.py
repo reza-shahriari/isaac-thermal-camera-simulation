@@ -131,12 +131,22 @@ DEFAULT_SMALLEST_CLOUD_M = 400.0
 #: travels 3.3 km sideways, so 48 steps put its samples 68 m apart and the undersampling shows up
 #: as horizontal banding at every cloud edge -- visible immediately in a rendered frame.
 #: :meth:`CloudDeck.adequate_steps` sizes the march from the geometry instead and clamps it here.
-MAX_MARCH_STEPS = 256
+MAX_MARCH_STEPS = 512
 MIN_MARCH_STEPS = 32
 
-#: Sample spacing along the ray the step count aims for, metres. See
-#: :meth:`CloudDeck.adequate_steps` for the measurement that chose it.
-MARCH_STEP_M = 36.0
+#: Sample spacing along the ray the step count aims for, metres.
+#:
+#: Chosen by measuring the error a *frame* keeps -- marched, interpolated back up and box-filtered
+#: to native, against a converged reference -- rather than the march in isolation. At the shipped
+#: settings the 99th percentile of the band emissivity error runs 0.073 at 36 m, 0.039 at 18 m and
+#: 0.029 at 12 m; 0.029 is 1.3 K against the 44 K a cloud stands above a clear zenith, and 12 m
+#: costs 6.5 s of a frame against 2.2 s at 36 m.
+#:
+#: That measurement also settled something it was not aimed at. The frame's error is dominated by
+#: **quadrature**, not by the interpolation from the marched grid up to the supersampled one:
+#: halving the march stride changes the 99th percentile from 0.029 to 0.024 and costs five times
+#: as much. So the march runs once per native pixel and the steps are spent here instead.
+MARCH_STEP_M = 12.0
 
 
 def vertical_profile(u: Any) -> NDArray[np.float64]:
@@ -217,15 +227,15 @@ class CloudDeck:
         **Path length is the criterion, not cells per cloud.** The march is a midpoint rule over an
         integrand with a jump in it -- the cloud's own boundary -- so it converges at first order
         and the error is set by how precisely a step lands on that boundary, which is a distance
-        in metres and has nothing to do with the grid. Measured over a rendered frame against a
-        1536-step reference: 36 m steps hold the band emissivity to 0.02 at the 99th percentile,
-        72 m steps to 0.044, and 100 m steps to 0.061 -- and 0.02 of emissivity is 0.8 K against
-        the 40 K a cloud stands above a clear zenith.
+        in metres and has nothing to do with the grid.
 
-        The **minimum** elevation in the array sets it, not the mean: the step count is one number
-        for the whole march, and sizing it on a typical ray leaves the shallow ones aliased --
-        which is where the banding is worst, because those are the rays that spend longest in the
-        deck.
+        This is the array-wide answer, which is what a caller needs to size a cost or to pin a
+        test. :meth:`march` does better: it gives each ray the count its own path needs, so the
+        top of an oblique frame is not marched four times more finely than it can use.
+
+        The **minimum** elevation in the array sets this one, not the mean, for the same reason
+        the march is per-ray at all -- the shallow rays are where the aliasing shows, because they
+        are the ones that spend longest in the deck.
         """
         el = np.abs(np.asarray(elevation_rad, dtype=np.float64))
         lowest = float(np.min(el[el > 0.0])) if np.any(el > 0.0) else 0.5 * math.pi
@@ -304,10 +314,10 @@ class CloudDeck:
         az = np.asarray(azimuth_rad, dtype=np.float64)
         if el.shape != az.shape:
             raise ValueError(f"elevation {el.shape} and azimuth {az.shape} must match")
-        # `None` sizes the march from the geometry; see `adequate_steps`. A caller passing a
-        # number is usually a test pinning the quadrature, and gets exactly what it asked for.
-        steps = self.adequate_steps(el) if steps is None else int(steps)
-        if steps < 2:
+        # A caller pinning the quadrature gets exactly what it asked for; `None` means each ray
+        # gets the count its own path needs, computed once the geometry is known.
+        pinned = None if steps is None else int(steps)
+        if pinned is not None and pinned < 2:
             raise ValueError("a march needs at least two steps")
         direction = _direction(el, az, up, forward)
         oy = float(origin_m[1])
@@ -318,25 +328,60 @@ class CloudDeck:
         t_in = np.where(rising, (self.base_m - oy) / safe, 0.0)
         t_out = np.where(rising, (self.top_m - oy) / safe, 0.0)
         t_in = np.maximum(t_in, 0.0)
-        ds = np.where(rising, (t_out - t_in) / steps, 0.0)
+        # **Each ray gets the steps its own path needs**, not the shallowest ray's. `MARCH_STEP_M`
+        # is a spacing in metres, so the count is the path over it, and the path is four times
+        # longer at 8 degrees than at 33 -- one number for the array means the top of an oblique
+        # frame is marched four times more finely than it can use. Over a 25 degree field that is
+        # a third of the work for nothing. `adequate_steps` remains the array-wide answer, because
+        # it is what a caller needs to size a cost; the march does better than it.
+        if pinned is not None:
+            per_ray = np.full(el.shape, pinned, dtype=np.int64)
+        else:
+            need = np.ceil((t_out - t_in) / MARCH_STEP_M)
+            per_ray = np.clip(need, MIN_MARCH_STEPS, MAX_MARCH_STEPS).astype(np.int64)
+        longest = int(per_ray.max(initial=MIN_MARCH_STEPS))
+        ds = np.where(rising, (t_out - t_in) / per_ray, 0.0)
 
         tau = np.zeros(el.shape, dtype=np.float64)
         weighted = np.zeros(el.shape, dtype=np.float64)
         weight = np.zeros(el.shape, dtype=np.float64)
         ratio = float(CLOUD_OD_RATIO)
-        for k in range(steps):
-            t = t_in + (k + 0.5) * ds
-            px = origin_m[0] + t * direction[..., 0]
-            py = oy + t * direction[..., 1]
-            pz = origin_m[2] + t * direction[..., 2]
-            d_tau = self.density_at(px, py, pz) * ds
+        # **Only the rays still on their own path.** The loop runs to the longest ray's step
+        # count, so a compacted working set is what makes per-ray step counts pay: at 33 degrees
+        # a ray is done after 60 steps while the 8 degree ray below it has 250 to go.
+        #
+        # Deliberately *not* also dropping rays whose optical depth has saturated. It is tempting
+        # -- most of a near-horizon ray's path sits behind e^{-12} of transmittance and moves
+        # neither the emission height nor the infrared emissivity -- but the visible band reads
+        # the same optical depth through a two-stream reflectance that is still climbing at tau =
+        # 24 (0.70) and does not approach white until several times that. Truncating there caps
+        # how bright a deep cloud can be, in one band only, for a 20 % saving. Measured, then
+        # removed.
+        live = np.flatnonzero(np.asarray(rising).reshape(-1))
+        flat_tin = np.asarray(t_in).reshape(-1)
+        flat_ds = np.asarray(ds).reshape(-1)
+        flat_steps = np.asarray(per_ray).reshape(-1)
+        flat_dir = direction.reshape(-1, 3)
+        flat_tau = tau.reshape(-1)
+        flat_weighted = weighted.reshape(-1)
+        flat_weight = weight.reshape(-1)
+        for k in range(longest):
+            if live.size == 0:
+                break
+            t = flat_tin[live] + (k + 0.5) * flat_ds[live]
+            step = flat_ds[live]
+            px = origin_m[0] + t * flat_dir[live, 0]
+            py = oy + t * flat_dir[live, 1]
+            pz = origin_m[2] + t * flat_dir[live, 2]
+            d_tau = self.density_at(px, py, pz) * step
             # Emission weight in the band that will read it: e^{-tau_band} d(tau_band). Using the
             # authored (0.55 um) depth here would put the emitting level low by the OD ratio.
-            transmitted = np.exp(-ratio * tau)
-            w = transmitted * (1.0 - np.exp(-ratio * d_tau))
-            weighted += w * (py - self.base_m)
-            weight += w
-            tau += d_tau
+            running = flat_tau[live]
+            w = np.exp(-ratio * running) * (1.0 - np.exp(-ratio * d_tau))
+            flat_weighted[live] += w * (py - self.base_m)
+            flat_weight[live] += w
+            flat_tau[live] = running + d_tau
+            live = live[flat_steps[live] > k + 1]
         height = np.where(weight > 0.0, weighted / np.where(weight > 0.0, weight, 1.0), 0.0)
         return MarchResult(optical_depth=tau, emission_height_m=height)
 
