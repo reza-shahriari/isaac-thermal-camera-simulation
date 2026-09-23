@@ -37,6 +37,8 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from irsim_isaac.pipeline.point_bridge import world_positions
+
 __all__ = [
     "GeometryScene",
     "Target",
@@ -252,10 +254,18 @@ def position_frame_residuals(
     valid = np.isfinite(d) & (d > 0.0) & np.isfinite(pos).all(axis=2)
     # `inf` distance on sky pixels would make `inf * 0` rays NaN; they are excluded anyway.
     truth = cam + np.where(valid, d, 0.0)[..., None] * ray
+    # The decode is `world_positions`, not a second copy of it. This function is the one that
+    # runs in-sim and that function is the one the render path calls, so a private `pos @ rot.T`
+    # here would mean the arithmetic proved by a render and the arithmetic shipped in a frame
+    # were two different expressions that merely happened to agree (roadmap IG.2). The
+    # `rotated_world` hypothesis is the same decode with the translation left out, which is what
+    # a zero camera position gives.
     decoded = {
-        "world": pos,
-        "camera": pos @ rot.T + cam,
-        "rotated_world": pos @ rot.T,
+        "world": world_positions(pos, frame="world"),
+        "camera": world_positions(pos, frame="camera", camera_position=cam, camera_to_world=rot),
+        "rotated_world": world_positions(
+            pos, frame="camera", camera_position=np.zeros(3), camera_to_world=rot
+        ),
     }
     residuals = {
         name: float(np.median(np.linalg.norm(p - truth, axis=2)[valid]))

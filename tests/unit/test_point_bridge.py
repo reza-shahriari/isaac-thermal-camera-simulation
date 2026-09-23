@@ -152,25 +152,142 @@ def test_two_patches_on_one_prim_are_tried_in_turn() -> None:
 # ---------------------------------------------------------------------------------------------
 
 
-def test_camera_space_positions_reach_world_space() -> None:
-    """A camera both moved and rotated -- the case that separates the three readings (M2.4)."""
-    angle = np.deg2rad(35.0)
-    rot = np.array(
-        [
-            [np.cos(angle), 0.0, np.sin(angle)],
-            [0.0, 1.0, 0.0],
-            [-np.sin(angle), 0.0, np.cos(angle)],
-        ]
-    )
-    cam = np.array([4.0, -2.0, 9.0])
-    truth = np.array([[[1.0, 2.0, 3.0], [-0.5, 0.25, 7.0]]])
-    camera_space = (truth - cam) @ rot  # the inverse of what world_positions must do
+#: A camera both moved and rotated -- the case that separates the three readings (M2.4). The yaw
+#: is not a multiple of 45 degrees, so no two of the camera's axes are interchangeable and a
+#: transposed rotation cannot pass by symmetry.
+YAW_DEG = 35.0
+CAM = np.array([4.0, -2.0, 9.0])
+WALL_Z = -20.0
 
-    got = world_positions(camera_space, frame="camera", camera_position=cam, camera_to_world=rot)
-    assert np.allclose(got, truth, atol=1e-9)
+
+def _camera_axes(yaw_deg: float = YAW_DEG) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The camera's right / up / forward unit vectors **in world axes**, written out by hand.
+
+    This is the oracle's only statement about the camera, and it is a geometric one: a camera
+    yawed by ``yaw_deg`` about world +Y has these three axes, whatever any matrix says. Every
+    world-space truth below is a sum of scalar multiples of them, so nothing in the oracle is the
+    algebraic inverse of the function under test.
+    """
+    c, s = np.cos(np.deg2rad(yaw_deg)), np.sin(np.deg2rad(yaw_deg))
+    right = np.array([c, 0.0, -s])
+    up = np.array([0.0, 1.0, 0.0])
+    forward = np.array([-s, 0.0, -c])  # the camera looks down its own -Z
+    return right, up, forward
+
+
+def _camera_to_world(yaw_deg: float = YAW_DEG) -> np.ndarray:
+    """``camera_to_world`` in the pipeline's convention: its **columns** are the camera axes."""
+    right, up, forward = _camera_axes(yaw_deg)
+    return np.stack([right, up, -forward], axis=1)
+
+
+def test_camera_space_positions_reach_world_space() -> None:
+    """Points named by what they mean geometrically, not by inverting the formula under test.
+
+    The old version of this test built its input as ``(truth - cam) @ rot`` -- literally the
+    inverse of ``world_positions``' own expression -- so it passed for either transpose
+    convention as long as the test picked the same one, which is no evidence at all (roadmap
+    IG.2). Here each camera-space point is stated in the units camera space is *defined* in --
+    "12 m straight ahead", "3 m to the right of that" -- and its world truth is the corresponding
+    sum of the camera's world-space axes. A transposed rotation moves the off-axis points by
+    metres, which is the negative control below.
+    """
+    right, up, forward = _camera_axes()
+    rot = _camera_to_world()
+    # (camera-space point, how far along each world axis of the camera it is)
+    cases = [
+        ((0.0, 0.0, -12.0), 12.0 * forward),
+        ((3.0, 0.0, -12.0), 3.0 * right + 12.0 * forward),
+        ((0.0, 2.0, -12.0), 2.0 * up + 12.0 * forward),
+        ((-1.5, 0.75, -20.0), -1.5 * right + 0.75 * up + 20.0 * forward),
+    ]
+    camera_space = np.array([[c for c, _ in cases]])
+    truth = np.array([[CAM + offset for _, offset in cases]])
+
+    got = world_positions(camera_space, frame="camera", camera_position=CAM, camera_to_world=rot)
+    assert np.allclose(got, truth, atol=1e-9), got - truth
+
     # Read as world it is wrong by the camera offset -- ~10 m, far outside any patch.
     naive = world_positions(camera_space, frame="world")
     assert np.linalg.norm(naive - truth, axis=-1).min() > 5.0
+
+    # The transpose that ADR 0014's M10.19 addendum records costing a 164-row horizon.
+    flipped = world_positions(
+        camera_space, frame="camera", camera_position=CAM, camera_to_world=rot.T
+    )
+    assert np.linalg.norm(flipped - truth, axis=-1)[0, 1:].min() > 1.0
+
+
+def _wall_frame(resolution: int = 16, focal_px: float = 24.0) -> tuple[np.ndarray, ...]:
+    """A synthetic render of the world plane ``z = WALL_Z``: (position AOV, distance, world rays).
+
+    Built the way a renderer builds one -- cast a ray per pixel, intersect the geometry, report
+    the hit -- rather than by transforming a known answer:
+
+    * the camera-space ray of pixel ``(row, col)`` is ``(x, y, -f)`` normalised, which involves no
+      rotation whatsoever, because that *is* camera space;
+    * the world ray is the same numbers against the camera's world axes, ``x*r + y*u + f*fwd``;
+    * the hit is the analytic intersection with ``z = WALL_Z``.
+
+    The position AOV is then ``distance * camera_ray`` and the world truth ``C + distance *
+    world_ray``. The two are connected only through the camera's axes, so a decode that transposes
+    the rotation lands off the authored plane instead of on it.
+    """
+    right, up, forward = _camera_axes()
+    cols, rows = np.meshgrid(
+        np.arange(resolution, dtype=np.float64), np.arange(resolution, dtype=np.float64)
+    )
+    x = cols - 0.5 * resolution
+    y = 0.5 * resolution - rows
+    camera_ray = np.stack([x, y, np.full_like(x, -focal_px)], axis=2)
+    world_ray = x[..., None] * right + y[..., None] * up + focal_px * forward
+    norm = np.linalg.norm(camera_ray, axis=2, keepdims=True)
+    camera_ray, world_ray = camera_ray / norm, world_ray / norm
+    distance = (WALL_Z - CAM[2]) / world_ray[:, :, 2]
+    assert (distance > 0.0).all(), "the wall must be in front of every pixel"
+    position = distance[..., None] * camera_ray
+    world = CAM + distance[..., None] * world_ray
+    return position, distance, world_ray, world
+
+
+def test_a_decoded_wall_lands_on_the_plane_it_was_authored_on() -> None:
+    """The oracle is the authored geometry: every pixel of a flat wall must decode onto it.
+
+    This is the engine-free rehearsal of the in-sim check (``tests/integration``): a plane whose
+    world position is known by authoring, not by decoding. Flatness is the discriminator -- a
+    transposed rotation leaves a wall that is still a plane but is tilted and displaced, which is
+    exactly the failure that renders plausibly and is wrong.
+    """
+    position, _distance, _rays, truth = _wall_frame()
+    rot = _camera_to_world()
+
+    got = world_positions(position, frame="camera", camera_position=CAM, camera_to_world=rot)
+    assert np.allclose(got, truth, atol=1e-9)
+    assert np.abs(got[:, :, 2] - WALL_Z).max() < 1e-9, float(np.abs(got[:, :, 2] - WALL_Z).max())
+
+    flipped = world_positions(position, frame="camera", camera_position=CAM, camera_to_world=rot.T)
+    assert np.abs(flipped[:, :, 2] - WALL_Z).max() > 1.0
+
+
+def test_the_probe_decodes_with_the_production_function() -> None:
+    """The in-sim verdict must be reached by the arithmetic that ships in a frame.
+
+    ``position_frame_residuals`` is what runs against a real render; ``world_positions`` is what
+    puts a temperature on a pixel. They used to be two copies of ``pos @ rot.T + cam``, so a
+    render could confirm one while the other drifted (roadmap IG.2). The probe now calls the
+    production function, and this test drives it over the same authored wall: the residual is
+    zero only if the two agree, and the margin over the runner-up is the camera offset, which is
+    what makes the verdict evidence rather than noise.
+    """
+    from irsim_isaac.geometry_probe import position_frame_residuals
+
+    position, distance, rays, _truth = _wall_frame()
+    got = position_frame_residuals(
+        position, distance, rays, camera_position=CAM, camera_to_world=_camera_to_world()
+    )
+    assert got["verdict"] == "camera", got
+    assert got["residual_m"]["camera"] < 1e-9, got
+    assert abs(got["residual_m"]["rotated_world"] - float(np.linalg.norm(CAM))) < 1e-9, got
 
 
 def test_world_frame_passes_through_and_a_bad_rotation_raises() -> None:
