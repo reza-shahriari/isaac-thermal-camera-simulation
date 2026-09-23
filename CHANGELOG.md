@@ -132,6 +132,18 @@ working in one tree; two commits already exist whose whole subject is restoring 
   7e-7 of the peak, the radial-interpolation floor, so `OC.5` must either keep the in-focus path on
   `optical_psf` or refresh the goldens deliberately.
 
+- **Focus as config** (schema **v10**, `OC.4`, ADR 0129). `optics.focus` takes `infinity` (the
+  default), `hyperfocal` — which resolves against the detector pitch unless `coc_um` says otherwise,
+  because the acceptable circle of confusion is a convention and belongs in the document — or
+  `fixed` with a `distance_m`. `optics.mtf.defocus_model` selects `none`/`gaussian`/`geometric`/
+  `hopkins` and `defocus_apply` selects `global` or `layered`; `fidelity.defocus` is the ablation
+  and can switch defocus off but never on. **Every default is the pre-v10 camera and is dropped
+  from the config hash**, so a v9 document and a v10 document that spells the defaults out hash
+  identically and every golden array written before `OC` stays valid — while naming a model, a
+  focus distance or the ablation each changes the hash, which is what makes a run's provenance say
+  which camera it was. A focus distance authored with `defocus_model: none` is refused rather than
+  silently ignored.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over
