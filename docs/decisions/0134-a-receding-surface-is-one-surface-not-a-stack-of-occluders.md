@@ -104,3 +104,44 @@ the same partial-occlusion argument ADR 0131 already records.
 
 `depth_layers` now returns `DepthLayer` records rather than `(mask, distance)` tuples. The only
 callers were inside `irsim.optics.layered` and its tests.
+
+## Addendum — fractional membership (`OC.13`, 2026-09-23)
+
+The residual this ADR recorded as "what is left" has been removed, by the change it named.
+
+`depth_layers` no longer assigns a pixel wholly to one W020 bin. A pixel sits somewhere between
+two bin centres and is split between them in proportion, so a surface receding smoothly crosses a
+bin boundary as a **ramp** rather than a step. `DepthLayer` gains a `weight` plane carrying the
+share; the weights of all the geometry layers sum to one on every geometry pixel, and
+`layered_defocus` blurs the weight rather than the mask.
+
+That is what the ripple needed. The blurred coverage `sum_b K_b * cover_b` failed to stay at one
+because adjacent bins carry different kernels and a *step* in `cover_b` is something two different
+kernels disagree about; with a ramp there is no step for them to disagree over. Measured on the
+`OC.11` regression scene: the ripple falls from **±0.52 % to ±0.06 %**, and the interior error with
+it — peak **0.079 → 0.0023** at three layers, RMS 0.0125 → 0.0004. On `OC.12`'s cube, in apparent
+temperature, the peak goes **0.16 K → 0.041 K** and the RMS **0.023 K → 0.0055 K**, which is a
+seventh of the Boson's 50 mK NETD. The whole lane from what `OC.6` shipped is 8.76 K → 0.070 K.
+
+The representative range of a layer is now a **weighted** median, which keeps `OC.5`'s reason for
+choosing a median at all — a layer straddling a depth edge should not drag the kernel — while
+letting a pixel count as the fraction of itself it really is.
+
+**A scene of flat slabs is unchanged, exactly.** Where W020 takes only a few distinct values no
+pixel lies between two bin centres, every weight is 0 or 1, and the split degenerates to the hard
+partition. That is why `OC.6`, `OC.7` and `OC.8`'s measurements carry over untouched rather than
+needing to be re-taken, and there is a test that asserts the degeneracy rather than leaving it to
+be inferred from the others passing.
+
+**One assertion was retired rather than tightened.** `OC.11` had made the error fall monotonically
+as layers were added, and that was worth asserting because the defect had made it *rise*. It no
+longer falls monotonically: at 4e-4 on a contrast of 7 the residual is second order, and which cap
+does best is decided by where the bin edges happen to land on a given ramp rather than by how many
+there are. The test now asserts that the error stays two orders below the reference at every cap
+and does not drift upward, which is what is actually true.
+
+The reference implementation in `tests/unit/test_continuous_depth.py` had to grow a copy of the
+**old binning** as well as the old composite. It had been borrowing `depth_layers`' masks, so the
+moment membership went fractional those masks overlapped, the reference stopped exhibiting the
+seam, and three tests passed for the wrong reason. A reference to a defect cannot share code with
+the thing it is a reference for.

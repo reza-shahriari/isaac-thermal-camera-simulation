@@ -17,7 +17,8 @@ genuinely semi-transparent instead of a hard cut.
 receding surface into depth layers puts two slices of the *same* surface either side of a bin edge,
 and they do not hide each other -- composited with ``over`` they leave a seam worth a quarter of
 the surface-to-background contrast ruled along every bin boundary. :func:`layered_defocus` applies
-``over`` only across a genuine depth gap and adds otherwise; the reasoning is there.
+``over`` only across a genuine depth gap and adds otherwise, over layers whose membership is
+**fractional** (`OC.13`) so that a bin boundary is a ramp and not a step; the reasoning is there.
 
 **What this does not fix.** Where a defocused foreground uncovers background, the background's
 radiance behind it was never rendered -- a single-layer G-buffer has no behind -- so the alpha
@@ -74,6 +75,12 @@ class DepthLayer(NamedTuple):
     mask: NDArray[np.bool_]
     distance_m: float
     span_m: tuple[float, float]
+    #: Fractional membership, 0 to 1, same shape as ``mask`` and non-zero exactly where it is
+    #: (`OC.13`). A pixel is shared between the two bins its W020 falls between rather than
+    #: assigned wholly to one, and the weights of all the geometry layers sum to 1 on every
+    #: geometry pixel. This is the plane the composite blurs; ``mask`` is for callers that need
+    #: to ask *where* a layer is rather than *how much* of it is here.
+    weight: NDArray[np.float64]
 
 
 def separated(far: DepthLayer, near: DepthLayer) -> bool:
@@ -114,6 +121,12 @@ def depth_layers(  # noqa: PLR0913
 
     Ordering is by **distance**, never by defocus: W020 is V-shaped about the focus distance, so
     two layers either side of focus can share a blur and must still composite in the right order.
+
+    **Membership is fractional** (`OC.13`). A pixel is shared between the two bins its W020 falls
+    between, in proportion, so a surface receding smoothly crosses a bin boundary as a ramp rather
+    than a step; :attr:`DepthLayer.weight` carries the share and the weights sum to one on every
+    geometry pixel. A scene of flat slabs has no pixel between two bins, so there the split
+    degenerates to the hard partition this had before and nothing changes.
     """
     d = np.asarray(distance_m, dtype=np.float64)
     if max_layers < 1:
@@ -123,7 +136,9 @@ def depth_layers(  # noqa: PLR0913
 
     layers: list[DepthLayer] = []
     if np.any(sky):
-        layers.append(DepthLayer(sky, float("inf"), (float("inf"), float("inf"))))
+        layers.append(
+            DepthLayer(sky, float("inf"), (float("inf"), float("inf")), sky.astype(np.float64))
+        )
     if not np.any(geometry) or len(layers) >= max_layers:
         return layers
 
@@ -135,17 +150,47 @@ def depth_layers(  # noqa: PLR0913
     n = max_layers - len(layers)
     if n <= 1 or hi - lo <= 0.0:
         span = (float(d[geometry].min()), float(d[geometry].max()))
-        return [*layers, DepthLayer(geometry, float(np.median(d[geometry])), span)]
-    edges = np.linspace(lo, hi, n + 1)
-    index = np.clip(np.digitize(w, edges[1:-1], right=False), 0, n - 1)
+        return [
+            *layers,
+            DepthLayer(geometry, float(np.median(d[geometry])), span, geometry.astype(np.float64)),
+        ]
+    # `OC.13`: membership is fractional, not a hard partition. A pixel sits somewhere between two
+    # bin centres in W020 and is split between them in proportion, so a surface receding smoothly
+    # crosses a bin boundary as a ramp rather than a step. With hard masks the layers' blurred
+    # coverage `sum_b K_b * cover_b` does not stay at one across such a boundary -- adjacent bins
+    # carry different kernels, the wider one spreads its coverage further than the narrower one
+    # gathers it back, and the sum ripples by about half a percent either way. Wherever it dips,
+    # `layered_defocus` reads the shortfall as sky showing through and fills it with background.
+    # Ramping the membership removes the step that the mismatched kernels act on.
+    step = (hi - lo) / n
+    centres = lo + step * (np.arange(n) + 0.5)
+    #: Position in units of bin centres, clamped so the half-bin at either end is wholly owned.
+    t = np.clip((w - centres[0]) / step, 0.0, n - 1.0)
+    below = np.clip(np.floor(t), 0.0, n - 2.0)
+    frac = t - below
+    lower = below.astype(np.intp)
     bins = []
     for b in range(n):
-        mask = geometry & (index == b)
+        weight = np.where(lower == b, 1.0 - frac, 0.0) + np.where(lower + 1 == b, frac, 0.0)
+        weight = np.where(geometry, weight, 0.0)
+        mask = weight > 0.0
         if np.any(mask):
             span = (float(d[mask].min()), float(d[mask].max()))
-            bins.append(DepthLayer(mask, float(np.median(d[mask])), span))
+            bins.append(DepthLayer(mask, _weighted_median(d[mask], weight[mask]), span, weight))
     bins.sort(key=lambda item: item.distance_m, reverse=True)  # farthest first
     return [*layers, *bins]
+
+
+def _weighted_median(values: FloatArray, weights: FloatArray) -> float:
+    """Median of ``values`` under ``weights`` -- the fractional analogue of `OC.5`'s median.
+
+    The median rather than the mean for the reason `OC.5` gives: a layer straddling a depth edge,
+    or a few pixels of mis-segmentation onto the background, should not drag the kernel. Weighting
+    it keeps that property while letting a pixel count as the fraction of itself it really is.
+    """
+    order = np.argsort(values)
+    cumulative = np.cumsum(weights[order])
+    return float(values[order][np.searchsorted(cumulative, 0.5 * cumulative[-1])])
 
 
 def layered_defocus(  # noqa: PLR0913
@@ -206,6 +251,14 @@ def layered_defocus(  # noqa: PLR0913
     that *are* there, in proportion to how much of each is visible. That is a defensible guess and
     not the truth; `OC.7` replaces it with the exact answer wherever the thing behind is sky or
     sea, and `OC.8` measures what the guess costs in ground clutter.
+
+    What each layer contributes is its **fractional coverage** (`OC.13`), not a hard mask. With a
+    hard partition the layers' blurred coverage ``sum_b K_b * cover_b`` does not stay at one across
+    a bin boundary -- adjacent bins carry different kernels, the wider one spreads its coverage
+    further than the narrower one gathers it back -- and the composite spends the shortfall on
+    background, which is a half-percent-of-contrast error along every boundary of a receding
+    surface. Ramped membership removes the step those mismatched kernels act on and takes it to
+    six hundredths of a percent.
 
     A uniform field survives any focus exactly under either rule: every kernel sums to one, so
     colour and weight are scaled alike and the quotient is the field.
@@ -268,7 +321,7 @@ def layered_defocus(  # noqa: PLR0913
         kernel = _kernel_for_layer(
             bank, layer.distance_m, focal_length_mm, f_number, focus_distance_m
         )
-        cover = layer.mask.astype(np.float64)
+        cover = np.asarray(layer.weight, dtype=np.float64)
         premultiplied = np.asarray(
             apply_psf(np.asarray(x, dtype=np.float64) * cover, kernel), dtype=np.float64
         )

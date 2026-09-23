@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 74 open steps
+#### Then, in order — 73 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`PT.16`** | PT | C | M | — | ready |
 | 15 | **`XD.1`** | XD | X | S | 8 | ready |
 
-…and 59 more — `python scripts/next_step.py --queue 40`.
+…and 58 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -645,7 +645,7 @@ only ground clutter falls back to inpainting with a measured error bound (`OC.8`
 | OC.10 | ✅ **done.** Thermal defocus from the lens and housing materials, folded into an **effective focus distance** so every downstream stage gets it free. Schema v11; `athermal: true` is the default. | **Measured.** β(Ge) = 126.2e-6/K; −1.44 µm per kelvin for a 14 mm lens in aluminium; a **20 K rise moves focus from infinity to 6.8 m**, inside the 16.3 m hyperfocal, leaving 28.7 µm of blur at 1 km. Aluminium beats invar. Hashes and goldens unchanged. 10 cases. | OC.4 | M | X |
 | OC.11 | ✅ **done.** The layered composite tells a **surface from a stack**: `over` only across a gap, added where layers abut. ADR 0134. | **Measured** against the `over` chain kept as the test's reference. Slicing one receding surface left `alpha(1-alpha)(L_surface - L_behind)` at every bin edge — **8.6 K** on `OC.12`'s cube, RMS **1.31 → 2.32 K** as the cap went 3 → 8, so the error grew with the only quality knob. Now **0.16 K**, RMS falling with the cap; `OC.7`'s 1e-12 untouched. 7 cases. | OC.6 | M | X |
 | OC.12 | ✅ **done.** `scripts/focus_sky_demo.py`: one cube against a **cloudy** sky, the focus pulled from sky to cube and back on the shipped `OC.6`/`OC.7` path with the sky as the analytic background. | **Measured** with `OC.9`'s focus measure per region, because a whole-frame one cannot tell the two settings apart: the sky loses **3.1x** of its contrast when the lens leaves it, the cube **1.7x**. A **clear** sky moves **1.002x** across the same pull and holds three orders of magnitude less structure — defocus is a low-pass filter — so the scene carries cloud. 6 cases. | OC.11 | M | X |
-| OC.13 | **Fractional layer membership.** A pixel belongs partly to the two W020 bins either side of it rather than wholly to one, so the geometry's blurred coverage stops rippling across hard bin boundaries. | Red today: `sum_i K_i * cover_i` ripples **±0.5 %** across a bin edge, and where it dips the background fills the difference — the whole of what `OC.11` left, 0.5 % of contrast against the 25 % it removed, below NETD in RMS. After: the ripple is under 0.05 % and `test_continuous_depth.py` asserts the interior to the flat-field tolerance. | OC.11 | M | X |
+| OC.13 | ✅ **done.** Membership is **fractional**: a pixel is shared between the two W020 bins its blur falls between, so a bin boundary is a ramp and not a step. ADR 0134 addendum. | **Measured.** Adjacent bins carry different kernels, so across a hard boundary the blurred coverage left a shortfall the composite spent on background. Ripple **±0.52 % → ±0.06 %**; on `OC.12`'s cube **0.16 K → 0.041 K** peak, RMS 0.0055 K — a seventh of NETD, and 8.76 K → 0.070 K across the lane. Flat slabs degenerate to the old partition exactly. 11 cases. | OC.11 | M | X |
 
 ---
 
@@ -714,7 +714,7 @@ job. Several of these rows are not new features but *documented invariants that 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | IG.1 | ✅ **done.** Three flags — `strict_materials`, `strict_thermal_nodes`, `strict_patch_coverage` — one per failure. The six drivers and five integration tests now name the two they meant; coverage keeps its `True` default. | **Measured, engine-free.** `test_camera_strictness.py` drives the real `planes()` on a synthetic frame: each guard fires only on its own failure, and the drivers' flag pair still raises on a patch gap. 5 cases; re-merging turns 3 red. In-sim check not run (workstation in use) — that is `IG.2`. | — | S | 0 |
-| IG.2 | **In-sim test for the point bridge and the car demo.** 🟡 **Mostly shipped:** the tautology is gone — the oracles are now the camera's three named world axes and an authored wall, and `position_frame_residuals` decodes with `world_positions` instead of a second copy of it. **Left:** `test_position_frame_isaac.py` is written and has never been run; no render has read the plane. | **Measured, engine-free.** Flipping the decode turns **7** red; flipping the decode *and* `pinhole_rays` together — what the old tests were blind to — still turns **5**. A wall decodes onto its authored plane to 1e-9 m. In-sim not run (workstation in use). | IG.1 | M | A |
+| IG.2 | **In-sim test for the point bridge and the car demo.** `test_point_bridge.py:154-173` builds `camera_space` by inverting the formula it then checks, so the only test is a tautology; the production arithmetic is duplicated in `geometry_probe.py:255` and only the duplicate runs in-sim. | The same transpose already produced a silently wrong frame once — ADR 0014's M10.19 addendum, horizon 164 rows out. After: an in-sim test reads a float32 plane out of a real render and inverts it against an independent oracle. | IG.1 | M | A |
 | IG.3 | **Enumerate the build's annotator registry** instead of hand-written candidate lists. `SURVEY_CANDIDATES` names 3 motion and 3 occlusion strings; the build registers `Motion2dXYZ`, `MotionVectors`, `OcclusionSD`, `SemanticOcclusionSD` and more. | A committed registry dump (name, dtype, shape) from the 6.1 build, and a test that every ADR 0014 negative names an annotator absent from the dump or one that returned no data when requested — a negative that merely was not requested fails. In-engine; a CPU-only session ships the dump reader and the test on a fixture. | — | S | X |
 | IG.4 | **Probe for UV, texcoord and primitive-id channels.** README and ADR 0087 state their absence as *measured*; no probe has ever requested one. Two untested leads: the RTX-sensor `objId` upper index (per-primitive for procedural geometry) and GeomSubsets' distinct `StableIdMap` entries. | The probe requests each channel and records dtype, shape and a checksum; a positive is a plane whose values differ across one mesh, a negative a recorded refusal or a constant plane. Either way ADR 0087's sentence goes from asserted to measured. In-engine; `WM` makes it non-blocking. | — | S | X |
 | IG.5 | ✅ **done.** `UNVERIFIED_CHANNELS` keeps `motion` unattached unless a caller names it (the probe does), and `geometry_planes` lost its `"pixels"` default — a motion plane with no convention now raises. Requiring an unverified channel is refused outright. | **Measured.** The three conventions differ by the resolution and the sign of y: raw 0.01 → 0.01 / 1.28 / 2.56 px/frame at 256 px. An all-zero guard would never have caught this — the floor is 6e-5, not 0. 10 cases; reverting the default turns 5 red. | — | S | 0 |

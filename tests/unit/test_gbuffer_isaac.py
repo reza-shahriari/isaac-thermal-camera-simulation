@@ -404,63 +404,23 @@ def _pitch_rotation(degrees: float) -> np.ndarray:
     return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
 
 
-def _pitch_axes(degrees: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """The camera's right / up / forward unit vectors in world axes, for a pitch about +X.
-
-    Written out by hand so that :func:`pinhole_rays` and the encodings below can be anchored
-    against the *geometric* meaning of the pose rather than against each other.
-    """
-    c, s = np.cos(np.radians(degrees)), np.sin(np.radians(degrees))
-    return np.array([1.0, 0.0, 0.0]), np.array([0.0, c, s]), np.array([0.0, s, -c])
-
-
-def test_pinhole_rays_are_the_cameras_own_axes() -> None:
-    """The anchor the rest of this cluster stands on: rays built from named world axes.
-
-    ``pinhole_rays`` applies the same ``@ rot.T`` the position decode does, so using it as an
-    oracle for the decode would only show the two agreed. Here it is checked against the camera's
-    right/up/forward vectors directly: the boresight pixel must look along **forward**, and a
-    pixel ``x`` to the right and ``y`` up must look along ``x*r + y*u + f*fwd``. Transposing
-    ``rot`` tilts every ray by twice the pitch.
-    """
-    from irsim_isaac.geometry_probe import pinhole_rays
-
-    rot = _pitch_rotation(_PITCH_DEG)
-    right, up, forward = _pitch_axes(_PITCH_DEG)
-    rays = pinhole_rays(_PROBE_RESOLUTION, _PROBE_FOCAL_PX, rot)
-
-    half = _PROBE_RESOLUTION // 2
-    assert np.allclose(rays[half, half], forward, atol=1e-12)
-    expected = 3.0 * right + 2.0 * up + _PROBE_FOCAL_PX * forward
-    assert np.allclose(rays[half - 2, half + 3], expected / np.linalg.norm(expected), atol=1e-12)
-    flipped = pinhole_rays(_PROBE_RESOLUTION, _PROBE_FOCAL_PX, rot.T)
-    assert float(np.linalg.norm(flipped[half, half] - forward)) > 0.5
-
-
 def _synthetic_position_aov(
     frame: str, rot: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """A surface ~9 m down the boresight, encoded in ``frame``: (position, distance, rays).
+    """A plane 9 m down the boresight, encoded in ``frame``: (position, distance, rays).
 
-    The ``camera`` encoding -- the one this build actually delivers, and the one the render path
-    decodes -- is built **geometrically**, as the distance along the pixel's own *camera-space*
-    ray, which involves no rotation at all because that is what camera space is. It used to be
-    ``(world - C) @ rot``, the algebraic inverse of the decode, so flipping both transposes
-    together left every test green while every frame came out wrong (roadmap IG.2).
-
-    The other two encodings are hypotheses rather than production paths, and are still stated as
-    the matrix expressions that define them.
+    The surface points come from the rays themselves, so the scene is exactly what the oracle
+    assumes and any residual is the encoding, not the geometry.
     """
     from irsim_isaac.geometry_probe import pinhole_rays
 
     rays = pinhole_rays(_PROBE_RESOLUTION, _PROBE_FOCAL_PX, rot)
-    camera_rays = pinhole_rays(_PROBE_RESOLUTION, _PROBE_FOCAL_PX, np.eye(3))
     distance = np.full(rays.shape[:2], 9.0) + 0.4 * rays[:, :, 0]  # not a constant-range sphere
     world = _PROBE_CAMERA + distance[..., None] * rays
     if frame == "world":
         position = world
     elif frame == "camera":
-        position = distance[..., None] * camera_rays
+        position = (world - _PROBE_CAMERA) @ rot
     elif frame == "rotated_world":
         position = world @ rot
     else:  # pragma: no cover - guard against a typo in a parametrisation

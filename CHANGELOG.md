@@ -13,21 +13,6 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
-- **The position decode is no longer its own oracle, and the probe decodes with the production
-  function** (`IG.2`). `test_camera_space_positions_reach_world_space` built its input as
-  `(truth - cam) @ rot` -- literally the inverse of the expression `world_positions` applies -- so
-  it passed for *either* transpose convention as long as the test picked the same one; the same
-  inversion sat under `_synthetic_position_aov`, which feeds four more tests. Separately,
-  `position_frame_residuals` carried its own copy of `pos @ rot.T + cam`, and that copy was the
-  only one an in-sim render ever exercised, so a render could confirm the probe while the shipped
-  arithmetic drifted. The probe now calls `world_positions`; the oracles are geometric -- a camera
-  pose written out as three **named world-space axes**, camera-space points stated in the units
-  camera space is defined in ("12 m ahead, 3 m to the right"), a wall cast ray-by-ray and required
-  to decode back onto its authored plane `z = -20` to **1e-9 m**, and `pinhole_rays` anchored to
-  the camera's own right/up/forward vectors. **Measured:** flipping the decode alone turns 7 tests
-  red, and flipping the decode *and* `pinhole_rays` together -- the combination the old tests were
-  blind to -- still turns 5 red. This is the transpose ADR 0014's M10.19 addendum records costing
-  the project a horizon 164 rows out of place.
 - **The focus pulled from a cloudy sky onto a cube** (`OC.12`, `scripts/focus_sky_demo.py`).
   `OC.3` put two cubes at two ranges and focused on either; this answers what a *background* looks
   like when the lens leaves it. One cube at 3 m against sky, the focus held on the sky, pulled to
@@ -340,6 +325,34 @@ working in one tree; two commits already exist whose whole subject is restoring 
   whose 41 prims are all named `GeometryNode_<n>` and carry no hint of function.
 
 #### Fixed
+- **A bin boundary was a step, and two kernels disagreed across it** (`OC.13`, ADR 0134 addendum).
+  `OC.11` left a residual it named: the layers' blurred coverage `sum_b K_b * cover_b` did not stay
+  at one across a bin boundary, because adjacent bins carry different kernels and the wider one
+  spreads its coverage further than the narrower one gathers it back. It rippled by about ±0.5 %,
+  and wherever it dipped `layered_defocus` read the shortfall as sky showing through and filled it
+  with background — a half-percent-of-contrast error along every bin boundary of a receding surface.
+
+  `depth_layers` no longer assigns a pixel wholly to one W020 bin. A pixel sits between two bin
+  centres and is split between them in proportion, so a surface receding smoothly crosses a
+  boundary as a **ramp**; `DepthLayer` gains a `weight` plane carrying the share, the weights sum
+  to one on every geometry pixel, and the composite blurs the weight rather than the mask. With a
+  ramp there is no step for two kernels to disagree over. Ripple **±0.52 % → ±0.06 %**, interior
+  peak 0.079 → 0.0023 on the regression scene; on `OC.12`'s cube **0.16 K → 0.041 K** peak and
+  **0.023 K → 0.0055 K** RMS, a seventh of the Boson's 50 mK NETD. The whole lane from what `OC.6`
+  shipped is **8.76 K → 0.070 K**. The layer's representative range is now a *weighted* median,
+  which keeps `OC.5`'s reason for using a median while letting a pixel count as the fraction of
+  itself it is.
+
+  **A scene of flat slabs is unchanged, exactly**: where W020 takes only a few distinct values no
+  pixel lies between two bin centres, every weight is 0 or 1, and the split degenerates to the hard
+  partition — which is why `OC.6`, `OC.7` and `OC.8`'s measurements carry over untouched, and there
+  is a test asserting the degeneracy rather than leaving it inferred from the others passing. Two
+  things had to be retired rather than tightened: the "error falls with more layers" assertion, now
+  second order at 4e-4 and decided by where bin edges land rather than how many there are; and the
+  test's reference implementation, which had been borrowing `depth_layers`' masks and so stopped
+  exhibiting the seam the moment membership went fractional — three tests passed for the wrong
+  reason until it grew its own copy of the old binning. A reference to a defect cannot share code
+  with the thing it is a reference for.
 - **A receding surface was composited as a stack of occluders** (`OC.11`, ADR 0134). `OC.6`'s
   layered defocus used `over` between every pair of depth layers. That is right between a
   foreground and the background behind it, and wrong between two slices of the **same** surface

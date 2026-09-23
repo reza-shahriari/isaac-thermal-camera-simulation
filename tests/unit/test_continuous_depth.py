@@ -1,4 +1,4 @@
-"""OC.11 -- a receding surface is one surface, not a stack of occluders (ADR 0134).
+"""OC.11 and OC.13 -- a receding surface is one surface, not a stack of occluders (ADR 0134).
 
 `OC.6` composites depth layers back to front with ``over``. That is right between a foreground and
 the background behind it and **wrong between two slices of one surface that recedes through both**,
@@ -13,14 +13,20 @@ so the reference is the defect: `_over_chain` is what `OC.6` shipped, and the fi
 an order of magnitude on a scene made of one receding surface while matching it where two separate
 objects genuinely occlude.
 
-**What is left.** The interior is not exact, and the reason is worth knowing rather than
-tightening a tolerance around. Adjacent layers carry different kernels, so
-``sum_i K_i * cover_i`` -- the geometry's blurred coverage -- ripples by about +/-0.5 % across a
-hard bin boundary instead of staying at one, and where it dips the background fills the difference.
-That is 0.5 % of the surface-to-background contrast against the 25 % the ``over`` chain left, and
-unlike the seam it falls as layers are added. Removing it needs fractional membership -- a pixel
-belonging partly to two adjacent bins rather than wholly to one -- which is a change to how layers
-are built, not to how they are composited.
+`OC.13` then removed what `OC.11` left. With hard bins the geometry's blurred coverage
+``sum_b K_b * cover_b`` rippled by about +/-0.5 % across a bin boundary rather than staying at one
+-- adjacent bins carry different kernels, the wider one spreads its coverage further than the
+narrower one gathers it back -- and wherever it dipped the composite read the shortfall as sky
+showing through and filled it with background. Making membership **fractional**, so a pixel is
+shared between the two bins its W020 falls between, removes the step those mismatched kernels act
+on: the ripple goes to +/-0.06 % and the interior error with it, 0.079 -> 0.0023 at three layers.
+
+One assertion had to change rather than tighten. Under `OC.11` the error fell monotonically as
+layers were added, and that was worth asserting because the defect had made it *rise*. It no longer
+falls monotonically, and nothing is wrong: at 4e-4 on a contrast of 7 the residual is second order,
+and which cap does best is decided by where the bin edges happen to land on this ramp rather than
+by how many there are. What is asserted instead is that it stays small at every cap while the
+reference keeps growing.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from irsim.optics.defocus import blur_circle_um, defocus_w020_um
 from irsim.optics.layered import _kernel_for_layer, depth_layers, layered_defocus, separated
 from irsim.optics.psf import DefocusKernelBank, apply_psf
 
@@ -68,24 +75,48 @@ def _interior(mask: np.ndarray, margin: int = 12) -> np.ndarray:
     return out
 
 
+def _hard_bins(distance, focus_m, sky, cap):
+    """The binning `OC.6` shipped: each pixel wholly in one equal-width W020 bin, farthest first.
+
+    Reimplemented here rather than taken from `depth_layers`, because `OC.13` made membership
+    fractional and a reference that borrowed the current binning would stop showing the defect the
+    moment the binning changed -- which is exactly what happened when it did.
+    """
+    d = np.asarray(distance, dtype=np.float64)
+    geometry = ~sky & np.isfinite(d) & (d > FOCAL_MM * 1e-3)
+    w = np.zeros(d.shape)
+    blur = blur_circle_um(d[geometry], FOCAL_MM, F_NUMBER, focus_m)
+    w[geometry] = defocus_w020_um(blur, F_NUMBER)
+    lo, hi = float(w[geometry].min()), float(w[geometry].max())
+    n = cap - 1  # the sky layer takes one
+    edges = np.linspace(lo, hi, n + 1)
+    index = np.clip(np.digitize(w, edges[1:-1], right=False), 0, n - 1)
+    out = []
+    for b in range(n):
+        mask = geometry & (index == b)
+        if np.any(mask):
+            out.append((mask, float(np.median(d[mask]))))
+    out.sort(key=lambda item: item[1], reverse=True)
+    return out
+
+
 def _over_chain(bank, radiance, distance, focus_m, sky, background, cap):
-    """What `OC.6` shipped: ``over`` between every pair of layers, seeded with the background.
+    """What `OC.6` shipped: hard bins, ``over`` between every pair, seeded with the background.
 
     Kept here rather than in the module because it is the defect, not an option. If a future
     change makes `layered_defocus` agree with this again, the tests below say so.
     """
-    layers = depth_layers(distance, FOCAL_MM, F_NUMBER, focus_m, sky, cap)
     colour = np.asarray(
         apply_psf(
             np.broadcast_to(background, radiance.shape).astype(np.float64),
-            _kernel_for_layer(bank, layers[0].distance_m, FOCAL_MM, F_NUMBER, focus_m),
+            _kernel_for_layer(bank, float("inf"), FOCAL_MM, F_NUMBER, focus_m),
         ),
         dtype=np.float64,
     )
     weight = np.ones(radiance.shape)
-    for layer in layers[1:]:
-        kernel = _kernel_for_layer(bank, layer.distance_m, FOCAL_MM, F_NUMBER, focus_m)
-        cover = layer.mask.astype(np.float64)
+    for mask, representative_m in _hard_bins(distance, focus_m, sky, cap):
+        kernel = _kernel_for_layer(bank, representative_m, FOCAL_MM, F_NUMBER, focus_m)
+        cover = mask.astype(np.float64)
         alpha = np.clip(apply_psf(cover, kernel), 0.0, 1.0)
         colour = apply_psf(radiance * cover, kernel) + colour * (1.0 - alpha)
         weight = alpha + weight * (1.0 - alpha)
@@ -108,15 +139,17 @@ def test_a_receding_surface_loses_its_seam(bank, cap: int) -> None:
     # the contrast only where two slices meet exactly half and half, and 13 % of it on this ramp.
     assert before > 0.1 * contrast, f"the reference must show the seam: {before:.4f}"
     assert now < 0.15 * before, f"seam {now:.4f} against the over chain's {before:.4f}"
-    # What is left is the coverage ripple, half a percent of contrast -- see the module docstring.
-    assert now < 0.015 * contrast, f"{now:.4f} is more than the coverage ripple can account for"
+    # What is left after `OC.13` is the residual coverage ripple, well under a tenth of a percent
+    # of contrast. Before it this bound was 1.5 %, which hard bins needed and no longer do.
+    assert now < 0.001 * contrast, f"{now:.5f} is more than the coverage ripple can account for"
 
 
-def test_the_error_falls_with_more_layers_instead_of_rising(bank) -> None:
+def test_the_error_does_not_grow_with_the_layer_cap(bank) -> None:
     """The knob has to point the right way: more layers must never mean a worse picture.
 
     This is the assertion the defect actually violated -- `max_layers=8`, the shipped default, was
     the *worst* setting for any scene holding a receding surface, because it cut the most seams.
+    `OC.13` does not restore monotonicity and is not asked to; see the module docstring.
     """
     radiance, distance, sky, background = _receding_slab()
     inside = _interior(~sky)
@@ -125,7 +158,7 @@ def test_the_error_falls_with_more_layers_instead_of_rising(bank) -> None:
         return float(np.sqrt(((plane[inside] - SURFACE_L) ** 2).mean()))
 
     # RMS, not peak: one seam is as deep as eight, so the peak saturates while the *area* spoiled
-    # keeps growing. The over chain runs 0.21 -> 0.50 across these caps and the fix 0.013 -> 0.008.
+    # keeps growing. The over chain runs 0.21 -> 0.50 across these caps; the fix stays near 4e-4.
     now, before = [], []
     for cap in (3, 5, 8):
         now.append(
@@ -146,7 +179,10 @@ def test_the_error_falls_with_more_layers_instead_of_rising(bank) -> None:
         before.append(rms(_over_chain(bank, radiance, distance, 5.0, sky, background, cap)))
     assert before == sorted(before), f"the reference must get worse with the cap: {before}"
     assert before[-1] > 2.0 * before[0], f"and markedly so: {before}"
-    assert now == sorted(now, reverse=True), f"the fix must get better instead: {now}"
+    # The fix need not *improve* with the cap, but it must stay far below the reference at every
+    # one of them and must not drift upward the way the defect did.
+    assert max(now) < 0.01 * min(before), f"the fix must stay two orders below: {now} vs {before}"
+    assert now[-1] < 2.0 * now[0], f"and must not grow with the cap: {now}"
 
 
 def test_a_genuinely_separate_object_still_occludes(bank) -> None:
@@ -199,3 +235,84 @@ def test_sky_is_never_read_as_the_same_surface_as_the_geometry() -> None:
     layers = depth_layers(distance, FOCAL_MM, F_NUMBER, 5.0, sky)
     assert layers[0].span_m == (float("inf"), float("inf"))
     assert separated(layers[0], layers[1]), "geometry cannot be a slice of the sky"
+
+
+# ---------------------------------------------------------------------------------------------
+# OC.13 -- fractional membership
+# ---------------------------------------------------------------------------------------------
+
+
+def test_membership_is_a_partition_of_unity() -> None:
+    """Every geometry pixel is spread over the layers and adds up to exactly one of itself.
+
+    This is what lets the composite stay additive. If the weights summed to less than one the
+    background would show through a solid surface, and if they summed to more the surface would
+    be brighter than it is; both would be invisible on a scene whose layers happen to align.
+    """
+    _, distance, sky, _ = _receding_slab()
+    layers = depth_layers(distance, FOCAL_MM, F_NUMBER, 5.0, sky, 8)
+    geometry = ~sky
+    total = sum(layer.weight for layer in layers if layer.distance_m != float("inf"))
+    assert np.allclose(total[geometry], 1.0, atol=1e-12), "geometry must be wholly accounted for"
+    assert np.all(total[sky] == 0.0), "and sky must be in the sky layer, not shared with it"
+    for layer in layers:
+        assert np.array_equal(layer.mask, layer.weight > 0.0), "mask and weight must agree"
+        assert layer.weight.min() >= 0.0 and layer.weight.max() <= 1.0
+
+
+def test_a_surface_crossing_a_bin_boundary_ramps_rather_than_steps() -> None:
+    """The point of `OC.13`: a boundary is a ramp, leaving no step for the kernels to act on."""
+    _, distance, sky, _ = _receding_slab()
+    layers = [
+        layer
+        for layer in depth_layers(distance, FOCAL_MM, F_NUMBER, 5.0, sky, 8)
+        if layer.distance_m != float("inf")
+    ]
+    shared = [layer for layer in layers if np.any((layer.weight > 0.01) & (layer.weight < 0.99))]
+    assert len(shared) >= 2, "a smooth ramp must leave pixels partly in one bin and partly the next"
+    # A hard partition takes only the values 0 and 1, so the count of intermediate weights is
+    # exactly what distinguishes this from what `OC.6` did.
+    partial = sum(int(((layer.weight > 0.01) & (layer.weight < 0.99)).sum()) for layer in layers)
+    assert partial > 1000, f"only {partial} shared pixels across the whole ramp"
+
+
+def test_two_discrete_slabs_keep_hard_membership() -> None:
+    """Where the scene has no continuum, the split degenerates to the one `OC.6` made.
+
+    Worth asserting because it is why every earlier layered test still passes unchanged: a scene of
+    flat slabs has no pixel between two bins, so there is nothing for fractional membership to do.
+    """
+    distance = np.zeros((SIZE, SIZE), dtype=np.float64)
+    distance[:, :48], distance[:, 48:] = 3.0, 400.0
+    layers = depth_layers(distance, FOCAL_MM, F_NUMBER, 3.0, None, 8)
+    for layer in layers:
+        assert np.array_equal(layer.weight, layer.mask.astype(np.float64)), "no pixel is shared"
+
+
+def test_the_coverage_ripple_is_what_oc13_removed(bank) -> None:
+    """The mechanism, measured: hard bins leave a ripple in the blurred coverage and ramps do not.
+
+    ``sum_b K_b * cover_b`` is the fraction of the aperture bundle the geometry fills. On the
+    interior of an opaque surface it must be one. Adjacent bins carry different kernels, so across
+    a hard boundary it is not -- and `layered_defocus` spends the shortfall on background.
+    """
+    _, distance, sky, _ = _receding_slab()
+    inside = _interior(~sky)
+
+    def ripple(covers) -> float:
+        total = np.zeros((SIZE, SIZE))
+        for cover, representative_m in covers:
+            kernel = _kernel_for_layer(bank, representative_m, FOCAL_MM, F_NUMBER, 5.0)
+            total += np.clip(apply_psf(cover, kernel), 0.0, 1.0)
+        return float(np.abs(total[inside] - 1.0).max())
+
+    hard = ripple([(m.astype(np.float64), r) for m, r in _hard_bins(distance, 5.0, sky, 8)])
+    soft = ripple(
+        [
+            (layer.weight, layer.distance_m)
+            for layer in depth_layers(distance, FOCAL_MM, F_NUMBER, 5.0, sky, 8)
+            if layer.distance_m != float("inf")
+        ]
+    )
+    assert hard > 0.004, f"the hard binning must show the ripple: {hard:.5f}"
+    assert soft < 0.2 * hard, f"ramping must flatten it: {soft:.5f} against {hard:.5f}"
