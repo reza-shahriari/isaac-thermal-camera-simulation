@@ -179,3 +179,39 @@ def test_the_layered_switch_reaches_the_frame(materials, boson_lut) -> None:
     assert sharp < smeared, (
         f"the far background must survive layering: {sharp:.2f} vs {smeared:.2f}"
     )
+
+
+def test_the_background_plane_reaches_the_layered_stage(materials, boson_lut) -> None:
+    """`OC.7` wiring: a `background_t_k` plane must change the defocused silhouette, and must do
+    so only there -- it is the answer to what is behind the foreground, not a global offset."""
+    t_k = np.full((64, 64), 280.0, np.float32)
+    t_k[:, :40] = 350.0
+    distance = np.full((64, 64), 200.0, np.float32)
+    distance[:, :40] = 3.0
+    scene = {
+        "temperature_k": t_k,
+        "encoded_t": encode_temperature(t_k),
+        "normal_dot_view": np.ones((64, 64), np.float32),
+        "distance_m": distance,
+        "material_id": np.ones((64, 64), np.int32),
+        "sky_view_factor": np.zeros((64, 64), np.float32),
+    }
+    d = load_sensor_config(BOSON_YAML).model_dump(mode="json")
+    d["sensor"]["fpa"].update(width=64, height=64)
+    d["sensor"]["optics"]["supersample_factor"] = 1
+    d["sensor"]["optics"]["mtf"].update(defocus_model="hopkins", defocus_apply="layered")
+    config = _config(SensorConfig.model_validate(d), materials, boson_lut)
+
+    without = np.asarray(run_frame(scene, config, PipelineState()).signal_dn, dtype=np.float64)
+    with_bg = np.asarray(
+        run_frame(
+            {**scene, "background_t_k": np.full((64, 64), 280.0, np.float32)},
+            config,
+            PipelineState(),
+        ).signal_dn,
+        dtype=np.float64,
+    )
+    delta = np.abs(with_bg - without)
+    assert delta.max() > 1.0, "the background must reach the composite"
+    assert delta[:, :20].max() < 0.02 * delta.max(), "deep inside the slab nothing should change"
+    assert delta[:, 55:].max() < 0.02 * delta.max(), "and nothing in the open background either"

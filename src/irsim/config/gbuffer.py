@@ -55,6 +55,13 @@ REQUIRED_KEYS: frozenset[str] = frozenset(
 # same polarity as ``irsim.thermal.solar.solar_loading``, because the two must never
 # disagree about which pixels the sun reaches. ``sun_cos_incidence`` is n·ŝ, which an
 # adapter forms from its normal AOV and the scene's own NOAA sun direction.
+# ``background_t_k`` (`OC.7`) is the apparent temperature each pixel's ray would report **with all
+# geometry removed** -- what is behind the thing in front. It exists because a defocused foreground
+# silhouette lets the background show through, and a single-layer G-buffer has no behind: the
+# layered defocus stage otherwise has to guess. For a sky or sea background it is not a guess and
+# not a second render either, because sky and sea radiance are functions of ray direction the
+# adapter already evaluates for the pixels where they are visible; evaluating them for every pixel
+# costs nothing more. Optional: without it the stage falls back to `OC.6`'s normalisation.
 # ``elevation_rad`` is each pixel's own ray elevation above the horizon, positive up (AT.1).
 # Optional like the rest: without it the atmosphere keeps the horizontal path it has always used,
 # so a scene that does not supply it renders bit-identically. With it, every resolved pixel gets
@@ -69,6 +76,7 @@ OPTIONAL_KEYS: frozenset[str] = frozenset(
         "shadow_mask",
         "sun_cos_incidence",
         "elevation_rad",
+        "background_t_k",
     }
 )
 INTEGER_KEYS: dict[str, type] = {"material_id": np.int32, "semantic_id": np.uint32}
@@ -81,7 +89,7 @@ PRECISION_CRITICAL_KEYS: frozenset[str] = frozenset(
     # `elevation_rad` joins these because it scales the optical depth of the whole slant path
     # (AT.1): fp16 spaces 1 degree at about 0.03 degrees near the horizon, where the airmass is
     # steepest and a tenth of a degree is metres of column.
-    {"temperature_k", "encoded_t", "distance_m", "elevation_rad"}
+    {"temperature_k", "encoded_t", "distance_m", "elevation_rad", "background_t_k"}
 )
 UNMAPPED_MATERIAL_ID = 0
 # encoded_t must decode to temperature_k within this (the AOV round-trip budget, §13.3).

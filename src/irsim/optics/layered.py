@@ -104,6 +104,7 @@ def layered_defocus(  # noqa: PLR0913
     focus_distance_m: float | None = None,
     sky_mask: object = None,
     max_layers: int = DEFAULT_MAX_LAYERS,
+    background_radiance: object = None,
 ) -> NDArray[np.floating]:
     """Depth-varying defocus of a supersampled radiance plane, composited back to front.
 
@@ -126,6 +127,14 @@ def layered_defocus(  # noqa: PLR0913
 
     A uniform field therefore survives any focus exactly: every kernel sums to one, so colour and
     weight are scaled alike and the quotient is the field.
+
+    ``background_radiance`` (`OC.7`) removes the guess where the answer is known. It is the
+    radiance of each pixel's ray **with all geometry removed** -- for a sky or sea background that
+    is an analytic function of ray direction this pipeline already evaluates, so it costs no second
+    render pass and it is exact. Given it, the composite starts from an opaque backmost layer
+    carrying the true background, the accumulated weight stays 1, and the normalisation above
+    becomes the identity. This is what makes the aerial and maritime lanes exact rather than
+    bounded; `OC.8` is what is left for ground clutter, where no such function exists.
     """
     x = np.asarray(radiance_ss)
     if x.dtype == np.float16:
@@ -135,8 +144,18 @@ def layered_defocus(  # noqa: PLR0913
     )
     if not layers:
         return x
-    colour = np.zeros(x.shape, dtype=np.float64)
-    weight = np.zeros(x.shape, dtype=np.float64)
+    if background_radiance is None:
+        colour = np.zeros(x.shape, dtype=np.float64)
+        weight = np.zeros(x.shape, dtype=np.float64)
+    else:
+        # `OC.7`: the radiance of the ray with all geometry removed, known for every pixel and not
+        # only where sky is visible. Seeding the composite with it as a fully opaque backmost layer
+        # fills the occlusion gap with the truth, and the accumulated weight then stays 1 -- the
+        # normalisation below becomes the identity rather than a guess.
+        colour = np.broadcast_to(np.asarray(background_radiance, dtype=np.float64), x.shape).astype(
+            np.float64
+        )
+        weight = np.ones(x.shape, dtype=np.float64)
     for mask, representative_m in layers:
         if np.isinf(representative_m):
             c_um = (

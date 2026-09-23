@@ -243,6 +243,13 @@ def run_frame(
             # `OC.6`: each depth gets its own kernel and the layers composite back to front, so
             # `apply_optics` must not blur again -- the convolution has already happened, on the
             # same k× grid and still before the box filter, which is the order that matters.
+            # `OC.7`: if the G-buffer says what is behind the geometry -- which a sky or sea
+            # background can, because their radiance is a function of ray direction the adapter
+            # already evaluates -- the occlusion gap is filled with the truth instead of with
+            # `OC.6`'s normalisation. The plane is an apparent temperature, like every other
+            # quantity that crosses this boundary, and is converted here with the frame's own LUT.
+            background = planes.get("background_t_k")
+            background_l = None if background is None else lut.lookup(np.asarray(background), q)
             radiance_ss = layered_defocus(
                 radiance_ss,
                 planes["distance_m"],
@@ -251,6 +258,7 @@ def run_frame(
                 sensor.optics.f_number,
                 config.focus_distance_m,
                 planes.get("sky_mask"),
+                background_radiance=background_l,
             )
             psf = None
         else:

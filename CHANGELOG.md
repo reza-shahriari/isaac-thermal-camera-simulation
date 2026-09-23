@@ -171,6 +171,17 @@ working in one tree; two commits already exist whose whole subject is restoring 
   own edge stays 1.8x sharper than one global kernel leaves it while the near slab still gains
   1.7 px of blur in quadrature, and a flat field survives any focus to 1e-9.
 
+- **The occlusion gap is filled exactly for sky and sea** (`OC.7`, ADR 0129). A new optional
+  G-buffer plane, `background_t_k`, carries the apparent temperature each pixel's ray would report
+  **with all geometry removed**. Given it, `layered_defocus` seeds the composite with an opaque
+  backmost layer carrying the truth, the accumulated weight stays 1 and `OC.6`'s normalisation
+  becomes the identity rather than a guess. This is not a second render pass: sky and sea radiance
+  are functions of ray direction the adapter already evaluates where they are visible, and
+  evaluating them for every pixel costs nothing more. Measured against a two-layer reference built
+  by construction: **1e-12 with the plane, 1.98 radiance units without it**, and the error without
+  it is confined to the silhouette — under 1 % of its peak more than sixteen pixels away. The plane
+  is precision-critical, because it is a temperature and float16 spaces 0.25 K at 300 K.
+
 #### Fixed
 - **The two bands were reading two different clouds, and the infrared one was a field of mesas**
   (`AT.15`, ADR 0130). On the Phantom clip's frame geometry the visible dome drew cloud over

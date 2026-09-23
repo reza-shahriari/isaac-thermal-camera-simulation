@@ -40,6 +40,11 @@ FROZEN_OPTIONAL = {
     # elevation, so the atmosphere can take each pixel's own slant path instead of the
     # horizontal one it used for every resolved pixel.
     "elevation_rad",
+    # Added deliberately by `OC.7`: the apparent temperature each ray would report with all
+    # geometry removed. A defocused foreground silhouette lets the background through and a
+    # single-layer G-buffer has no behind, so without this plane the layered defocus stage has to
+    # guess. For sky and sea it is not a guess and not a second render either.
+    "background_t_k",
 }
 FROZEN_DTYPES = {
     "temperature_k": np.float32,
