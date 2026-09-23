@@ -13,6 +13,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
 ### 2026-09-23
 
 #### Added
+- **The colour bar** (`irsim_eval.video.palette_scale`, ADR 0125). A fixed-span frame now carries
+  the palette beside it with Celsius ticks, drawn from the *same lookup table the display branch
+  indexed* rather than from a gradient that resembles it. The gauge says what each named part is;
+  this says how any temperature became the pixel beside it, which a viewer cannot reconstruct from
+  the picture. Deliberately **not** drawn beside either AGC output, whose mapping is rebuilt from
+  every frame's own histogram — that difference is what separates a picture of contrast from a
+  measurement.
+- **`--close-up`** on the outbound driver (ADR 0125): holds the aircraft filling the frame for the
+  whole mission, so the only thing changing is temperature. The framing is checked against the
+  sensor and refused if the aircraft overflows the frame or shrinks below a quarter of it. The
+  tight display span is now taken over the **solved cells across the whole mission** rather than
+  relative to air — how far the skin sits from air is the measurement, and a span defined from air
+  would move whenever the weather did.
 - **A named aircraft: the DJI Phantom 3** (`PT.9`, ADR 0124). `irsim_isaac.phantom3` +
   `configs/scenes/phantom3_outbound_pointwise.yaml`, laid out from DJI's published specification
   — 350 mm diagonal, 9450 propellers (239 mm, 5.0 in pitch, so a geometric pitch angle of 12.7°
@@ -38,6 +51,19 @@ working in one tree; two commits already exist whose whole subject is restoring 
   blocks, so the driver asks for six cells per degree (~3 px, under the PSF).
 
 #### Fixed
+- **A cloud was a stencil, and it rendered as flat blobs in both bands** (ADR 0125).
+  `SkyFixedCloud.sample` returned a boolean, so every covered texel got one flat value and every
+  cloud had a one-sample cliff round it — no thin edges, no internal structure, and in LWIR a step
+  of tens of kelvin along every boundary, which is exactly the edge statistic a sky-target
+  detector keys on. `SkyFixedCloud.density` now returns a 0-to-1 depth (a smoothstep on the
+  field's own excess over its threshold, in σ of the unit-variance field) and the blend becomes
+  `ε_eff = (1 − τ) d`. Measured on the rendered dome: the fringe is **9.2 %** of the map against
+  19.6 % at full depth at 0.45 coverage, and **3.0 % against 2.4 %** at 0.05 — thin cloud is more
+  edge than core, which is why the stencil looked worst where cloud was sparsest. Three guarantees
+  keep it a change to how a cloud *looks*: `density` crosses 0.5 exactly at the threshold so the
+  covered fraction is untouched (asserted); `softness = 0` returns the hard mask exactly, so the
+  old behaviour is a parameter value and not a deleted branch; and `cloud_radiance` returns both
+  limits through `np.where`, so a boolean mask is **bit-identical** at any `τ_cloud`.
 - **`quad_outbound.SPAN_M` overstated its own aircraft by 41 %** (ADR 0124). It was authored as
   `2 × 0.42 × √2`, the X-quad form every multirotor spec sheet quotes; that frame is a **plus**,
   with arms due N/E/S/W, so opposite motors are `2 × 0.42` = **0.84 m** apart, not 1.19 m. It

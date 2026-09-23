@@ -27,6 +27,7 @@ __all__ = [
     "target_span_k",
     "overlay_readout",
     "temperature_bar",
+    "palette_scale",
     "encode_mp4",
     "ffmpeg_available",
 ]
@@ -169,6 +170,88 @@ def temperature_bar(
     return np.ascontiguousarray(out)
 
 
+def palette_scale(
+    frame: NDArray[np.uint8],
+    palette: NDArray[np.uint8],
+    span_k: tuple[float, float],
+    *,
+    ticks: int = 5,
+    width_px: int = 26,
+    size: int = 13,
+    caption: str = "apparent T",
+) -> NDArray[np.uint8]:
+    """The colour bar: the **actual palette**, from the span's floor to its ceiling, with ticks.
+
+    A thermal image is a picture of a number that has been through a mapping, and the mapping is
+    a choice. `temperature_bar` says what each part of the target *is* in Celsius; this says how
+    any temperature became the grey (or the colour) on screen, which is the other half and the
+    one a viewer cannot reconstruct from the picture. Without it, "that part is brighter" is an
+    observation about the display and not about the scene.
+
+    It is drawn from ``palette`` itself -- the same lookup table the display branch indexed to
+    make the frame -- rather than from a gradient that resembles it. A bar that only resembled
+    the mapping would be a second display path, free to drift from the first, which is the exact
+    failure this project keeps a single `quantise_display` to avoid.
+
+    **Only ever drawn beside a fixed span.** Under either AGC mode the mapping is rebuilt from
+    each frame's own histogram, so a bar drawn once would be wrong for every frame but one; the
+    caller is expected to leave it off there, and that difference between the two videos is
+    itself the lesson.
+    """
+    from PIL import Image, ImageDraw
+
+    arr = np.asarray(frame, dtype=np.uint8)
+    lut = np.asarray(palette, dtype=np.uint8)
+    if lut.ndim != 2 or lut.shape[0] < 2:
+        raise ValueError(f"palette must be a (levels, channels) table, got {lut.shape}")
+    lo, hi = float(span_k[0]), float(span_k[1])
+    if not hi > lo:
+        raise ValueError("span_k must be increasing")
+
+    levels = lut.shape[0]
+    bar_h = max(60, int(0.55 * arr.shape[0]))
+    label_w = 52
+    box_w = width_px + label_w + 2 * _MARGIN
+    box_h = bar_h + 2 * _MARGIN + size + 4
+    x = arr.shape[1] - box_w - _MARGIN
+    y = (arr.shape[0] - box_h) // 2
+
+    image = Image.fromarray(arr[..., :3], mode="RGB")
+    draw = ImageDraw.Draw(image, "RGBA")
+    draw.rectangle([x, y, x + box_w, y + box_h], fill=(0, 0, 0, 150))
+    font = _font(size)
+    draw.text((x + _MARGIN, y + _MARGIN - 3), caption, font=font, fill=(220, 220, 220))
+
+    # The ramp: row 0 is the top of the bar and the top of the span, so hot is up -- the
+    # convention every thermal core ships with.
+    top = y + _MARGIN + size + 4
+    codes = np.rint(np.linspace(levels - 1, 0, bar_h)).astype(np.int64)
+    ramp = np.repeat(lut[codes][:, None, :3], width_px, axis=1)
+    image.paste(
+        Image.fromarray(np.ascontiguousarray(ramp, dtype=np.uint8), "RGB"), (x + _MARGIN, top)
+    )
+    draw.rectangle(
+        [x + _MARGIN, top, x + _MARGIN + width_px, top + bar_h - 1], outline=(140, 140, 140)
+    )
+    for index in range(max(2, ticks)):
+        f = index / (max(2, ticks) - 1)
+        row = int(round(top + f * (bar_h - 1)))
+        kelvin = hi - f * (hi - lo)
+        draw.line(
+            [x + _MARGIN + width_px, row, x + _MARGIN + width_px + 5, row], fill=(200, 200, 200)
+        )
+        draw.text(
+            (x + _MARGIN + width_px + 8, row - size // 2),
+            f"{kelvin - 273.15:5.1f}C",
+            font=font,
+            fill=(255, 255, 255),
+        )
+    out = np.asarray(image, dtype=np.uint8)
+    if arr.shape[2] == 4:
+        out = np.dstack([out, arr[..., 3]])
+    return np.ascontiguousarray(out)
+
+
 def ffmpeg_available() -> bool:
     return shutil.which("ffmpeg") is not None
 
@@ -226,6 +309,7 @@ def overlay_readout(
     span_k: tuple[float, float] | None,
     *,
     bare: bool = False,
+    palette: NDArray[np.uint8] | None = None,
 ) -> NDArray[np.uint8]:
     """The standard flight-film readout: caption block top-left, node gauges bottom-left.
 
@@ -246,4 +330,10 @@ def overlay_readout(
     annotated = annotate(arr, lines)
     if span_k is None:
         return np.ascontiguousarray(annotated[..., :3])
-    return np.ascontiguousarray(temperature_bar(annotated, values_k, span_k)[..., :3])
+    annotated = temperature_bar(annotated, values_k, span_k)
+    # `palette` is what turns the gauge into a *scale*: the gauge says what each part is, the
+    # colour bar says how any temperature became the pixel beside it. Passed only where the span
+    # is fixed, because under AGC the mapping is rebuilt every frame (see `palette_scale`).
+    if palette is not None:
+        annotated = palette_scale(annotated, palette, span_k)
+    return np.ascontiguousarray(annotated[..., :3])

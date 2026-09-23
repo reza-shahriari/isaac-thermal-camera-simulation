@@ -198,21 +198,23 @@ class SkyModel:
             shape, self._env.clouds.beta, self.weather.at(t_s).cloud_fraction, seed
         )
 
-    def radiance_field(
-        self, t_s: float, elevation_rad: Any, coverage: NDArray[np.bool_]
-    ) -> NDArray[np.float64]:
-        """Per-pixel sky radiance with structured cloud: covered pixels read
-        ε L_B(T_base) + τ L_clear."""
+    def radiance_field(self, t_s: float, elevation_rad: Any, density: Any) -> NDArray[np.float64]:
+        """Per-pixel sky radiance with structured cloud.
+
+        ``density`` is `SkyFixedCloud.density`'s 0-to-1 depth along each ray, or a boolean
+        coverage mask, which is that quantity at its two ends. A ray at full depth reads
+        ``ε L_B(T_base) + τ L_clear`` exactly as it always did.
+        """
         clear = self.clear_radiance(t_s, elevation_rad)
         _, l_base = self._cloud(t_s)
-        return cloud_radiance(clear, l_base, self._env.clouds.tau, coverage)
+        return cloud_radiance(clear, l_base, self._env.clouds.tau, density)
 
     def apparent_temperature_field(
-        self, t_s: float, elevation_rad: Any, coverage: NDArray[np.bool_]
+        self, t_s: float, elevation_rad: Any, density: Any
     ) -> NDArray[np.float64]:
         return np.asarray(
             self._lut.apparent_temperature(
-                self.radiance_field(t_s, elevation_rad, coverage), self._q
+                self.radiance_field(t_s, elevation_rad, density), self._q
             ),
             dtype=np.float64,
         )

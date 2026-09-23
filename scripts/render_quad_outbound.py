@@ -49,12 +49,16 @@ AIRFRAMES: dict[str, dict[str, Any]] = {
         "scene": "quad_outbound_pointwise.yaml",
         "near_m": 12.0,
         "far_m": 150.0,
+        "close_near_m": 2.6,
+        "close_far_m": 4.2,
         "out": "outputs/quad_outbound",
     },
     "phantom3": {
         "scene": "phantom3_outbound_pointwise.yaml",
         "near_m": 6.0,
         "far_m": 80.0,
+        "close_near_m": 1.4,
+        "close_far_m": 2.2,
         "out": "outputs/phantom3_outbound",
     },
 }
@@ -79,6 +83,16 @@ parser.add_argument(
 parser.add_argument("--fps", type=float, default=30.0, help="playback rate of the encoded video")
 parser.add_argument("--near-m", type=float, default=None)
 parser.add_argument("--far-m", type=float, default=None)
+# **The close-up is a different measurement, not a nicer picture.** The outbound track answers
+# "when does this target stop being detectable"; at 80 m the aircraft is nine pixels and its
+# per-part structure is gone by construction, which is the honest answer and tells you nothing
+# about the parts. This holds the aircraft filling the frame for the whole mission so the only
+# thing changing is temperature -- the radiometric read, with the colour bar beside it.
+parser.add_argument(
+    "--close-up",
+    action="store_true",
+    help="fill the frame with the aircraft and film the temperatures instead of the range",
+)
 parser.add_argument(
     "--elevation-deg",
     type=float,
@@ -142,6 +156,16 @@ if args.scene is None:
     args.scene = str(REPO / "configs" / "scenes" / _AIRFRAME["scene"])
 if args.out is None:
     args.out = _AIRFRAME["out"]
+if args.close_up:
+    # Sized so the widest extent fills most of the frame at both ends: a slow push out that
+    # still never lets the aircraft get small. The exact pair is checked against the sensor
+    # below, because a longer lens would overflow the frame and a shorter one would not fill it.
+    if args.near_m is None:
+        args.near_m = _AIRFRAME["close_near_m"]
+    if args.far_m is None:
+        args.far_m = _AIRFRAME["close_far_m"]
+    if args.out == _AIRFRAME["out"]:
+        args.out = _AIRFRAME["out"] + "_closeup"
 if args.near_m is None:
     args.near_m = _AIRFRAME["near_m"]
 if args.far_m is None:
@@ -255,6 +279,9 @@ def main() -> int:
         far_m=args.far_m,
         duration_s=span_s,
         elevation_deg=AIM_ELEVATION_DEG if args.elevation_deg is None else args.elevation_deg,
+        # A wider walk round the aircraft when it fills the frame: at 80 m the aspect hardly
+        # matters, but at 2 m which side the sun is on is most of the picture.
+        azimuth_sweep_deg=140.0 if args.close_up else 55.0,
     )
 
     ifov_mrad = 1e3 * spec.fpa.pitch_um * 1e-3 / spec.optics.focal_length_mm
@@ -277,6 +304,31 @@ def main() -> int:
         f"{args.frames} frames every {args.interval_s:g} s = {span_s:.0f} s of flight, "
         f"played at {args.fps:g} fps -> {args.frames / args.fps:.1f} s of video"
     )
+    if args.close_up:
+        # Fill, and fit. The widest extent at the near end must sit inside the frame with a
+        # margin, and at the far end must still be most of it -- otherwise this is an outbound
+        # clip wearing a close-up's name.
+        fills = track.pixels_across(0.0, SPAN_M, ifov_mrad) / spec.fpa.width
+        keeps = track.pixels_across(span_s, SPAN_M, ifov_mrad) / spec.fpa.width
+        print(
+            f"close-up: the aircraft is {fills:.0%} of the frame width at {track.near_m:g} m "
+            f"and {keeps:.0%} at {track.far_m:g} m"
+        )
+        if fills > 0.92:
+            print(
+                f"the aircraft overflows the frame at {track.near_m:g} m ({fills:.0%} of the "
+                "width). Raise --near-m, or use a shorter lens.",
+                file=sys.stderr,
+            )
+            return 1
+        if keeps < 0.25:
+            print(
+                f"the aircraft is only {keeps:.0%} of the frame by {track.far_m:g} m, which is "
+                "an outbound clip and not a close-up. Lower --far-m.",
+                file=sys.stderr,
+            )
+            return 1
+
     print(
         f"track: {track.near_m:.0f} m -> {track.far_m:.0f} m, boresight "
         f"{track.elevation_deg:.0f} deg up ({track.elevation_deg - 0.5 * vfov_deg:.1f} deg of "
@@ -422,6 +474,11 @@ def main() -> int:
     # renders the one gradient this clip exists to show as a single flat code.
     probe = load_scene()
     lo_k, hi_k = np.inf, -np.inf
+    # The **skin** alone, tracked separately from the powered nodes. A span taken over everything
+    # is set by the motors, and on this aircraft they run forty kelvin above a skin whose whole
+    # structure is four -- so the airframe lands in the bottom eight display codes and the frame
+    # that was supposed to show per-part temperature shows a silhouette.
+    cell_lo, cell_hi = np.inf, -np.inf
     for t_rel in np.linspace(0.0, span_s, 64):
         nodes = probe.advance_targets(float(t_rel), 0.0)
         lo_k = min(lo_k, min(nodes.values()))
@@ -430,11 +487,11 @@ def main() -> int:
             fld = probe.surface_fields[name]
             fld.advance_to(probe.t0_s + float(t_rel))
             cells = np.asarray(fld.temperature_at(probe.t0_s + float(t_rel)))
-            lo_k = min(lo_k, float(cells.min()))
-            hi_k = max(hi_k, float(cells.max()))
+            cell_lo = min(cell_lo, float(cells.min()))
+            cell_hi = max(cell_hi, float(cells.max()))
+    lo_k, hi_k = min(lo_k, cell_lo), max(hi_k, cell_hi)
 
     emissive = spec.outputs.apparent_temperature
-    air_k = float(scene.weather.at(scene.t0_s).t_air_k)
     # **Two fixed spans, because no single linear one shows both features**, and for the same
     # reason `render_car_ignition` carries two. The motors reach tens of kelvin over air, so a
     # span wide enough for them puts the whole skin in the bottom few display codes; a span tight
@@ -442,9 +499,10 @@ def main() -> int:
     # it is why a thermal operator changes range, and it is the honest picture of a drone: the
     # hot parts and the cold airframe are not on one scale.
     #
-    # The tight span is anchored on the **air temperature**, not on the coldest cell: from below,
-    # a drone's belly sits within a kelvin or two of the air, and a span anchored anywhere else
-    # renders the aircraft's largest surface as background.
+    # The tight span is taken on the solved **cells** over the whole mission, not on the air
+    # temperature: how far the skin sits from air is the measurement, so a span defined from air
+    # would move the picture whenever the weather did and two frames of the same aircraft would
+    # stop being comparable.
     spans: dict[str, DisplaySpan] = {}
     if args.span_c:
         if not emissive:
@@ -461,7 +519,15 @@ def main() -> int:
     elif emissive:
         # A kelvin of headroom each way, so the extremes are not sitting on codes 0 and 255.
         spans["ir"] = DisplaySpan(kind="apparent_t", low=float(lo_k) - 1.0, high=float(hi_k) + 1.0)
-        spans["skin"] = DisplaySpan(kind="apparent_t", low=air_k - 2.0, high=air_k + 8.0)
+        # The skin span is taken on the **solved cells over the whole mission**, half a kelvin
+        # either side, so the airframe's own structure fills the ramp and the powered parts clip
+        # white -- which is the correct reading of a part that is off this scale, not a loss.
+        # It is anchored on the cells rather than on air because how far the skin sits from air
+        # is the measurement; a span defined from air would move the picture whenever the
+        # weather did, and two frames of the same aircraft would not be comparable.
+        spans["skin"] = DisplaySpan(
+            kind="apparent_t", low=float(cell_lo) - 0.5, high=float(cell_hi) + 0.5
+        )
     palette_name = args.palette or spec.isp.palette
     palette = palette_table(palette_name)
     for kind, one in spans.items():
@@ -573,6 +639,7 @@ def main() -> int:
             image: Any,
             caption: str,
             scale: Any,
+            ramp: Any = None,
             t: float = t_rel,
             u: float = throttle,
             r: float = range_m,
@@ -592,6 +659,7 @@ def main() -> int:
                 {**{f"{n:7.7s}": cell[n] for n in gauge_fields}, "motor  ": node["motor"]},
                 scale,
                 bare=args.no_overlay,
+                palette=ramp,
             )
 
         for kind, one in spans.items():
@@ -601,6 +669,11 @@ def main() -> int:
                     palette[quantise_display(one.scale(outputs))],
                     f"{one.caption} {palette_name}",
                     (one.low, one.high) if one.is_temperature else None,
+                    # The colour bar goes beside a **fixed** span only. Under either AGC mode the
+                    # mapping is rebuilt from each frame's own histogram, so one bar would be
+                    # wrong for every frame but one -- and the AGC video not having a scale is
+                    # exactly what distinguishes a picture of contrast from a measurement.
+                    palette if one.is_temperature else None,
                 ),
             )
         write_png(

@@ -314,8 +314,18 @@ def test_the_dome_and_the_background_sample_the_same_cloud(scene: Scene) -> None
     )
 
 
-def test_the_dome_paints_cloud_only_where_the_field_says(scene: Scene) -> None:
-    """Covered texels differ from the clear map; clear ones are untouched, bit for bit."""
+def test_the_dome_paints_cloud_by_depth_and_leaves_clear_sky_alone(scene: Scene) -> None:
+    """The three regimes of a soft-edged cloud, asserted separately (ADR 0125).
+
+    Before the edge ramp this test asked only that *covered* texels changed and *uncovered* ones
+    did not, which a stencil satisfies. A stencil is what made the rendered sky a field of flat
+    grey blobs. The invariant that replaces it has to distinguish three populations, because the
+    middle one is the whole point:
+
+    * ``d = 0`` -- outside the cloud entirely. Untouched, bit for bit.
+    * ``d = 1`` -- at full depth. The flat base value, which is what the hard mask gave.
+    * ``0 < d < 1`` -- the fringe. **Strictly between** the two, monotonically in ``d``.
+    """
     from irsim.atmosphere.cloud import sky_angles
     from irsim_isaac.visible_sky import dome_spec_from_scene, environment_map, latlong_directions
 
@@ -327,11 +337,77 @@ def test_the_dome_paints_cloud_only_where_the_field_says(scene: Scene) -> None:
     direction = latlong_directions(128)
     up = direction[..., 1]
     elevation, azimuth = sky_angles(direction)
-    covered = np.zeros(up.shape, dtype=bool)
-    covered[up > 0.0] = cloud.sample(elevation[up > 0.0], azimuth[up > 0.0])
+    depth = np.zeros(up.shape, dtype=np.float64)
+    depth[up > 0.0] = cloud.density(elevation[up > 0.0], azimuth[up > 0.0])
 
-    assert np.array_equal(clear[~covered], cloudy[~covered]), "clear sky must be untouched"
-    assert not np.allclose(clear[covered], cloudy[covered]), "covered sky must have changed"
+    untouched = depth <= 0.0
+    assert np.array_equal(clear[untouched], cloudy[untouched]), "clear sky must be untouched"
+
+    full = depth >= 1.0
+    assert full.any(), "no texel reached full depth; the ramp has swallowed the cloud"
+    assert not np.allclose(clear[full], cloudy[full]), "full-depth sky must have changed"
+    # At full depth the base is one flat value, so every such texel of the cloudy map agrees.
+    assert np.allclose(cloudy[full], cloudy[full][0], rtol=1e-6)
+
+    fringe = (depth > 0.0) & (depth < 1.0)
+    # Against the full-depth area rather than against the whole map, so the bound does not move
+    # with the scene's cloud fraction. Thin cloud is nearly all edge: measured here, fringe is
+    # 1.23x the full-depth area at c = 0.05 and 0.47x at c = 0.45, because a high threshold sits
+    # far out in the tail where the field spends little area above it.
+    assert fringe.mean() > 0.4 * full.mean(), (
+        f"fringe is {fringe.mean():.1%} of the map against {full.mean():.1%} at full depth; "
+        "the cloud is still nearly a stencil"
+    )
+    # Brightness in the fringe lies between the clear sky and the base, and follows the depth.
+    base = float(cloudy[full].reshape(-1, cloudy.shape[-1])[0, 0])
+    sky = clear[fringe][..., 0]
+    lit = cloudy[fringe][..., 0]
+    between = (lit - sky) / np.where(np.abs(base - sky) > 1e-12, base - sky, 1.0)
+    assert np.all(between >= -1e-6) and np.all(between <= 1.0 + 1e-6)
+    order = np.argsort(depth[fringe])
+    assert np.corrcoef(depth[fringe][order], between[order])[0, 1] > 0.99
+
+
+def test_the_edge_ramp_leaves_the_coverage_fraction_exactly_where_it_was() -> None:
+    """The ramp crosses 0.5 at the threshold, so it cannot have moved the covered fraction.
+
+    This is what lets ADR 0125 be a change to how a cloud *looks* rather than to how much sky it
+    covers -- every statistic taken on `sample` before it still means the same thing.
+    """
+    cloud = generate_sky_cloud(1.8, 0.45, seed=3, n_elevation=270, n_azimuth=1080)
+    rng = np.random.default_rng(5)
+    el = rng.uniform(0.05, 1.5, 50_000)
+    az = rng.uniform(0.0, 2.0 * np.pi, 50_000)
+    mask = cloud.sample(el, az)
+    depth = cloud.density(el, az)
+    assert np.array_equal(mask, depth >= 0.5)
+
+
+def test_switching_the_ramp_off_restores_the_hard_mask_exactly() -> None:
+    """The old behaviour is a value of a parameter, not a deleted branch."""
+    import dataclasses
+
+    soft = generate_sky_cloud(1.8, 0.45, seed=3)
+    hard = dataclasses.replace(soft, softness=0.0)
+    rng = np.random.default_rng(9)
+    el = rng.uniform(0.05, 1.5, 20_000)
+    az = rng.uniform(0.0, 2.0 * np.pi, 20_000)
+    assert np.array_equal(hard.density(el, az), soft.sample(el, az).astype(float))
+
+
+def test_a_boolean_mask_gives_the_radiance_it_always_did() -> None:
+    """`cloud_radiance` generalised without moving any pixel that was already decided."""
+    from irsim.atmosphere.cloud import cloud_radiance
+
+    clear = np.linspace(1.0, 2.0, 501)
+    mask = np.zeros(501, dtype=bool)
+    mask[::3] = True
+    for tau in (0.0, 0.25, 0.6):
+        expected = np.where(mask, (1.0 - tau) * 5.0 + tau * clear, clear)
+        assert np.array_equal(cloud_radiance(clear, 5.0, tau, mask), expected)
+    # And a half-depth ray sits halfway between them, which is the new behaviour.
+    half = cloud_radiance(clear, 5.0, 0.0, np.full(501, 0.5))
+    assert np.allclose(half, 0.5 * 5.0 + 0.5 * clear)
 
 
 def test_a_dome_without_a_field_is_unchanged(scene: Scene) -> None:

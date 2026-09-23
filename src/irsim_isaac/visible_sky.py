@@ -410,10 +410,17 @@ def environment_map(spec: DomeSpec, height: int = 512) -> NDArray[np.float32]:
     if spec.cloud is not None:
         elevation, azimuth = sky_angles(direction)
         above = up > 0.0
-        covered = np.zeros(up.shape, dtype=bool)
-        covered[above] = spec.cloud.sample(elevation[above], azimuth[above])
-        if covered.any():
-            image[covered] = _cloud_base(spec, image[covered], scale)
+        # The same 0-to-1 depth the infrared background samples (ADR 0125), not a stencil. A
+        # boolean mask replaced every covered pixel with one flat value, so the visible cloud was
+        # a field of uniform grey blobs with a hard cliff round each one -- no thin edges, no
+        # internal structure, and nothing that looked like a sky.
+        depth = np.zeros(up.shape, dtype=np.float64)
+        depth[above] = spec.cloud.density(elevation[above], azimuth[above])
+        lit = depth > 0.0
+        if lit.any():
+            base = _cloud_base(spec, image[lit], scale)
+            alpha = depth[lit][..., None]
+            image[lit] = (1.0 - alpha) * image[lit] + alpha * base
 
     below = up < 0.0
     if below.any():

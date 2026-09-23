@@ -33,6 +33,7 @@ from irsim.atmosphere.humidity import dew_point_k
 
 __all__ = [
     "ESPY_M_PER_K",
+    "DEFAULT_EDGE_SOFTNESS",
     "SkyFixedCloud",
     "generate_sky_cloud",
     "sky_angles",
@@ -45,6 +46,15 @@ __all__ = [
 ]
 
 ESPY_M_PER_K = 125.0  # z_LCL / (T - T_dew), Espy's rule (Lawrence 2005)
+
+#: Default width of a cloud's edge ramp, in standard deviations of the 1/f^beta field
+#: (:meth:`SkyFixedCloud.density`). ESTIMATED, and chosen by looking: at 0.45 coverage this puts
+#: roughly a sixth of the sky in the fringe between clear and full depth, which is about what a
+#: fair-weather cumulus field looks like. It is a **fixture for clutter statistics, not cloud
+#: microphysics**, and nothing radiometric is claimed for the particular value -- but zero, which
+#: is what this was before, is the one value that is definitely wrong: it makes every cloud edge
+#: a step discontinuity at the sampling resolution, in both bands.
+DEFAULT_EDGE_SOFTNESS = 0.45
 
 
 def lifting_condensation_level_m(
@@ -139,17 +149,33 @@ def psd_slope(field: NDArray[np.floating], f_min: float = 0.02, f_max: float = 0
 
 
 def cloud_radiance(
-    l_clear: Any, l_base: float, tau_cloud: float, coverage: NDArray[np.bool_]
+    l_clear: Any, l_base: float, tau_cloud: float, density: Any
 ) -> NDArray[np.float64]:
-    """Per pixel: covered → ε L_B(T_base) + τ L_clear (ε = 1 − τ), else L_clear."""
+    """Per pixel: ``ε_eff L_B(T_base) + (1 − ε_eff) L_clear`` with ``ε_eff = (1 − τ) d``.
+
+    ``density`` is :meth:`SkyFixedCloud.density`'s 0-to-1 depth along the ray, or a boolean
+    coverage mask, which is the same thing at its two ends. The authored ``tau_cloud`` is the
+    transmittance of cloud **at full depth**, so a ray through the middle of a bank reads exactly
+    what it read before this generalisation, and a ray through the fringe reads mostly sky.
+
+    Both limits are returned by ``np.where`` rather than by the blend, so a boolean mask gives
+    **bit-identical** results to the hard-edged version for any ``tau_cloud`` -- the change is
+    provably confined to the pixels that used to be one or the other and are now in between.
+    """
     if not 0.0 <= tau_cloud < 1.0:
         raise ValueError("tau_cloud must lie in [0, 1)")
     clear = np.asarray(l_clear, dtype=np.float64)
-    cov = np.asarray(coverage, dtype=bool)
-    if cov.shape != clear.shape:
-        raise ValueError("coverage mask and clear radiance must have the same shape")
+    d = np.asarray(density, dtype=np.float64)
+    if d.shape != clear.shape:
+        raise ValueError("the density field and the clear radiance must have the same shape")
+    if np.any(d < 0.0) or np.any(d > 1.0):
+        raise ValueError("cloud density must lie in [0, 1]")
     cloudy = (1.0 - tau_cloud) * l_base + tau_cloud * clear
-    return np.asarray(np.where(cov, cloudy, clear), dtype=np.float64)
+    emissivity = (1.0 - tau_cloud) * d
+    blend = emissivity * l_base + (1.0 - emissivity) * clear
+    return np.asarray(
+        np.where(d >= 1.0, cloudy, np.where(d <= 0.0, clear, blend)), dtype=np.float64
+    )
 
 
 def sky_angles(
@@ -223,6 +249,9 @@ class SkyFixedCloud:
     beta: float
     fraction: float
     seed: int
+    #: Width of the edge ramp, in standard deviations of the (unit-variance) field. See
+    #: :meth:`density`. Zero restores the hard-edged binary cloud this class had first.
+    softness: float = DEFAULT_EDGE_SOFTNESS
 
     def value(self, elevation_rad: Any, azimuth_rad: Any) -> NDArray[np.float64]:
         """The continuous field along each ray, bilinear over the grid.
@@ -249,8 +278,39 @@ class SkyFixedCloud:
         return np.asarray(top * (1.0 - fr) + bottom * fr)
 
     def sample(self, elevation_rad: Any, azimuth_rad: Any) -> NDArray[np.bool_]:
-        """Coverage along each ray: the interpolated field above its own threshold."""
+        """Coverage along each ray: the interpolated field above its own threshold.
+
+        This is the **definition of the covered fraction** and is what the ``fraction`` this
+        object was built for refers to. :meth:`density` crosses 0.5 at exactly this threshold, so
+        adding the edge ramp did not move the coverage statistic.
+        """
         return np.asarray(self.value(elevation_rad, azimuth_rad) >= self.threshold)
+
+    def density(self, elevation_rad: Any, azimuth_rad: Any) -> NDArray[np.float64]:
+        """How much cloud is along each ray, 0 (clear) to 1 (full depth), smooth across the edge.
+
+        **A cloud is not a stencil.** The first version of this class returned only
+        :meth:`sample`'s boolean, so every covered ray got the cloud base's radiance in full and
+        every other ray got none -- which renders as flat blobs with a one-pixel cliff round each
+        one, in both bands. Real cumulus thins toward its edges: the liquid water path falls to
+        zero over some distance, so the optical depth does too and the sky behind shows through.
+        That is what this returns, and it is the quantity the radiance blend actually wants.
+
+        The ramp is a smoothstep on the field's own excess over its threshold, measured in
+        standard deviations -- the field is unit-variance by construction, so ``softness`` is
+        directly in sigma. ``d = 0.5`` sits exactly at the threshold, which is what keeps
+        :meth:`sample` and the authored coverage fraction meaning what they did.
+
+        ``softness = 0`` gives back the hard mask exactly, so the old behaviour is a value of a
+        parameter rather than a deleted branch.
+        """
+        value = self.value(elevation_rad, azimuth_rad)
+        if self.softness <= 0.0:
+            return np.asarray(value >= self.threshold, dtype=np.float64)
+        x = np.clip((value - self.threshold) / self.softness + 0.5, 0.0, 1.0)
+        # Smoothstep rather than a linear ramp: a linear one leaves a visible crease where it
+        # meets the flat core, and the crease is a straight line in a picture of a cloud.
+        return np.asarray(x * x * (3.0 - 2.0 * x), dtype=np.float64)
 
 
 def generate_sky_cloud(

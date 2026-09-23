@@ -431,8 +431,12 @@ class AerialThermalBridge:
             return out
         if self.cloud is not None and azimuth_rad is not None:
             azim = np.asarray(azimuth_rad, dtype=np.float64)
-            coverage = self.cloud.sample(elev[above], azim[above])
-            out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], coverage)
+            # `density`, not `sample`: a cloud edge is a fringe of falling optical depth, not a
+            # stencil, and the infrared frame is where that matters most -- a hard mask puts a
+            # step of tens of kelvin along every cloud boundary, which is exactly the edge
+            # statistic a detector keys on (ADR 0125).
+            depth = self.cloud.density(elev[above], azim[above])
+            out[above] = self.sky.apparent_temperature_field(t_abs, elev[above], depth)
         else:
             out[above] = self.sky.apparent_temperature_k(t_abs, elev[above])
         return out

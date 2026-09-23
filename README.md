@@ -271,6 +271,29 @@ the visible, so the same object reads bright in both here -- but under plateau e
 cloud edges take most of the display range and the aircraft nearly disappears into them, which is
 exactly the clutter a sky-background detector has to live with.
 
+That cloud was **a stencil** on its first render and looked it: `SkyFixedCloud.sample` returned a
+boolean, so every covered texel took one flat value and every cloud had a one-sample cliff round
+it — flat grey blobs in the visible and, worse, a step of tens of kelvin along every boundary in
+LWIR, which is exactly the edge statistic a detector keys on. `density` (ADR 0125) returns a 0-to-1
+depth instead, a smoothstep on the field's own excess over its threshold, and the blend becomes
+ε_eff = (1 − τ) d. Thin cloud turns out to be **more edge than core** — at 0.05 coverage the fringe
+is 3.0 % of the map against 2.4 % at full depth — which is why the stencil looked worst exactly
+where cloud was sparsest. Three things keep it a change to how a cloud *looks* rather than to what
+it covers: `density` crosses 0.5 exactly at the threshold, `softness = 0` returns the hard mask
+exactly, and `cloud_radiance` returns both limits through `np.where` so a boolean mask is
+bit-identical at any τ.
+
+**A close-up is a different measurement (ADR 0125).** `--close-up` holds the aircraft filling the
+frame for the whole mission, so the only thing changing is temperature: the four motor bells run
+22 → 65 → 22 °C while the skin, the skids and the gimbal sit at their own levels. The framing is
+checked against the sensor and the render refused if the aircraft overflows the frame or shrinks
+below a quarter of it. Every fixed-span frame now carries **the colour bar** beside it, with
+Celsius ticks, drawn from the same lookup table the display branch indexed — the gauge says what
+each named part *is*, and the bar says how any temperature became the pixel next to it. It is
+deliberately absent from the AGC videos, whose mapping is rebuilt from every frame's own
+histogram; that absence is what separates a picture of contrast from a measurement. From below the
+top shell is still hidden, which is the geometry and not a gap.
+
 **An aircraft is the opposite problem (ADR 0075).** `python.sh scripts/render_aircraft_pass.py
 --frames 300 --rgb` flies a light jet past the sensor at 150 m/s and films ten seconds in real
 time. Where a quadrotor's heat is four motors a sixteenth of its span across that you resolve and
