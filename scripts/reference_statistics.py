@@ -63,6 +63,9 @@ def _archive(name: str) -> pathlib.Path:
 def _measure_set(name: str, limit: int | None) -> tuple[list[ClipMeasurement], dict[str, Any]]:
     archive = _archive(name)
     hint = IR_MEMBER_HINT[name]
+    # The set's own declaration decides which analysers run. Read from the index rather than
+    # passed in, so the report cannot be generated with a path its own data does not have.
+    signal_path = load_manifest().datasets[name].signal_path
     measurements: list[ClipMeasurement] = []
     failures: list[dict[str, str]] = []
     with zipfile.ZipFile(archive) as zf:
@@ -83,6 +86,7 @@ def _measure_set(name: str, limit: int | None) -> tuple[list[ClipMeasurement], d
                             name=short,
                             fps=info.fps,
                             range_ambiguity=range_ambiguity_codes(frames),
+                            signal_path=signal_path,
                         )
                     )
                 except Exception as error:  # noqa: BLE001 - a bad clip is data, not a crash
@@ -94,6 +98,7 @@ def _measure_set(name: str, limit: int | None) -> tuple[list[ClipMeasurement], d
         "archive_sha256": sha256_of(archive),
         "clips_found": len(members),
         "clips_measured": len(measurements),
+        "signal_path": signal_path,
         "failures": failures,
     }
     return measurements, provenance
@@ -117,6 +122,7 @@ def _write_cache(
                         "max_displacement_px": m.max_displacement_px,
                         "range_ambiguity_codes": m.range_ambiguity_codes,
                         "flat_regions": m.flat_regions,
+                        "signal_path": m.signal_path,
                         "skipped": list(m.skipped),
                         "values": m.values,
                     }
@@ -146,6 +152,7 @@ def _load_cache(
             max_displacement_px=c["max_displacement_px"],
             range_ambiguity_codes=c["range_ambiguity_codes"],
             flat_regions=c["flat_regions"],
+            signal_path=c.get("signal_path", "unknown"),
             skipped=tuple(c["skipped"]),
             values=c["values"],
         )

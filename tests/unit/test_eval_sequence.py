@@ -18,7 +18,14 @@ import pathlib
 import numpy as np
 import pytest
 
-from irsim_eval.data import Box, Sequence, read_sequence, write_sequence
+from irsim_eval.data import (
+    SEQUENCE_SCHEMA_VERSION,
+    Box,
+    Sequence,
+    container_dtype,
+    read_sequence,
+    write_sequence,
+)
 from irsim_eval.motion import (
     STATIC_DISPLACEMENT_PX,
     classify_clip,
@@ -150,11 +157,95 @@ def test_the_box_convention_is_the_project_convention() -> None:
         Box(0.0, 0.0, 0.0, 3.0)
 
 
-def test_frames_that_are_not_eight_bit_are_refused(rng: np.random.Generator) -> None:
-    """These sets are 8-bit; a widened dtype would hide the floor under every statistic."""
-    images = np.stack([textured_frame(rng) for _ in range(2)]).astype(np.float32)
-    with pytest.raises(TypeError, match="8-bit"):
-        Sequence.from_arrays(images)
+def test_a_frame_wider_than_the_declaration_is_refused(rng: np.random.Generator) -> None:
+    """The width is declared, not inferred: a dtype that contradicts it is an error.
+
+    Before XD.2 this refused every dtype but ``uint8``. What it is really protecting has not
+    changed -- a frame that arrives wider than the sequence says it is would put a quantisation
+    floor under every statistic that is four or more times too small -- but the sequence now says
+    what it is instead of the module assuming.
+    """
+    images = np.stack([textured_frame(rng) for _ in range(2)])
+    with pytest.raises(TypeError, match="8-bit sequence stores frames as uint8"):
+        Sequence.from_arrays(images.astype(np.float32))
+    with pytest.raises(TypeError, match="8-bit sequence stores frames as uint8"):
+        Sequence.from_arrays(images.astype(np.uint16))
+    with pytest.raises(TypeError, match="14-bit sequence stores frames as uint16"):
+        Sequence.from_arrays(images, bit_depth=14)
+
+
+def test_a_sixteen_bit_sequence_round_trips_every_count(tmp_path: pathlib.Path) -> None:
+    """The step's whole point: a Y16 set has to reach the analysers without being narrowed.
+
+    Values are placed at the extremes and at the 8-bit boundary, because a silent narrowing --
+    a cast, a PNG write, an astype -- shows up exactly there and nowhere else.
+    """
+    images = np.array([[[0, 255, 256, 65535], [4095, 16384, 32768, 65534]]] * 4, dtype=np.uint16)
+    original = Sequence.from_arrays(
+        images, name="y16", bit_depth=16, signal_path="radiometric", source_dataset="synthetic"
+    )
+    assert original.dtype == np.dtype(np.uint16)
+
+    write_sequence(tmp_path / "clip", original)
+    reloaded = read_sequence(tmp_path / "clip")
+
+    assert reloaded.bit_depth == 16
+    assert reloaded.signal_path == "radiometric"
+    assert reloaded.images().dtype == np.uint16
+    assert np.array_equal(reloaded.images(), images)
+    assert reloaded[0].full_scale == 65535
+
+
+def test_counts_narrower_than_their_container_are_checked_against_the_declaration() -> None:
+    """FLIR's ADAS frames are 14 bits in a 16-bit TIFF, and the difference is a factor of four.
+
+    A 14-bit declaration that quietly accepted a 16-bit value would hand every noise statistic a
+    floor four times too small -- under a 50 mK NETD rather than over it, which is the difference
+    between a measurement and a claim.
+    """
+    ok = np.full((2, 4, 4), (1 << 14) - 1, dtype=np.uint16)
+    assert Sequence.from_arrays(ok, bit_depth=14).images().max() == 16383
+
+    over = ok.copy()
+    over[1, 0, 0] = 1 << 14
+    with pytest.raises(ValueError, match="declared 14-bit but holds 16384"):
+        Sequence.from_arrays(over, bit_depth=14)
+
+
+def test_the_container_follows_the_declaration_and_nothing_else() -> None:
+    """One rule in one place, so no converter can pick a wider container "to be safe"."""
+    assert all(container_dtype(b) == np.uint8 for b in range(1, 9))
+    assert all(container_dtype(b) == np.uint16 for b in range(9, 17))
+    with pytest.raises(ValueError, match="bit_depth must be in 1..16"):
+        container_dtype(17)
+    with pytest.raises(ValueError, match="bit_depth must be in 1..16"):
+        container_dtype(0)
+
+
+def test_a_sequence_knows_which_measurements_its_path_supports(rng: np.random.Generator) -> None:
+    """The clip in hand answers the same question the index answers for a whole set."""
+    images = np.stack([textured_frame(rng) for _ in range(2)])
+    display = Sequence.from_arrays(images, signal_path="display")
+    assert display.may_run("agc_signature")
+    assert not display.may_run("noise_3d")
+    assert not display.may_run("noise_3d_kelvin")
+
+    recorder = Sequence.from_arrays(images, signal_path="recorder")
+    assert recorder.may_run("noise_3d")
+    assert not recorder.may_run("agc_signature")
+
+    with pytest.raises(ValueError, match="unknown signal path"):
+        Sequence.from_arrays(images, signal_path="y16")  # type: ignore[arg-type]
+
+
+def test_a_sixteen_bit_sequence_refuses_to_be_written_as_eight_bit_png(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Writing the low byte would be a different clip, not a smaller file."""
+    images = np.full((2, 4, 4), 4000, dtype=np.uint16)
+    sequence = Sequence.from_arrays(images, bit_depth=16)
+    with pytest.raises(ValueError, match="png output here is 8-bit"):
+        write_sequence(tmp_path / "clip", sequence, frame_format="png")
 
 
 def test_a_frame_whose_shape_contradicts_the_index_is_an_error(
@@ -179,6 +270,31 @@ def test_an_unknown_schema_version_is_refused(
     index.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="schema_version"):
         read_sequence(tmp_path / "clip")
+
+
+def test_a_version_one_index_reads_as_what_it_actually_said(
+    tmp_path: pathlib.Path, rng: np.random.Generator
+) -> None:
+    """Version 1 could hold nothing but 8-bit and recorded no path. Both are read, not assumed.
+
+    The defaults are not a convenience. A version-1 index that came back as ``radiometric`` would
+    grant a Kelvin measurement over frames whose provenance was never written down.
+    """
+    assert SEQUENCE_SCHEMA_VERSION == 2
+    images = np.stack([textured_frame(rng) for _ in range(2)])
+    write_sequence(tmp_path / "clip", Sequence.from_arrays(images))
+    index = tmp_path / "clip" / "sequence.json"
+    data = json.loads(index.read_text())
+    data["schema_version"] = 1
+    del data["bit_depth"]
+    del data["signal_path"]
+    index.write_text(json.dumps(data))
+
+    reloaded = read_sequence(tmp_path / "clip")
+    assert reloaded.bit_depth == 8
+    assert reloaded.signal_path == "unknown"
+    assert not reloaded.may_run("noise_3d_kelvin")
+    assert np.array_equal(reloaded.images(), images)
 
 
 def test_frames_are_zero_padded_so_a_directory_sorts_in_order(

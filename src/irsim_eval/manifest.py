@@ -9,6 +9,15 @@ to a range only if the sensor's pitch and focal length are known. So the index i
 documentation, it is a precondition: :class:`Dataset` makes ``licence``, ``signal_path`` and
 ``analysers`` required fields, and a set that cannot fill them cannot be added.
 
+**``signal_path`` is a value from a closed vocabulary and the analyser list is checked against
+it** (XD.2). It used to be prose -- accurate prose, and unreadable by anything. A permission list
+sitting beside a paragraph nobody can parse is a permission list nobody checks, and the failure it
+invites is silent: a measurement name that reaches this file is a measurement somebody will run.
+So the vocabulary and the analyser-to-path table live in
+:mod:`irsim.validation.signal_path`, every name in ``analysers`` must be one the table knows, and
+a set may not list a measurement its own path cannot support. The prose survives as
+``signal_path_note``, which is where the per-set detail belongs and where the README reads it from.
+
 **``licence: unstated`` is a value, not a gap.** Most of these publishers simply never said. The
 schema records that as a fact rather than defaulting to something comfortable, and
 ``scripts/fetch_validation_data.py`` refuses such a set unless it is asked explicitly, so the
@@ -27,11 +36,15 @@ import pathlib
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from irsim.validation.signal_path import ANALYSERS, SIGNAL_PATHS, SignalPath, allows
 
 __all__ = [
     "Access",
+    "MANIFEST_SCHEMA_VERSION",
     "Role",
+    "SignalPath",
     "UNSTATED",
     "Dataset",
     "Manifest",
@@ -40,6 +53,11 @@ __all__ = [
     "load_manifest",
     "render_readme",
 ]
+
+#: 2 turned ``signal_path`` from prose into a value and moved the prose to ``signal_path_note``
+#: (XD.2). There is no reader for version 1: the index is one file in this repository, so a
+#: migration path would be a compatibility shim for a file that no longer exists.
+MANIFEST_SCHEMA_VERSION = 2
 
 #: What a licence field says when the publisher did not state one. Not a guess that it is
 #: permissive -- a record that the terms are unknown.
@@ -65,7 +83,10 @@ class Dataset(_Frozen):
     why: str = Field(min_length=1)
     licence: str = Field(min_length=1)
     access: Access
-    signal_path: str = Field(min_length=1)
+    #: What happened between the detector and the file. Decides what may be measured at all.
+    signal_path: SignalPath
+    #: The per-set detail behind that one word: which recorder, which codec, what was not verified.
+    signal_path_note: str = Field(min_length=1)
     analysers: list[str] = Field(min_length=1)
 
     licence_note: str | None = None
@@ -115,7 +136,31 @@ class Dataset(_Frozen):
     def _no_duplicates(cls, value: list[str]) -> list[str]:
         if len(set(value)) != len(value):
             raise ValueError("analyser lists must not repeat an entry")
+        unknown = sorted(set(value) - set(ANALYSERS))
+        if unknown:
+            raise ValueError(
+                f"unknown measurement(s) {unknown}; known: {sorted(ANALYSERS)}. A name that is "
+                "not in the table is a permission granted to nothing, or -- worse -- a typo for "
+                "one that is, so it is refused rather than ignored"
+            )
         return value
+
+    @model_validator(mode="after")
+    def _analysers_fit_the_signal_path(self) -> Dataset:
+        """A set may not claim a measurement its own path cannot carry.
+
+        The second lock on the door :func:`~irsim.validation.signal_path.require_signal_path`
+        holds at run time. This one shuts before anything is measured, which is when the mistake
+        is cheap: by the time the analyser refuses, somebody has already downloaded the set and
+        written the claim into a plan.
+        """
+        refused = [a for a in self.analysers if not allows(a, self.signal_path)]
+        if refused:
+            raise ValueError(
+                f"a {self.signal_path!r} set may not be used for {sorted(refused)}: "
+                + "; ".join(f"{a} -- {ANALYSERS[a].because}" for a in sorted(refused))
+            )
+        return self
 
     @field_validator("sha256")
     @classmethod
@@ -153,8 +198,10 @@ class Manifest(_Frozen):
     @field_validator("schema_version")
     @classmethod
     def _version(cls, value: int) -> int:
-        if value != 1:
-            raise ValueError(f"unknown manifest schema_version {value}")
+        if value != MANIFEST_SCHEMA_VERSION:
+            raise ValueError(
+                f"manifest schema_version {value}, this reader speaks {MANIFEST_SCHEMA_VERSION}"
+            )
         return value
 
     @field_validator("datasets")
@@ -175,7 +222,15 @@ class Manifest(_Frozen):
 
     def usable_for(self, analyser: str) -> list[str]:
         """Names of the sets ``analyser`` may be run on."""
+        if analyser not in ANALYSERS:
+            raise KeyError(f"unknown measurement {analyser!r}; known: {sorted(ANALYSERS)}")
         return sorted(k for k, v in self.datasets.items() if v.may_run(analyser))
+
+    def with_signal_path(self, path: SignalPath) -> list[str]:
+        """Names of the sets that came down ``path``. What a radiometric analyser has to work on."""
+        if path not in SIGNAL_PATHS:
+            raise ValueError(f"unknown signal path {path!r}; known: {list(SIGNAL_PATHS)}")
+        return sorted(k for k, v in self.datasets.items() if v.signal_path == path)
 
 
 def manifest_path(root: str | os.PathLike[str] | None = None) -> pathlib.Path:
@@ -226,11 +281,11 @@ def render_readme(manifest: Manifest) -> str:
         "permissive: it is a record that they are unknown, and the fetch script refuses such a set",
         "unless asked explicitly, so using data on unknown terms is always a deliberate act.",
         "",
-        "| set | licence | access | role |",
-        "|---|---|---|---|",
+        "| set | licence | access | role | signal path |",
+        "|---|---|---|---|---|",
     ]
     for name, d in manifest.datasets.items():
-        lines.append(f"| `{name}` | {d.licence} | {d.access} | {d.role} |")
+        lines.append(f"| `{name}` | {d.licence} | {d.access} | {d.role} | `{d.signal_path}` |")
     checked = f"Fields last checked against the publishers' own pages: **{manifest.checked_utc}**."
     lines += ["", checked, ""]
 
@@ -269,7 +324,7 @@ def render_readme(manifest: Manifest) -> str:
         lines.append(block.rstrip("\n"))
         lines += [
             "",
-            "**Signal path.** " + d.signal_path.strip().replace("\n", " "),
+            f"**Signal path: `{d.signal_path}`.** " + d.signal_path_note.strip().replace("\n", " "),
             "",
             "**May be used for:** " + ", ".join(f"`{a}`" for a in d.analysers) + ".",
         ]

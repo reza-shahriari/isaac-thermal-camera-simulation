@@ -192,6 +192,13 @@ def main(argv: list[str] | None = None) -> int:
                 for i in range(coded.shape[0])
             ],
             source_dataset="synthetic:matched_halmstad",
+            # These frames are `out.display8` -- this simulator's own AGC, not a recorder's
+            # conversion. The set they are matched to (`halmstad_drone_detection`) is `recorder`,
+            # so the pair differs by a signal path before it differs by any physics. That is not
+            # a defect introduced here: M12.2's acceptance run already found `noise_scale` to be
+            # the discriminator's heaviest feature. Recording the path is how the next reader
+            # sees it without re-deriving it (XD.2).
+            signal_path="display",
         )
         write_sequence(out_root / name, sequence)
         written.append(

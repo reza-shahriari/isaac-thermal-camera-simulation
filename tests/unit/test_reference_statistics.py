@@ -141,7 +141,9 @@ def test_a_section_renders_every_refusal() -> None:
 def test_a_static_noisy_clip_is_measured_and_a_moving_one_is_gated_out() -> None:
     """ME.1b's gate in its report role: a per-pixel temporal statistic on a panning clip measures
     the pan, so a moving clip contributes nothing to the noise table and says why."""
-    still = measure_clip(_static_cube(4.0), name="still", fps=30.0, range_ambiguity=8.0)
+    still = measure_clip(
+        _static_cube(4.0), name="still", fps=30.0, range_ambiguity=8.0, signal_path="recorder"
+    )
     assert still.static and not still.skipped
     assert still.values["sigma_tvh_codes"] == pytest.approx(4.0, rel=0.25)
     assert still.values["noise_scale_codes"] > 1.0
@@ -151,7 +153,9 @@ def test_a_static_noisy_clip_is_measured_and_a_moving_one_is_gated_out() -> None
 
     cube = _static_cube(4.0)
     moving = np.stack([np.roll(f, 2 * i, axis=1) for i, f in enumerate(cube)])
-    verdict = measure_clip(moving, name="moving", fps=30.0, range_ambiguity=8.0)
+    verdict = measure_clip(
+        moving, name="moving", fps=30.0, range_ambiguity=8.0, signal_path="recorder"
+    )
     assert not verdict.static and "moving" in verdict.skipped
     assert "sigma_tvh_codes" not in verdict.values
 
@@ -165,7 +169,9 @@ def test_a_codec_flattened_clip_reports_the_collapse_rather_than_a_number() -> N
     impossible, not that the noise is small.
     """
     flattened = _flattened_cube()
-    result = measure_clip(flattened, name="flat", fps=30.0, range_ambiguity=8.0)
+    result = measure_clip(
+        flattened, name="flat", fps=30.0, range_ambiguity=8.0, signal_path="recorder"
+    )
     assert result.values["noise_scale_codes"] <= 1.0
     assert "noise_floor_collapsed" in result.skipped
     assert "sigma_tvh_codes" not in result.values
@@ -190,7 +196,13 @@ def test_the_collapse_threshold_is_the_estimator_s_own_one_code_value() -> None:
 
 def test_a_clip_too_short_to_measure_is_an_error_not_a_silent_empty_row() -> None:
     with pytest.raises(ValueError, match="at least four frames"):
-        measure_clip(np.zeros((2, 16, 16), np.uint8), name="x", fps=30.0, range_ambiguity=0.0)
+        measure_clip(
+            np.zeros((2, 16, 16), np.uint8),
+            name="x",
+            fps=30.0,
+            range_ambiguity=0.0,
+            signal_path="recorder",
+        )
 
 
 # --- the report ---------------------------------------------------------------------------------
@@ -200,7 +212,13 @@ def test_the_json_payload_keeps_its_shape(tmp_path: pathlib.Path) -> None:
     """The JSON is the machine-readable half; ME.6 reads it, so its layout is a contract."""
     module = _script()
     measurements = [
-        measure_clip(_static_cube(4.0), name=f"c{i}", fps=30.0, range_ambiguity=8.0)
+        measure_clip(
+            _static_cube(4.0),
+            name=f"c{i}",
+            fps=30.0,
+            range_ambiguity=8.0,
+            signal_path="recorder",
+        )
         for i in range(3)
     ]
 
@@ -235,3 +253,50 @@ def test_the_json_payload_keeps_its_shape(tmp_path: pathlib.Path) -> None:
     markdown = module._render("synthetic", _Dataset(), sections, provenance)
     assert "0" * 64 in markdown, "the archive hash must be in the report a reader diffs"
     assert "Not measured" in markdown
+
+
+def test_a_display_set_is_refused_the_measurements_its_path_cannot_carry() -> None:
+    """XD.2's run-time half: the same clip, measured down two paths, yields two different reports.
+
+    The frames are identical -- this is not about the data being worse. It is about an AGC having
+    rescaled every frame on its own content, which moves temporal noise into the scene's variance
+    and back, so a decomposition of them describes the ISP. The refusal is recorded rather than the
+    statistic quietly missing, because a report that simply omitted it would read as a set that was
+    measured and came out quiet.
+    """
+    cube = _static_cube(4.0)
+    recorder = measure_clip(cube, name="c", fps=30.0, range_ambiguity=8.0, signal_path="recorder")
+    display = measure_clip(cube, name="c", fps=30.0, range_ambiguity=8.0, signal_path="display")
+
+    assert "sigma_tvh_codes" in recorder.values
+    assert "sigma_tvh_codes" not in display.values
+    assert "psd_line_fraction_kv0" not in display.values
+    assert "noise_3d_wrong_signal_path" in display.skipped
+    assert "temporal_psd_wrong_signal_path" in display.skipped
+    assert display.signal_path == "display"
+    # What survives an ISP still gets measured: a run of identical frames is identical whatever
+    # mapped it, and the blockiness of the storage path is about the storage path.
+    assert "freeze_count" in display.values
+    assert "blockiness_z" in display.values
+
+
+def test_an_undocumented_clip_keeps_only_what_needs_no_provenance() -> None:
+    """`unknown` is the most common value in the index and the easiest to over-read.
+
+    It is not a weaker `display`: nothing about the file is known, so the shutter statistic goes
+    too -- an undocumented path may have dropped or duplicated frames of its own, which is
+    indistinguishable from a freeze.
+    """
+    result = measure_clip(
+        _static_cube(4.0), name="c", fps=30.0, range_ambiguity=8.0, signal_path="unknown"
+    )
+    assert "freeze_count" not in result.values
+    assert "sigma_tvh_codes" not in result.values
+    assert "ffc_freeze_wrong_signal_path" in result.skipped
+    assert "blockiness_z" in result.values  # the storage path is still the storage path
+
+
+def test_a_signal_path_outside_the_vocabulary_is_an_error() -> None:
+    """A typo would otherwise silently disable every gated measurement at once."""
+    with pytest.raises(ValueError, match="unknown signal path"):
+        measure_clip(_static_cube(4.0), name="c", fps=30.0, range_ambiguity=8.0, signal_path="y16")  # type: ignore[arg-type]

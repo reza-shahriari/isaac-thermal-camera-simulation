@@ -15,15 +15,23 @@
 #                   not a guess that it is permissive -- it means the redistribution and use terms
 #                   are unknown, and `scripts/fetch_validation_data.py` refuses such a set unless
 #                   it is asked explicitly.
-#   signal_path     What happened to the photons between the detector and the file. This decides
-#                   which analysers are allowed to run: an AGC signature cannot be measured on a
-#                   set that never went through an AGC, and noise statistics from a lossy codec
-#                   are bounded below by the codec, not by the sensor.
+#   signal_path     What happened to the photons between the detector and the file, as one of
+#                   `display`, `recorder`, `radiometric` or `unknown`. This decides which analysers
+#                   are allowed to run: an AGC signature cannot be measured on a set that never
+#                   went through an AGC, and noise statistics from a lossy codec are bounded below
+#                   by the codec, not by the sensor. The vocabulary and the analyser-to-path table
+#                   are in `src/irsim/validation/signal_path.py`, and loading this file FAILS if a
+#                   set lists a measurement its own path cannot carry -- so the rule is enforced
+#                   here rather than remembered.
+#   signal_path_note  The per-set detail behind that one word: which recorder, which codec, which
+#                   part of it is still unverified. Prose, and the README prints it verbatim.
 #   access          `direct` (a URL a script can fetch), `manual` (a drive link, a form, or an
 #                   access request -- a human has to do it), or `unreleased`.
 #   sha256          Filled in by the fetch script once the archive is on disk; empty here because
 #                   this project has not downloaded these sets and will not invent a hash.
-#   analysers       Which ME.2-ME.4 measurements this set may be used for. Deliberately narrow.
+#   analysers       Which ME.2-ME.4 measurements this set may be used for. Deliberately narrow,
+#                   and a name not in the table above is refused rather than ignored: a typo in a
+#                   permission list is a permission granted to nothing, or to the wrong thing.
 #
 # VERIFIED indicates the field was checked against the publisher's own page on the stated date.
 # ESTIMATED or UNVERIFIED means it came from a paper or a secondary source and should be confirmed
@@ -36,7 +44,7 @@
 # for this field is never "is a licence written down nearby" but "is this a grant over these
 # frames", and it is load-bearing: `licence_known` is what opens the fetch gate.
 
-schema_version: 1
+schema_version: 2
 checked_utc: "2026-09-24"                     # XD.1 re-checked anti_uav_410, lrddv3; added anti_uav_600
 
 datasets:
@@ -102,7 +110,8 @@ datasets:
       and the .mat files hold MCOS class instances inside __function_workspace__ that
       scipy.io.loadmat returns as an opaque blob. Every box-dependent analyser is therefore
       excluded below until somebody runs the MATLAB script and exports the boxes.
-    signal_path: >-
+    signal_path: recorder                 # Y16 off the Boson, converted downstream
+    signal_path_note: >-
       Boson Y16 16-bit stream -> recorder converts to 8-bit -> stored as mp4. The frames therefore
       carry the core's noise, striping and FFC freezes but NOT its AGC, DDE or palette: the
       recorder's conversion stands in for the ISP and its rule (linear? min-max per frame?) is
@@ -162,7 +171,8 @@ datasets:
     clips: 410
     annotated_boxes: 438000                   # "over 438K", paper
     label_format: "per-sequence json boxes"
-    signal_path: >-
+    signal_path: display                  # the camera's own 8-bit picture, ISP and all
+    signal_path_note: >-
       The camera's display output through an unknown ISP, stored lossy. AGC, DDE, palette and any
       temporal filtering are all baked in and none of them are documented, so nothing measured
       here can be attributed to the sensor rather than to its ISP.
@@ -210,7 +220,8 @@ datasets:
     clips: 600
     frames: 723000                            # "over 723K thermal infrared frames", paper abstract
     label_format: "per-sequence json boxes"
-    signal_path: >-
+    signal_path: display                  # as anti_uav_410
+    signal_path_note: >-
       Infrared only -- the repository states that "410 and 600 versions only contain IR videos
       while 300 version contains both RGB videos and IR videos", which is what makes this the
       largest IR set of the family rather than the largest set. Display output through an
@@ -250,7 +261,8 @@ datasets:
     codec: "lossy"
     clips: 220
     annotated_boxes: 240000                   # "over 240k", paper
-    signal_path: >-
+    signal_path: display                  # as anti_uav_410, UNVERIFIED in detail
+    signal_path_note: >-
       Display output, as Anti-UAV410. UNVERIFIED in detail; confirm from the paper before use.
     analysers:
       - target_size_and_scr
@@ -295,7 +307,8 @@ datasets:
     bit_depth_stored: 8
     clips: 128
     thermal_images: 29630
-    signal_path: >-
+    signal_path: unknown                  # UNVERIFIED: Y16-derived or display output
+    signal_path_note: >-
       The camera records IR at 640x512 and 30 fps and the set stores frames sampled from that at
       5 fps, so the two rates are different numbers and are carried in different fields -- an
       analyser must fit against the 5 fps of the file it is reading, never the camera's 30.
@@ -326,7 +339,8 @@ datasets:
     resolution: [512, 512]
     bit_depth_stored: 8
     frames: 1000
-    signal_path: "unknown; single frames, provenance not documented per image"
+    signal_path: unknown                  # provenance not documented per image
+    signal_path_note: "unknown; single frames, provenance not documented per image"
     analysers:
       - target_size_prior
       - scr_prior
@@ -350,7 +364,8 @@ datasets:
     sensor: "undocumented"
     bit_depth_stored: 8
     frames: 427
-    signal_path: "unknown; single frames, provenance not documented per image"
+    signal_path: unknown                  # provenance not documented per image
+    signal_path_note: "unknown; single frames, provenance not documented per image"
     analysers:
       - target_size_prior
       - scr_prior

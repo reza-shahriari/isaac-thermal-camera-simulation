@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 67 open steps
+#### Then, in order — 66 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -184,18 +184,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`AI.4`** | AI | B | S | — | ready |
 | 4 | **`IG.16`** | IG | B | M | — | ready |
 | 5 | **`SE.2`** | SE | B | M | — | ready |
-| 6 | **`TC.8`** | TC | C | S | — | ready |
-| 7 | **`AT.6`** | AT | C | M | — | ready |
-| 8 | **`AT.9`** | AT | C | M | — | ready |
-| 9 | **`PT.16`** | PT | C | M | — | ready |
-| 10 | **`EV.1`** | EV | X | M | 5 | ready |
-| 11 | **`XD.2`** | XD | X | M | 4 | ready |
-| 12 | **`XD.3`** | XD | B | M | — | `XD.2` |
-| 13 | **`XD.10`** | XD | C | L | — | `XD.2` |
-| 14 | **`IG.3`** | IG | X | S | 3 | ready |
-| 15 | **`EV.5`** | EV | X | M | 3 | `EV.1` |
+| 6 | **`XD.3`** | XD | B | M | — | ready |
+| 7 | **`TC.8`** | TC | C | S | — | ready |
+| 8 | **`AT.6`** | AT | C | M | — | ready |
+| 9 | **`AT.9`** | AT | C | M | — | ready |
+| 10 | **`PT.16`** | PT | C | M | — | ready |
+| 11 | **`XD.10`** | XD | C | L | — | ready |
+| 12 | **`EV.1`** | EV | X | M | 5 | ready |
+| 13 | **`IG.3`** | IG | X | S | 3 | ready |
+| 14 | **`EV.5`** | EV | X | M | 3 | `EV.1` |
+| 15 | **`SC.5`** | SC | X | M | 3 | ready |
 
-…and 52 more — `python scripts/next_step.py --queue 40`.
+…and 51 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -686,13 +686,18 @@ Every set in `data/validation/datasets.yaml` today is 8-bit, post-recorder and m
 is why ADR 0068 declares most of Tier 4 untestable. That is an **indexing** problem, not a fact about the
 world: radiometric public data exists, and two of the strongest anchors are not imagery at all.
 
+Since `XD.2` the index says this in fields rather than in prose: `signal_path` is one of `display`,
+`recorder`, `radiometric` or `unknown`, `with_signal_path("radiometric")` returns `[]`, and the reader
+takes 16-bit frames whenever a set that has them is indexed. So the rows below are now the only thing
+missing, and each one turns a `[]` into a set.
+
 Nothing here proposes buying a camera, and `XD.12` is the one action with the highest value per unit of
 effort in the whole plan.
 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | XD.1 | ✅ **done, and the row itself was wrong.** `anti_uav_600` indexed — 600 sequences, 723k IR frames, the largest here; `lrddv3`'s licence and camera corrected; `anti_uav_410`'s two fields left null on purpose. | **Verified at source 2026-09-24.** The row asked for **CC BY 4.0** on `lrddv3`: that is the *paper's* arXiv badge, the dataset page names **CDLA-Permissive-2.0**, and this field opens the fetch gate — so the row would have granted a permission the frames lack. Camera confirmed. 640×512/25 Hz is the RGBT *parent's*, and `probe_clip` reads it from the file. 5 cases. | — | S | X |
-| XD.2 | **A `radiometric` signal path and a `bit_depth` field.** `irsim_eval.data.Sequence` refuses anything but 8-bit — right when every indexed set was 8-bit, and now the thing standing between the project and its own fix. Each analyser declares which path it needs. | A display-output set still cannot reach a radiometric-only analyser, and a radiometric set reaches the noise analysers that currently skip. This is the enabling refactor for XD.3–XD.5 and XD.10 and lands before them. | XD.1 | M | X |
+| XD.2 | ✅ **done** (ADR 0068 addendum). `signal_path` is one of `display`/`recorder`/`radiometric`/`unknown`; the prose is `signal_path_note`; `Sequence` declares `bit_depth`, the **significant** width — FLIR's ADAS is 14-in-16, 4× in the floor. | 18 measurements declare their paths in one table and both locks turn from it: the index won't load if a set claims what its path can't carry, and `measure_clip` requires the path. ISP and sensor paths are **disjoint**, asserted as a property; `unknown` ⊂ `display`. `noise_3d_kelvin` has `[]` today, pinned — XD.3/4/10 each change it. | XD.1 | M | X |
 | XD.3 | **MassMIND** — 16-bit LWIR maritime, FLIR ADK, published NETD < 50 mK, 640×512, CC BY-NC-SA 4.0, 2,916 Boston Harbor images with 7-class sky/water/obstacle masks. | Brings the maritime lane to the bar the aerial lane reached, and the masks give **labelled flat windows**, replacing the heuristic finder that EV.3 shows returns `[]` on every rendered clip. Index honestly: the 16-bit values are ADK counts, linear in radiance, not calibrated temperature. | XD.2 | M | B |
 | XD.4 | **LTIR v1.0** — the only 16-bit public source found that is made of *sequences* (20, 8-/16-bit variant), so the only one that can carry temporal PSD, FFC and fixed-pattern-growth work without a codec floor. | Indexed with ADR 0068's provenance fields and `licence: unstated`. The temporal analysers run on one 16-bit sequence and the 1/f knee they report lies inside the band `SC.5` declares for a Boson-class core; on the 8-bit variant of the same sequence they disagree by the codec floor. Red today: they skip. | XD.2 | M | X |
 | XD.5 | **FLAME 3** — per-pixel Celsius from a calibrated radiometric response, the only absolutely calibrated public imagery found, open access on IEEE DataPort. | `irsim.radiometry.encoding` round-trips every FLAME 3 pixel, 250 K to the 500 °C cap, within 10 mK; apparent-temperature inversion at FLAME 3's mode and tail returns the input within 1 mK; a low-gain radiometric config reproduces the 0–25 °C mode and the rail at 500 °C (`PH.8`). Frame-level labels only, so no detector claim. | XD.2 | M | X |

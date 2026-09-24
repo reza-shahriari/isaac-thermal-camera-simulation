@@ -25,15 +25,15 @@ The only set here with an unambiguous licence, a citable DOI, and a fully docume
 permissive: it is a record that they are unknown, and the fetch script refuses such a set
 unless asked explicitly, so using data on unknown terms is always a deliberate act.
 
-| set | licence | access | role |
-|---|---|---|---|
-| `halmstad_drone_detection` | CC0-1.0 | direct | primary |
-| `anti_uav_410` | unstated | manual | supplement |
-| `anti_uav_600` | unstated | manual | supplement |
-| `cst_anti_uav` | unstated | unreleased | supplement |
-| `lrddv3` | CDLA-Permissive-2.0 | manual | supplement |
-| `irstd_1k` | unstated | manual | prior |
-| `nuaa_sirst` | unstated | manual | prior |
+| set | licence | access | role | signal path |
+|---|---|---|---|---|
+| `halmstad_drone_detection` | CC0-1.0 | direct | primary | `recorder` |
+| `anti_uav_410` | unstated | manual | supplement | `display` |
+| `anti_uav_600` | unstated | manual | supplement | `display` |
+| `cst_anti_uav` | unstated | unreleased | supplement | `display` |
+| `lrddv3` | CDLA-Permissive-2.0 | manual | supplement | `unknown` |
+| `irstd_1k` | unstated | manual | prior | `unknown` |
+| `nuaa_sirst` | unstated | manual | prior | `unknown` |
 
 Fields last checked against the publishers' own pages: **2026-09-24**.
 
@@ -65,7 +65,7 @@ The only set here with an unambiguous licence, a citable DOI, and a fully docume
 | label format | matlab .mat -- Video Labeler `groundTruth` (MCOS), no Python reader |
 | sha256 | 53deda08127dc7896e96454cf35e866e8d6bee336f25d290b26e1f5324e23c81 |
 
-**Signal path.** Boson Y16 16-bit stream -> recorder converts to 8-bit -> stored as mp4. The frames therefore carry the core's noise, striping and FFC freezes but NOT its AGC, DDE or palette: the recorder's conversion stands in for the ISP and its rule (linear? min-max per frame?) is itself unverified. Treat any histogram-shape statistic as measuring the recorder.
+**Signal path: `recorder`.** Boson Y16 16-bit stream -> recorder converts to 8-bit -> stored as mp4. The frames therefore carry the core's noise, striping and FFC freezes but NOT its AGC, DDE or palette: the recorder's conversion stands in for the ISP and its rule (linear? min-max per frame?) is itself unverified. Treat any histogram-shape statistic as measuring the recorder.
 
 **May be used for:** `noise_3d`, `spatial_psd`, `temporal_psd`, `ffc_freeze`, `fixed_pattern_growth`, `bad_pixels`.
 
@@ -94,7 +94,7 @@ Ten-second clips are too short for an FFC *interval* distribution (the Boson's i
 | label format | per-sequence json boxes |
 | sha256 | not downloaded |
 
-**Signal path.** The camera's display output through an unknown ISP, stored lossy. AGC, DDE, palette and any temporal filtering are all baked in and none of them are documented, so nothing measured here can be attributed to the sensor rather than to its ISP.
+**Signal path: `display`.** The camera's display output through an unknown ISP, stored lossy. AGC, DDE, palette and any temporal filtering are all baked in and none of them are documented, so nothing measured here can be attributed to the sensor rather than to its ISP.
 
 **May be used for:** `ffc_interval`, `agc_signature`, `dde_overshoot`, `target_size_and_scr`, `contrast_polarity`.
 
@@ -123,7 +123,7 @@ The largest infrared anti-UAV set indexed here -- 600 sequences and over 723k fr
 | label format | per-sequence json boxes |
 | sha256 | not downloaded |
 
-**Signal path.** Infrared only -- the repository states that "410 and 600 versions only contain IR videos while 300 version contains both RGB videos and IR videos", which is what makes this the largest IR set of the family rather than the largest set. Display output through an undocumented ISP, as Anti-UAV410, so AGC, DDE and any temporal filtering are baked in and nothing measured here separates the sensor from its ISP.
+**Signal path: `display`.** Infrared only -- the repository states that "410 and 600 versions only contain IR videos while 300 version contains both RGB videos and IR videos", which is what makes this the largest IR set of the family rather than the largest set. Display output through an undocumented ISP, as Anti-UAV410, so AGC, DDE and any temporal filtering are baked in and nothing measured here separates the sensor from its ISP.
 
 **May be used for:** `target_size_and_scr`, `contrast_polarity`, `agc_signature`, `cloud_clutter_psd`.
 
@@ -150,7 +150,7 @@ Indexed 2026-09-24 from the paper abstract and the repository; the frame count i
 | annotated boxes | 240000 |
 | sha256 | not downloaded |
 
-**Signal path.** Display output, as Anti-UAV410. UNVERIFIED in detail; confirm from the paper before use.
+**Signal path: `display`.** Display output, as Anti-UAV410. UNVERIFIED in detail; confirm from the paper before use.
 
 **May be used for:** `target_size_and_scr`, `contrast_polarity`, `cloud_clutter_psd`.
 
@@ -179,7 +179,7 @@ The only indexed set with per-image **range** labels, which is the one thing nee
 | thermal images | 29630 |
 | sha256 | not downloaded |
 
-**Signal path.** The camera records IR at 640x512 and 30 fps and the set stores frames sampled from that at 5 fps, so the two rates are different numbers and are carried in different fields -- an analyser must fit against the 5 fps of the file it is reading, never the camera's 30. UNVERIFIED whether the thermal frames are Y16-derived or display output. At 5 fps nothing temporal can be measured: no FFC freeze, no temporal PSD.
+**Signal path: `unknown`.** The camera records IR at 640x512 and 30 fps and the set stores frames sampled from that at 5 fps, so the two rates are different numbers and are carried in different fields -- an analyser must fit against the 5 fps of the file it is reading, never the camera's 30. UNVERIFIED whether the thermal frames are Y16-derived or display output. At 5 fps nothing temporal can be measured: no FFC freeze, no temporal PSD.
 
 **May be used for:** `target_size_and_scr`, `size_vs_range`.
 
@@ -203,7 +203,7 @@ A thousand single frames of small targets against sky, sea and land. No sequence
 | frames | 1000 |
 | sha256 | not downloaded |
 
-**Signal path.** unknown; single frames, provenance not documented per image
+**Signal path: `unknown`.** unknown; single frames, provenance not documented per image
 
 **May be used for:** `target_size_prior`, `scr_prior`.
 
@@ -226,7 +226,7 @@ As IRSTD-1k, and commonly reported alongside it, so the two are indexed together
 | frames | 427 |
 | sha256 | not downloaded |
 
-**Signal path.** unknown; single frames, provenance not documented per image
+**Signal path: `unknown`.** unknown; single frames, provenance not documented per image
 
 **May be used for:** `target_size_prior`, `scr_prior`.
 

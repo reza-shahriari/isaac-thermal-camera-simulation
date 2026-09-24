@@ -161,3 +161,46 @@ replaced pixel off the exact mean of its neighbours while flattening everyone el
 toward it, so nothing stands out from the median. The estimator goes silent rather than wrong, which
 is the behaviour to want — but it means an empty result on a lossy set is "not measurable here", and
 ME.5 must print it beside that set's codec floor rather than as a bad-pixel count of zero.
+
+## Addendum (XD.2, 2026-09-24): the 8-bit rule was the gate, and it became the obstacle
+
+This ADR's "revisit when" said: *a radiometric (16-bit, documented-sensor) public set appears*. Three
+have — MassMIND (16-bit LWIR maritime, FLIR ADK), LTIR (the only public source made of 16-bit
+*sequences*) and the FLIR ADAS pre-AGC frames (14-bit-in-16, T-linear at 0.04 K per count, so an
+11.5 mK quantisation floor under a 50 mK NETD). This is that revisit, and it changes one thing while
+deliberately keeping the rest.
+
+**What was right stays right.** Decision layer 2 refused anything but `uint8` because every indexed
+set was 8-bit and a widened dtype would have invited a claim the data could not support. That
+reasoning was never about `uint8`; it was about a claim being made by a dtype rather than by a
+person. So the refusal did not go away, it moved: `Sequence` now carries `bit_depth` and refuses a
+frame that contradicts it. The declaration is the **significant** width, not the container's, because
+FLIR's 14-bit frames ride in 16-bit TIFFs and the two differ by a factor of four in the floor they
+put under a noise figure. A frame holding a value its declared depth cannot represent is an error,
+not a wider frame.
+
+**`signal_path` became a value instead of prose.** It was accurate prose, and unreadable by anything;
+a permission list sitting beside a paragraph nobody can parse is a permission list nobody checks. The
+vocabulary is four words and closed — `display`, `recorder`, `radiometric`, `unknown` — and the prose
+survives as `signal_path_note`, which is where per-set detail belongs. The distinction that pays for
+the whole scheme is that **`unknown` is not a weaker `display`**: an undocumented path cannot be
+assumed monotone, so it cannot say whether the picture is white-hot or black-hot, and the
+measurements it supports are a strict subset.
+
+**Each measurement declares its paths, in one table, and both locks turn from it.**
+`irsim.validation.signal_path` holds every measurement name the index may use against the paths it
+may use them on, with the reason written beside each one. The index will not load if a set lists a
+measurement its own path cannot carry, and `measure_clip` records
+`<measurement>_wrong_signal_path` in `skipped` rather than quietly omitting the statistic. The
+physical content is one property: the paths that carry the ISP and the paths that carry the sensor
+are disjoint, and no path can ever satisfy both — an AGC has rewritten the frame's statistics, or
+there is no AGC in the frame to measure.
+
+**Nothing indexed is radiometric yet, and the index says so.** `usable_for("noise_3d_kelvin")`
+returns `[]` today, which is the honest state of the shelf and is pinned by a test that XD.3, XD.4
+and XD.10 will each deliberately change. The alternative — adding the sets first and the vocabulary
+afterwards — is how a permission gets granted by an entry nobody re-read.
+
+**What this does not do.** A calibrated per-pixel-temperature path (FLAME 3's Celsius) is not in the
+vocabulary. It is a different container and a different set of claims, and guessing at it in advance
+would put a word in this table with no data behind it; it lands with XD.5, which needs it.

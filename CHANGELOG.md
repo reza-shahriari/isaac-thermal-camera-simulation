@@ -6,6 +6,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A radiometric signal path, and a bit depth the sequence declares** (`XD.2`, ADR 0068 addendum).
+  `irsim_eval.data.Sequence` refused anything but 8-bit — right when every indexed set was 8-bit,
+  and by now the one thing standing between this project and the 16-bit sets it needs (MassMIND,
+  LTIR, the FLIR ADAS pre-AGC frames). The refusal moved rather than went away: a sequence carries
+  `bit_depth`, the **significant** width rather than the container's, because FLIR's ADAS frames are
+  14 bits inside a 16-bit TIFF and the two differ by a factor of four in the floor they put under a
+  noise figure. A frame holding a value its declared depth cannot represent is an error, not a wider
+  frame.
+  `signal_path` stopped being prose and became one of four words — `display`, `recorder`,
+  `radiometric`, `unknown` — with the per-set detail kept beside it as `signal_path_note`. Every
+  measurement name the index may use now declares which paths it can live on, in one table with the
+  reason written beside each entry (`irsim.validation.signal_path`, 18 measurements), and both locks
+  turn from it: `datasets.yaml` **will not load** if a set lists a measurement its own path cannot
+  carry, and `measure_clip` takes the path as a required argument and records
+  `<measurement>_wrong_signal_path` in `skipped` rather than leaving the statistic quietly missing.
+  The physical content is one property, asserted rather than tabulated: the measurements that read
+  an ISP and the measurements that read a sensor live on **disjoint** paths, because an AGC has
+  rewritten the frame's statistics or there is no AGC in the frame to measure. The second is that
+  `unknown` is not a weaker `display` — an undocumented path cannot be assumed monotone, so it
+  cannot tell white-hot from black-hot, and what it supports is a strict subset.
+  Nothing indexed is radiometric yet and the index now says so out loud:
+  `usable_for("noise_3d_kelvin")` returns `[]`, pinned by a test that `XD.3`, `XD.4` and `XD.10`
+  will each deliberately change. Manifest schema 1 → 2; sequence schema 1 → 2, and a version-1
+  sequence still reads — as 8-bit down an `unknown` path, which is exactly what such an index said.
 - **A geometry budget for imported assets** (`AI.3`, ADR 0137). `irsim.io.asset_budget` measures a
   prepared `.npz` archive engine-free and `scripts/prep_asset.py` now refuses an asset over it.
   Two budgets, because there are two questions. *Affordability*: 1,300,000 faces total and 200,000

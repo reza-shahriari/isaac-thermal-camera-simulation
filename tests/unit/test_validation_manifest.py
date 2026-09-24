@@ -14,9 +14,12 @@ import pathlib
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
+from irsim.validation.signal_path import SIGNAL_PATHS
 from irsim_eval.fetch import Action, download, plan, sha256_of, target_dir, verify
 from irsim_eval.manifest import (
+    MANIFEST_SCHEMA_VERSION,
     UNSTATED,
     Dataset,
     Manifest,
@@ -43,7 +46,8 @@ def test_every_set_records_a_licence_and_a_signal_path(manifest: Manifest) -> No
     """The ME.1 criterion. A set that cannot say what its frames are cannot be measured."""
     for name, dataset in manifest.datasets.items():
         assert dataset.licence.strip(), name
-        assert dataset.signal_path.strip(), name
+        assert dataset.signal_path in SIGNAL_PATHS, name
+        assert dataset.signal_path_note.strip(), name
         assert dataset.analysers, name
         assert dataset.why.strip(), name
 
@@ -56,7 +60,7 @@ def test_the_index_names_exactly_one_primary_set(manifest: Manifest) -> None:
     with pytest.raises(ValueError, match="exactly one primary"):
         Manifest.model_validate(
             {
-                "schema_version": 1,
+                "schema_version": MANIFEST_SCHEMA_VERSION,
                 "checked_utc": "2026-09-13",
                 "datasets": {
                     k: {**v.model_dump(exclude_none=True), "role": "primary"}
@@ -199,7 +203,11 @@ def test_a_direct_url_is_planned_as_a_download(manifest: Manifest) -> None:
     direct = manifest.datasets["halmstad_drone_detection"].model_copy(
         update={"access": "direct", "download_url": "https://example.invalid/x.zip"}
     )
-    synthetic = Manifest(schema_version=1, checked_utc="2026-09-13", datasets={"synthetic": direct})
+    synthetic = Manifest(
+        schema_version=MANIFEST_SCHEMA_VERSION,
+        checked_utc="2026-09-13",
+        datasets={"synthetic": direct},
+    )
     actions = plan(synthetic)
     assert decisions(actions) == {"synthetic": "download"}
     assert actions[0].url == "https://example.invalid/x.zip"
@@ -290,7 +298,8 @@ def test_the_readme_states_every_licence_and_signal_path(manifest: Manifest) -> 
     for name, dataset in manifest.datasets.items():
         assert f"`{name}`" in text
         assert dataset.licence in text
-        assert dataset.signal_path.strip().split("\n")[0][:40] in text.replace("\n", " ")
+        assert f"`{dataset.signal_path}`" in text
+        assert dataset.signal_path_note.strip().split("\n")[0][:40] in text.replace("\n", " ")
 
 
 def test_the_manifest_file_is_the_one_the_package_ships(manifest: Manifest) -> None:
@@ -341,7 +350,7 @@ def test_the_largest_infrared_set_is_indexed(manifest: Manifest) -> None:
     dataset = manifest.datasets["anti_uav_600"]
     assert dataset.clips == 600
     assert dataset.frames is not None and dataset.frames >= 723_000
-    assert "infrared only" in (dataset.signal_path or "").lower()
+    assert "infrared only" in dataset.signal_path_note.lower()
     biggest = max((d for d in manifest.datasets.values() if d.frames), key=lambda d: d.frames or 0)
     assert biggest is dataset, "nothing indexed should be larger"
 
@@ -371,3 +380,77 @@ def test_an_unsourced_frame_rate_is_not_written_into_the_index(manifest: Manifes
     dataset = manifest.datasets["anti_uav_410"]
     assert dataset.resolution is None
     assert dataset.frame_rate_hz is None
+
+
+# --- the signal path is a value, and the index is checked against it (XD.2) ----------------------
+
+
+def test_a_set_may_not_claim_a_measurement_its_own_path_cannot_carry(manifest: Manifest) -> None:
+    """The index refuses to load, rather than the analyser refusing weeks later.
+
+    By the time a run-time refusal fires, somebody has downloaded a set on the strength of a
+    permission this file granted and written the claim into a plan. This is the cheap end of the
+    same check.
+    """
+    display = manifest.datasets["anti_uav_410"]
+    with pytest.raises(ValidationError, match="rescales every frame on its own content"):
+        Dataset.model_validate(
+            {
+                **display.model_dump(exclude_none=True),
+                "analysers": [*display.analysers, "noise_3d"],
+                "excluded_analysers": [],
+            }
+        )
+
+    recorder = manifest.datasets["halmstad_drone_detection"]
+    with pytest.raises(ValidationError, match="no DDE in it to measure"):
+        Dataset.model_validate(
+            {**recorder.model_dump(exclude_none=True), "analysers": ["dde_overshoot"]}
+        )
+
+
+def test_a_measurement_name_that_does_not_exist_is_refused(manifest: Manifest) -> None:
+    """A typo in a permission list grants a permission to nothing, or to the wrong thing."""
+    recorder = manifest.datasets["halmstad_drone_detection"]
+    with pytest.raises(ValidationError, match="unknown measurement"):
+        Dataset.model_validate({**recorder.model_dump(exclude_none=True), "analysers": ["noise3d"]})
+    with pytest.raises(ValidationError, match="unknown measurement"):
+        Dataset.model_validate(
+            {**recorder.model_dump(exclude_none=True), "excluded_analysers": ["agc_signatures"]}
+        )
+
+
+def test_nothing_indexed_is_radiometric_yet_and_the_index_says_so(manifest: Manifest) -> None:
+    """The state of the shelf, asserted rather than assumed, because it is about to change.
+
+    Every set indexed today is 8-bit and went through a recorder, an ISP, or something nobody
+    wrote down. That is exactly why `noise_3d_kelvin` currently has nowhere to run, and it is what
+    XD.3, XD.4 and XD.10 are for. When one of them lands this test changes, deliberately -- which
+    is the point of pinning it.
+    """
+    assert manifest.with_signal_path("radiometric") == []
+    assert manifest.usable_for("noise_3d_kelvin") == []
+    assert {d.signal_path for d in manifest.datasets.values()} == {
+        "recorder",
+        "display",
+        "unknown",
+    }
+
+
+def test_the_paths_recorded_match_what_each_set_says_it_is(manifest: Manifest) -> None:
+    """One word per set, and the prose behind it has to agree -- the two are written separately."""
+    assert manifest.datasets["halmstad_drone_detection"].signal_path == "recorder"
+    assert manifest.with_signal_path("display") == ["anti_uav_410", "anti_uav_600", "cst_anti_uav"]
+    assert manifest.with_signal_path("unknown") == ["irstd_1k", "lrddv3", "nuaa_sirst"]
+    for name, dataset in manifest.datasets.items():
+        if dataset.signal_path == "unknown":
+            note = dataset.signal_path_note.lower()
+            assert "unknown" in note or "unverified" in note, name
+
+
+def test_asking_about_a_measurement_that_does_not_exist_is_an_error(manifest: Manifest) -> None:
+    """`usable_for` returning [] for a typo would read as "no set supports it", which is a lie."""
+    with pytest.raises(KeyError, match="unknown measurement"):
+        manifest.usable_for("noise_3d_kelvins")
+    with pytest.raises(ValueError, match="unknown signal path"):
+        manifest.with_signal_path("y16")  # type: ignore[arg-type]

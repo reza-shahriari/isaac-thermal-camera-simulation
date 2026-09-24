@@ -85,6 +85,15 @@ from irsim.validation.shutter import (
     line_means,
     pattern_energy,
 )
+from irsim.validation.signal_path import (
+    ANALYSERS,
+    SIGNAL_PATHS,
+    AnalyserRequirement,
+    SignalPath,
+    allows,
+    permitted_analysers,
+    require_signal_path,
+)
 
 __all__ = [
     "MEASURED_QUANTITIES",
@@ -151,4 +160,11 @@ __all__ = [
     "edge_overshoot",
     "replaced_pixel_map",
     "require_display_output",
+    "ANALYSERS",
+    "SIGNAL_PATHS",
+    "AnalyserRequirement",
+    "SignalPath",
+    "allows",
+    "permitted_analysers",
+    "require_signal_path",
 ]

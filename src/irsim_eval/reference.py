@@ -27,11 +27,14 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from irsim.validation.signal_path import SIGNAL_PATHS, SignalPath, allows
+
 __all__ = [
     "REPORT_SCHEMA_VERSION",
     "COLLAPSED_SCALE_CODES",
     "ClipMeasurement",
     "measure_clip",
+    "require_known_path",
     "Section",
     "BOOTSTRAP_RESAMPLES",
     "BOOTSTRAP_SEED",
@@ -40,6 +43,12 @@ __all__ = [
     "summarise",
     "refusal",
 ]
+
+
+def require_known_path(signal_path: str) -> None:
+    """Raise unless ``signal_path`` is one of the four words the vocabulary has."""
+    if signal_path not in SIGNAL_PATHS:
+        raise ValueError(f"unknown signal path {signal_path!r}; known: {list(SIGNAL_PATHS)}")
 
 
 def _collapsed_scale() -> float:
@@ -239,6 +248,7 @@ class ClipMeasurement:
     max_displacement_px: float
     range_ambiguity_codes: float
     flat_regions: int
+    signal_path: str = "unknown"
     skipped: tuple[str, ...] = ()
     values: dict[str, float] = field(default_factory=dict)
 
@@ -249,10 +259,18 @@ def measure_clip(
     name: str,
     fps: float,
     range_ambiguity: float,
+    signal_path: SignalPath,
     flat_size: int = 32,
     static_threshold_px: float = 1.0,
 ) -> ClipMeasurement:
-    """Run every frame-only Tier 4 analyser this clip supports.
+    """Run every frame-only Tier 4 analyser this clip's signal path supports.
+
+    ``signal_path`` has no default, for the same reason ``conversion`` has none in
+    :func:`~irsim.validation.display_signature.agc_signature` (XD.2): a default would be a claim
+    about somebody else's data made by whoever wrote this function, and the whole difficulty of
+    Tier 4 is that the claim belongs to the set. A caller that does not know writes ``"unknown"``
+    and gets the freeze count and the blockiness, which is genuinely all an undocumented file
+    supports.
 
     The order is the one the analysers themselves require and it is not interchangeable:
 
@@ -267,6 +285,11 @@ def measure_clip(
     The frame rate comes from the file, never from the index: this set's core runs at 60 Hz and its
     clips are stored at 30, and a one-pole fit at the wrong rate returns a time constant wrong by
     that factor while looking entirely plausible.
+
+    Everything the path refuses is recorded in ``skipped`` as ``<measurement>_wrong_signal_path``
+    rather than dropped. A refusal is a result here -- most of what this project learned from the
+    public data is which measurements its files cannot carry -- and a report that simply omitted
+    them would read as though the set had been measured and come out quiet.
     """
     from irsim.validation.codec import blockiness, codec_floor, flag_codec_limited
     from irsim.validation.flat import (
@@ -279,6 +302,8 @@ def measure_clip(
     from irsim.validation.shutter import find_freezes
     from irsim_eval.motion import classify_clip
 
+    require_known_path(signal_path)
+
     cube = np.asarray(frames)
     if cube.ndim != 3 or cube.shape[0] < 4:
         raise ValueError(f"{name}: need a (T, H, W) cube of at least four frames, got {cube.shape}")
@@ -287,20 +312,25 @@ def measure_clip(
     )
     values: dict[str, float] = {}
     skipped: list[str] = []
+    for measurement in ("ffc_freeze", "noise_3d", "spatial_psd", "temporal_psd"):
+        if not allows(measurement, signal_path):
+            skipped.append(f"{measurement}_wrong_signal_path")
 
     # Freezes need only frames and are the one statistic a moving clip still supports: a run of
     # identical frames is identical whether or not the camera was panning before it.
-    try:
-        freezes = find_freezes(cube, fps=fps)
-    except ValueError:
-        # `find_freezes` judges each still run against the clip's own median gap, so a clip that
-        # never changes at all has no reference to call a run still against and it refuses. That
-        # is the right answer -- such a clip is one long freeze or a recording fault, and counting
-        # it as either would be a guess -- so it is recorded as unmeasurable rather than as zero.
-        skipped.append("freeze_not_measurable")
-        freezes = []
-    else:
-        values["freeze_count"] = float(len(freezes))
+    freezes: list[Any] = []
+    if allows("ffc_freeze", signal_path):
+        try:
+            freezes = list(find_freezes(cube, fps=fps))
+        except ValueError:
+            # `find_freezes` judges each still run against the clip's own median gap, so a clip
+            # that never changes at all has no reference to call a run still against and it
+            # refuses. That is the right answer -- such a clip is one long freeze or a recording
+            # fault, and counting it as either would be a guess -- so it is recorded as
+            # unmeasurable rather than as zero.
+            skipped.append("freeze_not_measurable")
+        else:
+            values["freeze_count"] = float(len(freezes))
     if freezes:
         values["freeze_length_frames"] = float(np.mean([f.frames for f in freezes]))
         values["freeze_pattern_change"] = float(np.mean([f.pattern_change for f in freezes]))
@@ -325,7 +355,7 @@ def measure_clip(
         skipped.append("noise_floor_collapsed")
     elif not regions:
         skipped.append("no_flat_window")
-    if verdict.is_static and regions:
+    if verdict.is_static and regions and allows("noise_3d", signal_path):
         best = min(regions, key=lambda r: r.structure)
         window = cube[:, best.row : best.row + best.size, best.col : best.col + best.size]
         window = window.astype(np.float64)
@@ -343,13 +373,15 @@ def measure_clip(
         temporal = temporal_noise(window)
         values["temporal_sigma_codes"] = float(temporal.median)
         values["temporal_outlier_fraction"] = float(temporal.outlier_fraction)
-        psd = spatial_psd(window)
-        values["psd_line_fraction_kv0"] = float(psd.fraction_on_kv0())
-        values["psd_line_fraction_kh0"] = float(psd.fraction_on_kh0())
-        shape = temporal_shape(window, dt_s=1.0 / fps)
-        if shape.tau_s is not None and math.isfinite(shape.tau_s):
-            values["temporal_tau_ms"] = float(shape.tau_s * 1e3)
-        values["temporal_drift_fraction"] = float(shape.drift_fraction)
+        if allows("spatial_psd", signal_path):
+            psd = spatial_psd(window)
+            values["psd_line_fraction_kv0"] = float(psd.fraction_on_kv0())
+            values["psd_line_fraction_kh0"] = float(psd.fraction_on_kh0())
+        if allows("temporal_psd", signal_path):
+            shape = temporal_shape(window, dt_s=1.0 / fps)
+            if shape.tau_s is not None and math.isfinite(shape.tau_s):
+                values["temporal_tau_ms"] = float(shape.tau_s * 1e3)
+            values["temporal_drift_fraction"] = float(shape.drift_fraction)
     block = blockiness(cube[: min(64, cube.shape[0])].astype(np.float64))
     values["blockiness_z"] = float(max(block.z_h, block.z_v))
     return ClipMeasurement(
@@ -360,6 +392,7 @@ def measure_clip(
         max_displacement_px=float(verdict.max_displacement_px),
         range_ambiguity_codes=float(range_ambiguity),
         flat_regions=len(regions),
+        signal_path=signal_path,
         skipped=tuple(skipped),
         values=values,
     )
