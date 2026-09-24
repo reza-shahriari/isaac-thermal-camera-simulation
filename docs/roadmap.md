@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 64 open steps
+#### Then, in order — 63 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
 | 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
 
-…and 49 more — `python scripts/next_step.py --queue 40`.
+…and 48 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -665,7 +665,7 @@ requirement into an external, cited number, and it can return a negative.
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | EV.1 | ✅ **done — pooling could invert a verdict, not just blur one.** Loaders keep clip boundaries; `compare_clips` runs each whole-frame check on every (real, synthetic) mosaic pair, aggregating by **median** — stated in the note, carried as data in the JSON. | At the row's own 55-code spread the pooled composite reads **2.39 codes, a PASS**, while **0 of 36** pairs meet the 8-code target (median 17.4). Each set is also compared with **itself**: synthetic clips differ by 30 codes, so the target was unreachable. One clip a side reduces to `compare_frames` exactly. 6 cases. | — | M | X |
-| EV.2 | **Gate the real side.** `sorted(...)[:limit]` takes the first six clips alphabetically with none of the three gates the project built — `classify_clip`, flat-region, codec floor. | Measured on the same archive: 81 of 365 clips are moving (every per-pixel temporal statistic invalid on them), 306 of 365 have a robust noise scale at or below one code, and only 28 support a noise table at all. That is exactly the condition under which `noise_scale` separates the sets for reasons unrelated to the simulator. | — | M | X |
+| EV.2 | ✅ **done.** `irsim_eval.admission` runs the three gates the project already had — static, noise scale, flat window — and the loader scans until `limit` clips **pass**, not the first `limit` alphabetically. | Refusals are returned, not dropped: the report prints `N of M admitted (…)`, since "six clips" and "six of forty-one, the rest codec-flattened" are different claims. The **first** failing gate is the reason: a pan invalidates the median the window finder judges against. The synthetic side is audited by the same gate but **not** gated (EV.3 owns that). 8 cases. | — | M | X |
 | EV.3 | **Make the synthetic side admissible.** `find_flat_regions` returns `[]` for every rendered clip, so the synthetic side cannot be measured by the route the real side was measured by, in either direction. | Measured on `matched_000`: the best window has structure_ratio 1.50 against a 0.25 limit; a raw 64×64 sky window reads σ_TVH **0.329 codes** against the real set's 7.272 — about **20× too quiet**, the opposite sign to the report's headline. The gap is then stated as a number rather than as a refusal. | EV.2 | M | X |
 | EV.4 | **Permutation null for the discriminator.** The analytic `null_sigma` assumes independent patches; patches are drawn four per frame from 60 frames of 6 clips. | The report says the sets are separated "38 null standard errors from chance". At the clip level the null σ is ~0.17 and the run sits ~2.4 σ out — a **~16× overstatement**, with the caveat living in the code and not in the report. A permutation null (repeated refits on shuffled labels) absorbs the dependence and needs no new dependency. | — | M | X |
 | EV.5 | **Content-matched patch sampling.** Patches are drawn uniformly at random anywhere in the frame; the real clips are tripod shots containing ground, trees, buildings and horizon, the synthetic ones are sky-only renders. | `gradient_median` and `skew` are the 2nd and 3rd heaviest discriminator features — exactly the statistics content mismatch moves. After: patches are drawn from matched content classes and the report separates the physics question from the scene-composition question. | EV.1 | M | X |

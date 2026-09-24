@@ -88,6 +88,11 @@ def test_a_name_that_is_not_a_measurement_is_refused_not_ignored() -> None:
 
 
 def test_a_path_that_is_not_in_the_vocabulary_is_refused() -> None:
+    """A misspelt path must not read as "permits nothing", which would look like a strict gate.
+
+    `allows` answers False for an unknown path by construction, so the raising entry points are
+    what stop a typo from silently disabling every measurement at once.
+    """
     with pytest.raises(ValueError, match="unknown signal path"):
         require_signal_path("noise_3d", "y16")
     with pytest.raises(ValueError, match="unknown signal path"):

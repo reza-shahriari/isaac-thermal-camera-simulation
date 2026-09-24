@@ -30,6 +30,7 @@ from typing import Any
 import numpy as np
 
 from irsim.validation.compare import Tier4Report, Tier4Targets, compare_clips
+from irsim_eval.admission import Admission, admission_summary
 from irsim_eval.discriminator import gap_score
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -94,15 +95,26 @@ def _load_sequences(directory: pathlib.Path, limit: int | None) -> list[list[np.
     return clips
 
 
-def _load_dataset_clips(name: str, limit: int, max_frames: int) -> list[list[np.ndarray]]:
-    """Decode real clips straight out of the indexed archive -- no conversion step on disk.
+def _load_dataset_clips(
+    name: str, limit: int, max_frames: int, *, scan: int | None = None
+) -> tuple[list[list[np.ndarray]], list[Admission]]:
+    """Decode real clips out of the indexed archive **until ``limit`` of them pass the gates**.
 
     Reads exactly what ME.5 measured: the luma plane, at the rate the container states (never the
     index's), with the missing colour-range flag left alone rather than guessed at.
+
+    EV.2: this used to take the first ``limit`` members alphabetically and measure whatever they
+    turned out to be. On the reference set 81 of 365 clips are moving and 306 of 365 have a noise
+    scale at or below one code, so six-alphabetically is six clips that are most likely unusable.
+    Each is now decoded, gated (:func:`irsim_eval.admission.admit_clip`) and either kept or
+    recorded as a refusal, and the scan stops as soon as ``limit`` have been admitted. ``scan``
+    caps how many are opened looking for them, so a set with nothing usable ends rather than
+    decoding the whole archive.
     """
     import tempfile
     import zipfile
 
+    from irsim_eval.admission import admit_clip
     from irsim_eval.decode import decode_gray8
     from irsim_eval.fetch import target_dir
 
@@ -111,17 +123,46 @@ def _load_dataset_clips(name: str, limit: int, max_frames: int) -> list[list[np.
         raise SystemExit(
             f"no archive for {name}; fetch it with scripts/fetch_validation_data.py --set {name}"
         )
+    ceiling = scan if scan is not None else max(limit * 8, 40)
     clips: list[list[np.ndarray]] = []
+    verdicts: list[Admission] = []
     with zipfile.ZipFile(archives[0]) as zf:
         members = sorted(
             n for n in zf.namelist() if "/Video_IR/" in n and n.lower().endswith(".mp4")
-        )[:limit]
+        )[:ceiling]
         with tempfile.TemporaryDirectory() as tmp:
             scratch = pathlib.Path(tmp) / "clip.mp4"
             for member in members:
                 scratch.write_bytes(zf.read(member))
-                clips.append(list(decode_gray8(scratch, max_frames=max_frames)))
-    return clips
+                frames = list(decode_gray8(scratch, max_frames=max_frames))
+                short = member.rsplit("/", 1)[-1]
+                if len(frames) < 4:
+                    verdicts.append(
+                        Admission(
+                            name=short,
+                            admitted=False,
+                            reason="too_short",
+                            frames=len(frames),
+                            static=False,
+                            max_displacement_px=float("nan"),
+                            noise_scale_codes=float("nan"),
+                            flat_regions=0,
+                        )
+                    )
+                    continue
+                verdict = admit_clip(frames, name=short)
+                verdicts.append(verdict)
+                if verdict.admitted:
+                    clips.append(frames)
+                    if len(clips) >= limit:
+                        break
+    if not clips:
+        raise SystemExit(
+            f"no clip of {name} passed the Tier 4 gates in the first {len(verdicts)} examined: "
+            f"{admission_summary(verdicts)}. That is a result about the set, not an error -- see "
+            "ME.5's reference-statistics report."
+        )
+    return clips, verdicts
 
 
 def _load_frames(directory: pathlib.Path, limit: int | None) -> list[list[np.ndarray]]:
@@ -215,6 +256,18 @@ def _self_test_frames(
     return made[:clips], made[clips:]
 
 
+def _audit(clips: list[list[np.ndarray]], label: str) -> list[Admission]:
+    """Run the admission gate for information only, refusing nothing. See EV.2/EV.3."""
+    from irsim_eval.admission import admit_clip
+
+    out: list[Admission] = []
+    for index, clip in enumerate(clips):
+        if len(clip) < 4:
+            continue
+        out.append(admit_clip(clip, name=f"{label}_{index:03d}"))
+    return out
+
+
 def _run(
     real: list[list[np.ndarray]],
     synthetic: list[list[np.ndarray]],
@@ -283,15 +336,20 @@ def main(argv: list[str] | None = None) -> int:
                 "unless --self-test is given"
             )
         if args.real_from_set:
-            real = _load_dataset_clips(
+            real, admissions = _load_dataset_clips(
                 args.real_from_set, args.real_clips, args.real_frames_per_clip
             )
-            source = f"{args.real_from_set} ({args.real_clips} clips)"
+            source = f"{args.real_from_set} ({admission_summary(admissions)})"
         else:
             real = _load_frames(args.real, args.limit)
             source = str(args.real)
         synthetic = _load_frames(args.synthetic, args.limit)
         label = f"{source} vs {args.synthetic}"
+        # The same gate, measured on the synthetic side and **not** enforced there (EV.3 owns
+        # that). Gating one side and not the other would bias the comparison silently, so the
+        # asymmetry is printed instead of hidden: on rendered clips `find_flat_regions` returns
+        # nothing today, which is a fact about the renders and the thing EV.3 exists to fix.
+        synthetic_admissions = _audit(synthetic, "synthetic")
 
     report = _run(
         real,
@@ -304,6 +362,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"# Tier 4 acceptance -- {label}\n")
     print(report.as_markdown())
     print()
+    if not args.self_test:
+        print(f"Synthetic side, same gate, not enforced: {admission_summary(synthetic_admissions)}")
+        print()
     if report.failed:
         print("Where each failure points first:\n")
         for check in report.failed:

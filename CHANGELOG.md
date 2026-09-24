@@ -6,6 +6,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The Tier 4 acceptance report now gates the clips it measures** (`EV.2`). It took the first six
+  clips of the archive in alphabetical order and measured whatever they turned out to be. The
+  project had already built three gates and applied none of them here, and ME.5 had already
+  measured what that costs on the reference set: **81 of 365 clips are moving**, so every
+  per-pixel temporal statistic is invalid on them; **306 of 365 have a robust noise scale at or
+  below one code**, so the codec removed the sensor's noise and the ruler every threshold is
+  written in is the quantiser; and only **28 support a noise table at all**. Six alphabetically is
+  six clips that are, on those proportions, most likely unusable — which is exactly the condition
+  under which a discriminator separates the two sets on `noise_scale` for reasons that have
+  nothing to do with the simulator.
+  New `irsim_eval.admission` runs the three gates in the order they require — static, then the
+  noise scale, then a flat window — and the loader keeps opening clips until `limit` have
+  **passed**, rather than stopping at the sixth file. The **first** failing gate is the reason: a
+  pan has already invalidated the temporal median the window finder judges flatness against, so
+  reporting `no_flat_window` on a moving clip would name the wrong problem.
+  **A refusal is a result and is returned, not dropped.** Every verdict carries the numbers behind
+  it and the report prints `N of M clips admitted (…)`, because "six clips" and "six of forty-one,
+  the rest codec-flattened" are different claims about a sample size. The synthetic side is
+  audited by the same gate and deliberately **not** gated by it — `EV.3` owns that — so the
+  asymmetry is printed rather than applied silently to one side.
 - **The Tier 4 acceptance report stopped pooling clips into a composite image neither set
   contains** (`EV.1`). `validation_report.py` flattened every clip's frames into one list and took
   the temporal median of the whole stack, so the histogram EMD and the PSD shape ratio were
