@@ -895,6 +895,17 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   scene over the budget is refused rather than left to run for hours. `self_occluding: false`
   falls back to the analytic (1 + cos beta)/2 sky view, honest for an airframe in free air and
   wrong for the gimbal that genuinely sits in the body's shadow.
+- **A mesh whose faces carry several materials renders as one of them** (`AI.4`, ADR 0128
+  addendum). The instance-id plane carries one id per prim (ADR 0014) and the material table is
+  indexed by it, so one prim is one material however many `materialBind` subsets the asset
+  authors. The walk now reads subsets — `walk_stage(expand_subsets=True)` gives an audit one
+  record per face group, and `StageWalk.subset_meshes` names every mesh whose render will be
+  incomplete — but nothing yet splits such a mesh into prims the renderer can address, which is
+  `AI.6`. What this closes is the silence: a facade of glass, precast concrete and metal cladding
+  was previously read from Blender's slot-0 mesh binding and became entirely glass, worth
+  **1.59 K** of apparent temperature on the concrete at 300 K under a 250 K sky — 32 NETD, and no
+  error anywhere. `tests/unit/data/subset_building.usda` is the committed fixture that runs the
+  branch; before it, no asset in this repository had a subset at all.
 - **An imported asset supplies material identity and geometry, and nothing thermal** (ADR 0128).
   No asset format carries thickness, interior-vs-exterior classification, sky view factors or heat
   sources, so those stay authored by hand — `configs/assets/<name>.yaml` holds optical truth only.

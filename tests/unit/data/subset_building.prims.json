@@ -1,0 +1,38 @@
+[
+  {
+    "path": "/World/Building/Facade/glazing",
+    "material_name": "Facade_Glass_Clear",
+    "semantic_class": null,
+    "override": null
+  },
+  {
+    "path": "/World/Building/Facade/precast",
+    "material_name": "Facade_Concrete_Precast",
+    "semantic_class": null,
+    "override": null
+  },
+  {
+    "path": "/World/Building/Facade/cladding",
+    "material_name": "Facade_Metal_Cladding",
+    "semantic_class": null,
+    "override": null
+  },
+  {
+    "path": "/World/Building/Roof/felt",
+    "material_name": "Roof_Asphalt_Felt",
+    "semantic_class": null,
+    "override": null
+  },
+  {
+    "path": "/World/Building/Roof/flashing",
+    "material_name": "Roof_Alumin_Flashing",
+    "semantic_class": null,
+    "override": null
+  },
+  {
+    "path": "/World/Building/Plinth",
+    "material_name": "Plinth_Concrete_Base",
+    "semantic_class": null,
+    "override": null
+  }
+]

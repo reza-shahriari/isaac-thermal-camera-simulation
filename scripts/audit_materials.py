@@ -133,7 +133,7 @@ def _open_stage_and_walk(stage_path: pathlib.Path, root: str) -> tuple[list, obj
     app = SimulationApp(simulation_app_config())
     import omni.usd
 
-    from irsim_isaac.pipeline.materials_usd import prim_records
+    from irsim_isaac.pipeline.materials_usd import walk_stage
 
     ctx = omni.usd.get_context()
     # open_stage returns a bare bool on this build (6.1.0-rc.26), not the (ok, error) pair the
@@ -143,7 +143,24 @@ def _open_stage_and_walk(stage_path: pathlib.Path, root: str) -> tuple[list, obj
     if not ok:
         print(f"could not open {stage_path}", file=sys.stderr)
         app.close(exit_code=2)
-    return prim_records(ctx.get_stage(), root=root), app
+    # `expand_subsets=True`: an audit asks what the *asset* says, and on a mesh whose faces carry
+    # three materials the mesh-level binding is one of them at best (`AI.4`). A render driver
+    # asks the other question and takes the default, because it can transport one material per
+    # prim. The two readings are printed together so the difference is visible rather than
+    # inferred.
+    walk = walk_stage(ctx.get_stage(), root=root, expand_subsets=True)
+    if walk.subset_meshes:
+        print(
+            f"note: {len(walk.subset_meshes)} mesh(es) carry materialBind subsets and are audited "
+            f"per subset. The renderer transports one material per prim (ADR 0014), so each of "
+            f"these renders as ONE material until it is split. First: {walk.subset_meshes[0]}"
+        )
+    if walk.shadowed:
+        print(
+            f"note: {len(walk.shadowed)} of those also bind a material at the mesh level, which "
+            f"is ignored here (ADR 0128). First: {walk.shadowed[0]}"
+        )
+    return list(walk.records), app
 
 
 if __name__ == "__main__":

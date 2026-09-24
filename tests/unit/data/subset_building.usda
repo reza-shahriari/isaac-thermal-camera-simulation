@@ -1,0 +1,224 @@
+#usda 1.0
+(
+    doc = """A minimal building whose facade is ONE mesh carrying THREE materials.
+
+`AI.4`. Every asset committed to this repository before it had one material per mesh, so the
+`materialBind` subset branch of the stage walk -- `scripts/prep_asset.py` and
+`irsim_isaac.pipeline.materials_usd` -- had never run on a USD file. This is that file, hand
+authored and small enough to read: six faces of facade split into glass, precast concrete and
+metal cladding, two faces of roof split into felt and flashing, and a plinth with an ordinary
+mesh-level binding so the single-material path is exercised beside the new one.
+
+Two traps are authored on purpose.
+
+`/World/Building/Facade` carries a mesh-level binding to `Facade_Glass_Clear` **as well as** its
+subsets. Blender writes slot 0 there as a documented Hydra workaround, so a walk that reads the
+mesh binding maps 0.8 m2 of concrete and cladding as glass -- eps 0.92 and 0.90 read as a
+specular 0.84, and every pixel of the wall becomes a reflection of the sky. ADR 0128 says the
+subsets win and the mesh binding is reported, not silently preferred.
+
+`/World/Building/Scaffold` is invisible and carries subsets too. Visibility is decided before the
+subsets are read, so it contributes no records at all; a walk that reads subsets first would
+report two surfaces that are not in the picture and dilute the coverage fraction ADR 0047 gates
+on.
+
+Units are metres and the up axis is Y, matching the render stage (ADR 0133). The geometry is flat
+and unshaded: nothing here is rendered, and the file exists to be walked."""
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "World"
+{
+    def Scope "Looks"
+    {
+        def Material "Facade_Glass_Clear"
+        {
+            token outputs:surface.connect = </World/Looks/Facade_Glass_Clear/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                token outputs:surface
+            }
+        }
+
+        def Material "Facade_Concrete_Precast"
+        {
+            token outputs:surface.connect = </World/Looks/Facade_Concrete_Precast/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                token outputs:surface
+            }
+        }
+
+        def Material "Facade_Metal_Cladding"
+        {
+            token outputs:surface.connect = </World/Looks/Facade_Metal_Cladding/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                token outputs:surface
+            }
+        }
+
+        def Material "Roof_Asphalt_Felt"
+        {
+            token outputs:surface.connect = </World/Looks/Roof_Asphalt_Felt/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                token outputs:surface
+            }
+        }
+
+        def Material "Roof_Alumin_Flashing"
+        {
+            token outputs:surface.connect = </World/Looks/Roof_Alumin_Flashing/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                token outputs:surface
+            }
+        }
+
+        def Material "Plinth_Concrete_Base"
+        {
+            token outputs:surface.connect = </World/Looks/Plinth_Concrete_Base/Shader.outputs:surface>
+
+            def Shader "Shader"
+            {
+                uniform token info:id = "UsdPreviewSurface"
+                token outputs:surface
+            }
+        }
+    }
+
+    def Xform "Building"
+    {
+        # Six 1 m x 1 m faces in a row, 6 m2 of facade in one mesh and three materials across it.
+        def Mesh "Facade" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+            int[] faceVertexIndices = [0, 1, 8, 7, 1, 2, 9, 8, 2, 3, 10, 9, 3, 4, 11, 10, 4, 5, 12, 11, 5, 6, 13, 12]
+            point3f[] points = [(0, 0, 0), (1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (5, 0, 0), (6, 0, 0), (0, 1, 0), (1, 1, 0), (2, 1, 0), (3, 1, 0), (4, 1, 0), (5, 1, 0), (6, 1, 0)]
+            uniform token subdivisionScheme = "none"
+
+            # The trap: slot 0 written at the mesh level as well. The subsets win (ADR 0128).
+            rel material:binding = </World/Looks/Facade_Glass_Clear>
+
+            def GeomSubset "glazing" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [0, 1]
+                rel material:binding = </World/Looks/Facade_Glass_Clear>
+            }
+
+            def GeomSubset "precast" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [2, 3]
+                rel material:binding = </World/Looks/Facade_Concrete_Precast>
+            }
+
+            def GeomSubset "cladding" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [4, 5]
+                rel material:binding = </World/Looks/Facade_Metal_Cladding>
+            }
+        }
+
+        # Two faces, two materials, and no mesh-level binding: the clean multi-material case.
+        def Mesh "Roof" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4]
+            int[] faceVertexIndices = [0, 1, 4, 3, 1, 2, 5, 4]
+            point3f[] points = [(0, 1, 0), (1, 1, 0), (2, 1, 0), (0, 1, 1), (1, 1, 1), (2, 1, 1)]
+            uniform token subdivisionScheme = "none"
+
+            def GeomSubset "felt" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [0]
+                rel material:binding = </World/Looks/Roof_Asphalt_Felt>
+            }
+
+            def GeomSubset "flashing" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [1]
+                rel material:binding = </World/Looks/Roof_Alumin_Flashing>
+            }
+        }
+
+        # No subsets: the ordinary path, which must keep working beside the new one.
+        def Mesh "Plinth" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4]
+            int[] faceVertexIndices = [0, 1, 3, 2]
+            point3f[] points = [(0, 0, 0), (6, 0, 0), (0, 0, 1), (6, 0, 1)]
+            uniform token subdivisionScheme = "none"
+            rel material:binding = </World/Looks/Plinth_Concrete_Base>
+        }
+
+        # Invisible, and carrying subsets: visibility is decided first, so this yields nothing.
+        def Mesh "Scaffold" (
+            prepend apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            int[] faceVertexCounts = [4, 4]
+            int[] faceVertexIndices = [0, 1, 4, 3, 1, 2, 5, 4]
+            point3f[] points = [(0, 0, 2), (1, 0, 2), (2, 0, 2), (0, 2, 2), (1, 2, 2), (2, 2, 2)]
+            uniform token subdivisionScheme = "none"
+            token visibility = "invisible"
+
+            def GeomSubset "poles" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [0]
+                rel material:binding = </World/Looks/Facade_Metal_Cladding>
+            }
+
+            def GeomSubset "boards" (
+                prepend apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                uniform token elementType = "face"
+                uniform token familyName = "materialBind"
+                int[] indices = [1]
+                rel material:binding = </World/Looks/Roof_Asphalt_Felt>
+            }
+        }
+    }
+}

@@ -125,3 +125,35 @@ The tool reports any mesh where both are present.
 An asset arrives whose meshes carry real `materialBind` subsets (the prep tool handles them; no
 committed asset exercises that path yet), or when per-asset files start carrying thermal rather
 than optical truth — at which point the schema needs a section, not more top-level keys.
+
+## Addendum (`AI.4`, 2026-09-24): the subset path now runs, and the two readings are different
+
+"Revisit when an asset arrives whose meshes carry real `materialBind` subsets" was written with
+the prep tool's branch already in place and nothing to run it against. One arrived in the form of
+a committed fixture rather than a purchase: `tests/unit/data/subset_building.usda`, a building
+whose facade is *one* mesh carrying glass, precast concrete and metal cladding, with Blender's
+slot-0 mesh binding authored beside the subsets exactly as this ADR describes.
+
+Running it found that the prep tool was not the only reader. `irsim_isaac.pipeline.materials_usd`,
+the walker the render drivers and the audit both use inside Kit, did not look at subsets at all —
+so the rule "the subsets win" held on the CPU prep path and was silently reversed in the engine.
+
+The two readers want different answers, and that is the decision recorded here rather than a bug
+to fix by making them agree:
+
+* **An audit asks what the asset is.** One record per subset, the mesh-level binding ignored and
+  *reported*. `walk_stage(..., expand_subsets=True)`, which `scripts/audit_materials.py` now uses.
+* **A render driver asks what can be transported.** The instance-id plane carries one id per prim
+  (ADR 0014) and the material table is indexed by it, so one prim can only be one material. The
+  default stays one record per prim, and `StageWalk.subset_meshes` names every mesh for which that
+  answer is incomplete.
+
+Measured on the fixture, through the Boson's own band LUT with a 300 K wall under a 250 K sky:
+reading the mesh binding maps the precast concrete as glass, worth **1.59 K** of apparent
+temperature — 32 NETD — and the cladding as glass, worth **0.80 K**. Neither raises anything; the
+wall simply becomes a different substance.
+
+What is *not* fixed here is the transport half. Until a multi-material mesh is split into one prim
+per face group, a scene containing one renders it as a single material, and the audit's coverage
+figure will describe an asset the renderer cannot reproduce. The walk reports it rather than
+averaging it, because a stated gap is repairable and a quiet one is not.

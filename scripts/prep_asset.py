@@ -143,6 +143,9 @@ def _prim_records(usd_path: pathlib.Path) -> list[dict[str, object]]:
         if subsets:
             # The multi-material case. Each subset is its own record; the mesh-level binding is
             # deliberately ignored, and reported, because Blender writes slot 0 there as well.
+            # `irsim_isaac.pipeline.materials_usd.walk_stage(expand_subsets=True)` is the same
+            # reading inside Kit, and `tests/unit/data/subset_building.usda` is the fixture that
+            # runs both (`AI.4`). The two must keep agreeing; nothing but that fixture says so.
             if binding.ComputeBoundMaterial()[0]:
                 shadowed.append(str(prim.GetPath()))
             for subset in subsets:

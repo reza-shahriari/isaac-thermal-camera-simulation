@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The `materialBind` subset branch runs on a USD file for the first time** (AI.4, ADR 0128
+  addendum). `irsim_isaac.pipeline.materials_usd.walk_stage` replaces `prim_records` as the
+  primitive: it reads `GeomSubset` material assignments and returns, beside the records,
+  `subset_meshes` (a mesh whose material varies across its own faces) and `shadowed` (one that
+  also binds at the mesh level, which Blender writes as a Hydra workaround). An audit asks for
+  `expand_subsets=True` and gets one record per face group; a render driver keeps the default,
+  because an instance id is per prim and one prim can only be one material. `prim_records` keeps
+  its signature and its behaviour. `scripts/audit_materials.py` prints both readings.
+- `tests/unit/data/subset_building.usda` — the committed fixture that exercises it: a facade of
+  glass, precast concrete and metal cladding on **one** mesh, Blender's slot 0 authored beside
+  the subsets, a two-material roof, a single-material plinth and an invisible scaffold that also
+  carries subsets. No asset in this repository had a subset before it, so both readers claimed a
+  branch that had never run. Reading the mesh binding maps the concrete as glass, which is
+  **1.59 K** of apparent temperature at 300 K under a 250 K sky — 32 NETD, silently.
 - **A render reads the mesh solve per pixel, on an imported asset** (AI.2). `IrCamera` takes
   `mesh_fields=`, so `MeshPointBridge` (WM.3) finally has a caller that renders, and
   `MeshBinding.frame` names the Xform the asset is mounted by — the patch keeps the archive's own
