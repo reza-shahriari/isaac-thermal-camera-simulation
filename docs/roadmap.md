@@ -182,18 +182,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 1 | **`AI.2`** | AI | A | L | — | ready |
 | 2 | **`AI.4`** | AI | B | S | — | ready |
 | 3 | **`IG.16`** | IG | B | M | — | ready |
-| 4 | **`SE.2`** | SE | B | M | — | ready |
-| 5 | **`TC.8`** | TC | C | S | — | ready |
-| 6 | **`AT.6`** | AT | C | M | — | ready |
-| 7 | **`AT.9`** | AT | C | M | — | ready |
-| 8 | **`PT.16`** | PT | C | M | — | ready |
-| 9 | **`XD.10`** | XD | C | L | — | ready |
-| 10 | **`IG.3`** | IG | X | S | 3 | ready |
-| 11 | **`EV.5`** | EV | X | M | 3 | ready |
-| 12 | **`SC.5`** | SC | X | M | 3 | ready |
-| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 15 | **`XD.7`** | XD | X | M | 2 | ready |
+| 4 | **`TC.8`** | TC | C | S | — | ready |
+| 5 | **`AT.6`** | AT | C | M | — | ready |
+| 6 | **`AT.9`** | AT | C | M | — | ready |
+| 7 | **`PT.16`** | PT | C | M | — | ready |
+| 8 | **`XD.10`** | XD | C | L | — | ready |
+| 9 | **`IG.3`** | IG | X | S | 3 | ready |
+| 10 | **`EV.5`** | EV | X | M | 3 | ready |
+| 11 | **`SC.5`** | SC | X | M | 3 | ready |
+| 12 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 13 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 14 | **`XD.7`** | XD | X | M | 2 | ready |
+| 15 | **`AT.13`** | AT | X | S | 1 | `IG.3` |
 
 …and 47 more — `python scripts/next_step.py --queue 40`.
 
@@ -278,7 +278,7 @@ row says so and names the step that closes it.
 | **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
-| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
+| **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
 **Dependency shape.** Phase 0 blocks nothing technically but blocks *knowing what is true*, and three
 sessions share this tree. `AT.1` and `SC.1` are the two critical-priority physics defects and are
@@ -562,7 +562,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | SE.1 | ✅ **done.** `sea_envelope.py` records the 50° from-nadir limit and reports a frame's fraction beyond it, on the exact `sin θ = (1+h/R) cos δ` (90° at the horizon). Not a gate. ADR 0118. | **Measured.** Shore/mast **1.0000** outside, airborne **0.0000** inside; crossed at **31 m** from 20 m. A **wind axis** too — the 55° drop matches the published 2–3 % only to **7.3 m/s**. On depression the answer **inverts**. Identity held at ε ≡ 0.5, so it is not the test. | — | M | B |
-| SE.2 | **Maritime and illumination in-sim tests.** The maritime stage feeds water prims into `background_prim_paths` so their pixels join the sky mask and take the analytic sea profile; `illumination_isaac` fixed "every Isaac render was emission only". Both are verified engine-free only. | In-sim: the intended water prims are masked and no others; the horizon lands where the Earth-curved mesh puts it to a stated pixel count; sea apparent temperature varies monotonically with depression angle. Red today: no such file in `tests/integration/`. | — | M | B |
+| SE.2 | ✅ **done.** `test_maritime_isaac.py`: one maritime stage, four cameras — the sea declared and undeclared, and a SWIR pair with and without the illumination bundle. 6 cases. | **Measured, in-sim.** The rendered sea **is** `SeaModel`: 293.2 → 290.2 K over 0.5–25° of depression, every band within **0.5 K** of the analytic curve, monotone *down* because the slant path beats the angular emissivity. Horizon at row 72 against 71.36 from the dip, 3.6× nearer curved than flat. Undeclared, the sea reads the **200 K LUT floor** (`IG.17`). SWIR spans 10× more with the bundle. | — | M | B |
 | SE.3 | **Sea-surface temperature against ECOSTRESS SST.** The skin model shipped at `c6f98aa` has no external check. ECOSTRESS L2 carries an SST layer valid over all water. | Bias and RMSE against ECOSTRESS SST for a matched place, time and weather record, reported beside ECOSTRESS's own validation accuracy (bias −1.6 K, RMSE 3.1 K against SURFRAD) so the bar is the instrument's, not an aspiration. | XD.9 | M | B |
 
 ---
@@ -736,6 +736,7 @@ job. Several of these rows are not new features but *documented invariants that 
 | IG.14 | **One lane driver behind the six render scripts.** Measured: 281 identical lines between `render_quad_flight` and `render_aircraft_pass`, 73 % line similarity. They have already drifted — only three call `write_frame`, only one exposes `flat_field_enabled`. | Adding a lane stops meaning copying 500 lines, and a fix like IG.13 stops meaning fixing it three times. Each existing driver's output is bit-identical before and after the refactor, which is the test. | IG.13 | M | X |
 | IG.15 | **Live IR in the Isaac viewport.** The owner's standing requirement. `display_render_var` is RGBA-unorm-only, so this means publishing an 8-bit grayscale AOV (or deliberately overwriting `LdrColor`, which is the documented way to reach existing consumers). | The white-hot display stream appears in the viewport during a render, matching the written PNG to within the AGC's own quantisation. Note the hazard the SPG docs state: AOV name collisions are **silent** and the built-in shadows yours, so the `Ir*` prefix is load-bearing. | DC.1 | M | X |
 | IG.16 | **Take the Warp ISP's host readbacks off the per-frame path.** `replace_bad_pixels_warp` calls `counters.numpy()` **inside its pass loop** — a device sync per iteration to read two ints. `agc_lut_warp` pulls the whole 2^bit_depth histogram, plus a second array in plateau mode, then uploads the table. | The loop condition becomes a device flag and the LUT is built in a kernel; M10.7b's bit-exact replacement and M10.8's ±1 display code still hold. Raised by external review; both readbacks verified. | — | M | B |
+| IG.17 | **An unmapped prim is marked for the display and silent in the radiometry.** `debug_unmapped` sweeps a prim with no material into `sky_mask` so the display can paint it magenta (ADR 0047); the radiometric branch gets no marking. | `SE.2` measured the undeclared maritime water at **200.1 K** — the band LUT's floor — over 72 % of the frame. Wanted: NaN on the radiometric plane, or a raise. Red: the number is in range, in kelvin, and reads as cold water. | — | S | X |
 
 ---
 

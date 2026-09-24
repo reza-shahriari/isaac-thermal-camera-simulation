@@ -6,6 +6,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The maritime stage and the illumination bundle are tested in sim** (`SE.2`). Both were
+  verified engine-free only, and both are claims about what the *renderer* hands back rather than
+  about arithmetic on a synthetic G-buffer. `tests/integration/test_maritime_isaac.py` authors one
+  maritime stage and puts four cameras on it, because three of its claims need a control taken on
+  the same geometry. Six cases, one Kit, 31 s.
+  **The rendered sea is the analytic sea.** Apparent temperature over water falls from 293.2 K at
+  half a degree of depression to 290.2 K at twenty-five, and every band sits within **0.5 K** --
+  ten times this camera's NETD -- of `SeaModel.apparent_temperature_k` at its own mid-depression.
+  The *direction* is the part a reader does not guess: angular emissivity alone would warm the sea
+  as the ray steepens, but the slant path runs the other way and wins, so a grazing ray arrives
+  carrying mostly path radiance at 298.6 K and the near-horizon sea reads **above** the 290.0 K
+  bulk SST. A model with only the emissivity term would have the profile backwards.
+  **The horizon is the dip, not the tilt.** The sea's edge lands at row 72 where the camera's own
+  height and tilt put it at 71.36 -- and, more usefully, 3.6x nearer the curved prediction than
+  the flat one. At 20 m of eye height the two are 1.7 native pixels apart on this camera, so the
+  claim is made as a comparison rather than as a tolerance; a tolerance loose enough to be robust
+  could not separate them. The difference is a 16 km horizon against an 8 km one.
+  **Without the bundle, SWIR is black.** The same stage under the same sun spans more than ten
+  times the DN with `SceneIllumination` attached than without it, which is M10.22's claim made on
+  a rendered frame for the first time.
+- **An unmapped prim renders as a plausible number rather than an error** (`IG.17`, found by
+  `SE.2`). `debug_unmapped` is on by default and sweeps a prim with no material resolution into
+  `sky_mask`, so the display branch can paint it magenta (ADR 0047). The radiometric branch gets
+  no equivalent mark. Measured: the maritime water, rendered without being declared as background,
+  comes back at **200.1 K** over 72 % of the frame -- the band LUT's own floor, reached because
+  the prim has no thermal node and the radiance under it is essentially zero. It is in range, it
+  is in kelvin, and it reads as cold water; the mask, meanwhile, looks entirely correct, so an
+  inspection of the mask alone reports the sea correctly handled. Raised rather than fixed here:
+  the choice between NaN on the radiometric plane and a refusal is a decision, not a patch.
 - **`make check` was red on `main`, so it was not the gate.** Six defects had landed in committed
   code: `src/irsim/io/asset_parts.py` built `Component`'s `centroid`, `lo` and `hi` from generator
   expressions, which give `tuple[float, ...]` where the dataclass declares a 3-vector, and left
