@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **The specification now says that emissivity is a property of surface state, that the camera
+  applies its own assumed emissivity, and that the camera sits in the same weather as the scene.**
+  Three new sections in `docs/physics-model.md`, written with the owner's authorisation rather than
+  raised as spec issues, plus three Appendix A limitations and nine sources (`R39`-`R47`).
+  - **§4.5 Surface state.** One measurement campaign on aluminium window profiles spans
+    **0.055-0.856** across finishes of the same metal [R39], so a material file must name its
+    surface state, not just its substance. Two things that look like they predict ε and do not:
+    **visible colour** — paint emissivity is independent of pigment over ~2-12 µm, so
+    `car_paint_black` and `car_paint_white` sharing ε 0.90 and differing only in
+    `solar_absorptivity` is correct and is now held by a test (`GT.9`), not by a comment; and
+    **thickness** above a knee — computed from this repo's own n/k tables, 99 % of the emission
+    leaves the top **0.04 µm** of aluminium, 86 µm of paint, 44 µm of glass and 72 µm of water in
+    LWIR, so a 55 cm slab and a 57 cm slab are optically identical. The one real thickness effect,
+    an anodic film going 0.15 → 0.45 → 0.91 between 1, 2 and 15 µm [R40], is unobtainable from a
+    mesh and is authored as a named state instead. `thermal.thickness_m` stays heat capacity only.
+  - **§9.5 The camera is in the weather too.** §9.2 left `T_FPA` to "ambient plus power
+    dissipation" and named no convective term; a UAV LWIR camera's bias measures **−1.02 →
+    +3.86 °C across 0.8–8.5 m/s of wind** against calibrated ground truth [R44], with an
+    independent study finding ~5.5 °C of mean shift and deeper vignetting [R45]. Added as a lumped
+    camera node driven by the *same* `WeatherSeries` as the scene, feeding ADR 0016's existing
+    drift path. Stated plainly as an empirical fit that reproduces sign, magnitude and time
+    constant and is wrong in detail (Appendix A 10) — an effect present and switchable beats an
+    effect missing and invisible.
+  - **§11.5 Radiometric retrieval.** The measurement equation a real core inverts [R43], which
+    nothing in the repo did: the pipeline stopped at apparent temperature. Computed in this
+    project's own Boson band, assuming ε 0.95 on a true 0.90 reads **2.04 K low** at 300 K, 2.98 K
+    low at 330 K, and 0.01 of ε error is 0.43 K — nine times NETD, where the usual "about 1 % of
+    the reading" rule of thumb would claim ~3 K.
+  - **§16.2** now says its rows are surface states that were never written down, and points at
+    ECOSTRESS [R41] and MODIS UCSB [R42] as the replacement: §16.2 has no NIR or SWIR column, all
+    21 materials carry `ESTIMATED`, and 1 of 21 uses a spectral curve where §12.3 demands one.
+- **Six roadmap steps queue the work** — `AT.17` (surface state in the schema), `AT.18` (the
+  `*metal*` glob stops defaulting to a mirror: a 300 K housing under a 250 K sky reads 256.0 K at
+  ε 0.09 against 294.1 K at ε 0.85, **38 K apart**), `SC.15`, `SC.16`, `XD.13` and `GT.9`.
+  `AT.18` is the queue head.
+
 ### Fixed
 - **The maritime stage and the illumination bundle are tested in sim** (`SE.2`). Both were
   verified engine-free only, and both are claims about what the *renderer* hands back rather than
@@ -162,6 +199,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   side the whole thing reduces to `compare_frames` bit for bit.
 
 ### Added
+- **The parts reach the renderer: one prim is one part** (`AI.5`). The decomposition existed but
+  nothing consumed it, because the renderer binds a temperature per *prim* and in the source asset
+  a prim is a material group. Approximating was measured and rejected: only 25 of 41 prims are
+  more than 90 % a single part and those carry just **34.7 %** of the asset's area, while the prim
+  holding the battery contains **nine** parts of which the battery is 26 %. So the geometry is
+  regrouped instead. `prep_asset.py --emit-parts` now writes two artefacts beside the asset — a
+  per-part mesh archive for the solver (`irsim.io.asset_parts.split_by_part`, engine-free, reads
+  the prepared archive rather than the 60 MB FBX) and a **part-split USD** for the renderer, built
+  in background Blender by tagging every face with an integer part attribute that survives `join`
+  and `separate`, so nothing depends on face order across an operator. Measured: all **2,486,459**
+  faces preserved across **19 part prims**, the battery among them at 401 faces.
+  `render_phantom4.py`'s `TARGET_BY_MATERIAL = {"copper": "motor"}` — two thermal nodes for the
+  whole aircraft — becomes `TARGET_BY_PART`: four motors on `motor` (+45 K at full throttle), four
+  mounts on `esc` (+30 K), the pack on `battery` (+15 K), and the propellers named separately.
+  New `configs/scenes/phantom4_parts.yaml` and `configs/assets/phantom4_parts.yaml`. Framing flags
+  (`--centre-range-m` and friends) size the pass: this sensor is a 30.7° HFOV Boson 640, so the
+  464 mm aircraft spans 108 px at 5 m and 271 px at 2 m.
 - **The site presents the evidence, not a count of it** (ADR 0139, and the new
   `present-on-the-site` skill). `make site` went from 158 pages to **451**: every test file now has
   its own page listing **every test in it with what that test asserts**, read from the docstrings —
@@ -182,6 +236,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that is automatic and is really an instruction to write the docstring; a render or a clip still
   has to be named in `site/gallery.yaml`, with captions whose numbers come from that run's own
   `summary.json`.
+- **An imported asset is decomposed into real parts, and the Phantom 4's battery exists at last**
+  (`AI.5`). The asset pipeline could say what the aircraft is *made of* and not what it *is*: the
+  source model groups by material, all 41 prims are called `GeometryNode_<n>`, and one of them is
+  "all the white plastic" over 987 disconnected shells. The cost was silent and specific —
+  `configs/scenes/phantom4_pointwise.yaml` declared a `battery` heat source with a 28-minute
+  throttle schedule and bound it to **no geometry at all**, because no prim is the battery. It
+  solved a quadcopter with no battery in it and rendered a perfectly plausible aircraft.
+  New `irsim.io.asset_parts` recovers parts from **connected components** — a propeller is a
+  separate shell from the motor it bolts to even when both are the same ABS — and the
+  decomposition is authored as *data* in the asset config, so nothing in `irsim` knows what a
+  quadcopter is (the next asset is a boat). `scripts/prep_asset.py --emit-components` writes the
+  statistics inside Blender, on the CPU, booting no Kit.
+  **Measured.** 41 prims → 31,068 components → 19 parts covering **100 %** of 0.294 m²: four
+  propellers (spread 4.4 %), four motors (spread **0.0 %**), four mounts, gimbal, camera lens,
+  landing gear, arms, two shells, and the **battery** at 0.00570 m² / 401 faces / 88 × 83 × 28 mm
+  against DJI's published 88 × 78 × 35 mm. The four-fold agreement is the correctness check and it
+  needs no reference data: a mis-authored selector does not make four identical stations.
+  `PartReport.empty_parts` fails a part that matched nothing even at 100 % coverage — the unbound
+  battery, turned into a test. 19 tests, ADR 0138.
+- **Two measurements and a defect found while decomposing the Phantom 4** (`AI.5`). The asset is
+  modelled **pitched 2.93° nose-down** — a plane through the four motor cans fits with *zero*
+  residual — so the four rotor stations sit at four heights spanning 18 mm and a single global `z`
+  cut cannot separate a propeller from the motor beneath it. More seriously,
+  `scripts/render_phantom4.py`'s `NOSE_IN_ASSET = (0, -1, 0)` is **wrong by about 30°**: it was
+  derived from the gimbal camera's offset from the airframe centroid, but took only the `y`
+  component. The camera body and its `Crystal` lens elements sit at (−32, −52) mm, bearing −121°,
+  almost exactly midway between the arms at −73.7° and −163.5° — the X configuration a Phantom 4
+  has. The docstring's supporting argument fails independently: all four arms carry the same red
+  lamp in this asset, and the `Green_light` it reasoned from is a 0.07 cm² speck near the body,
+  not an arm LED. **Now corrected**: `NOSE_IN_ASSET` is the bisector of the two front arms,
+  (−0.4789, −0.8779, 0), measured from four rotor stations that are square to 0.23° and
+  equidistant to 0.6 mm — far better conditioned than one small component's centroid — with the
+  camera agreeing to 2.9° as the cross-check. `tests/unit/test_phantom4_orientation.py` re-derives
+  the nose from the geometry rather than trusting the constant, and refuses the old −Y value.
+  Every Phantom 4 clip rendered before this flew ~30° crabbed; **regenerating those outputs is a
+  deliberate act and is not done here.**
 - **MassMIND indexed — the maritime lane's first anchor, and its bit depth is not what the row
   said** (`XD.3`). The first public LWIR maritime set: 2,916 Boston Harbor images, FLIR ADK,
   NETD < 50 mK, pixel-level semantic *and* instance masks across seven classes. Its value here is
@@ -207,7 +297,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `edge_spread` are excluded with that reason recorded.
 - **A project site, generated from the repository** (`make site`, ADR 0139). `scripts/build_site.py`
   builds 157 static pages into the gitignored `_site/`: every document rendered rather than copied
-  (`docs/physics-model.md`, the roadmap, 138 ADRs, the validation reports, the changelog, README and
+  (`docs/physics-model.md`, the roadmap, every ADR, the validation reports, the changelog, README and
   CLAUDE.md), plus four pages that are **measured at build time** — the module map (231 modules with
   their own docstrings and the spec sections each cites), the configuration catalogue, the decision
   index, and a front page whose every number is counted from the tree, so none of it can go stale in
