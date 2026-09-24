@@ -6,6 +6,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The integration suite has been run** (`IG.2`). `tests/integration` -- 15 modules, one Kit per
+  session -- had never been executed on this workstation, so every `@pytest.mark.isaac` assertion
+  in the repository was a claim about a build nobody had asked. It ran on the A6000: **225 passed,
+  1 xfailed** in 2 min 19 s. `IG.2`'s own oracle holds in the real frame -- an authored wall
+  decodes onto the plane it was authored on, and a patch bound to it gathers a ramp across one
+  prim -- which is what the engine-free half could not establish, because it could not ask *this
+  build* what it delivers. The run also found that `tests/integration/conftest.py` booted
+  `SimulationApp({"headless": True})` directly rather than through `simulation_app_config()`, so
+  the suite ignored `$IRSIM_GPU` and would have picked whichever device Kit chose.
+  Three defects fell out of it, and two were stale tests rather than broken physics.
+  `test_kernels_vs_reference.py` asserted the membrane's first-frame fraction was
+  **alpha = 0.811**, the value for a 10 ms time constant, in both the `cpu` and the `cuda:0`
+  parametrisation -- but `SC.3` corrected tau to 8 ms out of [R24] and the kernel followed it to
+  **0.8755**. The assertion did not, because nothing ran it. `test_position_frame_isaac.py`'s leak
+  check took the complement of an **eroded** mask, so the one-pixel silhouette rim -- whose
+  instance id is the plate's own -- counted as radiance off the prim; the leak assertion now uses
+  the un-eroded coverage and a separate assertion keeps the rim where it belongs.
+- **The analytic point target delivers 0.7785 of its own model** (`PT.23`, found by `IG.2`). The
+  third defect is real. Summed over its own window and inverted back through the radiometry, a
+  rendered point target's excess over background is 0.7785 of `excess_radiance`'s prediction --
+  at **400, 800, 1600 and 3200 m alike**, to four figures. The first frame reads 0.8755 instead,
+  which is exactly the membrane's alpha, so the test now settles the IIR for 8 frames before
+  measuring; that removed the transient and left the shortfall, which converges by the third frame
+  and does not move afterwards. Being range- *and* position-independent rules out geometry, the
+  summation window (it is stable from half = 10 to half = 24) and cos^4 -- the four targets sit at
+  different azimuths and still agree to four figures. It is neither 0.92, the optical
+  transmittance, nor 0.800, the F/1.0 aperture-factor ratio `4F^2/(4F^2+1)`, which were the two
+  candidates worth guessing. Rather than tune a tolerance around it, the in-sim test is marked
+  `xfail(strict=True)` carrying these numbers, so fixing the chain fails the xfail and forces the
+  marker off. The bisection needs no GPU: `run_frame` takes a G-buffer and a synthetic one will do.
 - **The Tier 4 acceptance report now gates the clips it measures** (`EV.2`). It took the first six
   clips of the archive in alphabetical order and measured whatever they turned out to be. The
   project had already built three gates and applied none of them here, and ME.5 had already

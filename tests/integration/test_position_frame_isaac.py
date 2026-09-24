@@ -75,12 +75,20 @@ def frame(scene: Any) -> Any:
     reader.detach()
 
 
-def _mask_of(frame: Any, prim_path: str) -> np.ndarray:
-    """Pixels whose instance id resolves to ``prim_path``, eroded off the silhouette.
+def _mask_of(frame: Any, prim_path: str) -> tuple[np.ndarray, np.ndarray]:
+    """``(covered, interior)``: the renderer's own pixels for ``prim_path``, and those less the rim.
 
     Edge pixels of a quad straddle the geometry and the background, and a straddled position is
     neither surface. One pixel of erosion is enough and is applied to the mask, not to the
     tolerance, so the tolerance stays a physical claim.
+
+    **Both are returned because they answer different questions, and conflating them is a bug this
+    file had until it was first run (IG.2).** A claim about the *values* on the plate must use the
+    interior, or a straddled position pollutes it. A claim about what lies *off* the plate must use
+    the renderer's own coverage: the rim pixels carry the plate's instance id, so the bridge is
+    right to write the plate's temperature there, and testing `out[~interior]` called that
+    correct behaviour a leak. The un-eroded complement still catches a real leak -- a pixel the
+    renderer says is not the plate holding the plate's field -- which is the claim intended.
     """
     from irsim_isaac.pipeline.material_ids import labels_to_paths
 
@@ -95,7 +103,7 @@ def _mask_of(frame: Any, prim_path: str) -> np.ndarray:
     inner[:, :-1] &= mask[:, 1:]
     inner[:, 1:] &= mask[:, :-1]
     assert inner.sum() > 200, f"{prim_path} covers too few interior pixels: {int(inner.sum())}"
-    return inner
+    return mask, inner
 
 
 def test_the_position_plane_arrives_as_float32(frame: Any) -> None:
@@ -122,7 +130,9 @@ def test_a_rendered_plate_decodes_onto_the_plane_it_was_authored_on(
 
     rot = frame["camera_to_world"]
     expected = float(scene.camera_position[axis]) + offset
-    mask = _mask_of(frame, scene.targets[target].prim_path)
+    # The interior: this is a claim about decoded *positions*, which a straddled edge pixel
+    # would pollute. Unchanged by IG.2's fix -- only the off-prim claim needed the other one.
+    _, mask = _mask_of(frame, scene.targets[target].prim_path)
 
     world = world_positions(
         frame["aovs"].position,
@@ -198,13 +208,20 @@ def test_the_point_bridge_gathers_a_field_across_one_rendered_prim(scene: Any, f
     bridge = PointwiseTemperature([SurfaceBinding(plate.prim_path, field)])
     out = bridge.apply(flat, ids, frame["labels"], world, 1.0, strict=False)
 
-    mask = _mask_of(frame, plate.prim_path)
-    on_plate = out[mask].astype(np.float64)
+    covered, interior = _mask_of(frame, plate.prim_path)
+    on_plate = out[interior].astype(np.float64)
     assert float(on_plate.max() - on_plate.min()) > 20.0, "the plate came back flat"
-    assert np.all(out[~mask] == np.float32(300.0)), "the gather leaked off the bound prim"
+    # Off the prim as the *renderer* draws it, not as the erosion trims it: the rim carries the
+    # plate's instance id, so the plate's temperature belongs there.
+    assert np.all(out[~covered] == np.float32(300.0)), "the gather leaked off the bound prim"
+    # And the rim is not silently background either -- if erosion were hiding a real failure, the
+    # pixels it removes would have kept the untouched 300 K.
+    rim = covered & ~interior
+    assert rim.any(), "the silhouette has no rim, so the erosion proves nothing"
+    assert np.any(out[rim] != np.float32(300.0)), "the rim was not written; the gather stops short"
 
     # The ramp runs along world +X, so the temperature must rise with the decoded x, not with the
     # pixel column: the camera is pitched, and a frame error would still give a smooth gradient.
-    x = world[..., 0][mask]
+    x = world[..., 0][interior]
     lo, hi = np.percentile(x, 20.0), np.percentile(x, 80.0)
     assert float(on_plate[x > hi].mean() - on_plate[x < lo].mean()) > 15.0

@@ -505,16 +505,22 @@ def test_twenty_frame_step_tracks_the_cpu_iir(warp: Any, config_edge: Any, devic
 def test_the_first_frame_of_a_step_covers_alpha_of_it(
     warp: Any, config_edge: Any, device: str
 ) -> None:
-    """1 - e^{-dt/tau} = 0.811 at 60 Hz and tau_th = 10 ms. §9.2's "smears over roughly 0.6
+    """1 - e^{-dt/tau} = 0.8755 at 60 Hz and tau_th = 8 ms. §9.2's "smears over roughly 0.6
     frames" is tau/dt, not the extent of the smear (spec issue S8) -- one frame already covers
-    81 % of a step, and this pins the number the kernel actually applies."""
+    88 % of a step, and this pins the number the kernel actually applies.
+
+    **The constant was 0.811 until IG.2 first ran this suite.** That is the same expression at
+    tau = 10 ms, and `SC.3` corrected tau to 8 ms against [R24]'s published figure. The kernel
+    followed; this assertion did not, because nothing had executed it. It is the clearest
+    argument in the repository for running the in-sim suite on a schedule rather than when a
+    step happens to need it."""
     from irsim.detector.lowpass import alpha_for
     from irsim.pipeline import PipelineState
     from irsim_isaac.pipeline.warp_stages import detector_stage_warp
 
     fpa = config_edge.fpa
     alpha = alpha_for(fpa.frame_dt_s, fpa.thermal_time_constant_s)
-    assert alpha == pytest.approx(0.811, abs=0.002)
+    assert alpha == pytest.approx(0.8755, abs=0.002)
 
     cold, hot = _step_flux(config_edge, 295.0, 320.0)
     state = PipelineState()
