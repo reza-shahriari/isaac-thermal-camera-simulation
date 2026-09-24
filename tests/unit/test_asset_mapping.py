@@ -149,27 +149,46 @@ def test_the_shell_correction_halves_the_areal_heat_capacity(
     assert c_wrong / c_right == pytest.approx(2.0, rel=0.05)
 
 
-def test_the_motor_correction_is_an_order_of_magnitude_in_emissivity(
+def test_the_motor_housing_is_no_longer_a_mirror_by_default(
     library: MaterialLibrary, names: tuple[str, ...], phantom4: AssetMapping
 ) -> None:
-    """`*metal*` -> bare_aluminium puts eps = 0.09 on a matte housing.
+    """AT.18 closed the trap this test used to document.
 
-    At eps 0.09 a surface is a mirror: 91 % of what the camera sees is reflected sky, not the
-    part's own temperature. This is the trap `irsim_isaac/phantom3.py` already records for the
-    same component, and it is the difference between a motor that reads hot and one that reads
-    like the sky above it.
+    Until AT.18 the global `*metal*` glob put eps = 0.09 on a matte housing, and this file — like
+    `irsim_isaac/phantom3.py:249` before it — corrected it per asset. At eps 0.09 a surface is a
+    mirror: 91 % of what the camera sees is reflected sky rather than the part's own temperature.
+    The glob now resolves to the matte entry itself, so the asset map and the global rule agree
+    instead of disagreeing by an order of magnitude, and an asset that ships without a per-asset
+    file inherits the safe answer.
     """
     global_rules = load_mapping_rules(known_materials=library.names)
     prim = PrimRecord(path="/p", material_name="Metal_Matte")
 
     without = MaterialResolver(global_rules, names).resolve(prim).material
     with_asset = MaterialResolver(global_rules, names, asset=phantom4).resolve(prim).material
-    assert (without, with_asset) == ("bare_aluminium", "aircraft_aluminium_painted")
+    assert (without, with_asset) == ("aircraft_aluminium_painted", "aircraft_aluminium_painted")
+    assert float(library[without].band_properties("lwir").emissivity) > 0.85
 
-    e_wrong = library[without].band_properties("lwir").emissivity
-    e_right = library[with_asset].band_properties("lwir").emissivity
-    assert e_wrong < 0.15 and e_right > 0.85
-    assert e_right / e_wrong > 5.0
+
+def test_an_asset_may_still_assert_polished_metal(
+    library: MaterialLibrary, names: tuple[str, ...], phantom4: AssetMapping
+) -> None:
+    """AT.18 removes the *guess*, not the material.
+
+    `chrome_shiny` is the one prim on this airframe that really is polished — settled by reading
+    the shader's metallic 0.987, not by reading the name — and the per-asset file still says so.
+    The glob route can no longer reach `bare_aluminium` at all, which is the asymmetry AT.18 is
+    built on: a name is evidence, an asset file is a statement.
+    """
+    global_rules = load_mapping_rules(known_materials=library.names)
+    prim = PrimRecord(path="/p", material_name="chrome_shiny")
+
+    assert MaterialResolver(global_rules, names, asset=phantom4).resolve(prim).material == (
+        "bare_aluminium"
+    )
+    assert MaterialResolver(global_rules, names).resolve(prim).material is None
+    assert "bare_aluminium" not in {r.material for r in global_rules.patterns}
+    assert "bare_aluminium" not in set(global_rules.semantic.values())
 
 
 # ---------------------------------------------------------------------------------------------
@@ -188,7 +207,9 @@ def test_phantom4_reaches_full_coverage_where_the_global_rules_fail(
 
     bare = audit(phantom4_records, MaterialResolver(rules, names))
     assert not bare.passed
-    assert bare.coverage == pytest.approx(20 / 41, abs=1e-9)
+    # 18, not the 20 of before AT.18: `*chrome*` was removed from the global globs, so this
+    # airframe's two chrome prims are honest misses rather than silent mirrors.
+    assert bare.coverage == pytest.approx(18 / 41, abs=1e-9)
 
     mapped = audit(phantom4_records, MaterialResolver(rules, names, asset=phantom4))
     assert mapped.passed

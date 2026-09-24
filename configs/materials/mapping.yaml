@@ -7,7 +7,9 @@ mapping:
   semantic:
     car_body: car_paint_black
     vehicle: car_paint_black
-    aircraft: bare_aluminium
+    # AT.18: an aircraft is painted until someone says otherwise. Bare polished skin is
+    # rare, and guessing it wrong costs 38 K of apparent temperature (physics-model 4.5).
+    aircraft: aircraft_aluminium_painted
     drone: car_paint_black
     road: asphalt_dry
     pedestrian: human_skin
@@ -27,9 +29,16 @@ mapping:
   patterns:
     - {match: "*windshield*", material: glass_windshield}
     - {match: "*glass*", material: glass_windshield}
-    - {match: "*chrome*", material: bare_aluminium}
-    - {match: "*alumin*", material: bare_aluminium}
-    - {match: "*metal*", material: bare_aluminium}
+    # AT.18: no glob may reach a mirror. At eps 0.09 a surface reports the sky rather than
+    # itself -- 38 K on a 300 K housing under a 250 K sky -- and a material *name* is weak
+    # evidence of a polished finish: artists name a matte anodised housing "Metal". The
+    # default is therefore the matte one, chosen for its emissivity, which is the term
+    # that carries the 38 K; a steel part whose heat capacity matters wants a per-asset
+    # override anyway. `*chrome*` is gone rather than redirected: `phantom4.yaml` settled
+    # its chrome by reading the shader (metallic 0.987), not the name, and polished metal
+    # is now something an asset asserts. `audit_materials.py` enforces both halves.
+    - {match: "*alumin*", material: aircraft_aluminium_painted}
+    - {match: "*metal*", material: aircraft_aluminium_painted}
     - {match: "*white*", material: car_paint_white}
     - {match: "*paint*", material: car_paint_black}
     - {match: "*asphalt*", material: asphalt_dry}

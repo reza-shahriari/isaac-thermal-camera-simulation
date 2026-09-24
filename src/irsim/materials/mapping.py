@@ -31,7 +31,7 @@ import fnmatch
 import os
 import pathlib
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -53,6 +53,8 @@ __all__ = [
     "AuditReport",
     "MaterialResolver",
     "load_mapping_rules",
+    "MIRROR_EMISSIVITY",
+    "guessed_mirrors",
     "load_asset_mapping",
     "audit",
 ]
@@ -65,6 +67,17 @@ MAPPING_SCHEMA_VERSION = 1
 ASSET_SCHEMA_VERSION = 1
 DEFAULT_COVERAGE_THRESHOLD = 0.95  # ADR 0047
 Rule = Literal["override", "asset", "semantic", "pattern", "miss"]
+
+
+#: Below this band emissivity a surface is a mirror in the thermal infrared, not a surface: at
+#: eps 0.09 a 300 K motor housing under a 250 K sky reports 256.0 K, 38.0 K from its own
+#: temperature and some 760 x a Boson's NETD. A *guess* may not reach one -- only an explicit
+#: per-asset map or a prim override may, because those are assertions and a glob is not.
+#: docs/physics-model.md 4.5; AT.18.
+MIRROR_EMISSIVITY = 0.2
+
+#: The two rules that are assertions about a specific asset rather than inferences from a name.
+ASSERTED_RULES = frozenset({"override", "asset"})
 
 
 @dataclass(frozen=True)
@@ -309,6 +322,30 @@ class MaterialResolver:
         return [self.resolve(p) for p in prims]
 
 
+def guessed_mirrors(
+    resolutions: Iterable[Resolution],
+    emissivity: Mapping[str, float],
+    limit: float = MIRROR_EMISSIVITY,
+) -> dict[str, str]:
+    """Prims that reached a mirror by guess rather than by assertion (AT.18).
+
+    Returns ``{prim path: "<material> via <rule> <matched>"}``. A semantic class or a name glob is
+    an inference from what somebody called a thing; a per-asset map or a prim override is a
+    statement about that asset. Only the second may put a surface below ``limit``, because the
+    cost of being wrong is not symmetric: an unlabelled metal is far more often anodised or
+    painted than polished, and reading it as polished costs 38 K rather than a few tenths.
+
+    docs/physics-model.md 4.5.
+    """
+    out: dict[str, str] = {}
+    for r in resolutions:
+        if r.material is None or r.rule in ASSERTED_RULES:
+            continue
+        if emissivity.get(r.material, 1.0) < limit:
+            out[r.path] = f"{r.material} via {r.rule} {r.matched!r}"
+    return out
+
+
 @dataclass(frozen=True)
 class AuditReport:
     total: int
@@ -317,6 +354,7 @@ class AuditReport:
     misses_by_material_name: dict[str, int] = field(default_factory=dict)
     miss_paths: tuple[str, ...] = ()
     by_rule: dict[str, int] = field(default_factory=dict)
+    mirror_guesses: dict[str, str] = field(default_factory=dict)
 
     @property
     def coverage(self) -> float:
@@ -324,7 +362,13 @@ class AuditReport:
 
     @property
     def passed(self) -> bool:
-        return self.coverage >= self.threshold
+        """Coverage, *and* no prim guessed into a mirror (AT.18).
+
+        A mirror reached by a glob fails the audit outright rather than eating into the
+        coverage budget: one such prim is worth 38 K, where one unmapped prim out of a
+        hundred is worth nothing at all.
+        """
+        return self.coverage >= self.threshold and not self.mirror_guesses
 
     def render(self) -> str:
         lines = [
@@ -338,6 +382,13 @@ class AuditReport:
                 self.misses_by_material_name.items(), key=lambda kv: (-kv[1], kv[0])
             ):
                 lines.append(f"    {n:5d}  {name}")
+        if self.mirror_guesses:
+            lines.append(
+                f"  GUESSED INTO A MIRROR (eps < {MIRROR_EMISSIVITY}), which only an asset map "
+                "or an override may do:"
+            )
+            for path, why in sorted(self.mirror_guesses.items()):
+                lines.append(f"    {path}  ->  {why}")
         lines.append(
             "  RESULT: " + ("PASS" if self.passed else "FAIL -- add mapping rules or overrides")
         )
@@ -345,8 +396,17 @@ class AuditReport:
 
 
 def audit(
-    prims: Iterable[PrimRecord], resolver: MaterialResolver, threshold: float | None = None
+    prims: Iterable[PrimRecord],
+    resolver: MaterialResolver,
+    threshold: float | None = None,
+    emissivity: Mapping[str, float] | None = None,
 ) -> AuditReport:
+    """Coverage against the rules, plus the AT.18 mirror check when ``emissivity`` is given.
+
+    ``emissivity`` maps material name to its band emissivity, for the band being audited.
+    Omitting it keeps the pre-AT.18 coverage-only report, which is what a caller with no
+    material library to hand can still produce.
+    """
     thr = resolver.rules.coverage_threshold if threshold is None else float(threshold)
     prims = list(prims)
     resolutions = resolver.resolve_all(prims)
@@ -357,6 +417,7 @@ def audit(
         total=len(prims),
         mapped=sum(1 for r in resolutions if r.mapped),
         threshold=thr,
+        mirror_guesses=({} if emissivity is None else guessed_mirrors(resolutions, emissivity)),
         misses_by_material_name=dict(grouped),
         miss_paths=tuple(p.path for p in misses),
         by_rule={str(k): int(v) for k, v in by_rule.items()},

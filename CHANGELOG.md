@@ -43,6 +43,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `AT.18` is the queue head.
 
 ### Fixed
+- **A name glob can no longer decide that a surface is a mirror** (`AT.18`). `*metal*` and
+  `*alumin*` resolved to `bare_aluminium`, and so did the `aircraft` semantic class — so any
+  imported airframe or vehicle whose artist called a part "Metal" got ε 0.09 and reported the
+  **sky** instead of itself. **Measured: a 300 K motor housing under a 250 K sky reads 40.1 K
+  apart** on a 7.5–13.5 µm top-hat between ε 0.09 and ε 0.90 (38.0 K on the Boson's own
+  response) — 800 × NETD, and the low-ε surface's apparent temperature sits nearer the sky's than
+  its own. `irsim_isaac/phantom3.py:249` and both phantom4 asset files already recorded this trap
+  and corrected it by hand, per asset, in a comment; the fix is now structural.
+  - The metal globs and the `aircraft` class point at the matte entry, chosen for its emissivity
+    because that is the term carrying the 40 K. `*chrome*` is **deleted** rather than redirected:
+    `phantom4.yaml` settled its chrome by reading the shader's `metallic 0.987`, not the name, so
+    polished metal is now something an asset asserts. The Phantom 4's bare coverage falls
+    **48.8 % → 43.9 %** as a result, which is the point — its two chrome prims are honest misses
+    instead of silent mirrors.
+  - `audit(…, emissivity=)` fails any prim that reaches ε < `MIRROR_EMISSIVITY` (0.2) through a
+    glob or a semantic class. Only a per-asset map or a prim override may, because those are
+    statements about a specific asset and a name is an inference from what somebody called a
+    thing. One such prim fails the audit outright rather than eating the coverage budget: it is
+    worth 40 K where one unmapped prim in a hundred is worth nothing. Omitting `emissivity=`
+    keeps the old coverage-only report for a caller with no library to hand.
 - **The maritime stage and the illumination bundle are tested in sim** (`SE.2`). Both were
   verified engine-free only, and both are claims about what the *renderer* hands back rather than
   about arithmetic on a synthetic G-buffer. `tests/integration/test_maritime_isaac.py` authors one

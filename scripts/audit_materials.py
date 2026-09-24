@@ -100,7 +100,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         from irsim_isaac.pipeline.materials_usd import dump_prim_records
 
         print(f"wrote {dump_prim_records(records, args.dump_prims)}")
-    report = audit(records, MaterialResolver(rules, names, asset=asset), args.threshold)
+    # AT.18: the audit also fails when a *glob* reaches a mirror, so it needs the band
+    # emissivity of every material the rules can name.
+    emissivity = {
+        name: float(library[name].band_properties(args.band).emissivity) for name in library.names
+    }
+    report = audit(
+        records,
+        MaterialResolver(rules, names, asset=asset),
+        args.threshold,
+        emissivity=emissivity,
+    )
     print(report.render())
     status = 0 if report.passed else 1
     if app is not None:

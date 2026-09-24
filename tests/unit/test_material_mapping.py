@@ -31,12 +31,12 @@ def resolver() -> MaterialResolver:
 
 
 def test_precedence_override_semantic_pattern_miss(resolver: MaterialResolver) -> None:
-    r = resolver.resolve(PrimRecord("/W/a", "Chrome_Trim", "car_body", "glass_windshield"))
+    r = resolver.resolve(PrimRecord("/W/a", "Rust_Trim", "car_body", "glass_windshield"))
     assert (r.material, r.rule) == ("glass_windshield", "override")
-    r = resolver.resolve(PrimRecord("/W/b", "Chrome_Trim", "car_body"))
+    r = resolver.resolve(PrimRecord("/W/b", "Rust_Trim", "car_body"))
     assert (r.material, r.rule, r.matched) == ("car_paint_black", "semantic", "car_body")
-    r = resolver.resolve(PrimRecord("/W/c", "Chrome_Trim", "unknown_class"))
-    assert (r.material, r.rule, r.matched) == ("bare_aluminium", "pattern", "*chrome*")
+    r = resolver.resolve(PrimRecord("/W/c", "Rust_Trim", "unknown_class"))
+    assert (r.material, r.rule, r.matched) == ("rusted_steel", "pattern", "*rust*")
     r = resolver.resolve(PrimRecord("/W/d", "Mystery_Mat_07", None))
     assert r.material is None and r.material_id == UNMAPPED_MATERIAL_ID and r.rule == "miss"
     assert r in resolver.misses and not r.mapped
@@ -48,7 +48,10 @@ def test_precedence_override_semantic_pattern_miss(resolver: MaterialResolver) -
 
 def test_named_cases(resolver: MaterialResolver) -> None:
     assert resolver.resolve(PrimRecord("/W/g", "Windshield_Glass")).material == "glass_windshield"
-    assert resolver.resolve(PrimRecord("/W/h", "Chrome_Trim")).material == "bare_aluminium"
+    # AT.18: a name glob may not reach a mirror -- "Metal" is far more often matte than polished.
+    assert resolver.resolve(PrimRecord("/W/h", "Metal_Matte")).material == (
+        "aircraft_aluminium_painted"
+    )
     assert resolver.resolve(PrimRecord("/W/i", "Car_Paint_Red")).material == "car_paint_black"
     assert resolver.resolve(PrimRecord("/W/j", "PAINT_WHITE_gloss")).material == "car_paint_white"
     miss = resolver.resolve(PrimRecord("/W/k", "Mystery_Mat_07"))
@@ -64,8 +67,8 @@ def test_ids_stable_and_equal_to_the_packed_table(resolver: MaterialResolver) ->
         load_mapping_rules(), MaterialTable.from_library(MaterialLibrary.load(), "lwir").names
     )
     assert (
-        again.resolve(PrimRecord("/x", "Chrome_Trim")).material_id
-        == resolver.resolve(PrimRecord("/x", "Chrome_Trim")).material_id
+        again.resolve(PrimRecord("/x", "Metal_Housing")).material_id
+        == resolver.resolve(PrimRecord("/x", "Metal_Housing")).material_id
     )
 
 
@@ -73,7 +76,7 @@ def _ten_prims() -> list[PrimRecord]:
     names = [
         "Car_Paint_Red",
         "Windshield_Glass",
-        "Chrome_Trim",
+        "Metal_Housing",
         "Road_Asphalt",
         "Skin_Face",
         "Paint_Blue",

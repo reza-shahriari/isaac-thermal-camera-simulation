@@ -1,17 +1,21 @@
 # DJI Phantom 4 Pro, as the third-party FBX in `3d_models/` carries it (ADR 0128).
 # Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py`.
 #
-# **Why this file exists at all.** The global globs in `configs/materials/mapping.yaml` map 20 of
-# this asset's 41 prims -- 48.8 %, below ADR 0047's 95 % gate -- and two of the twenty they *do*
+# **Why this file exists at all.** The global globs in `configs/materials/mapping.yaml` map 18 of
+# this asset's 41 prims -- 43.9 %, below ADR 0047's 95 % gate -- and one of the eighteen they *do*
 # map, they map wrongly for an aircraft:
 #
 #   * `*white*` -> `car_paint_white` is right for a car park and wrong here. This shell is moulded
 #     ABS, not paint on steel: 2205 against 4399 J m^-2 K^-1, so the real surface swings about
 #     twice as fast as the global rule would predict. `abs_plastic_white` exists for exactly this.
-#   * `*metal*` -> `bare_aluminium` puts eps = 0.09 on the motor housings, which makes them read as
-#     *reflected sky* rather than as their own temperature. `irsim_isaac/phantom3.py:249` already
-#     records this trap for the same part on the previous airframe; this file follows that
-#     precedent rather than rediscovering it.
+#
+# The second correction this file used to make is now in the globs themselves. `*metal*` ->
+# `bare_aluminium` put eps = 0.09 on the motor housings, which made them read as *reflected sky*
+# rather than as their own temperature -- 38 K on a 300 K housing under a 250 K sky, and the trap
+# `irsim_isaac/phantom3.py:249` records for the same part on the previous airframe. AT.18 pointed
+# the metal globs at the matte entry and deleted `*chrome*` outright, so the default is safe and
+# polished metal is something an asset asserts. The `Metal_Matte` lines below now agree with the
+# global rule instead of correcting it, and `chrome_shiny` is that assertion.
 #
 # **How the ambiguous names were settled.** Not by reading them. Each source material's Principled
 # BSDF was dumped (base colour, alpha, metallic) and the decision made from that, because names in
