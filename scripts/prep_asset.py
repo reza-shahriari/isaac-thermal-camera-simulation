@@ -327,6 +327,121 @@ def emit_meshes(
     return {"prims": len(manifest), "faces": total_faces, "area_m2": total_after}
 
 
+def _connected_roots(n_vertices: int, edges: Any) -> Any:
+    """Union-find over an edge list: the shell id of every vertex.
+
+    Lifted out of :func:`emit_components` rather than nested in its loop, because a closure over a
+    loop variable is the classic way to have every iteration share one array.
+    """
+    import numpy as np
+
+    parent = np.arange(n_vertices)
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = int(parent[x])
+        return int(x)
+
+    for a, b in edges:
+        ra, rb = find(int(a)), find(int(b))
+        if ra != rb:
+            parent[ra] = rb
+    return np.array([find(i) for i in range(n_vertices)])
+
+
+def emit_components(out_path: pathlib.Path) -> dict[str, object]:
+    """Write per-connected-component statistics for the whole asset.
+
+    A **component** is one connected shell of the mesh -- the unit a part decomposition is built
+    from (:mod:`irsim.io.asset_parts`). The source asset groups by material, so a prim is not a
+    part: the Phantom 4's 41 prims split into 31,068 components, and it is the components that
+    line up with real hardware. A propeller is a separate shell from the motor it bolts to even
+    when both are "white plastic", and that is the only reason parts are recoverable at all.
+
+    Measured **before** the planar dissolve, so the statistics describe the asset as imported and
+    do not shift when ``--dissolve-deg`` changes. Bounds come from the vertices under the object's
+    world matrix, never from ``bound_box`` -- that is a *local* box, and re-taking min/max over its
+    eight transformed corners inflates the Phantom 4 from 41 x 46 cm to 60 x 62.
+
+    ``scale_to_metres`` has already been applied by :func:`_rescale`, so everything here is metres
+    in the asset's own frame -- the frame the part selectors are authored in.
+    """
+    import bpy
+    import numpy as np
+
+    components: list[dict[str, object]] = []
+    for obj in sorted((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: o.name):
+        me = obj.data
+        if not len(me.polygons):
+            continue
+        nv = len(me.vertices)
+        co = np.empty(nv * 3, dtype=np.float64)
+        me.vertices.foreach_get("co", co)
+        co = co.reshape(nv, 3)
+        world = np.asarray(obj.matrix_world)
+        co = (world @ np.c_[co, np.ones(nv)].T).T[:, :3]
+
+        ne = len(me.edges)
+        ev = np.empty(ne * 2, dtype=np.int64)
+        me.edges.foreach_get("vertices", ev)
+        ev = ev.reshape(ne, 2)
+        roots = _connected_roots(nv, ev)
+
+        # Every vertex of a polygon is in the same shell, so one vertex per polygon identifies
+        # it. Read through the loops rather than `polygons.foreach_get("vertices", ...)`, which
+        # needs a flat buffer whose length depends on the polygon sizes -- n-gons and triangles
+        # cannot share one call, and an asset may carry both.
+        npoly = len(me.polygons)
+        starts = np.empty(npoly, dtype=np.int64)
+        me.polygons.foreach_get("loop_start", starts)
+        loops = np.empty(len(me.loops), dtype=np.int64)
+        me.loops.foreach_get("vertex_index", loops)
+        first = loops[starts]
+
+        areas = np.empty(npoly, dtype=np.float64)
+        me.polygons.foreach_get("area", areas)
+        mats = np.empty(npoly, dtype=np.int64)
+        me.polygons.foreach_get("material_index", mats)
+        slots = [ms.material.name if ms.material else None for ms in obj.material_slots]
+
+        face_root = roots[first]
+        vert_root = roots
+        for root in np.unique(face_root):
+            fm = face_root == root
+            pts = co[vert_root == root]
+            if not len(pts):
+                continue
+            by_material: dict[str, float] = {}
+            for idx, a in zip(mats[fm], areas[fm], strict=True):
+                name = slots[idx] if 0 <= idx < len(slots) else None
+                if name is None:
+                    continue
+                by_material[name] = by_material.get(name, 0.0) + float(a)
+            dominant = max(by_material.items(), key=lambda kv: kv[1])[0] if by_material else None
+            components.append(
+                {
+                    "index": len(components),
+                    "faces": int(fm.sum()),
+                    "area_m2": float(areas[fm].sum()),
+                    "centroid": [float(v) for v in pts.mean(axis=0)],
+                    "lo": [float(v) for v in pts.min(axis=0)],
+                    "hi": [float(v) for v in pts.max(axis=0)],
+                    "material_name": dominant,
+                }
+            )
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(components), encoding="utf-8")
+    total_area = sum(float(c["area_m2"]) for c in components)
+    total_faces = sum(int(c["faces"]) for c in components)
+    print(
+        f"wrote {out_path} ({len(components):,} components, "
+        f"{total_faces:,} faces, {total_area:.5f} m2)"
+    )
+    return {"components": len(components), "faces": total_faces, "area_m2": total_area}
+
+
 def total_error_signed(before: float, after: float) -> float:
     return 0.0 if before == 0.0 else after / before - 1.0
 
@@ -340,6 +455,7 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--out-prims", type=pathlib.Path, required=True)
     ap.add_argument("--scale", type=float, required=True)
     ap.add_argument("--out-meshes", type=pathlib.Path, default=None)
+    ap.add_argument("--out-components", type=pathlib.Path, default=None)
     ap.add_argument("--dissolve-deg", type=float, default=5.0)
     ap.add_argument("--max-area-error", type=float, default=0.02)
     args = ap.parse_args(list(argv))
@@ -363,6 +479,8 @@ def run_worker(argv: Sequence[str]) -> int:
     args.out_prims.write_text(json.dumps(records, indent=1), encoding="utf-8")
     print(f"wrote {args.out_usd}")
     print(f"wrote {args.out_prims} ({len(records)} prim records)")
+    if args.out_components is not None:
+        emit_components(args.out_components)
     if args.out_meshes is not None:
         emit_meshes(args.out_meshes, args.dissolve_deg, args.max_area_error)
     return 0

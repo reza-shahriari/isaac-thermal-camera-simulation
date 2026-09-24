@@ -38,6 +38,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from irsim.io.asset_parts import PartsConfig
 from irsim.materials.table import UNMAPPED_MATERIAL_ID, UNMAPPED_NAME
 
 __all__ = [
@@ -150,12 +151,20 @@ class AssetMapping(_Frozen):
     ``scale_to_metres`` records the factor the source units need. It is metadata for the prep tool
     and the reviewer, not something the resolver applies; it lives here because it is a fact about
     this asset that would otherwise be known only to whoever ran the importer once.
+
+    ``parts`` is the asset's **functional** decomposition -- propellers, motors, the battery --
+    and is independent of ``materials``, which is its *compositional* one. The two answer different
+    questions and neither derives from the other: "the white plastic" is one material and four
+    propellers plus two shells, while "the battery" is one part that shares its moulding compound
+    with half the aircraft. An asset with no ``parts`` block behaves exactly as before.
+    See :mod:`irsim.io.asset_parts`.
     """
 
     name: str = Field(min_length=1)
     source_file: str | None = None
     scale_to_metres: float = Field(default=1.0, gt=0.0)
     materials: dict[str, str] = Field(default_factory=dict)
+    parts: PartsConfig | None = None
 
     @field_validator("materials")
     @classmethod
