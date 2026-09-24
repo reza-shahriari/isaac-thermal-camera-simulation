@@ -17,9 +17,14 @@ one or the other; averaging them yields material 3 or 4, which is a different su
 why the id path is nearest-neighbour everywhere and why anti-aliasing happens by supersampling the
 ids and filtering **radiance** afterwards (ADR 0014), never by filtering the ids themselves.
 
-**The miss is loud.** An unresolved prim keeps id 0 (``UNMAPPED``) rather than a plausible default
-emissivity, and :func:`overlay_unmapped` paints those pixels magenta in the display branch so a
-forgotten prim is visible rather than merely wrong (ADR 0047).
+**The miss is loud, in both branches.** An unresolved prim keeps id 0 (``UNMAPPED``) rather than
+a plausible default emissivity, :func:`overlay_unmapped` paints those pixels magenta in the display
+branch, and :func:`mark_unmapped_radiometry` writes NaN over them on the planes that claim physical
+units (ADR 0047, `IG.17`). Until the second of those the marking was a *picture* only: `SE.2`
+measured an undeclared sea reading **200.1 K** -- the band LUT's own floor, where an apparent
+temperature lands when the radiance under it is nearly zero -- across 72 % of a frame, while the
+mask beside it looked entirely correct. A number in kelvin and in range reads as cold water, not as
+an absence of physics.
 """
 
 from __future__ import annotations
@@ -36,6 +41,8 @@ from irsim.materials.table import UNMAPPED_MATERIAL_ID
 __all__ = [
     "MAGENTA_RGBA",
     "BACKGROUND_INSTANCE_ID",
+    "fold_mask_to_native",
+    "mark_unmapped_radiometry",
     "labels_to_paths",
     "labels_from_payload",
     "material_id_plane",
@@ -151,6 +158,46 @@ def unmapped_mask(material_id: Any, sky_mask: Any | None = None) -> NDArray[np.b
     if sky_mask is not None:
         mask &= ~np.asarray(sky_mask, dtype=bool)
     return np.asarray(mask, dtype=np.bool_)
+
+
+def fold_mask_to_native(mask: Any, supersample: int) -> NDArray[np.bool_]:
+    """A k x k G-buffer mask folded onto the detector grid, marking a pixel if **any** sample is.
+
+    Ids are never interpolated, so a native pixel covering four samples covers up to four prims,
+    and one unmapped sample is enough to make the pixel's radiance partly invented. Over-reporting
+    a forgotten prim is the only safe direction: the alternative hides one behind three good
+    samples, and a pixel that is three quarters physics and one quarter nothing is not a
+    measurement of anything.
+    """
+    arr = np.asarray(mask, dtype=bool)
+    k = int(supersample)
+    if k <= 1:
+        return np.asarray(arr, dtype=np.bool_)
+    h, w = arr.shape[0] // k, arr.shape[1] // k
+    folded = arr[: h * k, : w * k].reshape(h, k, w, k).any(axis=(1, 3))
+    return np.asarray(folded, dtype=np.bool_)
+
+
+def mark_unmapped_radiometry(plane: Any, mask: Any) -> NDArray[np.float32]:
+    """``plane`` with NaN written over the masked pixels, as float32 (`IG.17`, ADR 0047).
+
+    NaN rather than a sentinel kelvin. Every plausible sentinel -- 0 K, the LUT's 200 K floor,
+    -999 -- is either a temperature something downstream will average or a value some consumer
+    clips back into range, and this plane's whole job is to be *unusable* where the physics is
+    absent. NaN is the one value that propagates through a mean, fails a comparison and shows up
+    in a writer's finite check, which is exactly the behaviour wanted: a frame containing
+    unmapped geometry is not a measurement of that geometry, and nothing should be able to
+    average it into one by accident.
+
+    A caller that wants the number anyway still has it: the mask is returned beside the frame, and
+    ``debug_unmapped=False`` raises instead of marking.
+    """
+    out = np.array(plane, dtype=np.float32, copy=True)
+    marked = np.asarray(mask, dtype=bool)
+    if marked.shape != out.shape[: marked.ndim]:
+        raise ValueError(f"mask {marked.shape} does not fit a plane of {out.shape}")
+    out[marked] = np.float32("nan")
+    return out
 
 
 def overlay_unmapped(

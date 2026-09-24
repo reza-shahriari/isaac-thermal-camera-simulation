@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.16` is phase B, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 63 open steps
+#### Then, in order — 62 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`XD.7`** | XD | X | M | 2 | ready |
 | 15 | **`IG.4`** | IG | X | S | 1 | ready |
 
-…and 48 more — `python scripts/next_step.py --queue 40`.
+…and 47 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -741,7 +741,7 @@ job. Several of these rows are not new features but *documented invariants that 
 | IG.14 | **One lane driver behind the six render scripts.** Measured: 281 identical lines between `render_quad_flight` and `render_aircraft_pass`, 73 % line similarity. They have already drifted — only three call `write_frame`, only one exposes `flat_field_enabled`. | Adding a lane stops meaning copying 500 lines, and a fix like IG.13 stops meaning fixing it three times. Each existing driver's output is bit-identical before and after the refactor, which is the test. | IG.13 | M | X |
 | IG.15 | **Live IR in the Isaac viewport.** The owner's standing requirement. `display_render_var` is RGBA-unorm-only, so this means publishing an 8-bit grayscale AOV (or deliberately overwriting `LdrColor`, which is the documented way to reach existing consumers). | The white-hot display stream appears in the viewport during a render, matching the written PNG to within the AGC's own quantisation. Note the hazard the SPG docs state: AOV name collisions are **silent** and the built-in shadows yours, so the `Ir*` prefix is load-bearing. | DC.1 | M | X |
 | IG.16 | **Take the Warp ISP's host readbacks off the per-frame path.** `replace_bad_pixels_warp` calls `counters.numpy()` **inside its pass loop** — a device sync per iteration to read two ints. `agc_lut_warp` pulls the whole 2^bit_depth histogram, plus a second array in plateau mode, then uploads the table. | The loop condition becomes a device flag and the LUT is built in a kernel; M10.7b's bit-exact replacement and M10.8's ±1 display code still hold. Raised by external review; both readbacks verified. | — | M | B |
-| IG.17 | **An unmapped prim is marked for the display and silent in the radiometry.** `debug_unmapped` sweeps a prim with no material into `sky_mask` so the display can paint it magenta (ADR 0047); the radiometric branch gets no marking. | `SE.2` measured the undeclared maritime water at **200.1 K** — the band LUT's floor — over 72 % of the frame. Wanted: NaN on the radiometric plane, or a raise. Red: the number is in range, in kelvin, and reads as cold water. | — | S | X |
+| IG.17 | ✅ **done.** `mark_unmapped_radiometry` writes NaN over unmapped pixels on `radiance` and `apparent_t`, beside the magenta the display already got; `fold_mask_to_native` marks a detector pixel when **any** of its k×k samples was unmapped. NaN rather than a sentinel kelvin: every sentinel is a number something averages. | **Measured.** `SE.2`'s undeclared sea read **200.1 K** over 72 % of the frame, in range and in kelvin; it is now wholly NaN, and the declared run beside it stays finite and warm. 5 engine-free tests, 6 in Kit. | — | S | X |
 
 ---
 

@@ -11,7 +11,8 @@ prim                 authored                              expected material    
                      ``thermal:material`` override
 ``Road``             semantic class ``road``, material      ``asphalt_dry``              semantic
                      name that matches no pattern
-``Trim``             material ``Chrome_Trim``               ``bare_aluminium``           pattern
+``Trim``             material ``Chrome_Trim`` **and** a     ``bare_aluminium``           override
+                     ``thermal:material`` override
 ``Mystery``          nothing bound at all                   UNMAPPED (id 0)              miss
 ===================  ====================================  ===========================  ==========
 
@@ -19,6 +20,12 @@ prim                 authored                              expected material    
 glob would claim it; the override must win, because that is what lets one wrong prim be fixed in
 the asset without editing rules that apply to every scene. ``Mystery`` is the other: an asset
 prim nobody remembered to map must stay a loud UNMAPPED, never acquire a plausible emissivity.
+
+``Trim`` is a mirror **by assertion**, not by name (`AT.18`). Its material is still called
+``Chrome_Trim``, and that name now resolves to nothing at all: no glob may reach a mirror, since
+eps 0.09 makes a surface report the sky instead of itself and a name is weak evidence of a
+polished finish. The prim therefore carries the same ``thermal:material`` override ``Window``
+does, which is what an asset that really is polished has to do.
 
 docs/physics-model.md §13.3; roadmap M10.2; ADR 0047.
 """
@@ -47,7 +54,13 @@ EXPECTED: dict[str, tuple[str | None, str | None, str | None, str | None, str]] 
     "Body": ("Car_Paint_Red", None, None, "car_paint_black", "pattern"),
     "Window": ("Glass_Clear", None, "bare_aluminium", "bare_aluminium", "override"),
     "Road": ("Unknown_Surface_7", "road", None, "asphalt_dry", "semantic"),
-    "Trim": ("Chrome_Trim", None, None, "bare_aluminium", "pattern"),
+    # `AT.18`: `Trim` reached `bare_aluminium` through a `*chrome*` glob until that glob was
+    # deleted, because a *name* is weak evidence of a polished finish -- artists call a matte
+    # anodised housing "Metal", and at eps 0.09 a surface reports the sky rather than itself,
+    # 38 K on a 300 K housing under a 250 K one. Polished metal is now something an asset
+    # asserts, so this prim asserts it, and in doing so exercises that rule rather than the
+    # rule AT.18 removed. `Body` still carries the pattern rung.
+    "Trim": ("Chrome_Trim", None, "bare_aluminium", "bare_aluminium", "override"),
     "Mystery": (None, None, None, None, "miss"),
 }
 

@@ -112,8 +112,10 @@ from irsim_isaac.pipeline.gbuffer_isaac import (
 )
 from irsim_isaac.pipeline.illumination_isaac import SceneIllumination
 from irsim_isaac.pipeline.material_ids import (
+    fold_mask_to_native,
     labels_from_payload,
     labels_to_paths,
+    mark_unmapped_radiometry,
     material_id_plane,
     overlay_unmapped,
     unmapped_mask,
@@ -1112,18 +1114,35 @@ class IrCamera:
         outputs = run_frame(
             planes, self.config, self.state, self.point_targets(), self.rotor_veils()
         )
-        overlay = (
-            self.debug_unmapped
-            and outputs.display8 is not None
-            and self._last is not None
-            and bool(self._last.unmapped.any())
-        )
-        if overlay:
-            assert outputs.display8 is not None and self._last is not None  # narrowed by `overlay`
-            outputs = replace(
-                outputs,
-                display8=self._downsample_mask_overlay(outputs.display8, self._last.unmapped),
-            )
+        marked = self.debug_unmapped and self._last is not None and bool(self._last.unmapped.any())
+        if marked:
+            assert self._last is not None  # narrowed by `marked`
+            native = self._native_unmapped(self._last.unmapped)
+            # `IG.17`: the radiometric planes are marked too, and this is the half that was
+            # missing. Before it, the marking was a *display* artefact: an unmapped prim was
+            # painted magenta in the picture and handed to the radiometric branch as geometry
+            # with eps = 1 against whatever temperature it happened to carry, which for a prim
+            # with no thermal node is essentially none. `SE.2` measured an undeclared sea at
+            # **200.1 K** -- the band LUT's own lower bound, where an apparent temperature lands
+            # when the radiance under it is nearly zero -- across 72 % of a frame. That is a
+            # number, in kelvin, in range, and it reads as cold water rather than as an error, so
+            # an inspection that checks the mask reports the sea correctly handled.
+            #
+            # NaN rather than a sentinel kelvin: every plausible sentinel (0 K, 200 K, -999) is
+            # either a temperature something will average or a value some consumer clips into
+            # range, and this plane's whole job is to be unusable where the physics is absent.
+            # `dn16` keeps its integer count, because a sensor count has no NaN to carry and the
+            # marking already exists on the two planes that claim physical units.
+            if outputs.radiance is not None:
+                outputs = replace(
+                    outputs, radiance=mark_unmapped_radiometry(outputs.radiance, native)
+                )
+            if outputs.apparent_t is not None:
+                outputs = replace(
+                    outputs, apparent_t=mark_unmapped_radiometry(outputs.apparent_t, native)
+                )
+            if outputs.display8 is not None:
+                outputs = replace(outputs, display8=overlay_unmapped(outputs.display8, native))
         self._t_rel_s += self.frame_period_s
         return outputs
 
@@ -1164,22 +1183,9 @@ class IrCamera:
             arr = np.rint(block.mean(axis=(1, 3))).astype(np.uint8)
         return np.asarray(arr, dtype=np.uint8)
 
-    def _downsample_mask_overlay(
-        self, display8: NDArray[np.uint8], mask: NDArray[np.bool_]
-    ) -> NDArray[np.uint8]:
-        """Paint the UNMAPPED magenta at the native grid (ADR 0047, display branch only).
-
-        The mask lives on the k× G-buffer and the picture on the native one, so a native pixel is
-        marked when **any** of its k×k samples was unmapped: the debug overlay must over-report a
-        forgotten prim, never hide one behind three good samples.
-        """
-        k = self.config.supersample
-        if k > 1:
-            h, w = mask.shape[0] // k, mask.shape[1] // k
-            mask = np.asarray(
-                mask[: h * k, : w * k].reshape(h, k, w, k).any(axis=(1, 3)), dtype=np.bool_
-            )
-        return overlay_unmapped(display8, mask)
+    def _native_unmapped(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
+        """The UNMAPPED mask folded from the k× G-buffer onto the detector grid."""
+        return fold_mask_to_native(mask, self.config.supersample)
 
 
 def _matches(rendered_paths: set[str], name: str) -> bool:

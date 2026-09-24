@@ -852,13 +852,18 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   without a patch keeps its `shaded` flag. The edge is hard unless a scene sets `penumbra_rays:`
   (`PT.22`, ADR 0107), and occluders are authored as rectangles: the ray adapter takes meshes, but
   where a scene's triangles come from waits on `WM.4` / `IG.2`.
-- **An unmapped prim renders as a number, not as an error (`IG.17`).** `debug_unmapped` is on by
-  default: a prim carrying no material resolution joins the background mask so the *display*
-  branch can paint it magenta (ADR 0047), and the radiometric branch is given no equivalent mark.
-  `SE.2` measured what that costs on the maritime stage -- the sea, rendered without being
-  declared as background, comes back at **200.1 K** across 72 % of the frame, which is the band
-  LUT's own floor and is in range, in kelvin, and reads as cold water. The declared sea reads
-  290-293 K. Wanted: NaN on the radiometric plane, or a refusal.
+- **An unmapped prim is marked in both branches, and a marked frame is not a measurement**
+  (`IG.17`, ADR 0047). `debug_unmapped` is on by default: a prim carrying no material resolution
+  joins the background mask, the *display* branch paints it magenta, and since `IG.17` the
+  radiometric branch writes **NaN** over it on `radiance` and `apparent_t`. Until then the second
+  half was missing, and `SE.2` measured the cost on the maritime stage: the sea, rendered without
+  being declared as background, came back at **200.1 K** across 72 % of the frame -- the band
+  LUT's own floor, in range, in kelvin, reading as cold water while the mask beside it looked
+  entirely correct. NaN rather than a sentinel kelvin, because every sentinel is a number
+  something downstream averages into a believable frame temperature. `dn16` keeps its integer
+  count: a sensor count has no NaN to carry. The limitation that remains is the ordinary one --
+  a frame with unmapped geometry is unusable over those pixels, and `debug_unmapped=False` raises
+  instead, which is what a production run should set.
 - **No cast shadows in the reflective bands (ADR 0084).** The Isaac render path now supplies the
   M11.2 illumination bundle — without it every render was emission only, which is right to 0.35 %
   for LWIR and *black* for NIR — but `shadow` is 1 everywhere, so the only shadowing is

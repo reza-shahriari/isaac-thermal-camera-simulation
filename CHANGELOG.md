@@ -57,6 +57,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and differences them, against a **noise floor measured by rendering the empty scene twice**.
 
 ### Fixed
+- **`AT.18` deleted the `*chrome*` glob and left the material-probe stage asserting it**, so four
+  tests in `tests/integration/test_material_ids_isaac.py` and two in `test_ir_camera_isaac.py` had
+  been red since that commit — invisibly, because integration tests are not in `make check`.
+  `Chrome_Trim` resolves to a miss today, which is exactly AT.18's decision: a name is weak
+  evidence of a polished finish, and at ε 0.09 a surface reports the sky rather than itself. The
+  probe's `Trim` prim therefore now *asserts* `bare_aluminium` through a `thermal:material`
+  override, which is what an asset that really is polished has to do, and the stage exercises the
+  rule AT.18 introduced instead of the one it removed. `Body` still carries the pattern rung.
+- **An unmapped prim was marked in the picture and silent in the numbers** (IG.17, ADR 0047).
+  `debug_unmapped` swept a prim with no material resolution into the background mask so the
+  display could paint it magenta; the radiometric branch got no equivalent mark, so stage 1 built
+  a radiance out of a prim with no thermal node and the apparent temperature came back at the band
+  LUT's floor. `SE.2` measured **200.1 K across 72 %** of a maritime frame — in range, in kelvin,
+  reading as cold water, with a mask beside it that looked entirely correct. `radiance` and
+  `apparent_t` now carry NaN over those pixels (`mark_unmapped_radiometry`), and a native pixel is
+  marked when any of its k×k samples was unmapped (`fold_mask_to_native`), because over-reporting
+  a forgotten prim is the only safe direction. NaN rather than a sentinel kelvin: every sentinel
+  is a number something downstream averages into a believable frame temperature. `dn16` is
+  unchanged — a sensor count has no NaN to carry.
 - `configs/scenes/phantom4_parts.yaml` named `battery` as both a heat-source node and a §12.3
   thermal surface, which `AerialThermalBridge` refuses outright rather than resolving by
   precedence; the surface is now `battery_skin`. Until this the parts scene had never rendered.

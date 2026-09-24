@@ -361,7 +361,18 @@ def test_outputs_have_the_declared_dtypes_and_the_native_shape(camera: Any) -> N
     assert out.radiance.shape == (h, w)
     assert out.apparent_t.shape == (h, w)
     assert out.display8.shape == (h, w, 4)
-    assert np.all(np.isfinite(out.apparent_t))
+    # `IG.17`: NaN is the marking for a pixel whose material never resolved, and nowhere else.
+    # A frame that is finite everywhere is what this stage should produce -- every prim on it is
+    # mapped or deliberately not -- so the assertion is that the two masks agree exactly, rather
+    # than that the plane is finite. The weaker form would pass a plane of NaN.
+    from irsim_isaac.pipeline.material_ids import fold_mask_to_native
+
+    frame = camera.last_frame
+    assert frame is not None
+    unmapped = fold_mask_to_native(frame.unmapped, camera.config.supersample)
+    assert np.array_equal(np.isnan(out.apparent_t), unmapped)
+    assert np.array_equal(np.isnan(out.radiance), unmapped)
+    assert np.all(np.isfinite(out.apparent_t[~unmapped]))
 
 
 def test_no_plane_is_float16_anywhere(camera: Any) -> None:

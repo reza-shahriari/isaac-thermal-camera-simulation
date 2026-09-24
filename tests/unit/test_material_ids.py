@@ -16,8 +16,10 @@ from irsim.materials.mapping import Resolution
 from irsim.materials.table import UNMAPPED_MATERIAL_ID
 from irsim_isaac.pipeline.material_ids import (
     MAGENTA_RGBA,
+    fold_mask_to_native,
     id_coverage,
     labels_to_paths,
+    mark_unmapped_radiometry,
     material_id_plane,
     overlay_unmapped,
     unmapped_mask,
@@ -139,3 +141,70 @@ def test_overlay_refuses_a_non_rgba8_image() -> None:
 def test_material_id_plane_refuses_a_float_id_plane() -> None:
     with pytest.raises(TypeError, match="integer"):
         material_id_plane(np.zeros((2, 2), dtype=np.float32), _labels(), _resolutions())
+
+
+# --- IG.17: the radiometric half of the marking -------------------------------------------------
+#
+# Until this, an unmapped prim was marked in the *picture* and not in the numbers. `SE.2` measured
+# an undeclared sea at 200.1 K -- the band LUT's floor, where an apparent temperature lands when
+# the radiance under it is nearly zero -- over 72 % of a frame, with a mask beside it that looked
+# entirely correct. These are the engine-free half of the repair; the rendered half is
+# `tests/integration/test_maritime_isaac.py`.
+
+LUT_FLOOR_K = 200.0
+
+
+def test_an_unmapped_pixel_carries_nan_rather_than_a_number_in_range() -> None:
+    """The failure being repaired is a *plausible* value, not an obviously broken one.
+
+    200.1 K is in the LUT's domain, is in kelvin, and reads as very cold water. Anything that
+    averages a frame -- an AGC, a report, a dataset label -- consumes it without complaint.
+    """
+    plane = np.full((2, 3), LUT_FLOOR_K + 0.1, dtype=np.float32)
+    mask = np.zeros((2, 3), dtype=bool)
+    mask[1, 2] = True
+    out = mark_unmapped_radiometry(plane, mask)
+    assert np.isnan(out[1, 2])
+    assert np.count_nonzero(np.isnan(out)) == 1
+    assert out[0, 0] == np.float32(LUT_FLOOR_K + 0.1)
+    assert not np.isnan(plane).any(), "the input plane must not be marked in place"
+
+
+def test_the_marking_is_the_one_value_a_mean_cannot_swallow() -> None:
+    """A sentinel kelvin would be averaged into a believable frame temperature; NaN is not.
+
+    The negative control is the whole argument for NaN: with the floor left in place the frame's
+    mean is a number somebody could quote.
+    """
+    plane = np.full((10, 10), 290.0, dtype=np.float32)
+    mask = np.zeros((10, 10), dtype=bool)
+    mask[:, :7] = True  # 70 % of the frame, as SE.2 measured
+    sentinel = plane.copy()
+    sentinel[mask] = np.float32(LUT_FLOOR_K)
+    assert float(sentinel.mean()) == pytest.approx(227.0)  # believable, and wrong
+    assert np.isnan(mark_unmapped_radiometry(plane, mask).mean())
+
+
+def test_one_bad_sample_marks_the_whole_native_pixel() -> None:
+    """Ids are never interpolated, so a 2x2 block may cover two prims.
+
+    Over-reporting is the only safe direction: a pixel that is three quarters physics and one
+    quarter nothing is not a measurement of anything, and hiding it behind the three good samples
+    is how a forgotten prim survives review.
+    """
+    mask = np.zeros((4, 4), dtype=bool)
+    mask[0, 0] = True  # one sample of the top-left 2x2 block
+    folded = fold_mask_to_native(mask, 2)
+    assert folded.shape == (2, 2)
+    assert folded[0, 0] and folded.sum() == 1
+
+
+def test_an_unsupersampled_mask_passes_through_unchanged() -> None:
+    mask = np.array([[True, False], [False, True]])
+    assert np.array_equal(fold_mask_to_native(mask, 1), mask)
+
+
+def test_a_mask_that_does_not_fit_its_plane_is_refused() -> None:
+    """Silently marking the wrong pixels would be worse than the bug being fixed."""
+    with pytest.raises(ValueError, match="does not fit"):
+        mark_unmapped_radiometry(np.zeros((2, 2), dtype=np.float32), np.zeros((3, 3), dtype=bool))

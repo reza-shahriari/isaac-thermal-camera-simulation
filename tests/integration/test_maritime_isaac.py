@@ -337,25 +337,26 @@ def test_the_water_joins_the_sky_mask_and_the_vessels_do_not(maritime: Any) -> N
     assert not np.any(sky_mask[vessels]), "a vessel prim was swept into the background"
 
 
-def test_without_background_prim_paths_the_sea_renders_at_the_lut_floor(maritime: Any) -> None:
+def test_without_background_prim_paths_the_sea_is_marked_not_measured(maritime: Any) -> None:
     """The control, and the reason the declaration is not redundant.
 
-    Withhold `background_prim_paths` and the sea comes back at **200 K** -- the band LUT's own
-    lower bound, which is what an apparent temperature clamps to when the radiance under it is
-    essentially zero. The water prim carries no thermal node, because it is not a solver surface;
-    it is background, and the declaration is how the camera is told so. Without it the prim is
-    ordinary geometry with no node and no material, so stage 1 has nothing to build a radiance
-    from, and a frame that should read 290-293 K reads 90 K cold across three quarters of itself.
+    Withhold `background_prim_paths` and the water prim is ordinary geometry with no thermal node
+    and no material, because it is not a solver surface: it is background, and the declaration is
+    how the camera is told so. Stage 1 then has nothing to build a radiance from.
 
-    What makes this worth a test rather than a comment is that **the mask still looks right**.
+    What made this worth a test rather than a comment is that **the mask still looks right**.
     `sky_mask` covers the water either way -- 99.9 % of the frame in both runs -- because the
     water prim resolves to no material and `debug_unmapped` (on by default) sweeps unmapped
-    geometry into the background so it can be painted magenta in the *display* branch. The
-    radiometric branch gets no such marking: it gets a prim with no thermal node, and the
-    apparent temperature it produces is a number, in kelvin, that reads as cold water rather than
-    as an error. So an inspection that checks the mask reports the sea correctly handled. The
-    temperature is where the difference is, which is why this asserts on the rendered kelvin; the
-    unmarked radiometric half is `IG.17`.
+    geometry into the background so it can be painted magenta. Until `IG.17` the radiometric
+    branch got no such marking, and the apparent temperature came back as **200.1 K**: the band
+    LUT's own floor, where an apparent temperature lands when the radiance under it is nearly
+    zero. That is a number, in kelvin, in range, and it reads as cold water rather than as an
+    error, so an inspection that checked the mask reported the sea correctly handled.
+
+    It is now NaN, which is the point: a frame containing unmapped geometry is not a measurement
+    of that geometry, and nothing should be able to average it into one by accident. The declared
+    run beside it is finite and warm, which is what says the marking is about the declaration and
+    not about the water.
     """
     frame = maritime["unmasked"]
     out = maritime["unmasked_out"]
@@ -364,19 +365,18 @@ def test_without_background_prim_paths_the_sea_renders_at_the_lut_floor(maritime
     t = np.asarray(out.apparent_t, dtype=np.float64)
     water = _native(_ids_for(frame, maritime["demo"].water_paths), k)
     assert water.any()
-    undeclared = float(t[water].mean())
-    declared = float(
-        np.asarray(maritime["masked_out"].apparent_t, dtype=np.float64)[
-            _native(_ids_for(maritime["masked"], maritime["demo"].water_paths), k)
-        ].mean()
+    assert np.isnan(t[water]).all(), (
+        f"the undeclared sea reads {np.nanmean(t[water]):.2f} K on "
+        f"{int(np.isfinite(t[water]).sum())} pixel(s); `IG.17` marks unmapped geometry NaN on "
+        "the planes that claim physical units, so a finite value here means the marking was lost"
     )
-    assert undeclared < LUT_FLOOR_K + 5.0, (
-        f"the undeclared sea reads {undeclared:.2f} K; the failure this guards is a clamp to the "
-        f"LUT floor at {LUT_FLOOR_K:.0f} K, and if it is no longer that the mechanism has changed"
-    )
-    assert declared - undeclared > 50.0, (
-        f"declared {declared:.2f} K vs undeclared {undeclared:.2f} K: the declaration is supposed "
-        "to be the difference between a sea and a black hole in the picture"
+    declared_plane = np.asarray(maritime["masked_out"].apparent_t, dtype=np.float64)
+    declared_water = _native(_ids_for(maritime["masked"], maritime["demo"].water_paths), k)
+    declared = float(declared_plane[declared_water].mean())
+    assert np.isfinite(declared_plane[declared_water]).all()
+    assert declared > LUT_FLOOR_K + 50.0, (
+        f"the declared sea reads {declared:.2f} K: the declaration is supposed to be the "
+        "difference between a sea and a hole in the picture"
     )
 
 
