@@ -6,6 +6,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The site's clips were over-compressed, most visibly the one on the front page.** The encoder
+  defaulted to 720 px and CRF 34, tuned for the four reflective-band clips whose content is mostly
+  sensor grain, and applied to everything: the 1280 x 512 Phantom 4 pair -- a 542 kB source -- came
+  out 720 x 288 and 54 kB, which halves each panel of a side-by-side comparison and then blurs what
+  is left. Defaults are now the source's own resolution up to 1280 px at CRF 23, with `max_width:`
+  and `crf:` overrides carrying the aggressive setting on the eight NIR and SWIR items that earn
+  it. The front page's clip is CRF 20 and 463 kB. Media goes 20.7 MB to 38.5 MB, site 46 MB.
+- **A manifest key that silently did nothing.** `width:` in `site/gallery.yaml` is the *layout*
+  span (full/half/third) and was also documented as the encoder's pixel cap, which the encoder
+  never read -- so every per-item resolution the manifest asked for was ignored. The encoder's key
+  is now `max_width:`, and the two are deliberately different names.
+- **A media cache that could republish a file the manifest no longer described.** Freshness was
+  (source mtime, encoder settings); a build that changed the defaults and added overrides in one
+  pass left a 29 MB, 1280 px clip on disk under an entry claiming 720 px, and every later build
+  trusted the entry. The encoded file's own size is now part of the key, so anything that leaves
+  the output inconsistent -- an interrupted ffmpeg, a hand-edit, a crash between encode and save --
+  re-encodes. `tests/unit/test_site_gallery.py` pins all five ways an entry can go stale.
 - **The point-target chain was never wrong: two cameras were sharing one membrane** (`PT.23`,
   raised by `IG.2`). The 22 % shortfall the first in-sim run measured is **alpha / (2 - alpha)**,
   which is 0.778545 at 60 Hz and tau_th = 8 ms against the 0.778546 the render produced -- six

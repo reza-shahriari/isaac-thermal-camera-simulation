@@ -34,8 +34,15 @@ from site_layout import GITHUB, Page
 
 #: Encoding defaults. `crf` is x264's quality knob (higher is smaller); `width` is a cap, never an
 #: upscale, so a 640 px Boson frame is recompressed at its own size rather than blown up.
-VIDEO_WIDTH = 720
-VIDEO_CRF = 34
+#:
+#: These are deliberately generous. The first version of this file capped at 720 px and CRF 34,
+#: which is right for the four reflective-band clips whose content is mostly sensor grain and
+#: wrong for everything else: it took the 1280 x 512 Phantom 4 pair -- a 542 kB source -- down to
+#: 720 x 288 and 54 kB, halving each panel of a side-by-side comparison and then blurring what was
+#: left. At CRF 20 the same clip is 456 kB, which is nothing. The aggressive settings now live on
+#: the handful of items that need them, as per-item `width:` and `crf:` in the manifest.
+VIDEO_WIDTH = 1280
+VIDEO_CRF = 23
 IMAGE_WIDTH = 1400
 IMAGE_QUALITY = 86
 
@@ -107,11 +114,17 @@ def _run(cmd: list[str]) -> None:
 
 
 class Cache:
-    """What each encoded file was built from: its source's mtime and the encoder settings.
+    """What each encoded file was built from: its source's mtime, the settings, and its own size.
 
     Freshness cannot be mtime alone. Changing a clip's frame rate or its CRF in `site/gallery.yaml`
     leaves the source untouched, so an mtime test would keep serving the old encode and the
     manifest would quietly stop describing the site. The settings are part of the key.
+
+    The encoded file's **own size** is part of it too, which is not belt-and-braces: a build that
+    changed the defaults and the per-item overrides in one go left a 29 MB, 1280 px clip on disk
+    under a cache entry claiming 720 px, and every later build believed the entry and republished
+    the wrong file. Anything that makes the dest stop matching what was recorded -- an interrupted
+    ffmpeg, a hand-edit, a build that crashed between the encode and the save -- now re-encodes.
     """
 
     def __init__(self, path: pathlib.Path) -> None:
@@ -121,11 +134,16 @@ class Cache:
         except (OSError, ValueError):
             self.entries = {}
 
-    def fresh(self, key: str, src_mtime: float, signature: str, dest: pathlib.Path) -> bool:
-        return dest.exists() and self.entries.get(key) == f"{src_mtime:.0f}|{signature}"
+    @staticmethod
+    def _key(src_mtime: float, signature: str, dest: pathlib.Path) -> str:
+        size = dest.stat().st_size if dest.exists() else -1
+        return f"{src_mtime:.0f}|{signature}|{size}"
 
-    def record(self, key: str, src_mtime: float, signature: str) -> None:
-        self.entries[key] = f"{src_mtime:.0f}|{signature}"
+    def fresh(self, key: str, src_mtime: float, signature: str, dest: pathlib.Path) -> bool:
+        return dest.exists() and self.entries.get(key) == self._key(src_mtime, signature, dest)
+
+    def record(self, key: str, src_mtime: float, signature: str, dest: pathlib.Path) -> None:
+        self.entries[key] = self._key(src_mtime, signature, dest)
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,8 +201,8 @@ def encode_video(
                 str(poster),
             ]
         )
-    cache.record(rel, src.stat().st_mtime, signature)
-    cache.record(rel + ":poster", src.stat().st_mtime, signature)
+    cache.record(rel, src.stat().st_mtime, signature, dest)
+    cache.record(rel + ":poster", src.stat().st_mtime, signature, poster)
     w, h, duration = _probe(dest)
     return Asset(
         url=rel,
@@ -263,8 +281,8 @@ def encode_frames(
                 str(poster),
             ]
         )
-    cache.record(rel, newest, signature)
-    cache.record(rel + ":poster", newest, signature)
+    cache.record(rel, newest, signature, dest)
+    cache.record(rel + ":poster", newest, signature, poster)
     w, h, duration = _probe(dest)
     return Asset(
         url=rel,
@@ -302,7 +320,7 @@ def encode_image(
                 str(dest),
             ]
         )
-    cache.record(rel, src.stat().st_mtime, signature)
+    cache.record(rel, src.stat().st_mtime, signature, dest)
     if dest.stat().st_size > src.stat().st_size:
         shutil.copy2(src, out_root / rel)
         dest = out_root / rel
@@ -351,7 +369,7 @@ class GalleryBuilder:
                 src,
                 self.media_root,
                 src_rel,
-                width=int(options.get("width", VIDEO_WIDTH)),
+                width=int(options.get("max_width", VIDEO_WIDTH)),
                 crf=int(options.get("crf", VIDEO_CRF)),
                 cache=self.cache,
             )
@@ -360,7 +378,7 @@ class GalleryBuilder:
                 src,
                 self.media_root,
                 src_rel,
-                width=int(options.get("width", IMAGE_WIDTH)),
+                width=int(options.get("max_width", IMAGE_WIDTH)),
                 quality=int(options.get("quality", IMAGE_QUALITY)),
                 cache=self.cache,
             )
@@ -381,7 +399,7 @@ class GalleryBuilder:
             self.media_root,
             rel,
             fps=fps,
-            width=int(options.get("width", VIDEO_WIDTH)),
+            width=int(options.get("max_width", VIDEO_WIDTH)),
             crf=int(options.get("crf", VIDEO_CRF)),
             cache=self.cache,
         )
@@ -396,7 +414,14 @@ class GalleryBuilder:
     def _figure(self, item: dict[str, object], section: str) -> str:
         caption = str(item.get("caption", ""))
         span = str(item.get("width", "half"))
-        options = {k: v for k, v in item.items() if k in ("crf", "quality") and isinstance(v, int)}
+        # `width:` is the layout span (full | half | third), so the encoder's pixel cap is a
+        # separate key. Overloading one name for both is how the first version of this file ended
+        # up ignoring every per-item resolution the manifest asked for.
+        options = {
+            k: v
+            for k, v in item.items()
+            if k in ("crf", "quality", "max_width") and isinstance(v, int)
+        }
         if "frames" in item:
             pattern = str(item["frames"])
             asset = self._frames(pattern, section, int(item.get("fps", 24)), **options)  # type: ignore[arg-type]

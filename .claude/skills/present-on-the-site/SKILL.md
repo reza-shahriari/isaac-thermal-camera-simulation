@@ -69,8 +69,11 @@ worth showing, add a section:
     source: scripts/render_car_ignition.py   # what produced it
 ```
 
-Then `make site` re-encodes it. Defaults are H.264 CRF 34 capped at 720 px and WebP for stills;
-override per item with `crf:`, `width:` or `quality:` only if you can say why.
+Then `make site` re-encodes it. Defaults are H.264 CRF 23 capped at 1280 px and WebP for stills;
+override per item with `crf:`, `max_width:` or `quality:` only if you can say why. (`width:` is the
+*layout* span, not a pixel count -- the two are deliberately different keys.) The reflective-band
+clips whose content is mostly sensor grain carry `max_width: 720` and `crf: 34`, because detail in
+them is noise and they are the only items large enough to matter.
 
 ### The rules for that entry
 

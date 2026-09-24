@@ -55,9 +55,15 @@ Specifics worth recording:
   `$IRSIM_OUTPUTS` (default `outputs/`). An entry the checkout cannot supply is listed on the page
   rather than dropped, so a reader can tell the difference between "not modelled" and "not rendered
   here". No `.npy` plane is ever published.
-* **Everything is re-encoded.** H.264 CRF 34 capped at 720 px, `+faststart`, no audio; stills to
-  WebP. Measured on this checkout: 436.8 MB of source renders become 20.6 MB, and the whole site is
-  25 MB. The sensor grain survives, which matters — it is the model's output, not an artefact.
+* **Everything is re-encoded**, at the source's own resolution up to 1280 px, H.264 CRF 23,
+  `+faststart`, no audio; stills to WebP. Measured on this checkout: 436.8 MB of source renders
+  become 38.5 MB, and the whole site is 46 MB against the ~1 GB Pages publishes. The first version
+  of this capped at 720 px and CRF 34, which is right for the four reflective-band clips whose
+  content is mostly sensor grain and wrong for everything else: it halved each panel of a
+  1280 × 512 side-by-side comparison and then blurred what was left. Those four clips now carry
+  `max_width: 720` and `crf: 34` as per-item overrides — the aggressive setting belongs on the
+  items that need it, not on the default. The grain survives either way, which matters: it is the
+  model's output, not a compression artefact.
 * **Maths is passed through, not rendered.** `$…$` and `$$…$$` spans are extracted before any
   inline pass so that `\tau_{\text{opt}}` cannot be mangled into emphasis by its own underscores,
   and KaTeX typesets them in the browser.

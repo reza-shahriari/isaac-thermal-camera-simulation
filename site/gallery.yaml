@@ -107,10 +107,14 @@ sections:
         label: MWIR
         caption: 3–5 µm, either side of the solar crossover
       - video: multiband/airplane/swir/aircraft_pass_agc.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: SWIR
         caption: reflective — the scene is lit, not glowing
       - video: multiband/airplane/nir/aircraft_pass_agc.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: NIR
         caption: reflective, and the noisiest of the four
@@ -133,9 +137,13 @@ sections:
         width: half
         label: MWIR
       - video: multiband/drone/swir/quad_flight_agc.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: SWIR
       - video: multiband/drone/nir/quad_flight_agc.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: NIR
         caption: a silhouette against a bright sky — the opposite detection problem
@@ -161,9 +169,13 @@ sections:
         width: half
         label: MWIR
       - video: multiband/ship/swir/maritime_demo_agc.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: SWIR
       - video: multiband/ship/nir/maritime_demo_agc.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: NIR
     source: scripts/render_maritime_demo.py
@@ -185,9 +197,13 @@ sections:
         width: half
         label: MWIR
       - video: multiband/sky_target/swir/aerial_demo_ir.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: SWIR
       - video: multiband/sky_target/nir/aerial_demo_ir.mp4
+        max_width: 720   # grain, not detail: this one stays small
+        crf: 34
         width: half
         label: NIR
     source: scripts/render_aerial_demo.py
@@ -264,6 +280,7 @@ sections:
       surface carrying a *span* rather than one value per object.
     media:
       - video: phantom4/phantom4_pair.mp4
+        crf: 20      # the front page opens with this one
         width: full
         caption: LWIR beside its visible companion, the same instants
       - video: phantom4_weather/phantom4_pair.mp4
