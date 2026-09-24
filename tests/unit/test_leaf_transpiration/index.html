@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Leaf transpiration</h1>
   <p class="subtitle">Leaves transpire: the surface whose temperature its stomata set (PH.11).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py" target="_blank" rel="noopener">tests/unit/test_leaf_transpiration.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py" target="_blank" rel="noopener">tests/unit/test_leaf_transpiration.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -69,22 +69,22 @@
 </ul>
 <p>⚠️ <strong>The last one does not hold to 0.1 K everywhere, and this file says where it stops.</strong> The agreement degrades to 0.37 K by 4.6 K of departure from air, because the closed form linearises both the saturation curve and σT⁴ about air temperature. Reporting only the favourable case would have made an approximation look like an identity.</p>
 <p>docs/physics-model.md §6.1; roadmap PH.11; ADR 0121</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py" target="_blank" rel="noopener">tests/unit/test_leaf_transpiration.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py" target="_blank" rel="noopener">tests/unit/test_leaf_transpiration.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L79" target="_blank" rel="noopener">a leaf boundary layer is an order below the projects bulk one</a><br><code>test_a_leaf_boundary_layer_is_an_order_below_the_projects_bulk_one</code></td><td>33 s/m against 435 s/m at 2 m/s, and using the wrong one inverts the phenomenology.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L110" target="_blank" rel="noopener">the sensible and latent paths share one boundary layer</a><br><code>test_the_sensible_and_latent_paths_share_one_boundary_layer</code></td><td>h and g_e are the same turbulence carrying two things; a forcing must not split them.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L123" target="_blank" rel="noopener">a leaf breaks a sixty second explicit tick</a><br><code>test_a_leaf_breaks_a_sixty_second_explicit_tick</code></td><td>PH.11's stated reason for solving the root instead of stepping it, measured.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L148" target="_blank" rel="noopener">closing the stomata converges to the dry reference</a><br><code>test_closing_the_stomata_converges_to_the_dry_reference</code></td><td>g_s → 0 must reproduce the surface that does not evaporate at all, and monotonically.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L167" target="_blank" rel="noopener">a well watered leaf goes below air as the air dries</a><br><code>test_a_well_watered_leaf_goes_below_air_as_the_air_dries</code></td><td>The headline: −1.93 K at a 3.18 kPa deficit, where a stressed leaf is +7.0 K.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L185" target="_blank" rel="noopener">the stress slope lands inside idsos published baseline</a><br><code>test_the_stress_slope_lands_inside_idsos_published_baseline</code></td><td>−1.84 °C/kPa against a published [−3.8, −1.1], and the band was not fitted to.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L218" target="_blank" rel="noopener">campbell norman and this projects balance are the same equation</a><br><code>test_campbell_norman_and_this_projects_balance_are_the_same_equation</code></td><td>Where both linearisations vanish they agree to 4e-10 K -- the bisection tolerance.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L235" target="_blank" rel="noopener">the closed form agrees to a tenth of a kelvin near air and drifts beyond</a><br><code>test_the_closed_form_agrees_to_a_tenth_of_a_kelvin_near_air_and_drifts_beyond</code></td><td>PH.11's fourth criterion, with the range over which it is true stated rather than assumed.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L264" target="_blank" rel="noopener">the molar constants reproduce the published ones</a><br><code>test_the_molar_constants_reproduce_the_published_ones</code></td><td>29.105 J/mol/K and 6.594e-4 /K -- <strong>derived</strong>, and each about 1 % under the published pair.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_leaf_transpiration.py#L287" target="_blank" rel="noopener">a leaf forcing without a boundary layer is refused</a><br><code>test_a_leaf_forcing_without_a_boundary_layer_is_refused</code></td><td>A zero vapour conductance is not a still leaf, it is a missing forcing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L79" target="_blank" rel="noopener">a leaf boundary layer is an order below the projects bulk one</a><br><code>test_a_leaf_boundary_layer_is_an_order_below_the_projects_bulk_one</code></td><td>33 s/m against 435 s/m at 2 m/s, and using the wrong one inverts the phenomenology.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L110" target="_blank" rel="noopener">the sensible and latent paths share one boundary layer</a><br><code>test_the_sensible_and_latent_paths_share_one_boundary_layer</code></td><td>h and g_e are the same turbulence carrying two things; a forcing must not split them.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L123" target="_blank" rel="noopener">a leaf breaks a sixty second explicit tick</a><br><code>test_a_leaf_breaks_a_sixty_second_explicit_tick</code></td><td>PH.11's stated reason for solving the root instead of stepping it, measured.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L148" target="_blank" rel="noopener">closing the stomata converges to the dry reference</a><br><code>test_closing_the_stomata_converges_to_the_dry_reference</code></td><td>g_s → 0 must reproduce the surface that does not evaporate at all, and monotonically.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L167" target="_blank" rel="noopener">a well watered leaf goes below air as the air dries</a><br><code>test_a_well_watered_leaf_goes_below_air_as_the_air_dries</code></td><td>The headline: −1.93 K at a 3.18 kPa deficit, where a stressed leaf is +7.0 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L185" target="_blank" rel="noopener">the stress slope lands inside idsos published baseline</a><br><code>test_the_stress_slope_lands_inside_idsos_published_baseline</code></td><td>−1.84 °C/kPa against a published [−3.8, −1.1], and the band was not fitted to.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L218" target="_blank" rel="noopener">campbell norman and this projects balance are the same equation</a><br><code>test_campbell_norman_and_this_projects_balance_are_the_same_equation</code></td><td>Where both linearisations vanish they agree to 4e-10 K -- the bisection tolerance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L235" target="_blank" rel="noopener">the closed form agrees to a tenth of a kelvin near air and drifts beyond</a><br><code>test_the_closed_form_agrees_to_a_tenth_of_a_kelvin_near_air_and_drifts_beyond</code></td><td>PH.11's fourth criterion, with the range over which it is true stated rather than assumed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L264" target="_blank" rel="noopener">the molar constants reproduce the published ones</a><br><code>test_the_molar_constants_reproduce_the_published_ones</code></td><td>29.105 J/mol/K and 6.594e-4 /K -- <strong>derived</strong>, and each about 1 % under the published pair.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_leaf_transpiration.py#L287" target="_blank" rel="noopener">a leaf forcing without a boundary layer is refused</a><br><code>test_a_leaf_forcing_without_a_boundary_layer_is_refused</code></td><td>A zero vapour conductance is not a still leaf, it is a missing forcing.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

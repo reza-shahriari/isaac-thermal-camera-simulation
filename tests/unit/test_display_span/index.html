@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Display span</h1>
   <p class="subtitle">M10.23/M10.24: the manual display span, and why it has to know which band it is in.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py" target="_blank" rel="noopener">tests/unit/test_display_span.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py" target="_blank" rel="noopener">tests/unit/test_display_span.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Both of §11.3's AGC modes rescale from the current frame's own histogram, so a target whose temperature is the subject looks the same in every frame -- the gain follows the target and cancels exactly the change being filmed. A real operator switches to a manual span for that, and so do these renders.</p>
 <p>The span therefore has to be in a quantity the band actually produces. §12.1 switches <code>apparent_temperature</code> off for SWIR and NIR, because inverting L_B does not give a scene temperature when the signal is reflected sunlight -- so a kelvin span has no plane to apply to there, and the failure mode this module exists to prevent is rendering <em>the other plane</em> instead and producing a plausible picture of the wrong quantity.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py" target="_blank" rel="noopener">tests/unit/test_display_span.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py" target="_blank" rel="noopener">tests/unit/test_display_span.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L36" target="_blank" rel="noopener">a span must increase</a><br><code>test_a_span_must_increase</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L43" target="_blank" rel="noopener">each kind reads its own plane and says so</a><br><code>test_each_kind_reads_its_own_plane_and_says_so</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L51" target="_blank" rel="noopener">asking for kelvin on a band that has none raises</a><br><code>test_asking_for_kelvin_on_a_band_that_has_none_raises</code></td><td>The bug M10.23 fixed, pinned. A SWIR render has no <code>apparent_t</code>, and quietly spanning <code>dn16</code> instead would produce a plausible picture of a quantity nobody asked for.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L67" target="_blank" rel="noopener">scale puts the span ends at zero and one</a><br><code>test_scale_puts_the_span_ends_at_zero_and_one</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L76" target="_blank" rel="noopener">the printed key is clamped to the display axis</a><br><code>test_the_printed_key_is_clamped_to_the_display_axis</code></td><td>The overlay prints <code>node -&gt; display code</code>; a node outside the span must read 0 or 255 and never a negative code or one past the end.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L87" target="_blank" rel="noopener">a node span comes from the targets own history</a><br><code>test_a_node_span_comes_from_the_targets_own_history</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L97" target="_blank" rel="noopener">a percentile span clips the tails and keeps the body</a><span class="tag">parametrize</span><br><code>test_a_percentile_span_clips_the_tails_and_keeps_the_body</code></td><td>Percentiles, not min/max: one hot specular pixel would otherwise own the whole span and render everything else black.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L110" target="_blank" rel="noopener">a flat frame gives a usable span rather than raising</a><span class="tag">parametrize</span><br><code>test_a_flat_frame_gives_a_usable_span_rather_than_raising</code></td><td>A uniform picture is a real thing to render -- an overcast sky, a calibration target -- and it should come out flat, not take the renderer down.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_display_span.py#L119" target="_blank" rel="noopener">a percentile span brackets a gradient</a><br><code>test_a_percentile_span_brackets_a_gradient</code></td><td>The maritime case: the sea and sky span a range and the span must contain most of it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L36" target="_blank" rel="noopener">a span must increase</a><br><code>test_a_span_must_increase</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L43" target="_blank" rel="noopener">each kind reads its own plane and says so</a><br><code>test_each_kind_reads_its_own_plane_and_says_so</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L51" target="_blank" rel="noopener">asking for kelvin on a band that has none raises</a><br><code>test_asking_for_kelvin_on_a_band_that_has_none_raises</code></td><td>The bug M10.23 fixed, pinned. A SWIR render has no <code>apparent_t</code>, and quietly spanning <code>dn16</code> instead would produce a plausible picture of a quantity nobody asked for.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L67" target="_blank" rel="noopener">scale puts the span ends at zero and one</a><br><code>test_scale_puts_the_span_ends_at_zero_and_one</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L76" target="_blank" rel="noopener">the printed key is clamped to the display axis</a><br><code>test_the_printed_key_is_clamped_to_the_display_axis</code></td><td>The overlay prints <code>node -&gt; display code</code>; a node outside the span must read 0 or 255 and never a negative code or one past the end.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L87" target="_blank" rel="noopener">a node span comes from the targets own history</a><br><code>test_a_node_span_comes_from_the_targets_own_history</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L97" target="_blank" rel="noopener">a percentile span clips the tails and keeps the body</a><span class="tag">parametrize</span><br><code>test_a_percentile_span_clips_the_tails_and_keeps_the_body</code></td><td>Percentiles, not min/max: one hot specular pixel would otherwise own the whole span and render everything else black.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L110" target="_blank" rel="noopener">a flat frame gives a usable span rather than raising</a><span class="tag">parametrize</span><br><code>test_a_flat_frame_gives_a_usable_span_rather_than_raising</code></td><td>A uniform picture is a real thing to render -- an overcast sky, a calibration target -- and it should come out flat, not take the renderer down.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_display_span.py#L119" target="_blank" rel="noopener">a percentile span brackets a gradient</a><br><code>test_a_percentile_span_brackets_a_gradient</code></td><td>The maritime case: the sea and sky span a range and the span must contain most of it.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

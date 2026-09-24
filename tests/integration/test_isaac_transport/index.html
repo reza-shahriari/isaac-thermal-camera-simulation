@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,21 +55,21 @@
 <div class="page-head">
   <h1>Isaac transport</h1>
   <p class="subtitle">Roadmap M2.2 / M2.4: the renderer-side transport ADR 0014 settled on, kept as regression guards.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_isaac_transport.py" target="_blank" rel="noopener">tests/integration/test_isaac_transport.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_isaac_transport.py" target="_blank" rel="noopener">tests/integration/test_isaac_transport.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The gate as specified — temperature in an emissive colour AOV, round trip &lt; 10 mK — failed on this build because every colour AOV is float16 (ADR 0014). These tests pin the facts the Isaac lane now depends on instead: exact integer ids from the segmentation annotators, float32 geometry at full resolution, and a bit-exact float32 pass-through of those AOVs through an SPG kernel. The fp16 finding itself is asserted too, so a build that changes it fails here first and ADR 0014 is reopened rather than silently bypassed.</p>
-<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_isaac_transport.py" target="_blank" rel="noopener">tests/integration/test_isaac_transport.py</a>.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_isaac_transport.py" target="_blank" rel="noopener">tests/integration/test_isaac_transport.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_isaac_transport.py#L42" target="_blank" rel="noopener">segmentation ids are exact integers</a><br><code>test_segmentation_ids_are_exact_integers</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_isaac_transport.py#L53" target="_blank" rel="noopener">geometry aovs are float32 at full resolution</a><br><code>test_geometry_aovs_are_float32_at_full_resolution</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_isaac_transport.py#L65" target="_blank" rel="noopener">colour aovs are float16 in this build</a><br><code>test_colour_aovs_are_float16_in_this_build</code></td><td>The negative result behind ADR 0014: reopen it if a float32 colour AOV ever appears.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_isaac_transport.py#L77" target="_blank" rel="noopener">spg passthrough of float32 geometry is bit exact</a><br><code>test_spg_passthrough_of_float32_geometry_is_bit_exact</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_isaac_transport.py#L42" target="_blank" rel="noopener">segmentation ids are exact integers</a><br><code>test_segmentation_ids_are_exact_integers</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_isaac_transport.py#L53" target="_blank" rel="noopener">geometry aovs are float32 at full resolution</a><br><code>test_geometry_aovs_are_float32_at_full_resolution</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_isaac_transport.py#L65" target="_blank" rel="noopener">colour aovs are float16 in this build</a><br><code>test_colour_aovs_are_float16_in_this_build</code></td><td>The negative result behind ADR 0014: reopen it if a float32 colour AOV ever appears.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_isaac_transport.py#L77" target="_blank" rel="noopener">spg passthrough of float32 geometry is bit exact</a><br><code>test_spg_passthrough_of_float32_geometry_is_bit_exact</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

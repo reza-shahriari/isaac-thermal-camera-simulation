@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Frame clock</h1>
   <p class="subtitle">The time written beside a frame is the time that frame was captured at.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_clock.py" target="_blank" rel="noopener">tests/unit/test_frame_clock.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_clock.py" target="_blank" rel="noopener">tests/unit/test_frame_clock.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -63,16 +63,16 @@
 <p>A frame period is 1/60 s on a Boson and <strong>six seconds</strong> on this project's time-lapse drivers, where the weather, the sun angle and every thermal node have visibly moved. A dataset whose timestamps are one row out is not obviously broken -- it reads as a small calibration error in whatever is fitted to it, which is the expensive kind of wrong.</p>
 <p>The check is not that the attribute holds what it was assigned: that would pass with the bug present. It is that the timestamp agrees with the clock the <em>physics</em> ran on -- the surface field's own, advanced through a different call path (<code>point_bridge.advance_to</code>) inside <code>planes()</code> before the increment happens.</p>
 <p>Roadmap IG.13; ADR 0087 (the field); docs/physics-model.md §6.1.</p>
-<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_clock.py" target="_blank" rel="noopener">tests/unit/test_frame_clock.py</a>.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_clock.py" target="_blank" rel="noopener">tests/unit/test_frame_clock.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_clock.py#L91" target="_blank" rel="noopener">no frame has a time before the first capture</a><br><code>test_no_frame_has_a_time_before_the_first_capture</code></td><td><code>None</code>, not <code>t0_s</code>: nothing has been rendered, so there is no frame to stamp.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_clock.py#L97" target="_blank" rel="noopener">the stamped time is the time the field was integrated to</a><br><code>test_the_stamped_time_is_the_time_the_field_was_integrated_to</code></td><td>The oracle is the thermal field's own clock, not the attribute being tested.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_clock.py#L119" target="_blank" rel="noopener">the stamp is absolute scene time not render time</a><br><code>test_the_stamp_is_absolute_scene_time_not_render_time</code></td><td><code>t0_s</code> is 4 h into the weather file here, so a relative stamp would be 14400 s wrong.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_clock.py#L128" target="_blank" rel="noopener">every render driver takes the frame time from the camera</a><br><code>test_every_render_driver_takes_the_frame_time_from_the_camera</code></td><td>The lint that would have caught it: no driver may do the arithmetic itself.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_clock.py#L91" target="_blank" rel="noopener">no frame has a time before the first capture</a><br><code>test_no_frame_has_a_time_before_the_first_capture</code></td><td><code>None</code>, not <code>t0_s</code>: nothing has been rendered, so there is no frame to stamp.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_clock.py#L97" target="_blank" rel="noopener">the stamped time is the time the field was integrated to</a><br><code>test_the_stamped_time_is_the_time_the_field_was_integrated_to</code></td><td>The oracle is the thermal field's own clock, not the attribute being tested.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_clock.py#L119" target="_blank" rel="noopener">the stamp is absolute scene time not render time</a><br><code>test_the_stamp_is_absolute_scene_time_not_render_time</code></td><td><code>t0_s</code> is 4 h into the weather file here, so a relative stamp would be 14400 s wrong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_clock.py#L128" target="_blank" rel="noopener">every render driver takes the frame time from the camera</a><br><code>test_every_render_driver_takes_the_frame_time_from_the_camera</code></td><td>The lint that would have caught it: no driver may do the arithmetic itself.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

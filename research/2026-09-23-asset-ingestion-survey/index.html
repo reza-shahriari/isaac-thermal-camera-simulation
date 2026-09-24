@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Asset ingestion survey, 2026-09-23</h1>
   
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/research/2026-09-23-asset-ingestion-survey.md" target="_blank" rel="noopener">docs/research/2026-09-23-asset-ingestion-survey.md on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/research/2026-09-23-asset-ingestion-survey.md" target="_blank" rel="noopener">docs/research/2026-09-23-asset-ingestion-survey.md on GitHub</a>
 </div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#1-the-short-version">1. The short version</a></li>
 <li class="toc-2"><a href="#2-where-the-repository-stands">2. Where the repository stands</a></li>
@@ -97,29 +97,29 @@
 <div class='table-wrap'><table>
 <thead><tr><th>evidence</th><th>file</th></tr></thead>
 <tbody>
-<tr><td>~18 <code>UsdGeom.Cube</code>/<code>Cylinder</code> prims built from DJI's published spec</td><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/phantom3.py" target="_blank" rel="noopener"><code>phantom3.py:129</code></a> <code>phantom3_parts()</code></td></tr>
-<tr><td>The only code that writes an airframe to a stage; sets <code>thermal:material</code> per prim</td><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/airframe.py" target="_blank" rel="noopener"><code>airframe.py:70,125</code></a> <code>author_parts()</code></td></tr>
-<tr><td><code>MeshSpec.shape</code> is a two-value <code>Literal</code> — <code>cylinder</code> or <code>sphere</code>, both generated</td><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/config/scene.py" target="_blank" rel="noopener"><code>scene.py:400</code></a></td></tr>
+<tr><td>~18 <code>UsdGeom.Cube</code>/<code>Cylinder</code> prims built from DJI's published spec</td><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/phantom3.py" target="_blank" rel="noopener"><code>phantom3.py:129</code></a> <code>phantom3_parts()</code></td></tr>
+<tr><td>The only code that writes an airframe to a stage; sets <code>thermal:material</code> per prim</td><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/airframe.py" target="_blank" rel="noopener"><code>airframe.py:70,125</code></a> <code>author_parts()</code></td></tr>
+<tr><td><code>MeshSpec.shape</code> is a two-value <code>Literal</code> — <code>cylinder</code> or <code>sphere</code>, both generated</td><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/config/scene.py" target="_blank" rel="noopener"><code>scene.py:400</code></a></td></tr>
 </tbody></table></div>
 <p>No scene config in <code>configs/scenes/</code> (16 files) references a <code>.usd</code>, <code>.fbx</code>, <code>.obj</code> or <code>.gltf</code>. The scene schema (v15) has no asset-reference field. Nothing outside <code>scripts/audit_materials.py --stage</code> calls <code>open_stage</code> or <code>AddReference</code>.</p>
 <p>The gap is acknowledged in exactly one place, with no owner:</p>
 <blockquote>
-<p><strong>The shape is generated here, not read from USD.</strong> … Ingesting a real asset's triangles is the Isaac side's job — <code>probe_warp_prim.py</code> measured what it takes … <strong>and is the follow-on to this row.</strong> — <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/config/scene.py" target="_blank" rel="noopener"><code>scene.py:410-415</code></a></p>
+<p><strong>The shape is generated here, not read from USD.</strong> … Ingesting a real asset's triangles is the Isaac side's job — <code>probe_warp_prim.py</code> measured what it takes … <strong>and is the follow-on to this row.</strong> — <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/config/scene.py" target="_blank" rel="noopener"><code>scene.py:410-415</code></a></p>
 </blockquote>
 <p>That follow-on has <strong>no step id, no lane and no roadmap row</strong>. <code>probe_warp_prim.py:6-20</code> records the three concrete hazards it measured: quads need triangulating, points are in local space, and an analytic gprim exposes no <code>points</code> at all.</p>
 <h3 id="22-what-does-exist-and-is-good">2.2 What does exist, and is good<a class="anchor" href="#22-what-does-exist-and-is-good" aria-label="permalink">#</a></h3>
 <p>ADR 0047's mapping layer, shipped and wired into four render drivers:</p>
 <ul>
-<li><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/materials/mapping.py" target="_blank" rel="noopener"><code>mapping.py</code></a> — engine-free resolver, precedence <code>thermal:material</code> override → semantic class → ordered case-insensitive glob → <strong>loud miss</strong> (<code>UNMAPPED_MATERIAL_ID = 0</code>, recorded, never a silent default).</li>
-<li><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py</code></a> — the only place that opens a USD stage; produces engine-free <code>PrimRecord</code>s.</li>
-<li><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/audit_materials.py" target="_blank" rel="noopener"><code>audit_materials.py</code></a> — coverage report, 95 % CI gate, runs engine-free in milliseconds from a JSON dump.</li>
+<li><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/materials/mapping.py" target="_blank" rel="noopener"><code>mapping.py</code></a> — engine-free resolver, precedence <code>thermal:material</code> override → semantic class → ordered case-insensitive glob → <strong>loud miss</strong> (<code>UNMAPPED_MATERIAL_ID = 0</code>, recorded, never a silent default).</li>
+<li><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py</code></a> — the only place that opens a USD stage; produces engine-free <code>PrimRecord</code>s.</li>
+<li><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/audit_materials.py" target="_blank" rel="noopener"><code>audit_materials.py</code></a> — coverage report, 95 % CI gate, runs engine-free in milliseconds from a JSON dump.</li>
 <li><code>configs/materials/</code> — 21 materials, <code>mapping.yaml</code> with 17 semantic classes and 30 name globs.</li>
 <li>Magenta overlay for unmapped pixels, display-only.</li>
 </ul>
 <p>This is a good layer. Sections 3 and 4 are about the one assumption in it.</p>
 <hr>
 <h2 id="3-the-problem-stated-precisely">3. The problem, stated precisely<a class="anchor" href="#3-the-problem-stated-precisely" aria-label="permalink">#</a></h2>
-<p>The per-pixel chain today, verbatim from <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/material_ids.py" target="_blank" rel="noopener"><code>material_ids.py:9-13</code></a>:</p>
+<p>The per-pixel chain today, verbatim from <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/pipeline/material_ids.py" target="_blank" rel="noopener"><code>material_ids.py:9-13</code></a>:</p>
 <pre><code>instance id  --idToLabels--&gt;  prim path  --M7.17 resolver--&gt;  material id</code></pre>
 <p>One prim → one material. A single-part building breaks <strong>three</strong> bindings:</p>
 <div class='table-wrap'><table>
@@ -130,7 +130,7 @@
 <tr><td>3</td><td><strong>Thermal parameters</strong></td><td>Glass is ~4 mm of τ&gt;0 dielectric; a rendered wall is ~300 mm of masonry with ~100× the areal heat capacity. <code>ρ·c_p·δ</code> is authored per <em>material</em>, so one prim cannot carry both.</td></tr>
 </tbody></table></div>
 <p><strong>[C]</strong> In USD, a multi-material mesh is represented as <code>UsdGeomSubset</code> children with <code>familyName="materialBind"</code>, <code>elementType=face</code>, <code>familyType=nonOverlapping</code>. This is what <code>UsdShadeMaterialBindingAPI::CreateMaterialBindSubset()</code> produces, and it is what the FBX/OBJ converters emit — one subset per source material. (<a href="https://openusd.org/release/api/class_usd_shade_material_binding_a_p_i.html" target="_blank" rel="noopener">OpenUSD API</a>)</p>
-<p><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py:100</code></a> walks <code>UsdGeom.Gprim</code> and calls <code>ComputeBoundMaterial()</code> on the <strong>mesh</strong>. It never descends into subsets.</p>
+<p><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py:100</code></a> walks <code>UsdGeom.Gprim</code> and calls <code>ComputeBoundMaterial()</code> on the <strong>mesh</strong>. It never descends into subsets.</p>
 <hr>
 <h2 id="4-the-silent-failure-hazard--read-this-before-importing-anything">4. The silent-failure hazard — read this before importing anything<a class="anchor" href="#4-the-silent-failure-hazard--read-this-before-importing-anything" aria-label="permalink">#</a></h2>
 <p><strong>[C]</strong> Blender's USD exporter documents:</p>
@@ -150,7 +150,7 @@
 <hr>
 <h2 id="5-the-mechanism-that-already-exists">5. The mechanism that already exists<a class="anchor" href="#5-the-mechanism-that-already-exists" aria-label="permalink">#</a></h2>
 <p>ADR 0110 solved point-wise temperature on curved geometry by rejecting the premise that a surface parameterisation must be <em>transported</em> by the renderer. It is <strong>derived</strong> instead: the instance id says which prim a pixel hit, the float32 world-position AOV says where, and a closest-point query against that prim's own mesh returns <strong>the triangle index and barycentric coordinates</strong>.</p>
-<p>That is <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/thermal/mesh_field.py" target="_blank" rel="noopener"><code>closest_point_on_mesh</code></a> — shipped, engine-free, and already the oracle the Warp path is held to (<a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/mesh_bridge.py" target="_blank" rel="noopener"><code>mesh_bridge.py</code></a>).</p>
+<p>That is <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/thermal/mesh_field.py" target="_blank" rel="noopener"><code>closest_point_on_mesh</code></a> — shipped, engine-free, and already the oracle the Warp path is held to (<a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/pipeline/mesh_bridge.py" target="_blank" rel="noopener"><code>mesh_bridge.py</code></a>).</p>
 <p>A triangle index is exactly what a <code>GeomSubset</code> indexes. Therefore:</p>
 <blockquote>
 <p><strong>If the mesh carried in <code>irsim</code> also carries a <code>face_material_id</code> array, the same closest-point query that already produces per-pixel temperature produces per-pixel material — on the CPU, with zero new renderer capability.</strong></p>
@@ -246,7 +246,7 @@
 <tr><td>7</td><td><strong>Thermal authoring.</strong> Thickness, interior/exterior, sky view factor, heat sources (§8). The real cost.</td><td>No</td></tr>
 <tr><td>8</td><td><strong>Validate.</strong> Coverage gate, plus a phenomenology check that the door, the windows and the wall actually differ.</td><td>Render</td></tr>
 </tbody></table></div>
-<p><code>thermal:material</code> is deliberately a plain USD attribute rather than an applied schema <em>"so that any DCC can write it without our schema installed"</em> (<a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py:16-19</code></a>). That sentence was written for exactly this use case, and step 3 is where it pays off.</p>
+<p><code>thermal:material</code> is deliberately a plain USD attribute rather than an applied schema <em>"so that any DCC can write it without our schema installed"</em> (<a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py:16-19</code></a>). That sentence was written for exactly this use case, and step 3 is where it pays off.</p>
 <hr>
 <h2 id="10-the-open-forks">10. The open forks<a class="anchor" href="#10-the-open-forks" aria-label="permalink">#</a></h2>
 <ol>
@@ -260,7 +260,7 @@
 <p><strong>External:</strong> <a href="https://docs.blender.org/manual/en/latest/files/import_export/usd.html" target="_blank" rel="noopener">Blender USD manual</a> · <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/io/usd/intern/usd_writer_mesh.cc" target="_blank" rel="noopener">usd_writer_mesh.cc</a> · <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/io/usd/intern/usd_reader_mesh.cc" target="_blank" rel="noopener">usd_reader_mesh.cc</a> · <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/editors/mesh/editmesh_tools.cc" target="_blank" rel="noopener">editmesh_tools.cc</a> · <a href="https://docs.blender.org/api/current/bpy.ops.wm.html" target="_blank" rel="noopener">bpy.ops.wm</a> · <a href="https://docs.blender.org/api/current/bpy.ops.mesh.html" target="_blank" rel="noopener">bpy.ops.mesh</a> · <a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/mesh/separate.html" target="_blank" rel="noopener">Separate manual</a> · <a href="https://developer.blender.org/docs/release_notes/" target="_blank" rel="noopener">Blender release notes</a> · <a href="https://openusd.org/release/api/class_usd_shade_material_binding_a_p_i.html" target="_blank" rel="noopener">UsdShadeMaterialBindingAPI</a> · <a href="https://github.com/NVIDIA-Omniverse/usd-convert-asset" target="_blank" rel="noopener">usd-convert-asset</a> · <a href="https://docs.omniverse.nvidia.com/extensions/latest/ext_asset-converter.html" target="_blank" rel="noopener">Omniverse Asset Converter</a> · <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/importer_exporter/formats.html" target="_blank" rel="noopener">Isaac Sim 6.0 formats</a> · <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/introduction/reference_architecture.html" target="_blank" rel="noopener">Isaac Sim 6.0 reference architecture</a> · <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/sensors/isaacsim_sensors_rtx_annotators.html" target="_blank" rel="noopener">RTX Sensor Annotators</a> · <a href="https://docs.omniverse.nvidia.com/py/replicator/1.11.16/source/extensions/omni.replicator.core/docs/annotators_details.html" target="_blank" rel="noopener">Replicator Standard Annotators</a> · <a href="https://docs-prod.omniverse.nvidia.com/connect/latest/blender.html" target="_blank" rel="noopener">Omniverse Connect — Blender</a> · <a href="https://nvidia.github.io/simready-blender-add-on/" target="_blank" rel="noopener">SimReady Blender Add-on</a> · <a href="https://github.com/NVIDIA/simready-blender-add-on" target="_blank" rel="noopener">SimReady Blender Add-on repo</a> · <a href="https://docs.omniverse.nvidia.com/simready/latest/overview/simready-spec.html" target="_blank" rel="noopener">SimReady specification</a> · <a href="https://forums.developer.nvidia.com/t/blender-to-isaac-sim/361514" target="_blank" rel="noopener">Blender to Isaac Sim forum thread</a> · <a href="https://forums.developer.nvidia.com/t/nvidia-omniverse-launcher-deprecation-on-oct-1st-what-you-need-to-know/321325" target="_blank" rel="noopener">Omniverse Launcher deprecation</a> · <a href="https://dirsig.cis.rit.edu/docs/lach.pdf" target="_blank" rel="noopener">DIRSIG scene modeling</a> · <a href="https://www.oktal-se.fr/materials/" target="_blank" rel="noopener">OKTAL-SE Materials</a> · <a href="https://www.thermoanalytics.com/product/muses/" target="_blank" rel="noopener">ThermoAnalytics MuSES</a></p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

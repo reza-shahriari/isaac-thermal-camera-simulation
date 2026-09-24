@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,23 +55,23 @@
 <div class="page-head">
   <h1>Pipeline radiance</h1>
   <p class="subtitle">Stage 1, emission-only band radiance (M3.6, ADR 0018): closed-form blackbody, grey-body apparent temperature through the LUT inverse, per-pixel material lookup, and the dtype/sentinel guards.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py" target="_blank" rel="noopener">tests/unit/test_pipeline_radiance.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py" target="_blank" rel="noopener">tests/unit/test_pipeline_radiance.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py" target="_blank" rel="noopener">tests/unit/test_pipeline_radiance.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py" target="_blank" rel="noopener">tests/unit/test_pipeline_radiance.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L32" target="_blank" rel="noopener">blackbody ramp matches closed form under 5mK</a><br><code>test_blackbody_ramp_matches_closed_form_under_5mK</code></td><td>ε = 1 over 250-450 K vs band_radiance_tophat (independent series), in mK via dLb/dT. A stray π, aperture factor or cos⁴ is a &gt;20 % error here.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L48" target="_blank" rel="noopener">grey body apparent temperature is below kinetic</a><br><code>test_grey_body_apparent_temperature_is_below_kinetic</code></td><td>ε = 0.9 at 300 K: T_app = Lb⁻¹(0.9 Lb(300)) = 293.51 K, strictly below 300 K, within 5 mK.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L62" target="_blank" rel="noopener">two material split is pixelwise</a><br><code>test_two_material_split_is_pixelwise</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L74" target="_blank" rel="noopener">float16 rejected and unmapped id refused</a><br><code>test_float16_rejected_and_unmapped_id_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L96" target="_blank" rel="noopener">stage works on supersampled and validated gbuffers</a><br><code>test_stage_works_on_supersampled_and_validated_gbuffers</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L110" target="_blank" rel="noopener">material table rules</a><br><code>test_material_table_rules</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_pipeline_radiance.py#L121" target="_blank" rel="noopener">sky pixels are blackbody equivalent and skip the material check</a><br><code>test_sky_pixels_are_blackbody_equivalent_and_skip_the_material_check</code></td><td>Under sky_mask the temperature is the apparent sky temperature: L = L_B(T_sky) exactly (ε = 1), the renderer's background id 0 is not an UNMAPPED error there, and the same id 0 <em>outside</em> the mask still is. Without the mask nothing changes for geometry pixels.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L32" target="_blank" rel="noopener">blackbody ramp matches closed form under 5mK</a><br><code>test_blackbody_ramp_matches_closed_form_under_5mK</code></td><td>ε = 1 over 250-450 K vs band_radiance_tophat (independent series), in mK via dLb/dT. A stray π, aperture factor or cos⁴ is a &gt;20 % error here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L48" target="_blank" rel="noopener">grey body apparent temperature is below kinetic</a><br><code>test_grey_body_apparent_temperature_is_below_kinetic</code></td><td>ε = 0.9 at 300 K: T_app = Lb⁻¹(0.9 Lb(300)) = 293.51 K, strictly below 300 K, within 5 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L62" target="_blank" rel="noopener">two material split is pixelwise</a><br><code>test_two_material_split_is_pixelwise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L74" target="_blank" rel="noopener">float16 rejected and unmapped id refused</a><br><code>test_float16_rejected_and_unmapped_id_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L96" target="_blank" rel="noopener">stage works on supersampled and validated gbuffers</a><br><code>test_stage_works_on_supersampled_and_validated_gbuffers</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L110" target="_blank" rel="noopener">material table rules</a><br><code>test_material_table_rules</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_pipeline_radiance.py#L121" target="_blank" rel="noopener">sky pixels are blackbody equivalent and skip the material check</a><br><code>test_sky_pixels_are_blackbody_equivalent_and_skip_the_material_check</code></td><td>Under sky_mask the temperature is the apparent sky temperature: L = L_B(T_sky) exactly (ε = 1), the renderer's background id 0 is not an UNMAPPED error there, and the same id 0 <em>outside</em> the mask still is. Without the mask nothing changes for geometry pixels.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

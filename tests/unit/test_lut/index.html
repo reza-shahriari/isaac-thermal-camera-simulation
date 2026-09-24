@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,33 +55,33 @@
 <div class="page-head">
   <h1>Lut</h1>
   <p class="subtitle">BandLUT (M1.6, ADR 0011): the fast path against the quadrature oracle, in millikelvin.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py" target="_blank" rel="noopener">tests/unit/test_lut.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py" target="_blank" rel="noopener">tests/unit/test_lut.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The LUT is only as trustworthy as this comparison. Off-grid temperatures are used throughout (grid points would hide interpolation error), and the float32 kernel contract is exercised exactly as the GPU will run it, including the clamp.</p>
-<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py" target="_blank" rel="noopener">tests/unit/test_lut.py</a>.</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py" target="_blank" rel="noopener">tests/unit/test_lut.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L23" target="_blank" rel="noopener">grid and dtypes</a><br><code>test_grid_and_dtypes</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L31" target="_blank" rel="noopener">lookup vs quadrature under 5mK</a><br><code>test_lookup_vs_quadrature_under_5mK</code></td><td>Off-grid lookup vs the Simpson oracle, in mK via dLb/dT. Expect ~0.03 mK.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L43" target="_blank" rel="noopener">float32 cast costs under 0p1mK</a><span class="tag">slow</span><br><code>test_float32_cast_costs_under_0p1mK</code></td><td>The float32 path vs float64 interpolation of float64 closed-form values on the same grid.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L66" target="_blank" rel="noopener">tophat lut matches closed form</a><br><code>test_tophat_lut_matches_closed_form</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L74" target="_blank" rel="noopener">tables monotone and positive</a><br><code>test_tables_monotone_and_positive</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L80" target="_blank" rel="noopener">derivative tables match finite difference of radiance tables</a><br><code>test_derivative_tables_match_finite_difference_of_radiance_tables</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L93" target="_blank" rel="noopener">clamp matches kernel</a><br><code>test_clamp_matches_kernel</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L111" target="_blank" rel="noopener">float16 input refused</a><br><code>test_float16_input_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L116" target="_blank" rel="noopener">output dtype and shapes</a><br><code>test_output_dtype_and_shapes</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L125" target="_blank" rel="noopener">build cost is linear in the temperature grid</a><br><code>test_build_cost_is_linear_in_the_temperature_grid</code></td><td>The property worth guarding is the <em>scaling</em>, and a wall clock cannot measure it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L156" target="_blank" rel="noopener">constructor rejects non float32 tables</a><br><code>test_constructor_rejects_non_float32_tables</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L165" target="_blank" rel="noopener">inverse round trip under 1mK</a><br><code>test_inverse_round_trip_under_1mK</code></td><td>T -&gt; Lb -&gt; T_app on a 0.013 K off-grid sweep: &lt; 1 mK (expected ~0.05 mK, float32).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L176" target="_blank" rel="noopener">grey body apparent temperature is the product</a><br><code>test_grey_body_apparent_temperature_is_the_product</code></td><td>ε = 0.9 at 300 K in 7.5-13.5 µm reads 293.51 K apparent -- the 6.5 K gap <em>is</em> what a radiometric camera reports (§3.3). LUT inverse vs brentq on the closed form &lt; 5 mK.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L189" target="_blank" rel="noopener">inverse clamps and flags out of range</a><br><code>test_inverse_clamps_and_flags_out_of_range</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L198" target="_blank" rel="noopener">inverse refuses float16 and derivative tables</a><br><code>test_inverse_refuses_float16_and_derivative_tables</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lut.py#L205" target="_blank" rel="noopener">inverse is monotone and handles exact nodes</a><br><code>test_inverse_is_monotone_and_handles_exact_nodes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L23" target="_blank" rel="noopener">grid and dtypes</a><br><code>test_grid_and_dtypes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L31" target="_blank" rel="noopener">lookup vs quadrature under 5mK</a><br><code>test_lookup_vs_quadrature_under_5mK</code></td><td>Off-grid lookup vs the Simpson oracle, in mK via dLb/dT. Expect ~0.03 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L43" target="_blank" rel="noopener">float32 cast costs under 0p1mK</a><span class="tag">slow</span><br><code>test_float32_cast_costs_under_0p1mK</code></td><td>The float32 path vs float64 interpolation of float64 closed-form values on the same grid.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L66" target="_blank" rel="noopener">tophat lut matches closed form</a><br><code>test_tophat_lut_matches_closed_form</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L74" target="_blank" rel="noopener">tables monotone and positive</a><br><code>test_tables_monotone_and_positive</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L80" target="_blank" rel="noopener">derivative tables match finite difference of radiance tables</a><br><code>test_derivative_tables_match_finite_difference_of_radiance_tables</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L93" target="_blank" rel="noopener">clamp matches kernel</a><br><code>test_clamp_matches_kernel</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L111" target="_blank" rel="noopener">float16 input refused</a><br><code>test_float16_input_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L116" target="_blank" rel="noopener">output dtype and shapes</a><br><code>test_output_dtype_and_shapes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L125" target="_blank" rel="noopener">build cost is linear in the temperature grid</a><br><code>test_build_cost_is_linear_in_the_temperature_grid</code></td><td>The property worth guarding is the <em>scaling</em>, and a wall clock cannot measure it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L156" target="_blank" rel="noopener">constructor rejects non float32 tables</a><br><code>test_constructor_rejects_non_float32_tables</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L165" target="_blank" rel="noopener">inverse round trip under 1mK</a><br><code>test_inverse_round_trip_under_1mK</code></td><td>T -&gt; Lb -&gt; T_app on a 0.013 K off-grid sweep: &lt; 1 mK (expected ~0.05 mK, float32).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L176" target="_blank" rel="noopener">grey body apparent temperature is the product</a><br><code>test_grey_body_apparent_temperature_is_the_product</code></td><td>ε = 0.9 at 300 K in 7.5-13.5 µm reads 293.51 K apparent -- the 6.5 K gap <em>is</em> what a radiometric camera reports (§3.3). LUT inverse vs brentq on the closed form &lt; 5 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L189" target="_blank" rel="noopener">inverse clamps and flags out of range</a><br><code>test_inverse_clamps_and_flags_out_of_range</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L198" target="_blank" rel="noopener">inverse refuses float16 and derivative tables</a><br><code>test_inverse_refuses_float16_and_derivative_tables</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_lut.py#L205" target="_blank" rel="noopener">inverse is monotone and handles exact nodes</a><br><code>test_inverse_is_monotone_and_handles_exact_nodes</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

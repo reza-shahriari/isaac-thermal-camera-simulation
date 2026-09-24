@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,23 +55,23 @@
 <div class="page-head">
   <h1>Optics schema</h1>
   <p class="subtitle">Optics/FPA schema extensions (M3.4, ADR 0017): derived quantities against the spec's worked numbers, and the physical consistency rules the new optional fields carry.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py" target="_blank" rel="noopener">tests/unit/test_optics_schema.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py" target="_blank" rel="noopener">tests/unit/test_optics_schema.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py" target="_blank" rel="noopener">tests/unit/test_optics_schema.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py" target="_blank" rel="noopener">tests/unit/test_optics_schema.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L30" target="_blank" rel="noopener">boson derived quantities match spec worked numbers</a><br><code>test_boson_derived_quantities_match_spec_worked_numbers</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L44" target="_blank" rel="noopener">new fields default and schema version</a><br><code>test_new_fields_default_and_schema_version</code></td><td>The ADR 0017 optional fields default as documented, and the version is the current one.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L64" target="_blank" rel="noopener">the boson authors its housing lag and self heating</a><br><code>test_the_boson_authors_its_housing_lag_and_self_heating</code></td><td>M9.3: a 'coupled' housing needs a time constant, so the committed camera has to have one.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L72" target="_blank" rel="noopener">coupled housing without a time constant is refused</a><br><code>test_coupled_housing_without_a_time_constant_is_refused</code></td><td>A lumped node with no tau cannot be integrated; defaulting it would invent the drift.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L81" target="_blank" rel="noopener">fixed housing mode requires temperature</a><br><code>test_fixed_housing_mode_requires_temperature</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L89" target="_blank" rel="noopener">cos4 forbidden with non rectilinear models</a><br><code>test_cos4_forbidden_with_non_rectilinear_models</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_schema.py#L109" target="_blank" rel="noopener">invalid new fields rejected</a><span class="tag">parametrize</span><br><code>test_invalid_new_fields_rejected</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L30" target="_blank" rel="noopener">boson derived quantities match spec worked numbers</a><br><code>test_boson_derived_quantities_match_spec_worked_numbers</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L44" target="_blank" rel="noopener">new fields default and schema version</a><br><code>test_new_fields_default_and_schema_version</code></td><td>The ADR 0017 optional fields default as documented, and the version is the current one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L64" target="_blank" rel="noopener">the boson authors its housing lag and self heating</a><br><code>test_the_boson_authors_its_housing_lag_and_self_heating</code></td><td>M9.3: a 'coupled' housing needs a time constant, so the committed camera has to have one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L72" target="_blank" rel="noopener">coupled housing without a time constant is refused</a><br><code>test_coupled_housing_without_a_time_constant_is_refused</code></td><td>A lumped node with no tau cannot be integrated; defaulting it would invent the drift.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L81" target="_blank" rel="noopener">fixed housing mode requires temperature</a><br><code>test_fixed_housing_mode_requires_temperature</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L89" target="_blank" rel="noopener">cos4 forbidden with non rectilinear models</a><br><code>test_cos4_forbidden_with_non_rectilinear_models</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_schema.py#L109" target="_blank" rel="noopener">invalid new fields rejected</a><span class="tag">parametrize</span><br><code>test_invalid_new_fields_rejected</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

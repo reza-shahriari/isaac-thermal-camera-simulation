@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Measured bench</h1>
   <p class="subtitle">M12.4: the layout and the arithmetic a Tier 2 bench comparison will use when a camera arrives.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py" target="_blank" rel="noopener">tests/unit/test_measured_bench.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py" target="_blank" rel="noopener">tests/unit/test_measured_bench.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>No infrared camera is available to this project, so every Tier 2 number it reports today is a self-consistency check. Fixing the file layout, the fitting rule and the tolerances <strong>now</strong> -- and testing them on synthetic "measured" files -- is what stops the bench becoming a rubber stamp the day hardware appears, because deciding a tolerance while looking at the first measurement is how that happens.</p>
 <p>The procedure these files come from is <code>docs/validation/tier2-bench-protocol.md</code>.</p>
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py" target="_blank" rel="noopener">tests/unit/test_measured_bench.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py" target="_blank" rel="noopener">tests/unit/test_measured_bench.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py#L31" target="_blank" rel="noopener">the layout is one place and every bench uses it</a><br><code>test_the_layout_is_one_place_and_every_bench_uses_it</code></td><td>A second layout invented in a test module is how a bench file ends up somewhere nobody looks, so each Tier 2 module's path is asserted to <em>be</em> <code>measured_path</code>'s.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py#L57" target="_blank" rel="noopener">a synthetic measured file round trips through the loader</a><br><code>test_a_synthetic_measured_file_round_trips_through_the_loader</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py#L75" target="_blank" rel="noopener">a shape comparison ignores gain and offset but not curvature</a><br><code>test_a_shape_comparison_ignores_gain_and_offset_but_not_curvature</code></td><td>ADR 0019 makes a simulated SITF's absolute DN a range choice, so the bench compares the <em>curvature</em> -- which comes from Planck through the band and from nothing else.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py#L88" target="_blank" rel="noopener">an absolute comparison refuses what a shape fit would hide</a><br><code>test_an_absolute_comparison_refuses_what_a_shape_fit_would_hide</code></td><td>The reason NETD and MTF are compared without a fit: a gain fit would let the model be wrong by any factor and still pass, which is the one thing those benches exist to rule out.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py#L100" target="_blank" rel="noopener">a comparison describes the fit it needed</a><br><code>test_a_comparison_describes_the_fit_it_needed</code></td><td>The report line has to say whether a gain was fitted, or a reader cannot tell an absolute agreement from a shape one.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_measured_bench.py#L115" target="_blank" rel="noopener">the protocol document exists and names every quantity</a><br><code>test_the_protocol_document_exists_and_names_every_quantity</code></td><td>A layout with no procedure behind it is a directory nobody can fill correctly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py#L31" target="_blank" rel="noopener">the layout is one place and every bench uses it</a><br><code>test_the_layout_is_one_place_and_every_bench_uses_it</code></td><td>A second layout invented in a test module is how a bench file ends up somewhere nobody looks, so each Tier 2 module's path is asserted to <em>be</em> <code>measured_path</code>'s.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py#L57" target="_blank" rel="noopener">a synthetic measured file round trips through the loader</a><br><code>test_a_synthetic_measured_file_round_trips_through_the_loader</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py#L75" target="_blank" rel="noopener">a shape comparison ignores gain and offset but not curvature</a><br><code>test_a_shape_comparison_ignores_gain_and_offset_but_not_curvature</code></td><td>ADR 0019 makes a simulated SITF's absolute DN a range choice, so the bench compares the <em>curvature</em> -- which comes from Planck through the band and from nothing else.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py#L88" target="_blank" rel="noopener">an absolute comparison refuses what a shape fit would hide</a><br><code>test_an_absolute_comparison_refuses_what_a_shape_fit_would_hide</code></td><td>The reason NETD and MTF are compared without a fit: a gain fit would let the model be wrong by any factor and still pass, which is the one thing those benches exist to rule out.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py#L100" target="_blank" rel="noopener">a comparison describes the fit it needed</a><br><code>test_a_comparison_describes_the_fit_it_needed</code></td><td>The report line has to say whether a gain was fitted, or a reader cannot tell an absolute agreement from a shape one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_measured_bench.py#L115" target="_blank" rel="noopener">the protocol document exists and names every quantity</a><br><code>test_the_protocol_document_exists_and_names_every_quantity</code></td><td>A layout with no procedure behind it is a directory nobody can fill correctly.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

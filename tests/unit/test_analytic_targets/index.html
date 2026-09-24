@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Analytic targets</h1>
   <p class="subtitle">The analytic-target bridge's geometry (MS.6 in sim): world space back to the camera.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py" target="_blank" rel="noopener">tests/unit/test_analytic_targets.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py" target="_blank" rel="noopener">tests/unit/test_analytic_targets.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>A point target is injected at a pixel position, so the whole thing turns on getting one transform right, and that transform sits between two opposite conventions: USD matrices are row-vector (<code>p_world = p_camera @ R</code>) while <code>ray_directions</code> applies its rotation as <code>vec @ rot.T</code>. A transpose in the wrong place rotates the target by <em>twice</em> the camera tilt in the wrong direction and puts it somewhere plausible in the frame, which is why this is pinned here, engine-free, rather than discovered in a render.</p>
 <p>docs/physics-model.md §8.3; ADR 0071 (the handover at one pixel), ADR 0014 addendum (the frame).</p>
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py" target="_blank" rel="noopener">tests/unit/test_analytic_targets.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py" target="_blank" rel="noopener">tests/unit/test_analytic_targets.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py#L43" target="_blank" rel="noopener">world to camera inverts the usd rotation</a><br><code>test_world_to_camera_inverts_the_usd_rotation</code></td><td>p_camera -&gt; p_world -&gt; p_camera returns the original point, to 1e-12 m.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py#L53" target="_blank" rel="noopener">a target placed on the boresight comes back on the boresight</a><br><code>test_a_target_placed_on_the_boresight_comes_back_on_the_boresight</code></td><td>The stage places targets by field angle; the bridge must recover exactly those angles.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py#L68" target="_blank" rel="noopener">the camera translation is subtracted before the rotation</a><br><code>test_the_camera_translation_is_subtracted_before_the_rotation</code></td><td>A camera off the origin: the offset is a world-space translation, not a camera-space one.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py#L88" target="_blank" rel="noopener">the split at one pixel is where the demo stage says it is</a><br><code>test_the_split_at_one_pixel_is_where_the_demo_stage_says_it_is</code></td><td>The Boson's 0.857 mrad pixel puts three of the six demo targets below one pixel.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py#L101" target="_blank" rel="noopener">angular size falls as one over range</a><br><code>test_angular_size_falls_as_one_over_range</code></td><td>0.35 m at 500 m is 0.7 mrad, at 1500 m 0.233: the geometry behind the whole problem.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_analytic_targets.py#L107" target="_blank" rel="noopener">a resolved target is never handed to the analytic path</a><br><code>test_a_resolved_target_is_never_handed_to_the_analytic_path</code></td><td>The aircraft spans 5.6 px: injecting it would be a point source where a shape belongs.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py#L43" target="_blank" rel="noopener">world to camera inverts the usd rotation</a><br><code>test_world_to_camera_inverts_the_usd_rotation</code></td><td>p_camera -&gt; p_world -&gt; p_camera returns the original point, to 1e-12 m.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py#L53" target="_blank" rel="noopener">a target placed on the boresight comes back on the boresight</a><br><code>test_a_target_placed_on_the_boresight_comes_back_on_the_boresight</code></td><td>The stage places targets by field angle; the bridge must recover exactly those angles.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py#L68" target="_blank" rel="noopener">the camera translation is subtracted before the rotation</a><br><code>test_the_camera_translation_is_subtracted_before_the_rotation</code></td><td>A camera off the origin: the offset is a world-space translation, not a camera-space one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py#L88" target="_blank" rel="noopener">the split at one pixel is where the demo stage says it is</a><br><code>test_the_split_at_one_pixel_is_where_the_demo_stage_says_it_is</code></td><td>The Boson's 0.857 mrad pixel puts three of the six demo targets below one pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py#L101" target="_blank" rel="noopener">angular size falls as one over range</a><br><code>test_angular_size_falls_as_one_over_range</code></td><td>0.35 m at 500 m is 0.7 mrad, at 1500 m 0.233: the geometry behind the whole problem.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_analytic_targets.py#L107" target="_blank" rel="noopener">a resolved target is never handed to the analytic path</a><br><code>test_a_resolved_target_is_never_handed_to_the_analytic_path</code></td><td>The aircraft spans 5.6 px: injecting it would be a point source where a shape belongs.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

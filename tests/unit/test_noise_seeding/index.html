@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Noise seeding</h1>
   <p class="subtitle">Seeded random streams (M4.2, ADR 0022): bit-identical replay, per-element isolation, traversal independence, independence across frames/streams/sensors, correct statistics of the hashed normals, and no global state.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py" target="_blank" rel="noopener">tests/unit/test_noise_seeding.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py" target="_blank" rel="noopener">tests/unit/test_noise_seeding.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py" target="_blank" rel="noopener">tests/unit/test_noise_seeding.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py" target="_blank" rel="noopener">tests/unit/test_noise_seeding.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L29" target="_blank" rel="noopener">same triple is bit identical</a><br><code>test_same_triple_is_bit_identical</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L36" target="_blank" rel="noopener">pinned hash values</a><br><code>test_pinned_hash_values</code></td><td>The integer hash is the cross-implementation contract: pin a few values so that a change to the mixer (or a GPU port that disagrees) is caught, not silently re-baselined.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L52" target="_blank" rel="noopener">per element isolation and traversal independence</a><br><code>test_per_element_isolation_and_traversal_independence</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L71" target="_blank" rel="noopener">streams are independent</a><span class="tag">parametrize</span><br><code>test_streams_are_independent</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L80" target="_blank" rel="noopener">hashed normals are standard normal</a><br><code>test_hashed_normals_are_standard_normal</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L91" target="_blank" rel="noopener">frame can be reached directly</a><br><code>test_frame_can_be_reached_directly</code></td><td>Frame 500 does not depend on frames 0-499 having been generated (no hidden state).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L100" target="_blank" rel="noopener">sequential generators for poisson draws</a><br><code>test_sequential_generators_for_poisson_draws</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_seeding.py#L112" target="_blank" rel="noopener">seed validation and stream values are stable</a><br><code>test_seed_validation_and_stream_values_are_stable</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L29" target="_blank" rel="noopener">same triple is bit identical</a><br><code>test_same_triple_is_bit_identical</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L36" target="_blank" rel="noopener">pinned hash values</a><br><code>test_pinned_hash_values</code></td><td>The integer hash is the cross-implementation contract: pin a few values so that a change to the mixer (or a GPU port that disagrees) is caught, not silently re-baselined.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L52" target="_blank" rel="noopener">per element isolation and traversal independence</a><br><code>test_per_element_isolation_and_traversal_independence</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L71" target="_blank" rel="noopener">streams are independent</a><span class="tag">parametrize</span><br><code>test_streams_are_independent</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L80" target="_blank" rel="noopener">hashed normals are standard normal</a><br><code>test_hashed_normals_are_standard_normal</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L91" target="_blank" rel="noopener">frame can be reached directly</a><br><code>test_frame_can_be_reached_directly</code></td><td>Frame 500 does not depend on frames 0-499 having been generated (no hidden state).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L100" target="_blank" rel="noopener">sequential generators for poisson draws</a><br><code>test_sequential_generators_for_poisson_draws</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_seeding.py#L112" target="_blank" rel="noopener">seed validation and stream values are stable</a><br><code>test_seed_validation_and_stream_values_are_stable</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,26 +55,26 @@
 <div class="page-head">
   <h1>Noise analysis</h1>
   <p class="subtitle">Noise analysers (ME.2a, ADR 0023): the leakage-corrected 3-D decomposition recovers injected components from the M4.3 synthesiser within its own sampling floors, single-component and white cubes behave, the sum-of-squares identity holds, and the PSD diagnostics see white noise as flat and column noise on the k_v = 0 line.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py" target="_blank" rel="noopener">tests/unit/test_noise_analysis.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py" target="_blank" rel="noopener">tests/unit/test_noise_analysis.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Tolerances are derived, not guessed: <code>estimate_floors</code> gives the standard deviation of each variance estimate for the cube size; every assertion is 3x that floor. A fixed column pattern of a 64-wide cube has 64 samples, so sigma_H is known only to about 9 % from one cube -- no estimator can do better, and a flat 5 % bound there would be a coin toss.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py" target="_blank" rel="noopener">tests/unit/test_noise_analysis.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py" target="_blank" rel="noopener">tests/unit/test_noise_analysis.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L46" target="_blank" rel="noopener">round trip recovers boson ratios within sampling floors</a><br><code>test_round_trip_recovers_boson_ratios_within_sampling_floors</code></td><td>200 frames of 64x64 with the Boson ratios: every variance estimate within 3 floors. The large components are tight (TVH 0.6 %, VH 3 %), the fixed row/column terms are 64-sample quantities (about 27 % at 3 sigma on sigma_H).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L61" target="_blank" rel="noopener">white cube has no directional components</a><br><code>test_white_cube_has_no_directional_components</code></td><td>Pure i.i.d.: all six directional variance estimates within 3 floors of zero, i.e. the directional sigmas &lt; ~0.03 sigma_TVH (the naive std of a directional mean would read sigma_TVH/sqrt(N_t N_h) plus bias; the leakage correction removes it).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L75" target="_blank" rel="noopener">single component cubes</a><span class="tag">parametrize</span><br><code>test_single_component_cubes</code></td><td>A cube built from only sigma_X returns every variance within 3 floors: X itself to its sampling precision, the lower-order terms to the leakage noise floor, the rest ~0.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L87" target="_blank" rel="noopener">sum of squares identity</a><br><code>test_sum_of_squares_identity</code></td><td>The seven sums of squares equal the total sum of squares to 1e-6 (orthogonal decomposition), reconstructed from the unbiased variances.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L111" target="_blank" rel="noopener">floors scale with cube size</a><br><code>test_floors_scale_with_cube_size</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L118" target="_blank" rel="noopener">uint16 input promoted and guards</a><br><code>test_uint16_input_promoted_and_guards</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L130" target="_blank" rel="noopener">white noise spatial psd is flat and parseval</a><br><code>test_white_noise_spatial_psd_is_flat_and_parseval</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L138" target="_blank" rel="noopener">column noise lives on the kv0 line</a><br><code>test_column_noise_lives_on_the_kv0_line</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_analysis.py#L149" target="_blank" rel="noopener">temporal psd of white noise is flat and parseval</a><br><code>test_temporal_psd_of_white_noise_is_flat_and_parseval</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L46" target="_blank" rel="noopener">round trip recovers boson ratios within sampling floors</a><br><code>test_round_trip_recovers_boson_ratios_within_sampling_floors</code></td><td>200 frames of 64x64 with the Boson ratios: every variance estimate within 3 floors. The large components are tight (TVH 0.6 %, VH 3 %), the fixed row/column terms are 64-sample quantities (about 27 % at 3 sigma on sigma_H).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L61" target="_blank" rel="noopener">white cube has no directional components</a><br><code>test_white_cube_has_no_directional_components</code></td><td>Pure i.i.d.: all six directional variance estimates within 3 floors of zero, i.e. the directional sigmas &lt; ~0.03 sigma_TVH (the naive std of a directional mean would read sigma_TVH/sqrt(N_t N_h) plus bias; the leakage correction removes it).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L75" target="_blank" rel="noopener">single component cubes</a><span class="tag">parametrize</span><br><code>test_single_component_cubes</code></td><td>A cube built from only sigma_X returns every variance within 3 floors: X itself to its sampling precision, the lower-order terms to the leakage noise floor, the rest ~0.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L87" target="_blank" rel="noopener">sum of squares identity</a><br><code>test_sum_of_squares_identity</code></td><td>The seven sums of squares equal the total sum of squares to 1e-6 (orthogonal decomposition), reconstructed from the unbiased variances.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L111" target="_blank" rel="noopener">floors scale with cube size</a><br><code>test_floors_scale_with_cube_size</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L118" target="_blank" rel="noopener">uint16 input promoted and guards</a><br><code>test_uint16_input_promoted_and_guards</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L130" target="_blank" rel="noopener">white noise spatial psd is flat and parseval</a><br><code>test_white_noise_spatial_psd_is_flat_and_parseval</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L138" target="_blank" rel="noopener">column noise lives on the kv0 line</a><br><code>test_column_noise_lives_on_the_kv0_line</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_analysis.py#L149" target="_blank" rel="noopener">temporal psd of white noise is flat and parseval</a><br><code>test_temporal_psd_of_white_noise_is_flat_and_parseval</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

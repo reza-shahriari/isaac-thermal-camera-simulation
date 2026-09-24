@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Nuc residual</h1>
   <p class="subtitle">NUC residual (M9.6): what survives the two-point correction, and in which units.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py" target="_blank" rel="noopener">tests/unit/test_nuc_residual.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py" target="_blank" rel="noopener">tests/unit/test_nuc_residual.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -67,28 +67,28 @@
 </ul>
 <p>And the FFC signature: a reset draws a new realisation, so the pattern after the event is uncorrelated with the pattern before -- the fixed pattern is replaced, not faded.</p>
 <p>docs/physics-model.md §11.2, §2, §12.2. ADR 0053, ADR 0056.</p>
-<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py" target="_blank" rel="noopener">tests/unit/test_nuc_residual.py</a>.</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py" target="_blank" rel="noopener">tests/unit/test_nuc_residual.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L70" target="_blank" rel="noopener">a freshly shuttered camera has no residual</a><br><code>test_a_freshly_shuttered_camera_has_no_residual</code></td><td>ΔT_FPA = 0 -&gt; gain ≡ 1 and offset ≡ 0, exactly. Not approximately, not on average.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L81" target="_blank" rel="noopener">offset std is the configured millikelvin figure</a><br><code>test_offset_std_is_the_configured_millikelvin_figure</code></td><td>45 mK/K at ΔT = 2 K is 90 mK, within 2 %, and exactly twice the 1 K value.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L95" target="_blank" rel="noopener">the residual is linear in delta t</a><span class="tag">parametrize</span><br><code>test_the_residual_is_linear_in_delta_t</code></td><td>Both terms scale with ΔT_FPA and nothing else; a negative ΔT flips the pattern's sign.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L106" target="_blank" rel="noopener">the gain residual scales with the signal</a><br><code>test_the_gain_residual_scales_with_the_signal</code></td><td>g_ij multiplies, so the error is proportional to DN -- exactly, per pixel.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L130" target="_blank" rel="noopener">the offset residual does not scale with the signal</a><br><code>test_the_offset_residual_does_not_scale_with_the_signal</code></td><td>The control for the test above: o_ij is additive, so the same error appears at any level.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L152" target="_blank" rel="noopener">residual not kelvin flat</a><br><code>test_residual_not_kelvin_flat</code></td><td>The same DN residual is a <em>smaller</em> apparent-T error at 373 K than at 300 K (within 5 %).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L185" target="_blank" rel="noopener">dn per kelvin rises with temperature</a><br><code>test_dn_per_kelvin_rises_with_temperature</code></td><td>The conversion reference is itself temperature-dependent.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L201" target="_blank" rel="noopener">ffc reset decorrelates the pattern</a><br><code>test_ffc_reset_decorrelates_the_pattern</code></td><td>|r| &lt; 0.05 between the pattern before and after the shutter: replaced, not faded.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L214" target="_blank" rel="noopener">ffc reset preserves the configured amplitude</a><br><code>test_ffc_reset_preserves_the_configured_amplitude</code></td><td>A new epoch is a new realisation of the same distribution, within 5 %.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L225" target="_blank" rel="noopener">the gain and offset fields are independent</a><br><code>test_the_gain_and_offset_fields_are_independent</code></td><td>Separate streams: a camera whose gain and offset errors were the same pattern would show a residual that vanishes at one signal level, which is not what a real FPA does.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L232" target="_blank" rel="noopener">the fields are unit variance and zero mean</a><br><code>test_the_fields_are_unit_variance_and_zero_mean</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L241" target="_blank" rel="noopener">the residual is deterministic per sensor seed</a><br><code>test_the_residual_is_deterministic_per_sensor_seed</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L251" target="_blank" rel="noopener">float16 and integer planes are refused</a><br><code>test_float16_and_integer_planes_are_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L258" target="_blank" rel="noopener">output is float32</a><br><code>test_output_is_float32</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L263" target="_blank" rel="noopener">a non positive conversion reference is refused</a><br><code>test_a_non_positive_conversion_reference_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L269" target="_blank" rel="noopener">a mismatched shape is refused</a><br><code>test_a_mismatched_shape_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L70" target="_blank" rel="noopener">a freshly shuttered camera has no residual</a><br><code>test_a_freshly_shuttered_camera_has_no_residual</code></td><td>ΔT_FPA = 0 -&gt; gain ≡ 1 and offset ≡ 0, exactly. Not approximately, not on average.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L81" target="_blank" rel="noopener">offset std is the configured millikelvin figure</a><br><code>test_offset_std_is_the_configured_millikelvin_figure</code></td><td>45 mK/K at ΔT = 2 K is 90 mK, within 2 %, and exactly twice the 1 K value.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L95" target="_blank" rel="noopener">the residual is linear in delta t</a><span class="tag">parametrize</span><br><code>test_the_residual_is_linear_in_delta_t</code></td><td>Both terms scale with ΔT_FPA and nothing else; a negative ΔT flips the pattern's sign.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L106" target="_blank" rel="noopener">the gain residual scales with the signal</a><br><code>test_the_gain_residual_scales_with_the_signal</code></td><td>g_ij multiplies, so the error is proportional to DN -- exactly, per pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L130" target="_blank" rel="noopener">the offset residual does not scale with the signal</a><br><code>test_the_offset_residual_does_not_scale_with_the_signal</code></td><td>The control for the test above: o_ij is additive, so the same error appears at any level.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L152" target="_blank" rel="noopener">residual not kelvin flat</a><br><code>test_residual_not_kelvin_flat</code></td><td>The same DN residual is a <em>smaller</em> apparent-T error at 373 K than at 300 K (within 5 %).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L185" target="_blank" rel="noopener">dn per kelvin rises with temperature</a><br><code>test_dn_per_kelvin_rises_with_temperature</code></td><td>The conversion reference is itself temperature-dependent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L201" target="_blank" rel="noopener">ffc reset decorrelates the pattern</a><br><code>test_ffc_reset_decorrelates_the_pattern</code></td><td>|r| &lt; 0.05 between the pattern before and after the shutter: replaced, not faded.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L214" target="_blank" rel="noopener">ffc reset preserves the configured amplitude</a><br><code>test_ffc_reset_preserves_the_configured_amplitude</code></td><td>A new epoch is a new realisation of the same distribution, within 5 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L225" target="_blank" rel="noopener">the gain and offset fields are independent</a><br><code>test_the_gain_and_offset_fields_are_independent</code></td><td>Separate streams: a camera whose gain and offset errors were the same pattern would show a residual that vanishes at one signal level, which is not what a real FPA does.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L232" target="_blank" rel="noopener">the fields are unit variance and zero mean</a><br><code>test_the_fields_are_unit_variance_and_zero_mean</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L241" target="_blank" rel="noopener">the residual is deterministic per sensor seed</a><br><code>test_the_residual_is_deterministic_per_sensor_seed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L251" target="_blank" rel="noopener">float16 and integer planes are refused</a><br><code>test_float16_and_integer_planes_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L258" target="_blank" rel="noopener">output is float32</a><br><code>test_output_is_float32</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L263" target="_blank" rel="noopener">a non positive conversion reference is refused</a><br><code>test_a_non_positive_conversion_reference_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_nuc_residual.py#L269" target="_blank" rel="noopener">a mismatched shape is refused</a><br><code>test_a_mismatched_shape_is_refused</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

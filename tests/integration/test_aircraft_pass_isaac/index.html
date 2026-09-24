@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Aircraft pass isaac</h1>
   <p class="subtitle">In-sim aircraft phenomenology: the nozzle appears when the aspect turns (ADR 0075).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py" target="_blank" rel="noopener">tests/integration/test_aircraft_pass_isaac.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py" target="_blank" rel="noopener">tests/integration/test_aircraft_pass_isaac.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The headline claim of the aircraft stage cannot be checked engine-free. That the nozzles sit aft of and inside their nacelles is geometry and <code>tests/unit/test_aircraft_pass.py</code> asserts it; that the <em>renderer</em> therefore hides them from the front and shows them from the rear is a statement about ray tracing, and only a render can make it. The instance-id plane settles it exactly -- every pixel carries the integer id of the prim it hit, so "how much nozzle is visible" is a count, not an estimate.</p>
 <p>The second claim here is about the mount. <code>IrCamera</code> caches the camera pose at <code>open()</code> because every pixel's ray direction is built from it, so a camera that is re-aimed between frames and not refreshed keeps casting rays from where it used to be -- the geometry AOVs follow the prim while the elevations and the sky temperature stay behind. That failure produces a completely normal looking frame, which is why it is worth an explicit test.</p>
 <p>docs/physics-model.md §6.6 (by extension), ADR 0075</p>
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py" target="_blank" rel="noopener">tests/integration/test_aircraft_pass_isaac.py</a>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py" target="_blank" rel="noopener">tests/integration/test_aircraft_pass_isaac.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py#L133" target="_blank" rel="noopener">the two frames differ only in aspect</a><br><code>test_the_two_frames_differ_only_in_aspect</code></td><td>Guard on the comparison itself: same range, mirrored aspect about the beam.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py#L141" target="_blank" rel="noopener">the nozzle is hidden head on and exposed tail on</a><br><code>test_the_nozzle_is_hidden_head_on_and_exposed_tail_on</code></td><td>The renderer's own occlusion, counted off the instance-id plane.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py#L157" target="_blank" rel="noopener">the airframe itself is equally visible from both aspects</a><br><code>test_the_airframe_itself_is_equally_visible_from_both_aspects</code></td><td>The skin area barely changes, so the nozzle's swing is occlusion and not just projection.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py#L169" target="_blank" rel="noopener">the hottest pixel is hotter from behind</a><br><code>test_the_hottest_pixel_is_hotter_from_behind</code></td><td>The signature the sensor actually reports rises with aspect, not just the pixel count.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aircraft_pass_isaac.py#L176" target="_blank" rel="noopener">refreshing the pose moves the sky with the mount</a><br><code>test_refreshing_the_pose_moves_the_sky_with_the_mount</code></td><td>Re-aiming the pedestal must move the ray elevations, or the sky is left behind.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py#L133" target="_blank" rel="noopener">the two frames differ only in aspect</a><br><code>test_the_two_frames_differ_only_in_aspect</code></td><td>Guard on the comparison itself: same range, mirrored aspect about the beam.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py#L141" target="_blank" rel="noopener">the nozzle is hidden head on and exposed tail on</a><br><code>test_the_nozzle_is_hidden_head_on_and_exposed_tail_on</code></td><td>The renderer's own occlusion, counted off the instance-id plane.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py#L157" target="_blank" rel="noopener">the airframe itself is equally visible from both aspects</a><br><code>test_the_airframe_itself_is_equally_visible_from_both_aspects</code></td><td>The skin area barely changes, so the nozzle's swing is occlusion and not just projection.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py#L169" target="_blank" rel="noopener">the hottest pixel is hotter from behind</a><br><code>test_the_hottest_pixel_is_hotter_from_behind</code></td><td>The signature the sensor actually reports rises with aspect, not just the pixel count.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_aircraft_pass_isaac.py#L176" target="_blank" rel="noopener">refreshing the pose moves the sky with the mount</a><br><code>test_refreshing_the_pose_moves_the_sky_with_the_mount</code></td><td>Re-aiming the pedestal must move the ray elevations, or the sky is left behind.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

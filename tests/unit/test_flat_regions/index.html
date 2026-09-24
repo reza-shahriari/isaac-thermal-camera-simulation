@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Flat regions</h1>
   <p class="subtitle">Flat-region finding and per-pixel temporal noise (ME.2b, ADR 0023).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py" target="_blank" rel="noopener">tests/unit/test_flat_regions.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py" target="_blank" rel="noopener">tests/unit/test_flat_regions.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The finder's job is to refuse: a window with a cloud, a horizon or a drone in it must not be offered to a noise analyser, and a window with nothing but sensor noise in it -- striping included -- must be. Every test here is built so that it would fail if the finder confused scene structure with noise in either direction, which is the only way it can be wrong.</p>
 <p>Thresholds are in units of the window's own noise, so each test scales noise and structure together and asserts the verdict, not a DN value.</p>
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py" target="_blank" rel="noopener">tests/unit/test_flat_regions.py</a>.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py" target="_blank" rel="noopener">tests/unit/test_flat_regions.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L49" target="_blank" rel="noopener">robust noise scale recovers sigma through a ramp and striping</a><br><code>test_robust_noise_scale_recovers_sigma_through_a_ramp_and_striping</code></td><td>The ruler everything else is measured against: a gradient and column noise must not move it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L71" target="_blank" rel="noopener">a frame of pure noise is flat everywhere</a><br><code>test_a_frame_of_pure_noise_is_flat_everywhere</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L82" target="_blank" rel="noopener">a cloud and a horizon are refused</a><br><code>test_a_cloud_and_a_horizon_are_refused</code></td><td>No accepted window may contain a pixel where the scene departs from flat by one sigma.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L98" target="_blank" rel="noopener">column striping is still flat</a><br><code>test_column_striping_is_still_flat</code></td><td>Striping is the thing being measured; a finder that rejected it would hide column noise.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L114" target="_blank" rel="noopener">a point target takes its window out</a><br><code>test_a_point_target_takes_its_window_out</code></td><td>Both a resolved target and a single-pixel one, and the second only the outlier rule can do.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L139" target="_blank" rel="noopener">the verdict is scale free</a><br><code>test_the_verdict_is_scale_free</code></td><td>Doubling the DN scale of a clip must not change which windows are usable.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L154" target="_blank" rel="noopener">the temporal median deletes a moving target</a><br><code>test_the_temporal_median_deletes_a_moving_target</code></td><td>A drone crossing the window is in one frame of many, so the median never sees it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L169" target="_blank" rel="noopener">per pixel temporal variance equals the temporal half of the decomposition</a><br><code>test_per_pixel_temporal_variance_equals_the_temporal_half_of_the_decomposition</code></td><td>An independent route to the same numbers: mean per-pixel variance == T + TV + TH + TVH.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L192" target="_blank" rel="noopener">a flickering pixel shows up in the temporal map</a><br><code>test_a_flickering_pixel_shows_up_in_the_temporal_map</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L204" target="_blank" rel="noopener">float16 is refused everywhere</a><br><code>test_float16_is_refused_everywhere</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_regions.py#L215" target="_blank" rel="noopener">window geometry is checked</a><br><code>test_window_geometry_is_checked</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L49" target="_blank" rel="noopener">robust noise scale recovers sigma through a ramp and striping</a><br><code>test_robust_noise_scale_recovers_sigma_through_a_ramp_and_striping</code></td><td>The ruler everything else is measured against: a gradient and column noise must not move it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L71" target="_blank" rel="noopener">a frame of pure noise is flat everywhere</a><br><code>test_a_frame_of_pure_noise_is_flat_everywhere</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L82" target="_blank" rel="noopener">a cloud and a horizon are refused</a><br><code>test_a_cloud_and_a_horizon_are_refused</code></td><td>No accepted window may contain a pixel where the scene departs from flat by one sigma.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L98" target="_blank" rel="noopener">column striping is still flat</a><br><code>test_column_striping_is_still_flat</code></td><td>Striping is the thing being measured; a finder that rejected it would hide column noise.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L114" target="_blank" rel="noopener">a point target takes its window out</a><br><code>test_a_point_target_takes_its_window_out</code></td><td>Both a resolved target and a single-pixel one, and the second only the outlier rule can do.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L139" target="_blank" rel="noopener">the verdict is scale free</a><br><code>test_the_verdict_is_scale_free</code></td><td>Doubling the DN scale of a clip must not change which windows are usable.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L154" target="_blank" rel="noopener">the temporal median deletes a moving target</a><br><code>test_the_temporal_median_deletes_a_moving_target</code></td><td>A drone crossing the window is in one frame of many, so the median never sees it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L169" target="_blank" rel="noopener">per pixel temporal variance equals the temporal half of the decomposition</a><br><code>test_per_pixel_temporal_variance_equals_the_temporal_half_of_the_decomposition</code></td><td>An independent route to the same numbers: mean per-pixel variance == T + TV + TH + TVH.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L192" target="_blank" rel="noopener">a flickering pixel shows up in the temporal map</a><br><code>test_a_flickering_pixel_shows_up_in_the_temporal_map</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L204" target="_blank" rel="noopener">float16 is refused everywhere</a><br><code>test_float16_is_refused_everywhere</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_flat_regions.py#L215" target="_blank" rel="noopener">window geometry is checked</a><br><code>test_window_geometry_is_checked</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

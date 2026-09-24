@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>R2 scene</h1>
   <p class="subtitle">TC.6 — the R2 reference scene: an engine warms the metal around it, from the scene config.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py" target="_blank" rel="noopener">tests/unit/test_r2_scene.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_r2_scene.py" target="_blank" rel="noopener">tests/unit/test_r2_scene.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Both car scenes now declare the engine as a solved node (<code>solver: engine</code>) and the metal around it as <code>nodes:</code> and <code>links:</code>: the block followed as a boundary, rubber mounts as a link node to the subframe, a wing bracket bolted to the block through 25 cm² of a new ferrous joint whose fan-driven convection stops at key-off, and the wing hung off it by two small bolts.</p>
 <p>The row's checks: a bracket lags the block by its RC time and settles at G/(G + hA) of the block's rise, to 1e-6 (held on a fixed block, where the closed form is exact); parts warm in conductance order; the synthetic-G-buffer bonnet shows 10–40 K max–min with the engine on (<code>test_car_demo</code> holds that on the shared fixture). Frames need <code>IG.2</code>.</p>
 <p>docs/physics-model.md §6.4, §6.6; ADR 0096, ADR 0097, ADR 0100; roadmap TC.6.</p>
-<p class='made-by'>3 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py" target="_blank" rel="noopener">tests/unit/test_r2_scene.py</a>.</p>
+<p class='made-by'>3 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_r2_scene.py" target="_blank" rel="noopener">tests/unit/test_r2_scene.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py#L54" target="_blank" rel="noopener">a bracket lags the block by its rc time and settles at the two resistor share</a><br><code>test_a_bracket_lags_the_block_by_its_rc_time_and_settles_at_the_two_resistor_share</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py#L80" target="_blank" rel="noopener">the car scenes declare the metal around the engine</a><span class="tag">parametrize</span><br><code>test_the_car_scenes_declare_the_metal_around_the_engine</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py#L94" target="_blank" rel="noopener">parts warm in conductance order and the bracket follows the block</a><span class="tag">slow</span><br><code>test_parts_warm_in_conductance_order_and_the_bracket_follows_the_block</code></td><td>Block → bracket (a 30 W/K bolted joint) → mounts (12 W/K of rubber) → wing (two small bolts) → subframe (behind the rubber, with mass). Measured at 600 s: +51, +45, +27, +4 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_r2_scene.py#L54" target="_blank" rel="noopener">a bracket lags the block by its rc time and settles at the two resistor share</a><br><code>test_a_bracket_lags_the_block_by_its_rc_time_and_settles_at_the_two_resistor_share</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_r2_scene.py#L80" target="_blank" rel="noopener">the car scenes declare the metal around the engine</a><span class="tag">parametrize</span><br><code>test_the_car_scenes_declare_the_metal_around_the_engine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_r2_scene.py#L94" target="_blank" rel="noopener">parts warm in conductance order and the bracket follows the block</a><span class="tag">slow</span><br><code>test_parts_warm_in_conductance_order_and_the_bracket_follows_the_block</code></td><td>Block → bracket (a 30 W/K bolted joint) → mounts (12 W/K of rubber) → wing (two small bolts) → subframe (behind the rubber, with mass). Measured at 600 s: +51, +45, +27, +4 K.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Changelog structure</h1>
   <p class="subtitle">RP.2 — `CHANGELOG.md` is grouped by day, and no heading repeats inside a section.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py" target="_blank" rel="noopener">tests/unit/test_changelog_structure.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py" target="_blank" rel="noopener">tests/unit/test_changelog_structure.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>One <code>[Unreleased]</code> section of 3,300 lines carrying <strong>twenty</strong> repeated <code>Added</code> / <code>Changed</code> / <code>Fixed</code> headings is a single merge hotspot: three sessions working in one tree all append under the same heading near the top of the same file, and a whole-file write from any of them silently takes the others' entries with it. That is not hypothetical here — two commits already exist whose entire subject is restoring lost CHANGELOG entries (<code>68acd1c</code>, <code>303b56b</code>).</p>
 <p>Dated sub-sections shrink the collision surface to one day's block, and this parser makes a third loss detectable <em>before</em> it is committed rather than by later <code>git log</code> archaeology.</p>
 <p>The regrouping that created this structure moved whole bullet blocks and rewrote nothing: the multiset of non-heading lines was compared before and after, and 3,242 content lines came through unchanged.</p>
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py" target="_blank" rel="noopener">tests/unit/test_changelog_structure.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py" target="_blank" rel="noopener">tests/unit/test_changelog_structure.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L49" target="_blank" rel="noopener">the changelog has dated sections</a><br><code>test_the_changelog_has_dated_sections</code></td><td>A parser that found none would pass every test below for ever.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L55" target="_blank" rel="noopener">no heading repeats inside a dated section</a><br><code>test_no_heading_repeats_inside_a_dated_section</code></td><td>The hotspot itself: twenty <code>Added</code> headings in one section is twenty places to collide.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L65" target="_blank" rel="noopener">no date heading repeats</a><br><code>test_no_date_heading_repeats</code></td><td>Two sections for one day would reintroduce the same collision one level down.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L75" target="_blank" rel="noopener">every heading is one keep a changelog kind</a><br><code>test_every_heading_is_one_keep_a_changelog_kind</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L80" target="_blank" rel="noopener">dates are real and newest first</a><br><code>test_dates_are_real_and_newest_first</code></td><td>A reader skims the top for what just happened; ordering is the whole affordance.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L87" target="_blank" rel="noopener">every dated section is under unreleased</a><br><code>test_every_dated_section_is_under_unreleased</code></td><td>Once a release is cut, its dated sections move with it; until then they live here.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L101" target="_blank" rel="noopener">no dated section is empty</a><br><code>test_no_dated_section_is_empty</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_changelog_structure.py#L109" target="_blank" rel="noopener">the parser would catch a repeat</a><br><code>test_the_parser_would_catch_a_repeat</code></td><td>Negative control: the invariant must be able to fail, not merely to pass.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L49" target="_blank" rel="noopener">the changelog has dated sections</a><br><code>test_the_changelog_has_dated_sections</code></td><td>A parser that found none would pass every test below for ever.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L55" target="_blank" rel="noopener">no heading repeats inside a dated section</a><br><code>test_no_heading_repeats_inside_a_dated_section</code></td><td>The hotspot itself: twenty <code>Added</code> headings in one section is twenty places to collide.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L65" target="_blank" rel="noopener">no date heading repeats</a><br><code>test_no_date_heading_repeats</code></td><td>Two sections for one day would reintroduce the same collision one level down.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L75" target="_blank" rel="noopener">every heading is one keep a changelog kind</a><br><code>test_every_heading_is_one_keep_a_changelog_kind</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L80" target="_blank" rel="noopener">dates are real and newest first</a><br><code>test_dates_are_real_and_newest_first</code></td><td>A reader skims the top for what just happened; ordering is the whole affordance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L87" target="_blank" rel="noopener">every dated section is under unreleased</a><br><code>test_every_dated_section_is_under_unreleased</code></td><td>Once a release is cut, its dated sections move with it; until then they live here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L101" target="_blank" rel="noopener">no dated section is empty</a><br><code>test_no_dated_section_is_empty</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_changelog_structure.py#L109" target="_blank" rel="noopener">the parser would catch a repeat</a><br><code>test_the_parser_would_catch_a_repeat</code></td><td>Negative control: the invariant must be able to fail, not merely to pass.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

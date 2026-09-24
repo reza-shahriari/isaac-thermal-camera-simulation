@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Network schema</h1>
   <p class="subtitle">TC.4 — nodes, links and joints in the scene schema, and the joint table with its provenance.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py" target="_blank" rel="noopener">tests/unit/test_network_schema.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py" target="_blank" rel="noopener">tests/unit/test_network_schema.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The network shipped in TC.2 could be built only in Python. This is what lets a scene config say "a bracket bolted to the block through 25 cm² of a new ferrous joint", with the conductance and its source read from <code>configs/thermal/joints.yaml</code> rather than typed into the scene.</p>
 <p>The two checks the roadmap row names: the loader refuses a contact conductance outside 1e2–1e6 W m⁻² K⁻¹ (a per-K typo such as 1e-3 turns a bolted joint into an insulator, and the scene would render plausibly with the bracket cold); and a bracket joined to a 400 °C part through 25 cm² at 12 kW m⁻² K⁻¹ against 1 kW m⁻² K⁻¹ shows steady rises in the ratio the two-resistor closed form gives, to 1e-6.</p>
 <p>docs/physics-model.md §6.4; spec issue S42; ADR 0096, ADR 0097; roadmap TC.4.</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py" target="_blank" rel="noopener">tests/unit/test_network_schema.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py" target="_blank" rel="noopener">tests/unit/test_network_schema.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L68" target="_blank" rel="noopener">the joint table carries the survey s numbers with provenance</a><br><code>test_the_joint_table_carries_the_survey_s_numbers_with_provenance</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L86" target="_blank" rel="noopener">the loader refuses a per k typo</a><br><code>test_the_loader_refuses_a_per_k_typo</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L102" target="_blank" rel="noopener">an inline h c is range checked like the table</a><br><code>test_an_inline_h_c_is_range_checked_like_the_table</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L130" target="_blank" rel="noopener">a new joint against a dry one follows the two resistor form</a><span class="tag">slow</span><br><code>test_a_new_joint_against_a_dry_one_follows_the_two_resistor_form</code></td><td>ΔT_bracket = G/(G + hA) · (T_block − T_air), so the two rises' ratio is the closed form's.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L147" target="_blank" rel="noopener">every link form and node kind builds</a><br><code>test_every_link_form_and_node_kind_builds</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L196" target="_blank" rel="noopener">an ambient node follows the scene s one weather</a><br><code>test_an_ambient_node_follows_the_scene_s_one_weather</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L207" target="_blank" rel="noopener">a scene without nodes has no network and is unchanged</a><br><code>test_a_scene_without_nodes_has_no_network_and_is_unchanged</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L259" target="_blank" rel="noopener">malformed networks fail at load</a><span class="tag">parametrize</span><br><code>test_malformed_networks_fail_at_load</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L264" target="_blank" rel="noopener">an unknown joint name fails at build</a><br><code>test_an_unknown_joint_name_fails_at_build</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_network_schema.py#L271" target="_blank" rel="noopener">the kerb and the rest of the thermal block are untouched</a><br><code>test_the_kerb_and_the_rest_of_the_thermal_block_are_untouched</code></td><td>A v9 network beside a v7 surface: the surface solves exactly as it did.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L68" target="_blank" rel="noopener">the joint table carries the survey s numbers with provenance</a><br><code>test_the_joint_table_carries_the_survey_s_numbers_with_provenance</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L86" target="_blank" rel="noopener">the loader refuses a per k typo</a><br><code>test_the_loader_refuses_a_per_k_typo</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L102" target="_blank" rel="noopener">an inline h c is range checked like the table</a><br><code>test_an_inline_h_c_is_range_checked_like_the_table</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L130" target="_blank" rel="noopener">a new joint against a dry one follows the two resistor form</a><span class="tag">slow</span><br><code>test_a_new_joint_against_a_dry_one_follows_the_two_resistor_form</code></td><td>ΔT_bracket = G/(G + hA) · (T_block − T_air), so the two rises' ratio is the closed form's.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L147" target="_blank" rel="noopener">every link form and node kind builds</a><br><code>test_every_link_form_and_node_kind_builds</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L196" target="_blank" rel="noopener">an ambient node follows the scene s one weather</a><br><code>test_an_ambient_node_follows_the_scene_s_one_weather</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L207" target="_blank" rel="noopener">a scene without nodes has no network and is unchanged</a><br><code>test_a_scene_without_nodes_has_no_network_and_is_unchanged</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L259" target="_blank" rel="noopener">malformed networks fail at load</a><span class="tag">parametrize</span><br><code>test_malformed_networks_fail_at_load</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L264" target="_blank" rel="noopener">an unknown joint name fails at build</a><br><code>test_an_unknown_joint_name_fails_at_build</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_network_schema.py#L271" target="_blank" rel="noopener">the kerb and the rest of the thermal block are untouched</a><br><code>test_the_kerb_and_the_rest_of_the_thermal_block_are_untouched</code></td><td>A v9 network beside a v7 surface: the surface solves exactly as it did.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

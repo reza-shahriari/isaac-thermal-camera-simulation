@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Roadmap</h1>
   <p class="subtitle">Milestones, one-commit steps, risks and the ADR backlog. The queue at the top is generated.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/roadmap.md" target="_blank" rel="noopener">docs/roadmap.md on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/roadmap.md" target="_blank" rel="noopener">docs/roadmap.md on GitHub</a>
 </div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#how-to-read-this">How to read this</a></li>
 <li class="toc-2"><a href="#current-state-measured-2026-09-15">Current state, measured 2026-09-15</a></li>
@@ -216,7 +216,7 @@ python scripts/next_step.py --lane PT  # restrict to one lane</code></pre>
 <tbody>
 <tr><td><strong>0 — Repair</strong></td><td><code>RP.1</code>–<code>RP.10</code>, <code>PT.3</code>, <code>PT.4</code>, <code>IG.1</code>, <code>IG.5</code>, <code>IG.8</code></td><td>The three shared documents are true and mergeable; no shipped physics result rests on a measured error</td></tr>
 <tr><td><strong>P — Point-wise and coupled physics</strong></td><td><code>PT.6</code>–<code>PT.8</code>, <code>PT.11</code>, <code>PT.12</code>, <code>PT.14</code>, <code>PT.15</code>, <code>PT.17</code>–<code>PT.22</code>, <code>WM.1</code>–<code>WM.7</code>, <code>TC.1</code>–<code>TC.7</code>, <code>PH.1</code>–<code>PH.8</code>, <code>PH.13</code></td><td><strong>CPU only.</strong> From a scene config plus one command: a wall half in sun (<code>PT.20</code>), an engine warming the metal around it with hot soak after key-off (<code>TC.6</code>), a road wet on one half and dry on the other (<code>PH.2</code>), and a plume bright in MWIR and faint in LWIR (<code>PH.6</code>) — each with its engine-free test green; the rendered frames are the in-engine half and wait on <code>IG.2</code></td></tr>
-<tr><td><strong>A — Aerial to the bar</strong></td><td><code>AI.1</code>, <code>AI.2</code>, <code>AI.5</code>, <code>PT.1</code>, <code>PT.2</code>, <code>PT.5</code>, <code>PT.9</code>, <code>AT.1</code>–<code>AT.5</code>, <code>AT.10</code>–<code>AT.12</code>, <code>AT.15</code>, <code>AT.16</code>, <code>SC.1</code>–<code>SC.4</code>, <code>IG.2</code>, <code>IG.6</code>, <code>IG.13</code>, <code>GT.1</code>, <code>GT.2</code></td><td><strong>CPU only.</strong> An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it</td></tr>
+<tr><td><strong>A — Aerial to the bar</strong></td><td><code>AI.1</code>, <code>AI.2</code>, <code>AI.5</code>, <code>PT.1</code>, <code>PT.2</code>, <code>PT.5</code>, <code>PT.9</code>, <code>PT.23</code>, <code>AT.1</code>–<code>AT.5</code>, <code>AT.10</code>–<code>AT.12</code>, <code>AT.15</code>, <code>AT.16</code>, <code>SC.1</code>–<code>SC.4</code>, <code>IG.2</code>, <code>IG.6</code>, <code>IG.13</code>, <code>GT.1</code>, <code>GT.2</code></td><td><strong>CPU only.</strong> An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it</td></tr>
 <tr><td><strong>B — Maritime to the same bar</strong></td><td><code>AI.3</code>, <code>AI.4</code>, <code>PT.10</code>, <code>AT.14</code>, <code>SE.1</code>–<code>SE.3</code>, <code>OC.6</code>, <code>OC.7</code>, <code>XD.3</code>, <code>IG.16</code></td><td>A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded</td></tr>
 <tr><td><strong>C — Ground and automotive</strong></td><td><code>PT.13</code>, <code>PT.16</code>, <code>TC.8</code>, <code>PH.9</code>–<code>PH.12</code>, <code>AT.6</code>–<code>AT.9</code>, <code>OC.8</code>, <code>XD.10</code>, <code>GT.7</code></td><td>Deferred material breadth stays deferred (see <em>Deferred deliberately</em>); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed</td></tr>
 <tr><td><strong>X — Cross-cutting, continuous</strong></td><td><code>SC.5</code>–<code>SC.14</code>, <code>EV.1</code>–<code>EV.13</code>, <code>XD.1</code>, <code>XD.2</code>, <code>XD.4</code>–<code>XD.9</code>, <code>XD.11</code>, <code>XD.12</code>, <code>AT.13</code>, <code>IG.3</code>, <code>IG.4</code>, <code>IG.7</code>, <code>IG.9</code>–<code>IG.12</code>, <code>IG.14</code>, <code>IG.15</code>, <code>GT.3</code>–<code>GT.6</code>, <code>GT.8</code>, <code>OC.1</code>–<code>OC.5</code>, <code>OC.9</code>, <code>OC.10</code>–<code>OC.13</code>, <code>DC.1</code>–<code>DC.6</code></td><td>Runs alongside; <code>EV</code> gates nothing but is gated by <code>PT.9</code>/<code>PT.10</code> for its headline measurement</td></tr>
@@ -632,7 +632,7 @@ python scripts/next_step.py --lane PT  # restrict to one lane</code></pre>
 <p><em>A standing caution about this document's own numbers.</em> Everything marked <em>measured</em> carries the commit and the tree state above. Anything quoted from outside the repository is labelled as external evidence, not as an irsim measurement — that distinction is what R13 exists to protect, and revision 4 broke it by attributing another group's correlation to an irsim ADR that did not exist.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

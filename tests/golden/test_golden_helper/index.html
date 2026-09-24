@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Golden helper</h1>
   <p class="subtitle">Self-tests for the golden fixture helper (tests/golden/conftest.py).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py" target="_blank" rel="noopener">tests/golden/test_golden_helper.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py" target="_blank" rel="noopener">tests/golden/test_golden_helper.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>These prove the helper can tell STALE from FAILING from MISSING, refuses float16 on disk, and leaves an inspectable actual array on failure -- the properties that make golden tests a regression net rather than a liability (ir-sim-testing skill, ADR 0004).</p>
-<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py" target="_blank" rel="noopener">tests/golden/test_golden_helper.py</a>.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py" target="_blank" rel="noopener">tests/golden/test_golden_helper.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L35" target="_blank" rel="noopener">update writes array and sidecar</a><br><code>test_update_writes_array_and_sidecar</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L45" target="_blank" rel="noopener">matching array passes within tolerance</a><br><code>test_matching_array_passes_within_tolerance</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L49" target="_blank" rel="noopener">stale is reported distinctly and names the hash</a><br><code>test_stale_is_reported_distinctly_and_names_the_hash</code></td><td>A changed config makes the golden STALE, not FAILING -- even if the values still agree.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L62" target="_blank" rel="noopener">failure dumps actual and prints both paths</a><br><code>test_failure_dumps_actual_and_prints_both_paths</code></td><td>A 1 % perturbation against a 0.1 % tolerance fails, and both paths appear in the message.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L77" target="_blank" rel="noopener">shape mismatch is failing</a><br><code>test_shape_mismatch_is_failing</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L82" target="_blank" rel="noopener">missing golden says how to create it</a><br><code>test_missing_golden_says_how_to_create_it</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L88" target="_blank" rel="noopener">float16 golden refused</a><span class="tag">parametrize</span><br><code>test_float16_golden_refused</code></td><td>Non-negotiable #2 applies to files: float16 is refused before anything is written.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L96" target="_blank" rel="noopener">float64 golden refused</a><br><code>test_float64_golden_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L102" target="_blank" rel="noopener">exact equality is not allowed</a><br><code>test_exact_equality_is_not_allowed</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L107" target="_blank" rel="noopener">hand edited float16 file is rejected on load</a><br><code>test_hand_edited_float16_file_is_rejected_on_load</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L116" target="_blank" rel="noopener">config hash ignores key order but not values</a><br><code>test_config_hash_ignores_key_order_but_not_values</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_golden_helper.py#L122" target="_blank" rel="noopener">repo store is wired to the option</a><br><code>test_repo_store_is_wired_to_the_option</code></td><td>The <code>golden</code> fixture points at tests/golden/data and honours --update-golden.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L35" target="_blank" rel="noopener">update writes array and sidecar</a><br><code>test_update_writes_array_and_sidecar</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L45" target="_blank" rel="noopener">matching array passes within tolerance</a><br><code>test_matching_array_passes_within_tolerance</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L49" target="_blank" rel="noopener">stale is reported distinctly and names the hash</a><br><code>test_stale_is_reported_distinctly_and_names_the_hash</code></td><td>A changed config makes the golden STALE, not FAILING -- even if the values still agree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L62" target="_blank" rel="noopener">failure dumps actual and prints both paths</a><br><code>test_failure_dumps_actual_and_prints_both_paths</code></td><td>A 1 % perturbation against a 0.1 % tolerance fails, and both paths appear in the message.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L77" target="_blank" rel="noopener">shape mismatch is failing</a><br><code>test_shape_mismatch_is_failing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L82" target="_blank" rel="noopener">missing golden says how to create it</a><br><code>test_missing_golden_says_how_to_create_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L88" target="_blank" rel="noopener">float16 golden refused</a><span class="tag">parametrize</span><br><code>test_float16_golden_refused</code></td><td>Non-negotiable #2 applies to files: float16 is refused before anything is written.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L96" target="_blank" rel="noopener">float64 golden refused</a><br><code>test_float64_golden_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L102" target="_blank" rel="noopener">exact equality is not allowed</a><br><code>test_exact_equality_is_not_allowed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L107" target="_blank" rel="noopener">hand edited float16 file is rejected on load</a><br><code>test_hand_edited_float16_file_is_rejected_on_load</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L116" target="_blank" rel="noopener">config hash ignores key order but not values</a><br><code>test_config_hash_ignores_key_order_but_not_values</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/golden/test_golden_helper.py#L122" target="_blank" rel="noopener">repo store is wired to the option</a><br><code>test_repo_store_is_wired_to_the_option</code></td><td>The <code>golden</code> fixture points at tests/golden/data and honours --update-golden.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

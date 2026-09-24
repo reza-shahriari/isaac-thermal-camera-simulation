@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Sky model</h1>
   <p class="subtitle">SkyModel (MS.2): overcast limit to 1e-9, coldest at zenith and the horizon toward T_air, the tilt LUT against scipy quad, the elevation LUT within 0.5 K of the layered model, the cos^q form measured (not authored), broadband delegation, and the object-only constructor.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py" target="_blank" rel="noopener">tests/unit/test_sky_model.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py" target="_blank" rel="noopener">tests/unit/test_sky_model.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py" target="_blank" rel="noopener">tests/unit/test_sky_model.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py" target="_blank" rel="noopener">tests/unit/test_sky_model.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py#L47" target="_blank" rel="noopener">overcast limit and cloud blend</a><span class="tag">slow</span><br><code>test_overcast_limit_and_cloud_blend</code></td><td>RH = 1: the cloud base (LCL) is at the surface, so thick overcast reads T_air exactly.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py#L68" target="_blank" rel="noopener">coldest at zenith and horizon toward t air</a><br><code>test_coldest_at_zenith_and_horizon_toward_t_air</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py#L77" target="_blank" rel="noopener">tilt lut matches scipy quad and sky view indexing</a><br><code>test_tilt_lut_matches_scipy_quad_and_sky_view_indexing</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py#L122" target="_blank" rel="noopener">elevation lut fast path within half a kelvin</a><span class="tag">parametrize</span><br><code>test_elevation_lut_fast_path_within_half_a_kelvin</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py#L131" target="_blank" rel="noopener">cos q form is derived and its error recorded</a><br><code>test_cos_q_form_is_derived_and_its_error_recorded</code></td><td>ADR 0044: the §5.3(a) power law cannot follow the column model over 5-90 deg; the fit is derived, its error measured, and the elevation LUT is the fast path instead.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_model.py#L143" target="_blank" rel="noopener">broadband delegation and constructor guards</a><br><code>test_broadband_delegation_and_constructor_guards</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py#L47" target="_blank" rel="noopener">overcast limit and cloud blend</a><span class="tag">slow</span><br><code>test_overcast_limit_and_cloud_blend</code></td><td>RH = 1: the cloud base (LCL) is at the surface, so thick overcast reads T_air exactly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py#L68" target="_blank" rel="noopener">coldest at zenith and horizon toward t air</a><br><code>test_coldest_at_zenith_and_horizon_toward_t_air</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py#L77" target="_blank" rel="noopener">tilt lut matches scipy quad and sky view indexing</a><br><code>test_tilt_lut_matches_scipy_quad_and_sky_view_indexing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py#L122" target="_blank" rel="noopener">elevation lut fast path within half a kelvin</a><span class="tag">parametrize</span><br><code>test_elevation_lut_fast_path_within_half_a_kelvin</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py#L131" target="_blank" rel="noopener">cos q form is derived and its error recorded</a><br><code>test_cos_q_form_is_derived_and_its_error_recorded</code></td><td>ADR 0044: the §5.3(a) power law cannot follow the column model over 5-90 deg; the fit is derived, its error measured, and the elevation LUT is the fast path instead.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_model.py#L143" target="_blank" rel="noopener">broadband delegation and constructor guards</a><br><code>test_broadband_delegation_and_constructor_guards</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

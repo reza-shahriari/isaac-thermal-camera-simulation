@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Clip admission</h1>
   <p class="subtitle">Which clips a Tier 4 comparison may use, and the refusals it has to report (EV.2).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py" target="_blank" rel="noopener">tests/unit/test_clip_admission.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py" target="_blank" rel="noopener">tests/unit/test_clip_admission.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The acceptance report took the first six clips of the archive in alphabetical order and measured whatever they turned out to be. The project had already built three gates and applied none of them here, and ME.5 had already measured the cost on the reference set: 81 of 365 clips are moving, 306 of 365 have a robust noise scale at or below one code, and only 28 support a noise table at all. Six-alphabetically is therefore six clips that are, on those proportions, most likely unusable -- which is exactly the condition under which a discriminator separates the two sets on <code>noise_scale</code> for reasons unrelated to the simulator.</p>
 <p>These tests are about the gate saying <strong>no</strong>, and about it saying <em>why</em>: a refusal is a result here, and a report that kept only the survivors would state a sample size it did not have.</p>
 <p>docs/physics-model.md §15 T4; ADR 0068, ADR 0023 addendum.</p>
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py" target="_blank" rel="noopener">tests/unit/test_clip_admission.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py" target="_blank" rel="noopener">tests/unit/test_clip_admission.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L80" target="_blank" rel="noopener">a usable clip is admitted and says so</a><br><code>test_a_usable_clip_is_admitted_and_says_so</code></td><td>The gate has to let the good case through, or it is a filter rather than a gate.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L93" target="_blank" rel="noopener">a panning clip is refused because the statistic would measure the pan</a><br><code>test_a_panning_clip_is_refused_because_the_statistic_would_measure_the_pan</code></td><td>81 of the reference set's 365 clips are this, and the old loader measured them anyway.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L101" target="_blank" rel="noopener">a codec flattened clip is refused rather than read as quiet</a><br><code>test_a_codec_flattened_clip_is_refused_rather_than_read_as_quiet</code></td><td>306 of 365. The ruler is the quantiser, so "low noise" is not a measurement of the sensor.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L109" target="_blank" rel="noopener">the first failing gate is the reason not the last</a><br><code>test_the_first_failing_gate_is_the_reason_not_the_last</code></td><td>A moving clip's window count is not interesting: the finder judges against a median a pan has already invalidated, so reporting <code>no_flat_window</code> there would name the wrong problem.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L116" target="_blank" rel="noopener">admission counts clips that pass not clips that were opened</a><br><code>test_admission_counts_clips_that_pass_not_clips_that_were_opened</code></td><td>The behaviour change EV.2 is about: stop at six <em>usable</em> clips, not at the sixth file.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L137" target="_blank" rel="noopener">every refusal is returned not dropped</a><br><code>test_every_refusal_is_returned_not_dropped</code></td><td>A report that kept only the survivors would state a sample size it does not have.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L146" target="_blank" rel="noopener">the summary names the sample size and what refused the rest</a><br><code>test_the_summary_names_the_sample_size_and_what_refused_the_rest</code></td><td>"six clips" and "six of forty-one, the rest codec-flattened" are different claims.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_clip_admission.py#L156" target="_blank" rel="noopener">a clip too short to judge is an error not a quiet pass</a><br><code>test_a_clip_too_short_to_judge_is_an_error_not_a_quiet_pass</code></td><td>Four frames is the floor for a temporal statistic; fewer cannot be judged either way.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L80" target="_blank" rel="noopener">a usable clip is admitted and says so</a><br><code>test_a_usable_clip_is_admitted_and_says_so</code></td><td>The gate has to let the good case through, or it is a filter rather than a gate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L93" target="_blank" rel="noopener">a panning clip is refused because the statistic would measure the pan</a><br><code>test_a_panning_clip_is_refused_because_the_statistic_would_measure_the_pan</code></td><td>81 of the reference set's 365 clips are this, and the old loader measured them anyway.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L101" target="_blank" rel="noopener">a codec flattened clip is refused rather than read as quiet</a><br><code>test_a_codec_flattened_clip_is_refused_rather_than_read_as_quiet</code></td><td>306 of 365. The ruler is the quantiser, so "low noise" is not a measurement of the sensor.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L109" target="_blank" rel="noopener">the first failing gate is the reason not the last</a><br><code>test_the_first_failing_gate_is_the_reason_not_the_last</code></td><td>A moving clip's window count is not interesting: the finder judges against a median a pan has already invalidated, so reporting <code>no_flat_window</code> there would name the wrong problem.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L116" target="_blank" rel="noopener">admission counts clips that pass not clips that were opened</a><br><code>test_admission_counts_clips_that_pass_not_clips_that_were_opened</code></td><td>The behaviour change EV.2 is about: stop at six <em>usable</em> clips, not at the sixth file.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L137" target="_blank" rel="noopener">every refusal is returned not dropped</a><br><code>test_every_refusal_is_returned_not_dropped</code></td><td>A report that kept only the survivors would state a sample size it does not have.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L146" target="_blank" rel="noopener">the summary names the sample size and what refused the rest</a><br><code>test_the_summary_names_the_sample_size_and_what_refused_the_rest</code></td><td>"six clips" and "six of forty-one, the rest codec-flattened" are different claims.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_clip_admission.py#L156" target="_blank" rel="noopener">a clip too short to judge is an error not a quiet pass</a><br><code>test_a_clip_too_short_to_judge_is_an_error_not_a_quiet_pass</code></td><td>Four frames is the floor for a temporal statistic; fewer cannot be judged either way.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

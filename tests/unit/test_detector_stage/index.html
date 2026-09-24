@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Detector stage</h1>
   <p class="subtitle">Stage 4 on the plane dict (M10.6's oracle): where the membrane lag sits and who owns its state.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py" target="_blank" rel="noopener">tests/unit/test_detector_stage.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py" target="_blank" rel="noopener">tests/unit/test_detector_stage.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p><code>BolometerLowPass</code> itself is tested by M9.1; what is new here is the composition ADR 0052 fixes -- the lag acts on the <em>ideal</em> signal, the photon path has none at all, and the per-pixel state lives in <code>PipelineState.buffers</code> so it has one owner and one reset path.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py" target="_blank" rel="noopener">tests/unit/test_detector_stage.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py" target="_blank" rel="noopener">tests/unit/test_detector_stage.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L59" target="_blank" rel="noopener">the first frame adopts its input rather than ramping from zero</a><br><code>test_the_first_frame_adopts_its_input_rather_than_ramping_from_zero</code></td><td>A core that has been staring at the scene is in equilibrium with it. Starting at zero would put a frame-long ramp at the head of every sequence and every exported dataset.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L73" target="_blank" rel="noopener">a step moves by alpha on the frame after the first</a><br><code>test_a_step_moves_by_alpha_on_the_frame_after_the_first</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L85" target="_blank" rel="noopener">the state lives in pipeline buffers as float32</a><br><code>test_the_state_lives_in_pipeline_buffers_as_float32</code></td><td>ADR 0052: one owner, one reset path, and float32 because it carries signal (#2).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L95" target="_blank" rel="noopener">dropping the buffer is a genuine cold start</a><br><code>test_dropping_the_buffer_is_a_genuine_cold_start</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L105" target="_blank" rel="noopener">the photon path is memoryless and keeps no state</a><br><code>test_the_photon_path_is_memoryless_and_keeps_no_state</code></td><td>Cooled photon detectors do not smear on these timescales -- the §15 Tier 3 contrast with LWIR. A filter here would invent a lag the device does not have.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L118" target="_blank" rel="noopener">bolometer lag refuses a photon fpa</a><br><code>test_bolometer_lag_refuses_a_photon_fpa</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detector_stage.py#L124" target="_blank" rel="noopener">a shape change mid sequence raises rather than silently resetting</a><br><code>test_a_shape_change_mid_sequence_raises_rather_than_silently_resetting</code></td><td>A silent reset would re-adopt, so the lag would vanish for that frame and the sequence would look ideal exactly where the format changed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L59" target="_blank" rel="noopener">the first frame adopts its input rather than ramping from zero</a><br><code>test_the_first_frame_adopts_its_input_rather_than_ramping_from_zero</code></td><td>A core that has been staring at the scene is in equilibrium with it. Starting at zero would put a frame-long ramp at the head of every sequence and every exported dataset.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L73" target="_blank" rel="noopener">a step moves by alpha on the frame after the first</a><br><code>test_a_step_moves_by_alpha_on_the_frame_after_the_first</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L85" target="_blank" rel="noopener">the state lives in pipeline buffers as float32</a><br><code>test_the_state_lives_in_pipeline_buffers_as_float32</code></td><td>ADR 0052: one owner, one reset path, and float32 because it carries signal (#2).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L95" target="_blank" rel="noopener">dropping the buffer is a genuine cold start</a><br><code>test_dropping_the_buffer_is_a_genuine_cold_start</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L105" target="_blank" rel="noopener">the photon path is memoryless and keeps no state</a><br><code>test_the_photon_path_is_memoryless_and_keeps_no_state</code></td><td>Cooled photon detectors do not smear on these timescales -- the §15 Tier 3 contrast with LWIR. A filter here would invent a lag the device does not have.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L118" target="_blank" rel="noopener">bolometer lag refuses a photon fpa</a><br><code>test_bolometer_lag_refuses_a_photon_fpa</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_detector_stage.py#L124" target="_blank" rel="noopener">a shape change mid sequence raises rather than silently resetting</a><br><code>test_a_shape_change_mid_sequence_raises_rather_than_silently_resetting</code></td><td>A silent reset would re-adopt, so the lag would vanish for that frame and the sequence would look ideal exactly where the format changed.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

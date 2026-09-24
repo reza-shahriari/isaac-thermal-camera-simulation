@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,23 +55,23 @@
 <div class="page-head">
   <h1>Bolometer</h1>
   <p class="subtitle">Ideal bolometer static transfer and the shared quantiser (M3.7, ADR 0019).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py" target="_blank" rel="noopener">tests/unit/test_bolometer.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py" target="_blank" rel="noopener">tests/unit/test_bolometer.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py" target="_blank" rel="noopener">tests/unit/test_bolometer.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py" target="_blank" rel="noopener">tests/unit/test_bolometer.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L36" target="_blank" rel="noopener">pixel power matches independent trapezoid</a><br><code>test_pixel_power_matches_independent_trapezoid</code></td><td>Φ(300 K, 7.5-13.5 µm top-hat, F/1, τ 0.92, A_d 1.296e-10) vs trapezoid of spectral_radiance × (π/5) × 0.92 × A_d to 1e-4; magnitude ≈ 1e-8 W (catches per-µm and π errors).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L49" target="_blank" rel="noopener">dn is linear in power</a><br><code>test_dn_is_linear_in_power</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L63" target="_blank" rel="noopener">steady state matches rk4 of membrane ode</a><br><code>test_steady_state_matches_rk4_of_membrane_ode</code></td><td>ΔT_ss = α Φ / G_th equals the ODE C dΔT/dt = αΦ − G ΔT integrated to 20 τ (RK4) to 1e-9.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L84" target="_blank" rel="noopener">responsivity known answer</a><br><code>test_responsivity_known_answer</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L100" target="_blank" rel="noopener">photon form input is refused</a><br><code>test_photon_form_input_is_refused</code></td><td>Lb_q is ~1e20× Lb: feeding a photon rate as watts must raise, not silently saturate.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L110" target="_blank" rel="noopener">quantiser floors clips and never wraps</a><br><code>test_quantiser_floors_clips_and_never_wraps</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer.py#L124" target="_blank" rel="noopener">transfer inverse and bounds</a><br><code>test_transfer_inverse_and_bounds</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L36" target="_blank" rel="noopener">pixel power matches independent trapezoid</a><br><code>test_pixel_power_matches_independent_trapezoid</code></td><td>Φ(300 K, 7.5-13.5 µm top-hat, F/1, τ 0.92, A_d 1.296e-10) vs trapezoid of spectral_radiance × (π/5) × 0.92 × A_d to 1e-4; magnitude ≈ 1e-8 W (catches per-µm and π errors).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L49" target="_blank" rel="noopener">dn is linear in power</a><br><code>test_dn_is_linear_in_power</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L63" target="_blank" rel="noopener">steady state matches rk4 of membrane ode</a><br><code>test_steady_state_matches_rk4_of_membrane_ode</code></td><td>ΔT_ss = α Φ / G_th equals the ODE C dΔT/dt = αΦ − G ΔT integrated to 20 τ (RK4) to 1e-9.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L84" target="_blank" rel="noopener">responsivity known answer</a><br><code>test_responsivity_known_answer</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L100" target="_blank" rel="noopener">photon form input is refused</a><br><code>test_photon_form_input_is_refused</code></td><td>Lb_q is ~1e20× Lb: feeding a photon rate as watts must raise, not silently saturate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L110" target="_blank" rel="noopener">quantiser floors clips and never wraps</a><br><code>test_quantiser_floors_clips_and_never_wraps</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer.py#L124" target="_blank" rel="noopener">transfer inverse and bounds</a><br><code>test_transfer_inverse_and_bounds</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

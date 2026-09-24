@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,23 +55,23 @@
 <div class="page-head">
   <h1>Bolometer lowpass</h1>
   <p class="subtitle">Microbolometer thermal time constant (M9.1): the exponential step response against the closed form, the sampled IIR against an RK4 integration of the membrane ODE, the trailing decay length of a moving edge, the absence of any tail on the photon path, and float32 state after 1000 steps.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py" target="_blank" rel="noopener">tests/unit/test_bolometer_lowpass.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py" target="_blank" rel="noopener">tests/unit/test_bolometer_lowpass.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py" target="_blank" rel="noopener">tests/unit/test_bolometer_lowpass.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py" target="_blank" rel="noopener">tests/unit/test_bolometer_lowpass.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L32" target="_blank" rel="noopener">step response matches the closed form</a><br><code>test_step_response_matches_the_closed_form</code></td><td>Settled at S_0 = 0, the response to a unit step is 1 - e^{-k dt/tau} at frame k to 1e-6.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L50" target="_blank" rel="noopener">alpha and rolloff limits</a><br><code>test_alpha_and_rolloff_limits</code></td><td>alpha -&gt; dt/tau as the frame gets short and -&gt; 1 as it gets long; R(f) is the -3 dB form.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L68" target="_blank" rel="noopener">matches rk4 of the membrane ode</a><br><code>test_matches_rk4_of_the_membrane_ode</code></td><td>Over 100 frames of a varying scene the sampled IIR tracks an RK4 integration of C_th dDT/dt = alpha_abs Phi - G_th DT to 1e-4.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L101" target="_blank" rel="noopener">moving edge trailing decay length</a><br><code>test_moving_edge_trailing_decay_length</code></td><td>A bar moving at v px/frame leaves a tail decaying with length v*tau/dt, within 2 %.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L135" target="_blank" rel="noopener">photon path has no tail</a><br><code>test_photon_path_has_no_tail</code></td><td>A photon detector's transfer is memoryless: the same flux gives the same electrons whatever preceded it (§15 T3 -- LWIR smears, cooled MWIR does not).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L163" target="_blank" rel="noopener">state stays float32 and shape checked</a><br><code>test_state_stays_float32_and_shape_checked</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bolometer_lowpass.py#L187" target="_blank" rel="noopener">settled start has no opening transient</a><br><code>test_settled_start_has_no_opening_transient</code></td><td>The first frame adopts its input rather than ramping from zero: a camera already staring at the scene is in equilibrium with it, and an artificial first-frame ramp would otherwise appear in every golden fixture and every dataset's opening frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L32" target="_blank" rel="noopener">step response matches the closed form</a><br><code>test_step_response_matches_the_closed_form</code></td><td>Settled at S_0 = 0, the response to a unit step is 1 - e^{-k dt/tau} at frame k to 1e-6.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L50" target="_blank" rel="noopener">alpha and rolloff limits</a><br><code>test_alpha_and_rolloff_limits</code></td><td>alpha -&gt; dt/tau as the frame gets short and -&gt; 1 as it gets long; R(f) is the -3 dB form.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L68" target="_blank" rel="noopener">matches rk4 of the membrane ode</a><br><code>test_matches_rk4_of_the_membrane_ode</code></td><td>Over 100 frames of a varying scene the sampled IIR tracks an RK4 integration of C_th dDT/dt = alpha_abs Phi - G_th DT to 1e-4.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L101" target="_blank" rel="noopener">moving edge trailing decay length</a><br><code>test_moving_edge_trailing_decay_length</code></td><td>A bar moving at v px/frame leaves a tail decaying with length v*tau/dt, within 2 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L135" target="_blank" rel="noopener">photon path has no tail</a><br><code>test_photon_path_has_no_tail</code></td><td>A photon detector's transfer is memoryless: the same flux gives the same electrons whatever preceded it (§15 T3 -- LWIR smears, cooled MWIR does not).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L163" target="_blank" rel="noopener">state stays float32 and shape checked</a><br><code>test_state_stays_float32_and_shape_checked</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bolometer_lowpass.py#L187" target="_blank" rel="noopener">settled start has no opening transient</a><br><code>test_settled_start_has_no_opening_transient</code></td><td>The first frame adopts its input rather than ramping from zero: a camera already staring at the scene is in equilibrium with it, and an artificial first-frame ramp would otherwise appear in every golden fixture and every dataset's opening frame.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

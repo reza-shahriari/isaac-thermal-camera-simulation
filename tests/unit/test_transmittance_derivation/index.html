@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,28 +55,28 @@
 <div class="page-head">
   <h1>Transmittance derivation</h1>
   <p class="subtitle">RP.7 — a material's transmittance either comes from its n/k table or says that it does not.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py" target="_blank" rel="noopener">tests/unit/test_transmittance_derivation.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py" target="_blank" rel="noopener">tests/unit/test_transmittance_derivation.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Spec issue S13 asked for glass's τ_mwir to be computed by Beer-Lambert over 5 mm of the checked-in k(λ). Doing that shows the proposed resolution cannot be carried out: <code>data/nk/glass.csv</code> is <strong>fused silica</strong> standing in for soda-lime and, by the deliberate design recorded in the material file itself, supplies the angular <em>shape</em> while <code>emissivity_per_band</code> supplies the magnitude. Fused silica lacks the iron and alkali that make real windscreen glass absorb in the near infrared, so the proxy is transparent where soda-lime is not.</p>
 <p>That leaves a number sitting next to a table that looks like its source and is not — <code>mwir: 0.02</code> was in fact authored six commits before the table existed. The fix is not to change the number to match the proxy; it is to make the file <em>declare</em> which of the two it is, and to hold that declaration against the recomputation so neither can drift unnoticed.</p>
 <p>docs/physics-model.md §4.4, §12.1; spec issues S13, S11.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py" target="_blank" rel="noopener">tests/unit/test_transmittance_derivation.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py" target="_blank" rel="noopener">tests/unit/test_transmittance_derivation.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L88" target="_blank" rel="noopener">at least one material is actually checked</a><br><code>test_at_least_one_material_is_actually_checked</code></td><td>A walk over an empty set passes for ever; this is what stops that.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L93" target="_blank" rel="noopener">a transmittance is derived from its table or declares that it is not</a><br><code>test_a_transmittance_is_derived_from_its_table_or_declares_that_it_is_not</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L124" target="_blank" rel="noopener">glass declares its transmittance authored against an open issue</a><br><code>test_glass_declares_its_transmittance_authored_against_an_open_issue</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L133" target="_blank" rel="noopener">what the proxy table actually says</a><span class="tag">parametrize</span><br><code>test_what_the_proxy_table_actually_says</code></td><td>Pinned, so a change to the table or to the authored 5 mm cannot pass unnoticed.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L142" target="_blank" rel="noopener">only lwir is reproduced and the near infrared is not</a><br><code>test_only_lwir_is_reproduced_and_the_near_infrared_is_not</code></td><td>The one band the proxy earns its keep in, and the three where it cannot supply a magnitude.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L167" target="_blank" rel="noopener">the surfaces are part of the answer</a><br><code>test_the_surfaces_are_part_of_the_answer</code></td><td>Internal absorption alone calls a glass slab in NIR a perfect transmitter.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L183" target="_blank" rel="noopener">a thicker slab transmits less</a><br><code>test_a_thicker_slab_transmits_less</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L190" target="_blank" rel="noopener">a transparent slab is the two surface fresnel limit</a><br><code>test_a_transparent_slab_is_the_two_surface_fresnel_limit</code></td><td>k → 0 must leave exactly the surface loss, which is the closed form the sum converges to.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_transmittance_derivation.py#L212" target="_blank" rel="noopener">a thickness of zero is refused</a><br><code>test_a_thickness_of_zero_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L88" target="_blank" rel="noopener">at least one material is actually checked</a><br><code>test_at_least_one_material_is_actually_checked</code></td><td>A walk over an empty set passes for ever; this is what stops that.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L93" target="_blank" rel="noopener">a transmittance is derived from its table or declares that it is not</a><br><code>test_a_transmittance_is_derived_from_its_table_or_declares_that_it_is_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L124" target="_blank" rel="noopener">glass declares its transmittance authored against an open issue</a><br><code>test_glass_declares_its_transmittance_authored_against_an_open_issue</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L133" target="_blank" rel="noopener">what the proxy table actually says</a><span class="tag">parametrize</span><br><code>test_what_the_proxy_table_actually_says</code></td><td>Pinned, so a change to the table or to the authored 5 mm cannot pass unnoticed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L142" target="_blank" rel="noopener">only lwir is reproduced and the near infrared is not</a><br><code>test_only_lwir_is_reproduced_and_the_near_infrared_is_not</code></td><td>The one band the proxy earns its keep in, and the three where it cannot supply a magnitude.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L167" target="_blank" rel="noopener">the surfaces are part of the answer</a><br><code>test_the_surfaces_are_part_of_the_answer</code></td><td>Internal absorption alone calls a glass slab in NIR a perfect transmitter.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L183" target="_blank" rel="noopener">a thicker slab transmits less</a><br><code>test_a_thicker_slab_transmits_less</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L190" target="_blank" rel="noopener">a transparent slab is the two surface fresnel limit</a><br><code>test_a_transparent_slab_is_the_two_surface_fresnel_limit</code></td><td>k → 0 must leave exactly the surface loss, which is the closed form the sum converges to.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_transmittance_derivation.py#L212" target="_blank" rel="noopener">a thickness of zero is refused</a><br><code>test_a_thickness_of_zero_is_refused</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

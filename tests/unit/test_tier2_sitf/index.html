@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Tier2 sitf</h1>
   <p class="subtitle">Tier 2 SITF bench on the CPU reference (M3.12; docs/physics-model.md §15 Tier 2).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py" target="_blank" rel="noopener">tests/unit/test_tier2_sitf.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py" target="_blank" rel="noopener">tests/unit/test_tier2_sitf.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Ten extended blackbodies 253-453 K through the Boson configuration: DN strictly increasing and smooth, linear in L_B(T) to well under an LSB, blackbody apparent temperature within 10 mK, and the grey-body gap equal to the LUT prediction. Self-consistency only until a measured SITF CSV exists under data/validation/ (ADR 0003); that comparison is skipped when the file is absent.</p>
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py" target="_blank" rel="noopener">tests/unit/test_tier2_sitf.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py" target="_blank" rel="noopener">tests/unit/test_tier2_sitf.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py#L53" target="_blank" rel="noopener">dn strictly increasing and smooth</a><br><code>test_dn_strictly_increasing_and_smooth</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py#L68" target="_blank" rel="noopener">dn linear in band radiance under half lsb</a><br><code>test_dn_linear_in_band_radiance_under_half_lsb</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py#L78" target="_blank" rel="noopener">blackbody apparent temperature under 10mK</a><br><code>test_blackbody_apparent_temperature_under_10mK</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py#L83" target="_blank" rel="noopener">grey body gap matches lut prediction</a><br><code>test_grey_body_gap_matches_lut_prediction</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_sitf.py#L92" target="_blank" rel="noopener">against measured sitf</a><span class="tag">skipif</span><br><code>test_against_measured_sitf</code></td><td>When a measured (T_bb, DN) table exists, the simulated SITF shape must match it after a linear gain/offset fit (absolute DN is a range choice, ADR 0019).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py#L53" target="_blank" rel="noopener">dn strictly increasing and smooth</a><br><code>test_dn_strictly_increasing_and_smooth</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py#L68" target="_blank" rel="noopener">dn linear in band radiance under half lsb</a><br><code>test_dn_linear_in_band_radiance_under_half_lsb</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py#L78" target="_blank" rel="noopener">blackbody apparent temperature under 10mK</a><br><code>test_blackbody_apparent_temperature_under_10mK</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py#L83" target="_blank" rel="noopener">grey body gap matches lut prediction</a><br><code>test_grey_body_gap_matches_lut_prediction</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_sitf.py#L92" target="_blank" rel="noopener">against measured sitf</a><span class="tag">skipif</span><br><code>test_against_measured_sitf</code></td><td>When a measured (T_bb, DN) table exists, the simulated SITF shape must match it after a linear gain/offset fit (absolute DN is a range choice, ADR 0019).</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

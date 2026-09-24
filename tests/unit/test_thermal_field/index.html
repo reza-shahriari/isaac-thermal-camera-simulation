@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Thermal field</h1>
   <p class="subtitle">M6.11 — the object the engine glue reads: a fixed-tick solve behind a const query (§6.4, §1).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py" target="_blank" rel="noopener">tests/unit/test_thermal_field.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py" target="_blank" rel="noopener">tests/unit/test_thermal_field.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>§6.4's "decouple this from the render loop entirely" is one sentence and two requirements. The solve advances on its own clock, so 240 fps and 1 fps see the same temperatures. And <strong>a query never mutates anything</strong> — a renderer asks many times per tick, per band, per AOV, per pass, and a query that advanced the solver would make the answer depend on how often it was asked. That is not a bug that shows up as an error message; it shows up as a scene that renders differently when you add an output.</p>
 <p>docs/physics-model.md §6.4, §1; CLAUDE.md #2; ADR 0036, ADR 0037</p>
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py" target="_blank" rel="noopener">tests/unit/test_thermal_field.py</a>.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py" target="_blank" rel="noopener">tests/unit/test_thermal_field.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L51" target="_blank" rel="noopener">three thousand six hundred queries leave the state untouched</a><br><code>test_three_thousand_six_hundred_queries_leave_the_state_untouched</code></td><td>A whole tick's worth of render-time queries, bit for bit.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L63" target="_blank" rel="noopener">a query past the last tick raises rather than advancing</a><br><code>test_a_query_past_the_last_tick_raises_rather_than_advancing</code></td><td>The alternative — advancing on demand — is what makes the answer depend on the caller.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L74" target="_blank" rel="noopener">running time backwards raises</a><br><code>test_running_time_backwards_raises</code></td><td>A thermal history is not reversible, and silently re-running it gives a different answer.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L86" target="_blank" rel="noopener">the interpolation is exact at the ticks</a><br><code>test_the_interpolation_is_exact_at_the_ticks</code></td><td>Weight 0 and weight 1 return the stored value <strong>exactly</strong>, in float64, to 1e-12.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L106" target="_blank" rel="noopener">the midpoint is the mean of its brackets</a><br><code>test_the_midpoint_is_the_mean_of_its_brackets</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L115" target="_blank" rel="noopener">interpolation error is far below a millikelvin at one hertz</a><br><code>test_interpolation_error_is_far_below_a_millikelvin_at_one_hertz</code></td><td>Linear rather than anything cleverer: the tick is 1 s and the fastest surface here has a time constant of minutes, so a higher-order scheme would store more ticks to buy nothing.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L138" target="_blank" rel="noopener">the query returns float32 and the solve stays float64</a><br><code>test_the_query_returns_float32_and_the_solve_stays_float64</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L145" target="_blank" rel="noopener">narrowing once at the end beats carrying float32 for forty eight hours</a><br><code>test_narrowing_once_at_the_end_beats_carrying_float32_for_forty_eight_hours</code></td><td>&lt; 10 mK over 48 h — measured against a run that narrows to float32 at every step.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L170" target="_blank" rel="noopener">two identical runs are bit identical</a><br><code>test_two_identical_runs_are_bit_identical</code></td><td>There is no randomness anywhere in the thermal path, and this is what says so.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L179" target="_blank" rel="noopener">the render rate does not change the answer</a><br><code>test_the_render_rate_does_not_change_the_answer</code></td><td>240 fps and 1 fps must see the same temperatures: the solve is on its own clock.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_field.py#L193" target="_blank" rel="noopener">a non positive tick is refused</a><br><code>test_a_non_positive_tick_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L51" target="_blank" rel="noopener">three thousand six hundred queries leave the state untouched</a><br><code>test_three_thousand_six_hundred_queries_leave_the_state_untouched</code></td><td>A whole tick's worth of render-time queries, bit for bit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L63" target="_blank" rel="noopener">a query past the last tick raises rather than advancing</a><br><code>test_a_query_past_the_last_tick_raises_rather_than_advancing</code></td><td>The alternative — advancing on demand — is what makes the answer depend on the caller.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L74" target="_blank" rel="noopener">running time backwards raises</a><br><code>test_running_time_backwards_raises</code></td><td>A thermal history is not reversible, and silently re-running it gives a different answer.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L86" target="_blank" rel="noopener">the interpolation is exact at the ticks</a><br><code>test_the_interpolation_is_exact_at_the_ticks</code></td><td>Weight 0 and weight 1 return the stored value <strong>exactly</strong>, in float64, to 1e-12.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L106" target="_blank" rel="noopener">the midpoint is the mean of its brackets</a><br><code>test_the_midpoint_is_the_mean_of_its_brackets</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L115" target="_blank" rel="noopener">interpolation error is far below a millikelvin at one hertz</a><br><code>test_interpolation_error_is_far_below_a_millikelvin_at_one_hertz</code></td><td>Linear rather than anything cleverer: the tick is 1 s and the fastest surface here has a time constant of minutes, so a higher-order scheme would store more ticks to buy nothing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L138" target="_blank" rel="noopener">the query returns float32 and the solve stays float64</a><br><code>test_the_query_returns_float32_and_the_solve_stays_float64</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L145" target="_blank" rel="noopener">narrowing once at the end beats carrying float32 for forty eight hours</a><br><code>test_narrowing_once_at_the_end_beats_carrying_float32_for_forty_eight_hours</code></td><td>&lt; 10 mK over 48 h — measured against a run that narrows to float32 at every step.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L170" target="_blank" rel="noopener">two identical runs are bit identical</a><br><code>test_two_identical_runs_are_bit_identical</code></td><td>There is no randomness anywhere in the thermal path, and this is what says so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L179" target="_blank" rel="noopener">the render rate does not change the answer</a><br><code>test_the_render_rate_does_not_change_the_answer</code></td><td>240 fps and 1 fps must see the same temperatures: the solve is on its own clock.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_field.py#L193" target="_blank" rel="noopener">a non positive tick is refused</a><br><code>test_a_non_positive_tick_is_refused</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Adr citations</h1>
   <p class="subtitle">RP.4 — every `ADR NNNN` citation in the repository resolves to a file that exists.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py" target="_blank" rel="noopener">tests/unit/test_adr_citations.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py" target="_blank" rel="noopener">tests/unit/test_adr_citations.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>CLAUDE.md's reason for ADRs is that "a reader who was not in the conversation" can recover the reasoning behind a decision. A citation pointing at a file that was never written is worse than no citation: it tells that reader the reasoning exists and sends them to look for it. Two shipped decisions were in exactly that state until this step — the angular-emissivity level policy (ADR 0042, cited by two source modules, five test files and two spec issues) and the sea-water optical constants and slope model (ADR 0079, cited by two source modules, one test, and by ADR 0078 for a bound it deferred).</p>
 <p>The parser handles the citation forms the repository actually uses, which are not only <code>ADR 0042</code>: <code>ADRs 0031, 0058</code>, <code>ADR 0053/0054</code> and <code>ADR 0025 and 0023</code> all appear, and a parser that reads only the first number in each would have silently passed twenty citations it never checked.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py" target="_blank" rel="noopener">tests/unit/test_adr_citations.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py" target="_blank" rel="noopener">tests/unit/test_adr_citations.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L71" target="_blank" rel="noopener">every adr citation resolves to a file</a><br><code>test_every_adr_citation_resolves_to_a_file</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L84" target="_blank" rel="noopener">every allowlisted phantom is still needed</a><br><code>test_every_allowlisted_phantom_is_still_needed</code></td><td>An allowlist entry must still describe reality, or it is hiding a citation nobody checks.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L108" target="_blank" rel="noopener">the adrs shipped code cites say what it cites them for</a><span class="tag">parametrize</span><br><code>test_the_adrs_shipped_code_cites_say_what_it_cites_them_for</code></td><td>A file with the right name and the wrong contents would pass the invariant above.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L126" target="_blank" rel="noopener">each adr heading matches its filename</a><br><code>test_each_adr_heading_matches_its_filename</code></td><td>A renumbered file with an unrenumbered heading sends a reader to the wrong decision.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L136" target="_blank" rel="noopener">no two adrs share a number</a><br><code>test_no_two_adrs_share_a_number</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L161" target="_blank" rel="noopener">the parser reads every number in a citation</a><span class="tag">parametrize</span><br><code>test_the_parser_reads_every_number_in_a_citation</code></td><td>The negative control for the whole file: a parser reading only the first number would let a dangling <code>ADR 0053/9999</code> through, and twenty real citations use these compound forms.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_citations.py#L168" target="_blank" rel="noopener">a dangling citation is actually caught</a><br><code>test_a_dangling_citation_is_actually_caught</code></td><td>Without this, a parser that silently matched nothing would pass the invariant for ever.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L71" target="_blank" rel="noopener">every adr citation resolves to a file</a><br><code>test_every_adr_citation_resolves_to_a_file</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L84" target="_blank" rel="noopener">every allowlisted phantom is still needed</a><br><code>test_every_allowlisted_phantom_is_still_needed</code></td><td>An allowlist entry must still describe reality, or it is hiding a citation nobody checks.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L108" target="_blank" rel="noopener">the adrs shipped code cites say what it cites them for</a><span class="tag">parametrize</span><br><code>test_the_adrs_shipped_code_cites_say_what_it_cites_them_for</code></td><td>A file with the right name and the wrong contents would pass the invariant above.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L126" target="_blank" rel="noopener">each adr heading matches its filename</a><br><code>test_each_adr_heading_matches_its_filename</code></td><td>A renumbered file with an unrenumbered heading sends a reader to the wrong decision.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L136" target="_blank" rel="noopener">no two adrs share a number</a><br><code>test_no_two_adrs_share_a_number</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L161" target="_blank" rel="noopener">the parser reads every number in a citation</a><span class="tag">parametrize</span><br><code>test_the_parser_reads_every_number_in_a_citation</code></td><td>The negative control for the whole file: a parser reading only the first number would let a dangling <code>ADR 0053/9999</code> through, and twenty real citations use these compound forms.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adr_citations.py#L168" target="_blank" rel="noopener">a dangling citation is actually caught</a><br><code>test_a_dangling_citation_is_actually_caught</code></td><td>Without this, a parser that silently matched nothing would pass the invariant for ever.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

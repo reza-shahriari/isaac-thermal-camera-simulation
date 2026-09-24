@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,21 +55,21 @@
 <div class="page-head">
   <h1>Tier2 netd</h1>
   <p class="subtitle">Tier 2 NETD bench end to end (M4.9): two blackbodies through run_frame (band radiance → optics → detector noise → correlated noise → ADC), measured in the DN domain; replay is bit-identical, frame 500 can be reached directly, float16 is refused, sensors are independent.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py" target="_blank" rel="noopener">tests/unit/test_tier2_netd.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py" target="_blank" rel="noopener">tests/unit/test_tier2_netd.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py" target="_blank" rel="noopener">tests/unit/test_tier2_netd.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py" target="_blank" rel="noopener">tests/unit/test_tier2_netd.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py#L73" target="_blank" rel="noopener">against measured netd</a><span class="tag">skipif</span><br><code>test_against_measured_netd</code></td><td>When a bench file exists, NETD is compared <strong>absolutely</strong> -- no gain fit (M12.4).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py#L89" target="_blank" rel="noopener">dn domain netd within 10 percent of anchor</a><br><code>test_dn_domain_netd_within_10_percent_of_anchor</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py#L95" target="_blank" rel="noopener">dn domain 3d ratios</a><br><code>test_dn_domain_3d_ratios</code></td><td>The DN stack minus the ideal (noise-free) frame: on an un-NUC'd camera the cos⁴ vignetting gradient would otherwise read as fixed row/column pattern (it is one, physically -- the M9 NUC stage removes it; here the noise-free frame is subtracted so the 3-D terms are isolated).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py#L123" target="_blank" rel="noopener">replay and direct frame access</a><br><code>test_replay_and_direct_frame_access</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_netd.py#L132" target="_blank" rel="noopener">sensors are uncorrelated and float16 refused</a><br><code>test_sensors_are_uncorrelated_and_float16_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py#L73" target="_blank" rel="noopener">against measured netd</a><span class="tag">skipif</span><br><code>test_against_measured_netd</code></td><td>When a bench file exists, NETD is compared <strong>absolutely</strong> -- no gain fit (M12.4).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py#L89" target="_blank" rel="noopener">dn domain netd within 10 percent of anchor</a><br><code>test_dn_domain_netd_within_10_percent_of_anchor</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py#L95" target="_blank" rel="noopener">dn domain 3d ratios</a><br><code>test_dn_domain_3d_ratios</code></td><td>The DN stack minus the ideal (noise-free) frame: on an un-NUC'd camera the cos⁴ vignetting gradient would otherwise read as fixed row/column pattern (it is one, physically -- the M9 NUC stage removes it; here the noise-free frame is subtracted so the 3-D terms are isolated).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py#L123" target="_blank" rel="noopener">replay and direct frame access</a><br><code>test_replay_and_direct_frame_access</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_netd.py#L132" target="_blank" rel="noopener">sensors are uncorrelated and float16 refused</a><br><code>test_sensors_are_uncorrelated_and_float16_refused</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

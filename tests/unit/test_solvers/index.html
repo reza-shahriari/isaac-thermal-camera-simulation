@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Solvers</h1>
   <p class="subtitle">Temperature solvers (M6.6): Newton vs the analytic exponential at dt = tau/100 and dt = 5 tau (no overshoot), a stepped ambient restarting analytically, a ramping ambient, prescribed nodes exact, schedule guards, the Protocol, and the float64 guarantee.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py" target="_blank" rel="noopener">tests/unit/test_solvers.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py" target="_blank" rel="noopener">tests/unit/test_solvers.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py" target="_blank" rel="noopener">tests/unit/test_solvers.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py" target="_blank" rel="noopener">tests/unit/test_solvers.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py#L23" target="_blank" rel="noopener">newton matches analytic and never overshoots</a><span class="tag">parametrize</span><br><code>test_newton_matches_analytic_and_never_overshoots</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py#L37" target="_blank" rel="noopener">stepped ambient restarts analytically</a><br><code>test_stepped_ambient_restarts_analytically</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py#L56" target="_blank" rel="noopener">ramping ambient within 1mK of the closed form</a><br><code>test_ramping_ambient_within_1mK_of_the_closed_form</code></td><td>T_inf = a + r t has the closed form T = T_inf(t) − r τ + (T0 − a + r τ) e^{−t/τ}; the midpoint-held update is second order in dt.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py#L70" target="_blank" rel="noopener">weather ambient exposes the shared object</a><br><code>test_weather_ambient_exposes_the_shared_object</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py#L81" target="_blank" rel="noopener">prescribed nodes exact and guards</a><br><code>test_prescribed_nodes_exact_and_guards</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_solvers.py#L99" target="_blank" rel="noopener">protocol and float64 guarantee</a><br><code>test_protocol_and_float64_guarantee</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py#L23" target="_blank" rel="noopener">newton matches analytic and never overshoots</a><span class="tag">parametrize</span><br><code>test_newton_matches_analytic_and_never_overshoots</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py#L37" target="_blank" rel="noopener">stepped ambient restarts analytically</a><br><code>test_stepped_ambient_restarts_analytically</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py#L56" target="_blank" rel="noopener">ramping ambient within 1mK of the closed form</a><br><code>test_ramping_ambient_within_1mK_of_the_closed_form</code></td><td>T_inf = a + r t has the closed form T = T_inf(t) − r τ + (T0 − a + r τ) e^{−t/τ}; the midpoint-held update is second order in dt.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py#L70" target="_blank" rel="noopener">weather ambient exposes the shared object</a><br><code>test_weather_ambient_exposes_the_shared_object</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py#L81" target="_blank" rel="noopener">prescribed nodes exact and guards</a><br><code>test_prescribed_nodes_exact_and_guards</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_solvers.py#L99" target="_blank" rel="noopener">protocol and float64 guarantee</a><br><code>test_protocol_and_float64_guarantee</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

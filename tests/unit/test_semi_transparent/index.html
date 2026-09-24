@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Semi transparent</h1>
   <p class="subtitle">Semi-transparent surfaces: the second ray and per-pixel closure (M7.15).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py" target="_blank" rel="noopener">tests/unit/test_semi_transparent.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py" target="_blank" rel="noopener">tests/unit/test_semi_transparent.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>§4.4's headline capability: a windshield is opaque in LWIR and shows its own temperature, and transparent in SWIR where it shows the driver behind it. That only works if τ is carried separately from ρ -- fold it into (1 − ε) and both bands render identically, plausibly, and wrongly. These tests pin the mixing coefficients, the closure guard, and the fact that turning the feature on changes nothing for opaque scenes.</p>
 <p>docs/physics-model.md §4.4, §4.1, §12.3; ADR 0046</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py" target="_blank" rel="noopener">tests/unit/test_semi_transparent.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py" target="_blank" rel="noopener">tests/unit/test_semi_transparent.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L37" target="_blank" rel="noopener">isothermal enclosure holds with transmission</a><span class="tag">parametrize</span><br><code>test_isothermal_enclosure_holds_with_transmission</code></td><td>Surface, environment and whatever is behind it all at one temperature: the pixel reads that temperature within 1 mK, whatever the split between emission, reflection and transmission. This is the identity that fails the moment the three terms stop closing.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L50" target="_blank" rel="noopener">closure violation is refused</a><br><code>test_closure_violation_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L64" target="_blank" rel="noopener">glass shows itself in lwir and the driver in swir</a><br><code>test_glass_shows_itself_in_lwir_and_the_driver_in_swir</code></td><td>dL/dL_behind is exactly τ, so for the committed windshield it is 0 in LWIR and 0.70 in SWIR: the same material, the same code path, opposite behaviour because the band differs.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L93" target="_blank" rel="noopener">properties for derives reflectance and handles the sky</a><br><code>test_properties_for_derives_reflectance_and_handles_the_sky</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L127" target="_blank" rel="noopener">second ray plane rides the existing contract</a><br><code>test_second_ray_plane_rides_the_existing_contract</code></td><td><code>radiance_behind</code> needs no contract change: the G-buffer already admits any plane whose name starts with "radiance", and treats it as precision-critical, so float16 is refused.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L140" target="_blank" rel="noopener">stage one mixes the second ray and is a no op when absent</a><br><code>test_stage_one_mixes_the_second_ray_and_is_a_no_op_when_absent</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_semi_transparent.py#L171" target="_blank" rel="noopener">through run frame a transparent pixel follows what is behind it</a><br><code>test_through_run_frame_a_transparent_pixel_follows_what_is_behind_it</code></td><td>Plumbing: the plane reaches stage 1 through run_frame, and only the τ &gt; 0 pixels move.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L37" target="_blank" rel="noopener">isothermal enclosure holds with transmission</a><span class="tag">parametrize</span><br><code>test_isothermal_enclosure_holds_with_transmission</code></td><td>Surface, environment and whatever is behind it all at one temperature: the pixel reads that temperature within 1 mK, whatever the split between emission, reflection and transmission. This is the identity that fails the moment the three terms stop closing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L50" target="_blank" rel="noopener">closure violation is refused</a><br><code>test_closure_violation_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L64" target="_blank" rel="noopener">glass shows itself in lwir and the driver in swir</a><br><code>test_glass_shows_itself_in_lwir_and_the_driver_in_swir</code></td><td>dL/dL_behind is exactly τ, so for the committed windshield it is 0 in LWIR and 0.70 in SWIR: the same material, the same code path, opposite behaviour because the band differs.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L93" target="_blank" rel="noopener">properties for derives reflectance and handles the sky</a><br><code>test_properties_for_derives_reflectance_and_handles_the_sky</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L127" target="_blank" rel="noopener">second ray plane rides the existing contract</a><br><code>test_second_ray_plane_rides_the_existing_contract</code></td><td><code>radiance_behind</code> needs no contract change: the G-buffer already admits any plane whose name starts with "radiance", and treats it as precision-critical, so float16 is refused.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L140" target="_blank" rel="noopener">stage one mixes the second ray and is a no op when absent</a><br><code>test_stage_one_mixes_the_second_ray_and_is_a_no_op_when_absent</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_semi_transparent.py#L171" target="_blank" rel="noopener">through run frame a transparent pixel follows what is behind it</a><br><code>test_through_run_frame_a_transparent_pixel_follows_what_is_behind_it</code></td><td>Plumbing: the plane reaches stage 1 through run_frame, and only the τ &gt; 0 pixels move.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

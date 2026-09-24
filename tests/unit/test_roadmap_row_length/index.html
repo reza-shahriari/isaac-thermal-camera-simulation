@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Roadmap row length</h1>
   <p class="subtitle">RP.9 — the row-length lint the roadmap says enforces it.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py" target="_blank" rel="noopener">tests/unit/test_roadmap_row_length.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py" target="_blank" rel="noopener">tests/unit/test_roadmap_row_length.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -64,19 +64,19 @@
 <p><strong>Scope, because a lint that creeps is a lint that gets disabled.</strong> Step tables and the shipped ledger only — never prose, never the generated <em>Do next</em> block, never the phase or risk tables. A paragraph is allowed to be a paragraph; the cap exists because a <em>table cell</em> is the thing that does not diff.</p>
 <p>This is a lint, not a physics verification, and is not counted as one.</p>
 <p>The ledger's own 200-character cap has an owner already (<code>test_shipped_ledger.py</code>, RP.6) and is not duplicated here; this file owns the 600 and the self-test that proves the parser catches rather than merely passes.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py" target="_blank" rel="noopener">tests/unit/test_roadmap_row_length.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py" target="_blank" rel="noopener">tests/unit/test_roadmap_row_length.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L66" target="_blank" rel="noopener">the parser finds the step tables</a><br><code>test_the_parser_finds_the_step_tables</code></td><td>A lint that matched nothing would pass for ever, which is the failure mode of a lint.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L75" target="_blank" rel="noopener">no step row is over the cap</a><br><code>test_no_step_row_is_over_the_cap</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L84" target="_blank" rel="noopener">the document still states the cap this test enforces</a><br><code>test_the_document_still_states_the_cap_this_test_enforces</code></td><td>If the prose and the parser disagree, the prose is what a reader will believe.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L95" target="_blank" rel="noopener">the parser catches a synthetic over length row</a><br><code>test_the_parser_catches_a_synthetic_over_length_row</code></td><td>Proof the lint catches rather than merely passes, without making this document red.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L115" target="_blank" rel="noopener">the row pattern matches nothing outside a step table</a><span class="tag">parametrize</span><br><code>test_the_row_pattern_matches_nothing_outside_a_step_table</code></td><td>Phase, risk, queue, ledger and spec-issue rows and prose are all out of scope.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L126" target="_blank" rel="noopener">no step row is found before the first lane heading</a><br><code>test_no_step_row_is_found_before_the_first_lane_heading</code></td><td>The section filter, checked rather than assumed.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L139" target="_blank" rel="noopener">the ledger is not linted at the step cap</a><br><code>test_the_ledger_is_not_linted_at_the_step_cap</code></td><td>Its rows are capped at 200 and owned by <code>test_shipped_ledger.py</code>; double ownership rots.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L66" target="_blank" rel="noopener">the parser finds the step tables</a><br><code>test_the_parser_finds_the_step_tables</code></td><td>A lint that matched nothing would pass for ever, which is the failure mode of a lint.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L75" target="_blank" rel="noopener">no step row is over the cap</a><br><code>test_no_step_row_is_over_the_cap</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L84" target="_blank" rel="noopener">the document still states the cap this test enforces</a><br><code>test_the_document_still_states_the_cap_this_test_enforces</code></td><td>If the prose and the parser disagree, the prose is what a reader will believe.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L95" target="_blank" rel="noopener">the parser catches a synthetic over length row</a><br><code>test_the_parser_catches_a_synthetic_over_length_row</code></td><td>Proof the lint catches rather than merely passes, without making this document red.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L115" target="_blank" rel="noopener">the row pattern matches nothing outside a step table</a><span class="tag">parametrize</span><br><code>test_the_row_pattern_matches_nothing_outside_a_step_table</code></td><td>Phase, risk, queue, ledger and spec-issue rows and prose are all out of scope.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L126" target="_blank" rel="noopener">no step row is found before the first lane heading</a><br><code>test_no_step_row_is_found_before_the_first_lane_heading</code></td><td>The section filter, checked rather than assumed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_row_length.py#L139" target="_blank" rel="noopener">the ledger is not linted at the step cap</a><br><code>test_the_ledger_is_not_linted_at_the_step_cap</code></td><td>Its rows are capped at 200 and owned by <code>test_shipped_ledger.py</code>; double ownership rots.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

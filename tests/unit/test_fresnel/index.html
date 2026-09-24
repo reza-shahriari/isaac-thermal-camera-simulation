@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Fresnel</h1>
   <p class="subtitle">Level A Fresnel reflectance from a complex index (M7.4, §4.2).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py" target="_blank" rel="noopener">tests/unit/test_fresnel.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py" target="_blank" rel="noopener">tests/unit/test_fresnel.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -67,23 +67,23 @@
 <li>the absence of a total-internal-reflection knee in an absorbing medium, which is the observable signature of the branch choice, plus a direct demonstration that the rejected branch is not passive (it returns R &gt; 1).</li>
 </ul>
 <p>docs/physics-model.md §4.2 Level A [R1]</p>
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py" target="_blank" rel="noopener">tests/unit/test_fresnel.py</a>.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py" target="_blank" rel="noopener">tests/unit/test_fresnel.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L32" target="_blank" rel="noopener">normal incidence matches the closed form over five decades</a><br><code>test_normal_incidence_matches_the_closed_form_over_five_decades</code></td><td>R(0) is the one case with an exact answer, so it is checked to machine precision.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L49" target="_blank" rel="noopener">brewster null for a lossless dielectric</a><br><code>test_brewster_null_for_a_lossless_dielectric</code></td><td>tan(theta_B) = n kills R_par exactly; R_perp does not vanish there.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L60" target="_blank" rel="noopener">index matched medium never reflects</a><br><code>test_index_matched_medium_never_reflects</code></td><td>n = 1, k = 0 is vacuum: zero reflectance at every angle, not just at normal incidence.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L70" target="_blank" rel="noopener">water at 10um matches the published validation values</a><br><code>test_water_at_10um_matches_the_published_validation_values</code></td><td>[R1]'s water numbers: R(0) = 0.01018, eps(60) = 0.961, eps(80) = 0.697.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L86" target="_blank" rel="noopener">water emissivity falls monotonically toward grazing</a><br><code>test_water_emissivity_falls_monotonically_toward_grazing</code></td><td>Dielectric emissivity is flat near normal and collapses at the limb; it never rises.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L97" target="_blank" rel="noopener">absorbing medium has no total internal reflection knee</a><br><code>test_absorbing_medium_has_no_total_internal_reflection_knee</code></td><td>[R1]'s counter-intuitive result: with k &gt; 0, R &lt; 1 at every angle, with no kink.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L118" target="_blank" rel="noopener">the rejected branch is not passive</a><br><code>test_the_rejected_branch_is_not_passive</code></td><td>Why the A/B form is not cosmetic: -(A + jB) returns reflectances above 1.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L141" target="_blank" rel="noopener">reflectance is continuous across an index sweep</a><br><code>test_reflectance_is_continuous_across_an_index_sweep</code></td><td>n from 0.3 to 3.0 at 70 degrees: continuous, and absorption removes the cusp entirely.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L169" target="_blank" rel="noopener">back faces use the absolute cosine</a><br><code>test_back_faces_use_the_absolute_cosine</code></td><td>A facet pointing away is the same surface from the other side; R is even in cos theta.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L179" target="_blank" rel="noopener">broadcasts a spectrum against a cosine plane</a><br><code>test_broadcasts_a_spectrum_against_a_cosine_plane</code></td><td>Spectral (n, k) against a G-buffer of cosines in one call, shapes broadcast as NumPy does.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fresnel.py#L200" target="_blank" rel="noopener">unphysical inputs raise</a><span class="tag">parametrize</span><br><code>test_unphysical_inputs_raise</code></td><td>A negative k is a gain medium and would flip the branch; it fails loudly instead.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L32" target="_blank" rel="noopener">normal incidence matches the closed form over five decades</a><br><code>test_normal_incidence_matches_the_closed_form_over_five_decades</code></td><td>R(0) is the one case with an exact answer, so it is checked to machine precision.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L49" target="_blank" rel="noopener">brewster null for a lossless dielectric</a><br><code>test_brewster_null_for_a_lossless_dielectric</code></td><td>tan(theta_B) = n kills R_par exactly; R_perp does not vanish there.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L60" target="_blank" rel="noopener">index matched medium never reflects</a><br><code>test_index_matched_medium_never_reflects</code></td><td>n = 1, k = 0 is vacuum: zero reflectance at every angle, not just at normal incidence.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L70" target="_blank" rel="noopener">water at 10um matches the published validation values</a><br><code>test_water_at_10um_matches_the_published_validation_values</code></td><td>[R1]'s water numbers: R(0) = 0.01018, eps(60) = 0.961, eps(80) = 0.697.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L86" target="_blank" rel="noopener">water emissivity falls monotonically toward grazing</a><br><code>test_water_emissivity_falls_monotonically_toward_grazing</code></td><td>Dielectric emissivity is flat near normal and collapses at the limb; it never rises.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L97" target="_blank" rel="noopener">absorbing medium has no total internal reflection knee</a><br><code>test_absorbing_medium_has_no_total_internal_reflection_knee</code></td><td>[R1]'s counter-intuitive result: with k &gt; 0, R &lt; 1 at every angle, with no kink.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L118" target="_blank" rel="noopener">the rejected branch is not passive</a><br><code>test_the_rejected_branch_is_not_passive</code></td><td>Why the A/B form is not cosmetic: -(A + jB) returns reflectances above 1.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L141" target="_blank" rel="noopener">reflectance is continuous across an index sweep</a><br><code>test_reflectance_is_continuous_across_an_index_sweep</code></td><td>n from 0.3 to 3.0 at 70 degrees: continuous, and absorption removes the cusp entirely.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L169" target="_blank" rel="noopener">back faces use the absolute cosine</a><br><code>test_back_faces_use_the_absolute_cosine</code></td><td>A facet pointing away is the same surface from the other side; R is even in cos theta.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L179" target="_blank" rel="noopener">broadcasts a spectrum against a cosine plane</a><br><code>test_broadcasts_a_spectrum_against_a_cosine_plane</code></td><td>Spectral (n, k) against a G-buffer of cosines in one call, shapes broadcast as NumPy does.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_fresnel.py#L200" target="_blank" rel="noopener">unphysical inputs raise</a><span class="tag">parametrize</span><br><code>test_unphysical_inputs_raise</code></td><td>A negative k is a gain medium and would flip the branch; it fails loudly instead.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

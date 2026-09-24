@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Band integration</h1>
   <p class="subtitle">The quadrature oracle (M1.4) against the closed forms it must reproduce.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py" target="_blank" rel="noopener">tests/unit/test_band_integration.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py" target="_blank" rel="noopener">tests/unit/test_band_integration.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Top-hat files have an exact answer (band_radiance_tophat / band_photon_radiance_tophat), so the Simpson path is checked against them in percent <em>and</em> in millikelvin -- the unit a NETD is judged in. The in-band derivative is checked against a finite difference of the same integral, and against the §9.4 anchor that a 39 mK NETD at 300 K reads 23 mK at 373 K (ratio 1.736).</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py" target="_blank" rel="noopener">tests/unit/test_band_integration.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py" target="_blank" rel="noopener">tests/unit/test_band_integration.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L38" target="_blank" rel="noopener">grid is odd uniform and edge aligned</a><br><code>test_grid_is_odd_uniform_and_edge_aligned</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L45" target="_blank" rel="noopener">simpson is exact for cubics</a><br><code>test_simpson_is_exact_for_cubics</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L56" target="_blank" rel="noopener">tophat matches closed form in percent and mK</a><span class="tag">parametrize</span><br><code>test_tophat_matches_closed_form_in_percent_and_mK</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L71" target="_blank" rel="noopener">in band derivative matches finite difference</a><br><code>test_in_band_derivative_matches_finite_difference</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L83" target="_blank" rel="noopener">known answer netd scaling 300 to 373k</a><br><code>test_known_answer_netd_scaling_300_to_373k</code></td><td>dLb/dT(373)/dLb/dT(300) = 1.736 for 7.5-13.5 µm: the 39 -&gt; 23 mK NETD anchor of [R9].</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L90" target="_blank" rel="noopener">vectorised over temperature and monotone</a><br><code>test_vectorised_over_temperature_and_monotone</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_integration.py#L101" target="_blank" rel="noopener">boson estimate is close to its tophat</a><br><code>test_boson_estimate_is_close_to_its_tophat</code></td><td>Soft edges centred on the edges: Lb within a few percent of the 7.5-13.5 top-hat.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L38" target="_blank" rel="noopener">grid is odd uniform and edge aligned</a><br><code>test_grid_is_odd_uniform_and_edge_aligned</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L45" target="_blank" rel="noopener">simpson is exact for cubics</a><br><code>test_simpson_is_exact_for_cubics</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L56" target="_blank" rel="noopener">tophat matches closed form in percent and mK</a><span class="tag">parametrize</span><br><code>test_tophat_matches_closed_form_in_percent_and_mK</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L71" target="_blank" rel="noopener">in band derivative matches finite difference</a><br><code>test_in_band_derivative_matches_finite_difference</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L83" target="_blank" rel="noopener">known answer netd scaling 300 to 373k</a><br><code>test_known_answer_netd_scaling_300_to_373k</code></td><td>dLb/dT(373)/dLb/dT(300) = 1.736 for 7.5-13.5 µm: the 39 -&gt; 23 mK NETD anchor of [R9].</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L90" target="_blank" rel="noopener">vectorised over temperature and monotone</a><br><code>test_vectorised_over_temperature_and_monotone</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_band_integration.py#L101" target="_blank" rel="noopener">boson estimate is close to its tophat</a><br><code>test_boson_estimate_is_close_to_its_tophat</code></td><td>Soft edges centred on the edges: Lb within a few percent of the 7.5-13.5 top-hat.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Warp display stage</h1>
   <p class="subtitle">Roadmap M10.8: Warp stage 6 -- device histogram, AGC, DDE and palette against the CPU branch.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py" target="_blank" rel="noopener">tests/integration/test_warp_display_stage.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py" target="_blank" rel="noopener">tests/integration/test_warp_display_stage.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -68,21 +68,21 @@
 <p>And the structural check that matters most: <strong>DN16 is identical under either AGC</strong>. The radiometric and display branches fork after the ADC (§11.1), so a change of AGC mode must not move a single DN code. An AGC that reached back into the linear output would be invisible in the picture and fatal to the validation that consumes it.</p>
 <p>Nothing here renders or needs Kit (ADR 0014 addendum).</p>
 <p>$PYTHON -m pytest tests/integration/test_warp_display_stage.py -m gpu</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py" target="_blank" rel="noopener">tests/integration/test_warp_display_stage.py</a>. The whole file is marked <code>gpu</code>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py" target="_blank" rel="noopener">tests/integration/test_warp_display_stage.py</a>. The whole file is marked <code>gpu</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L110" target="_blank" rel="noopener">display matches the cpu branch within one code</a><span class="tag">parametrize</span><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_display_matches_the_cpu_branch_within_one_code</code></td><td>≥ 99.9 % of pixels within ±1 display code, for every AGC mode on every scene.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L133" target="_blank" rel="noopener">dn16 is identical under either agc</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_dn16_is_identical_under_either_agc</code></td><td>§11.1 forks the branches after the ADC: the AGC must not move a single DN code.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L153" target="_blank" rel="noopener">the exhaust collapse is reproduced on device</a><span class="tag">parametrize</span><br><code>test_the_exhaust_collapse_is_reproduced_on_device</code></td><td>Linear AGC collapses the background contrast; plateau equalisation retains it (ADR 0028).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L188" target="_blank" rel="noopener">a constant frame gives the mid grey level</a><span class="tag">parametrize</span><br><code>test_a_constant_frame_gives_the_mid_grey_level</code></td><td>The degenerate case: no dynamic range at DN resolution, so no division by a zero span.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L206" target="_blank" rel="noopener">the device histogram is exact</a><span class="tag">parametrize</span><br><code>test_the_device_histogram_is_exact</code></td><td>Atomics: no lost counts, no double counts, on a plane with heavy bin collisions.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L223" target="_blank" rel="noopener">the agc table matches the cpu mapping</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_the_agc_table_matches_the_cpu_mapping</code></td><td>The AGC is a monotone function of DN alone, so it is exactly a table on both paths.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L261" target="_blank" rel="noopener">dde matches the cpu unsharp mask</a><span class="tag">parametrize</span><br><code>test_dde_matches_the_cpu_unsharp_mask</code></td><td>Including the edge clamping: zero padding would darken the border like a false vignette.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L278" target="_blank" rel="noopener">black hot inverts and alpha is opaque</a><span class="tag">parametrize</span><br><code>test_black_hot_inverts_and_alpha_is_opaque</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_warp_display_stage.py#L294" target="_blank" rel="noopener">a float plane is refused</a><span class="tag">parametrize</span><br><code>test_a_float_plane_is_refused</code></td><td>Stage 6 consumes the ADC's output; a float plane means the caller skipped the quantiser.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L110" target="_blank" rel="noopener">display matches the cpu branch within one code</a><span class="tag">parametrize</span><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_display_matches_the_cpu_branch_within_one_code</code></td><td>≥ 99.9 % of pixels within ±1 display code, for every AGC mode on every scene.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L133" target="_blank" rel="noopener">dn16 is identical under either agc</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_dn16_is_identical_under_either_agc</code></td><td>§11.1 forks the branches after the ADC: the AGC must not move a single DN code.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L153" target="_blank" rel="noopener">the exhaust collapse is reproduced on device</a><span class="tag">parametrize</span><br><code>test_the_exhaust_collapse_is_reproduced_on_device</code></td><td>Linear AGC collapses the background contrast; plateau equalisation retains it (ADR 0028).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L188" target="_blank" rel="noopener">a constant frame gives the mid grey level</a><span class="tag">parametrize</span><br><code>test_a_constant_frame_gives_the_mid_grey_level</code></td><td>The degenerate case: no dynamic range at DN resolution, so no division by a zero span.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L206" target="_blank" rel="noopener">the device histogram is exact</a><span class="tag">parametrize</span><br><code>test_the_device_histogram_is_exact</code></td><td>Atomics: no lost counts, no double counts, on a plane with heavy bin collisions.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L223" target="_blank" rel="noopener">the agc table matches the cpu mapping</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_the_agc_table_matches_the_cpu_mapping</code></td><td>The AGC is a monotone function of DN alone, so it is exactly a table on both paths.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L261" target="_blank" rel="noopener">dde matches the cpu unsharp mask</a><span class="tag">parametrize</span><br><code>test_dde_matches_the_cpu_unsharp_mask</code></td><td>Including the edge clamping: zero padding would darken the border like a false vignette.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L278" target="_blank" rel="noopener">black hot inverts and alpha is opaque</a><span class="tag">parametrize</span><br><code>test_black_hot_inverts_and_alpha_is_opaque</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_warp_display_stage.py#L294" target="_blank" rel="noopener">a float plane is refused</a><span class="tag">parametrize</span><br><code>test_a_float_plane_is_refused</code></td><td>Stage 6 consumes the ADC's output; a float plane means the caller skipped the quantiser.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

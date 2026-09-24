@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Coupling</h1>
   <p class="subtitle">TC.3 — contactors and radiation between fields.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py" target="_blank" rel="noopener">tests/unit/test_coupling.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py" target="_blank" rel="noopener">tests/unit/test_coupling.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Two overlapping patches at h_c = 1e4 W m⁻² K⁻¹ must give a total conductance <code>h_c · A_overlap</code> and the <em>same</em> total after one grid is refined four times -- the property a conductance authored per node cannot have, and the reason a contactor is defined by overlap area. The coupled solve is one solver, so a joint whose time constant is a fraction of a second stands under a 60 s tick and the stored energy of two patches joined by a contactor is conserved to solver precision.</p>
 <p>Radiation reuses ADR 0088's view factors in both directions: the power an underbody radiates onto the road equals the power the road's cells receive, and reciprocity is checked against an independent quadrature from the body's side.</p>
 <p>docs/physics-model.md §6.1, §6.4; ADR 0087, ADR 0088, ADR 0094, ADR 0099; roadmap TC.3.</p>
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py" target="_blank" rel="noopener">tests/unit/test_coupling.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py" target="_blank" rel="noopener">tests/unit/test_coupling.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L68" target="_blank" rel="noopener">the contactor total is h c times the overlap and survives refinement</a><br><code>test_the_contactor_total_is_h_c_times_the_overlap_and_survives_refinement</code></td><td>A 1 m² plate 1 mm above a 2 m × 2 m base, grids of 0.1 and 0.25 m, then 0.0625 m.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L83" target="_blank" rel="noopener">a rotated grid needs no alignment</a><br><code>test_a_rotated_grid_needs_no_alignment</code></td><td>A 1 m square turned 30° inside the base still overlaps exactly its own area.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L92" target="_blank" rel="noopener">a plate overhanging the base counts only what touches and a per node total does not</a><br><code>test_a_plate_overhanging_the_base_counts_only_what_touches_and_a_per_node_total_does_not</code></td><td>Half the plate hangs off the base. The contactor sees 0.5 m²; a conductance authored per node (h_c times each plate cell's area, nearest base cell) sees the whole plate and, refined, a different number again.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L109" target="_blank" rel="noopener">non parallel far apart or other frame patches are refused</a><br><code>test_non_parallel_far_apart_or_other_frame_patches_are_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L136" target="_blank" rel="noopener">a hot plate on a cold base equalises and conserves energy at a scene tick</a><br><code>test_a_hot_plate_on_a_cold_base_equalises_and_conserves_energy_at_a_scene_tick</code></td><td>τ of a plate cell across the joint: C A / (h_c A) = 8000/1e4 = 0.8 s, under 60 s ticks.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L167" target="_blank" rel="noopener">without a contactor the members are the separate fields bit for bit</a><br><code>test_without_a_contactor_the_members_are_the_separate_fields_bit_for_bit</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L181" target="_blank" rel="noopener">the views carry the bridge s interface</a><br><code>test_the_views_carry_the_bridge_s_interface</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_coupling.py#L200" target="_blank" rel="noopener">the power an underbody radiates onto the road is the power the cells receive</a><br><code>test_the_power_an_underbody_radiates_onto_the_road_is_the_power_the_cells_receive</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L68" target="_blank" rel="noopener">the contactor total is h c times the overlap and survives refinement</a><br><code>test_the_contactor_total_is_h_c_times_the_overlap_and_survives_refinement</code></td><td>A 1 m² plate 1 mm above a 2 m × 2 m base, grids of 0.1 and 0.25 m, then 0.0625 m.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L83" target="_blank" rel="noopener">a rotated grid needs no alignment</a><br><code>test_a_rotated_grid_needs_no_alignment</code></td><td>A 1 m square turned 30° inside the base still overlaps exactly its own area.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L92" target="_blank" rel="noopener">a plate overhanging the base counts only what touches and a per node total does not</a><br><code>test_a_plate_overhanging_the_base_counts_only_what_touches_and_a_per_node_total_does_not</code></td><td>Half the plate hangs off the base. The contactor sees 0.5 m²; a conductance authored per node (h_c times each plate cell's area, nearest base cell) sees the whole plate and, refined, a different number again.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L109" target="_blank" rel="noopener">non parallel far apart or other frame patches are refused</a><br><code>test_non_parallel_far_apart_or_other_frame_patches_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L136" target="_blank" rel="noopener">a hot plate on a cold base equalises and conserves energy at a scene tick</a><br><code>test_a_hot_plate_on_a_cold_base_equalises_and_conserves_energy_at_a_scene_tick</code></td><td>τ of a plate cell across the joint: C A / (h_c A) = 8000/1e4 = 0.8 s, under 60 s ticks.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L167" target="_blank" rel="noopener">without a contactor the members are the separate fields bit for bit</a><br><code>test_without_a_contactor_the_members_are_the_separate_fields_bit_for_bit</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L181" target="_blank" rel="noopener">the views carry the bridge s interface</a><br><code>test_the_views_carry_the_bridge_s_interface</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_coupling.py#L200" target="_blank" rel="noopener">the power an underbody radiates onto the road is the power the cells receive</a><br><code>test_the_power_an_underbody_radiates_onto_the_road_is_the_power_the_cells_receive</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

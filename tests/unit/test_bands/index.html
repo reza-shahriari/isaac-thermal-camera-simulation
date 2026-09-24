@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Bands</h1>
   <p class="subtitle">Band registry (§12.1, §5.2): known answers for the four bands, classification, and the radiometric facts the table encodes -- self-emission negligible in SWIR, dominant in LWIR, MWIR straddling the crossover. A µm/nm mix-up or a wrong table entry breaks these by orders of magnitude.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py" target="_blank" rel="noopener">tests/unit/test_bands.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py" target="_blank" rel="noopener">tests/unit/test_bands.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py" target="_blank" rel="noopener">tests/unit/test_bands.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py" target="_blank" rel="noopener">tests/unit/test_bands.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py#L32" target="_blank" rel="noopener">nominal ranges classify to themselves</a><br><code>test_nominal_ranges_classify_to_themselves</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py#L48" target="_blank" rel="noopener">defaults match spec 12 1</a><br><code>test_defaults_match_spec_12_1</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py#L63" target="_blank" rel="noopener">illumination terms follow regime not band</a><br><code>test_illumination_terms_follow_regime_not_band</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py#L71" target="_blank" rel="noopener">self emission negligible in swir dominant in lwir</a><br><code>test_self_emission_negligible_in_swir_dominant_in_lwir</code></td><td>§12.1: 'negligible' vs 'dominant' at 300 K, via the closed-form top-hat radiance.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py#L78" target="_blank" rel="noopener">mwir straddles the crossover</a><br><code>test_mwir_straddles_the_crossover</code></td><td>§5.2 'both': MWIR self-emission at 300 K is a few percent of LWIR (expected ~0.035).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bands.py#L84" target="_blank" rel="noopener">boson resolves lwir and explicit id is checked</a><br><code>test_boson_resolves_lwir_and_explicit_id_is_checked</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py#L32" target="_blank" rel="noopener">nominal ranges classify to themselves</a><br><code>test_nominal_ranges_classify_to_themselves</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py#L48" target="_blank" rel="noopener">defaults match spec 12 1</a><br><code>test_defaults_match_spec_12_1</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py#L63" target="_blank" rel="noopener">illumination terms follow regime not band</a><br><code>test_illumination_terms_follow_regime_not_band</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py#L71" target="_blank" rel="noopener">self emission negligible in swir dominant in lwir</a><br><code>test_self_emission_negligible_in_swir_dominant_in_lwir</code></td><td>§12.1: 'negligible' vs 'dominant' at 300 K, via the closed-form top-hat radiance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py#L78" target="_blank" rel="noopener">mwir straddles the crossover</a><br><code>test_mwir_straddles_the_crossover</code></td><td>§5.2 'both': MWIR self-emission at 300 K is a few percent of LWIR (expected ~0.035).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bands.py#L84" target="_blank" rel="noopener">boson resolves lwir and explicit id is checked</a><br><code>test_boson_resolves_lwir_and_explicit_id_is_checked</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

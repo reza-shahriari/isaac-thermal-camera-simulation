@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Thermal bridge surfaces</h1>
   <p class="subtitle">M10.3: a rendered prim can take its temperature from the §12.3 thermal solver.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py" target="_blank" rel="noopener">tests/unit/test_thermal_bridge_surfaces.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py" target="_blank" rel="noopener">tests/unit/test_thermal_bridge_surfaces.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Phase 1 (M10.18) mapped a prim to one of the scene's <em>target solvers</em> -- a scripted drone motor, a relaxing airframe. Phase 2 lets a prim map to a §12.3 <strong>thermal surface</strong> instead, so a rendered roof is the one M6.12's energy balance solved rather than a number somebody typed beside it.</p>
 <p>Both kinds live in one map, because "a thing with a temperature" is all the G-buffer cares about and a stage should be able to mix a solved facet with a scripted drone without sorting them. What the tests below pin is the part that can go wrong silently: the two kinds use <strong>different time bases</strong>, and a name that is both kinds is refused rather than resolved by precedence.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py" target="_blank" rel="noopener">tests/unit/test_thermal_bridge_surfaces.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py" target="_blank" rel="noopener">tests/unit/test_thermal_bridge_surfaces.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L39" target="_blank" rel="noopener">the scene has solved surfaces to map to</a><br><code>test_the_scene_has_solved_surfaces_to_map_to</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L45" target="_blank" rel="noopener">a prim can take its temperature from the thermal solver</a><br><code>test_a_prim_can_take_its_temperature_from_the_thermal_solver</code></td><td>The step itself: a prim mapped to a surface reads M6.12's energy balance, to the kelvin.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L55" target="_blank" rel="noopener">the surface lookup uses absolute time and the targets relative</a><br><code>test_the_surface_lookup_uses_absolute_time_and_the_targets_relative</code></td><td>The trap this step introduces, pinned.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L81" target="_blank" rel="noopener">a name that is both kinds is refused rather than resolved</a><br><code>test_a_name_that_is_both_kinds_is_refused_rather_than_resolved</code></td><td>Whichever kind won a precedence rule, the other would be silently ignored.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L103" target="_blank" rel="noopener">an unmapped name names both kinds in the error</a><br><code>test_an_unmapped_name_names_both_kinds_in_the_error</code></td><td>The error has to say what <em>is</em> available, or a typo costs a debugging session.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L109" target="_blank" rel="noopener">a surface contributes no tick interpolation error</a><br><code>test_a_surface_contributes_no_tick_interpolation_error</code></td><td>Surfaces are not ticked: the ThermalField is integrated once over the whole scene and read by interpolation, so this bridge adds nothing to their error budget.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L116" target="_blank" rel="noopener">the facet table carries a surface temperature into the plane</a><br><code>test_the_facet_table_carries_a_surface_temperature_into_the_plane</code></td><td>End to end: the number reaches <code>temperature_k</code>, which is the only thing stage 1 reads.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L39" target="_blank" rel="noopener">the scene has solved surfaces to map to</a><br><code>test_the_scene_has_solved_surfaces_to_map_to</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L45" target="_blank" rel="noopener">a prim can take its temperature from the thermal solver</a><br><code>test_a_prim_can_take_its_temperature_from_the_thermal_solver</code></td><td>The step itself: a prim mapped to a surface reads M6.12's energy balance, to the kelvin.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L55" target="_blank" rel="noopener">the surface lookup uses absolute time and the targets relative</a><br><code>test_the_surface_lookup_uses_absolute_time_and_the_targets_relative</code></td><td>The trap this step introduces, pinned.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L81" target="_blank" rel="noopener">a name that is both kinds is refused rather than resolved</a><br><code>test_a_name_that_is_both_kinds_is_refused_rather_than_resolved</code></td><td>Whichever kind won a precedence rule, the other would be silently ignored.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L103" target="_blank" rel="noopener">an unmapped name names both kinds in the error</a><br><code>test_an_unmapped_name_names_both_kinds_in_the_error</code></td><td>The error has to say what <em>is</em> available, or a typo costs a debugging session.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L109" target="_blank" rel="noopener">a surface contributes no tick interpolation error</a><br><code>test_a_surface_contributes_no_tick_interpolation_error</code></td><td>Surfaces are not ticked: the ThermalField is integrated once over the whole scene and read by interpolation, so this bridge adds nothing to their error budget.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_thermal_bridge_surfaces.py#L116" target="_blank" rel="noopener">the facet table carries a surface temperature into the plane</a><br><code>test_the_facet_table_carries_a_surface_temperature_into_the_plane</code></td><td>End to end: the number reaches <code>temperature_k</code>, which is the only thing stage 1 reads.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

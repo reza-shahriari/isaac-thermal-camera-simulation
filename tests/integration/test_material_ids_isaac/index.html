@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,26 +55,26 @@
 <div class="page-head">
   <h1>Material ids isaac</h1>
   <p class="subtitle">Roadmap M10.2: material-ID transport measured on a stage that exercises every mapping rule.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py" target="_blank" rel="noopener">tests/integration/test_material_ids_isaac.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py" target="_blank" rel="noopener">tests/integration/test_material_ids_isaac.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The engine-free half -- the id remap, the sentinel, the magenta overlay -- is covered in <code>tests/unit/test_material_ids.py</code>. What needs a renderer is the rest of the chain: that a USD stage walk sees the bindings, semantics and <code>thermal:material</code> overrides that were authored; that the resolver's precedence (ADR 0047) holds on a real stage; and that the instance ids the renderer produces decode to those materials exactly, on every pixel, at a supersampled resolution.</p>
 <p>The failure this guards against is quiet. If ids blended at object edges, or if a prim silently picked up a default emissivity, the resulting thermal image would look completely reasonable and be made of the wrong substances.</p>
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py" target="_blank" rel="noopener">tests/integration/test_material_ids_isaac.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py" target="_blank" rel="noopener">tests/integration/test_material_ids_isaac.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L80" target="_blank" rel="noopener">stage walk sees every binding semantic and override</a><br><code>test_stage_walk_sees_every_binding_semantic_and_override</code></td><td><code>prim_records</code> must report exactly what was authored, or the resolver decides on fiction.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L91" target="_blank" rel="noopener">stage walk skips non geometry</a><br><code>test_stage_walk_skips_non_geometry</code></td><td>Cameras, lights, scopes and material prims are not surfaces; counting them inflates coverage and would let an unmapped asset pass the ADR 0047 gate.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L105" target="_blank" rel="noopener">resolver precedence holds on a real stage</a><br><code>test_resolver_precedence_holds_on_a_real_stage</code></td><td>Override beats the <code>*glass*</code> glob; semantics beat an unmatched name; the rest is a miss.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L118" target="_blank" rel="noopener">audit fails on the unmapped prim and names it</a><br><code>test_audit_fails_on_the_unmapped_prim_and_names_it</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L135" target="_blank" rel="noopener">material ids decode exactly at supersampled resolution</a><br><code>test_material_ids_decode_exactly_at_supersampled_resolution</code></td><td>Every pixel of every target carries its material id, with nothing in between.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L158" target="_blank" rel="noopener">object edges never blend two materials</a><br><code>test_object_edges_never_blend_two_materials</code></td><td>Scan the row through the quad centres: every pixel is an authored id or the background.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L181" target="_blank" rel="noopener">the unmapped prim is magenta and nothing else is</a><br><code>test_the_unmapped_prim_is_magenta_and_nothing_else_is</code></td><td>Magenta marks exactly the forgotten prim -- not the sky, and not its neighbours.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_material_ids_isaac.py#L214" target="_blank" rel="noopener">supersampled ids survive decimation to native</a><br><code>test_supersampled_ids_survive_decimation_to_native</code></td><td>Decimating the 4x id plane to native must still give authored ids, never an average.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L80" target="_blank" rel="noopener">stage walk sees every binding semantic and override</a><br><code>test_stage_walk_sees_every_binding_semantic_and_override</code></td><td><code>prim_records</code> must report exactly what was authored, or the resolver decides on fiction.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L91" target="_blank" rel="noopener">stage walk skips non geometry</a><br><code>test_stage_walk_skips_non_geometry</code></td><td>Cameras, lights, scopes and material prims are not surfaces; counting them inflates coverage and would let an unmapped asset pass the ADR 0047 gate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L105" target="_blank" rel="noopener">resolver precedence holds on a real stage</a><br><code>test_resolver_precedence_holds_on_a_real_stage</code></td><td>Override beats the <code>*glass*</code> glob; semantics beat an unmatched name; the rest is a miss.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L118" target="_blank" rel="noopener">audit fails on the unmapped prim and names it</a><br><code>test_audit_fails_on_the_unmapped_prim_and_names_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L135" target="_blank" rel="noopener">material ids decode exactly at supersampled resolution</a><br><code>test_material_ids_decode_exactly_at_supersampled_resolution</code></td><td>Every pixel of every target carries its material id, with nothing in between.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L158" target="_blank" rel="noopener">object edges never blend two materials</a><br><code>test_object_edges_never_blend_two_materials</code></td><td>Scan the row through the quad centres: every pixel is an authored id or the background.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L181" target="_blank" rel="noopener">the unmapped prim is magenta and nothing else is</a><br><code>test_the_unmapped_prim_is_magenta_and_nothing_else_is</code></td><td>Magenta marks exactly the forgotten prim -- not the sky, and not its neighbours.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_ids_isaac.py#L214" target="_blank" rel="noopener">supersampled ids survive decimation to native</a><br><code>test_supersampled_ids_survive_decimation_to_native</code></td><td>Decimating the 4x id plane to native must still give authored ids, never an average.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

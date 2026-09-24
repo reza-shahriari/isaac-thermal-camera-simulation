@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,26 +55,26 @@
 <div class="page-head">
   <h1>Shipped ledger</h1>
   <p class="subtitle">RP.6 — every shipped-ledger row points at a commit that exists.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py" target="_blank" rel="noopener">tests/unit/test_shipped_ledger.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py" target="_blank" rel="noopener">tests/unit/test_shipped_ledger.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Revision 3 of the roadmap prescribed <code>done YYYY-MM-DD &lt;hash&gt;</code> on its shipped rows and <strong>zero of its 162 done rows carried one</strong>, M0.1 included — the row it used as the example of the format. A rule that only applies going forward leaves the state unrecoverable after the next whole-file write, which is the failure this revision of the plan exists to fix.</p>
 <p>So the hash is checked rather than prescribed, and checked the only way that means anything: the 7-hex string has to <strong>resolve in this repository</strong>. A typo'd hash is worse than <code>pending</code>, because <code>pending</code> at least tells the reader it has nothing for them.</p>
 <p>The test degrades rather than lies: outside a git checkout it skips the resolution half and still enforces the shape.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py" target="_blank" rel="noopener">tests/unit/test_shipped_ledger.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py" target="_blank" rel="noopener">tests/unit/test_shipped_ledger.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L63" target="_blank" rel="noopener">the ledger is found and not empty</a><br><code>test_the_ledger_is_found_and_not_empty</code></td><td>A parser that silently matched nothing would pass every test below for ever.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L69" target="_blank" rel="noopener">no row is still pending</a><br><code>test_no_row_is_still_pending</code></td><td><code>pending</code> was the placeholder RP.6 existed to remove.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L75" target="_blank" rel="noopener">every shipped row carries a hash and every open row does not</a><br><code>test_every_shipped_row_carries_a_hash_and_every_open_row_does_not</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L90" target="_blank" rel="noopener">every ledger hash resolves to a commit</a><span class="tag">skipif</span><br><code>test_every_ledger_hash_resolves_to_a_commit</code></td><td>The half that matters. A hash of the right shape and the wrong value reads as evidence.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L101" target="_blank" rel="noopener">a wrong hash would be caught</a><span class="tag">skipif</span><br><code>test_a_wrong_hash_would_be_caught</code></td><td>The negative control for the test above, so it cannot pass by never resolving anything.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L113" target="_blank" rel="noopener">ledger rows stay under the cap the section states</a><br><code>test_ledger_rows_stay_under_the_cap_the_section_states</code></td><td>200 characters is what keeps this table mergeable; revision 3 averaged 1,234 and was not.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shipped_ledger.py#L125" target="_blank" rel="noopener">each milestone appears once</a><br><code>test_each_milestone_appears_once</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L63" target="_blank" rel="noopener">the ledger is found and not empty</a><br><code>test_the_ledger_is_found_and_not_empty</code></td><td>A parser that silently matched nothing would pass every test below for ever.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L69" target="_blank" rel="noopener">no row is still pending</a><br><code>test_no_row_is_still_pending</code></td><td><code>pending</code> was the placeholder RP.6 existed to remove.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L75" target="_blank" rel="noopener">every shipped row carries a hash and every open row does not</a><br><code>test_every_shipped_row_carries_a_hash_and_every_open_row_does_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L90" target="_blank" rel="noopener">every ledger hash resolves to a commit</a><span class="tag">skipif</span><br><code>test_every_ledger_hash_resolves_to_a_commit</code></td><td>The half that matters. A hash of the right shape and the wrong value reads as evidence.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L101" target="_blank" rel="noopener">a wrong hash would be caught</a><span class="tag">skipif</span><br><code>test_a_wrong_hash_would_be_caught</code></td><td>The negative control for the test above, so it cannot pass by never resolving anything.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L113" target="_blank" rel="noopener">ledger rows stay under the cap the section states</a><br><code>test_ledger_rows_stay_under_the_cap_the_section_states</code></td><td>200 characters is what keeps this table mergeable; revision 3 averaged 1,234 and was not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shipped_ledger.py#L125" target="_blank" rel="noopener">each milestone appears once</a><br><code>test_each_milestone_appears_once</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Background fill</h1>
   <p class="subtitle">OC.7 -- the analytic hidden layer (ADR 0129).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py" target="_blank" rel="noopener">tests/unit/test_background_fill.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py" target="_blank" rel="noopener">tests/unit/test_background_fill.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>A defocused foreground silhouette lets the background show through, and a single-layer G-buffer has no behind. <code>OC.6</code> fills the gap by normalising against the layers it <em>does</em> have, which is a guess. Where the thing behind is sky or sea, it need not be: their radiance is a function of ray direction this pipeline already evaluates, so the true background can be handed to the stage for every pixel at no extra render cost. These tests hold that claim to an exact reference.</p>
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py" target="_blank" rel="noopener">tests/unit/test_background_fill.py</a>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py" target="_blank" rel="noopener">tests/unit/test_background_fill.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py#L55" target="_blank" rel="noopener">the analytic background reproduces the two layer reference exactly</a><br><code>test_the_analytic_background_reproduces_the_two_layer_reference_exactly</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py#L64" target="_blank" rel="noopener">without it the silhouette carries a measurable error</a><br><code>test_without_it_the_silhouette_carries_a_measurable_error</code></td><td>The size of the approximation <code>OC.6</code> alone makes -- the number <code>OC.8</code> has to live with.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py#L80" target="_blank" rel="noopener">the background makes the normalisation an identity</a><br><code>test_the_background_makes_the_normalisation_an_identity</code></td><td>With an opaque backmost layer the accumulated weight is 1 everywhere, so the division that <code>OC.6</code> needs stops doing anything -- which is why the result can be exact.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py#L95" target="_blank" rel="noopener">a scalar background is accepted</a><br><code>test_a_scalar_background_is_accepted</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_background_fill.py#L109" target="_blank" rel="noopener">the plane is part of the gbuffer contract and is precision critical</a><br><code>test_the_plane_is_part_of_the_gbuffer_contract_and_is_precision_critical</code></td><td>It is a temperature, so float16 would cost 0.25 K at 300 K -- five NETDs (#2).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py#L55" target="_blank" rel="noopener">the analytic background reproduces the two layer reference exactly</a><br><code>test_the_analytic_background_reproduces_the_two_layer_reference_exactly</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py#L64" target="_blank" rel="noopener">without it the silhouette carries a measurable error</a><br><code>test_without_it_the_silhouette_carries_a_measurable_error</code></td><td>The size of the approximation <code>OC.6</code> alone makes -- the number <code>OC.8</code> has to live with.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py#L80" target="_blank" rel="noopener">the background makes the normalisation an identity</a><br><code>test_the_background_makes_the_normalisation_an_identity</code></td><td>With an opaque backmost layer the accumulated weight is 1 everywhere, so the division that <code>OC.6</code> needs stops doing anything -- which is why the result can be exact.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py#L95" target="_blank" rel="noopener">a scalar background is accepted</a><br><code>test_a_scalar_background_is_accepted</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_background_fill.py#L109" target="_blank" rel="noopener">the plane is part of the gbuffer contract and is precision critical</a><br><code>test_the_plane_is_part_of_the_gbuffer_contract_and_is_precision_critical</code></td><td>It is a temperature, so float16 would cost 0.25 K at 300 K -- five NETDs (#2).</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

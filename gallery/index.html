@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -85,7 +85,7 @@
 <figure class="shot full"><video src="../media/pointwise_flight/quad_pointwise_vs_objectwise.mp4" poster="../media/pointwise_flight/quad_pointwise_vs_objectwise.webp" width="720" height="358" controls loop muted playsinline preload="none"></video><figcaption>Object-wise on the left, point-wise on the right, the same instants and the same camera.</figcaption></figure>
 </div>
 <div class="note"><p>Engine-free: the camera rays are intersected with the quadrotor's own rectangles in NumPy, producing the instance-id and world-position planes Isaac supplies from its AOVs, and those go through the same point bridge the renderer uses. The body shells are unpatched, so they keep the per-prim value in both panels — patch what you author, and the rest of the prim stays as it was.</p></div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/quad_flight_pointwise.py" target="_blank" rel="noopener"><code>scripts/quad_flight_pointwise.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/quad_flight_pointwise.py" target="_blank" rel="noopener"><code>scripts/quad_flight_pointwise.py</code></a></p>
 </section>
 <section class="demo"><h2 id="arm-as-a-tube">The same arm, as a tube</h2>
 <p>ADR 0087 could only model a quadrotor arm as a flat strip, and recorded a tube as a permanent limit. <code>WM.1</code>–<code>WM.7</code> lifted it: a Warp closest-point query derives the (face, u, v) from the position AOV, cells live on the mesh, and a scene config can now declare one. Below is the north arm <strong>unrolled</strong> — the tube cut along its underside and laid flat, angle across, length down — over the same 30-minute mission. <strong>15.4 K between the sunlit crown and an underside close to air</strong>, where the same arm as a patched strip carries under a millikelvin across its width. The dark band at the far end is the motor pod's shadow, traced per cell by <code>WM.4</code>; the gradient is as smooth as it is because <code>WM.6</code> lets the tube conduct round itself, which the fin equation says costs a quarter of an unconducted one. It read 26.6 K before either.</p>
@@ -95,7 +95,7 @@
 <figure class="shot third"><a href="../media/quad_flight_mesh/arm_n_unrolled_t1002.webp"><img src="../media/quad_flight_mesh/arm_n_unrolled_t1002.webp" width="180" height="180" loading="lazy" alt="hard climb — crown 35.3 °C, the excess down to 8.7 K"></a><figcaption>hard climb — crown 35.3 °C, the excess down to 8.7 K</figcaption></figure>
 <figure class="shot third"><a href="../media/quad_flight_mesh/arm_n_unrolled_t1752.webp"><img src="../media/quad_flight_mesh/arm_n_unrolled_t1752.webp" width="180" height="180" loading="lazy" alt="landed — crown 44.3 °C"></a><figcaption>landed — crown 44.3 °C</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/quad_flight_mesh.py" target="_blank" rel="noopener"><code>scripts/quad_flight_mesh.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/quad_flight_mesh.py" target="_blank" rel="noopener"><code>scripts/quad_flight_mesh.py</code></a></p>
 </section>
 <section class="demo"><h2 id="four-bands">Through the camera: Isaac Sim, four bands</h2>
 <p>The same geometry, weather, sun and instant through four spectral bands. A quadrotor is four hot spots against a cold sky in LWIR and a black silhouette against a bright sky in NIR — two different detection problems, which is the argument for treating bands as data rather than code. Exposure is per band and is physics: a daylight reflective-band scene saturates a low-light exposure by around 120×.</p>
@@ -107,7 +107,7 @@
 <figure class="shot half"><video src="../media/multiband/airplane/swir/aircraft_pass_agc.mp4" poster="../media/multiband/airplane/swir/aircraft_pass_agc.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption><span class="label">SWIR</span>reflective — the scene is lit, not glowing</figcaption></figure>
 <figure class="shot half"><video src="../media/multiband/airplane/nir/aircraft_pass_agc.mp4" poster="../media/multiband/airplane/nir/aircraft_pass_agc.webp" width="720" height="576" controls loop muted playsinline preload="none"></video><figcaption><span class="label">NIR</span>reflective, and the noisiest of the four</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_multiband.py" target="_blank" rel="noopener"><code>scripts/render_multiband.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_multiband.py" target="_blank" rel="noopener"><code>scripts/render_multiband.py</code></a></p>
 </section>
 <section class="demo"><h2 id="four-bands-drone">A heavy-lift quadrotor, four bands</h2>
 <p>30-minute mission, clear midday, 105 px across the span at 20 m: four hot motor bells, warmer speed controllers and a warm pack, which is what a thermal sensor actually keys on in a drone.</p>
@@ -119,7 +119,7 @@
 <figure class="shot half"><video src="../media/multiband/drone/nir/quad_flight_agc.mp4" poster="../media/multiband/drone/nir/quad_flight_agc.webp" width="720" height="576" controls loop muted playsinline preload="none"></video><figcaption><span class="label">NIR</span>a silhouette against a bright sky — the opposite detection problem</figcaption></figure>
 <figure class="shot half"><video src="../media/multiband/drone/lwir/quad_flight_rgb.mp4" poster="../media/multiband/drone/lwir/quad_flight_rgb.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption><span class="label">visible companion</span>the same stage through a colour camera, for reference</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_multiband.py" target="_blank" rel="noopener"><code>scripts/render_multiband.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_multiband.py" target="_blank" rel="noopener"><code>scripts/render_multiband.py</code></a></p>
 </section>
 <section class="demo"><h2 id="four-bands-ship">A vessel on open water, four bands</h2>
 <p>Sea-reflected sky, angular emissivity of water and glint. The maritime lane is the owner's second target after aerial (ADR 0003, ADR 0078).</p>
@@ -130,7 +130,7 @@
 <figure class="shot half"><video src="../media/multiband/ship/swir/maritime_demo_agc.mp4" poster="../media/multiband/ship/swir/maritime_demo_agc.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption><span class="label">SWIR</span></figcaption></figure>
 <figure class="shot half"><video src="../media/multiband/ship/nir/maritime_demo_agc.mp4" poster="../media/multiband/ship/nir/maritime_demo_agc.webp" width="720" height="576" controls loop muted playsinline preload="none"></video><figcaption><span class="label">NIR</span></figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_maritime_demo.py" target="_blank" rel="noopener"><code>scripts/render_maritime_demo.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_maritime_demo.py" target="_blank" rel="noopener"><code>scripts/render_maritime_demo.py</code></a></p>
 </section>
 <section class="demo"><h2 id="four-bands-sky-target">A point target against sky, four bands</h2>
 <p>The aerial point-target lane: a small target against a clear sky at dawn, where the sky's radiance-versus-elevation gradient is the whole background. These four are pre-AGC, mapped from radiance directly.</p>
@@ -141,7 +141,7 @@
 <figure class="shot half"><video src="../media/multiband/sky_target/swir/aerial_demo_ir.mp4" poster="../media/multiband/sky_target/swir/aerial_demo_ir.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption><span class="label">SWIR</span></figcaption></figure>
 <figure class="shot half"><video src="../media/multiband/sky_target/nir/aerial_demo_ir.mp4" poster="../media/multiband/sky_target/nir/aerial_demo_ir.webp" width="720" height="576" controls loop muted playsinline preload="none"></video><figcaption><span class="label">NIR</span></figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_aerial_demo.py" target="_blank" rel="noopener"><code>scripts/render_aerial_demo.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_aerial_demo.py" target="_blank" rel="noopener"><code>scripts/render_aerial_demo.py</code></a></p>
 </section>
 <section class="demo"><h2 id="car-ignition">A car that starts its engine</h2>
 <p>The owner's second requirement: an engine must warm <em>the metal around it</em>, not only itself (ADR 0087/0088/0089). The bonnet here is <strong>one USD prim</strong>, 23 × 19 cells — flat to under a millikelvin in frame 0 and <strong>5.82 K across</strong> at the end of this 29.5-minute run, which is 116 NETD of structure that a per-prim bridge has a single number to represent. Behind it the engine bay has risen 26.4 K and the exhaust pipe 47.7 K over air.</p>
@@ -152,7 +152,7 @@
 <figure class="shot half"><video src="../media/car_ignition/car_ignition_span_road.mp4" poster="../media/car_ignition/car_ignition_span_road.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption>a 1.6 K window on ambient — the road field holds 0.89 K, of which 0.15 K reaches the sensor, because the warmest asphalt is under the car and a 45° view cannot see it</figcaption></figure>
 </div>
 <div class="note"><p>The wheels do <strong>not</strong> warm, and the readout says so: §6.6 makes tyre heating flexing work and brake heating kinetic energy, and a car idling in a car park is doing neither. A test pins +0.000 K so a later change cannot quietly "fix" it.</p></div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_car_ignition.py" target="_blank" rel="noopener"><code>scripts/render_car_ignition.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_car_ignition.py" target="_blank" rel="noopener"><code>scripts/render_car_ignition.py</code></a></p>
 </section>
 <section class="demo"><h2 id="vessel-departure">A vessel departure, filmed in LWIR</h2>
 <p>A coaster leaving from 250 m while its funnel warms from cold alongside toward cruise power, played as a time lapse. The film shows what a static frame cannot: <strong>the target's signature getting stronger while the target gets smaller.</strong> Over the clip below the funnel runs <strong>32 → 92 °C</strong> while the range goes 250 → 994 m and the hull falls from 99,077 to 3,792 pixels — a factor of 26 in area. That is the regime an infrared search set actually works in.</p>
@@ -161,7 +161,7 @@
 <figure class="shot full"><video src="../media/vessel_departure/frames.mp4" poster="../media/vessel_departure/frames.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption>the run's 32 AGC frames at 8 fps; the gauge reads funnel, deck and hull against the display span</figcaption></figure>
 </div>
 <div class="note"><p>The funnel had to be repainted. It was <code>bare_aluminium</code>, ε = 0.09 in LWIR, so it reflected the cold sky far more than it radiated and the renderer drew a <strong>155 °C funnel as a dark rectangle</strong>. Real funnels are painted steel, ε ≈ 0.9. A test now pins the two emissivities, because the mistake is invisible in the geometry and shows up only in the picture.</p></div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_vessel_departure.py" target="_blank" rel="noopener"><code>scripts/render_vessel_departure.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_vessel_departure.py" target="_blank" rel="noopener"><code>scripts/render_vessel_departure.py</code></a></p>
 </section>
 <section class="demo"><h2 id="imported-asset">An imported asset, flown</h2>
 <p>A 62 MB third-party DJI Phantom 4 Pro FBX that nobody here modelled: 41 prims, 2,486,459 triangles, <strong>41 of 41 materials resolved in Kit</strong> through <code>configs/assets/phantom4.yaml</code>. It flies a figure-of-eight from 4.6 m to 10.3 m range — 70 to 157 px across the span — and the display spans <strong>−12.0 to 26.4 °C</strong>.</p>
@@ -171,7 +171,7 @@
 <figure class="shot half"><video src="../media/phantom4_weather/phantom4_pair.mp4" poster="../media/phantom4_weather/phantom4_pair.webp" width="720" height="288" controls loop muted playsinline preload="none"></video><figcaption>the same aircraft with the scene's measured weather file driving the sky</figcaption></figure>
 <figure class="shot half"><video src="../media/phantom4_smoke/phantom4_pair.mp4" poster="../media/phantom4_smoke/phantom4_pair.webp" width="720" height="288" controls loop muted playsinline preload="none"></video><figcaption>and through smoke</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_phantom4.py" target="_blank" rel="noopener"><code>scripts/render_phantom4.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_phantom4.py" target="_blank" rel="noopener"><code>scripts/render_phantom4.py</code></a></p>
 </section>
 <section class="demo"><h2 id="aircraft-pass">A low pass, where aspect is the variable</h2>
 <p>A light business jet passing a ground sensor at 150 m/s, 300 frames of real time at 30 fps, closing to 250 m. The variable is <strong>aspect</strong>, not throttle: the exhaust nozzles are hidden behind their own nacelles from the front and fully exposed from the rear, which is why a real aircraft's measured infrared signature varies by a large factor around the clock. Measured off the instance-id plane at the same range either side of closest approach, this run shows <strong>190 px of nozzle tail-on against 78 head-on</strong>. The display spans 1.1 to 190.9 °C, which is the nozzle setting the top of it.</p>
@@ -180,7 +180,7 @@
 <figure class="shot half"><video src="../media/aircraft_pass/aircraft_pass_agc.mp4" poster="../media/aircraft_pass/aircraft_pass_agc.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption>the camera's AGC</figcaption></figure>
 <figure class="shot half"><video src="../media/aircraft_pass/aircraft_pass_ir.mp4" poster="../media/aircraft_pass/aircraft_pass_ir.webp" width="640" height="512" controls loop muted playsinline preload="none"></video><figcaption>pre-AGC, mapped from radiance</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/render_aircraft_pass.py" target="_blank" rel="noopener"><code>scripts/render_aircraft_pass.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_aircraft_pass.py" target="_blank" rel="noopener"><code>scripts/render_aircraft_pass.py</code></a></p>
 </section>
 <section class="demo"><h2 id="focus">Focus, and what a defocused edge does</h2>
 <p>A two-cube scene at Boson 640 optics, filmed through a focus sweep. Each depth layer is blurred with the kernel its own range earns and composited back to front using its <strong>blurred coverage as alpha</strong>, so a defocused edge is semi-transparent rather than a hard cut. The blur is applied in radiance, never in Kelvin (non-negotiable #3) — a test pins the half-covered edge to the radiance-blended temperature rather than the Kelvin mean, 6.7 K apart on a 250/315 K edge.</p>
@@ -191,7 +191,7 @@
 <figure class="shot third"><a href="../media/focus_demo/focus_far.webp"><img src="../media/focus_demo/focus_far.webp" width="320" height="256" loading="lazy" alt="focused far"></a><figcaption>focused far</figcaption></figure>
 <figure class="shot third"><a href="../media/focus_demo/focus_hyperfocal.webp"><img src="../media/focus_demo/focus_hyperfocal.webp" width="320" height="256" loading="lazy" alt="hyperfocal"></a><figcaption>hyperfocal</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/focus_demo.py" target="_blank" rel="noopener"><code>scripts/focus_demo.py</code></a> · <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/focus_sky_demo.py" target="_blank" rel="noopener"><code>scripts/focus_sky_demo.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/focus_demo.py" target="_blank" rel="noopener"><code>scripts/focus_demo.py</code></a> · <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/focus_sky_demo.py" target="_blank" rel="noopener"><code>scripts/focus_sky_demo.py</code></a></p>
 </section>
 <section class="demo"><h2 id="pointwise">Point-wise physics: every cell its own temperature</h2>
 <p>These are engine-free frames — a synthetic G-buffer over each patch's own plane, passed through the same point bridge the Isaac path uses, so the pixels are exactly what a render would carry before the radiometry.</p>
@@ -202,7 +202,7 @@
 <figure class="shot third"><a href="../media/pointwise/quad_aerial/plan_t1000_whitehot.webp"><img src="../media/pointwise/quad_aerial/plan_t1000_whitehot.webp" width="400" height="400" loading="lazy" alt="hard climb at 13.3 m/s — deck 40.3 °C, the excess collapsed to 13.8 K"></a><figcaption>hard climb at 13.3 m/s — deck 40.3 °C, the excess collapsed to 13.8 K</figcaption></figure>
 <figure class="shot third"><a href="../media/pointwise/quad_aerial/plan_t1750_whitehot.webp"><img src="../media/pointwise/quad_aerial/plan_t1750_whitehot.webp" width="400" height="400" loading="lazy" alt="landed — deck 56.3 °C, the excess back at 29.6 K"></a><figcaption>landed — deck 56.3 °C, the excess back at 29.6 K</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/quad_flight_pointwise.py" target="_blank" rel="noopener"><code>scripts/quad_flight_pointwise.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/quad_flight_pointwise.py" target="_blank" rel="noopener"><code>scripts/quad_flight_pointwise.py</code></a></p>
 </section>
 <section class="demo"><h2 id="still-water">PH.3 — still water as a region of a patch</h2>
 <p>One road prim, one patch, one solve. 20 mm of standing water over the western half, a wall's shadow across the southern rows. The puddle opens 3.8 K below the road and is 11.0 K below an hour later, having lost 0.85 of its 20 kg m⁻² . In the shade the same water is only 2.4 K below — evaporation is driven by each cell's own temperature, which a constant wet-is-colder offset cannot reproduce.</p>
@@ -230,14 +230,14 @@
 <div class="shots">
 <figure class="shot half"><a href="../media/pointwise/parked_car_cabin/plan_t0_whitehot.webp"><img src="../media/pointwise/parked_car_cabin/plan_t0_whitehot.webp" width="120" height="252" loading="lazy" alt="10:00 — cabin 68.7 °C, roof 65.0 °C, doors 31–32 °C"></a><figcaption>10:00 — cabin 68.7 °C, roof 65.0 °C, doors 31–32 °C</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/parked_car_cabin.py" target="_blank" rel="noopener"><code>scripts/parked_car_cabin.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/parked_car_cabin.py" target="_blank" rel="noopener"><code>scripts/parked_car_cabin.py</code></a></p>
 </section>
 <section class="demo"><h2 id="occlusion">PT.20 / PT.22 — occlusion from geometry</h2>
 <p>One building's west wall with a neighbour's shadow across it: the lit concrete stands 9.7 K over the shaded concrete, and half an hour after the shadow lifts the once-shaded half is still 8.1 K behind. The step is thermal history, not a shading mask applied to the image.</p>
 <div class="shots">
 <figure class="shot half"><a href="../media/pointwise/wall_half_in_sun/west_wall_t0_whitehot.webp"><img src="../media/pointwise/wall_half_in_sun/west_wall_t0_whitehot.webp" width="96" height="96" loading="lazy" alt="the west wall at the scene start (298.6..313.0 K)"></a><figcaption>the west wall at the scene start (298.6..313.0 K)</figcaption></figure>
 </div>
-<p class="made-by">Made by <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/wall_half_in_sun.py" target="_blank" rel="noopener"><code>scripts/wall_half_in_sun.py</code></a></p>
+<p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/wall_half_in_sun.py" target="_blank" rel="noopener"><code>scripts/wall_half_in_sun.py</code></a></p>
 </section>
 <section class="demo"><h2 id="flat-field">Flat-field correction, and what it leaves behind</h2>
 <p>The same scene recaptured with and without a flat field applied. Fixed-pattern structure is what a viewer reads as "thermal camera" long before radiometric accuracy is noticeable, which is why the noise chain (ADR 0053–0057) is modelled rather than approximated with Gaussian noise.</p>
@@ -249,7 +249,7 @@
 </section>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

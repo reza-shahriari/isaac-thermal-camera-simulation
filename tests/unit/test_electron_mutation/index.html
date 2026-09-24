@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Electron mutation</h1>
   <p class="subtitle">Perturbing ``read_noise_e`` moves the rendered noise, which it could not before (SC.2).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py" target="_blank" rel="noopener">tests/unit/test_electron_mutation.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py" target="_blank" rel="noopener">tests/unit/test_electron_mutation.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -63,19 +63,19 @@
 <p>The pre-<code>SC.1</code> behaviour is the sharper half of it and is kept here as a negative control. Under the ADR 0025 anchor the solver picks whatever Gaussian reproduces the datasheet NETD, so <code>read_noise_e</code> is an input to <em>nothing</em>: change it by 10 %, by 50 %, by any amount, and the rendered sigma is bit-identical. A configuration field that cannot move the output is not a parameter, it is a comment -- and it had been one in every photon render this project has made.</p>
 <p>The measured sensitivity is not 10 % out for 10 % in, and that is physics rather than a weak test. sigma_total is sqrt(N_e + N_dark + N_bg + sigma_read^2), so how much a read-noise change shows depends entirely on where the camera is sitting on that curve: the cooled InSb at a bright scene carries 4.9e5 signal electrons and 3.3e5 from its own cold shield, so the read term is a small part of the quadrature and 10 % in gives 2.1 % out. Take the same camera to a faint scene and the same change gives the full 10 %. Both are checked.</p>
 <p>docs/physics-model.md §9.4, §10.1; ADR 0025 and its M11.6 addendum.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py" target="_blank" rel="noopener">tests/unit/test_electron_mutation.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py" target="_blank" rel="noopener">tests/unit/test_electron_mutation.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L67" target="_blank" rel="noopener">the budget carries the perturbation exactly</a><span class="tag">parametrize</span><br><code>test_the_budget_carries_the_perturbation_exactly</code></td><td>sigma_gaussian <em>is</em> read_noise_e, so a 10 % change is a 10 % change.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L80" target="_blank" rel="noopener">the rendered sigma moves by the quadrature prediction</a><span class="tag">parametrize</span><br><code>test_the_rendered_sigma_moves_by_the_quadrature_prediction</code></td><td>Not "it moved" -- by how much, against sqrt(N_e + N_dark + N_bg + sigma_read^2).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L104" target="_blank" rel="noopener">how much it moves depends on where the camera is sitting</a><br><code>test_how_much_it_moves_depends_on_where_the_camera_is_sitting</code></td><td>The InSb at two operating points, because "10 % in, 2 % out" is not a weak result.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L130" target="_blank" rel="noopener">a faint photon camera shows the whole perturbation</a><br><code>test_a_faint_photon_camera_shows_the_whole_perturbation</code></td><td>The NIR at 0.004 mean electrons: the read term <em>is</em> the noise, so 10 % in gives 10 % out.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L142" target="_blank" rel="noopener">the perturbation survives to rendered frames</a><br><code>test_the_perturbation_survives_to_rendered_frames</code></td><td>Monte Carlo on the real <code>response()</code>, not on the analytic sigma.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L166" target="_blank" rel="noopener">under the netd anchor the perturbation does nothing at all</a><span class="tag">parametrize</span><br><code>test_under_the_netd_anchor_the_perturbation_does_nothing_at_all</code></td><td>The pre-SC.1 behaviour, kept as the negative control.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_mutation.py#L186" target="_blank" rel="noopener">even halving the read noise is invisible to the anchor</a><br><code>test_even_halving_the_read_noise_is_invisible_to_the_anchor</code></td><td>10 % could be lost in a rounding somewhere. A factor of two could not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L67" target="_blank" rel="noopener">the budget carries the perturbation exactly</a><span class="tag">parametrize</span><br><code>test_the_budget_carries_the_perturbation_exactly</code></td><td>sigma_gaussian <em>is</em> read_noise_e, so a 10 % change is a 10 % change.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L80" target="_blank" rel="noopener">the rendered sigma moves by the quadrature prediction</a><span class="tag">parametrize</span><br><code>test_the_rendered_sigma_moves_by_the_quadrature_prediction</code></td><td>Not "it moved" -- by how much, against sqrt(N_e + N_dark + N_bg + sigma_read^2).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L104" target="_blank" rel="noopener">how much it moves depends on where the camera is sitting</a><br><code>test_how_much_it_moves_depends_on_where_the_camera_is_sitting</code></td><td>The InSb at two operating points, because "10 % in, 2 % out" is not a weak result.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L130" target="_blank" rel="noopener">a faint photon camera shows the whole perturbation</a><br><code>test_a_faint_photon_camera_shows_the_whole_perturbation</code></td><td>The NIR at 0.004 mean electrons: the read term <em>is</em> the noise, so 10 % in gives 10 % out.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L142" target="_blank" rel="noopener">the perturbation survives to rendered frames</a><br><code>test_the_perturbation_survives_to_rendered_frames</code></td><td>Monte Carlo on the real <code>response()</code>, not on the analytic sigma.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L166" target="_blank" rel="noopener">under the netd anchor the perturbation does nothing at all</a><span class="tag">parametrize</span><br><code>test_under_the_netd_anchor_the_perturbation_does_nothing_at_all</code></td><td>The pre-SC.1 behaviour, kept as the negative control.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_mutation.py#L186" target="_blank" rel="noopener">even halving the read noise is invisible to the anchor</a><br><code>test_even_halving_the_read_noise_is_invisible_to_the_anchor</code></td><td>10 % could be lost in a rounding somewhere. A factor of two could not.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

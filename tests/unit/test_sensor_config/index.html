@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Sensor config</h1>
   <p class="subtitle">§12.2 sensor schema: the Boson reference file loads exactly, physics constraints are enforced, derived quantities match the spec's worked numbers, and no aperture factor lives here.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py" target="_blank" rel="noopener">tests/unit/test_sensor_config.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py" target="_blank" rel="noopener">tests/unit/test_sensor_config.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The derived-quantity tests are known answers from docs/physics-model.md (§8.3 Nyquist 41.7, §16.1 32° HFOV, §9.2 τ_th/Δt ≈ 0.6) -- a unit slip in pitch or focal length is a factor 1e3+.</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py" target="_blank" rel="noopener">tests/unit/test_sensor_config.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py" target="_blank" rel="noopener">tests/unit/test_sensor_config.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L47" target="_blank" rel="noopener">boson matches spec 16 1 exactly</a><br><code>test_boson_matches_spec_16_1_exactly</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L61" target="_blank" rel="noopener">pixel area and nyquist</a><br><code>test_pixel_area_and_nyquist</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L67" target="_blank" rel="noopener">hfov documents the datasheet discrepancy</a><br><code>test_hfov_documents_the_datasheet_discrepancy</code></td><td>14 mm with 640 x 12 um gives 30.7 deg; §16.1 quotes 32 deg (open question 7).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L73" target="_blank" rel="noopener">frame period and bolometer smear ratio</a><br><code>test_frame_period_and_bolometer_smear_ratio</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L83" target="_blank" rel="noopener">spec example with null photon fields loads</a><br><code>test_spec_example_with_null_photon_fields_loads</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L94" target="_blank" rel="noopener">photon fpa variant</a><br><code>test_photon_fpa_variant</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L138" target="_blank" rel="noopener">invalid values rejected</a><span class="tag">parametrize</span><br><code>test_invalid_values_rejected</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L145" target="_blank" rel="noopener">emissive regime rejected in swir</a><br><code>test_emissive_regime_rejected_in_swir</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L152" target="_blank" rel="noopener">models are frozen</a><br><code>test_models_are_frozen</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_config.py#L157" target="_blank" rel="noopener">no aperture factor in config layer</a><br><code>test_no_aperture_factor_in_config_layer</code></td><td>Non-negotiable #5: the aperture factor is defined once in irsim.optics, never here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L47" target="_blank" rel="noopener">boson matches spec 16 1 exactly</a><br><code>test_boson_matches_spec_16_1_exactly</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L61" target="_blank" rel="noopener">pixel area and nyquist</a><br><code>test_pixel_area_and_nyquist</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L67" target="_blank" rel="noopener">hfov documents the datasheet discrepancy</a><br><code>test_hfov_documents_the_datasheet_discrepancy</code></td><td>14 mm with 640 x 12 um gives 30.7 deg; §16.1 quotes 32 deg (open question 7).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L73" target="_blank" rel="noopener">frame period and bolometer smear ratio</a><br><code>test_frame_period_and_bolometer_smear_ratio</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L83" target="_blank" rel="noopener">spec example with null photon fields loads</a><br><code>test_spec_example_with_null_photon_fields_loads</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L94" target="_blank" rel="noopener">photon fpa variant</a><br><code>test_photon_fpa_variant</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L138" target="_blank" rel="noopener">invalid values rejected</a><span class="tag">parametrize</span><br><code>test_invalid_values_rejected</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L145" target="_blank" rel="noopener">emissive regime rejected in swir</a><br><code>test_emissive_regime_rejected_in_swir</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L152" target="_blank" rel="noopener">models are frozen</a><br><code>test_models_are_frozen</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_config.py#L157" target="_blank" rel="noopener">no aperture factor in config layer</a><br><code>test_no_aperture_factor_in_config_layer</code></td><td>Non-negotiable #5: the aperture factor is defined once in irsim.optics, never here.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

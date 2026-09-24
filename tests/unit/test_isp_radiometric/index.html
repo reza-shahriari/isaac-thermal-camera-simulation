@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,21 +55,21 @@
 <div class="page-head">
   <h1>Isp radiometric</h1>
   <p class="subtitle">Radiometric branch (M3.10, ADR 0021): blackbody round trip through the ideal chain, the grey-body gap through the DN route, radiance units, and the omit-not-zero contract.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py" target="_blank" rel="noopener">tests/unit/test_isp_radiometric.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py" target="_blank" rel="noopener">tests/unit/test_isp_radiometric.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py" target="_blank" rel="noopener">tests/unit/test_isp_radiometric.py</a>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py" target="_blank" rel="noopener">tests/unit/test_isp_radiometric.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py#L39" target="_blank" rel="noopener">blackbody round trip float32 and dn routes</a><span class="tag">parametrize</span><br><code>test_blackbody_round_trip_float32_and_dn_routes</code></td><td>ε = 1 through the ideal chain: float32 route &lt; 10 mK; DN16 route &lt; max(10 mK, ½ LSB).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py#L60" target="_blank" rel="noopener">grey body with environment reads the mixed radiance</a><br><code>test_grey_body_with_environment_reads_the_mixed_radiance</code></td><td>ε = 0.9 at 300 K with a 260 K environment: T_app = Lb⁻¹(0.9 Lb(300) + 0.1 Lb(260)) within 5 mK, and more than 1 K below 300 K (kinetic T must not leak).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py#L76" target="_blank" rel="noopener">radiance output matches closed form</a><br><code>test_radiance_output_matches_closed_form</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py#L85" target="_blank" rel="noopener">calibration spans the adc</a><br><code>test_calibration_spans_the_adc</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_radiometric.py#L96" target="_blank" rel="noopener">dtype guards</a><br><code>test_dtype_guards</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py#L39" target="_blank" rel="noopener">blackbody round trip float32 and dn routes</a><span class="tag">parametrize</span><br><code>test_blackbody_round_trip_float32_and_dn_routes</code></td><td>ε = 1 through the ideal chain: float32 route &lt; 10 mK; DN16 route &lt; max(10 mK, ½ LSB).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py#L60" target="_blank" rel="noopener">grey body with environment reads the mixed radiance</a><br><code>test_grey_body_with_environment_reads_the_mixed_radiance</code></td><td>ε = 0.9 at 300 K with a 260 K environment: T_app = Lb⁻¹(0.9 Lb(300) + 0.1 Lb(260)) within 5 mK, and more than 1 K below 300 K (kinetic T must not leak).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py#L76" target="_blank" rel="noopener">radiance output matches closed form</a><br><code>test_radiance_output_matches_closed_form</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py#L85" target="_blank" rel="noopener">calibration spans the adc</a><br><code>test_calibration_spans_the_adc</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_radiometric.py#L96" target="_blank" rel="noopener">dtype guards</a><br><code>test_dtype_guards</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

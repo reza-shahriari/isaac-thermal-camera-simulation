@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,20 +55,20 @@
 <div class="page-head">
   <h1>Tier2 3d noise</h1>
   <p class="subtitle">Tier 2 3-D noise bench (M4.4): the synthesiser + detector + NoiseStage round trip through the ME.2a decomposition on a uniform scene. Tolerances are 3x the estimator's own sampling floors (ADR 0023).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_3d_noise.py" target="_blank" rel="noopener">tests/unit/test_tier2_3d_noise.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_3d_noise.py" target="_blank" rel="noopener">tests/unit/test_tier2_3d_noise.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_3d_noise.py" target="_blank" rel="noopener">tests/unit/test_tier2_3d_noise.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_3d_noise.py" target="_blank" rel="noopener">tests/unit/test_tier2_3d_noise.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_3d_noise.py#L81" target="_blank" rel="noopener">against measured 3d noise</a><span class="tag">skipif</span><br><code>test_against_measured_3d_noise</code></td><td>When a bench cube has been decomposed, the seven components are compared <strong>shape only</strong> after a gain fit (M12.4): the DN scale is a range choice (ADR 0019), so what is under test is the <em>pattern</em> of the noise -- how much of it is column, row, frame and pixel -- and not its absolute size, which the NETD bench covers instead.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_3d_noise.py#L105" target="_blank" rel="noopener">end to end 3d ratios recovered within floors</a><br><code>test_end_to_end_3d_ratios_recovered_within_floors</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_3d_noise.py#L128" target="_blank" rel="noopener">stage adds only correlated terms and replays</a><br><code>test_stage_adds_only_correlated_terms_and_replays</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier2_3d_noise.py#L149" target="_blank" rel="noopener">fixed patterns are per sensor and scale with sigma</a><br><code>test_fixed_patterns_are_per_sensor_and_scale_with_sigma</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_3d_noise.py#L81" target="_blank" rel="noopener">against measured 3d noise</a><span class="tag">skipif</span><br><code>test_against_measured_3d_noise</code></td><td>When a bench cube has been decomposed, the seven components are compared <strong>shape only</strong> after a gain fit (M12.4): the DN scale is a range choice (ADR 0019), so what is under test is the <em>pattern</em> of the noise -- how much of it is column, row, frame and pixel -- and not its absolute size, which the NETD bench covers instead.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_3d_noise.py#L105" target="_blank" rel="noopener">end to end 3d ratios recovered within floors</a><br><code>test_end_to_end_3d_ratios_recovered_within_floors</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_3d_noise.py#L128" target="_blank" rel="noopener">stage adds only correlated terms and replays</a><br><code>test_stage_adds_only_correlated_terms_and_replays</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier2_3d_noise.py#L149" target="_blank" rel="noopener">fixed patterns are per sensor and scale with sigma</a><br><code>test_fixed_patterns_are_per_sensor_and_scale_with_sigma</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

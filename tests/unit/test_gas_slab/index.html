@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,31 +55,31 @@
 <div class="page-head">
   <h1>Gas slab</h1>
   <p class="subtitle">PH.4 — a gas slab in radiance space: the volumetric emitter a surface pipeline lacked.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py" target="_blank" rel="noopener">tests/unit/test_gas_slab.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py" target="_blank" rel="noopener">tests/unit/test_gas_slab.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The tests are the row's own limits and the one phenomenon that makes the feature worth having: κL → 0 returns the background exactly and κL → ∞ returns B_b(T_g); an opaque soot flame reads its own temperature in MWIR and LWIR alike, while a CO₂/H₂O slab of the same temperature reads hot in MWIR and nearly invisible in LWIR -- which no grey emissivity knob can produce, so a slab is authored as (T_gas, p_CO₂, p_H₂O, f_soot, L) and never as an emissivity; a gas colder than what lies behind it gives negative contrast; and at range the excess is attenuated exactly as MS.6's point target is, per class.</p>
 <p>The CO₂/H₂O tables here are <strong>synthetic</strong> -- shaped like a real one (MWIR ≫ LWIR) to test the kernel, not numbers about any gas. <code>PH.5</code> generates the real ones offline from HITEMP.</p>
 <p>docs/physics-model.md §2, §8.1, §8.3; spec issue S46; roadmap PH.4; ADR 0098.</p>
-<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py" target="_blank" rel="noopener">tests/unit/test_gas_slab.py</a>.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py" target="_blank" rel="noopener">tests/unit/test_gas_slab.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L89" target="_blank" rel="noopener">an empty path returns the background exactly</a><br><code>test_an_empty_path_returns_the_background_exactly</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L96" target="_blank" rel="noopener">an opaque flame returns the gas s own planck radiance</a><br><code>test_an_opaque_flame_returns_the_gas_s_own_planck_radiance</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L106" target="_blank" rel="noopener">a flame is hotter than the lut can say and the quadrature agrees with it below</a><br><code>test_a_flame_is_hotter_than_the_lut_can_say_and_the_quadrature_agrees_with_it_below</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L120" target="_blank" rel="noopener">soot is greyish and an opaque soot flame reads its temperature in both bands</a><br><code>test_soot_is_greyish_and_an_opaque_soot_flame_reads_its_temperature_in_both_bands</code></td><td>κ_soot ∝ 1/λ, so the band means differ by about the wavelength ratio; once opaque, both cameras read T_g to a millikelvin.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L139" target="_blank" rel="noopener">a co2 h2o slab reads hot in mwir and cold in lwir and a grey knob cannot</a><br><code>test_a_co2_h2o_slab_reads_hot_in_mwir_and_cold_in_lwir_and_a_grey_knob_cannot</code></td><td>The same gas, the same temperature, two cameras: 900 K of apparent-temperature difference.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L169" target="_blank" rel="noopener">a gas colder than what lies behind it gives negative contrast</a><br><code>test_a_gas_colder_than_what_lies_behind_it_gives_negative_contrast</code></td><td>Steam in front of a hot wall: the slab absorbs more than it emits.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L192" target="_blank" rel="noopener">the grey atmosphere attenuates the excess from the slab s range</a><br><code>test_the_grey_atmosphere_attenuates_the_excess_from_the_slab_s_range</code></td><td>ΔL = τ(R) · [L_slab − L_air], with L_slab built on L_air behind the slab.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L209" target="_blank" rel="noopener">the layered atmosphere attenuates per class like the point target</a><br><code>test_the_layered_atmosphere_attenuates_per_class_like_the_point_target</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L234" target="_blank" rel="noopener">the photon quantity mixes photon radiances</a><br><code>test_the_photon_quantity_mixes_photon_radiances</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L247" target="_blank" rel="noopener">the slab is authored by species and guarded</a><br><code>test_the_slab_is_authored_by_species_and_guarded</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L264" target="_blank" rel="noopener">a species without a table names the step that makes it</a><br><code>test_a_species_without_a_table_names_the_step_that_makes_it</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gas_slab.py#L273" target="_blank" rel="noopener">tables do not extrapolate and refuse float16</a><br><code>test_tables_do_not_extrapolate_and_refuse_float16</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L89" target="_blank" rel="noopener">an empty path returns the background exactly</a><br><code>test_an_empty_path_returns_the_background_exactly</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L96" target="_blank" rel="noopener">an opaque flame returns the gas s own planck radiance</a><br><code>test_an_opaque_flame_returns_the_gas_s_own_planck_radiance</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L106" target="_blank" rel="noopener">a flame is hotter than the lut can say and the quadrature agrees with it below</a><br><code>test_a_flame_is_hotter_than_the_lut_can_say_and_the_quadrature_agrees_with_it_below</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L120" target="_blank" rel="noopener">soot is greyish and an opaque soot flame reads its temperature in both bands</a><br><code>test_soot_is_greyish_and_an_opaque_soot_flame_reads_its_temperature_in_both_bands</code></td><td>κ_soot ∝ 1/λ, so the band means differ by about the wavelength ratio; once opaque, both cameras read T_g to a millikelvin.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L139" target="_blank" rel="noopener">a co2 h2o slab reads hot in mwir and cold in lwir and a grey knob cannot</a><br><code>test_a_co2_h2o_slab_reads_hot_in_mwir_and_cold_in_lwir_and_a_grey_knob_cannot</code></td><td>The same gas, the same temperature, two cameras: 900 K of apparent-temperature difference.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L169" target="_blank" rel="noopener">a gas colder than what lies behind it gives negative contrast</a><br><code>test_a_gas_colder_than_what_lies_behind_it_gives_negative_contrast</code></td><td>Steam in front of a hot wall: the slab absorbs more than it emits.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L192" target="_blank" rel="noopener">the grey atmosphere attenuates the excess from the slab s range</a><br><code>test_the_grey_atmosphere_attenuates_the_excess_from_the_slab_s_range</code></td><td>ΔL = τ(R) · [L_slab − L_air], with L_slab built on L_air behind the slab.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L209" target="_blank" rel="noopener">the layered atmosphere attenuates per class like the point target</a><br><code>test_the_layered_atmosphere_attenuates_per_class_like_the_point_target</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L234" target="_blank" rel="noopener">the photon quantity mixes photon radiances</a><br><code>test_the_photon_quantity_mixes_photon_radiances</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L247" target="_blank" rel="noopener">the slab is authored by species and guarded</a><br><code>test_the_slab_is_authored_by_species_and_guarded</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L264" target="_blank" rel="noopener">a species without a table names the step that makes it</a><br><code>test_a_species_without_a_table_names_the_step_that_makes_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_gas_slab.py#L273" target="_blank" rel="noopener">tables do not extrapolate and refuse float16</a><br><code>test_tables_do_not_extrapolate_and_refuse_float16</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

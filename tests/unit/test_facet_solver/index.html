@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Facet solver</h1>
   <p class="subtitle">M6.9 / M6.10 — the same balance over many facets, and where their initial condition comes from.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py" target="_blank" rel="noopener">tests/unit/test_facet_solver.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py" target="_blank" rel="noopener">tests/unit/test_facet_solver.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>A scene has thousands of surfaces and the scalar solver is the oracle, not the implementation. So the vectorised form is held to <strong>0.1 mK</strong> against N separate scalar runs — not to "close enough", because the two are meant to be the same arithmetic in a different loop order.</p>
 <p>The second half is the part that is easy to skip and expensive to get wrong. A surface temperature is a <strong>memory</strong>: asphalt at 06:00 is carrying yesterday afternoon. Starting a scene at the air temperature is starting it wrong by several kelvin and staying wrong for hours — through exactly the part of the diurnal cycle a thermal camera is most interesting in.</p>
 <p>docs/physics-model.md §6.4, §15 T1; ADR 0036, ADR 0037</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py" target="_blank" rel="noopener">tests/unit/test_facet_solver.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py" target="_blank" rel="noopener">tests/unit/test_facet_solver.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L71" target="_blank" rel="noopener">sixty four facets equal sixty four scalar runs</a><br><code>test_sixty_four_facets_equal_sixty_four_scalar_runs</code></td><td>Over 6 h, to <strong>0.1 mK</strong>. The two are the same arithmetic in a different loop order.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L94" target="_blank" rel="noopener">shadowing one facet changes only that facet</a><br><code>test_shadowing_one_facet_changes_only_that_facet</code></td><td>The check that the vectorisation has not accidentally coupled anything.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L110" target="_blank" rel="noopener">float16 is refused and float32 is only the boundary</a><br><code>test_float16_is_refused_and_float32_is_only_the_boundary</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L121" target="_blank" rel="noopener">shape and range errors are refused</a><br><code>test_shape_and_range_errors_are_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L138" target="_blank" rel="noopener">scalars broadcast and arrays are per facet</a><br><code>test_scalars_broadcast_and_arrays_are_per_facet</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L154" target="_blank" rel="noopener">constant weather spins up to the analytic equilibrium</a><br><code>test_constant_weather_spins_up_to_the_analytic_equilibrium</code></td><td>The one case with an independent answer: &lt; 0.1 K against M6.7's root.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L173" target="_blank" rel="noopener">forty eight hours is enough for the materials that matter</a><br><code>test_forty_eight_hours_is_enough_for_the_materials_that_matter</code></td><td>⚠️ Measured per material class, and they do not all pass the same bar.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L199" target="_blank" rel="noopener">starting at the air temperature is wrong by kelvins</a><br><code>test_starting_at_the_air_temperature_is_wrong_by_kelvins</code></td><td>The reason spin-up exists, as a number rather than an argument.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L209" target="_blank" rel="noopener">the cache is keyed on what determines the answer</a><br><code>test_the_cache_is_keyed_on_what_determines_the_answer</code></td><td>A second call with identical keys performs <strong>zero</strong> steps; 0.01 K invalidates.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_facet_solver.py#L245" target="_blank" rel="noopener">the spin up ends where the scene begins</a><br><code>test_the_spin_up_ends_where_the_scene_begins</code></td><td>It integrates the hours <em>before</em> t₀, so what comes back is the state at t₀ itself — not a state at some earlier time the caller then has to advance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L71" target="_blank" rel="noopener">sixty four facets equal sixty four scalar runs</a><br><code>test_sixty_four_facets_equal_sixty_four_scalar_runs</code></td><td>Over 6 h, to <strong>0.1 mK</strong>. The two are the same arithmetic in a different loop order.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L94" target="_blank" rel="noopener">shadowing one facet changes only that facet</a><br><code>test_shadowing_one_facet_changes_only_that_facet</code></td><td>The check that the vectorisation has not accidentally coupled anything.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L110" target="_blank" rel="noopener">float16 is refused and float32 is only the boundary</a><br><code>test_float16_is_refused_and_float32_is_only_the_boundary</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L121" target="_blank" rel="noopener">shape and range errors are refused</a><br><code>test_shape_and_range_errors_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L138" target="_blank" rel="noopener">scalars broadcast and arrays are per facet</a><br><code>test_scalars_broadcast_and_arrays_are_per_facet</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L154" target="_blank" rel="noopener">constant weather spins up to the analytic equilibrium</a><br><code>test_constant_weather_spins_up_to_the_analytic_equilibrium</code></td><td>The one case with an independent answer: &lt; 0.1 K against M6.7's root.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L173" target="_blank" rel="noopener">forty eight hours is enough for the materials that matter</a><br><code>test_forty_eight_hours_is_enough_for_the_materials_that_matter</code></td><td>⚠️ Measured per material class, and they do not all pass the same bar.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L199" target="_blank" rel="noopener">starting at the air temperature is wrong by kelvins</a><br><code>test_starting_at_the_air_temperature_is_wrong_by_kelvins</code></td><td>The reason spin-up exists, as a number rather than an argument.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L209" target="_blank" rel="noopener">the cache is keyed on what determines the answer</a><br><code>test_the_cache_is_keyed_on_what_determines_the_answer</code></td><td>A second call with identical keys performs <strong>zero</strong> steps; 0.01 K invalidates.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_facet_solver.py#L245" target="_blank" rel="noopener">the spin up ends where the scene begins</a><br><code>test_the_spin_up_ends_where_the_scene_begins</code></td><td>It integrates the hours <em>before</em> t₀, so what comes back is the state at t₀ itself — not a state at some earlier time the caller then has to advance.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Engine node</h1>
   <p class="subtitle">TC.5 — the engine as a solved node, not a schedule.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py" target="_blank" rel="noopener">tests/unit/test_engine_node.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py" target="_blank" rel="noopener">tests/unit/test_engine_node.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>§6.6 scripts the bay with τ_rise = 750 s and τ_cool = 1800 s. The measurements the survey collected say otherwise about what happens <em>after</em> key-off: the block cools with a time constant of hours (a coolant diagnostic reaches ambient in ~7 h), the bay air spikes because the fan-driven airflow stops while the block does not, and the skins around the block keep warming for a minute or two. The tests below are those measurements as bands, with the §6.6 schedule as the negative control that fails the first of them.</p>
 <p>docs/physics-model.md §6.6, §6.4; spec issue S43; ADR 0096, ADR 0100; roadmap TC.5.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py" target="_blank" rel="noopener">tests/unit/test_engine_node.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py" target="_blank" rel="noopener">tests/unit/test_engine_node.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L41" target="_blank" rel="noopener">the block cools over hours and a schedule does not</a><br><code>test_the_block_cools_over_hours_and_a_schedule_does_not</code></td><td>From 93 °C at 27 °C ambient: &gt; 20 K above ambient after 1 h, within 1 K after 7 h.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L62" target="_blank" rel="noopener">the steady rise at full load is inside 6 6 s band</a><br><code>test_the_steady_rise_at_full_load_is_inside_6_6_s_band</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L82" target="_blank" rel="noopener">the bay air overshoots after key off</a><br><code>test_the_bay_air_overshoots_after_key_off</code></td><td>The fan stops and the block does not: bay air jumps by 20–50 K within minutes.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L100" target="_blank" rel="noopener">parts lag the block in conductance order</a><br><code>test_parts_lag_the_block_in_conductance_order</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L111" target="_blank" rel="noopener">the engine solver drops into the scene s target slot</a><br><code>test_the_engine_solver_drops_into_the_scene_s_target_slot</code></td><td><code>solver: engine</code> replaces ADR 0089's adapter; the bonnet's forcing reads the bay air.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L130" target="_blank" rel="noopener">the bonnet over the block keeps warming after key off</a><span class="tag">slow</span><br><code>test_the_bonnet_over_the_block_keeps_warming_after_key_off</code></td><td>Key on at 30 s, off at 1200 s. A schedule with τ_cool starts the skin cooling at once; the solved engine keeps feeding the bay from the block's stored heat while the fan has stopped, and the bonnet over the block goes on warming.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_engine_node.py#L172" target="_blank" rel="noopener">the engine kind is validated like a load profile</a><br><code>test_the_engine_kind_is_validated_like_a_load_profile</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L41" target="_blank" rel="noopener">the block cools over hours and a schedule does not</a><br><code>test_the_block_cools_over_hours_and_a_schedule_does_not</code></td><td>From 93 °C at 27 °C ambient: &gt; 20 K above ambient after 1 h, within 1 K after 7 h.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L62" target="_blank" rel="noopener">the steady rise at full load is inside 6 6 s band</a><br><code>test_the_steady_rise_at_full_load_is_inside_6_6_s_band</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L82" target="_blank" rel="noopener">the bay air overshoots after key off</a><br><code>test_the_bay_air_overshoots_after_key_off</code></td><td>The fan stops and the block does not: bay air jumps by 20–50 K within minutes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L100" target="_blank" rel="noopener">parts lag the block in conductance order</a><br><code>test_parts_lag_the_block_in_conductance_order</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L111" target="_blank" rel="noopener">the engine solver drops into the scene s target slot</a><br><code>test_the_engine_solver_drops_into_the_scene_s_target_slot</code></td><td><code>solver: engine</code> replaces ADR 0089's adapter; the bonnet's forcing reads the bay air.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L130" target="_blank" rel="noopener">the bonnet over the block keeps warming after key off</a><span class="tag">slow</span><br><code>test_the_bonnet_over_the_block_keeps_warming_after_key_off</code></td><td>Key on at 30 s, off at 1200 s. A schedule with τ_cool starts the skin cooling at once; the solved engine keeps feeding the bay from the block's stored heat while the fan has stopped, and the bonnet over the block goes on warming.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_engine_node.py#L172" target="_blank" rel="noopener">the engine kind is validated like a load profile</a><br><code>test_the_engine_kind_is_validated_like_a_load_profile</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

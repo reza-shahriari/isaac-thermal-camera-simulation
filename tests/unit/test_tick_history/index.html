@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,28 +55,28 @@
 <div class="page-head">
   <h1>Tick history</h1>
   <p class="subtitle">PT.8 — a field holds the ticks a query needs, not every tick it ever produced.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py" target="_blank" rel="noopener">tests/unit/test_tick_history.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py" target="_blank" rel="noopener">tests/unit/test_tick_history.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p><code>ThermalField</code> appended every tick and pruned none, while a query only ever read the two ticks bracketing it. Measured before this step: a 24 h run of the car scenes' 10 400-cell road patch at a 30 s tick held 2 880 × 10 400 × 8 B ≈ 240 MB, and the 10⁵-cell fields the coupling lane brings would be gigabytes — which is what stopped ADR 0074's full-diurnal time-lapse.</p>
 <p>Three claims, each of which fails if the mechanism is wrong rather than merely absent: a bounded field's memory is bounded (a leak of one tick per step fails the first test at 1 440 ticks); the state hash of a ring equals the hash a walk over the full history gives, byte for byte (a hash that forgot pruned ticks, or fed them in another order, fails); and every query inside the window is bit-identical to the unbounded field's answer (an off-by-one in the ring's index fails).</p>
 <p>docs/physics-model.md §6.4; ADR 0093</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py" target="_blank" rel="noopener">tests/unit/test_tick_history.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py" target="_blank" rel="noopener">tests/unit/test_tick_history.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L94" target="_blank" rel="noopener">a day of the road patch holds under sixteen megabytes</a><br><code>test_a_day_of_the_road_patch_holds_under_sixteen_megabytes</code></td><td>The row's own acceptance. Before PT.8 this same run held ~240 MB of ticks.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L105" target="_blank" rel="noopener">the default for a spatial field is the ring and for a facet field it is not</a><br><code>test_the_default_for_a_spatial_field_is_the_ring_and_for_a_facet_field_it_is_not</code></td><td>A per-prim field is a few facets and the diurnal validations sweep its whole day.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L115" target="_blank" rel="noopener">a ring shorter than the bracketing pair is refused</a><span class="tag">parametrize</span><br><code>test_a_ring_shorter_than_the_bracketing_pair_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L125" target="_blank" rel="noopener">the ring s hash is the hash of the whole history</a><br><code>test_the_ring_s_hash_is_the_hash_of_the_whole_history</code></td><td>The old <code>state_hash</code> walked every held tick; the running digest must equal that walk.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L142" target="_blank" rel="noopener">a query leaves the ring s hash and count untouched</a><br><code>test_a_query_leaves_the_ring_s_hash_and_count_untouched</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L152" target="_blank" rel="noopener">the hook sees every tick in order including the start</a><br><code>test_the_hook_sees_every_tick_in_order_including_the_start</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L164" target="_blank" rel="noopener">five hundred queries inside the window are bit identical to the unbounded field</a><br><code>test_five_hundred_queries_inside_the_window_are_bit_identical_to_the_unbounded_field</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L173" target="_blank" rel="noopener">a query before the window raises and names the knob</a><br><code>test_a_query_before_the_window_raises_and_names_the_knob</code></td><td>Answering from a fallback would tell a time-lapse a different story than was solved.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tick_history.py#L184" target="_blank" rel="noopener">a wider ring answers a wider window</a><br><code>test_a_wider_ring_answers_a_wider_window</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L94" target="_blank" rel="noopener">a day of the road patch holds under sixteen megabytes</a><br><code>test_a_day_of_the_road_patch_holds_under_sixteen_megabytes</code></td><td>The row's own acceptance. Before PT.8 this same run held ~240 MB of ticks.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L105" target="_blank" rel="noopener">the default for a spatial field is the ring and for a facet field it is not</a><br><code>test_the_default_for_a_spatial_field_is_the_ring_and_for_a_facet_field_it_is_not</code></td><td>A per-prim field is a few facets and the diurnal validations sweep its whole day.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L115" target="_blank" rel="noopener">a ring shorter than the bracketing pair is refused</a><span class="tag">parametrize</span><br><code>test_a_ring_shorter_than_the_bracketing_pair_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L125" target="_blank" rel="noopener">the ring s hash is the hash of the whole history</a><br><code>test_the_ring_s_hash_is_the_hash_of_the_whole_history</code></td><td>The old <code>state_hash</code> walked every held tick; the running digest must equal that walk.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L142" target="_blank" rel="noopener">a query leaves the ring s hash and count untouched</a><br><code>test_a_query_leaves_the_ring_s_hash_and_count_untouched</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L152" target="_blank" rel="noopener">the hook sees every tick in order including the start</a><br><code>test_the_hook_sees_every_tick_in_order_including_the_start</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L164" target="_blank" rel="noopener">five hundred queries inside the window are bit identical to the unbounded field</a><br><code>test_five_hundred_queries_inside_the_window_are_bit_identical_to_the_unbounded_field</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L173" target="_blank" rel="noopener">a query before the window raises and names the knob</a><br><code>test_a_query_before_the_window_raises_and_names_the_knob</code></td><td>Answering from a fallback would tell a time-lapse a different story than was solved.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tick_history.py#L184" target="_blank" rel="noopener">a wider ring answers a wider window</a><br><code>test_a_wider_ring_answers_a_wider_window</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

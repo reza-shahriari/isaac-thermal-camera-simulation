@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Illumination isaac</h1>
   <p class="subtitle">M10.22: the reflective bands' illumination reaches the Isaac render path.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py" target="_blank" rel="noopener">tests/unit/test_illumination_isaac.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py" target="_blank" rel="noopener">tests/unit/test_illumination_isaac.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p><code>irsim_isaac.pipeline.illumination_isaac</code> is engine glue that imports no engine module -- it takes arrays and a Scene and returns planes -- so it is tested here, on the plain interpreter, and not behind <code>@pytest.mark.isaac</code>.</p>
 <p><strong>The failure these tests exist to prevent.</strong> M11.3 and M11.4 built the reflected-sunlight and night-sky terms and M11.2 built the bundle that carries them, and nothing in the engine glue ever wrote the planes <code>run_frame</code> reads them out of. Every Isaac render this project produced was emission only: right for LWIR, where reflected sunlight is 0.35 % of the signal, and <strong>black</strong> for SWIR or NIR, where it is essentially the whole signal. The first test is that arithmetic, run through the real pipeline stage, so "black without it" is a measurement and not a claim.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py" target="_blank" rel="noopener">tests/unit/test_illumination_isaac.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py" target="_blank" rel="noopener">tests/unit/test_illumination_isaac.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L70" target="_blank" rel="noopener">the sun direction matches the distant light the renderer uses</a><br><code>test_the_sun_direction_matches_the_distant_light_the_renderer_uses</code></td><td>The one vector both halves must agree on.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L90" target="_blank" rel="noopener">a surface facing away from the sun receives nothing rather than negative light</a><br><code>test_a_surface_facing_away_from_the_sun_receives_nothing_rather_than_negative_light</code></td><td>Clamping at zero is not cosmetic: an unclamped cosine would <em>subtract</em> sunlight.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L107" target="_blank" rel="noopener">an emissive band gets no bundle at all</a><br><code>test_an_emissive_band_gets_no_bundle_at_all</code></td><td><code>None</code>, not an empty bundle: an LWIR render must take the same code path it always did and come out bit-identical, which is only guaranteed if nothing new is attached to it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L116" target="_blank" rel="noopener">a reflective band gets a solar plane that follows the sun</a><span class="tag">parametrize</span><br><code>test_a_reflective_band_gets_a_solar_plane_that_follows_the_sun</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L139" target="_blank" rel="noopener">sky pixels reflect nothing</a><br><code>test_sky_pixels_reflect_nothing</code></td><td>A sky pixel's radiance is the sky model and the atmosphere. Leaving an incident term on it would have stage 1 reflect sunlight off the sky.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L175" target="_blank" rel="noopener">without the bundle a reflective band renders essentially nothing</a><span class="tag">parametrize</span><br><code>test_without_the_bundle_a_reflective_band_renders_essentially_nothing</code></td><td>The measurement behind this whole step, run through the real stage-1 kernel.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_illumination_isaac.py#L213" target="_blank" rel="noopener">an emissive band is bit identical with and without a solar plane</a><br><code>test_an_emissive_band_is_bit_identical_with_and_without_a_solar_plane</code></td><td>§5.2's gate, end to end: LWIR renders were correct before this step and must stay exactly so. Bit-identical, not close -- the gate drops the term to None rather than adding a zero.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L70" target="_blank" rel="noopener">the sun direction matches the distant light the renderer uses</a><br><code>test_the_sun_direction_matches_the_distant_light_the_renderer_uses</code></td><td>The one vector both halves must agree on.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L90" target="_blank" rel="noopener">a surface facing away from the sun receives nothing rather than negative light</a><br><code>test_a_surface_facing_away_from_the_sun_receives_nothing_rather_than_negative_light</code></td><td>Clamping at zero is not cosmetic: an unclamped cosine would <em>subtract</em> sunlight.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L107" target="_blank" rel="noopener">an emissive band gets no bundle at all</a><br><code>test_an_emissive_band_gets_no_bundle_at_all</code></td><td><code>None</code>, not an empty bundle: an LWIR render must take the same code path it always did and come out bit-identical, which is only guaranteed if nothing new is attached to it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L116" target="_blank" rel="noopener">a reflective band gets a solar plane that follows the sun</a><span class="tag">parametrize</span><br><code>test_a_reflective_band_gets_a_solar_plane_that_follows_the_sun</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L139" target="_blank" rel="noopener">sky pixels reflect nothing</a><br><code>test_sky_pixels_reflect_nothing</code></td><td>A sky pixel's radiance is the sky model and the atmosphere. Leaving an incident term on it would have stage 1 reflect sunlight off the sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L175" target="_blank" rel="noopener">without the bundle a reflective band renders essentially nothing</a><span class="tag">parametrize</span><br><code>test_without_the_bundle_a_reflective_band_renders_essentially_nothing</code></td><td>The measurement behind this whole step, run through the real stage-1 kernel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_illumination_isaac.py#L213" target="_blank" rel="noopener">an emissive band is bit identical with and without a solar plane</a><br><code>test_an_emissive_band_is_bit_identical_with_and_without_a_solar_plane</code></td><td>§5.2's gate, end to end: LWIR renders were correct before this step and must stay exactly so. Bit-identical, not close -- the gate drops the term to None rather than adding a zero.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

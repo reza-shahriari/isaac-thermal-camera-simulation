@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Frame writer</h1>
   <p class="subtitle">Every render driver writes the frame, not only a picture of it (IG.13).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py" target="_blank" rel="noopener">tests/unit/test_frame_writer.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py" target="_blank" rel="noopener">tests/unit/test_frame_writer.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>ADR 0068 is explicit that an 8-bit stream cannot carry a radiometric claim: a display PNG has had the AGC, the palette and a quantisation to 256 levels applied to it, and none of those are invertible. Three of this project's six drivers -- <code>render_quad_flight</code>, <code>render_aircraft_pass</code> and <code>render_vessel_departure</code>, which between them are the whole aerial-flight and vessel-departure lanes -- wrote nothing else. Every frame those renders have produced is unusable for anything the simulator exists to do.</p>
 <p>:class:<code>~irsim.io.dataset.FrameWriter</code> is the fix, and its shape is the point: nine keyword arguments of which seven are constant for a run, bound once, so "does this driver write planes" is a one-line question instead of a search through 500 lines of staging code. The last test here asks that question of all six drivers and is what keeps a seventh from arriving without them.</p>
 <p>docs/physics-model.md §12.2; CLAUDE.md non-negotiable #2; ADR 0004 (hashes travel with data).</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py" target="_blank" rel="noopener">tests/unit/test_frame_writer.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py" target="_blank" rel="noopener">tests/unit/test_frame_writer.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L71" target="_blank" rel="noopener">the planes survive the round trip in float32</a><br><code>test_the_planes_survive_the_round_trip_in_float32</code></td><td>The whole point: what comes back is what the pipeline computed, bit for bit.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L86" target="_blank" rel="noopener">the sidecar says what the frame is and where it came from</a><br><code>test_the_sidecar_says_what_the_frame_is_and_where_it_came_from</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L112" target="_blank" rel="noopener">a float16 plane is refused rather than written</a><br><code>test_a_float16_plane_is_refused_rather_than_written</code></td><td>CLAUDE.md #2 at the disk boundary: half-float at 300 K is 0.25 K, 5x a 50 mK NETD.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L123" target="_blank" rel="noopener">a stride thins the sequence and says so in every sidecar</a><br><code>test_a_stride_thins_the_sequence_and_says_so_in_every_sidecar</code></td><td>A gap in the numbering must be distinguishable from a render that died halfway.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L138" target="_blank" rel="noopener">stride zero writes nothing at all</a><br><code>test_stride_zero_writes_nothing_at_all</code></td><td>The only honest spelling of "this run makes no radiometric claim".</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L146" target="_blank" rel="noopener">a negative stride is refused at construction</a><br><code>test_a_negative_stride_is_refused_at_construction</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L151" target="_blank" rel="noopener">per frame metadata layers over the run s without replacing it</a><br><code>test_per_frame_metadata_layers_over_the_run_s_without_replacing_it</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L161" target="_blank" rel="noopener">a companion plane is written beside the frame with its own unit</a><br><code>test_a_companion_plane_is_written_beside_the_frame_with_its_own_unit</code></td><td>The visible companion is an extra plane, not an output: nothing radiometric reads it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L188" target="_blank" rel="noopener">every render driver writes float32 planes and a sidecar</a><span class="tag">parametrize</span><br><code>test_every_render_driver_writes_float32_planes_and_a_sidecar</code></td><td>The exit bar of IG.13, asked of each driver in turn.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_frame_writer.py#L209" target="_blank" rel="noopener">every render driver records the hashes a frame is traceable by</a><span class="tag">parametrize</span><br><code>test_every_render_driver_records_the_hashes_a_frame_is_traceable_by</code></td><td>ADR 0004: a frame nobody can trace back to a configuration is not data.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L71" target="_blank" rel="noopener">the planes survive the round trip in float32</a><br><code>test_the_planes_survive_the_round_trip_in_float32</code></td><td>The whole point: what comes back is what the pipeline computed, bit for bit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L86" target="_blank" rel="noopener">the sidecar says what the frame is and where it came from</a><br><code>test_the_sidecar_says_what_the_frame_is_and_where_it_came_from</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L112" target="_blank" rel="noopener">a float16 plane is refused rather than written</a><br><code>test_a_float16_plane_is_refused_rather_than_written</code></td><td>CLAUDE.md #2 at the disk boundary: half-float at 300 K is 0.25 K, 5x a 50 mK NETD.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L123" target="_blank" rel="noopener">a stride thins the sequence and says so in every sidecar</a><br><code>test_a_stride_thins_the_sequence_and_says_so_in_every_sidecar</code></td><td>A gap in the numbering must be distinguishable from a render that died halfway.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L138" target="_blank" rel="noopener">stride zero writes nothing at all</a><br><code>test_stride_zero_writes_nothing_at_all</code></td><td>The only honest spelling of "this run makes no radiometric claim".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L146" target="_blank" rel="noopener">a negative stride is refused at construction</a><br><code>test_a_negative_stride_is_refused_at_construction</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L151" target="_blank" rel="noopener">per frame metadata layers over the run s without replacing it</a><br><code>test_per_frame_metadata_layers_over_the_run_s_without_replacing_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L161" target="_blank" rel="noopener">a companion plane is written beside the frame with its own unit</a><br><code>test_a_companion_plane_is_written_beside_the_frame_with_its_own_unit</code></td><td>The visible companion is an extra plane, not an output: nothing radiometric reads it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L188" target="_blank" rel="noopener">every render driver writes float32 planes and a sidecar</a><span class="tag">parametrize</span><br><code>test_every_render_driver_writes_float32_planes_and_a_sidecar</code></td><td>The exit bar of IG.13, asked of each driver in turn.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_writer.py#L209" target="_blank" rel="noopener">every render driver records the hashes a frame is traceable by</a><span class="tag">parametrize</span><br><code>test_every_render_driver_records_the_hashes_a_frame_is_traceable_by</code></td><td>ADR 0004: a frame nobody can trace back to a configuration is not data.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

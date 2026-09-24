@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Tier3 reflection</h1>
   <p class="subtitle">M7.16 — Tier 3 reflection phenomenology: what a facet *reads* at 03:00, not what it *is*.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py" target="_blank" rel="noopener">tests/unit/test_tier3_reflection.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py" target="_blank" rel="noopener">tests/unit/test_tier3_reflection.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -65,17 +65,17 @@
 <p>with nothing else in it. Both facets are evaluated at the <em>same</em> kinetic temperature on purpose — in the scene they differ by 2.2 K, and comparing them as they stand would measure the thermal model and the reflection model at once.</p>
 <p>⚠️ This bench is how §6.1's missing ε on <code>Q_LW↓</code> was found: the bare-aluminium panel it needed came out <strong>19 K above the air at 03:00</strong>, which a mirror at night cannot be. See the fix in <code>irsim.thermal.balance</code>.</p>
 <p>docs/physics-model.md §15 T3, §5.3, §4.1, §16.4 step 7; ADR 0045</p>
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py" target="_blank" rel="noopener">tests/unit/test_tier3_reflection.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py" target="_blank" rel="noopener">tests/unit/test_tier3_reflection.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py#L118" target="_blank" rel="noopener">a painted roof reads colder than it is</a><br><code>test_a_painted_roof_reads_colder_than_it_is</code></td><td>ε 0.90 facing straight up under a clear sky: at least 3 K below its kinetic temperature.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py#L128" target="_blank" rel="noopener">glass reads colder too and rough asphalt barely moves</a><br><code>test_glass_reads_colder_too_and_rough_asphalt_barely_moves</code></td><td>The ordering is ε, not material: asphalt at 0.94 is within a kelvin of its own temperature while glass at 0.88 is not.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py#L150" target="_blank" rel="noopener">bare aluminium reads as the sky rather than as itself</a><br><code>test_bare_aluminium_reads_as_the_sky_rather_than_as_itself</code></td><td>ε 0.09: nine tenths of what leaves it is a reflection, so it reads within 5 K of the sky.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py#L191" target="_blank" rel="noopener">the roof wall gap is the closed form view factor difference</a><br><code>test_the_roof_wall_gap_is_the_closed_form_view_factor_difference</code></td><td>ΔT_app = (1 − ε)·0.5·(L_B(T_ground) − L_sky,eff)/(∂L_B/∂T), within <strong>0.1 K</strong>.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_reflection.py#L240" target="_blank" rel="noopener">overcast closes the gap for every facet</a><br><code>test_overcast_closes_the_gap_for_every_facet</code></td><td>With the sky at nearly ambient there is nothing cold to reflect, so every facet reads its own temperature — and the scene's spread of <em>apparent</em> temperatures collapses with it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py#L118" target="_blank" rel="noopener">a painted roof reads colder than it is</a><br><code>test_a_painted_roof_reads_colder_than_it_is</code></td><td>ε 0.90 facing straight up under a clear sky: at least 3 K below its kinetic temperature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py#L128" target="_blank" rel="noopener">glass reads colder too and rough asphalt barely moves</a><br><code>test_glass_reads_colder_too_and_rough_asphalt_barely_moves</code></td><td>The ordering is ε, not material: asphalt at 0.94 is within a kelvin of its own temperature while glass at 0.88 is not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py#L150" target="_blank" rel="noopener">bare aluminium reads as the sky rather than as itself</a><br><code>test_bare_aluminium_reads_as_the_sky_rather_than_as_itself</code></td><td>ε 0.09: nine tenths of what leaves it is a reflection, so it reads within 5 K of the sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py#L191" target="_blank" rel="noopener">the roof wall gap is the closed form view factor difference</a><br><code>test_the_roof_wall_gap_is_the_closed_form_view_factor_difference</code></td><td>ΔT_app = (1 − ε)·0.5·(L_B(T_ground) − L_sky,eff)/(∂L_B/∂T), within <strong>0.1 K</strong>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_reflection.py#L240" target="_blank" rel="noopener">overcast closes the gap for every facet</a><br><code>test_overcast_closes_the_gap_for_every_facet</code></td><td>With the sky at nearly ambient there is nothing cold to reflect, so every facet reads its own temperature — and the scene's spread of <em>apparent</em> temperatures collapses with it.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

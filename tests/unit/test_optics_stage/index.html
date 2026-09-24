@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Optics stage</h1>
   <p class="subtitle">Box downsample and the composed optics stage (M3.9, ADR 0020): blackbody round trip, the on-axis power known answer, cos⁴ field, housing drift, detector-MTF transfer and aliasing.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py" target="_blank" rel="noopener">tests/unit/test_optics_stage.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py" target="_blank" rel="noopener">tests/unit/test_optics_stage.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py" target="_blank" rel="noopener">tests/unit/test_optics_stage.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py" target="_blank" rel="noopener">tests/unit/test_optics_stage.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L46" target="_blank" rel="noopener">box downsample conserves mean and uniform field</a><br><code>test_box_downsample_conserves_mean_and_uniform_field</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L73" target="_blank" rel="noopener">box transfer matches discrete sinc and its limit</a><span class="tag">parametrize</span><br><code>test_box_transfer_matches_discrete_sinc_and_its_limit</code></td><td>A supersampled sinusoid at ξ cycles/pixel is attenuated by the discrete box transfer sin(πξ)/(k sin(πξ/k)) exactly (1e-6 at k = 4) and by |sinc(πξ)| in the limit (1e-3 at k = 32); one cycle per pixel averages to nothing.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L83" target="_blank" rel="noopener">aliasing above nyquist folds to half pixel</a><br><code>test_aliasing_above_nyquist_folds_to_half_pixel</code></td><td>1.5 cycles/pixel comes out as 0.5 cycles/pixel (sign alternating per pixel) with the amplitude the box transfer predicts at 1.5 -- a blur-then-decimate scheme would remove it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L103" target="_blank" rel="noopener">sub pixel point source flux is conserved</a><br><code>test_sub_pixel_point_source_flux_is_conserved</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L124" target="_blank" rel="noopener">on axis power known answer without vignetting</a><br><code>test_on_axis_power_known_answer_without_vignetting</code></td><td>Φ = A_d π/5 (0.92 Lb(300) + 0.08 Lb(T_h)) on the Boson with cos⁴ off, to 1e-9.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L136" target="_blank" rel="noopener">blackbody round trip under 1mK everywhere</a><br><code>test_blackbody_round_trip_under_1mK_everywhere</code></td><td>radiance → Φ → invert → T_app recovers 300 K within 1 mK at every pixel (cos⁴ divided out).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L149" target="_blank" rel="noopener">cos4 field corner over centre</a><br><code>test_cos4_field_corner_over_centre</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L160" target="_blank" rel="noopener">housing step reads as 87mK</a><br><code>test_housing_step_reads_as_87mK</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_optics_stage.py#L173" target="_blank" rel="noopener">ramp is monotone and shapes checked</a><br><code>test_ramp_is_monotone_and_shapes_checked</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L46" target="_blank" rel="noopener">box downsample conserves mean and uniform field</a><br><code>test_box_downsample_conserves_mean_and_uniform_field</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L73" target="_blank" rel="noopener">box transfer matches discrete sinc and its limit</a><span class="tag">parametrize</span><br><code>test_box_transfer_matches_discrete_sinc_and_its_limit</code></td><td>A supersampled sinusoid at ξ cycles/pixel is attenuated by the discrete box transfer sin(πξ)/(k sin(πξ/k)) exactly (1e-6 at k = 4) and by |sinc(πξ)| in the limit (1e-3 at k = 32); one cycle per pixel averages to nothing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L83" target="_blank" rel="noopener">aliasing above nyquist folds to half pixel</a><br><code>test_aliasing_above_nyquist_folds_to_half_pixel</code></td><td>1.5 cycles/pixel comes out as 0.5 cycles/pixel (sign alternating per pixel) with the amplitude the box transfer predicts at 1.5 -- a blur-then-decimate scheme would remove it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L103" target="_blank" rel="noopener">sub pixel point source flux is conserved</a><br><code>test_sub_pixel_point_source_flux_is_conserved</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L124" target="_blank" rel="noopener">on axis power known answer without vignetting</a><br><code>test_on_axis_power_known_answer_without_vignetting</code></td><td>Φ = A_d π/5 (0.92 Lb(300) + 0.08 Lb(T_h)) on the Boson with cos⁴ off, to 1e-9.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L136" target="_blank" rel="noopener">blackbody round trip under 1mK everywhere</a><br><code>test_blackbody_round_trip_under_1mK_everywhere</code></td><td>radiance → Φ → invert → T_app recovers 300 K within 1 mK at every pixel (cos⁴ divided out).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L149" target="_blank" rel="noopener">cos4 field corner over centre</a><br><code>test_cos4_field_corner_over_centre</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L160" target="_blank" rel="noopener">housing step reads as 87mK</a><br><code>test_housing_step_reads_as_87mK</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_optics_stage.py#L173" target="_blank" rel="noopener">ramp is monotone and shapes checked</a><br><code>test_ramp_is_monotone_and_shapes_checked</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

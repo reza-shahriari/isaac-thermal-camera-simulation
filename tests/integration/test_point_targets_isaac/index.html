@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Point targets isaac</h1>
   <p class="subtitle">Roadmap M10.19: the MS.6 analytic path, in sim, against the renderer it replaces.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py" target="_blank" rel="noopener">tests/integration/test_point_targets_isaac.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py" target="_blank" rel="noopener">tests/integration/test_point_targets_isaac.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -66,19 +66,19 @@
 </ol>
 <p>A third thing has to be true and is structural: a target is rendered <strong>or</strong> injected, never both.</p>
 <p>docs/physics-model.md §8.1, §8.3; ADR 0071; ADR 0003.</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py" target="_blank" rel="noopener">tests/integration/test_point_targets_isaac.py</a>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py" target="_blank" rel="noopener">tests/integration/test_point_targets_isaac.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L206" target="_blank" rel="noopener">all four ranged targets are injected not rendered</a><br><code>test_all_four_ranged_targets_are_injected_not_rendered</code></td><td>Below a pixel the stage hands them over, and none of them reached the renderer.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L242" target="_blank" rel="noopener">the injected excess survives the whole chain</a><span class="tag">xfail</span><br><code>test_the_injected_excess_survives_the_whole_chain</code></td><td>What comes out of the camera equals the excess that went in, to 5 %.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L260" target="_blank" rel="noopener">the fill fraction carries the whole geometric range law</a><br><code>test_the_fill_fraction_carries_the_whole_geometric_range_law</code></td><td>phi R^2 = A f^2 / A_pix is the same at every range -- the 1/R^2 is exactly and only here.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L282" target="_blank" rel="noopener">the simple tau over r squared shorthand is not exact</a><br><code>test_the_simple_tau_over_r_squared_shorthand_is_not_exact</code></td><td>E R^2 / tau(R) is <strong>not</strong> constant: it drifts by tens of percent over 400-3200 m.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L308" target="_blank" rel="noopener">the excess actually falls with range</a><br><code>test_the_excess_actually_falls_with_range</code></td><td>The control: without it the test above would pass on four targets that all read zero.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L337" target="_blank" rel="noopener">an unhidden analytic target is reported as double counted</a><br><code>test_an_unhidden_analytic_target_is_reported_as_double_counted</code></td><td>The guard: rendered <em>and</em> injected is the one way this design goes wrong silently.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_point_targets_isaac.py#L342" target="_blank" rel="noopener">the injected target lands where the renderer drew it</a><br><code>test_the_injected_target_lands_where_the_renderer_drew_it</code></td><td>The handover must not move the target: under half a native pixel between the two paths.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L206" target="_blank" rel="noopener">all four ranged targets are injected not rendered</a><br><code>test_all_four_ranged_targets_are_injected_not_rendered</code></td><td>Below a pixel the stage hands them over, and none of them reached the renderer.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L242" target="_blank" rel="noopener">the injected excess survives the whole chain</a><span class="tag">xfail</span><br><code>test_the_injected_excess_survives_the_whole_chain</code></td><td>What comes out of the camera equals the excess that went in, to 5 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L260" target="_blank" rel="noopener">the fill fraction carries the whole geometric range law</a><br><code>test_the_fill_fraction_carries_the_whole_geometric_range_law</code></td><td>phi R^2 = A f^2 / A_pix is the same at every range -- the 1/R^2 is exactly and only here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L282" target="_blank" rel="noopener">the simple tau over r squared shorthand is not exact</a><br><code>test_the_simple_tau_over_r_squared_shorthand_is_not_exact</code></td><td>E R^2 / tau(R) is <strong>not</strong> constant: it drifts by tens of percent over 400-3200 m.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L308" target="_blank" rel="noopener">the excess actually falls with range</a><br><code>test_the_excess_actually_falls_with_range</code></td><td>The control: without it the test above would pass on four targets that all read zero.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L337" target="_blank" rel="noopener">an unhidden analytic target is reported as double counted</a><br><code>test_an_unhidden_analytic_target_is_reported_as_double_counted</code></td><td>The guard: rendered <em>and</em> injected is the one way this design goes wrong silently.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_point_targets_isaac.py#L342" target="_blank" rel="noopener">the injected target lands where the renderer drew it</a><br><code>test_the_injected_target_lands_where_the_renderer_drew_it</code></td><td>The handover must not move the target: under half a native pixel between the two paths.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

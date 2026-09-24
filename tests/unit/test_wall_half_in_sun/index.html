@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,25 +55,25 @@
 <div class="page-head">
   <h1>Wall half in sun</h1>
   <p class="subtitle">PT.20 — the R1 reference scene: a wall half in sun, from YAML plus one command.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py" target="_blank" rel="noopener">tests/unit/test_wall_half_in_sun.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py" target="_blank" rel="noopener">tests/unit/test_wall_half_in_sun.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p><code>configs/scenes/wall_half_in_sun.yaml</code> is a concrete building with a lower neighbour standing to its west, on asphalt, at 18:00 on a clear June day. Seven patches, two materials on one face, ten occluders, one weather file. The checks are the survey's: faces of one building more than 10 K apart (Morrison et al. 2021), a terminator across the concrete of &gt;= 10 K and ~7 K across a thin insulated render (ETICS thermography, 7.4 C), cells that stay cold after their shadow lifts, and a frame from a synthetic G-buffer that carries all of it on one prim.</p>
 <p>Two of the row's figures come out below it and are held to what was measured: the west and north walls differ by 7.4 K at 18:00 (the north wall catches a grazing beam of its own; the roof and the north wall differ by 12.4 K), and once-shaded cells are 8.05 K cooler half an hour after the shadow lifts, 84 % of their step. The rendered frame is IG.2's.</p>
 <p>docs/physics-model.md §6.1, §5.4; ADR 0087, ADR 0095, ADR 0102; roadmap PT.20.</p>
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py" target="_blank" rel="noopener">tests/unit/test_wall_half_in_sun.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py" target="_blank" rel="noopener">tests/unit/test_wall_half_in_sun.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py#L48" target="_blank" rel="noopener">the scene is one building with seven patches and ten occluders</a><br><code>test_the_scene_is_one_building_with_seven_patches_and_ten_occluders</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py#L66" target="_blank" rel="noopener">the faces of one building sit more than ten kelvin apart</a><br><code>test_the_faces_of_one_building_sit_more_than_ten_kelvin_apart</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py#L76" target="_blank" rel="noopener">the terminator is ten kelvin on concrete and seven on the insulated render</a><br><code>test_the_terminator_is_ten_kelvin_on_concrete_and_seven_on_the_insulated_render</code></td><td>One face, two materials, one shadow: a shadow that only scaled q_solar could not tell the halves apart; the light, low-absorptivity render sets up a smaller step in minutes.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py#L95" target="_blank" rel="noopener">once shaded cells stay cold after the shadow lifts</a><br><code>test_once_shaded_cells_stay_cold_after_the_shadow_lifts</code></td><td>Concrete remembers: half an hour after the neighbour goes, 83 % of the step is still there (8.05 K of 9.73; the row asked for &gt; 10 K and this is what the material gives).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py#L112" target="_blank" rel="noopener">the synthetic g buffer frame carries the terminator on one prim</a><br><code>test_the_synthetic_g_buffer_frame_carries_the_terminator_on_one_prim</code></td><td>The west wall through the point bridge: both halves, one prim path, one frame.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_wall_half_in_sun.py#L138" target="_blank" rel="noopener">the engine free frame script runs</a><br><code>test_the_engine_free_frame_script_runs</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py#L48" target="_blank" rel="noopener">the scene is one building with seven patches and ten occluders</a><br><code>test_the_scene_is_one_building_with_seven_patches_and_ten_occluders</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py#L66" target="_blank" rel="noopener">the faces of one building sit more than ten kelvin apart</a><br><code>test_the_faces_of_one_building_sit_more_than_ten_kelvin_apart</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py#L76" target="_blank" rel="noopener">the terminator is ten kelvin on concrete and seven on the insulated render</a><br><code>test_the_terminator_is_ten_kelvin_on_concrete_and_seven_on_the_insulated_render</code></td><td>One face, two materials, one shadow: a shadow that only scaled q_solar could not tell the halves apart; the light, low-absorptivity render sets up a smaller step in minutes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py#L95" target="_blank" rel="noopener">once shaded cells stay cold after the shadow lifts</a><br><code>test_once_shaded_cells_stay_cold_after_the_shadow_lifts</code></td><td>Concrete remembers: half an hour after the neighbour goes, 83 % of the step is still there (8.05 K of 9.73; the row asked for &gt; 10 K and this is what the material gives).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py#L112" target="_blank" rel="noopener">the synthetic g buffer frame carries the terminator on one prim</a><br><code>test_the_synthetic_g_buffer_frame_carries_the_terminator_on_one_prim</code></td><td>The west wall through the point bridge: both halves, one prim path, one frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_wall_half_in_sun.py#L138" target="_blank" rel="noopener">the engine free frame script runs</a><br><code>test_the_engine_free_frame_script_runs</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

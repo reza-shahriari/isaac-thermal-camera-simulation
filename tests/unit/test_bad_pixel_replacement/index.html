@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Bad pixel replacement</h1>
   <p class="subtitle">Bad-pixel replacement (M9.5b): the stencil's three signatures, and the footprint it leaves.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py" target="_blank" rel="noopener">tests/unit/test_bad_pixel_replacement.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py" target="_blank" rel="noopener">tests/unit/test_bad_pixel_replacement.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -67,25 +67,25 @@
 <li>2x2 and 3x3 clusters fill, with no stuck floor or ceiling value leaking through.</li>
 </ul>
 <p>docs/physics-model.md §10.4, §11.1. ADR 0055.</p>
-<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py" target="_blank" rel="noopener">tests/unit/test_bad_pixel_replacement.py</a>.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py" target="_blank" rel="noopener">tests/unit/test_bad_pixel_replacement.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L53" target="_blank" rel="noopener">an isolated defect on a ramp is replaced exactly</a><br><code>test_an_isolated_defect_on_a_ramp_is_replaced_exactly</code></td><td>&lt; 1 mK, i.e. far below an LWIR NETD: the stencil is unbiased on a linear field.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L65" target="_blank" rel="noopener">exactness holds for any linear field</a><span class="tag">parametrize</span><br><code>test_exactness_holds_for_any_linear_field</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L73" target="_blank" rel="noopener">untouched pixels are bit identical and the input is not modified</a><br><code>test_untouched_pixels_are_bit_identical_and_the_input_is_not_modified</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L86" target="_blank" rel="noopener">replaced variance is a quarter and the alternatives are not</a><br><code>test_replaced_variance_is_a_quarter_and_the_alternatives_are_not</code></td><td>sigma^2/4 is the 4-neighbour mean's signature; copy-one and 8-neighbour give sigma^2 and sigma^2/8. All three are measured on the same field, so the test shows what it excludes.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L123" target="_blank" rel="noopener">the replaced pixel has a suppressed laplacian</a><br><code>test_the_replaced_pixel_has_a_suppressed_laplacian</code></td><td>§10.4's "detectable smoothed footprint": the patch is locally too smooth.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L155" target="_blank" rel="noopener">square clusters are filled and no stuck value leaks</a><span class="tag">parametrize</span><br><code>test_square_clusters_are_filled_and_no_stuck_value_leaks</code></td><td>A 3x3's centre has no valid neighbour on the first pass; iteration is what fills it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L176" target="_blank" rel="noopener">a cluster fills from the outside in</a><br><code>test_a_cluster_fills_from_the_outside_in</code></td><td>The physical content of the iteration: the centre of a 3x3 is the last thing determined.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L200" target="_blank" rel="noopener">the result does not depend on scan order</a><br><code>test_the_result_does_not_depend_on_scan_order</code></td><td>Passes are synchronous: a pass reads only what was valid when it began.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L217" target="_blank" rel="noopener">an oversized cluster raises rather than leaving a defect</a><br><code>test_an_oversized_cluster_raises_rather_than_leaving_a_defect</code></td><td>An unreplaced stuck value silently entering the NUC is worse than a loud failure.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L227" target="_blank" rel="noopener">a fully masked array raises</a><br><code>test_a_fully_masked_array_raises</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L232" target="_blank" rel="noopener">an empty mask is a copy</a><br><code>test_an_empty_mask_is_a_copy</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L241" target="_blank" rel="noopener">an integer dn plane stays integer and rounds once</a><br><code>test_an_integer_dn_plane_stays_integer_and_rounds_once</code></td><td>§11.1 puts replacement on the raw DN plane, so uint16 in must give uint16 out.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_bad_pixel_replacement.py#L254" target="_blank" rel="noopener">it replaces exactly the defects active this frame</a><br><code>test_it_replaces_exactly_the_defects_active_this_frame</code></td><td>Per-frame mask: an intermittent pixel is replaced only while it is actually bad.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L53" target="_blank" rel="noopener">an isolated defect on a ramp is replaced exactly</a><br><code>test_an_isolated_defect_on_a_ramp_is_replaced_exactly</code></td><td>&lt; 1 mK, i.e. far below an LWIR NETD: the stencil is unbiased on a linear field.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L65" target="_blank" rel="noopener">exactness holds for any linear field</a><span class="tag">parametrize</span><br><code>test_exactness_holds_for_any_linear_field</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L73" target="_blank" rel="noopener">untouched pixels are bit identical and the input is not modified</a><br><code>test_untouched_pixels_are_bit_identical_and_the_input_is_not_modified</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L86" target="_blank" rel="noopener">replaced variance is a quarter and the alternatives are not</a><br><code>test_replaced_variance_is_a_quarter_and_the_alternatives_are_not</code></td><td>sigma^2/4 is the 4-neighbour mean's signature; copy-one and 8-neighbour give sigma^2 and sigma^2/8. All three are measured on the same field, so the test shows what it excludes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L123" target="_blank" rel="noopener">the replaced pixel has a suppressed laplacian</a><br><code>test_the_replaced_pixel_has_a_suppressed_laplacian</code></td><td>§10.4's "detectable smoothed footprint": the patch is locally too smooth.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L155" target="_blank" rel="noopener">square clusters are filled and no stuck value leaks</a><span class="tag">parametrize</span><br><code>test_square_clusters_are_filled_and_no_stuck_value_leaks</code></td><td>A 3x3's centre has no valid neighbour on the first pass; iteration is what fills it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L176" target="_blank" rel="noopener">a cluster fills from the outside in</a><br><code>test_a_cluster_fills_from_the_outside_in</code></td><td>The physical content of the iteration: the centre of a 3x3 is the last thing determined.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L200" target="_blank" rel="noopener">the result does not depend on scan order</a><br><code>test_the_result_does_not_depend_on_scan_order</code></td><td>Passes are synchronous: a pass reads only what was valid when it began.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L217" target="_blank" rel="noopener">an oversized cluster raises rather than leaving a defect</a><br><code>test_an_oversized_cluster_raises_rather_than_leaving_a_defect</code></td><td>An unreplaced stuck value silently entering the NUC is worse than a loud failure.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L227" target="_blank" rel="noopener">a fully masked array raises</a><br><code>test_a_fully_masked_array_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L232" target="_blank" rel="noopener">an empty mask is a copy</a><br><code>test_an_empty_mask_is_a_copy</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L241" target="_blank" rel="noopener">an integer dn plane stays integer and rounds once</a><br><code>test_an_integer_dn_plane_stays_integer_and_rounds_once</code></td><td>§11.1 puts replacement on the raw DN plane, so uint16 in must give uint16 out.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_bad_pixel_replacement.py#L254" target="_blank" rel="noopener">it replaces exactly the defects active this frame</a><br><code>test_it_replaces_exactly_the_defects_active_this_frame</code></td><td>Per-frame mask: an intermittent pixel is replaced only while it is actually bad.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

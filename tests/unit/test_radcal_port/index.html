@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Radcal port</h1>
   <p class="subtitle">The RadCal transcription in `scripts/radcal.py`, checked against what it was transcribed from.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py" target="_blank" rel="noopener">tests/unit/test_radcal_port.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py" target="_blank" rel="noopener">tests/unit/test_radcal_port.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -63,18 +63,18 @@
 <p>Two kinds of check, then. The <strong>grid-node</strong> tests read a value straight out of the checked-in RadCal array and demand the ported interpolation return it exactly, which is what catches an index error. The <strong>band-structure</strong> tests demand the closed-form CO2 bands sit where CO2's bands are, which is what catches an algebra error.</p>
 <p>The module lives under <code>scripts/</code> because nothing in <code>src/irsim</code> may evaluate a spectral model at render time (ADR 0098), so it is loaded here by path rather than imported.</p>
 <p>Roadmap PH.5.</p>
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py" target="_blank" rel="noopener">tests/unit/test_radcal_port.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py" target="_blank" rel="noopener">tests/unit/test_radcal_port.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py#L67" target="_blank" rel="noopener">h2o reproduces its table exactly at every grid node</a><br><code>test_h2o_reproduces_its_table_exactly_at_every_grid_node</code></td><td>Both axes at once: a shifted wavenumber index or a shifted temperature index fails here.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py#L84" target="_blank" rel="noopener">co2 reproduces its 15um table exactly at every grid node</a><br><code>test_co2_reproduces_its_15um_table_exactly_at_every_grid_node</code></td><td>Same check for the one CO2 band RadCal tabulates; its clamp sits at 2399.99 K.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py#L94" target="_blank" rel="noopener">a query outside the temperature grid is clamped as radcal clamps it</a><br><code>test_a_query_outside_the_temperature_grid_is_clamped_as_radcal_clamps_it</code></td><td>RadCal pins T to its own range rather than extrapolating; the port must do the same.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py#L108" target="_blank" rel="noopener">the co2 bands are where spectroscopy puts them</a><br><code>test_the_co2_bands_are_where_spectroscopy_puts_them</code></td><td>Peaks at 4.26 and 14.99 um, transparent between 5 and 9 um, nothing beyond 1.75 um.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py#L129" target="_blank" rel="noopener">the hot wings of the 43um band open with temperature</a><br><code>test_the_hot_wings_of_the_43um_band_open_with_temperature</code></td><td>The reason a hot plume is visible off the cold band, and the reason the band mean rises.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_radcal_port.py#L148" target="_blank" rel="noopener">the coefficients are never negative over the whole domain</a><br><code>test_the_coefficients_are_never_negative_over_the_whole_domain</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py#L67" target="_blank" rel="noopener">h2o reproduces its table exactly at every grid node</a><br><code>test_h2o_reproduces_its_table_exactly_at_every_grid_node</code></td><td>Both axes at once: a shifted wavenumber index or a shifted temperature index fails here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py#L84" target="_blank" rel="noopener">co2 reproduces its 15um table exactly at every grid node</a><br><code>test_co2_reproduces_its_15um_table_exactly_at_every_grid_node</code></td><td>Same check for the one CO2 band RadCal tabulates; its clamp sits at 2399.99 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py#L94" target="_blank" rel="noopener">a query outside the temperature grid is clamped as radcal clamps it</a><br><code>test_a_query_outside_the_temperature_grid_is_clamped_as_radcal_clamps_it</code></td><td>RadCal pins T to its own range rather than extrapolating; the port must do the same.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py#L108" target="_blank" rel="noopener">the co2 bands are where spectroscopy puts them</a><br><code>test_the_co2_bands_are_where_spectroscopy_puts_them</code></td><td>Peaks at 4.26 and 14.99 um, transparent between 5 and 9 um, nothing beyond 1.75 um.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py#L129" target="_blank" rel="noopener">the hot wings of the 43um band open with temperature</a><br><code>test_the_hot_wings_of_the_43um_band_open_with_temperature</code></td><td>The reason a hot plume is visible off the cold band, and the reason the band mean rises.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_radcal_port.py#L148" target="_blank" rel="noopener">the coefficients are never negative over the whole domain</a><br><code>test_the_coefficients_are_never_negative_over_the_whole_domain</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

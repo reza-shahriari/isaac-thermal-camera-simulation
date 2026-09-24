@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Tier3 sensor chain</h1>
   <p class="subtitle">M9.9 — Tier 3 sensor-chain phenomenology: what the camera does to the picture (§15 T3).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_tier3_sensor_chain.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_tier3_sensor_chain.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -68,19 +68,19 @@
 </ul>
 <p>Two of the row's criteria are <strong>not</strong> covered here and are named rather than quietly dropped: the aerial edge-asymmetry band comes from ME.4's measurements of real imagery, and the ME.6 real-vs-synthetic comparison needs ME.6. Both wait on public data this machine cannot fetch.</p>
 <p>docs/physics-model.md §15 T3, §11.2, §11.3, §9.2, §16.4 step 9</p>
-<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_tier3_sensor_chain.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_tier3_sensor_chain.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L121" target="_blank" rel="noopener">a hot exhaust collapses linear agc and not the plateau variants</a><span class="tag">parametrize</span><br><code>test_a_hot_exhaust_collapses_linear_agc_and_not_the_plateau_variants</code></td><td>A 5 % 450 K patch against a 300/303 K pair: how much of the 3 K survives the display.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L142" target="_blank" rel="noopener">the collapse is an ordering and not three separate numbers</a><br><code>test_the_collapse_is_an_ordering_and_not_three_separate_numbers</code></td><td>linear ≪ plateau ≤ local. If that ordering inverts, one of them is doing the wrong job.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L182" target="_blank" rel="noopener">the shutter freezes exactly 42 frames and resets the pattern</a><br><code>test_the_shutter_freezes_exactly_42_frames_and_resets_the_pattern</code></td><td>60 Hz, 180 s, 700 ms: <code>round(0.7 · 60)</code> = <strong>42</strong> held frames.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L290" target="_blank" rel="noopener">the bolometer trail is a geometric series with the membrane ratio</a><br><code>test_the_bolometer_trail_is_a_geometric_series_with_the_membrane_ratio</code></td><td>Ratio <code>exp(−dt/τ_th)</code> = 0.188876 for a 10 ms membrane at 60 Hz.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L330" target="_blank" rel="noopener">a cooled photon detector leaves no trail</a><br><code>test_a_cooled_photon_detector_leaves_no_trail</code></td><td>§16's "lateral motion smears LWIR, not cooled MWIR", in the across-frame half.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L356" target="_blank" rel="noopener">a 1000 k source clips at full scale without wrapping</a><br><code>test_a_1000_k_source_clips_at_full_scale_without_wrapping</code></td><td>uint16 arithmetic that wraps turns the hottest thing in the scene into the coldest.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sensor_chain.py#L382" target="_blank" rel="noopener">the two open criteria are named rather than silently absent</a><br><code>test_the_two_open_criteria_are_named_rather_than_silently_absent</code></td><td>The Tier 3 sensor-chain bench left two criteria open, and they must stay tracked.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L121" target="_blank" rel="noopener">a hot exhaust collapses linear agc and not the plateau variants</a><span class="tag">parametrize</span><br><code>test_a_hot_exhaust_collapses_linear_agc_and_not_the_plateau_variants</code></td><td>A 5 % 450 K patch against a 300/303 K pair: how much of the 3 K survives the display.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L142" target="_blank" rel="noopener">the collapse is an ordering and not three separate numbers</a><br><code>test_the_collapse_is_an_ordering_and_not_three_separate_numbers</code></td><td>linear ≪ plateau ≤ local. If that ordering inverts, one of them is doing the wrong job.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L182" target="_blank" rel="noopener">the shutter freezes exactly 42 frames and resets the pattern</a><br><code>test_the_shutter_freezes_exactly_42_frames_and_resets_the_pattern</code></td><td>60 Hz, 180 s, 700 ms: <code>round(0.7 · 60)</code> = <strong>42</strong> held frames.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L290" target="_blank" rel="noopener">the bolometer trail is a geometric series with the membrane ratio</a><br><code>test_the_bolometer_trail_is_a_geometric_series_with_the_membrane_ratio</code></td><td>Ratio <code>exp(−dt/τ_th)</code> = 0.188876 for a 10 ms membrane at 60 Hz.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L330" target="_blank" rel="noopener">a cooled photon detector leaves no trail</a><br><code>test_a_cooled_photon_detector_leaves_no_trail</code></td><td>§16's "lateral motion smears LWIR, not cooled MWIR", in the across-frame half.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L356" target="_blank" rel="noopener">a 1000 k source clips at full scale without wrapping</a><br><code>test_a_1000_k_source_clips_at_full_scale_without_wrapping</code></td><td>uint16 arithmetic that wraps turns the hottest thing in the scene into the coldest.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_tier3_sensor_chain.py#L382" target="_blank" rel="noopener">the two open criteria are named rather than silently absent</a><br><code>test_the_two_open_criteria_are_named_rather_than_silently_absent</code></td><td>The Tier 3 sensor-chain bench left two criteria open, and they must stay tracked.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Environment</h1>
   <p class="subtitle">Roadmap M2.1: the integration environment is what tests/integration and ADR 0014 assume.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py" target="_blank" rel="noopener">tests/integration/test_environment.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py" target="_blank" rel="noopener">tests/integration/test_environment.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Runs <code>irsim_isaac.probe.probe_environment()</code> inside the session's headless Kit and checks the facts the rest of the Isaac lane depends on. A rename in a 6.x point release fails here first, not deep inside a pipeline test. The report also lists which deprecated <code>isaacsim.sensors.*</code> modules Kit itself has imported (the deprecated extensions are enabled by the app profile); that <code>irsim_isaac</code> never imports them is an engine-free AST check in <code>tests/unit/test_isaac_glue_imports.py</code>.</p>
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py" target="_blank" rel="noopener">tests/integration/test_environment.py</a>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py" target="_blank" rel="noopener">tests/integration/test_environment.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py#L32" target="_blank" rel="noopener">isaac version is recorded</a><br><code>test_isaac_version_is_recorded</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py#L37" target="_blank" rel="noopener">spg extension present</a><br><code>test_spg_extension_present</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py#L42" target="_blank" rel="noopener">experimental rtx api present</a><br><code>test_experimental_rtx_api_present</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py#L51" target="_blank" rel="noopener">warp has cuda device inside kit</a><span class="tag">gpu</span><br><code>test_warp_has_cuda_device_inside_kit</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_environment.py#L57" target="_blank" rel="noopener">report is json</a><br><code>test_report_is_json</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py#L32" target="_blank" rel="noopener">isaac version is recorded</a><br><code>test_isaac_version_is_recorded</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py#L37" target="_blank" rel="noopener">spg extension present</a><br><code>test_spg_extension_present</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py#L42" target="_blank" rel="noopener">experimental rtx api present</a><br><code>test_experimental_rtx_api_present</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py#L51" target="_blank" rel="noopener">warp has cuda device inside kit</a><span class="tag">gpu</span><br><code>test_warp_has_cuda_device_inside_kit</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_environment.py#L57" target="_blank" rel="noopener">report is json</a><br><code>test_report_is_json</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

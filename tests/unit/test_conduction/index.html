@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,31 +55,31 @@
 <div class="page-head">
   <h1>Conduction</h1>
   <p class="subtitle">TC.1 — heat moves between facets, and the scene tick survives it.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py" target="_blank" rel="noopener">tests/unit/test_conduction.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py" target="_blank" rel="noopener">tests/unit/test_conduction.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Three claims, each with a way to fail. <strong>Nothing changes without an operator</strong>: a solver with no conduction, or with a zero operator, must be bit-identical to the midpoint rule it always was. <strong>The implicit step is right</strong>: a stiff RC ladder that forward Euler blows up at a 60 s tick settles to its closed-form equilibrium to 1e-6 and its slow mode converges at first order (halve the tick, halve the error — a scheme that was merely stable would not). <strong>Energy closes</strong>: for unequal cells under a real forcing, <code>Σ C_i A_i ΔT_i</code> equals <code>dt Σ A_i F_i</code> to 1e-9, which a sign error in the Laplacian, a missing area weight or an asymmetric matrix each break.</p>
 <p>And the guard that never existed: a leaf-like facet at a scene tick now raises with the bound.</p>
 <p>docs/physics-model.md §6.1, §6.4; ADR 0036, ADR 0094</p>
-<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py" target="_blank" rel="noopener">tests/unit/test_conduction.py</a>.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py" target="_blank" rel="noopener">tests/unit/test_conduction.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L64" target="_blank" rel="noopener">a zero operator is bit identical to no operator</a><br><code>test_a_zero_operator_is_bit_identical_to_no_operator</code></td><td>k → 0 is the midpoint rule, bit for bit: the IMEX path must add nothing at zero.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L81" target="_blank" rel="noopener">a stiff ladder settles to its equilibrium where forward euler diverges</a><br><code>test_a_stiff_ladder_settles_to_its_equilibrium_where_forward_euler_diverges</code></td><td>Three cells, links with τ ≈ 0.1 s, stepped at 60 s: 600× past the explicit limit.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L108" target="_blank" rel="noopener">the slow mode converges at first order to its closed form</a><br><code>test_the_slow_mode_converges_at_first_order_to_its_closed_form</code></td><td>Two equal cells, τ = C/(2k) = 1 h: backward Euler's error must halve with the tick.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L126" target="_blank" rel="noopener">the operator s power has the right sign and conserves</a><br><code>test_the_operator_s_power_has_the_right_sign_and_conserves</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L138" target="_blank" rel="noopener">energy closes to a part in a billion under forcing</a><br><code>test_energy_closes_to_a_part_in_a_billion_under_forcing</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L171" target="_blank" rel="noopener">an asymmetric matrix is refused</a><br><code>test_an_asymmetric_matrix_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L177" target="_blank" rel="noopener">a negative conductance a self link and a bad area are refused</a><br><code>test_a_negative_conductance_a_self_link_and_a_bad_area_are_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L188" target="_blank" rel="noopener">an operator of the wrong size is refused by the solver</a><br><code>test_an_operator_of_the_wrong_size_is_refused_by_the_solver</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L198" target="_blank" rel="noopener">a leaf at a scene tick raises with the bound</a><br><code>test_a_leaf_at_a_scene_tick_raises_with_the_bound</code></td><td>630 J m⁻² K⁻¹ at h = 30: the bound is ≈ 36 s and a 60 s tick used to diverge quietly.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L210" target="_blank" rel="noopener">the bound is evaluated on the actual h not a worst case</a><br><code>test_the_bound_is_evaluated_on_the_actual_h_not_a_worst_case</code></td><td>Still air makes the same leaf steppable at 60 s; the guard must see that.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L223" target="_blank" rel="noopener">a field carries the operator and reuses one factorisation</a><br><code>test_a_field_carries_the_operator_and_reuses_one_factorisation</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_conduction.py#L240" target="_blank" rel="noopener">a planar field takes an operator over its cells</a><br><code>test_a_planar_field_takes_an_operator_over_its_cells</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L64" target="_blank" rel="noopener">a zero operator is bit identical to no operator</a><br><code>test_a_zero_operator_is_bit_identical_to_no_operator</code></td><td>k → 0 is the midpoint rule, bit for bit: the IMEX path must add nothing at zero.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L81" target="_blank" rel="noopener">a stiff ladder settles to its equilibrium where forward euler diverges</a><br><code>test_a_stiff_ladder_settles_to_its_equilibrium_where_forward_euler_diverges</code></td><td>Three cells, links with τ ≈ 0.1 s, stepped at 60 s: 600× past the explicit limit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L108" target="_blank" rel="noopener">the slow mode converges at first order to its closed form</a><br><code>test_the_slow_mode_converges_at_first_order_to_its_closed_form</code></td><td>Two equal cells, τ = C/(2k) = 1 h: backward Euler's error must halve with the tick.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L126" target="_blank" rel="noopener">the operator s power has the right sign and conserves</a><br><code>test_the_operator_s_power_has_the_right_sign_and_conserves</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L138" target="_blank" rel="noopener">energy closes to a part in a billion under forcing</a><br><code>test_energy_closes_to_a_part_in_a_billion_under_forcing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L171" target="_blank" rel="noopener">an asymmetric matrix is refused</a><br><code>test_an_asymmetric_matrix_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L177" target="_blank" rel="noopener">a negative conductance a self link and a bad area are refused</a><br><code>test_a_negative_conductance_a_self_link_and_a_bad_area_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L188" target="_blank" rel="noopener">an operator of the wrong size is refused by the solver</a><br><code>test_an_operator_of_the_wrong_size_is_refused_by_the_solver</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L198" target="_blank" rel="noopener">a leaf at a scene tick raises with the bound</a><br><code>test_a_leaf_at_a_scene_tick_raises_with_the_bound</code></td><td>630 J m⁻² K⁻¹ at h = 30: the bound is ≈ 36 s and a 60 s tick used to diverge quietly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L210" target="_blank" rel="noopener">the bound is evaluated on the actual h not a worst case</a><br><code>test_the_bound_is_evaluated_on_the_actual_h_not_a_worst_case</code></td><td>Still air makes the same leaf steppable at 60 s; the guard must see that.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L223" target="_blank" rel="noopener">a field carries the operator and reuses one factorisation</a><br><code>test_a_field_carries_the_operator_and_reuses_one_factorisation</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_conduction.py#L240" target="_blank" rel="noopener">a planar field takes an operator over its cells</a><br><code>test_a_planar_field_takes_an_operator_over_its_cells</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Atmosphere handout</h1>
   <p class="subtitle">A scene with a layered atmosphere will not hand out the grey one (AT.5).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_handout.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_handout.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -64,20 +64,20 @@
 <p>The divergence is not small, and it is not the one <code>AT.1</code> measured. AT.1 compared the layered model against <em>itself</em> on a horizontal path (tau 0.5995 against 0.7230). Grey against layered, on the shipped aerial scene at 5 km and 20 degrees elevation, is <strong>tau 0.057 against 0.590</strong> -- an order of magnitude -- with path radiance 45.1 against 18.7 W/m^2/sr.</p>
 <p>That gap is the k-distribution, not a bug in either model: a single band-averaged optical depth over-attenuates, because exp(-mean tau) is not the mean of exp(-tau) over a band whose lines vary by orders of magnitude across it. The exponential sum exists to fix exactly that (§8.6), which is why the grey model is L1 and why handing it out under the primary name is a trap. Measured here rather than quoted, because a guard whose justification is a number in a docstring rots.</p>
 <p>docs/physics-model.md §8.5, §8.6; ADR 0033; roadmap AT.1, AT.5.</p>
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_handout.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_handout.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L65" target="_blank" rel="noopener">every shipped scene carries a layered model</a><br><code>test_every_shipped_scene_carries_a_layered_model</code></td><td>So the refused attribute was wrong on all eight, not on an unusual one.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L74" target="_blank" rel="noopener">the primary name is refused when it is not what renders</a><br><code>test_the_primary_name_is_refused_when_it_is_not_what_renders</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L80" target="_blank" rel="noopener">the message names all three ways out</a><br><code>test_the_message_names_all_three_ways_out</code></td><td>A guard that refuses without saying what to use instead just moves the confusion.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L89" target="_blank" rel="noopener">a scene with no layered model still hands out its atmosphere</a><br><code>test_a_scene_with_no_layered_model_still_hands_out_its_atmosphere</code></td><td>The guard is about ambiguity, not about the grey model, which is still L1 for §8.5.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L97" target="_blank" rel="noopener">transfer atmosphere is the one the renders use</a><br><code>test_transfer_atmosphere_is_the_one_the_renders_use</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L103" target="_blank" rel="noopener">the preset is one object so it cannot disagree</a><br><code>test_the_preset_is_one_object_so_it_cannot_disagree</code></td><td>What both live readers actually wanted, and the reason nothing was broken yet.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L111" target="_blank" rel="noopener">the two models disagree by far more than the netd</a><br><code>test_the_two_models_disagree_by_far_more_than_the_netd</code></td><td>Measured here rather than quoted: the guard's whole justification is this gap.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_handout.py#L154" target="_blank" rel="noopener">the grey model is still a registered consumer</a><br><code>test_the_grey_model_is_still_a_registered_consumer</code></td><td>The one-weather guard (CLAUDE.md #6) must keep seeing it: refused is not removed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L65" target="_blank" rel="noopener">every shipped scene carries a layered model</a><br><code>test_every_shipped_scene_carries_a_layered_model</code></td><td>So the refused attribute was wrong on all eight, not on an unusual one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L74" target="_blank" rel="noopener">the primary name is refused when it is not what renders</a><br><code>test_the_primary_name_is_refused_when_it_is_not_what_renders</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L80" target="_blank" rel="noopener">the message names all three ways out</a><br><code>test_the_message_names_all_three_ways_out</code></td><td>A guard that refuses without saying what to use instead just moves the confusion.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L89" target="_blank" rel="noopener">a scene with no layered model still hands out its atmosphere</a><br><code>test_a_scene_with_no_layered_model_still_hands_out_its_atmosphere</code></td><td>The guard is about ambiguity, not about the grey model, which is still L1 for §8.5.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L97" target="_blank" rel="noopener">transfer atmosphere is the one the renders use</a><br><code>test_transfer_atmosphere_is_the_one_the_renders_use</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L103" target="_blank" rel="noopener">the preset is one object so it cannot disagree</a><br><code>test_the_preset_is_one_object_so_it_cannot_disagree</code></td><td>What both live readers actually wanted, and the reason nothing was broken yet.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L111" target="_blank" rel="noopener">the two models disagree by far more than the netd</a><br><code>test_the_two_models_disagree_by_far_more_than_the_netd</code></td><td>Measured here rather than quoted: the guard's whole justification is this gap.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_handout.py#L154" target="_blank" rel="noopener">the grey model is still a registered consumer</a><br><code>test_the_grey_model_is_still_a_registered_consumer</code></td><td>The one-weather guard (CLAUDE.md #6) must keep seeing it: refused is not removed.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

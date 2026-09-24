@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Codec floor</h1>
   <p class="subtitle">The floor an 8-bit, lossily-coded public set puts under every noise statistic (ME.2b, ADR 0023).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py" target="_blank" rel="noopener">tests/unit/test_codec_floor.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py" target="_blank" rel="noopener">tests/unit/test_codec_floor.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The negative control the roadmap asks for is the first test: a cube whose true temporal sigma is 0.3 of one code must either be recovered within the stated bias or be flagged codec-limited. It is both -- Sheppard's correction lands within 0.5 % and the flag fires anyway, because at 1.04 times the floor the correction happening to work is not evidence that it can be trusted.</p>
 <p>The codec round trips need ffmpeg and are skipped without it. They are the calibration behind ADR 0023's claim that a lossy set's noise statistic is a lower bound: the lossless case proves the harness itself is transparent, and the lossy case shows a component that was measurable before the encoder is below the floor after it.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py" target="_blank" rel="noopener">tests/unit/test_codec_floor.py</a>. The whole file is marked <code>slow</code>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py" target="_blank" rel="noopener">tests/unit/test_codec_floor.py</a>. The whole file is marked <code>slow</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L62" target="_blank" rel="noopener">a sub code sigma is corrected and flagged</a><br><code>test_a_sub_code_sigma_is_corrected_and_flagged</code></td><td>The roadmap's quantised negative control, both halves of it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L76" target="_blank" rel="noopener">a sigma well above the floor is measured not flagged</a><br><code>test_a_sigma_well_above_the_floor_is_measured_not_flagged</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L84" target="_blank" rel="noopener">sheppard is the stated bias and says so where it fails</a><br><code>test_sheppard_is_the_stated_bias_and_says_so_where_it_fails</code></td><td>The correction is exact arithmetic on the variance; its <em>validity</em> is the measured part.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L93" target="_blank" rel="noopener">the lattice step is read off the data</a><br><code>test_the_lattice_step_is_read_off_the_data</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L105" target="_blank" rel="noopener">blockiness sees an eight pixel grid and nothing else</a><br><code>test_blockiness_sees_an_eight_pixel_grid_and_nothing_else</code></td><td>A block-coded frame, an uncoded one, and a smooth texture that is not on the grid.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L122" target="_blank" rel="noopener">eight bits makes the small boson terms unmeasurable</a><br><code>test_eight_bits_makes_the_small_boson_terms_unmeasurable</code></td><td>What a 3-D decomposition of a public clip is <em>allowed</em> to claim, at two noise levels.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L142" target="_blank" rel="noopener">a lossless round trip is bit exact</a><br><code>test_a_lossless_round_trip_is_bit_exact</code></td><td>Without the full-range flags this drifts by a code, and every lossy number below would be measuring the harness instead of the encoder.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L151" target="_blank" rel="noopener">a lossy stream moves a measured component below the floor</a><span class="tag">slow</span><br><code>test_a_lossy_stream_moves_a_measured_component_below_the_floor</code></td><td>The calibration behind "a noise statistic from a lossy set is a lower bound".</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_codec_floor.py#L171" target="_blank" rel="noopener">the round trip harness refuses what it cannot do</a><br><code>test_the_round_trip_harness_refuses_what_it_cannot_do</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L62" target="_blank" rel="noopener">a sub code sigma is corrected and flagged</a><br><code>test_a_sub_code_sigma_is_corrected_and_flagged</code></td><td>The roadmap's quantised negative control, both halves of it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L76" target="_blank" rel="noopener">a sigma well above the floor is measured not flagged</a><br><code>test_a_sigma_well_above_the_floor_is_measured_not_flagged</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L84" target="_blank" rel="noopener">sheppard is the stated bias and says so where it fails</a><br><code>test_sheppard_is_the_stated_bias_and_says_so_where_it_fails</code></td><td>The correction is exact arithmetic on the variance; its <em>validity</em> is the measured part.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L93" target="_blank" rel="noopener">the lattice step is read off the data</a><br><code>test_the_lattice_step_is_read_off_the_data</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L105" target="_blank" rel="noopener">blockiness sees an eight pixel grid and nothing else</a><br><code>test_blockiness_sees_an_eight_pixel_grid_and_nothing_else</code></td><td>A block-coded frame, an uncoded one, and a smooth texture that is not on the grid.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L122" target="_blank" rel="noopener">eight bits makes the small boson terms unmeasurable</a><br><code>test_eight_bits_makes_the_small_boson_terms_unmeasurable</code></td><td>What a 3-D decomposition of a public clip is <em>allowed</em> to claim, at two noise levels.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L142" target="_blank" rel="noopener">a lossless round trip is bit exact</a><br><code>test_a_lossless_round_trip_is_bit_exact</code></td><td>Without the full-range flags this drifts by a code, and every lossy number below would be measuring the harness instead of the encoder.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L151" target="_blank" rel="noopener">a lossy stream moves a measured component below the floor</a><span class="tag">slow</span><br><code>test_a_lossy_stream_moves_a_measured_component_below_the_floor</code></td><td>The calibration behind "a noise statistic from a lossy set is a lower bound".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_codec_floor.py#L171" target="_blank" rel="noopener">the round trip harness refuses what it cannot do</a><br><code>test_the_round_trip_harness_refuses_what_it_cannot_do</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Noise 3d</h1>
   <p class="subtitle">NVESD 3-D noise synthesiser (M4.3): axis conventions, temporal vs fixed terms, variance closure and the row-mean variance identity -- the structure that makes thermal imagery thermal.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py" target="_blank" rel="noopener">tests/unit/test_noise_3d.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py" target="_blank" rel="noopener">tests/unit/test_noise_3d.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py" target="_blank" rel="noopener">tests/unit/test_noise_3d.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py" target="_blank" rel="noopener">tests/unit/test_noise_3d.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py#L24" target="_blank" rel="noopener">sigmas from ratios and closure</a><br><code>test_sigmas_from_ratios_and_closure</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py#L34" target="_blank" rel="noopener">axes not swapped and fixed terms persist</a><br><code>test_axes_not_swapped_and_fixed_terms_persist</code></td><td>Only σ_H: every column is constant down its height and identical across frames; only σ_V: every row constant. Fails if the axes are swapped or fixed patterns are regenerated per frame.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py#L48" target="_blank" rel="noopener">temporal column and row noise change per frame</a><br><code>test_temporal_column_and_row_noise_change_per_frame</code></td><td>Only σ_TH: columns constant within a frame; column vectors uncorrelated between frames.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py#L67" target="_blank" rel="noopener">variance closure boson ratios</a><br><code>test_variance_closure_boson_ratios</code></td><td>Pooled variance over (t, v, h) of 400 frames of 64×64 equals Σσ² = 1.1243 within 3 % (fails if a component is missing, double-added or scaled by ratio instead of ratio²).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py#L77" target="_blank" rel="noopener">row mean variance identity</a><br><code>test_row_mean_variance_identity</code></td><td>Var over (t, v) of per-frame row means = σ_T² + σ_V² + σ_TV² + (σ_TH² + σ_VH² + σ_TVH²)/W within 10 %: the analytic link between the directional structure and the ratios.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_noise_3d.py#L89" target="_blank" rel="noopener">output is float32 finite and reproducible</a><br><code>test_output_is_float32_finite_and_reproducible</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py#L24" target="_blank" rel="noopener">sigmas from ratios and closure</a><br><code>test_sigmas_from_ratios_and_closure</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py#L34" target="_blank" rel="noopener">axes not swapped and fixed terms persist</a><br><code>test_axes_not_swapped_and_fixed_terms_persist</code></td><td>Only σ_H: every column is constant down its height and identical across frames; only σ_V: every row constant. Fails if the axes are swapped or fixed patterns are regenerated per frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py#L48" target="_blank" rel="noopener">temporal column and row noise change per frame</a><br><code>test_temporal_column_and_row_noise_change_per_frame</code></td><td>Only σ_TH: columns constant within a frame; column vectors uncorrelated between frames.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py#L67" target="_blank" rel="noopener">variance closure boson ratios</a><br><code>test_variance_closure_boson_ratios</code></td><td>Pooled variance over (t, v, h) of 400 frames of 64×64 equals Σσ² = 1.1243 within 3 % (fails if a component is missing, double-added or scaled by ratio instead of ratio²).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py#L77" target="_blank" rel="noopener">row mean variance identity</a><br><code>test_row_mean_variance_identity</code></td><td>Var over (t, v) of per-frame row means = σ_T² + σ_V² + σ_TV² + (σ_TH² + σ_VH² + σ_TVH²)/W within 10 %: the analytic link between the directional structure and the ratios.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_noise_3d.py#L89" target="_blank" rel="noopener">output is float32 finite and reproducible</a><br><code>test_output_is_float32_finite_and_reproducible</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

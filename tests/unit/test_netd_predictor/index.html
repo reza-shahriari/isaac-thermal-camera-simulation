@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,26 +55,26 @@
 <div class="page-head">
   <h1>Netd predictor</h1>
   <p class="subtitle">NETD predictor and datasheet figures of merit (M4.5, ADR 0024).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py" target="_blank" rel="noopener">tests/unit/test_netd_predictor.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py" target="_blank" rel="noopener">tests/unit/test_netd_predictor.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py" target="_blank" rel="noopener">tests/unit/test_netd_predictor.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py" target="_blank" rel="noopener">tests/unit/test_netd_predictor.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L72" target="_blank" rel="noopener">d star known answer and identities</a><br><code>test_d_star_known_answer_and_identities</code></td><td>NEP 1e-12 W, A_d = (12 µm)² = 1.44e-6 cm², Δf = 30 Hz → D* = 6.573e9 cm·Hz^½/W.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L82" target="_blank" rel="noopener">datasheet form over photon count form is 0 8 at f1</a><br><code>test_datasheet_form_over_photon_count_form_is_0_8_at_f1</code></td><td>For the same system the paraxial 4F² form gives 4F²/(4F²+1) = 0.8 of the +1-form NETD at F/1 (the spec's "20 % at F/1.0"): a datasheet figure in that convention is 1.25x low.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L93" target="_blank" rel="noopener">enbw of sampled iir tends to 1 over 4tau</a><br><code>test_enbw_of_sampled_iir_tends_to_1_over_4tau</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L105" target="_blank" rel="noopener">bolometer derivative matches finite difference of the transfer</a><span class="tag">parametrize</span><br><code>test_bolometer_derivative_matches_finite_difference_of_the_transfer</code></td><td>dS/dT from the derivative table vs a central FD (1 mK) of the transfer on the closed-form top-hat radiance (float64; the float32 radiance table cannot be differenced over 2 mK).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L123" target="_blank" rel="noopener">photon derivative matches finite difference of photoelectrons</a><span class="tag">parametrize</span><br><code>test_photon_derivative_matches_finite_difference_of_photoelectrons</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L136" target="_blank" rel="noopener">netd falls with scene temperature</a><br><code>test_netd_falls_with_scene_temperature</code></td><td>Scene-independent bolometer noise: NETD(373)/NETD(300) == dLb_dT(300)/dLb_dT(373) to 1e-9, and for 7.5-13.5 µm that is within 15 % of the published 23/39 = 0.59 [R9].</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L159" target="_blank" rel="noopener">shot limited scaling</a><br><code>test_shot_limited_scaling</code></td><td>σ_read = 0: NETD == √N_e / (∂N_e/∂T) to 1e-12; doubling t_int → NETD/√2.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L175" target="_blank" rel="noopener">aperture convention in netd</a><br><code>test_aperture_convention_in_netd</code></td><td>Read-limited NETD(F=2)/NETD(F=1) == 17/5 = 3.4 (4F² would give 4.0); shot-limited √3.4.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L190" target="_blank" rel="noopener">boson floors are finite and plausible</a><br><code>test_boson_floors_are_finite_and_plausible</code></td><td>Best-estimate VOx constants give finite first-principles floors in [5, 500] mK, and a Boson-class D* of order 1e8-1e10 cm·Hz^½/W; the anchor (M4.6) overrides the magnitude.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_netd_predictor.py#L217" target="_blank" rel="noopener">budget validation</a><br><code>test_budget_validation</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L72" target="_blank" rel="noopener">d star known answer and identities</a><br><code>test_d_star_known_answer_and_identities</code></td><td>NEP 1e-12 W, A_d = (12 µm)² = 1.44e-6 cm², Δf = 30 Hz → D* = 6.573e9 cm·Hz^½/W.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L82" target="_blank" rel="noopener">datasheet form over photon count form is 0 8 at f1</a><br><code>test_datasheet_form_over_photon_count_form_is_0_8_at_f1</code></td><td>For the same system the paraxial 4F² form gives 4F²/(4F²+1) = 0.8 of the +1-form NETD at F/1 (the spec's "20 % at F/1.0"): a datasheet figure in that convention is 1.25x low.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L93" target="_blank" rel="noopener">enbw of sampled iir tends to 1 over 4tau</a><br><code>test_enbw_of_sampled_iir_tends_to_1_over_4tau</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L105" target="_blank" rel="noopener">bolometer derivative matches finite difference of the transfer</a><span class="tag">parametrize</span><br><code>test_bolometer_derivative_matches_finite_difference_of_the_transfer</code></td><td>dS/dT from the derivative table vs a central FD (1 mK) of the transfer on the closed-form top-hat radiance (float64; the float32 radiance table cannot be differenced over 2 mK).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L123" target="_blank" rel="noopener">photon derivative matches finite difference of photoelectrons</a><span class="tag">parametrize</span><br><code>test_photon_derivative_matches_finite_difference_of_photoelectrons</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L136" target="_blank" rel="noopener">netd falls with scene temperature</a><br><code>test_netd_falls_with_scene_temperature</code></td><td>Scene-independent bolometer noise: NETD(373)/NETD(300) == dLb_dT(300)/dLb_dT(373) to 1e-9, and for 7.5-13.5 µm that is within 15 % of the published 23/39 = 0.59 [R9].</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L159" target="_blank" rel="noopener">shot limited scaling</a><br><code>test_shot_limited_scaling</code></td><td>σ_read = 0: NETD == √N_e / (∂N_e/∂T) to 1e-12; doubling t_int → NETD/√2.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L175" target="_blank" rel="noopener">aperture convention in netd</a><br><code>test_aperture_convention_in_netd</code></td><td>Read-limited NETD(F=2)/NETD(F=1) == 17/5 = 3.4 (4F² would give 4.0); shot-limited √3.4.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L190" target="_blank" rel="noopener">boson floors are finite and plausible</a><br><code>test_boson_floors_are_finite_and_plausible</code></td><td>Best-estimate VOx constants give finite first-principles floors in [5, 500] mK, and a Boson-class D* of order 1e8-1e10 cm·Hz^½/W; the anchor (M4.6) overrides the magnitude.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_netd_predictor.py#L217" target="_blank" rel="noopener">budget validation</a><br><code>test_budget_validation</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

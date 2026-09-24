@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,24 +55,24 @@
 <div class="page-head">
   <h1>Aperture</h1>
   <p class="subtitle">Aperture factor and focal-plane irradiance (M3.1): identities, an independent cone integral, the spec's 20 % known answer, and the Boson pixel-power hand value.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py" target="_blank" rel="noopener">tests/unit/test_aperture.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py" target="_blank" rel="noopener">tests/unit/test_aperture.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py" target="_blank" rel="noopener">tests/unit/test_aperture.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py" target="_blank" rel="noopener">tests/unit/test_aperture.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L18" target="_blank" rel="noopener">aperture factor is pi sin2 of cone half angle</a><span class="tag">parametrize</span><br><code>test_aperture_factor_is_pi_sin2_of_cone_half_angle</code></td><td>π/(4F²+1) == π sin²(atan(1/2F)) to 1e-12: the paraxial π/(4F²) fails this.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L27" target="_blank" rel="noopener">irradiance matches lambertian cone integral</a><span class="tag">parametrize</span><br><code>test_irradiance_matches_lambertian_cone_integral</code></td><td>E = ∫₀^θmax 2π L cosθ sinθ dθ (independent numerical derivation) to 1e-10.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L41" target="_blank" rel="noopener">known answers at f1</a><br><code>test_known_answers_at_f1</code></td><td>§2: at F/1.0 the +1 form is 20 % below the paraxial form.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L47" target="_blank" rel="noopener">boson pixel power hand value</a><br><code>test_boson_pixel_power_hand_value</code></td><td>A_d 1.296e-10 m², F/1, τ 0.92, L_B = 1 W m⁻² sr⁻¹ -&gt; 7.492e-11 W (hand computed).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L54" target="_blank" rel="noopener">quantity agnostic and linear</a><br><code>test_quantity_agnostic_and_linear</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L62" target="_blank" rel="noopener">cos4 field multiplies in</a><br><code>test_cos4_field_multiplies_in</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L69" target="_blank" rel="noopener">dtype guard</a><br><code>test_dtype_guard</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aperture.py#L80" target="_blank" rel="noopener">bad parameters raise</a><span class="tag">parametrize</span><br><code>test_bad_parameters_raise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L18" target="_blank" rel="noopener">aperture factor is pi sin2 of cone half angle</a><span class="tag">parametrize</span><br><code>test_aperture_factor_is_pi_sin2_of_cone_half_angle</code></td><td>π/(4F²+1) == π sin²(atan(1/2F)) to 1e-12: the paraxial π/(4F²) fails this.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L27" target="_blank" rel="noopener">irradiance matches lambertian cone integral</a><span class="tag">parametrize</span><br><code>test_irradiance_matches_lambertian_cone_integral</code></td><td>E = ∫₀^θmax 2π L cosθ sinθ dθ (independent numerical derivation) to 1e-10.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L41" target="_blank" rel="noopener">known answers at f1</a><br><code>test_known_answers_at_f1</code></td><td>§2: at F/1.0 the +1 form is 20 % below the paraxial form.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L47" target="_blank" rel="noopener">boson pixel power hand value</a><br><code>test_boson_pixel_power_hand_value</code></td><td>A_d 1.296e-10 m², F/1, τ 0.92, L_B = 1 W m⁻² sr⁻¹ -&gt; 7.492e-11 W (hand computed).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L54" target="_blank" rel="noopener">quantity agnostic and linear</a><br><code>test_quantity_agnostic_and_linear</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L62" target="_blank" rel="noopener">cos4 field multiplies in</a><br><code>test_cos4_field_multiplies_in</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L69" target="_blank" rel="noopener">dtype guard</a><br><code>test_dtype_guard</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_aperture.py#L80" target="_blank" rel="noopener">bad parameters raise</a><span class="tag">parametrize</span><br><code>test_bad_parameters_raise</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

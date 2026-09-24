@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Self emission</h1>
   <p class="subtitle">Optics self-emission (M3.3, ADR 0016): the isothermal-enclosure identity, the N-element stack against hand values and its reduction to the single-lens form, Kirchhoff closure of elements, and the shutterless-drift known answer (+1 K housing -> +87 mK apparent).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py" target="_blank" rel="noopener">tests/unit/test_self_emission.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py" target="_blank" rel="noopener">tests/unit/test_self_emission.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py" target="_blank" rel="noopener">tests/unit/test_self_emission.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py" target="_blank" rel="noopener">tests/unit/test_self_emission.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py#L32" target="_blank" rel="noopener">isothermal enclosure identity</a><span class="tag">parametrize</span><br><code>test_isothermal_enclosure_identity</code></td><td>Scene and housing both at T: Φ_scene + Φ_self = A_d Ω_eff L_B(T), independent of τ_opt to 1e-12 (a wrong Ω, a wrong (1 − τ) or a stray cos⁴ all break this).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py#L42" target="_blank" rel="noopener">stack reduces to single lens form</a><br><code>test_stack_reduces_to_single_lens_form</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py#L55" target="_blank" rel="noopener">two element stack matches hand value</a><br><code>test_two_element_stack_matches_hand_value</code></td><td>Window then lens (scene → detector): ε_w L(T_w) τ_l + ε_l L(T_l).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py#L68" target="_blank" rel="noopener">kirchhoff closure of elements</a><br><code>test_kirchhoff_closure_of_elements</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py#L80" target="_blank" rel="noopener">shutterless drift known answer</a><br><code>test_shutterless_drift_known_answer</code></td><td>Boson-like τ 0.92, F/1: a +1 K housing step reads as +(1−τ)/τ K = +87 mK apparent temperature when the camera's transfer assumes the housing at its calibration temperature.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_self_emission.py#L97" target="_blank" rel="noopener">bad inputs</a><br><code>test_bad_inputs</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py#L32" target="_blank" rel="noopener">isothermal enclosure identity</a><span class="tag">parametrize</span><br><code>test_isothermal_enclosure_identity</code></td><td>Scene and housing both at T: Φ_scene + Φ_self = A_d Ω_eff L_B(T), independent of τ_opt to 1e-12 (a wrong Ω, a wrong (1 − τ) or a stray cos⁴ all break this).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py#L42" target="_blank" rel="noopener">stack reduces to single lens form</a><br><code>test_stack_reduces_to_single_lens_form</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py#L55" target="_blank" rel="noopener">two element stack matches hand value</a><br><code>test_two_element_stack_matches_hand_value</code></td><td>Window then lens (scene → detector): ε_w L(T_w) τ_l + ε_l L(T_l).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py#L68" target="_blank" rel="noopener">kirchhoff closure of elements</a><br><code>test_kirchhoff_closure_of_elements</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py#L80" target="_blank" rel="noopener">shutterless drift known answer</a><br><code>test_shutterless_drift_known_answer</code></td><td>Boson-like τ 0.92, F/1: a +1 K housing step reads as +(1−τ)/τ K = +87 mK apparent temperature when the camera's transfer assumes the housing at its calibration temperature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_self_emission.py#L97" target="_blank" rel="noopener">bad inputs</a><br><code>test_bad_inputs</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

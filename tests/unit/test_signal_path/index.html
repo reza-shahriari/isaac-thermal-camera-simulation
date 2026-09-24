@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Signal path</h1>
   <p class="subtitle">The signal-path vocabulary and what it refuses (XD.2).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py" target="_blank" rel="noopener">tests/unit/test_signal_path.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py" target="_blank" rel="noopener">tests/unit/test_signal_path.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -66,21 +66,21 @@
 <li><code>unknown</code> is not a synonym for <code>display</code>.</li>
 </ul>
 <p>docs/physics-model.md §11.3, §15 Tier 4; ADR 0068.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py" target="_blank" rel="noopener">tests/unit/test_signal_path.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py" target="_blank" rel="noopener">tests/unit/test_signal_path.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L34" target="_blank" rel="noopener">the vocabulary is the four words and nothing else</a><br><code>test_the_vocabulary_is_the_four_words_and_nothing_else</code></td><td>A closed vocabulary is the point: a fifth value would be a claim nobody defined.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L39" target="_blank" rel="noopener">the isp and the sensor live on disjoint paths</a><br><code>test_the_isp_and_the_sensor_live_on_disjoint_paths</code></td><td>The physical content of the vocabulary, stated as a property rather than a table read.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L52" target="_blank" rel="noopener">an undocumented path is not a display path</a><br><code>test_an_undocumented_path_is_not_a_display_path</code></td><td><code>unknown</code> is the most common value in the index and the easiest to treat as <code>display</code>.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L65" target="_blank" rel="noopener">only a radiometric path reaches kelvin</a><br><code>test_only_a_radiometric_path_reaches_kelvin</code></td><td>The measurement XD.10 exists to make, and the one no 8-bit display set may ever claim.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L74" target="_blank" rel="noopener">a refusal carries the reason not the rule</a><br><code>test_a_refusal_carries_the_reason_not_the_rule</code></td><td>The message is the only record of <em>why</em> once the traceback is in somebody's terminal.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L82" target="_blank" rel="noopener">a name that is not a measurement is refused not ignored</a><br><code>test_a_name_that_is_not_a_measurement_is_refused_not_ignored</code></td><td>A typo in a permission list is a permission granted to nothing, or to the wrong thing.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L90" target="_blank" rel="noopener">a path that is not in the vocabulary is refused</a><br><code>test_a_path_that_is_not_in_the_vocabulary_is_refused</code></td><td>A misspelt path must not read as "permits nothing", which would look like a strict gate.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L102" target="_blank" rel="noopener">every measurement is possible on at least one path</a><br><code>test_every_measurement_is_possible_on_at_least_one_path</code></td><td>A row permitting nothing would be a measurement that can never run, written as if it can.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L110" target="_blank" rel="noopener">the geometry measurements survive every path</a><br><code>test_the_geometry_measurements_survive_every_path</code></td><td>A box's extent in pixels is not radiometry, and no tone map can change it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L34" target="_blank" rel="noopener">the vocabulary is the four words and nothing else</a><br><code>test_the_vocabulary_is_the_four_words_and_nothing_else</code></td><td>A closed vocabulary is the point: a fifth value would be a claim nobody defined.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L39" target="_blank" rel="noopener">the isp and the sensor live on disjoint paths</a><br><code>test_the_isp_and_the_sensor_live_on_disjoint_paths</code></td><td>The physical content of the vocabulary, stated as a property rather than a table read.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L52" target="_blank" rel="noopener">an undocumented path is not a display path</a><br><code>test_an_undocumented_path_is_not_a_display_path</code></td><td><code>unknown</code> is the most common value in the index and the easiest to treat as <code>display</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L65" target="_blank" rel="noopener">only a radiometric path reaches kelvin</a><br><code>test_only_a_radiometric_path_reaches_kelvin</code></td><td>The measurement XD.10 exists to make, and the one no 8-bit display set may ever claim.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L74" target="_blank" rel="noopener">a refusal carries the reason not the rule</a><br><code>test_a_refusal_carries_the_reason_not_the_rule</code></td><td>The message is the only record of <em>why</em> once the traceback is in somebody's terminal.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L82" target="_blank" rel="noopener">a name that is not a measurement is refused not ignored</a><br><code>test_a_name_that_is_not_a_measurement_is_refused_not_ignored</code></td><td>A typo in a permission list is a permission granted to nothing, or to the wrong thing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L90" target="_blank" rel="noopener">a path that is not in the vocabulary is refused</a><br><code>test_a_path_that_is_not_in_the_vocabulary_is_refused</code></td><td>A misspelt path must not read as "permits nothing", which would look like a strict gate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L102" target="_blank" rel="noopener">every measurement is possible on at least one path</a><br><code>test_every_measurement_is_possible_on_at_least_one_path</code></td><td>A row permitting nothing would be a measurement that can never run, written as if it can.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_signal_path.py#L110" target="_blank" rel="noopener">the geometry measurements survive every path</a><br><code>test_the_geometry_measurements_survive_every_path</code></td><td>A box's extent in pixels is not radiometry, and no tone map can change it.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Electron budget wiring</h1>
   <p class="subtitle">A photon camera's noise comes from its electron datasheet, not from a NETD anchor (SC.1).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py" target="_blank" rel="noopener">tests/unit/test_electron_budget_wiring.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py" target="_blank" rel="noopener">tests/unit/test_electron_budget_wiring.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -68,21 +68,21 @@
 <p>Neither is visible in an image. Both are exactly the kind of error that makes a sensor trade study come out confidently wrong, which is what this simulator is for.</p>
 <p>These tests drive <code>PipelineConfig.from_sensor</code> -- the selection site -- rather than <code>electron_budget</code> directly, because the defect was never in the physics. It was that the physics had no caller.</p>
 <p>docs/physics-model.md §9.4, §10.1; ADR 0025 and its M11.6 addendum.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py" target="_blank" rel="noopener">tests/unit/test_electron_budget_wiring.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py" target="_blank" rel="noopener">tests/unit/test_electron_budget_wiring.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L68" target="_blank" rel="noopener">a photon camera uses the read noise its config authors</a><span class="tag">parametrize</span><br><code>test_a_photon_camera_uses_the_read_noise_its_config_authors</code></td><td>sigma_gaussian <em>is</em> read_noise_e -- used, not solved for.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L80" target="_blank" rel="noopener">the mwir insb stops rendering at twice its datasheet read noise</a><br><code>test_the_mwir_insb_stops_rendering_at_twice_its_datasheet_read_noise</code></td><td>The headline defect, measured on the shipped config.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L99" target="_blank" rel="noopener">the swir ingaas gets the dark current its own config implies</a><br><code>test_the_swir_ingaas_gets_the_dark_current_its_own_config_implies</code></td><td>~200 e- per integration, larger than the 120 e- read noise, and previously just absent.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L118" target="_blank" rel="noopener">a bolometer keeps the netd anchor</a><br><code>test_a_bolometer_keeps_the_netd_anchor</code></td><td>ADR 0025 stands where it was right: NETD is a bolometer's only usable handle.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L131" target="_blank" rel="noopener">a bolometer cannot be forced onto an electron budget</a><br><code>test_a_bolometer_cannot_be_forced_onto_an_electron_budget</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L139" target="_blank" rel="noopener">the mwir now beats its own datasheet instead of reproducing it</a><br><code>test_the_mwir_now_beats_its_own_datasheet_instead_of_reproducing_it</code></td><td>The point of the reversal: NETD is now a prediction that can disagree.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L159" target="_blank" rel="noopener">a camera that cannot reach its own claim is refused</a><br><code>test_a_camera_that_cannot_reach_its_own_claim_is_refused</code></td><td>The cross-check has to be able to fail, or it is decoration.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L177" target="_blank" rel="noopener">the reflective bands are not checked against a vacuous netd</a><br><code>test_the_reflective_bands_are_not_checked_against_a_vacuous_netd</code></td><td>§9.4's 300 K definition says nothing in a band a 300 K scene does not emit in.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L192" target="_blank" rel="noopener">the change reaches the pixels and not only the budget</a><br><code>test_the_change_reaches_the_pixels_and_not_only_the_budget</code></td><td>A budget nothing reads is a comment. This measures the detector's own sigma.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L68" target="_blank" rel="noopener">a photon camera uses the read noise its config authors</a><span class="tag">parametrize</span><br><code>test_a_photon_camera_uses_the_read_noise_its_config_authors</code></td><td>sigma_gaussian <em>is</em> read_noise_e -- used, not solved for.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L80" target="_blank" rel="noopener">the mwir insb stops rendering at twice its datasheet read noise</a><br><code>test_the_mwir_insb_stops_rendering_at_twice_its_datasheet_read_noise</code></td><td>The headline defect, measured on the shipped config.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L99" target="_blank" rel="noopener">the swir ingaas gets the dark current its own config implies</a><br><code>test_the_swir_ingaas_gets_the_dark_current_its_own_config_implies</code></td><td>~200 e- per integration, larger than the 120 e- read noise, and previously just absent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L118" target="_blank" rel="noopener">a bolometer keeps the netd anchor</a><br><code>test_a_bolometer_keeps_the_netd_anchor</code></td><td>ADR 0025 stands where it was right: NETD is a bolometer's only usable handle.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L131" target="_blank" rel="noopener">a bolometer cannot be forced onto an electron budget</a><br><code>test_a_bolometer_cannot_be_forced_onto_an_electron_budget</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L139" target="_blank" rel="noopener">the mwir now beats its own datasheet instead of reproducing it</a><br><code>test_the_mwir_now_beats_its_own_datasheet_instead_of_reproducing_it</code></td><td>The point of the reversal: NETD is now a prediction that can disagree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L159" target="_blank" rel="noopener">a camera that cannot reach its own claim is refused</a><br><code>test_a_camera_that_cannot_reach_its_own_claim_is_refused</code></td><td>The cross-check has to be able to fail, or it is decoration.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L177" target="_blank" rel="noopener">the reflective bands are not checked against a vacuous netd</a><br><code>test_the_reflective_bands_are_not_checked_against_a_vacuous_netd</code></td><td>§9.4's 300 K definition says nothing in a band a 300 K scene does not emit in.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_electron_budget_wiring.py#L192" target="_blank" rel="noopener">the change reaches the pixels and not only the budget</a><br><code>test_the_change_reaches_the_pixels_and_not_only_the_budget</code></td><td>A budget nothing reads is a comment. This measures the detector's own sigma.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

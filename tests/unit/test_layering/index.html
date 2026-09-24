@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Layering</h1>
   <p class="subtitle">Enforce non-negotiable #1: the physics core imports no engine modules -- in either direction.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py" target="_blank" rel="noopener">tests/unit/test_layering.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py" target="_blank" rel="noopener">tests/unit/test_layering.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -67,21 +67,21 @@
 <li>every file under src/irsim_isaac keeps its engine imports inside functions, so <code>import irsim_isaac</code> succeeds without Isaac Sim.</li>
 </ul>
 <p>The scanner itself is self-tested on synthetic offending modules.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py" target="_blank" rel="noopener">tests/unit/test_layering.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py" target="_blank" rel="noopener">tests/unit/test_layering.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L74" target="_blank" rel="noopener">core has no engine or glue imports</a><span class="tag">parametrize</span><br><code>test_core_has_no_engine_or_glue_imports</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L83" target="_blank" rel="noopener">default gate tests are engine free</a><span class="tag">parametrize</span><br><code>test_default_gate_tests_are_engine_free</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L92" target="_blank" rel="noopener">glue keeps engine imports inside functions</a><span class="tag">parametrize</span><br><code>test_glue_keeps_engine_imports_inside_functions</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L101" target="_blank" rel="noopener">glue is importable without engine</a><br><code>test_glue_is_importable_without_engine</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L110" target="_blank" rel="noopener">env force flags and require</a><br><code>test_env_force_flags_and_require</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L136" target="_blank" rel="noopener">scanner detects known leaks</a><span class="tag">parametrize</span><br><code>test_scanner_detects_known_leaks</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L144" target="_blank" rel="noopener">scanner passes a clean module</a><br><code>test_scanner_passes_a_clean_module</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L152" target="_blank" rel="noopener">module level scanner ignores function scope</a><br><code>test_module_level_scanner_ignores_function_scope</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_layering.py#L164" target="_blank" rel="noopener">integration directory only skips without isaac</a><br><code>test_integration_directory_only_skips_without_isaac</code></td><td>With Isaac forced absent, tests/integration yields only skips: no errors, no failures.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L74" target="_blank" rel="noopener">core has no engine or glue imports</a><span class="tag">parametrize</span><br><code>test_core_has_no_engine_or_glue_imports</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L83" target="_blank" rel="noopener">default gate tests are engine free</a><span class="tag">parametrize</span><br><code>test_default_gate_tests_are_engine_free</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L92" target="_blank" rel="noopener">glue keeps engine imports inside functions</a><span class="tag">parametrize</span><br><code>test_glue_keeps_engine_imports_inside_functions</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L101" target="_blank" rel="noopener">glue is importable without engine</a><br><code>test_glue_is_importable_without_engine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L110" target="_blank" rel="noopener">env force flags and require</a><br><code>test_env_force_flags_and_require</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L136" target="_blank" rel="noopener">scanner detects known leaks</a><span class="tag">parametrize</span><br><code>test_scanner_detects_known_leaks</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L144" target="_blank" rel="noopener">scanner passes a clean module</a><br><code>test_scanner_passes_a_clean_module</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L152" target="_blank" rel="noopener">module level scanner ignores function scope</a><br><code>test_module_level_scanner_ignores_function_scope</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_layering.py#L164" target="_blank" rel="noopener">integration directory only skips without isaac</a><br><code>test_integration_directory_only_skips_without_isaac</code></td><td>With Isaac forced absent, tests/integration yields only skips: no errors, no failures.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Roadmap queue</h1>
   <p class="subtitle">The roadmap's "do next" queue resolves to exactly one step, deterministically.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py" target="_blank" rel="noopener">tests/unit/test_roadmap_queue.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py" target="_blank" rel="noopener">tests/unit/test_roadmap_queue.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -68,23 +68,23 @@
 <li>the <strong>promotions</strong> are real ids with real reasons, and there are few of them.</li>
 </ul>
 <p>docs/roadmap.md ("Do next"); scripts/next_step.py</p>
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py" target="_blank" rel="noopener">tests/unit/test_roadmap_queue.py</a>.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py" target="_blank" rel="noopener">tests/unit/test_roadmap_queue.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L55" target="_blank" rel="noopener">the roadmap still parses</a><br><code>test_the_roadmap_still_parses</code></td><td>Guards the guard: a table-format change would make every assertion below vacuous.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L62" target="_blank" rel="noopener">every named dependency exists</a><br><code>test_every_named_dependency_exists</code></td><td>Revision 3 had eleven rows whose deps named ids that existed only as letter-suffixed rows, which broke its picking rule for those eleven. A dangling dep is a step nobody can start.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L71" target="_blank" rel="noopener">the queue is sound</a><br><code>test_the_queue_is_sound</code></td><td>No step before something it depends on -- what lets you act on the head without reading.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L85" target="_blank" rel="noopener">the queue is complete</a><br><code>test_the_queue_is_complete</code></td><td>Every open step appears exactly once. A queue that drops steps still answers, which is worse than one that fails: the dropped work is invisible rather than late.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L95" target="_blank" rel="noopener">the queue is deterministic</a><br><code>test_the_queue_is_deterministic</code></td><td>Two runs over the same document agree, so "do next" means the same thing to two sessions.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L101" target="_blank" rel="noopener">there is exactly one next step</a><br><code>test_there_is_exactly_one_next_step</code></td><td>The point of the whole exercise: a head, not a set of equally-first candidates.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L121" target="_blank" rel="noopener">every pick is the best available one</a><br><code>test_every_pick_is_the_best_available_one</code></td><td>The invariant, checked at every position and not just the head.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L161" target="_blank" rel="noopener">promotions are few real and reasoned</a><br><code>test_promotions_are_few_real_and_reasoned</code></td><td>Promotion is the only place judgement overrides the rule, so it is bounded and auditable. A long list means the rule is wrong and should be changed instead.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L173" target="_blank" rel="noopener">the roadmap points at the script</a><br><code>test_the_roadmap_points_at_the_script</code></td><td>A rule nobody can find is not a rule.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L179" target="_blank" rel="noopener">the published queue matches the tables</a><br><code>test_the_published_queue_matches_the_tables</code></td><td>The roadmap shows the queue, so the shown queue must be the computed one.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_queue.py#L194" target="_blank" rel="noopener">the generated block is not mistaken for step rows</a><br><code>test_the_generated_block_is_not_mistaken_for_step_rows</code></td><td>The block lives inside the file the parser reads, so it must not parse as steps itself.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L55" target="_blank" rel="noopener">the roadmap still parses</a><br><code>test_the_roadmap_still_parses</code></td><td>Guards the guard: a table-format change would make every assertion below vacuous.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L62" target="_blank" rel="noopener">every named dependency exists</a><br><code>test_every_named_dependency_exists</code></td><td>Revision 3 had eleven rows whose deps named ids that existed only as letter-suffixed rows, which broke its picking rule for those eleven. A dangling dep is a step nobody can start.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L71" target="_blank" rel="noopener">the queue is sound</a><br><code>test_the_queue_is_sound</code></td><td>No step before something it depends on -- what lets you act on the head without reading.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L85" target="_blank" rel="noopener">the queue is complete</a><br><code>test_the_queue_is_complete</code></td><td>Every open step appears exactly once. A queue that drops steps still answers, which is worse than one that fails: the dropped work is invisible rather than late.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L95" target="_blank" rel="noopener">the queue is deterministic</a><br><code>test_the_queue_is_deterministic</code></td><td>Two runs over the same document agree, so "do next" means the same thing to two sessions.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L101" target="_blank" rel="noopener">there is exactly one next step</a><br><code>test_there_is_exactly_one_next_step</code></td><td>The point of the whole exercise: a head, not a set of equally-first candidates.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L121" target="_blank" rel="noopener">every pick is the best available one</a><br><code>test_every_pick_is_the_best_available_one</code></td><td>The invariant, checked at every position and not just the head.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L161" target="_blank" rel="noopener">promotions are few real and reasoned</a><br><code>test_promotions_are_few_real_and_reasoned</code></td><td>Promotion is the only place judgement overrides the rule, so it is bounded and auditable. A long list means the rule is wrong and should be changed instead.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L173" target="_blank" rel="noopener">the roadmap points at the script</a><br><code>test_the_roadmap_points_at_the_script</code></td><td>A rule nobody can find is not a rule.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L179" target="_blank" rel="noopener">the published queue matches the tables</a><br><code>test_the_published_queue_matches_the_tables</code></td><td>The roadmap shows the queue, so the shown queue must be the computed one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_roadmap_queue.py#L194" target="_blank" rel="noopener">the generated block is not mistaken for step rows</a><br><code>test_the_generated_block_is_not_mistaken_for_step_rows</code></td><td>The block lives inside the file the parser reads, so it must not parse as steps itself.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

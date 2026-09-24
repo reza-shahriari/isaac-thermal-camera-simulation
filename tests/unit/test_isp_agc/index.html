@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Isp agc</h1>
   <p class="subtitle">Linear AGC (M5.1, ADR 0027) and plateau equalisation (M5.2, ADR 0028): oracle checks against np.percentile and an argsort rank map, the analytic limits, monotonicity, entropy, bit-depth handling, and the §15 Tier 3 hot-exhaust collapse as a scalar assertion.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py" target="_blank" rel="noopener">tests/unit/test_isp_agc.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py" target="_blank" rel="noopener">tests/unit/test_isp_agc.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py" target="_blank" rel="noopener">tests/unit/test_isp_agc.py</a>.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py" target="_blank" rel="noopener">tests/unit/test_isp_agc.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L26" target="_blank" rel="noopener">linear matches percentile oracle on uniform ramp</a><br><code>test_linear_matches_percentile_oracle_on_uniform_ramp</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L53" target="_blank" rel="noopener">linear clip fractions</a><br><code>test_linear_clip_fractions</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L61" target="_blank" rel="noopener">linear gamma midpoint</a><br><code>test_linear_gamma_midpoint</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L69" target="_blank" rel="noopener">linear affine invariance</a><br><code>test_linear_affine_invariance</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L77" target="_blank" rel="noopener">linear constant frame and dtype guard</a><br><code>test_linear_constant_frame_and_dtype_guard</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L91" target="_blank" rel="noopener">plateau full he matches rank oracle</a><br><code>test_plateau_full_he_matches_rank_oracle</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L99" target="_blank" rel="noopener">plateau small limit is linear stretch on dense histogram</a><br><code>test_plateau_small_limit_is_linear_stretch_on_dense_histogram</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L111" target="_blank" rel="noopener">plateau monotone in input</a><span class="tag">parametrize</span><br><code>test_plateau_monotone_in_input</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L126" target="_blank" rel="noopener">plateau entropy nondecreasing</a><br><code>test_plateau_entropy_nondecreasing</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L135" target="_blank" rel="noopener">hot exhaust collapses linear agc but not plateau</a><br><code>test_hot_exhaust_collapses_linear_agc_but_not_plateau</code></td><td>§15 Tier 3 as a scalar: 5 % of pixels at a saturating 600 K collapse the background's 8-bit std under linear AGC (percentile clip lands inside the hot population) to &lt; 20 % of baseline, while plateau equalisation (P = 0.012) keeps &gt; 50 %.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_isp_agc.py#L152" target="_blank" rel="noopener">plateau respects bit depth and guards</a><br><code>test_plateau_respects_bit_depth_and_guards</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L26" target="_blank" rel="noopener">linear matches percentile oracle on uniform ramp</a><br><code>test_linear_matches_percentile_oracle_on_uniform_ramp</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L53" target="_blank" rel="noopener">linear clip fractions</a><br><code>test_linear_clip_fractions</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L61" target="_blank" rel="noopener">linear gamma midpoint</a><br><code>test_linear_gamma_midpoint</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L69" target="_blank" rel="noopener">linear affine invariance</a><br><code>test_linear_affine_invariance</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L77" target="_blank" rel="noopener">linear constant frame and dtype guard</a><br><code>test_linear_constant_frame_and_dtype_guard</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L91" target="_blank" rel="noopener">plateau full he matches rank oracle</a><br><code>test_plateau_full_he_matches_rank_oracle</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L99" target="_blank" rel="noopener">plateau small limit is linear stretch on dense histogram</a><br><code>test_plateau_small_limit_is_linear_stretch_on_dense_histogram</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L111" target="_blank" rel="noopener">plateau monotone in input</a><span class="tag">parametrize</span><br><code>test_plateau_monotone_in_input</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L126" target="_blank" rel="noopener">plateau entropy nondecreasing</a><br><code>test_plateau_entropy_nondecreasing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L135" target="_blank" rel="noopener">hot exhaust collapses linear agc but not plateau</a><br><code>test_hot_exhaust_collapses_linear_agc_but_not_plateau</code></td><td>§15 Tier 3 as a scalar: 5 % of pixels at a saturating 600 K collapse the background's 8-bit std under linear AGC (percentile clip lands inside the hot population) to &lt; 20 % of baseline, while plateau equalisation (P = 0.012) keeps &gt; 50 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isp_agc.py#L152" target="_blank" rel="noopener">plateau respects bit depth and guards</a><br><code>test_plateau_respects_bit_depth_and_guards</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

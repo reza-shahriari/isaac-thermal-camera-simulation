@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Sensor chain</h1>
   <p class="subtitle">The wired M9 sensor chain (M9.8): the noise budget, and the order of §11.1.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_sensor_chain.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_sensor_chain.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -64,25 +64,25 @@
 <p>within 10 % -- two mechanisms in quadrature, not four added up. A chain that double-counted would still produce an entirely plausible thermal image, which is why this is a test and not an inspection.</p>
 <p>The rest pins the order and the couplings: the housing node drives the self-emission, the FPA node drives the residual through the FFC controller's ΔT_eff, the drifting pattern reaches stage 5, the defects land before replacement, and a frozen frame is stale in <em>every</em> output rather than only in the picture.</p>
 <p>docs/physics-model.md §11.1, §11.2, §10.3, §10.4. ADR 0058.</p>
-<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_sensor_chain.py</a>.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py" target="_blank" rel="noopener">tests/unit/test_sensor_chain.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L146" target="_blank" rel="noopener">the spatial noise budget is two mechanisms not four</a><span class="tag">parametrize</span><span class="tag">slow</span><br><code>test_the_spatial_noise_budget_is_two_mechanisms_not_four</code></td><td>Post-NUC spatial noise is the 3-D spatial terms in quadrature with the NUC residual, ±10 %.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L203" target="_blank" rel="noopener">an ideal camera has no residual and no drift</a><br><code>test_an_ideal_camera_has_no_residual_and_no_drift</code></td><td><code>nuc.mode: ideal</code> is the control the budget above is measured against.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L215" target="_blank" rel="noopener">no chain is the ideal camera</a><br><code>test_no_chain_is_the_ideal_camera</code></td><td><code>chain=None</code> must leave run_frame exactly as M8 left it -- the goldens depend on it.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L226" target="_blank" rel="noopener">the housing node drives the self emission</a><br><code>test_the_housing_node_drives_the_self_emission</code></td><td>A warming housing raises the measured signal on an unchanged scene (§8.2, ADR 0016).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L247" target="_blank" rel="noopener">the report carries the nodes and the ffc state</a><br><code>test_the_report_carries_the_nodes_and_the_ffc_state</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L259" target="_blank" rel="noopener">the drifting pattern reaches stage five</a><br><code>test_the_drifting_pattern_reaches_stage_five</code></td><td>The pattern breathes frame to frame, so the spatial noise is not frozen across a run.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L275" target="_blank" rel="noopener">defects are injected and then replaced</a><br><code>test_defects_are_injected_and_then_replaced</code></td><td>The stuck values must not survive into the output, and the map must be non-empty.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L293" target="_blank" rel="noopener">switching defects off changes only the defective pixels</a><br><code>test_switching_defects_off_changes_only_the_defective_pixels</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L319" target="_blank" rel="noopener">a frozen frame is stale in every output</a><br><code>test_a_frozen_frame_is_stale_in_every_output</code></td><td>The FFC holds the corrected plane, so the radiometric branch goes stale with the picture.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L367" target="_blank" rel="noopener">the residual collapses at the ffc</a><br><code>test_the_residual_collapses_at_the_ffc</code></td><td>Across the event ΔT_eff returns to zero, so the residual does too (§11.2).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L398" target="_blank" rel="noopener">the temporal filter is the identity</a><br><code>test_the_temporal_filter_is_the_identity</code></td><td>ADR 0058: §11.1 names a stage it never defines, so it stays an identity until ME.5.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L414" target="_blank" rel="noopener">attaching without a calibration is refused</a><br><code>test_attaching_without_a_calibration_is_refused</code></td><td>ADR 0056's conversion needs the camera's transfer; a photon FPA has none until M11.6.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sensor_chain.py#L423" target="_blank" rel="noopener">the chain is reproducible for a seed</a><br><code>test_the_chain_is_reproducible_for_a_seed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L146" target="_blank" rel="noopener">the spatial noise budget is two mechanisms not four</a><span class="tag">parametrize</span><span class="tag">slow</span><br><code>test_the_spatial_noise_budget_is_two_mechanisms_not_four</code></td><td>Post-NUC spatial noise is the 3-D spatial terms in quadrature with the NUC residual, ±10 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L203" target="_blank" rel="noopener">an ideal camera has no residual and no drift</a><br><code>test_an_ideal_camera_has_no_residual_and_no_drift</code></td><td><code>nuc.mode: ideal</code> is the control the budget above is measured against.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L215" target="_blank" rel="noopener">no chain is the ideal camera</a><br><code>test_no_chain_is_the_ideal_camera</code></td><td><code>chain=None</code> must leave run_frame exactly as M8 left it -- the goldens depend on it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L226" target="_blank" rel="noopener">the housing node drives the self emission</a><br><code>test_the_housing_node_drives_the_self_emission</code></td><td>A warming housing raises the measured signal on an unchanged scene (§8.2, ADR 0016).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L247" target="_blank" rel="noopener">the report carries the nodes and the ffc state</a><br><code>test_the_report_carries_the_nodes_and_the_ffc_state</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L259" target="_blank" rel="noopener">the drifting pattern reaches stage five</a><br><code>test_the_drifting_pattern_reaches_stage_five</code></td><td>The pattern breathes frame to frame, so the spatial noise is not frozen across a run.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L275" target="_blank" rel="noopener">defects are injected and then replaced</a><br><code>test_defects_are_injected_and_then_replaced</code></td><td>The stuck values must not survive into the output, and the map must be non-empty.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L293" target="_blank" rel="noopener">switching defects off changes only the defective pixels</a><br><code>test_switching_defects_off_changes_only_the_defective_pixels</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L319" target="_blank" rel="noopener">a frozen frame is stale in every output</a><br><code>test_a_frozen_frame_is_stale_in_every_output</code></td><td>The FFC holds the corrected plane, so the radiometric branch goes stale with the picture.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L367" target="_blank" rel="noopener">the residual collapses at the ffc</a><br><code>test_the_residual_collapses_at_the_ffc</code></td><td>Across the event ΔT_eff returns to zero, so the residual does too (§11.2).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L398" target="_blank" rel="noopener">the temporal filter is the identity</a><br><code>test_the_temporal_filter_is_the_identity</code></td><td>ADR 0058: §11.1 names a stage it never defines, so it stays an identity until ME.5.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L414" target="_blank" rel="noopener">attaching without a calibration is refused</a><br><code>test_attaching_without_a_calibration_is_refused</code></td><td>ADR 0056's conversion needs the camera's transfer; a photon FPA has none until M11.6.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sensor_chain.py#L423" target="_blank" rel="noopener">the chain is reproducible for a seed</a><br><code>test_the_chain_is_reproducible_for_a_seed</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

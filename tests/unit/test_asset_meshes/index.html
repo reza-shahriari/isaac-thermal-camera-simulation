@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Asset meshes</h1>
   <p class="subtitle">A real asset's triangles as engine-free solvable geometry (AI.2, ADR 0128, ADR 0132).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py" target="_blank" rel="noopener">tests/unit/test_asset_meshes.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py" target="_blank" rel="noopener">tests/unit/test_asset_meshes.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -67,28 +67,28 @@
 <li><strong>a mesh nobody can afford to trace is refused, not run</strong>, because the failure mode it replaces is a scene that never finishes.</li>
 </ul>
 <p>docs/physics-model.md §6.1; ADR 0110, ADR 0128.</p>
-<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py" target="_blank" rel="noopener">tests/unit/test_asset_meshes.py</a>.</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py" target="_blank" rel="noopener">tests/unit/test_asset_meshes.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L45" target="_blank" rel="noopener">the manifest and the arrays agree on area</a><br><code>test_the_manifest_and_the_arrays_agree_on_area</code></td><td>The recorded area is what the prep tool's own gate was applied to.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L51" target="_blank" rel="noopener">a manifest that disagrees with its arrays is refused</a><br><code>test_a_manifest_that_disagrees_with_its_arrays_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L62" target="_blank" rel="noopener">planar dissolve kept the area it decimated</a><br><code>test_planar_dissolve_kept_the_area_it_decimated</code></td><td>Collapse decimation removed 37 % of this asset's area; planar dissolve must remove none.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L74" target="_blank" rel="noopener">no degenerate faces survive</a><br><code>test_no_degenerate_faces_survive</code></td><td>A facet with no area has no normal, and §6.1 balances a facet on its normal.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L82" target="_blank" rel="noopener">grouping is by material because the asset is</a><br><code>test_grouping_is_by_material_because_the_asset_is</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L88" target="_blank" rel="noopener">a missing prim names what is there</a><br><code>test_a_missing_prim_names_what_is_there</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L93" target="_blank" rel="noopener">a missing archive says how to make one</a><br><code>test_a_missing_archive_says_how_to_make_one</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L98" target="_blank" rel="noopener">a face indexing a vertex that does not exist is refused</a><br><code>test_a_face_indexing_a_vertex_that_does_not_exist_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L115" target="_blank" rel="noopener">a mesh names one source or the other</a><br><code>test_a_mesh_names_one_source_or_the_other</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L124" target="_blank" rel="noopener">an asset mesh carries no generated geometry</a><br><code>test_an_asset_mesh_carries_no_generated_geometry</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L133" target="_blank" rel="noopener">building a patch from an asset preserves its area</a><br><code>test_building_a_patch_from_an_asset_preserves_its_area</code></td><td>The solver's geometry is the archive's geometry — nothing rescales on the way in.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L148" target="_blank" rel="noopener">cells never fall below one per face</a><br><code>test_cells_never_fall_below_one_per_face</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L160" target="_blank" rel="noopener">an unaffordable self occlusion trace is refused with both ways out</a><br><code>test_an_unaffordable_self_occlusion_trace_is_refused_with_both_ways_out</code></td><td>Measured: <code>shell_upper</code> is 41,127 cells x 41,103 faces = 1.69e9 ray-triangle tests.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L194" target="_blank" rel="noopener">the guard lets a convex mesh through however big it is</a><br><code>test_the_guard_lets_a_convex_mesh_through_however_big_it_is</code></td><td>Tracing a convex mesh is exact <em>and</em> skippable, so it must never be refused for size.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L240" target="_blank" rel="noopener">solar absorptivity separates two materials on the same imported prim</a><br><code>test_solar_absorptivity_separates_two_materials_on_the_same_imported_prim</code></td><td>The headline result of the asset lane, stated as physics rather than as plumbing.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_meshes.py#L278" target="_blank" rel="noopener">the scene refuses an undecided imported prim</a><br><code>test_the_scene_refuses_an_undecided_imported_prim</code></td><td><code>self_occluding:</code> omitted on a prim over the budget must raise, not silently cost hours.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L45" target="_blank" rel="noopener">the manifest and the arrays agree on area</a><br><code>test_the_manifest_and_the_arrays_agree_on_area</code></td><td>The recorded area is what the prep tool's own gate was applied to.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L51" target="_blank" rel="noopener">a manifest that disagrees with its arrays is refused</a><br><code>test_a_manifest_that_disagrees_with_its_arrays_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L62" target="_blank" rel="noopener">planar dissolve kept the area it decimated</a><br><code>test_planar_dissolve_kept_the_area_it_decimated</code></td><td>Collapse decimation removed 37 % of this asset's area; planar dissolve must remove none.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L74" target="_blank" rel="noopener">no degenerate faces survive</a><br><code>test_no_degenerate_faces_survive</code></td><td>A facet with no area has no normal, and §6.1 balances a facet on its normal.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L82" target="_blank" rel="noopener">grouping is by material because the asset is</a><br><code>test_grouping_is_by_material_because_the_asset_is</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L88" target="_blank" rel="noopener">a missing prim names what is there</a><br><code>test_a_missing_prim_names_what_is_there</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L93" target="_blank" rel="noopener">a missing archive says how to make one</a><br><code>test_a_missing_archive_says_how_to_make_one</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L98" target="_blank" rel="noopener">a face indexing a vertex that does not exist is refused</a><br><code>test_a_face_indexing_a_vertex_that_does_not_exist_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L115" target="_blank" rel="noopener">a mesh names one source or the other</a><br><code>test_a_mesh_names_one_source_or_the_other</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L124" target="_blank" rel="noopener">an asset mesh carries no generated geometry</a><br><code>test_an_asset_mesh_carries_no_generated_geometry</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L133" target="_blank" rel="noopener">building a patch from an asset preserves its area</a><br><code>test_building_a_patch_from_an_asset_preserves_its_area</code></td><td>The solver's geometry is the archive's geometry — nothing rescales on the way in.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L148" target="_blank" rel="noopener">cells never fall below one per face</a><br><code>test_cells_never_fall_below_one_per_face</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L160" target="_blank" rel="noopener">an unaffordable self occlusion trace is refused with both ways out</a><br><code>test_an_unaffordable_self_occlusion_trace_is_refused_with_both_ways_out</code></td><td>Measured: <code>shell_upper</code> is 41,127 cells x 41,103 faces = 1.69e9 ray-triangle tests.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L194" target="_blank" rel="noopener">the guard lets a convex mesh through however big it is</a><br><code>test_the_guard_lets_a_convex_mesh_through_however_big_it_is</code></td><td>Tracing a convex mesh is exact <em>and</em> skippable, so it must never be refused for size.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L240" target="_blank" rel="noopener">solar absorptivity separates two materials on the same imported prim</a><br><code>test_solar_absorptivity_separates_two_materials_on_the_same_imported_prim</code></td><td>The headline result of the asset lane, stated as physics rather than as plumbing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_meshes.py#L278" target="_blank" rel="noopener">the scene refuses an undecided imported prim</a><br><code>test_the_scene_refuses_an_undecided_imported_prim</code></td><td><code>self_occluding:</code> omitted on a prim over the budget must raise, not silently cost hours.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Scene patch spec</h1>
   <p class="subtitle">PT.2 — a point-wise surface is declarable in a scene config, not only in Python.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py" target="_blank" rel="noopener">tests/unit/test_scene_patch_spec.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py" target="_blank" rel="noopener">tests/unit/test_scene_patch_spec.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p><code>SurfaceSpec</code> carried name, material, tilt, azimuth, shaded and vehicle_speed — nothing spatial. The only point-wise scene that existed was <code>irsim_isaac.car_demo</code>, which hand-wrote its bonnet and road patches, and <code>surface_fields=</code> was passed at exactly one call site. So the owner's own bar for a lane — "a scene config plus one command produces frames" — was unmeetable for any <em>new</em> point-wise scene, which is the requirement point-wise temperature exists to serve.</p>
 <p>Schema v7 adds a <code>patch:</code> block. The tests that carry weight are the two that would catch a transcription error: the car demo's hand-built patches must come back from a declaration with <strong>bit-identical cell centres</strong>, and a field solved on each must agree <strong>bit-identically after 1500 s</strong> — because a patch that is nearly right produces a plausible gradient, which is the failure mode this whole lane is about.</p>
 <p>docs/physics-model.md §6.1, §12.3; ADR 0087; roadmap PT.2.</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py" target="_blank" rel="noopener">tests/unit/test_scene_patch_spec.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py" target="_blank" rel="noopener">tests/unit/test_scene_patch_spec.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L70" target="_blank" rel="noopener">a declared patch reproduces the hand built one</a><span class="tag">parametrize</span><br><code>test_a_declared_patch_reproduces_the_hand_built_one</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L90" target="_blank" rel="noopener">the field on a declared patch agrees after 1500 seconds</a><span class="tag">parametrize</span><br><code>test_the_field_on_a_declared_patch_agrees_after_1500_seconds</code></td><td>Grid equality is the premise; this is the consequence anyone would actually notice.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L112" target="_blank" rel="noopener">axes that are not perpendicular are refused</a><br><code>test_axes_that_are_not_perpendicular_are_refused</code></td><td>At load, not at render: a scene that cannot be solved should not reach a Kit session.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L130" target="_blank" rel="noopener">a degenerate patch is refused</a><span class="tag">parametrize</span><br><code>test_a_degenerate_patch_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L145" target="_blank" rel="noopener">a zero length axis is refused</a><br><code>test_a_zero_length_axis_is_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L161" target="_blank" rel="noopener">the block is optional and the version moved</a><br><code>test_the_block_is_optional_and_the_version_moved</code></td><td>Every v4-v6 scene must load and solve unchanged; <code>patch:</code> is additive.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L176" target="_blank" rel="noopener">a patch carries its frame and prim binding</a><br><code>test_a_patch_carries_its_frame_and_prim_binding</code></td><td><code>frame</code> is a name the bridge checks; <code>prim_path</code> is what reaches a pixel.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L234" target="_blank" rel="noopener">a patch block round trips through yaml</a><br><code>test_a_patch_block_round_trips_through_yaml</code></td><td>The claim in one assertion: a scene <em>file</em> can declare a point-wise surface.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L250" target="_blank" rel="noopener">a scene exposes its patches by surface name</a><br><code>test_a_scene_exposes_its_patches_by_surface_name</code></td><td><code>Scene.patches</code> is what a render driver reads instead of hand-building a grid.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_patch_spec.py#L262" target="_blank" rel="noopener">a scene without patches exposes none</a><br><code>test_a_scene_without_patches_exposes_none</code></td><td>Every scene before v7, and every v7 scene that does not want a field.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L70" target="_blank" rel="noopener">a declared patch reproduces the hand built one</a><span class="tag">parametrize</span><br><code>test_a_declared_patch_reproduces_the_hand_built_one</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L90" target="_blank" rel="noopener">the field on a declared patch agrees after 1500 seconds</a><span class="tag">parametrize</span><br><code>test_the_field_on_a_declared_patch_agrees_after_1500_seconds</code></td><td>Grid equality is the premise; this is the consequence anyone would actually notice.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L112" target="_blank" rel="noopener">axes that are not perpendicular are refused</a><br><code>test_axes_that_are_not_perpendicular_are_refused</code></td><td>At load, not at render: a scene that cannot be solved should not reach a Kit session.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L130" target="_blank" rel="noopener">a degenerate patch is refused</a><span class="tag">parametrize</span><br><code>test_a_degenerate_patch_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L145" target="_blank" rel="noopener">a zero length axis is refused</a><br><code>test_a_zero_length_axis_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L161" target="_blank" rel="noopener">the block is optional and the version moved</a><br><code>test_the_block_is_optional_and_the_version_moved</code></td><td>Every v4-v6 scene must load and solve unchanged; <code>patch:</code> is additive.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L176" target="_blank" rel="noopener">a patch carries its frame and prim binding</a><br><code>test_a_patch_carries_its_frame_and_prim_binding</code></td><td><code>frame</code> is a name the bridge checks; <code>prim_path</code> is what reaches a pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L234" target="_blank" rel="noopener">a patch block round trips through yaml</a><br><code>test_a_patch_block_round_trips_through_yaml</code></td><td>The claim in one assertion: a scene <em>file</em> can declare a point-wise surface.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L250" target="_blank" rel="noopener">a scene exposes its patches by surface name</a><br><code>test_a_scene_exposes_its_patches_by_surface_name</code></td><td><code>Scene.patches</code> is what a render driver reads instead of hand-building a grid.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_patch_spec.py#L262" target="_blank" rel="noopener">a scene without patches exposes none</a><br><code>test_a_scene_without_patches_exposes_none</code></td><td>Every scene before v7, and every v7 scene that does not want a field.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,27 +55,27 @@
 <div class="page-head">
   <h1>Shutter signature</h1>
   <p class="subtitle">Reading the shutter off the frames (ME.3a, ADR 0068).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py" target="_blank" rel="noopener">tests/unit/test_shutter_signature.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py" target="_blank" rel="noopener">tests/unit/test_shutter_signature.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Two things a public 8-bit clip can still say about the sensor: when its shutter closed, and what grew between those events. Each test here is built so that the obvious wrong implementation fails it -- a freeze detector that counts repeated frames without asking whether the fixed pattern changed calls a stalled recorder an FFC, and a growth fit that puts the factor of two in the amplitude instead of the variance reports twice the true correlation time and looks fine.</p>
 <p>The generators are the project's own <code>FfcController</code> and <code>ou_step</code>, written for the physics and not for this test.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py" target="_blank" rel="noopener">tests/unit/test_shutter_signature.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py" target="_blank" rel="noopener">tests/unit/test_shutter_signature.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L78" target="_blank" rel="noopener">the boson schedule is recovered exactly</a><br><code>test_the_boson_schedule_is_recovered_exactly</code></td><td>42-frame freezes every 10 800 frames: the numbers M9.7 pins, read back off the video.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L94" target="_blank" rel="noopener">a stalled recorder is not a shutter</a><br><code>test_a_stalled_recorder_is_not_a_shutter</code></td><td>The discriminator the row exists for: repeated frames alone are not an FFC.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L112" target="_blank" rel="noopener">the controller and the detector agree frame for frame</a><br><code>test_the_controller_and_the_detector_agree_frame_for_frame</code></td><td>The real <code>process</code> loop in the loop, so the stamped clips above are not marking their own homework: what the camera emits is what the detector reads back.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L135" target="_blank" rel="noopener">a ten second clip may not report an interval</a><br><code>test_a_ten_second_clip_may_not_report_an_interval</code></td><td>Halmstad's clips are 10 s and the Boson's schedule is 300 s (ME.1a's index, [R24] S5).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L147" target="_blank" rel="noopener">freeze length survives a codec round trip and refuses when it cannot</a><span class="tag">slow</span><br><code>test_freeze_length_survives_a_codec_round_trip_and_refuses_when_it_cannot</code></td><td>Both halves of what a codec does to this statistic.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L172" target="_blank" rel="noopener">the residual grows from zero and the factor of two is in the variance</a><br><code>test_the_residual_grows_from_zero_and_the_factor_of_two_is_in_the_variance</code></td><td>An OU column pattern recalibrated to zero at each shutter, recovered to better than 15 %.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L203" target="_blank" rel="noopener">a pattern that never recalibrates shows no growth</a><br><code>test_a_pattern_that_never_recalibrates_shows_no_growth</code></td><td>The control: a stationary pattern with no shutter has a floor and nothing to fit.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L213" target="_blank" rel="noopener">line means average the white noise down and keep the stripes</a><br><code>test_line_means_average_the_white_noise_down_and_keep_the_stripes</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_shutter_signature.py#L224" target="_blank" rel="noopener">inputs are checked</a><br><code>test_inputs_are_checked</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L78" target="_blank" rel="noopener">the boson schedule is recovered exactly</a><br><code>test_the_boson_schedule_is_recovered_exactly</code></td><td>42-frame freezes every 10 800 frames: the numbers M9.7 pins, read back off the video.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L94" target="_blank" rel="noopener">a stalled recorder is not a shutter</a><br><code>test_a_stalled_recorder_is_not_a_shutter</code></td><td>The discriminator the row exists for: repeated frames alone are not an FFC.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L112" target="_blank" rel="noopener">the controller and the detector agree frame for frame</a><br><code>test_the_controller_and_the_detector_agree_frame_for_frame</code></td><td>The real <code>process</code> loop in the loop, so the stamped clips above are not marking their own homework: what the camera emits is what the detector reads back.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L135" target="_blank" rel="noopener">a ten second clip may not report an interval</a><br><code>test_a_ten_second_clip_may_not_report_an_interval</code></td><td>Halmstad's clips are 10 s and the Boson's schedule is 300 s (ME.1a's index, [R24] S5).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L147" target="_blank" rel="noopener">freeze length survives a codec round trip and refuses when it cannot</a><span class="tag">slow</span><br><code>test_freeze_length_survives_a_codec_round_trip_and_refuses_when_it_cannot</code></td><td>Both halves of what a codec does to this statistic.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L172" target="_blank" rel="noopener">the residual grows from zero and the factor of two is in the variance</a><br><code>test_the_residual_grows_from_zero_and_the_factor_of_two_is_in_the_variance</code></td><td>An OU column pattern recalibrated to zero at each shutter, recovered to better than 15 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L203" target="_blank" rel="noopener">a pattern that never recalibrates shows no growth</a><br><code>test_a_pattern_that_never_recalibrates_shows_no_growth</code></td><td>The control: a stationary pattern with no shutter has a floor and nothing to fit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L213" target="_blank" rel="noopener">line means average the white noise down and keep the stripes</a><br><code>test_line_means_average_the_white_noise_down_and_keep_the_stripes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_shutter_signature.py#L224" target="_blank" rel="noopener">inputs are checked</a><br><code>test_inputs_are_checked</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

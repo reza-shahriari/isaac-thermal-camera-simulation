@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Config loader</h1>
   <p class="subtitle">Loader, data-root resolution and the two hashes (ADR 0008).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py" target="_blank" rel="noopener">tests/unit/test_config_loader.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py" target="_blank" rel="noopener">tests/unit/test_config_loader.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The hash tests are the important ones: a field the hash ignores is a field whose change would silently reuse a stale LUT or golden. So every numeric leaf is perturbed and every enumerated leaf flipped, and the hash must move each time.</p>
-<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py" target="_blank" rel="noopener">tests/unit/test_config_loader.py</a>.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py" target="_blank" rel="noopener">tests/unit/test_config_loader.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L58" target="_blank" rel="noopener">loads repo yaml and resolves path</a><br><code>test_loads_repo_yaml_and_resolves_path</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L64" target="_blank" rel="noopener">missing spectral file errors naming path</a><br><code>test_missing_spectral_file_errors_naming_path</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L71" target="_blank" rel="noopener">repo yaml loads against the default data root</a><br><code>test_repo_yaml_loads_against_the_default_data_root</code></td><td>The committed YAML resolves to data/spectra/responses/boson_vox.csv (authored in M1.3).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L78" target="_blank" rel="noopener">data dir precedence</a><br><code>test_data_dir_precedence</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L90" target="_blank" rel="noopener">top level sensor block required</a><br><code>test_top_level_sensor_block_required</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L95" target="_blank" rel="noopener">hash invariant to comments whitespace key order</a><br><code>test_hash_invariant_to_comments_whitespace_key_order</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L144" target="_blank" rel="noopener">hash changes for every numeric leaf</a><span class="tag">parametrize</span><br><code>test_hash_changes_for_every_numeric_leaf</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L173" target="_blank" rel="noopener">hash changes for enumerated leaves</a><span class="tag">parametrize</span><br><code>test_hash_changes_for_enumerated_leaves</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L192" target="_blank" rel="noopener">band hash ignores non band fields and tracks spectral bytes</a><br><code>test_band_hash_ignores_non_band_fields_and_tracks_spectral_bytes</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L211" target="_blank" rel="noopener">round trip load dump load</a><br><code>test_round_trip_load_dump_load</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L227" target="_blank" rel="noopener">overriding the integration time lands and moves the config hash</a><br><code>test_overriding_the_integration_time_lands_and_moves_the_config_hash</code></td><td>Two exposures are two cameras, and the hash has to say so.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_config_loader.py#L250" target="_blank" rel="noopener">a bolometer is refused an exposure rather than given a meaningless one</a><br><code>test_a_bolometer_is_refused_an_exposure_rather_than_given_a_meaningless_one</code></td><td>§8.2: a microbolometer's responsivity is thermal. There is no integration time to set.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L58" target="_blank" rel="noopener">loads repo yaml and resolves path</a><br><code>test_loads_repo_yaml_and_resolves_path</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L64" target="_blank" rel="noopener">missing spectral file errors naming path</a><br><code>test_missing_spectral_file_errors_naming_path</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L71" target="_blank" rel="noopener">repo yaml loads against the default data root</a><br><code>test_repo_yaml_loads_against_the_default_data_root</code></td><td>The committed YAML resolves to data/spectra/responses/boson_vox.csv (authored in M1.3).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L78" target="_blank" rel="noopener">data dir precedence</a><br><code>test_data_dir_precedence</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L90" target="_blank" rel="noopener">top level sensor block required</a><br><code>test_top_level_sensor_block_required</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L95" target="_blank" rel="noopener">hash invariant to comments whitespace key order</a><br><code>test_hash_invariant_to_comments_whitespace_key_order</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L144" target="_blank" rel="noopener">hash changes for every numeric leaf</a><span class="tag">parametrize</span><br><code>test_hash_changes_for_every_numeric_leaf</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L173" target="_blank" rel="noopener">hash changes for enumerated leaves</a><span class="tag">parametrize</span><br><code>test_hash_changes_for_enumerated_leaves</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L192" target="_blank" rel="noopener">band hash ignores non band fields and tracks spectral bytes</a><br><code>test_band_hash_ignores_non_band_fields_and_tracks_spectral_bytes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L211" target="_blank" rel="noopener">round trip load dump load</a><br><code>test_round_trip_load_dump_load</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L227" target="_blank" rel="noopener">overriding the integration time lands and moves the config hash</a><br><code>test_overriding_the_integration_time_lands_and_moves_the_config_hash</code></td><td>Two exposures are two cameras, and the hash has to say so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_config_loader.py#L250" target="_blank" rel="noopener">a bolometer is refused an exposure rather than given a meaningless one</a><br><code>test_a_bolometer_is_refused_an_exposure_rather_than_given_a_meaningless_one</code></td><td>§8.2: a microbolometer's responsivity is thermal. There is no integration time to set.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

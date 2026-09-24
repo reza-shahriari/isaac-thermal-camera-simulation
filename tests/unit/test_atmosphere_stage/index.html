@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,22 +55,22 @@
 <div class="page-head">
   <h1>Atmosphere stage</h1>
   <p class="subtitle">Stage 2 on the G-buffer (M8.6): the §3.3 known answer through the whole chain, isothermal invariance at 10 m and 5 km, vectorised == scalar loop, sky pixels bit-identical, float16 refused, the constant-tau fallback, and identity without an Atmosphere.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_stage.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_stage.py on GitHub</a>
 </div>
 
 <article class="prose">
-<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_stage.py</a>.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_stage.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py#L83" target="_blank" rel="noopener">known answer through the whole chain</a><br><code>test_known_answer_through_the_whole_chain</code></td><td>310 K blackbody, T_air 290 K, tau = 0.8, 8-12 um -&gt; T_app = 306.303 K within 1 mK (roadmap M8.6), cross-checked by bisection on the closed-form band radiance.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py#L101" target="_blank" rel="noopener">isothermal gbuffer reads t air</a><span class="tag">parametrize</span><br><code>test_isothermal_gbuffer_reads_t_air</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py#L112" target="_blank" rel="noopener">vectorised equals scalar loop and float16 refused</a><br><code>test_vectorised_equals_scalar_loop_and_float16_refused</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py#L128" target="_blank" rel="noopener">sky pixels bit identical</a><br><code>test_sky_pixels_bit_identical</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py#L156" target="_blank" rel="noopener">tau override is distance independent</a><br><code>test_tau_override_is_distance_independent</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_stage.py#L169" target="_blank" rel="noopener">stage function and identity without atmosphere</a><br><code>test_stage_function_and_identity_without_atmosphere</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py#L83" target="_blank" rel="noopener">known answer through the whole chain</a><br><code>test_known_answer_through_the_whole_chain</code></td><td>310 K blackbody, T_air 290 K, tau = 0.8, 8-12 um -&gt; T_app = 306.303 K within 1 mK (roadmap M8.6), cross-checked by bisection on the closed-form band radiance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py#L101" target="_blank" rel="noopener">isothermal gbuffer reads t air</a><span class="tag">parametrize</span><br><code>test_isothermal_gbuffer_reads_t_air</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py#L112" target="_blank" rel="noopener">vectorised equals scalar loop and float16 refused</a><br><code>test_vectorised_equals_scalar_loop_and_float16_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py#L128" target="_blank" rel="noopener">sky pixels bit identical</a><br><code>test_sky_pixels_bit_identical</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py#L156" target="_blank" rel="noopener">tau override is distance independent</a><br><code>test_tau_override_is_distance_independent</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_atmosphere_stage.py#L169" target="_blank" rel="noopener">stage function and identity without atmosphere</a><br><code>test_stage_function_and_identity_without_atmosphere</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

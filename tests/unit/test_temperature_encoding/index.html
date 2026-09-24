@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,26 +55,26 @@
 <div class="page-head">
   <h1>Temperature encoding</h1>
   <p class="subtitle">Non-negotiable #2 at the encode/decode boundary (docs/physics-model.md §13.3, §15 Tier 1).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py" target="_blank" rel="noopener">tests/unit/test_temperature_encoding.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py" target="_blank" rel="noopener">tests/unit/test_temperature_encoding.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The positive test alone proves nothing -- a round trip through <em>any</em> dtype "passes" if the tolerance is loose enough. The negative controls establish that the same measurement detects the failure mode it exists for: raw kelvin, or even encoded c, forced through float16 lands far outside 10 mK. If a negative control ever passes the 10 mK bound, the round-trip test has lost its sensitivity and must be redesigned before anything else is touched.</p>
-<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py" target="_blank" rel="noopener">tests/unit/test_temperature_encoding.py</a>.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py" target="_blank" rel="noopener">tests/unit/test_temperature_encoding.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L38" target="_blank" rel="noopener">constants are the spec values</a><br><code>test_constants_are_the_spec_values</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L46" target="_blank" rel="noopener">fp32 round trip under 10mK</a><br><code>test_fp32_round_trip_under_10mK</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L58" target="_blank" rel="noopener">negative control raw kelvin through fp16</a><br><code>test_negative_control_raw_kelvin_through_fp16</code></td><td>Raw temperature through an fp16 buffer: &gt;= 0.1 K error at 300 K (0.25 K spacing, §3.2).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L66" target="_blank" rel="noopener">negative control encoded c through fp16</a><br><code>test_negative_control_encoded_c_through_fp16</code></td><td>Encoding does not rescue fp16: &gt;= 40 mK at 300 K and &gt;= 150 mK over 800-1000 K.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L85" target="_blank" rel="noopener">float16 input raises</a><span class="tag">parametrize</span><br><code>test_float16_input_raises</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L91" target="_blank" rel="noopener">integer unorm input raises</a><span class="tag">parametrize</span><br><code>test_integer_unorm_input_raises</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L98" target="_blank" rel="noopener">float64 input accepted and output is float32</a><br><code>test_float64_input_accepted_and_output_is_float32</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L103" target="_blank" rel="noopener">fp16 pair codec round trip under 10mK</a><br><code>test_fp16_pair_codec_round_trip_under_10mK</code></td><td>The §13.3 fallback. Channels are genuinely fp16; the pair still lands under 10 mK, while a single fp16 channel of the same c fails the bound (previous negative control).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_temperature_encoding.py#L118" target="_blank" rel="noopener">fp16 pair clamps outside range</a><br><code>test_fp16_pair_clamps_outside_range</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L38" target="_blank" rel="noopener">constants are the spec values</a><br><code>test_constants_are_the_spec_values</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L46" target="_blank" rel="noopener">fp32 round trip under 10mK</a><br><code>test_fp32_round_trip_under_10mK</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L58" target="_blank" rel="noopener">negative control raw kelvin through fp16</a><br><code>test_negative_control_raw_kelvin_through_fp16</code></td><td>Raw temperature through an fp16 buffer: &gt;= 0.1 K error at 300 K (0.25 K spacing, §3.2).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L66" target="_blank" rel="noopener">negative control encoded c through fp16</a><br><code>test_negative_control_encoded_c_through_fp16</code></td><td>Encoding does not rescue fp16: &gt;= 40 mK at 300 K and &gt;= 150 mK over 800-1000 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L85" target="_blank" rel="noopener">float16 input raises</a><span class="tag">parametrize</span><br><code>test_float16_input_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L91" target="_blank" rel="noopener">integer unorm input raises</a><span class="tag">parametrize</span><br><code>test_integer_unorm_input_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L98" target="_blank" rel="noopener">float64 input accepted and output is float32</a><br><code>test_float64_input_accepted_and_output_is_float32</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L103" target="_blank" rel="noopener">fp16 pair codec round trip under 10mK</a><br><code>test_fp16_pair_codec_round_trip_under_10mK</code></td><td>The §13.3 fallback. Channels are genuinely fp16; the pair still lands under 10 mK, while a single fp16 channel of the same c fails the bound (previous negative control).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_temperature_encoding.py#L118" target="_blank" rel="noopener">fp16 pair clamps outside range</a><br><code>test_fp16_pair_clamps_outside_range</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

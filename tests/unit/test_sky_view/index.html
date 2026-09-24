@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,23 +55,23 @@
 <div class="page-head">
   <h1>Sky view</h1>
   <p class="subtitle">PT.21 — per-cell sky view factor and diffuse shadowing.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py" target="_blank" rel="noopener">tests/unit/test_sky_view.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py" target="_blank" rel="noopener">tests/unit/test_sky_view.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The 145-patch dome, gated by the same ray-rectangle test the beam uses, is held to three analytic anchors within 0.01 -- open sky 1.000, the foot of an infinite wall 0.5, under an infinite overhang 0.5 -- and to the phenomenon it exists for: two identical cells at SVF 0.2 and 0.9 under one weather file swing with a diurnal-amplitude ratio near 2 (a hot-dry-climate study: 1.97 against 4.21 °C), and a factor applied to the solar term alone cannot reproduce it.</p>
 <p>docs/physics-model.md §5.4, §6.1; ADR 0095, ADR 0104; roadmap PT.21.</p>
-<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py" target="_blank" rel="noopener">tests/unit/test_sky_view.py</a>.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py" target="_blank" rel="noopener">tests/unit/test_sky_view.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L54" target="_blank" rel="noopener">the dome has 145 patches that tile the hemisphere</a><br><code>test_the_dome_has_145_patches_that_tile_the_hemisphere</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L69" target="_blank" rel="noopener">the analytic anchors hold within 0 01</a><br><code>test_the_analytic_anchors_hold_within_0_01</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L99" target="_blank" rel="noopener">a tilted open cell keeps its tilt s factor exactly and a downward one sees nothing</a><br><code>test_a_tilted_open_cell_keeps_its_tilt_s_factor_exactly_and_a_downward_one_sees_nothing</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L121" target="_blank" rel="noopener">cells at svf 0 2 and 0 9 swing less and keep their night warmth</a><span class="tag">slow</span><br><code>test_cells_at_svf_0_2_and_0_9_swing_less_and_keep_their_night_warmth</code></td><td>Two identical shaded asphalt cells under one weather file, one seeing a fifth of the sky and one nine tenths. The roadmap's anchor is a hot-dry-climate passage swinging 1.97 °C against 4.21 °C in the open (ratio near 2); with the hidden hemisphere at the <em>scene's one</em> air temperature the swing cannot fall below the air's own 12 K, and the measured ratio is 1.25 (11.9 K against 14.9 K). What the factor does get -- and what a factor on the solar term alone cannot -- is the night: the enclosed cell loses less to the sky and stays 3.2 K warmer at its minimum, where the solar-only control leaves the two minima within 0.05 K.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L165" target="_blank" rel="noopener">the scene gives cells their own sky and open cells the tilt s factor</a><span class="tag">slow</span><br><code>test_the_scene_gives_cells_their_own_sky_and_open_cells_the_tilt_s_factor</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py#L54" target="_blank" rel="noopener">the dome has 145 patches that tile the hemisphere</a><br><code>test_the_dome_has_145_patches_that_tile_the_hemisphere</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py#L69" target="_blank" rel="noopener">the analytic anchors hold within 0 01</a><br><code>test_the_analytic_anchors_hold_within_0_01</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py#L99" target="_blank" rel="noopener">a tilted open cell keeps its tilt s factor exactly and a downward one sees nothing</a><br><code>test_a_tilted_open_cell_keeps_its_tilt_s_factor_exactly_and_a_downward_one_sees_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py#L121" target="_blank" rel="noopener">cells at svf 0 2 and 0 9 swing less and keep their night warmth</a><span class="tag">slow</span><br><code>test_cells_at_svf_0_2_and_0_9_swing_less_and_keep_their_night_warmth</code></td><td>Two identical shaded asphalt cells under one weather file, one seeing a fifth of the sky and one nine tenths. The roadmap's anchor is a hot-dry-climate passage swinging 1.97 °C against 4.21 °C in the open (ratio near 2); with the hidden hemisphere at the <em>scene's one</em> air temperature the swing cannot fall below the air's own 12 K, and the measured ratio is 1.25 (11.9 K against 14.9 K). What the factor does get -- and what a factor on the solar term alone cannot -- is the night: the enclosed cell loses less to the sky and stays 3.2 K warmer at its minimum, where the solar-only control leaves the two minima within 0.05 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sky_view.py#L165" target="_blank" rel="noopener">the scene gives cells their own sky and open cells the tilt s factor</a><span class="tag">slow</span><br><code>test_the_scene_gives_cells_their_own_sky_and_open_cells_the_tilt_s_factor</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

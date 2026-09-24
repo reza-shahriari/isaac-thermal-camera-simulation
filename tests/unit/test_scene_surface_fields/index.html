@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,29 +55,29 @@
 <div class="page-head">
   <h1>Scene surface fields</h1>
   <p class="subtitle">PT.17 — a `patch:` block in a scene config buys a solved field, not just a grid.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py" target="_blank" rel="noopener">tests/unit/test_scene_surface_fields.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py" target="_blank" rel="noopener">tests/unit/test_scene_surface_fields.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>Until this step a patched surface was still solved as <strong>one facet</strong>: <code>_build_thermal_field</code> stacked one <code>ThermalProperties</code> per <code>SurfaceSpec</code> and never read <code>surface.patch</code>, <code>Scene.patches</code> held geometry nobody consumed, and the only per-cell temperatures in the repository were built by <code>car_demo.py</code> in Python. The docstrings said otherwise. This file is what makes them true.</p>
 <p>The acceptance is deliberately an <em>identity</em>. With nothing varying across the surface the cells must reproduce the per-prim value, and because <code>CellForcing</code> broadcasts the very numbers the per-prim solve uses, the two are held to <strong>bit-identity</strong>, not to a tolerance: a field that changed a surface's temperature merely by existing would be the quiet failure ADR 0087 warns about, and one millikelvin of drift would hide inside any tolerance a camera could justify.</p>
 <p>docs/physics-model.md §6.1, §6.4, §12.3; ADR 0087</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py" target="_blank" rel="noopener">tests/unit/test_scene_surface_fields.py</a>.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py" target="_blank" rel="noopener">tests/unit/test_scene_surface_fields.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L74" target="_blank" rel="noopener">a patched surface becomes a field of its own cells</a><br><code>test_a_patched_surface_becomes_a_field_of_its_own_cells</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L84" target="_blank" rel="noopener">the field starts from the spun up prim and not from the air</a><br><code>test_the_field_starts_from_the_spun_up_prim_and_not_from_the_air</code></td><td>M6.10's point, carried over: frame 0 is the state the weather implies, per cell.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L93" target="_blank" rel="noopener">uniform forcing is a pure redistribution</a><br><code>test_uniform_forcing_is_a_pure_redistribution</code></td><td>The identity this step is checked by: nothing varies, so nothing may differ.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L108" target="_blank" rel="noopener">a query never advances the field</a><br><code>test_a_query_never_advances_the_field</code></td><td>The rule <code>ThermalField</code> was built on, re-asserted where a renderer will ask many times.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L122" target="_blank" rel="noopener">surface bindings pair each field with its prim</a><br><code>test_surface_bindings_pair_each_field_with_its_prim</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L127" target="_blank" rel="noopener">a patch without a prim is solved but never bound</a><br><code>test_a_patch_without_a_prim_is_solved_but_never_bound</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L136" target="_blank" rel="noopener">the field is a weather consumer the one weather guard sees</a><br><code>test_the_field_is_a_weather_consumer_the_one_weather_guard_sees</code></td><td>CLAUDE.md #6, enforced at the object rather than by review.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L142" target="_blank" rel="noopener">a scene without patches has no fields</a><br><code>test_a_scene_without_patches_has_no_fields</code></td><td>Every scene before v7, and every v7 scene that does not want a field: bit-identical path.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L150" target="_blank" rel="noopener">an unknown material fails at load naming the surface</a><br><code>test_an_unknown_material_fails_at_load_naming_the_surface</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_surface_fields.py#L159" target="_blank" rel="noopener">the committed car scenes declare bonnet and road</a><span class="tag">parametrize</span><br><code>test_the_committed_car_scenes_declare_bonnet_and_road</code></td><td>The owner's bar: the config, not a Python driver, says where the fields are.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L74" target="_blank" rel="noopener">a patched surface becomes a field of its own cells</a><br><code>test_a_patched_surface_becomes_a_field_of_its_own_cells</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L84" target="_blank" rel="noopener">the field starts from the spun up prim and not from the air</a><br><code>test_the_field_starts_from_the_spun_up_prim_and_not_from_the_air</code></td><td>M6.10's point, carried over: frame 0 is the state the weather implies, per cell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L93" target="_blank" rel="noopener">uniform forcing is a pure redistribution</a><br><code>test_uniform_forcing_is_a_pure_redistribution</code></td><td>The identity this step is checked by: nothing varies, so nothing may differ.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L108" target="_blank" rel="noopener">a query never advances the field</a><br><code>test_a_query_never_advances_the_field</code></td><td>The rule <code>ThermalField</code> was built on, re-asserted where a renderer will ask many times.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L122" target="_blank" rel="noopener">surface bindings pair each field with its prim</a><br><code>test_surface_bindings_pair_each_field_with_its_prim</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L127" target="_blank" rel="noopener">a patch without a prim is solved but never bound</a><br><code>test_a_patch_without_a_prim_is_solved_but_never_bound</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L136" target="_blank" rel="noopener">the field is a weather consumer the one weather guard sees</a><br><code>test_the_field_is_a_weather_consumer_the_one_weather_guard_sees</code></td><td>CLAUDE.md #6, enforced at the object rather than by review.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L142" target="_blank" rel="noopener">a scene without patches has no fields</a><br><code>test_a_scene_without_patches_has_no_fields</code></td><td>Every scene before v7, and every v7 scene that does not want a field: bit-identical path.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L150" target="_blank" rel="noopener">an unknown material fails at load naming the surface</a><br><code>test_an_unknown_material_fails_at_load_naming_the_surface</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_scene_surface_fields.py#L159" target="_blank" rel="noopener">the committed car scenes declare bonnet and road</a><span class="tag">parametrize</span><br><code>test_the_committed_car_scenes_declare_bonnet_and_road</code></td><td>The owner's bar: the config, not a Python driver, says where the fields are.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

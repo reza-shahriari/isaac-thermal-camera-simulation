@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Status</h1>
   <p class="subtitle">The subsystem status table: what is implemented, what it is verified against, and what is not.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/README.md" target="_blank" rel="noopener">README.md on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/README.md" target="_blank" rel="noopener">README.md on GitHub</a>
 </div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#status">Status</a></li>
 <li class="toc-2"><a href="#quick-start">Quick start</a></li>
@@ -68,7 +68,7 @@
 <p><strong>Physics specification:</strong> <a href="../physics/"><code>docs/physics-model.md</code></a> — the source of truth for every equation here. Code cites it by section.</p>
 <p><strong>Spec issues:</strong> <a href="../spec-issues/"><code>docs/spec-issues.md</code></a> — contradictions found in the spec, with the resolution the code assumes and what has been applied; raise new ones there, never diverge silently.</p>
 <p><strong>Next step:</strong> <code>make next</code>, or the <strong>Do next</strong> block at the top of <a href="../roadmap/"><code>docs/roadmap.md</code></a> — generated, so it cannot go stale; <code>make check</code> fails if it does.</p>
-<p><strong>Plan:</strong> <a href="../roadmap/"><code>docs/roadmap.md</code></a> — milestones, one-commit steps, risks, ADR backlog. Revision 6 (2026-09-20) puts the physics the owner's requirements need first, in phase P: per-point surface temperature reachable from a scene config, heat moving between parts, water and fire. The scene lanes then follow the owner's order — aerial (validated against public anti-UAV thermal video), maritime, ground (ADR 0003). The evidence behind the plan is in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/research" target="_blank" rel="noopener"><code>docs/research/</code></a>, most recently the <a href="../research/2026-09-18-thermal-coupling-survey/">2026-09-18 thermal coupling survey</a>.</p>
+<p><strong>Plan:</strong> <a href="../roadmap/"><code>docs/roadmap.md</code></a> — milestones, one-commit steps, risks, ADR backlog. Revision 6 (2026-09-20) puts the physics the owner's requirements need first, in phase P: per-point surface temperature reachable from a scene config, heat moving between parts, water and fire. The scene lanes then follow the owner's order — aerial (validated against public anti-UAV thermal video), maritime, ground (ADR 0003). The evidence behind the plan is in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/research" target="_blank" rel="noopener"><code>docs/research/</code></a>, most recently the <a href="../research/2026-09-18-thermal-coupling-survey/">2026-09-18 thermal coupling survey</a>.</p>
 <p><strong>Project site:</strong> <code>make site</code> builds a browsable copy of all of this — the specification, the plan, the decision log, the validation reports, <strong>every test in the repository with what it asserts</strong>, the module, configuration and command catalogues measured from the tree at build time, the working-practice skills, and a web-sized gallery of what the simulator has actually rendered — into the gitignored <code>_site/</code>. <code>make site-preview</code> serves it locally; <code>make site-publish</code> commits it onto the <code>gh-pages</code> branch and prints the push command (ADR 0139). The renders it shows come from <code>outputs/</code>, which is not in git: anything the checkout lacks is listed on the page rather than quietly omitted.</p>
 <hr>
 <h2 id="status">Status<a class="anchor" href="#status" aria-label="permalink">#</a></h2>
@@ -254,7 +254,7 @@ git commit -m ...</code></pre>
 <p>Snapshot late and stage promptly: the snapshot is the only record of what the file looked like before you touched it, so an <em>uncommitted</em> edit someone makes inside that window is attributed to you. <code>make stage</code> prints the hunks it staged for exactly that reason, and refuses (with an explanation) if the result still isn't safe to commit. The same refusal runs as a pre-commit hook (<code>.pre-commit-config.yaml</code>; install once with <code>pre-commit install</code>), so a plain <code>git add</code> on one of these three files is caught even if <code>make stage</code> is skipped. Also remember <code>make check</code> lints and type-checks the whole tree, so an uncommitted error in your files turns everyone's gate red.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,7 +55,7 @@
 <div class="page-head">
   <h1>Directional kernel</h1>
   <p class="subtitle">M7.14 — ε(θ) per pixel in stage 1, and the limb darkening it produces (§4.2, §13.5).</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py" target="_blank" rel="noopener">tests/unit/test_directional_kernel.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py" target="_blank" rel="noopener">tests/unit/test_directional_kernel.py on GitHub</a>
 </div>
 
 <article class="prose">
@@ -65,20 +65,20 @@
 <p>The prediction is <strong>differential</strong>, against the same scene rendered at ε₀, and that matters: under a 220 K sky an ε = 0.90 surface at 300 K already reads <strong>294.7 K</strong> everywhere, from M7.13's reflected term alone. Measuring the limb against the <em>kinetic</em> temperature would report a 5.3 K error that has nothing to do with the angular model and would drown the ~7 K that does.</p>
 <p>The directional path is <strong>opt-in by packing</strong>: stage 1 uses it only when the material table carries an angle LUT (M7.10), so every scene and every golden written before this is bit-identical.</p>
 <p>docs/physics-model.md §4.2, §13.5, §16.4 step 7; ADR 0042</p>
-<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py" target="_blank" rel="noopener">tests/unit/test_directional_kernel.py</a>.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py" target="_blank" rel="noopener">tests/unit/test_directional_kernel.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L71" target="_blank" rel="noopener">normal incidence gives epsilon zero exactly</a><br><code>test_normal_incidence_gives_epsilon_zero_exactly</code></td><td>n·v = 1 must return the authored band value, to 1e-12 in radiance.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L83" target="_blank" rel="noopener">the directional path is opt in by packing</a><br><code>test_the_directional_path_is_opt_in_by_packing</code></td><td>A table without an angle LUT ignores <code>normal_dot_view</code> entirely — bit for bit.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L101" target="_blank" rel="noopener">closure holds at every angle</a><br><code>test_closure_holds_at_every_angle</code></td><td>ρ is re-derived at each angle, never carried: ε(θ) moves and τ does not, so ρ must absorb the difference or the pixel stops conserving energy the moment the surface tilts.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L113" target="_blank" rel="noopener">the sky mask still reads as a blackbody</a><br><code>test_the_sky_mask_still_reads_as_a_blackbody</code></td><td>A sky pixel carries an <em>apparent</em> temperature — a radiance dressed as a temperature — and has no surface to have an angle to.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L128" target="_blank" rel="noopener">the rim reads colder than the centre by the analytic amount</a><br><code>test_the_rim_reads_colder_than_the_centre_by_the_analytic_amount</code></td><td>ΔT_app = (ε₀ − ε(θ))(L_B(T) − L_env)/(∂L_B/∂T), within 10 mK, on real geometry.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L175" target="_blank" rel="noopener">the rim effect vanishes in an isothermal enclosure</a><br><code>test_the_rim_effect_vanishes_in_an_isothermal_enclosure</code></td><td>L_env = L_B(T): every angle must read T to under a millikelvin, for every ε(θ).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L191" target="_blank" rel="noopener">a flat material darkens its limb far less than a paint</a><br><code>test_a_flat_material_darkens_its_limb_far_less_than_a_paint</code></td><td>§4.2: a ≈ 0 for rough dielectrics. Asphalt's limb barely moves where paint's moves several kelvin — the difference a directional model is <em>for</em>.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_directional_kernel.py#L220" target="_blank" rel="noopener">the metal brightens its limb instead of darkening it</a><br><code>test_the_metal_brightens_its_limb_instead_of_darkening_it</code></td><td>The sign flip, all the way through stage 1 and out the other side as apparent temperature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L71" target="_blank" rel="noopener">normal incidence gives epsilon zero exactly</a><br><code>test_normal_incidence_gives_epsilon_zero_exactly</code></td><td>n·v = 1 must return the authored band value, to 1e-12 in radiance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L83" target="_blank" rel="noopener">the directional path is opt in by packing</a><br><code>test_the_directional_path_is_opt_in_by_packing</code></td><td>A table without an angle LUT ignores <code>normal_dot_view</code> entirely — bit for bit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L101" target="_blank" rel="noopener">closure holds at every angle</a><br><code>test_closure_holds_at_every_angle</code></td><td>ρ is re-derived at each angle, never carried: ε(θ) moves and τ does not, so ρ must absorb the difference or the pixel stops conserving energy the moment the surface tilts.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L113" target="_blank" rel="noopener">the sky mask still reads as a blackbody</a><br><code>test_the_sky_mask_still_reads_as_a_blackbody</code></td><td>A sky pixel carries an <em>apparent</em> temperature — a radiance dressed as a temperature — and has no surface to have an angle to.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L128" target="_blank" rel="noopener">the rim reads colder than the centre by the analytic amount</a><br><code>test_the_rim_reads_colder_than_the_centre_by_the_analytic_amount</code></td><td>ΔT_app = (ε₀ − ε(θ))(L_B(T) − L_env)/(∂L_B/∂T), within 10 mK, on real geometry.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L175" target="_blank" rel="noopener">the rim effect vanishes in an isothermal enclosure</a><br><code>test_the_rim_effect_vanishes_in_an_isothermal_enclosure</code></td><td>L_env = L_B(T): every angle must read T to under a millikelvin, for every ε(θ).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L191" target="_blank" rel="noopener">a flat material darkens its limb far less than a paint</a><br><code>test_a_flat_material_darkens_its_limb_far_less_than_a_paint</code></td><td>§4.2: a ≈ 0 for rough dielectrics. Asphalt's limb barely moves where paint's moves several kelvin — the difference a directional model is <em>for</em>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_directional_kernel.py#L220" target="_blank" rel="noopener">the metal brightens its limb instead of darkening it</a><br><code>test_the_metal_brightens_its_limb_instead_of_darkening_it</code></td><td>The sign flip, all the way through stage 1 and out the other side as apparent temperature.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

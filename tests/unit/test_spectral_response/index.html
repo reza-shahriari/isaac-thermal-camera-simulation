@@ -20,7 +20,7 @@
            aria-label="Search" data-index="../../../search.json">
     <div id="results" class="results" hidden></div>
   </form>
-  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
 </header>
 <div class="shell">
 <nav class="sidebar" aria-label="Sections">
@@ -55,28 +55,28 @@
 <div class="page-head">
   <h1>Spectral response</h1>
   <p class="subtitle">R(λ) file contract (ADR 0009) and the Band object.</p>
-  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py" target="_blank" rel="noopener">tests/unit/test_spectral_response.py on GitHub</a>
+  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py" target="_blank" rel="noopener">tests/unit/test_spectral_response.py on GitHub</a>
 </div>
 
 <article class="prose">
 <p>The loader's job is to make unit and normalisation mistakes impossible to load: nanometres, area-normalised or QE-scaled responses all produce plausible-looking arrays and wrong radiance. Each such file must raise; an exact top-hat file must reproduce the closed-form band radiance.</p>
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py" target="_blank" rel="noopener">tests/unit/test_spectral_response.py</a>.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py" target="_blank" rel="noopener">tests/unit/test_spectral_response.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L39" target="_blank" rel="noopener">exact tophat file integrates to closed form</a><br><code>test_exact_tophat_file_integrates_to_closed_form</code></td><td>∫R·B dλ on the file grid == band_radiance_tophat within 0.1 % -- fails if the loader read nm, a per-nm response, or area-normalised the shape.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L50" target="_blank" rel="noopener">resampled tophat integral equals width</a><br><code>test_resampled_tophat_integral_equals_width</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L62" target="_blank" rel="noopener">resample snaps floating point endpoints</a><br><code>test_resample_snaps_floating_point_endpoints</code></td><td>0.9 + 80 * 0.01 is 1.7000000000000002; that point must still read R = 1, not 0.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L72" target="_blank" rel="noopener">rejects nanometre file</a><br><code>test_rejects_nanometre_file</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L78" target="_blank" rel="noopener">rejects area normalised response</a><br><code>test_rejects_area_normalised_response</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L85" target="_blank" rel="noopener">rejects qe scaled response</a><br><code>test_rejects_qe_scaled_response</code></td><td>A curve with peak 0.8 is a QE-scaled response; QE lives in the config, not the file.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L101" target="_blank" rel="noopener">rejects malformed tables</a><span class="tag">parametrize</span><br><code>test_rejects_malformed_tables</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L108" target="_blank" rel="noopener">rejects three columns and single row</a><br><code>test_rejects_three_columns_and_single_row</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L118" target="_blank" rel="noopener">header and provenance are parsed</a><br><code>test_header_and_provenance_are_parsed</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L132" target="_blank" rel="noopener">boson file loads and half power points match yaml edges</a><br><code>test_boson_file_loads_and_half_power_points_match_yaml_edges</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spectral_response.py#L144" target="_blank" rel="noopener">band from boson spec and edge mismatch detection</a><br><code>test_band_from_boson_spec_and_edge_mismatch_detection</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L39" target="_blank" rel="noopener">exact tophat file integrates to closed form</a><br><code>test_exact_tophat_file_integrates_to_closed_form</code></td><td>∫R·B dλ on the file grid == band_radiance_tophat within 0.1 % -- fails if the loader read nm, a per-nm response, or area-normalised the shape.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L50" target="_blank" rel="noopener">resampled tophat integral equals width</a><br><code>test_resampled_tophat_integral_equals_width</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L62" target="_blank" rel="noopener">resample snaps floating point endpoints</a><br><code>test_resample_snaps_floating_point_endpoints</code></td><td>0.9 + 80 * 0.01 is 1.7000000000000002; that point must still read R = 1, not 0.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L72" target="_blank" rel="noopener">rejects nanometre file</a><br><code>test_rejects_nanometre_file</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L78" target="_blank" rel="noopener">rejects area normalised response</a><br><code>test_rejects_area_normalised_response</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L85" target="_blank" rel="noopener">rejects qe scaled response</a><br><code>test_rejects_qe_scaled_response</code></td><td>A curve with peak 0.8 is a QE-scaled response; QE lives in the config, not the file.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L101" target="_blank" rel="noopener">rejects malformed tables</a><span class="tag">parametrize</span><br><code>test_rejects_malformed_tables</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L108" target="_blank" rel="noopener">rejects three columns and single row</a><br><code>test_rejects_three_columns_and_single_row</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L118" target="_blank" rel="noopener">header and provenance are parsed</a><br><code>test_header_and_provenance_are_parsed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L132" target="_blank" rel="noopener">boson file loads and half power points match yaml edges</a><br><code>test_boson_file_loads_and_half_power_points_match_yaml_edges</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_spectral_response.py#L144" target="_blank" rel="noopener">band from boson spec and edge mismatch detection</a><br><code>test_band_from_boson_spec_and_edge_mismatch_detection</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>
