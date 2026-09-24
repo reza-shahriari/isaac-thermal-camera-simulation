@@ -43,6 +43,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `AT.18` is the queue head.
 
 ### Fixed
+- **Pigment colour can no longer drift into the thermal bands** (`GT.9`). The library already had
+  this right — `car_paint_black` and `car_paint_white` carry the same ε in MWIR and LWIR and differ
+  in `solar_absorptivity` — but nothing held it, so an author following the folk rule that "the
+  duller and blacker a material is, the higher its emissivity" could have split them with every
+  test still green. **Measured: that split, at a modest 0.95 against 0.85, would put two 320 K
+  panels 5.26 K apart under a 250 K sky on paint alone** (105 × NETD), where the real numbers give
+  exactly 0. The test carries a **control** — the same two paints must still differ by ≥ 3× in
+  NIR, where pigment is what the band sees — so it cannot pass on a library of identical
+  materials, and it prices the other half too: colour's real channel is α_sol 0.94 against 0.28,
+  worth **24.3 K** of surface temperature at 800 W/m² and h = 15 W/m²/K.
 - **A name glob can no longer decide that a surface is a mirror** (`AT.18`). `*metal*` and
   `*alumin*` resolved to `bare_aluminium`, and so did the `aircraft` semantic class — so any
   imported airframe or vehicle whose artist called a part "Metal" got ε 0.09 and reported the

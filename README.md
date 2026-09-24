@@ -895,7 +895,9 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   §16.2 has no NIR or SWIR column at all. Surface state is the property that decides
   ε — anodised aluminium is 0.834–0.856 against polished 0.04 — and no material file names it yet.
   ε is also temperature-independent here, which is inside the authored uncertainty below ~600 K
-  and is not for plumes and fire.
+  and is not for plumes and fire. What *is* held is that pigment colour stays out of the
+  thermal bands (`GT.9`): the paints share one ε in MWIR and LWIR and differ in
+  `solar_absorptivity`, with a control that they still differ in NIR.
 
 ## Contributing
 

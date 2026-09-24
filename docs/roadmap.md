@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `AI.2` is phase A, size L, and unblocks 0 other step(s).
 
-#### Then, in order — 67 open steps
+#### Then, in order — 66 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
 | 15 | **`XD.7`** | XD | X | M | 2 | ready |
 
-…and 52 more — `python scripts/next_step.py --queue 40`.
+…and 51 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -774,7 +774,7 @@ left of it is one thing: the solved cells do not reach a pixel.
 | GT.6 | **Record Tier 3 manual passes with their commit hash** in `docs/validation/tier3-checklist.md`, and commit a small contact sheet per pass. `outputs/` is gitignored, so the owner's way of reading renders is invisible to everyone but the author. | A test parses the checklist: every pass row carries a date, a commit hash that resolves (`git cat-file -e`) and a contact-sheet path that exists; the five rows pointing at open steps (M10.11, M10.19, MM.8) are marked open. Red today: no pass is recorded and the parser finds no rows. | RP.6 | S | X |
 | GT.7 | ✅ **done.** `tests/unit/test_cost_budget.py` (slow tier), and the duplicated pass removed: `PlanarPatch.contains_local` lets `sample` reuse the coordinates it already computed instead of `contains` recomputing them. | **Measured.** 102,400 cells over a 48 h spin-up in **11.5 s** (39 ns/cell/tick) against a 90 s budget — 10⁵ cells is affordable, so nobody should coarsen a patch. `apply` is **32.7 ms**/frame at 640×512. The duplicated `local_coords` was **5.3 ms of 23.5 ms**; that one is asserted by *counting calls*, not seconds, so it cannot flake. 5 cases. | GT.1, PT.9 | M | C |
 | GT.8 | **`--lane` answers with a startable step.** `next_step.py --lane PT` prints `PT.9` although it waits on `WM.3`; the single-head and `--queue` outputs gain the `waiting on` column the published block already has. | Red today: `--lane PT` names a blocked head. After: the head printed for a lane is its first step whose deps are all ticked, or the line says what it waits on; `test_roadmap_queue.py` gains a `--lane` case. | — | S | X |
-| GT.9 | **Colour must not move LWIR emissivity (§4.5a).** A library invariant: paints differing in pigment carry equal ε per band and differ only in `solar_absorptivity`. | Paint emissivity is independent of colour over ~2–12 µm, so `car_paint_black` and `car_paint_white` at ε 0.90 with α_sol 0.94 and 0.28 is right. Nothing holds it today: an author following the folk rule that duller and blacker means higher ε would split them and no test would notice. | — | S | X |
+| GT.9 | ✅ **done.** `test_colour_does_not_set_emissivity.py`: the three sprayed topcoats share one ε in MWIR and LWIR to 1e-9, with a **control** that they must still differ ≥ 3× in NIR, so the test cannot pass on a library of identical materials. §4.5a. | **Measured.** The folk rule's modest 0.95/0.85 split would put two 320 K panels **5.26 K** apart under a 250 K sky — 105 × NETD, on paint alone — where the library gives 0. Colour's real channel is α_sol 0.94 vs 0.28, worth **24.3 K** of surface temperature at 800 W/m² and h = 15. 4 cases. | — | S | X |
 
 ---
 
