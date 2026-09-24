@@ -64,7 +64,7 @@
 <p>irsim renders what a real LWIR, MWIR, SWIR or NIR camera would see, with radiometry that closes in physical units — so the frames are usable for sensor trade studies, perception development and sim-to-real work, not only for looking thermal.</p>
 <p class="hero-links"><a class="button" href="gallery/">See what it produces</a><a class="button ghost" href="physics/">Read the physics</a><a class="button ghost" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">Source</a></p>
 </div>
-<video class="hero-media" src="media/pointwise_flight/quad_pointwise_vs_objectwise.mp4" autoplay loop muted playsinline preload="metadata"></video>
+<figure class="hero-figure"><video class="hero-media" src="media/phantom4/phantom4_pair.mp4" autoplay loop muted playsinline preload="metadata"></video><p class="hero-caption">A DJI Phantom 4 Pro — a third-party model nobody here built — in LWIR beside its visible companion, the same instants through both cameras.</p></figure>
 </div>
 <div class="chain"><span class="chip">temperature field</span><span class="arrow">→</span><span class="chip">surface radiance</span><span class="arrow">→</span><span class="chip">atmospheric path</span><span class="arrow">→</span><span class="chip">optics</span><span class="arrow">→</span><span class="chip">detector</span><span class="arrow">→</span><span class="chip">noise</span><span class="arrow">→</span><span class="chip">ISP</span><span class="arrow">→</span><span class="chip">pixels</span></div>
 <p class="chain-note">The signal order of <a href="physics/">the specification</a>. Every link is a recognised physical model whose units close; every approximation is a written decision rather than an accident.</p>
@@ -78,23 +78,23 @@
 <h2 id="by-the-numbers">The repository, counted at build time</h2>
 <div class="numbers">
 <div class='number'><b>233</b><span>modules in <code>src/</code></span></div>
-<div class='number'><b>2,915</b><span>test functions, none needing a GPU</span></div>
+<div class='number'><b>2,916</b><span>test functions, none needing a GPU</span></div>
 <div class='number'><b>137</b><span>decision records</span></div>
 <div class='number'><b>61</b><span>configuration files</span></div>
 <div class='number'><b>73</b><span>specification sections cited by the code</span></div>
-<div class='number'><b>103/167</b><span>roadmap steps shipped</span></div>
+<div class='number'><b>104/167</b><span>roadmap steps shipped</span></div>
 </div>
 <h2 id="where-it-is">Where the plan is</h2>
 <p>Phases run repair → point-wise physics → aerial → maritime → ground → cross-cutting; the order is the owner's, recorded in ADR 0003.</p>
 <div class="bars">
 <div class="bar"><span class="bar-label">phase 0</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">15/15</span></div>
 <div class="bar"><span class="bar-label">phase P</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">36/36</span></div>
-<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:89%"></span></span><span class="bar-value">24/27</span></div>
+<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:93%"></span></span><span class="bar-value">25/27</span></div>
 <div class="bar"><span class="bar-label">phase B</span><span class="bar-track"><span class="bar-fill" style="width:55%"></span></span><span class="bar-value">6/11</span></div>
 <div class="bar"><span class="bar-label">phase C</span><span class="bar-track"><span class="bar-fill" style="width:57%"></span></span><span class="bar-value">8/14</span></div>
 <div class="bar"><span class="bar-label">phase X</span><span class="bar-track"><span class="bar-fill" style="width:22%"></span></span><span class="bar-value">14/64</span></div>
 </div>
-<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>IG.2</code> <span class='lane'>Isaac glue integrity</span> <strong>In-sim test for the point bridge and the car demo.</strong> 🟡 <strong>Mostly shipped:</strong> the tautology is gone — the oracles are the camera's three named world axes and an authored wall, and <code>position_frame_residuals</code> decodes with <code>world_positions</code> rat</li><li><code>PT.23</code> <span class='lane'>Point-wise surface temperature</span> <strong>The analytic point target delivers 0.7785 of its own model.</strong> <code>IG.2</code>'s first in-sim run measured it: the chain returns that fraction of <code>excess_radiance</code> at <strong>every</strong> range, converged from frame 3.</li><li><code>AI.2</code> <span class='lane'>Asset ingestion</span> <strong>Put the Phantom 4 in a scene.</strong> 🟡 <strong>Mostly shipped:</strong> schema v16 binds a field to a prepared asset's prims (ADR 0132) and <code>render_phantom4.py</code> flies it in LWIR and colour, mounted by the rotation its own <code>world_frame:</code> implies (ADR 0133).</li><li><code>AI.4</code> <span class='lane'>Asset ingestion</span> <strong>Exercise the <code>materialBind</code> subset path with a real asset.</strong> <code>prep_asset.py</code> reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data</li><li><code>IG.16</code> <span class='lane'>Isaac glue integrity</span> <strong>Take the Warp ISP's host readbacks off the per-frame path.</strong> <code>replace_bad_pixels_warp</code> calls <code>counters.numpy()</code> <strong>inside its pass loop</strong> — a device sync per iteration to read two ints. <code>agc_lut_warp</code> pulls the whole 2^bit_depth histogram,</li></ol>
+<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>PT.23</code> <span class='lane'>Point-wise surface temperature</span> <strong>The analytic point target delivers 0.7785 of its own model.</strong> <code>IG.2</code>'s first in-sim run measured it: the chain returns that fraction of <code>excess_radiance</code> at <strong>every</strong> range, converged from frame 3.</li><li><code>AI.2</code> <span class='lane'>Asset ingestion</span> <strong>Put the Phantom 4 in a scene.</strong> 🟡 <strong>Mostly shipped:</strong> schema v16 binds a field to a prepared asset's prims (ADR 0132) and <code>render_phantom4.py</code> flies it in LWIR and colour, mounted by the rotation its own <code>world_frame:</code> implies (ADR 0133).</li><li><code>AI.4</code> <span class='lane'>Asset ingestion</span> <strong>Exercise the <code>materialBind</code> subset path with a real asset.</strong> <code>prep_asset.py</code> reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data</li><li><code>IG.16</code> <span class='lane'>Isaac glue integrity</span> <strong>Take the Warp ISP's host readbacks off the per-frame path.</strong> <code>replace_bad_pixels_warp</code> calls <code>counters.numpy()</code> <strong>inside its pass loop</strong> — a device sync per iteration to read two ints. <code>agc_lut_warp</code> pulls the whole 2^bit_depth histogram,</li><li><code>SE.2</code> <span class='lane'>Sea and maritime</span> <strong>Maritime and illumination in-sim tests.</strong> The maritime stage feeds water prims into <code>background_prim_paths</code> so their pixels join the sky mask and take the analytic sea profile; <code>illumination_isaac</code> fixed "every Isaac render was emission o</li></ol>
 <p><a href="roadmap/">The whole plan →</a></p>
 <h2 id="read-next">Read next</h2>
 <div class="cards">
@@ -108,7 +108,7 @@
 </div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:16 UTC from <code>90d4096</code>. The physics specification is
+  <p>Built 2026-09-24 07:34 UTC from <code>900c03f</code>. The physics specification is
   <a href="physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

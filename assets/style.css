@@ -166,11 +166,16 @@ td.nowrap, th.nowrap { white-space: nowrap; }
 
 /* ---- home ----------------------------------------------------------------------------- */
 
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px;
-        align-items: center; margin-bottom: 30px; }
+/* The front page's clip runs the full width of the column rather than sharing it with the text.
+   These are 2.5:1 side-by-side pairs of a 640 px sensor frame, and at half width the aircraft in
+   them is 35 px across -- too small to read, which is the only reason the clip is there. */
+.hero { margin-bottom: 30px; }
+.hero-text { max-width: 74ch; }
 .hero-text p { font-size: 17px; }
 .hero-media { width: 100%; border-radius: var(--radius); border: 1px solid var(--line);
               background: #000; }
+.hero-figure { margin: 24px 0 0; }
+.hero-caption { margin: 8px 0 0; color: var(--dim); font-size: 13.5px; }
 .hero-media.placeholder { display: grid; place-items: center; aspect-ratio: 2 / 1;
                           color: var(--dim); font-size: 14px; }
 .hero-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
@@ -269,13 +274,13 @@ table.suite td:last-child { width: 70px; text-align: right; }
 
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; }
+  .hero-figure { margin-top: 18px; }
   .sidebar { position: static; max-height: none; border-right: 0;
              border-bottom: 1px solid var(--line); padding: 14px 16px; }
   .sidebar ul { display: flex; flex-wrap: wrap; gap: 4px; }
   .sidebar h2 { margin: 10px 0 4px; }
   .main { padding: 24px 16px 80px; }
   .toc { float: none; width: auto; margin: 0 0 20px; }
-  .hero { grid-template-columns: 1fr; }
   .shot, .shot.half, .shot.third, .shot.full { grid-column: span 6; }
   .absent-list { columns: 1; }
 }
