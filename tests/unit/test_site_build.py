@@ -23,10 +23,13 @@ import re
 import sys
 
 import pytest
+import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
 
 import build_site  # noqa: E402
+import site_layout  # noqa: E402
+import site_survey  # noqa: E402
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 HREF = re.compile(r'(?:href|src)="([^"]+)"')
@@ -107,7 +110,66 @@ def test_the_front_page_counts_the_repository(tmp_path: pathlib.Path) -> None:
         assert f"{stats[key]:,}" in home, f"{key} is not on the front page"
 
 
+def test_every_test_file_is_published_with_what_it_guards(site: pathlib.Path) -> None:
+    """The suite is this project's evidence, so all of it is on the site, and none of it is blank.
+
+    The second half is the part that rots: a test file with no module docstring publishes an em
+    dash where its explanation should be. Every file has one today; this keeps it that way.
+    """
+    modules = site_survey.test_modules(REPO)
+    assert len(modules) > 200
+    index = (site / "tests" / "index.html").read_text(encoding="utf-8")
+    missing_page = [m.path for m in modules if not (site / m.url / "index.html").is_file()]
+    assert not missing_page, f"no page for: {missing_page[:5]}"
+    undocumented = [m.path for m in modules if not m.summary.strip()]
+    assert not undocumented, f"test files with no module docstring: {undocumented[:5]}"
+    for module in modules[:40]:
+        assert pathlib.PurePosixPath(module.path).name in index
+
+    planck = next(m for m in modules if m.path.endswith("test_planck.py"))
+    page = (site / planck.url / "index.html").read_text(encoding="utf-8")
+    for test in planck.tests:
+        assert test.name in page, f"{test.name} is not on its own page"
+
+
+def test_the_front_page_opens_with_the_clip_the_manifest_names() -> None:
+    """Which render opens the project is an editorial choice, so it lives in the manifest.
+
+    It also has to be a clip the gallery itself explains: a front page showing something the site
+    says nothing about is how a demo reel starts to diverge from the work.
+    """
+    manifest = yaml.safe_load((REPO / "site" / "gallery.yaml").read_text(encoding="utf-8"))
+    hero = manifest["hero"]["video"]
+    named = {
+        item["video"]
+        for section in manifest["sections"]
+        for item in section.get("media") or []
+        if "video" in item
+    }
+    assert hero in named, f"the hero {hero} is in no section of the gallery"
+    assert manifest["hero"].get("caption", "").strip(), "the front page's clip needs a caption"
+
+
+def test_every_script_is_on_the_commands_page(site: pathlib.Path) -> None:
+    """If it can be run from a shell, a reader can find out what it does without reading it."""
+    page = (site / "scripts" / "index.html").read_text(encoding="utf-8")
+    for path in sorted((REPO / "scripts").glob("*.py")):
+        assert path.name in page, f"{path.name} is not on the commands page"
+
+
+def test_the_working_practice_skills_are_published(site: pathlib.Path) -> None:
+    """The conventions the documents assume are published with them, not left beside the code."""
+    skills = sorted(REPO.glob(".claude/skills/*/SKILL.md"))
+    assert len(skills) >= 7
+    index = (site / "practice" / "index.html").read_text(encoding="utf-8")
+    for skill in skills:
+        name = skill.parent.name
+        assert (site / "practice" / name / "index.html").is_file(), f"{name} has no page"
+        assert name in index
+
+
 def test_a_citation_in_the_specification_links_to_the_code(site: pathlib.Path) -> None:
     """A repository path that is not a rendered page becomes a link to the file on GitHub."""
     physics = (site / "physics" / "index.html").read_text(encoding="utf-8")
-    assert "github.com/reza-shahriari/TCIsaacSim/blob/main/" in physics
+    assert f"{site_layout.GITHUB}/blob/main/" in physics
+    assert not site_layout.GITHUB.endswith(".git")

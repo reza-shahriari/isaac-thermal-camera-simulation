@@ -18,13 +18,35 @@ than to nothing.
 from __future__ import annotations
 
 import html
+import pathlib
 import posixpath
+import subprocess
 from dataclasses import dataclass, field
 
 from site_markdown import Heading
 
-#: The repository the "edit on GitHub" links point at.
-GITHUB = "https://github.com/reza-shahriari/TCIsaacSim"
+
+#: The repository the "edit on GitHub" links point at. Derived from the checkout's own remote, so
+#: a rename (this repository has had one) does not leave the published links pointing at the old
+#: name and relying on GitHub's redirect.
+def _origin_url() -> str:
+    try:
+        url = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=pathlib.Path(__file__).resolve().parents[1],
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):  # pragma: no cover -- not a checkout
+        return DEFAULT_GITHUB
+    if url.startswith("git@"):
+        url = "https://" + url.removeprefix("git@").replace(":", "/", 1)
+    return url.removesuffix(".git") or DEFAULT_GITHUB
+
+
+DEFAULT_GITHUB = "https://github.com/reza-shahriari/isaac-thermal-camera-simulation"
+GITHUB = _origin_url()
 
 
 @dataclass
@@ -78,6 +100,16 @@ def relative(from_url: str, to_url: str) -> str:
     return (rel if rel != "./" else "./") + fragment
 
 
+def _document_title(page: Page) -> str:
+    """The browser tab's title.
+
+    The front page is already called irsim and does not need to say so twice.
+    """
+    if page.title.lower() == "irsim":
+        return "irsim — physically-based multi-band IR camera simulator"
+    return f"{html.escape(page.title)} — irsim"
+
+
 def _toc(page: Page) -> str:
     """The in-page contents list, for documents long enough to need one."""
     entries = [h for h in page.headings if 2 <= h.level <= 3]
@@ -124,7 +156,7 @@ def render_page(page: Page, groups: list[NavGroup], *, built: str, commit: str) 
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{html.escape(page.title)} — irsim</title>
+<title>{_document_title(page)}</title>
 <meta name="description" content="{html.escape(page.subtitle[:180])}">
 <link rel="stylesheet" href="{rel("assets/")}style.css">
 <link rel="icon" href="{rel("assets/")}icon.svg" type="image/svg+xml">

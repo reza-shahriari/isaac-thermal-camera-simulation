@@ -21,9 +21,10 @@ evidence behind the plan is in [`docs/research/`](docs/research/), most recently
 [2026-09-18 thermal coupling survey](docs/research/2026-09-18-thermal-coupling-survey.md).
 
 **Project site:** `make site` builds a browsable copy of all of this — the specification, the plan,
-the decision log, the validation reports, the module and configuration catalogues measured from the
-tree at build time, and a web-sized gallery of what the simulator has actually rendered — into the
-gitignored `_site/`. `make site-preview` serves it locally; `make site-publish` commits it onto the
+the decision log, the validation reports, **every test in the repository with what it asserts**, the
+module, configuration and command catalogues measured from the tree at build time, the working-practice
+skills, and a web-sized gallery of what the simulator has actually rendered — into the gitignored
+`_site/`. `make site-preview` serves it locally; `make site-publish` commits it onto the
 `gh-pages` branch and prints the push command (ADR 0139). The renders it shows come from `outputs/`,
 which is not in git: anything the checkout lacks is listed on the page rather than quietly omitted.
 

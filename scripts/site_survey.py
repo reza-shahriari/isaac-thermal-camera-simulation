@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 import next_step
 import site_markdown
-from site_layout import GITHUB, Page
+from site_layout import GITHUB, Page, relative
 
 #: `# docs/physics-model.md §3.2` -- the citation CLAUDE.md requires of every physics docstring.
 CITATION = re.compile(r"§\s?([0-9]+(?:\.[0-9]+)*)")
@@ -120,6 +120,11 @@ def modules(repo: pathlib.Path) -> list[Module]:
 
 def _section_key(section: str) -> tuple[int, ...]:
     return tuple(int(part) for part in section.split("."))
+
+
+def _first_paragraph(doc: str) -> str:
+    """A docstring's first paragraph on one line — what a summary column can hold."""
+    return doc.strip().split("\n\n")[0].replace("\n", " ").strip()
 
 
 def _inline(text: str) -> str:
@@ -326,4 +331,292 @@ def plan(repo: pathlib.Path) -> Plan | None:
         by_phase=by_phase,
         by_lane=by_lane,
         queue=queue,
+    )
+
+
+# ---------------------------------------------------------------------------------------------
+# the test suite, presented
+
+
+#: Roadmap step ids (`PT.9`, `M12.2`), ADR numbers and physics-model sections, wherever a test
+#: names one. These are the threads a reader follows from a test back to the thing it guards.
+REFERENCE = re.compile(
+    r"\bADR\s?(\d{4})\b|\b([A-Z]{2}|M)\d{1,2}(?:\.\d{1,2}[a-z]?)?\b|§\s?([\d.]+)"
+)
+
+SUITES = {
+    "tests/unit": (
+        "Unit",
+        "Fast, engine-free, and the half of the commit gate that runs on every change. No GPU, no "
+        "Isaac Sim, no network.",
+    ),
+    "tests/golden": (
+        "Golden",
+        "Regression fixtures: a reference array plus a JSON sidecar carrying the config hash, and "
+        "a stated tolerance in physical units (ADR 0004). Regenerated deliberately, never to "
+        "silence a failure.",
+    ),
+    "tests/integration": (
+        "Integration",
+        "Needs the engine. Marked `isaac` (a running Isaac Sim) or `gpu` (Warp and a CUDA device) "
+        "and skipped by default, so the gate never depends on hardware.",
+    ),
+}
+
+
+@dataclass
+class TestFn:
+    """One test function."""
+
+    name: str
+    line: int
+    summary: str
+    marks: list[str]
+
+    @property
+    def sentence(self) -> str:
+        """The name as the sentence it was written to be."""
+        return self.name.removeprefix("test_").replace("_", " ")
+
+
+@dataclass
+class TestModule:
+    """One test file: what it guards, and every test in it."""
+
+    suite: str
+    path: str
+    url: str
+    title: str
+    doc: str
+    summary: str
+    marks: list[str]
+    tests: list[TestFn]
+    refs: list[str]
+
+
+def _marks(decorators: list[ast.expr]) -> list[str]:
+    found = []
+    for node in decorators:
+        target = node.func if isinstance(node, ast.Call) else node
+        name = ast.unparse(target)
+        if name.startswith("pytest.mark."):
+            found.append(name.removeprefix("pytest.mark."))
+    return found
+
+
+def _module_marks(tree: ast.Module) -> list[str]:
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "pytestmark" for t in node.targets
+        ):
+            text = ast.unparse(node.value)
+            return [part.split("pytest.mark.")[-1] for part in text.split(",") if "mark." in part]
+    return []
+
+
+def _references(text: str) -> list[str]:
+    """The roadmap steps, ADRs and spec sections a test file names, in the order they appear."""
+    seen: list[str] = []
+    for match in REFERENCE.finditer(text):
+        if match.group(1):
+            token = f"ADR {match.group(1)}"
+        elif match.group(3):
+            token = f"§{match.group(3)}"
+        else:
+            token = match.group(0)
+        if token not in seen:
+            seen.append(token)
+    return seen
+
+
+def test_modules(repo: pathlib.Path) -> list[TestModule]:
+    """Every test file, its docstring, and every test function inside it."""
+    found: list[TestModule] = []
+    for suite in SUITES:
+        root = repo / suite
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("test_*.py")):
+            text = path.read_text(encoding="utf-8")
+            try:
+                tree = ast.parse(text)
+            except SyntaxError:  # pragma: no cover -- a broken file is not the site's problem
+                continue
+            doc = ast.get_docstring(tree) or ""
+            tests = [
+                TestFn(
+                    name=node.name,
+                    line=node.lineno,
+                    summary=_first_paragraph(ast.get_docstring(node) or ""),
+                    marks=_marks(node.decorator_list),
+                )
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                and node.name.startswith("test_")
+            ]
+            rel = path.relative_to(repo).as_posix()
+            found.append(
+                TestModule(
+                    suite=suite,
+                    path=rel,
+                    url=f"{rel.removesuffix('.py')}/",
+                    title=path.stem.removeprefix("test_").replace("_", " "),
+                    doc=doc,
+                    summary=doc.strip().split("\n\n")[0].replace("\n", " "),
+                    marks=_module_marks(tree),
+                    tests=tests,
+                    refs=_references(doc),
+                )
+            )
+    return found
+
+
+def test_index(modules: list[TestModule]) -> Page:
+    """One page listing every test file in the repository, grouped by suite."""
+    total = sum(len(m.tests) for m in modules)
+    body: list[str] = [
+        "<p>Nobody has intuition for what a correct thermal image looks like — a frame that is "
+        "wrong by 20 K looks exactly as convincing as one that is right. That is why this project "
+        f"carries {total:,} tests across {len(modules)} files, and why a test here is expected "
+        "to <em>fail if the physics were wrong</em> rather than merely to call the function. Each "
+        "file below links to its own page, where every test is listed with what it asserts.</p>",
+        '<p class="filterline"><input id="table-filter" type="search" '
+        f'placeholder="Filter {len(modules)} test files…" aria-label="Filter test files"></p>',
+    ]
+    for suite, (label, blurb) in SUITES.items():
+        rows = [m for m in modules if m.suite == suite]
+        if not rows:
+            continue
+        count = sum(len(m.tests) for m in rows)
+        body.append(f'<h2 id="{label.lower()}">{label} — <code>{suite}</code></h2>')
+        body.append(f"<p>{_inline(blurb)} {len(rows)} files, {count:,} tests.</p>")
+        body.append(
+            "<div class='table-wrap'><table class=\"filterable suite\"><thead><tr><th>file</th>"
+            "<th>what it guards</th><th>cites</th><th>tests</th></tr></thead><tbody>"
+        )
+        for module in sorted(rows, key=lambda m: m.path):
+            marks = "".join(f'<span class="tag">{m}</span>' for m in module.marks)
+            refs = ", ".join(module.refs[:4]) or "—"
+            name = pathlib.PurePosixPath(module.path).name
+            body.append(
+                f'<tr><td><a href="{relative("tests/", module.url)}">{name}</a>{marks}</td>'
+                f"<td>{_inline(module.summary) or '—'}</td>"
+                f"<td>{html.escape(refs)}</td><td>{len(module.tests)}</td></tr>"
+            )
+        body.append("</tbody></table></div>")
+    return Page(
+        url="tests/",
+        title="The test suite",
+        subtitle=(
+            f"{total:,} tests across {len(modules)} files — every one listed, with what it asserts."
+        ),
+        body="\n".join(body),
+        nav_section="Evidence",
+        wide=True,
+        search_text=" ".join(f"{m.title} {m.summary}" for m in modules),
+    )
+
+
+def test_page(module: TestModule) -> Page:
+    """One test file's own page: its docstring, then every test it contains."""
+    body: list[str] = []
+    # The first paragraph is already the page's subtitle; repeating it under the heading reads
+    # like a stutter, so the body starts at the second.
+    rest = module.doc.strip().split("\n\n", 1)
+    if len(rest) > 1 and rest[1].strip():
+        body.append(site_markdown.render(rest[1]).html)
+    marks = ", ".join(module.marks)
+    note = f" The whole file is marked <code>{html.escape(marks)}</code>." if marks else ""
+    body.append(
+        f"<p class='made-by'>{len(module.tests)} test(s) in {_blob(module.path)}.{note}</p>"
+    )
+    body.append(
+        "<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th>"
+        "</tr></thead><tbody>"
+    )
+    for test in module.tests:
+        marks = "".join(f'<span class="tag">{m.split("(")[0]}</span>' for m in test.marks)
+        link = f"{GITHUB}/blob/main/{module.path}#L{test.line}"
+        body.append(
+            f'<tr><td><a href="{link}" target="_blank" rel="noopener">{html.escape(test.sentence)}'
+            f"</a>{marks}<br><code>{html.escape(test.name)}</code></td>"
+            f"<td>{_inline(test.summary) or '—'}</td></tr>"
+        )
+    body.append("</tbody></table></div>")
+    return Page(
+        url=module.url,
+        title=module.title[:1].upper() + module.title[1:],
+        subtitle=module.summary,
+        body="\n".join(body),
+        nav_section="Evidence",
+        source=module.path,
+        wide=True,
+        search_text=" ".join(f"{t.sentence} {t.summary}" for t in module.tests),
+    )
+
+
+def _dedent_usage(block: str) -> str:
+    """Line up a usage block whose first line the docstring parser already un-indented.
+
+    `ast.get_docstring` dedents against the lines *after* the first, so a block written as a list
+    of commands comes back with its first command flush and the rest indented. Only lines that are
+    themselves commands are moved; a continuation line aligned under an argument stays where the
+    author put it.
+    """
+    lines = block.splitlines()
+    rest = [line for line in lines[1:] if line.strip()]
+    if not rest or not all(line.strip().startswith(("python", "$")) for line in rest):
+        return block
+    indent = min(len(line) - len(line.lstrip()) for line in rest)
+    return "\n".join([lines[0].strip(), *(line[indent:] for line in lines[1:])])
+
+
+def script_catalogue(repo: pathlib.Path) -> Page:
+    """Every command in `scripts/`, with the first paragraph of its own docstring."""
+    rows: list[tuple[str, str, str]] = []
+    for path in sorted((repo / "scripts").glob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        try:
+            doc = ast.get_docstring(ast.parse(text)) or ""
+        except SyntaxError:  # pragma: no cover
+            doc = ""
+        blocks = [b for b in doc.strip().split("\n\n") if b.strip()]
+        summary = blocks[0].replace("\n", " ") if blocks else ""
+        usage = ""
+        for block in blocks[:3]:
+            if block.lstrip().startswith(("python ", "    python", "$ python")):
+                usage = _dedent_usage(block)
+                break
+        rows.append((path.relative_to(repo).as_posix(), summary, usage))
+    for path in sorted((repo / "scripts").glob("*.sh")):
+        head = [
+            line.lstrip("# ").rstrip()
+            for line in path.read_text(encoding="utf-8").splitlines()[1:6]
+            if line.startswith("#")
+        ]
+        rows.append((path.relative_to(repo).as_posix(), " ".join(head), ""))
+
+    body = [
+        "<p>Everything this repository can be asked to do from a shell. The render drivers need "
+        "Isaac Sim and a GPU; everything else is engine-free and runs on any CPython with the dev "
+        "extras installed.</p>",
+        "<div class='table-wrap'><table><thead><tr><th>command</th><th>what it does</th>"
+        "</tr></thead><tbody>",
+    ]
+    for rel, summary, usage in rows:
+        name = pathlib.PurePosixPath(rel).name
+        block = f"<pre><code>{html.escape(usage.strip())}</code></pre>" if usage else ""
+        body.append(
+            f'<tr><td class="nowrap">{_blob(rel, name)}</td>'
+            f"<td>{_inline(summary) or '—'}{block}</td></tr>"
+        )
+    body.append("</tbody></table></div>")
+    return Page(
+        url="scripts/",
+        title="Commands",
+        subtitle="Every script in the repository, with the first line of its own docstring.",
+        body="\n".join(body),
+        nav_section="Reference",
+        wide=True,
+        search_text=" ".join(f"{rel} {summary}" for rel, summary, _ in rows),
     )

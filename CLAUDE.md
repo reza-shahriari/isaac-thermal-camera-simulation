@@ -136,7 +136,7 @@ also works for everything under `src/irsim/` and `tests/unit/`; only `test-all` 
 
 ## Workflow: what "a step" means
 
-Work in small, complete steps. A step is done only when **all five** of these are true:
+Work in small, complete steps. A step is done only when **all six** of these are true:
 
 1. **Code** implements one coherent piece, with a docstring citing the physics-model section.
 2. **Tests** exist and pass. New physics needs a test that would fail if the physics were wrong —
@@ -144,6 +144,10 @@ Work in small, complete steps. A step is done only when **all five** of these ar
 3. **`make check` is green.**
 4. **`README.md` is updated** — the status table, and anything the change makes untrue.
 5. **`CHANGELOG.md` has an entry** under `## [Unreleased]`.
+6. **The site shows it** — `make site` (ADR 0139). Modules, tests, ADRs, configs, scripts and
+   documents are picked up automatically *from their docstrings*, so the work is writing those;
+   a render or a clip has to be named in `site/gallery.yaml` by hand. Everything that can be
+   presented belongs there — not debug output. See the `present-on-the-site` skill.
 
 Then commit. One step, one commit.
 
@@ -193,6 +197,7 @@ around Isaac Sim 6.0, which is recent.
 | `isaac-sim-spg` | Anything touching Isaac Sim, AOVs, SPG kernels, Warp |
 | `ir-sim-testing` | Writing tests, tolerances, golden data, validation tiers |
 | `ship-step` | Finishing any step — README, CHANGELOG, git |
+| `present-on-the-site` | Anything worth showing reaching the project site — renders, tests, reports |
 
 ---
 

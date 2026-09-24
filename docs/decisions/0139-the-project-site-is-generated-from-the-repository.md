@@ -63,6 +63,15 @@ Specifics worth recording:
   and KaTeX typesets them in the browser.
 * **Every URL is relative.** Project pages are served from `/<repo>/`, where a root-absolute link
   404s while working perfectly in a local preview. A test asserts no built page contains one.
+* **Everything presentable is published, and the docstring is the publication.** The owner's rule
+  is that anything a reader outside the conversation would be better off seeing belongs on the site,
+  and only debug output does not. So the test suite is published *in full* — a page per test file,
+  every test listed with what it asserts — rather than counted, because in this project a frame that
+  is wrong by 20 K looks exactly as convincing as one that is right, and the assertions are the only
+  evidence there is. The same reasoning puts `scripts/` and the project's own skills on the site. The
+  cost is that a missing docstring is now a blank cell on a public page rather than a private
+  annoyance, which is the intended pressure; `tests/unit/test_site_build.py` holds the floor by
+  failing if any test file has no module docstring.
 * **Publication rewrites a `gh-pages` branch** (`scripts/publish_site.sh`), one commit, no history:
   the site is an artefact, and keeping every encoded clip of every build would add tens of megabytes
   per publish to a repository whose main branch deliberately carries none of it.

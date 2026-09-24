@@ -9,6 +9,14 @@
 # Item keys: `video:` an mp4, `image:` a still, `frames:` a printf pattern assembled into a clip.
 # `width:` is the layout span (full | half | third), not a pixel size.
 
+# The clip the front page opens with, and the line printed under it. It must be one of the videos
+# named in `sections:` below, so the hero is always something the gallery also explains.
+hero:
+  video: phantom4/phantom4_pair.mp4
+  caption: >-
+    A DJI Phantom 4 Pro — a third-party model nobody here built — in LWIR beside its visible
+    companion, the same instants through both cameras.
+
 title: What the simulator produces
 subtitle: >-
   White-hot grayscale, no false-colour palette. Every frame and clip below was generated from the

@@ -66,6 +66,8 @@ class GalleryResult:
     page: Page
     assets: list[Asset] = field(default_factory=list)
     missing: list[Missing] = field(default_factory=list)
+    #: The clip the front page opens with, as `{"video": ..., "caption": ...}` from the manifest.
+    hero: dict[str, str] = field(default_factory=dict)
 
     @property
     def total_bytes(self) -> int:
@@ -508,4 +510,10 @@ class GalleryBuilder:
         )
         if self.encode:
             self.cache.save()
-        return GalleryResult(page=page, assets=self.assets, missing=self.missing)
+        hero = self.spec.get("hero") or {}
+        return GalleryResult(
+            page=page,
+            assets=self.assets,
+            missing=self.missing,
+            hero={str(k): str(v) for k, v in hero.items()},
+        )

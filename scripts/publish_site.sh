@@ -60,7 +60,7 @@ artefact, not history."
 
 if [ "$PUSH" = 1 ]; then
   git push --force "$REMOTE" "$BRANCH"
-  url_path=$(git remote get-url "$REMOTE" | sed -E 's#.*[:/]([^/]+)/([^/]+?)(\.git)?$#https://\1.github.io/\2/#')
+  url_path=$(git remote get-url "$REMOTE" | sed -E 's#\.git$##; s#.*[:/]([^/]+)/([^/]+)$#https://\1.github.io/\2/#')
   echo "pushed. Once Pages is pointed at $BRANCH the site is at $url_path"
 else
   echo "not pushed. To publish it:  git push --force $REMOTE $BRANCH"

@@ -104,11 +104,13 @@
     });
   }
 
-  var filter = document.getElementById("adr-filter");
+  // One filter box over every table on the page that asked to be filtered. Used by the decision
+  // log and the test index, both long enough that scrolling is not a way to find anything.
+  var filter = document.getElementById("table-filter");
   if (filter) {
     filter.addEventListener("input", function () {
       var needle = filter.value.trim().toLowerCase();
-      var rows = document.querySelectorAll("#adr-table tbody tr");
+      var rows = document.querySelectorAll("table.filterable tbody tr");
       rows.forEach(function (row) {
         row.hidden = needle !== "" && row.textContent.toLowerCase().indexOf(needle) === -1;
       });

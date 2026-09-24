@@ -82,6 +82,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   side the whole thing reduces to `compare_frames` bit for bit.
 
 ### Added
+- **The site presents the evidence, not a count of it** (ADR 0139, and the new
+  `present-on-the-site` skill). `make site` went from 158 pages to **451**: every test file now has
+  its own page listing **every test in it with what that test asserts**, read from the docstrings —
+  2,909 tests across 283 files, grouped by suite, with each file's pytest markers and the roadmap
+  steps, ADRs and spec sections it cites, behind one filter box. A test suite reported as a number
+  is a claim; a test suite published with its assertions is the evidence, and in a project where a
+  frame that is wrong by 20 K looks exactly as convincing as one that is right, that distinction is
+  the whole argument. Also added: **Commands**, every script in `scripts/` with the usage block out
+  of its own docstring, and **Working practice**, the eight project skills published as pages,
+  because the conventions the documents assume (tolerances in physical units, what a material file
+  may author, how a step is finished) were readable only by opening `.claude/`.
+  The docstring is now the publication: a module, a test file, a config or a script with none of one
+  prints an em dash on a public page. `tests/unit/test_site_build.py` pins that every test file has
+  a module docstring (283 of 283 do), that every one has a page, that every script is listed and
+  that every skill is published — and it caught a real bug on the way in, a root-relative link on
+  the test index that resolved to `tests/tests/…` from the page that carried it.
+  **CLAUDE.md's definition of a finished step gains a sixth condition**: the site shows it. Most of
+  that is automatic and is really an instruction to write the docstring; a render or a clip still
+  has to be named in `site/gallery.yaml`, with captions whose numbers come from that run's own
+  `summary.json`.
 - **MassMIND indexed — the maritime lane's first anchor, and its bit depth is not what the row
   said** (`XD.3`). The first public LWIR maritime set: 2,916 Boston Harbor images, FLIR ADK,
   NETD < 50 mK, pixel-level semantic *and* instance masks across seven classes. Its value here is

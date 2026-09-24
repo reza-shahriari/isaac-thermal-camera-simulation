@@ -69,7 +69,21 @@ project involves a lot of "we chose the cheaper approximation on purpose", and w
 recorded, someone will later mistake a deliberate choice for a bug — or worse, mistake a bug for a
 deliberate choice.
 
-**6. Commit**
+**6. The site**
+
+Run `make site` and read its output. Most of what you just wrote reaches the project site on its own
+— a module, a test file, an ADR, a config and a script are all published from their own docstrings,
+so a missing docstring is now a blank cell on a public page. A **render or a clip is not
+automatic**: name it in `site/gallery.yaml`, with captions whose numbers come from that run's own
+`summary.json` or off its frames.
+
+The build reports its page count, its media budget, any manifest entry this checkout could not
+supply, and any dead link in the documents. `tests/unit/test_site_build.py` fails the gate on a dead
+internal link, so a broken site shows up in step 1, not after publishing.
+
+Do not push `gh-pages` unless the user asks. Full detail: the `present-on-the-site` skill.
+
+**7. Commit**
 
 Conventional Commits. Scope from: `radiometry`, `materials`, `thermal`, `atmosphere`, `optics`,
 `detector`, `noise`, `isp`, `config`, `isaac`, `spg`, `build`, `docs`.
@@ -128,5 +142,5 @@ Say so in the conversation rather than committing, if:
 ## Quick version
 
 ```
-make check  →  README status  →  CHANGELOG entry  →  ADR if a decision  →  commit
+make check  →  README status  →  CHANGELOG entry  →  ADR if a decision  →  make site  →  commit
 ```

@@ -226,9 +226,10 @@ def decision_index(adrs: list[site_survey.Adr], url: str, group: str, blurb: str
         )
     body = [
         f"<p>{site_markdown.render(blurb).html[3:-4]}</p>",
-        '<p class="filterline"><input id="adr-filter" type="search" placeholder="Filter '
+        '<p class="filterline"><input id="table-filter" type="search" placeholder="Filter '
         f'{len(adrs)} decisions…" aria-label="Filter decisions"></p>',
-        "<div class='table-wrap'><table id=\"adr-table\"><thead><tr><th>#</th><th>decision</th>"
+        "<div class='table-wrap'><table class=\"filterable adr\"><thead><tr><th>#</th>"
+        "<th>decision</th>"
         "<th>status</th><th>date</th></tr></thead><tbody>",
         *rows,
         "</tbody></table></div>",
@@ -268,16 +269,94 @@ def collection_index(pages: list[Page], url: str, title: str, group: str, blurb:
     )
 
 
+def skill_pages(repo: pathlib.Path, resolver: Resolver) -> tuple[Page, list[Page]]:
+    """The project's own working practice: `.claude/skills/*/SKILL.md`, rendered.
+
+    These are not agent plumbing. They are where the conventions live that the documents assume --
+    the tolerance conventions, the radiometric unit rules, what a material file may author, how a
+    step is finished -- and a reader trying to understand why the code looks the way it does needs
+    them as much as the specification.
+    """
+    made: list[Page] = []
+    for path in sorted(repo.glob(".claude/skills/*/SKILL.md")):
+        source = path.relative_to(repo).as_posix()
+        name = path.parent.name
+        url = f"practice/{name}/"
+        text = path.read_text(encoding="utf-8")
+        title, description, body = _split_frontmatter(text, name)
+        doc = site_markdown.render(body, resolver.for_page(source, url))
+        made.append(
+            Page(
+                url=url,
+                title=title,
+                subtitle=description,
+                body=doc.html,
+                nav_section="Reference",
+                headings=doc.headings,
+                source=source,
+                search_text=_plain(doc.html),
+            )
+        )
+    cards = "".join(
+        f'<a class="card" href="{relative("practice/", page.url)}">'
+        f"<h3>{html.escape(page.title)}</h3>"
+        f"<p>{html.escape(page.subtitle[:200])}…</p></a>"
+        for page in made
+    )
+    index = Page(
+        url="practice/",
+        title="Working practice",
+        subtitle="The conventions the code and the documents assume, one file each.",
+        body=(
+            "<p>Several people and several sessions work on this repository at once, so the "
+            "conventions are written down rather than carried in anyone's head: what a tolerance "
+            "means, which unit a radiometric quantity is in, what a material file may author, how "
+            "a step is finished. They live beside the code as skills and are published here "
+            "unchanged.</p>"
+            f'<div class="cards">{cards}</div>'
+        ),
+        nav_section="Reference",
+        wide=True,
+    )
+    return index, made
+
+
+def _split_frontmatter(text: str, fallback: str) -> tuple[str, str, str]:
+    """`name` and `description` out of a skill's YAML front matter, and the body after it."""
+    if not text.startswith("---"):
+        return fallback, "", text
+    _, meta, body = text.split("---", 2)
+    fields: dict[str, str] = {}
+    key = ""
+    for line in meta.strip().split("\n"):
+        if ":" in line and not line.startswith((" ", "\t")):
+            key, _, value = line.partition(":")
+            fields[key.strip()] = value.strip()
+        elif key:
+            fields[key] = f"{fields.get(key, '')} {line.strip()}".strip()
+    body = _strip_leading_title(body.lstrip("\n"))
+    return fields.get("name", fallback), fields.get("description", ""), body
+
+
 # ---------------------------------------------------------------------------------------------
 # the front page
 
 
 def home_page(
-    repo: pathlib.Path, stats: dict[str, int], plan: site_survey.Plan | None, hero: str | None
+    repo: pathlib.Path,
+    stats: dict[str, int],
+    plan: site_survey.Plan | None,
+    hero: str | None,
+    hero_caption: str = "",
 ) -> Page:
+    caption = (
+        f'<p class="hero-caption">{site_markdown.render(hero_caption).html[3:-4]}</p>'
+        if hero_caption
+        else ""
+    )
     hero_block = (
-        f'<video class="hero-media" src="{hero}" autoplay loop muted playsinline '
-        f'preload="metadata"></video>'
+        f'<figure class="hero-figure"><video class="hero-media" src="{hero}" autoplay loop muted '
+        f'playsinline preload="metadata"></video>{caption}</figure>'
         if hero
         else '<div class="hero-media placeholder">run <code>make site</code> with renders in '
         "<code>outputs/</code> to see this</div>"
@@ -389,6 +468,11 @@ def home_page(
             "Subsystem by subsystem: what is implemented and what it is verified against.",
         ),
         (
+            "tests/",
+            "The test suite",
+            "Every test in the repository, with what it asserts.",
+        ),
+        (
             "validation/",
             "Validation",
             "Measured against public imagery — including where it fails.",
@@ -467,8 +551,19 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
     ).build("gallery/")
     pages.append(gallery.page)
 
+    skill_index, skills = skill_pages(repo, resolver)
+    pages.append(skill_index)
+    pages.extend(skills)
+
     pages.append(site_survey.code_map(repo))
     pages.append(site_survey.config_catalogue(repo))
+    pages.append(site_survey.script_catalogue(repo))
+
+    # Every test file gets a page. The suite is this project's main evidence -- a thermal frame
+    # cannot be checked by looking at it -- so it is published in full rather than counted.
+    test_modules = site_survey.test_modules(repo)
+    pages.append(site_survey.test_index(test_modules))
+    pages.extend(site_survey.test_page(module) for module in test_modules)
 
     plan = site_survey.plan(repo)
     stats = {
@@ -480,13 +575,14 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
         "steps_done": plan.done if plan else 0,
         "steps_total": plan.total if plan else 0,
     }
+    # The front page's clip is named in site/gallery.yaml, not here: which render best opens the
+    # project is an editorial choice and belongs beside the other editorial choices.
     hero = None
-    hero_asset = next(
-        (a for a in gallery.assets if a.url.endswith("quad_pointwise_vs_objectwise.mp4")), None
-    )
+    wanted = gallery.hero.get("video", "")
+    hero_asset = next((a for a in gallery.assets if a.url == wanted), None)
     if hero_asset:
         hero = f"media/{hero_asset.url}"
-    pages.insert(0, home_page(repo, stats, plan, hero))
+    pages.insert(0, home_page(repo, stats, plan, hero, gallery.hero.get("caption", "")))
 
     groups = nav_groups(pages)
     built = dt.datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M UTC")
@@ -523,8 +619,8 @@ def nav_groups(pages: list[Page]) -> list[NavGroup]:
         "Demos": [],
         "Physics": ["physics/", "spec-issues/"],
         "Plan": ["roadmap/", "decisions/", "changelog/"],
-        "Evidence": ["validation/", "research/"],
-        "Reference": ["code/", "configs/", "guide/"],
+        "Evidence": ["tests/", "validation/", "research/"],
+        "Reference": ["code/", "configs/", "scripts/", "guide/", "practice/"],
     }
     titles = {page.url: page.title for page in pages}
     #: Sidebar labels, where a page's own title is longer than a nav entry should be.
