@@ -28,6 +28,7 @@ import yaml
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "scripts"))
 
 import build_site  # noqa: E402
+import site_gallery  # noqa: E402
 import site_layout  # noqa: E402
 import site_survey  # noqa: E402
 
@@ -173,3 +174,155 @@ def test_a_citation_in_the_specification_links_to_the_code(site: pathlib.Path) -
     physics = (site / "physics" / "index.html").read_text(encoding="utf-8")
     assert f"{site_layout.GITHUB}/blob/main/" in physics
     assert not site_layout.GITHUB.endswith(".git")
+
+
+# ---------------------------------------------------------------------------------------------
+# The front door: the three blocks a reader judges the project by before reading a word of it.
+
+
+def _manifest() -> dict:
+    return yaml.safe_load((REPO / "site" / "gallery.yaml").read_text(encoding="utf-8"))
+
+
+def _named_by_a_section(manifest: dict) -> set[str]:
+    return {
+        item[key]
+        for section in manifest["sections"]
+        for item in section.get("media") or []
+        for key in ("video", "image", "frames")
+        if key in item
+    }
+
+
+def test_every_render_on_the_front_page_is_explained_by_the_gallery() -> None:
+    """The front page is a trailer for the gallery, not a second set of unexplained renders.
+
+    The hero already had this rule; the band strip, the headline clip and the wipe are the same
+    editorial choice and get the same one, or the front page slowly becomes a demo reel with its
+    own content that nothing on the site accounts for.
+    """
+    manifest = _manifest()
+    named = _named_by_a_section(manifest)
+    front = (
+        [item["video"] for item in manifest["bands"]["items"]]
+        + [manifest["headline"]["video"]]
+        + [manifest["compare"]["before"], manifest["compare"]["after"]]
+    )
+    unexplained = [src for src in front if src not in named]
+    assert not unexplained, f"on the front page but in no gallery section: {unexplained}"
+
+
+def test_the_wipe_compares_one_scene_with_itself() -> None:
+    """A wipe only means something if its two halves differ in exactly one thing.
+
+    Both sides therefore have to come out of the *same* gallery section -- two stills of one scene
+    under one change -- and both have to be stills, because two clips under a wipe drift out of
+    sync and start comparing different instants as well as different physics.
+    """
+    manifest = _manifest()
+    compare = manifest["compare"]
+    section = next(s for s in manifest["sections"] if s["id"] == compare["section"])
+    stills = {item["image"] for item in section["media"] if "image" in item}
+    assert compare["before"] in stills and compare["after"] in stills, (
+        "the wipe's two halves must both be stills of the section it names"
+    )
+    assert compare["before"] != compare["after"]
+
+
+def test_the_band_strip_is_all_of_the_bands_or_none_of_them() -> None:
+    """Four bands with one missing is not a smaller argument about bands; it is a broken one."""
+    builder = site_gallery.GalleryBuilder(
+        REPO / "site" / "gallery.yaml",
+        REPO / "outputs",
+        REPO / "_site" / "media",
+        media_prefix="../media/",
+        encode=False,
+    )
+    wanted = [item["video"] for item in builder.spec["bands"]["items"]]
+    assert len(wanted) == 4
+
+    builder.by_src = {
+        src: site_gallery.Asset(url=src, width=640, height=512, source_bytes=1, bytes=1)
+        for src in wanted
+    }
+    assert len(builder.front().bands) == 4
+
+    builder.by_src.pop(wanted[-1])
+    assert builder.front().bands == [], "a strip with a hole in it should not publish"
+
+
+def test_the_front_page_renders_its_blocks_from_the_manifest() -> None:
+    """The blocks themselves: built from a resolved `Front`, without needing ffmpeg or renders."""
+    front = site_gallery.Front(
+        hero={"url": "media/h.mp4", "poster": "media/h.webp", "caption": "a caption"},
+        bands_text={"title": "One kernel, four bands", "lead": "", "section": "four-bands-drone"},
+        bands=[
+            {"url": f"media/{band}.mp4", "label": band.upper(), "band": "1-2 um", "caption": "c"}
+            for band in ("lwir", "mwir", "swir", "nir")
+        ],
+        headline={
+            "url": "media/split.mp4",
+            "title": "One temperature per object, or one per point",
+            "lead": "",
+            "left": "object-wise",
+            "right": "point-wise",
+            "section": "pointwise-vs-objectwise",
+        },
+        compare={
+            "before": "media/a.webp",
+            "after": "media/b.webp",
+            "width": "640",
+            "height": "512",
+            "title": "What makes a frame read as a thermal camera",
+            "lead": "",
+            "before_label": "no flat field",
+            "after_label": "flat-fielded",
+            "section": "flat-field",
+        },
+    )
+
+    strip = "".join(build_site.band_strip(front))
+    for band in ("LWIR", "MWIR", "SWIR", "NIR"):
+        assert band in strip
+    # Poster frames, not four clips: the SWIR encode alone is 5.7 MB.
+    assert strip.count('preload="none"') == 4 and "autoplay" not in strip
+
+    headline = "".join(build_site.headline_block(front))
+    assert "object-wise" in headline and "point-wise" in headline
+    # The clip's evidence is burnt into the bottom of each panel, where Chrome draws its controls.
+    assert "controls" not in headline
+
+    wipe = "".join(build_site.compare_block(front))
+    assert 'src="media/a.webp"' in wipe and 'src="media/b.webp"' in wipe
+    assert 'type="range"' in wipe, "the wipe's control must be a real input, for keyboard and AT"
+    assert "--ratio: 640 / 512" in wipe
+
+    # A checkout with no renders drops the blocks rather than publishing empty frames.
+    assert build_site.band_strip(site_gallery.Front()) == []
+    assert build_site.headline_block(site_gallery.Front()) == []
+    assert build_site.compare_block(site_gallery.Front()) == []
+
+
+def test_the_front_page_has_one_heading_and_it_is_in_the_hero(site: pathlib.Path) -> None:
+    """The hero replaces the title block, so the `<h1>` moves into it rather than being doubled."""
+    home = (site / "index.html").read_text(encoding="utf-8")
+    assert home.count("<h1>") == 1
+    assert 'class="hero-block' in home
+    assert "page-head" not in home
+    # Every other page keeps the standard title block.
+    physics = (site / "physics" / "index.html").read_text(encoding="utf-8")
+    assert 'class="page-head"' in physics and physics.count("<h1>") == 1
+
+
+def test_the_gallery_opens_with_a_thumbnail_of_every_section(site: pathlib.Path) -> None:
+    """Eighteen sections is more than a reader scrolls through to find the one they came for.
+
+    The grid replaces the floating contents list rather than joining it: two tables of contents on
+    one screen is what the first version of this did.
+    """
+    manifest = _manifest()
+    page = (site / "gallery" / "index.html").read_text(encoding="utf-8")
+    assert page.count('class="contents-item"') == len(manifest["sections"])
+    for section in manifest["sections"]:
+        assert f'href="#{section["id"]}"' in page
+    assert 'class="toc"' not in page

@@ -27,6 +27,9 @@ skills, and a web-sized gallery of what the simulator has actually rendered — 
 `_site/`. `make site-preview` serves it locally; `make site-publish` commits it onto the
 `gh-pages` branch and prints the push command (ADR 0139). The renders it shows come from `outputs/`,
 which is not in git: anything the checkout lacks is listed on the page rather than quietly omitted.
+The front page opens on a full-bleed render and three blocks a reader can judge by looking — four
+bands of one scene, the point-wise comparison, and a wipe they drag — before any prose; which
+renders those are is declared in `site/gallery.yaml`, not in the generator (ADR 0141).
 
 ---
 

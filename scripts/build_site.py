@@ -342,26 +342,183 @@ def _split_frontmatter(text: str, fallback: str) -> tuple[str, str, str]:
 # the front page
 
 
+def _inline(text: str) -> str:
+    """Rendered markdown with the wrapping paragraph removed, for a caption or a label."""
+    if not text.strip():
+        return ""
+    markup = site_markdown.render(text).html
+    return markup[3:-4] if markup.startswith("<p>") and markup.endswith("</p>") else markup
+
+
+def hero_block(page_title: str, subtitle: str, hero: dict[str, str]) -> str:
+    """The front page's first screen: the render, full bleed, with the title over it.
+
+    The site's stylesheet is dark because every image on it is a grayscale thermal frame, and the
+    same reasoning puts the title *on* the clip rather than above it: a reader decides what this
+    project is from the picture, and a screen of prose above the fold spends that decision on text
+    they have not agreed to read yet. A scrim carries the contrast, so the words stay legible over
+    a frame whose brightness is the sensor's business rather than the designer's.
+    """
+    media = (
+        f'<video class="hero-bg" src="{hero["url"]}" poster="{hero.get("poster", "")}" '
+        'autoplay loop muted playsinline preload="metadata" aria-hidden="true"></video>'
+        if hero
+        else ""
+    )
+    credit = (
+        f'<p class="hero-credit">{_inline(hero.get("caption", ""))}</p>'
+        if hero.get("caption")
+        else ""
+    )
+    klass = "hero-block" if hero else "hero-block no-media"
+    return f"""<section class="{klass}">
+{media}
+<div class="hero-scrim"></div>
+<div class="hero-inner">
+  <h1>{html.escape(page_title)}</h1>
+  <p class="hero-sub">{subtitle}</p>
+  <p class="hero-lead">irsim renders what a real LWIR, MWIR, SWIR or NIR camera would see, with
+  radiometry that closes in physical units &mdash; so the frames are usable for sensor trade
+  studies, perception development and sim-to-real work, not only for looking thermal.</p>
+  <p class="hero-links">
+    <a class="button" href="gallery/">See what it produces</a>
+    <a class="button ghost" href="physics/">Read the physics</a>
+    <a class="button ghost" href="{GITHUB}" target="_blank" rel="noopener">Source</a>
+  </p>
+</div>
+{credit}
+</section>"""
+
+
+def band_strip(front: site_gallery.Front) -> list[str]:
+    """The same scene through four bands, four up.
+
+    "Bands are data, not code" is the project's main scalability requirement and it is the one
+    claim on the front page a picture settles instantly: the four frames do not look like each
+    other. They are poster frames until the reader asks for motion, because the SWIR clip alone is
+    5.7 MB and a front page that spends that before anyone has scrolled is not showing off.
+    """
+    if not front.bands:
+        return []
+    text = front.bands_text
+    out = [
+        f'<h2 id="four-bands">{html.escape(text.get("title") or "One kernel, four bands")}</h2>',
+        site_markdown.render(text.get("lead", "")).html,
+        '<div class="bands">',
+    ]
+    for band in front.bands:
+        size = f' width="{band["width"]}" height="{band["height"]}"' if band.get("width") else ""
+        range_ = (
+            f'<span class="band-range">{html.escape(band["band"])}</span>'
+            if band.get("band")
+            else ""
+        )
+        caption = (
+            f'<span class="band-note">{_inline(band["caption"])}</span>'
+            if band.get("caption")
+            else ""
+        )
+        out.append(
+            f'<figure class="band"><video src="{band["url"]}" poster="{band.get("poster", "")}"'
+            f'{size} loop muted playsinline preload="none" data-hover-play></video>'
+            f"<figcaption><b>{html.escape(band['label'])}</b>{range_}{caption}</figcaption>"
+            "</figure>"
+        )
+    out.append("</div>")
+    if text.get("section"):
+        out.append(
+            f'<p class="more"><a href="gallery/#{text["section"]}">The same argument as a vessel, '
+            "an aircraft and a point target &rarr;</a></p>"
+        )
+    return out
+
+
+def headline_block(front: site_gallery.Front) -> list[str]:
+    """The point-wise claim, full width, with the two solvers labelled in HTML.
+
+    The clip is a single composite whose two panels carry their own burnt-in readouts, so it is
+    shown whole rather than put under the wipe below: a wipe would place one panel's numbers over
+    the other panel's image, which is not a nicer way to make the argument but a wrong one.
+    """
+    if not front.headline:
+        return []
+    head = front.headline
+    size = f' width="{head["width"]}" height="{head["height"]}"' if head.get("width") else ""
+    labels = (
+        f'<div class="split-labels"><span>{_inline(head["left"])}</span>'
+        f"<span>{_inline(head['right'])}</span></div>"
+        if head.get("left") and head.get("right")
+        else ""
+    )
+    out = [
+        '<h2 id="point-wise">'
+        f"{html.escape(head.get('title') or 'One temperature, or one per point')}</h2>",
+        site_markdown.render(head.get("lead", "")).html,
+        # No `controls`: this clip's evidence is a readout burnt into the bottom of each panel,
+        # and Chrome draws its control bar exactly over it. The gallery's copy keeps them.
+        f'<figure class="split">{labels}'
+        f'<video src="{head["url"]}" poster="{head.get("poster", "")}"{size} '
+        'loop muted playsinline preload="none" data-hover-play></video></figure>',
+    ]
+    if head.get("section"):
+        out.append(
+            f'<p class="more"><a href="gallery/#{head["section"]}">What the two solvers do over '
+            "the whole mission &rarr;</a></p>"
+        )
+    return out
+
+
+def compare_block(front: site_gallery.Front) -> list[str]:
+    """Two stills of one scene under a wipe the reader drags.
+
+    The pair has to differ in exactly one thing for the wipe to mean anything, which is a stronger
+    requirement than it sounds: most of the gallery's comparisons are composites that already put
+    their two cases side by side, and sliding one of those over itself mixes two sets of burnt-in
+    annotations. Without JavaScript the wipe sits at half and the figure still reads as a split
+    comparison, which is what it is.
+    """
+    if not front.compare:
+        return []
+    spec = front.compare
+    ratio = (
+        f' style="--ratio: {spec["width"]} / {spec["height"]}"'
+        if spec.get("width") and spec.get("height")
+        else ""
+    )
+    before_label = _inline(spec["before_label"])
+    after_label = _inline(spec["after_label"])
+    alt = html.escape(f"{_plain(before_label)} versus {_plain(after_label)}")
+    out = [
+        f'<h2 id="compare">{html.escape(spec.get("title") or "Drag to compare")}</h2>',
+        site_markdown.render(spec.get("lead", "")).html,
+        f'<figure class="compare"{ratio}>'
+        '<div class="compare-pane">'
+        f'<img class="compare-b" src="{spec["after"]}" alt="" loading="lazy">'
+        f'<img class="compare-a" src="{spec["before"]}" alt="" loading="lazy">'
+        f'<span class="compare-tag left">{before_label}</span>'
+        f'<span class="compare-tag right">{after_label}</span>'
+        '<span class="compare-handle" aria-hidden="true"></span>'
+        "</div>"
+        '<input class="compare-range" type="range" min="0" max="100" value="50" '
+        f'aria-label="Wipe between {alt}">'
+        "</figure>",
+    ]
+    if spec.get("section"):
+        out.append(
+            f'<p class="more"><a href="gallery/#{spec["section"]}">The rest of the noise chain '
+            "&rarr;</a></p>"
+        )
+    return out
+
+
 def home_page(
     repo: pathlib.Path,
     stats: dict[str, int],
     plan: site_survey.Plan | None,
-    hero: str | None,
-    hero_caption: str = "",
+    front: site_gallery.Front,
 ) -> Page:
-    caption = (
-        f'<p class="hero-caption">{site_markdown.render(hero_caption).html[3:-4]}</p>'
-        if hero_caption
-        else ""
-    )
-    hero_block = (
-        f'<figure class="hero-figure"><video class="hero-media" src="{hero}" autoplay loop muted '
-        f'playsinline preload="metadata"></video>{caption}</figure>'
-        if hero
-        else '<div class="hero-media placeholder">run <code>make site</code> with renders in '
-        "<code>outputs/</code> to see this</div>"
-    )
-    chain = '<span class="arrow">→</span>'.join(
+    subtitle = "A physically-based multi-band infrared camera simulator for NVIDIA Isaac Sim."
+    chain = '<span class="arrow">&rarr;</span>'.join(
         f'<span class="chip">{part}</span>'
         for part in (
             "temperature field",
@@ -378,7 +535,7 @@ def home_page(
         (
             "per-point temperature",
             "Every cell of a surface holds its own energy balance. One "
-            "temperature per object is not a coarser thermal scene — it is a different one.",
+            "temperature per object is not a coarser thermal scene &mdash; it is a different one.",
         ),
         (
             "bands are data",
@@ -405,40 +562,34 @@ def home_page(
         (f"{stats['spec_sections']:,}", "specification sections cited by the code"),
         (f"{stats['steps_done']}/{stats['steps_total']}", "roadmap steps shipped"),
     ]
-    body = [
-        '<div class="hero">',
-        '<div class="hero-text">',
-        "<p>irsim renders what a real LWIR, MWIR, SWIR or NIR camera would see, with radiometry "
-        "that closes in physical units — so the frames are usable for sensor trade studies, "
-        "perception development and sim-to-real work, not only for looking thermal.</p>",
-        '<p class="hero-links">'
-        '<a class="button" href="gallery/">See what it produces</a>'
-        '<a class="button ghost" href="physics/">Read the physics</a>'
-        f'<a class="button ghost" href="{GITHUB}" target="_blank" rel="noopener">Source</a></p>',
-        "</div>",
-        hero_block,
-        "</div>",
-        f'<div class="chain">{chain}</div>',
-        '<p class="chain-note">The signal order of <a href="physics/">the specification</a>. Every '
-        "link is a recognised physical model whose units close; every approximation is a written "
-        "decision rather than an accident.</p>",
-        '<h2 id="what-is-different">What this one does differently</h2>',
-        '<div class="tiles">',
-        *[f"<div class='tile'><h3>{t}</h3><p>{d}</p></div>" for t, d in tiles],
-        "</div>",
-        '<h2 id="by-the-numbers">The repository, counted at build time</h2>',
-        '<div class="numbers">',
-        *[
-            f"<div class='number'><b>{value}</b><span>{label}</span></div>"
-            for value, label in numbers
-        ],
-        "</div>",
-    ]
+    # Show first, explain second. The three blocks a reader can judge by looking come before the
+    # signal chain and the counters, which mean nothing until the pictures are believed.
+    body: list[str] = []
+    body.extend(band_strip(front))
+    body.extend(headline_block(front))
+    body.extend(compare_block(front))
+    body.append('<h2 id="the-chain">The signal chain</h2>')
+    body.append(f'<div class="chain">{chain}</div>')
+    body.append(
+        '<p class="chain-note">The signal order of <a href="physics/">the specification</a>. '
+        "Every link is a recognised physical model whose units close; every approximation is a "
+        "written decision rather than an accident.</p>"
+    )
+    body.append('<h2 id="what-is-different">What this one does differently</h2>')
+    body.append('<div class="tiles">')
+    body.extend(f"<div class='tile'><h3>{t}</h3><p>{d}</p></div>" for t, d in tiles)
+    body.append("</div>")
+    body.append('<h2 id="by-the-numbers">The repository, counted at build time</h2>')
+    body.append('<div class="numbers">')
+    body.extend(
+        f"<div class='number'><b>{value}</b><span>{label}</span></div>" for value, label in numbers
+    )
+    body.append("</div>")
     if plan is not None:
         body.append('<h2 id="where-it-is">Where the plan is</h2>')
         body.append(
-            "<p>Phases run repair → point-wise physics → aerial → maritime → ground → "
-            "cross-cutting; the order is the owner's, recorded in ADR 0003.</p>"
+            "<p>Phases run repair &rarr; point-wise physics &rarr; aerial &rarr; maritime &rarr; "
+            "ground &rarr; cross-cutting; the order is the owner's, recorded in ADR 0003.</p>"
         )
         body.append('<div class="bars">')
         for phase, done, total in plan.by_phase:
@@ -456,7 +607,7 @@ def home_page(
             for sid, lane, what in plan.queue[:5]
         )
         body.append(f'<h3 id="do-next">Next, in order</h3><ol class="queue">{queue}</ol>')
-        body.append('<p><a href="roadmap/">The whole plan →</a></p>')
+        body.append('<p><a href="roadmap/">The whole plan &rarr;</a></p>')
     body.append('<h2 id="read-next">Read next</h2>')
     body.append('<div class="cards">')
     for url, title, note in [
@@ -475,7 +626,7 @@ def home_page(
         (
             "validation/",
             "Validation",
-            "Measured against public imagery — including where it fails.",
+            "Measured against public imagery &mdash; including where it fails.",
         ),
         ("decisions/", "Decision log", "Why each approximation was chosen."),
         ("code/", "Code map", "Every module in the tree, measured at build time."),
@@ -485,10 +636,11 @@ def home_page(
     return Page(
         url="",
         title="irsim",
-        subtitle="A physically-based multi-band infrared camera simulator for NVIDIA Isaac Sim.",
+        subtitle=subtitle,
         body="\n".join(body),
         nav_section="Start",
         wide=True,
+        hero=hero_block("irsim", subtitle, front.hero),
     )
 
 
@@ -575,17 +727,14 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
         "steps_done": plan.done if plan else 0,
         "steps_total": plan.total if plan else 0,
     }
-    # The front page's clip is named in site/gallery.yaml, not here: which render best opens the
-    # project is an editorial choice and belongs beside the other editorial choices.
-    hero = None
-    wanted = gallery.hero.get("video", "")
-    hero_asset = next((a for a in gallery.assets if a.url == wanted), None)
-    if hero_asset:
-        hero = f"media/{hero_asset.url}"
-    pages.insert(0, home_page(repo, stats, plan, hero, gallery.hero.get("caption", "")))
+    # Which render opens the project, which four make the band strip and which pair goes under
+    # the wipe are editorial choices, so they are named in site/gallery.yaml and resolved to
+    # encoded media there, not chosen here.
+    pages.insert(0, home_page(repo, stats, plan, gallery.front))
 
     groups = nav_groups(pages)
-    built = dt.datetime.now(dt.UTC).strftime("%Y-%m-%d %H:%M UTC")
+    # `dt.UTC` is 3.11+, and the CI matrix still has a 3.10 job (pyproject requires 3.10).
+    built = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     commit = site_survey.commit()
     for page in pages:
         target = out / page.out_path

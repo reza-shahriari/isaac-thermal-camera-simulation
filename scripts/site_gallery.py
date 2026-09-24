@@ -69,12 +69,47 @@ class Missing:
 
 
 @dataclass
+class Entry:
+    """One section of the gallery, as the contents grid at the top of the page needs it."""
+
+    slug: str
+    title: str
+    #: The still to show for it: a clip's poster frame, or the image itself. Empty when this
+    #: checkout has none of the section's media.
+    poster: str
+    count: int
+
+
+@dataclass
+class Front:
+    """The front page's editorial blocks, resolved from the manifest to encoded media.
+
+    Which render opens the project, which four make the band strip and which pair goes under the
+    wipe are editorial choices, so they are declared in `site/gallery.yaml` beside the captions
+    rather than in the page builder. Every one of them must also be named by a section of the
+    gallery -- a front page showing something the site explains nowhere is how a demo reel starts
+    to diverge from the work -- which `tests/unit/test_site_build.py` asserts over the manifest.
+
+    A block whose media this checkout does not have resolves to empty and the front page drops it,
+    the same way the gallery lists rather than invents a render it cannot find.
+    """
+
+    hero: dict[str, str] = field(default_factory=dict)
+    bands: list[dict[str, str]] = field(default_factory=list)
+    bands_text: dict[str, str] = field(default_factory=dict)
+    headline: dict[str, str] = field(default_factory=dict)
+    compare: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class GalleryResult:
     page: Page
     assets: list[Asset] = field(default_factory=list)
     missing: list[Missing] = field(default_factory=list)
     #: The clip the front page opens with, as `{"video": ..., "caption": ...}` from the manifest.
     hero: dict[str, str] = field(default_factory=dict)
+    front: Front = field(default_factory=Front)
+    contents: list[Entry] = field(default_factory=list)
 
     @property
     def total_bytes(self) -> int:
@@ -354,6 +389,10 @@ class GalleryBuilder:
         self.cache = Cache(media_root / ".encode.json")
         self.assets: list[Asset] = []
         self.missing: list[Missing] = []
+        #: Encoded media by the path the manifest names it with, so the contents grid and the
+        #: front page can point at a render the sections already paid to encode instead of
+        #: encoding a second copy of it.
+        self.by_src: dict[str, Asset] = {}
 
     # -- media ------------------------------------------------------------------------------
 
@@ -383,6 +422,7 @@ class GalleryBuilder:
                 cache=self.cache,
             )
         self.assets.append(asset)
+        self.by_src[src_rel] = asset
         return asset
 
     def _frames(self, pattern: str, section: str, fps: int, **options: int) -> Asset | None:
@@ -404,7 +444,16 @@ class GalleryBuilder:
             cache=self.cache,
         )
         self.assets.append(asset)
+        self.by_src[pattern] = asset
         return asset
+
+    @staticmethod
+    def src_of(item: dict[str, object]) -> str:
+        """The path a manifest media item names, whichever of the three keys carries it."""
+        for key in ("video", "image", "frames"):
+            if key in item:
+                return str(item[key])
+        return ""
 
     # -- rendering --------------------------------------------------------------------------
 
@@ -483,6 +532,7 @@ class GalleryBuilder:
         body: list[str] = [self._md(str(self.spec.get("intro", "")))]
         headings: list[site_markdown.Heading] = []
         search: list[str] = []
+        entries: list[Entry] = []
         for section in self.spec.get("sections", []):
             title = str(section["title"])
             slug = site_markdown.slugify(str(section.get("id", title)))
@@ -498,6 +548,7 @@ class GalleryBuilder:
                 body.append("</div>")
             if section.get("note"):
                 body.append(f'<div class="note">{self._md(str(section["note"]))}</div>')
+            entries.append(self._entry(slug, title, media))
             if section.get("source"):
                 sources = section["source"]
                 sources = sources if isinstance(sources, list) else [sources]
@@ -523,6 +574,9 @@ class GalleryBuilder:
                 site_markdown.Heading(2, "not-in-this-checkout", "Not in this checkout")
             )
 
+        # The contents grid goes under the intro, which is written before the sections are known.
+        body.insert(1, self._contents(entries))
+
         page = Page(
             url=url,
             title=str(self.spec.get("title", "Gallery")),
@@ -532,6 +586,8 @@ class GalleryBuilder:
             headings=headings,
             wide=True,
             search_text=" ".join(search),
+            # The contents grid above is this page's table of contents, and a better one.
+            no_toc=True,
         )
         if self.encode:
             self.cache.save()
@@ -541,4 +597,111 @@ class GalleryBuilder:
             assets=self.assets,
             missing=self.missing,
             hero={str(k): str(v) for k, v in hero.items()},
+            front=self.front(),
+            contents=entries,
         )
+
+    # -- the contents grid and the front page -----------------------------------------------
+
+    def _entry(self, slug: str, title: str, media: list[dict[str, object]]) -> Entry:
+        """One row of the contents grid: the section's first still, or none."""
+        poster = ""
+        for item in media:
+            asset = self.by_src.get(self.src_of(item))
+            if asset is not None:
+                poster = asset.poster or asset.url
+                break
+        return Entry(slug=slug, title=title, poster=poster, count=len(media))
+
+    def _contents(self, entries: list[Entry]) -> str:
+        """Every section as a thumbnail, so the page can be taken in before it is scrolled.
+
+        Eighteen sections is more than a reader will scroll through to find the one they were sent
+        here for, and each section's own first frame says what it is faster than its title does.
+        """
+        if not entries:
+            return ""
+        cells = []
+        for entry in entries:
+            thumb = (
+                f'<img src="{self.media_prefix}{entry.poster}" loading="lazy" alt="">'
+                if entry.poster
+                else '<span class="no-thumb"></span>'
+            )
+            cells.append(
+                f'<a class="contents-item" href="#{entry.slug}">{thumb}'
+                f"<span>{html.escape(entry.title)}</span></a>"
+            )
+        return '<nav class="contents" aria-label="Demos">' + "".join(cells) + "</nav>"
+
+    def front(self, prefix: str = "media/") -> Front:
+        """Resolve the manifest's front-page blocks against the media this build encoded."""
+
+        def media_for(src: str) -> dict[str, str]:
+            asset = self.by_src.get(src)
+            if asset is None:
+                return {}
+            out = {"url": prefix + asset.url}
+            if asset.poster:
+                out["poster"] = prefix + asset.poster
+            if asset.width and asset.height:
+                out["width"] = str(asset.width)
+                out["height"] = str(asset.height)
+            return out
+
+        front = Front()
+
+        hero = self.spec.get("hero") or {}
+        resolved = media_for(str(hero.get("video", "")))
+        if resolved:
+            front.hero = {**resolved, "caption": str(hero.get("caption", ""))}
+
+        bands = self.spec.get("bands") or {}
+        front.bands_text = {
+            "title": str(bands.get("title", "")),
+            "lead": str(bands.get("lead", "")),
+            "section": str(bands.get("section", "")),
+        }
+        for item in bands.get("items", []) or []:
+            resolved = media_for(str(item.get("video", "")))
+            if not resolved:
+                continue
+            front.bands.append(
+                {
+                    **resolved,
+                    "label": str(item.get("label", "")),
+                    "band": str(item.get("band", "")),
+                    "caption": str(item.get("caption", "")),
+                }
+            )
+        if len(front.bands) < len(bands.get("items", []) or []):
+            front.bands = []  # a strip missing a band is an argument about bands with a hole in it
+
+        headline = self.spec.get("headline") or {}
+        resolved = media_for(str(headline.get("video", "")))
+        if resolved:
+            front.headline = {
+                **resolved,
+                "title": str(headline.get("title", "")),
+                "lead": str(headline.get("lead", "")),
+                "left": str(headline.get("left", "")),
+                "right": str(headline.get("right", "")),
+                "section": str(headline.get("section", "")),
+            }
+
+        compare = self.spec.get("compare") or {}
+        before = media_for(str(compare.get("before", "")))
+        after = media_for(str(compare.get("after", "")))
+        if before and after:
+            front.compare = {
+                "before": before["url"],
+                "after": after["url"],
+                "width": before.get("width", ""),
+                "height": before.get("height", ""),
+                "title": str(compare.get("title", "")),
+                "lead": str(compare.get("lead", "")),
+                "before_label": str(compare.get("before_label", "")),
+                "after_label": str(compare.get("after_label", "")),
+                "section": str(compare.get("section", "")),
+            }
+        return front

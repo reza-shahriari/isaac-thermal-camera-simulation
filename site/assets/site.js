@@ -117,6 +117,70 @@
     });
   }
 
+  // ---- the front page's wipe ----------------------------------------------------------------
+  // Two pixel-aligned stills, one clipped to a fraction of the width. The range input is the
+  // control -- it comes free with pointer, touch and keyboard, and a screen reader announces it --
+  // and dragging the pane just writes into it. If this file never loads, the CSS default leaves
+  // the wipe at half and the figure still reads as a split comparison.
+  var compare = document.querySelector(".compare");
+  if (compare) {
+    var pane = compare.querySelector(".compare-pane");
+    var range = compare.querySelector(".compare-range");
+
+    var set = function (percent) {
+      percent = Math.max(0, Math.min(100, percent));
+      pane.style.setProperty("--x", percent + "%");
+    };
+
+    range.addEventListener("input", function () { set(parseFloat(range.value)); });
+
+    var drag = function (event) {
+      var box = pane.getBoundingClientRect();
+      if (!box.width) return;
+      var percent = ((event.clientX - box.left) / box.width) * 100;
+      range.value = String(Math.max(0, Math.min(100, percent)));
+      set(percent);
+    };
+
+    pane.addEventListener("pointerdown", function (event) {
+      pane.setPointerCapture(event.pointerId);
+      drag(event);
+    });
+    pane.addEventListener("pointermove", function (event) {
+      if (pane.hasPointerCapture(event.pointerId)) drag(event);
+    });
+    set(parseFloat(range.value));
+  }
+
+  // ---- play on hover ---------------------------------------------------------------------
+  // The band strip is poster frames until asked for: four autoplaying clips is 7 MB before the
+  // reader has scrolled. Pointer in plays, pointer out rewinds -- but only clips this started,
+  // so pressing play on a gallery video and then moving the mouse away does not stop it.
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduced) {
+    document.querySelectorAll("[data-hover-play], .shot video").forEach(function (video) {
+      video.addEventListener("mouseenter", function () {
+        if (!video.paused) return;
+        var playing = video.play();
+        if (playing && playing.catch) playing.catch(function () {});
+        video.dataset.auto = "1";
+      });
+      video.addEventListener("mouseleave", function () {
+        if (video.dataset.auto !== "1") return;
+        video.pause();
+        video.currentTime = 0;
+        delete video.dataset.auto;
+      });
+      video.addEventListener("click", function () { delete video.dataset.auto; });
+    });
+  } else {
+    // A reader who asked for less motion gets the hero as its own poster frame.
+    document.querySelectorAll(".hero-bg").forEach(function (video) {
+      video.removeAttribute("autoplay");
+      video.pause();
+    });
+  }
+
   if (window.renderMathInElement) {
     render_math();
   } else {

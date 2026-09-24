@@ -6,6 +6,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **The project site has a front door** (ADR 0141). ADR 0139 got the depth right — 457 pages, the
+  specification, every test with what it asserts, the catalogues measured from the tree at build
+  time — and the first screen wrong: three paragraphs, a counter row and one clip, with the
+  eighteen gallery sections that a reader can actually judge one click away. The front page now
+  opens on a **full-bleed hero** (`Page.hero` replaces the title block; the `<h1>` sits on the
+  render behind a two-axis scrim, because several of these frames carry a telemetry readout burnt
+  in exactly where a title goes), followed by **three demonstration blocks before any prose**: the
+  same quadrotor through four bands four-up, the point-wise-versus-object-wise clip full width
+  with the two solvers named in HTML, and a **wipe** the reader drags. The signal chain, the
+  counters and the plan follow them. The **gallery opens with a thumbnail of every section** and no
+  longer floats a duplicate contents list beside it.
+  **Which renders appear is a manifest edit, not a code change.** `site/gallery.yaml` already owned
+  the hero; it now owns the strip, the headline clip and the wipe pair, and `GalleryBuilder.front()`
+  resolves them against media the sections have already encoded — so the front page adds **no bytes
+  of its own**, and a test asserts every render on it is explained by a section. The strip is poster
+  frames with hover-to-play: four autoplaying clips would be about 7 MB before anyone scrolled,
+  the SWIR encode alone being 5.7 MB.
+  **The wipe has a rule, and it is why it is not pointed at the headline clip.** Both halves must
+  be stills and must come from the same gallery section (`tests/unit/test_site_build.py`). The
+  point-wise composite fails it: its two 463-wide panels carry *different* burnt-in annotations, so
+  a wipe would put `OBJECT-WISE — whole aircraft 26.2 C` over an image that is mostly point-wise.
+  That clip is shown whole instead, and without `controls`, because Chrome draws its control bar
+  precisely over the readout that is its evidence.
+
+### Fixed
+- **The site build crashed on Python 3.10**, which is half the CI matrix (`.github/workflows/
+  check.yml`) and the floor `pyproject.toml` declares. `scripts/build_site.py` timestamped the
+  footer with `datetime.UTC`, added in 3.11; every test in `tests/unit/test_site_build.py` errored
+  on a 3.10 interpreter. Now `datetime.timezone.utc`.
+- **The gallery intro described an encoding the gallery stopped using.** It claimed 720 px at
+  CRF 34 for every clip; the defaults have been 1280 px at CRF 23 since the four reflective-band
+  clips were given those settings as per-item overrides.
+
+### Changed
 - **`SC.16` is scoped, and the scoping moved it** (physics-model §9.5). The obvious wiring — wind
   cools the camera body, the body feeds the optics self-emission term — is **34× too small**.
   Measured on the project's own `forced_convection`: h goes 8.35 → 27.16 W/m²/K across [R44]'s

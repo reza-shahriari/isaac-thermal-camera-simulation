@@ -62,6 +62,13 @@ class Page:
     source: str | None = None
     wide: bool = False
     search_text: str = ""
+    #: Markup that replaces the standard title block. A page that sets it takes responsibility for
+    #: carrying its own `<h1>`, because every page has exactly one and this is where it lives.
+    hero: str = ""
+    #: Suppress the floating contents list. Set by a page that already shows its own sections in a
+    #: better form -- the gallery's thumbnail grid says what each one is, which a list of titles
+    #: cannot, and printing both puts two tables of contents on one screen.
+    no_toc: bool = False
 
     @property
     def out_path(self) -> str:
@@ -113,7 +120,7 @@ def _document_title(page: Page) -> str:
 def _toc(page: Page) -> str:
     """The in-page contents list, for documents long enough to need one."""
     entries = [h for h in page.headings if 2 <= h.level <= 3]
-    if len(entries) < 4:
+    if page.no_toc or len(entries) < 4:
         return ""
     items = []
     for h in entries:
@@ -147,6 +154,9 @@ def render_page(page: Page, groups: list[NavGroup], *, built: str, commit: str) 
             f'target="_blank" rel="noopener">{html.escape(page.source)} on GitHub</a>'
         )
     subtitle = f'<p class="subtitle">{page.subtitle}</p>' if page.subtitle else ""
+    head = page.hero or (
+        f'<div class="page-head"><h1>{html.escape(page.title)}</h1>{subtitle}{source}</div>'
+    )
     toc = _toc(page)
     main_class = "main wide" if page.wide else "main"
     if toc:
@@ -178,11 +188,7 @@ def render_page(page: Page, groups: list[NavGroup], *, built: str, commit: str) 
 <div class="shell">
 {_nav(groups, page)}
 <main id="content" class="{main_class}">
-<div class="page-head">
-  <h1>{html.escape(page.title)}</h1>
-  {subtitle}
-  {source}
-</div>
+{head}
 {toc}
 <article class="prose">
 {page.body}

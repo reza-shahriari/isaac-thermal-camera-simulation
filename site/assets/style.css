@@ -74,9 +74,11 @@ pre code { background: none; padding: 0; font-size: inherit; }
 .mark { width: 14px; height: 14px; border-radius: 3px;
         background: linear-gradient(135deg, #10131a 0%, var(--accent) 55%, #fff 100%); }
 .ghlink { color: var(--dim); font-size: 14px; }
-.search { position: relative; flex: 1; max-width: 520px; margin-left: auto; }
+/* A text input's intrinsic width is about 20 characters and a flex item's automatic minimum is
+   that, so both need `min-width: 0` to let the box shrink with the header on a narrow screen. */
+.search { position: relative; flex: 1; min-width: 0; max-width: 520px; margin-left: auto; }
 .search input {
-  width: 100%; padding: 7px 12px; border-radius: 8px; font: inherit; font-size: 14px;
+  width: 100%; min-width: 0; padding: 7px 12px; border-radius: 8px; font: inherit; font-size: 14px;
   background: var(--surface); color: var(--fg); border: 1px solid var(--line);
 }
 .search input:focus { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
@@ -110,7 +112,11 @@ pre code { background: none; padding: 0; font-size: inherit; }
 .sidebar li.here a { background: var(--surface-2); opacity: 1; font-weight: 600;
                      box-shadow: inset 2px 0 0 var(--accent); }
 
-.main { padding: 36px 40px 100px; max-width: 86ch; }
+/* `min-width: 0`, because a grid item's automatic minimum is its content's: one wide child -- a
+   code block, the chip row, a four-up strip -- could otherwise widen the column past the viewport.
+   The desktop track already guards this with `minmax(0, 1fr)`; this is the same guard on the item,
+   so the single-column rule below is covered too. */
+.main { padding: 36px 40px 100px; max-width: 86ch; min-width: 0; }
 .main.wide { max-width: 1180px; }
 /* A floated contents column costs the prose 250px, so a page that has one is given it back. */
 .main.has-toc { max-width: 1120px; }
@@ -166,19 +172,40 @@ td.nowrap, th.nowrap { white-space: nowrap; }
 
 /* ---- home ----------------------------------------------------------------------------- */
 
-/* The front page's clip runs the full width of the column rather than sharing it with the text.
-   These are 2.5:1 side-by-side pairs of a 640 px sensor frame, and at half width the aircraft in
-   them is 35 px across -- too small to read, which is the only reason the clip is there. */
-.hero { margin-bottom: 30px; }
-.hero-text { max-width: 74ch; }
-.hero-text p { font-size: 17px; }
-.hero-media { width: 100%; border-radius: var(--radius); border: 1px solid var(--line);
-              background: #000; }
-.hero-figure { margin: 24px 0 0; }
-.hero-caption { margin: 8px 0 0; color: var(--dim); font-size: 13.5px; }
-.hero-media.placeholder { display: grid; place-items: center; aspect-ratio: 2 / 1;
-                          color: var(--dim); font-size: 14px; }
-.hero-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+/* The front page opens on the render, full bleed, with the title over it. The site is dark
+   because every image on it is a grayscale thermal frame; the same reasoning puts the words on
+   the picture rather than above it, and a two-axis scrim -- up from the bottom, in from the left
+   -- carries the contrast so they stay legible over a frame whose brightness belongs to the
+   sensor model rather than to the designer. The block breaks out of .main's padding, so those
+   numbers are repeated here as negative margins and again in the responsive rules below. */
+.hero-block { position: relative; margin: -36px -40px 34px; overflow: hidden;
+              min-height: 430px; display: grid; align-content: end;
+              border-bottom: 1px solid var(--line); background: #000; }
+.hero-bg { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%;
+           object-fit: cover; }
+.hero-scrim {
+  position: absolute; inset: 0; z-index: 1;
+  background:
+    linear-gradient(to top,
+      color-mix(in srgb, var(--bg) 96%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 58%, transparent) 48%,
+      color-mix(in srgb, var(--bg) 30%, transparent) 78%,
+      color-mix(in srgb, var(--bg) 78%, transparent) 100%),
+    linear-gradient(to right,
+      color-mix(in srgb, var(--bg) 93%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 78%, transparent) 38%,
+      color-mix(in srgb, var(--bg) 22%, transparent) 72%);
+}
+.hero-inner { position: relative; z-index: 2; padding: 96px 40px 26px; max-width: 74ch; }
+.hero-inner h1 { margin: 0 0 8px; font-size: 46px; line-height: 1.04; letter-spacing: -0.03em; }
+.hero-sub { margin: 0 0 14px; font-size: 18px; }
+.hero-lead { margin: 0; font-size: 16.5px; color: var(--dim); max-width: 64ch; }
+.hero-credit { position: relative; z-index: 2; margin: 0; padding: 0 40px 16px;
+               color: var(--dim); font-size: 12.5px; max-width: 74ch; }
+/* No render in this checkout: the block collapses to a plain title rather than to a black box. */
+.hero-block.no-media { min-height: 0; background: var(--surface); }
+.hero-block.no-media .hero-inner { padding-top: 34px; }
+.hero-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 .button { display: inline-block; padding: 9px 16px; border-radius: 8px; font-size: 14.5px;
           font-weight: 600; background: var(--accent); color: #17130c; }
 .button:hover { text-decoration: none; filter: brightness(1.08); }
@@ -223,6 +250,68 @@ td.nowrap, th.nowrap { white-space: nowrap; }
 .card p { margin: 0; color: var(--dim); font-size: 14px; overflow-wrap: anywhere;
           display: -webkit-box; -webkit-line-clamp: 5; line-clamp: 5;
           -webkit-box-orient: vertical; overflow: hidden; }
+
+
+/* ---- home: the three blocks a reader can judge by looking ------------------------------ */
+
+/* Four bands, four up. Poster frames until hovered or tapped -- the SWIR clip is 5.7 MB, and a
+   front page that spends that before anyone has scrolled is charging admission. */
+.bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 10px; }
+.band { margin: 0; padding: 8px; background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius); }
+.band:hover { border-color: var(--accent); }
+.band video { display: block; width: 100%; height: auto; border-radius: 6px; background: #000; }
+.band figcaption { margin-top: 8px; font-size: 13px; color: var(--dim); }
+.band figcaption b { color: var(--fg); font-family: var(--mono); font-size: 12.5px;
+                     letter-spacing: 0.04em; }
+.band-range { margin-left: 7px; color: var(--accent); font-family: var(--mono); font-size: 12px; }
+.band-note { display: block; margin-top: 5px; line-height: 1.45; }
+
+/* A side-by-side composite, with the two cases named in HTML above their own halves. */
+.split { margin: 18px 0 8px; }
+.split video { display: block; width: 100%; height: auto; background: #000;
+               border: 1px solid var(--line); border-radius: var(--radius); }
+.split-labels { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
+.split-labels span { padding: 7px 10px; font-size: 13px; color: var(--dim);
+                     border-top: 2px solid var(--line); }
+.split-labels span:last-child { border-top-color: var(--accent); color: var(--fg); }
+
+/* The wipe. `--x` is set by site.js; at its CSS default the figure is a static half-and-half
+   split, which is what it degrades to when that script does not load. */
+.compare { margin: 18px 0 8px; max-width: 780px; }
+.compare-pane { position: relative; --x: 50%; aspect-ratio: var(--ratio, 5 / 4); overflow: hidden;
+                background: #000; border: 1px solid var(--line); border-radius: var(--radius);
+                cursor: ew-resize; touch-action: pan-y; }
+.compare-pane img { position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+                    object-fit: contain; }
+.compare-a { clip-path: inset(0 calc(100% - var(--x)) 0 0); }
+.compare-handle { position: absolute; top: 0; bottom: 0; left: var(--x); width: 2px;
+                  margin-left: -1px; background: var(--accent); pointer-events: none; }
+.compare-handle::after { content: ""; position: absolute; top: 50%; left: 50%; width: 30px;
+                         height: 30px; margin: -15px 0 0 -15px; border-radius: 999px;
+                         background: var(--accent); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.55); }
+.compare-tag { position: absolute; bottom: 8px; padding: 3px 8px; border-radius: 6px;
+               background: rgba(0, 0, 0, 0.62); color: #fff; font-family: var(--mono);
+               font-size: 12px; pointer-events: none; }
+.compare-tag.left { left: 8px; }
+.compare-tag.right { right: 8px; }
+.compare-range { display: block; width: 100%; margin-top: 10px; accent-color: var(--accent); }
+
+.more { margin-top: 10px; font-size: 14px; }
+
+/* The gallery's contents: eighteen sections is more than anyone scrolls to find the one they
+   were sent here for, and each section's own first frame names it faster than its title does. */
+.contents { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+            gap: 10px; margin: 18px 0 28px; }
+.contents-item { display: block; padding: 6px; background: var(--surface);
+                 border: 1px solid var(--line); border-radius: 8px; color: var(--fg);
+                 font-size: 12.5px; }
+.contents-item:hover { border-color: var(--accent); text-decoration: none; }
+.contents-item img, .contents-item .no-thumb { display: block; width: 100%; aspect-ratio: 16 / 10;
+                                               object-fit: cover; border-radius: 5px;
+                                               background: var(--surface-2); }
+.contents-item span { display: block; margin-top: 6px; color: var(--dim); line-height: 1.35; }
+.contents-item:hover span { color: var(--fg); }
 
 /* ---- gallery -------------------------------------------------------------------------- */
 
@@ -273,8 +362,14 @@ table.suite td:last-child { width: 70px; text-align: right; }
 /* ---- responsive ----------------------------------------------------------------------- */
 
 @media (max-width: 1000px) {
-  .shell { grid-template-columns: 1fr; }
-  .hero-figure { margin-top: 18px; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  /* The hero's negative margins have to match .main's padding, which changes here. */
+  .hero-block { margin: -24px -16px 26px; min-height: 320px; }
+  .hero-inner { padding: 60px 16px 20px; }
+  .hero-inner h1 { font-size: 34px; }
+  .hero-credit { padding: 0 16px 14px; }
+  .bands { grid-template-columns: repeat(2, 1fr); }
+  .contents { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
   .sidebar { position: static; max-height: none; border-right: 0;
              border-bottom: 1px solid var(--line); padding: 14px 16px; }
   .sidebar ul { display: flex; flex-wrap: wrap; gap: 4px; }

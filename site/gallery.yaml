@@ -17,6 +17,74 @@ hero:
     A DJI Phantom 4 Pro — a third-party model nobody here built — in LWIR beside its visible
     companion, the same instants through both cameras.
 
+# The front page's three editorial blocks. Every render named here must also be named by a
+# section below: a front page showing something the gallery explains nowhere is how a demo reel
+# starts to diverge from the work, and a test asserts it over this file.
+
+# The band strip: the same scene through four bands, four up. Poster frames until the reader
+# hovers or taps, because the SWIR clip alone is 5.7 MB re-encoded.
+bands:
+  section: four-bands-drone
+  title: One kernel, four bands
+  lead: >-
+    The same quadrotor, the same weather, the same sun, the same instant, through four spectral
+    bands. In LWIR it is four hot motor bells against a cold sky; in NIR it is a black silhouette
+    against a bright one. Two different detection problems out of one radiance kernel — which is
+    the argument for treating bands as data rather than code. Hover or tap to play.
+  items:
+    - label: LWIR
+      band: 7.5–13.5 µm
+      video: multiband/drone/lwir/quad_flight_agc.mp4
+      caption: emissive — the motors and the pack separate from the airframe
+    - label: MWIR
+      band: 3.0–5.0 µm
+      video: multiband/drone/mwir/quad_flight_agc.mp4
+      caption: either side of the solar crossover
+    - label: SWIR
+      band: 0.9–1.7 µm
+      video: multiband/drone/swir/quad_flight_agc.mp4
+      caption: reflective — the scene is lit, not glowing
+    - label: NIR
+      band: 0.75–1.0 µm
+      video: multiband/drone/nir/quad_flight_agc.mp4
+      caption: a silhouette against a bright sky — the opposite detection problem
+
+# The headline claim, full width. The clip is a composite whose two panels carry their own
+# burnt-in readouts, so it is shown whole and the solvers are named in HTML beside it rather than
+# put under the wipe: a wipe would show one panel's numbers over the other panel's image.
+headline:
+  section: pointwise-vs-objectwise
+  title: One temperature per object, or one per point
+  video: pointwise_flight/quad_pointwise_vs_objectwise.mp4
+  left: object-wise — one number for the whole aircraft
+  right: point-wise — every cell its own energy balance
+  lead: >-
+    The same 30-minute mission, filmed twice by the same camera at the same instants. **Over the
+    whole flight the object-wise aircraft moves 0.5 K** — it simply tracks the air — **while the
+    deck alone moves 16.6 K and runs up to 29.9 K away from it.** One temperature per object is
+    not a coarser picture of a thermal scene; it is a different scene, and it is the defect this
+    project exists to fix.
+
+# The wipe. Its two sources must differ in exactly one thing and be pixel-aligned, which rules
+# out every side-by-side composite in the gallery -- sliding one of those over itself mixes two
+# sets of burnt-in annotations. This pair is one scene recaptured with the correction off and on.
+compare:
+  section: flat-field
+  title: What makes a frame read as a thermal camera
+  before: recapture/clear_no_flatfield.png
+  after: recapture/clear_flatfield.png
+  before_label: no flat field
+  after_label: flat-fielded
+  lead: >-
+    Drag the handle. Both halves are one scene at one instant through one set of optics, and the
+    only difference is the correction — but they do not differ the way a reader expects. Without
+    a flat field the 8-bit picture carries the optics' own vignetting, and plateau equalisation
+    spends its range flattening that: the left half is smooth and its corners are dark. Correct
+    the field and the same AGC has range left over for the scene, so the sensor's own grain
+    arrives with it. That structure is what a viewer reads as "thermal camera" long before
+    radiometric accuracy is noticeable, which is why the detector and noise chain
+    (ADR 0053–0057) is modelled rather than approximated with Gaussian noise.
+
 title: What the simulator produces
 subtitle: >-
   White-hot grayscale, no false-colour palette. Every frame and clip below was generated from the
@@ -29,8 +97,9 @@ intro: |
   [decision log](../decisions/); what you are looking at is that model's output at the fidelity
   the [roadmap](../roadmap/) has reached.
 
-  Clips are re-encoded for the web — H.264, 720 px, CRF 34 — from originals that run to 163 Mbit/s.
-  The grain is the sensor model, not the compression.
+  Clips are re-encoded for the web — H.264, capped at 1280 px, CRF 23, with the four reflective-band
+  clips at 720 px and CRF 34 because their content is grain rather than detail — from originals that
+  run to 163 Mbit/s. The grain is the sensor model, not the compression.
 
 sections:
   - id: pointwise-vs-objectwise
@@ -278,6 +347,9 @@ sections:
       Python: 234,923 cells over 0.1628 m², and the physics the lane exists for — black mouldings
       reach **65.9 °C** where the white shell tops out at **33.8 °C** (α 0.94 against 0.25), every
       surface carrying a *span* rather than one value per object.
+
+      Those cells reached no pixel until `AI.2` closed: this clip renders one temperature per
+      prim. The outbound clip below is the one where the solve reaches the picture.
     media:
       - video: phantom4/phantom4_pair.mp4
         crf: 20      # the front page opens with this one
@@ -289,6 +361,38 @@ sections:
       - video: phantom4_smoke/phantom4_pair.mp4
         width: half
         caption: and through smoke
+    source: scripts/render_phantom4.py
+
+  - id: imported-asset-outbound
+    title: Near to far, with the solve reaching the pixels
+    lead: |
+      The same imported Phantom 4, departing from **4 m to 80 m** at a held 16° of elevation —
+      **180 px across down to 9**. Range is spaced geometrically rather than linearly, so the
+      aircraft sheds the same fraction of its width every frame instead of collapsing in the
+      first few and then crawling; the elevation is held so the sky behind it is the same at both
+      ends and the contrast that survives is a statement about range.
+
+      This is the clip where `AI.2` closed. `IrCamera` now takes `mesh_fields=`, so `WM.3`'s
+      `MeshPointBridge` asks each prim's own triangles for the closest point to every pixel —
+      **24,214 pixels took a cell** of the scene's own 234,923-cell solve, across all six bound
+      prims. Every one of the six carries a gradient *across itself*: 3.83 K on the motor
+      housings, 6.65 K on the lower shell, 8.52 K on the upper shell and **10.60 K** on the
+      propellers, against this camera's 50 mK NETD.
+    media:
+      - video: phantom4_outbound/phantom4_pair.mp4
+        width: full
+        caption: LWIR beside its visible companion, 4 m to 80 m
+      - image: phantom4_outbound/near_structure_whitehot.png
+        width: half
+        caption: >-
+          the same first frame scaled to the airframe's own 19.6–26.6 °C instead of the whole
+          scene's −5.2–26.4 °C: the propellers and the gimbal read cool against the shell
+      - image: phantom4_outbound/frames/ir_00119.png
+        width: half
+        caption: 80 m — nine pixels across, on the sky it started against
+    note: |
+      The aircraft's own temperature moves during the run, because the 28-minute mission plays
+      while it flies and the readout carries it. What is held constant is the background.
     source: scripts/render_phantom4.py
 
   - id: aircraft-pass
