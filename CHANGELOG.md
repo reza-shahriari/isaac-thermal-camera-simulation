@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **`SC.16` is scoped, and the scoping moved it** (physics-model §9.5). The obvious wiring — wind
+  cools the camera body, the body feeds the optics self-emission term — is **34× too small**.
+  Measured on the project's own `forced_convection`: h goes 8.35 → 27.16 W/m²/K across [R44]'s
+  0.8–8.5 m/s, which moves the Boson's authored 4 K still-air rise by 1.66 K, and through ADR
+  0016's 87 mK/K that is **0.144 K of apparent bias against the published 4.88 K span**.
+  Reproducing the measurement down that path would need 135 K of still-air self-heating, which is
+  not credible. So the coupling has to run through the FPA node and the NUC residual instead, and
+  the row now says so rather than leaving the next session to rediscover it. No code yet: the step
+  is larger than one commit and is split rather than half-shipped (CLAUDE.md).
 - **The specification now says that emissivity is a property of surface state, that the camera
   applies its own assumed emissivity, and that the camera sits in the same weather as the scene.**
   Three new sections in `docs/physics-model.md`, written with the owner's authorisation rather than
@@ -43,6 +52,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `AT.18` is the queue head.
 
 ### Fixed
+- **The imported Phantom 4's solved cells finally reach pixels** (`AI.2`). The scene had been
+  solving 234,923 mesh cells on the asset's own triangles since ADR 0132 and rendering one
+  temperature per prim, because `IrCamera` took planar `SurfaceBinding`s only: `MeshPointBridge`
+  had existed since `WM.3` with no caller but its own tests, since reaching it required a
+  renderer. It now takes `mesh_fields=` beside `surface_fields=`, applied after the planar bridge
+  on the same decoded world positions, with the two bridges' local frames unioned and coverage
+  merged.
+  **The frame is the part worth writing down.** An imported asset is solved in its archive's own
+  world-space metres, and the scene config must keep calling that frame `world`, because
+  `scene_forcing` refuses a patch in a moving frame outright -- shadow in one needs a pose the
+  thermal core does not carry, which is the same constraint that makes `render_quad_outbound`
+  move its *camera* instead of its aircraft (ADR 0123). Mounting that asset on a stage is a
+  rendering fact, not a scene fact, so `MeshBinding.frame` names the Xform the driver flies it by
+  and the bridge maps each pixel's world position back through it before querying the triangles.
+  Getting this wrong is silent: every query lands metres from the mesh, the 7 mm gate rejects all
+  of them, and the render falls back to per-prim with no error at all. That was the first result
+  -- 0 pixels covered -- and it is why the driver now reports the coverage it achieved.
+  **Measured, in sim, on an A6000.** 24,214 pixels took a cell of the solve across all six bound
+  prims, and every one of the six carries a gradient *across itself*: 3.83 K on the motor
+  housings, 6.65 K on the lower shell, 8.52 K on the upper shell, **10.60 K** on the propellers,
+  against a 50 mK NETD. Measured on interior pixels only -- a silhouette pixel is part sky, and
+  at 4 m the sky is 43 K colder, so including the rim would report the background as structure.
+- **A near-to-far track for an imported aircraft** (`StraightOutTrack`, `--track outbound`). The
+  detection question rather than the aspect question: the Phantom 4 departs from 4 m to 80 m at a
+  **held 16 degrees** of elevation, 180 px across down to 9. Two choices are deliberate. The
+  elevation is held, and is the track's only free parameter, because a target receding at a fixed
+  height sinks toward the horizon -- 3 m of altitude is 1.1 degrees up at 80 m -- and these
+  scenes author no terrain, so a ray leaving below the horizon samples the sky model at a
+  negative elevation and comes back near air temperature: the target would collapse against a
+  *warming* background and the clip would be measuring the track. Range is spaced geometrically,
+  not linearly, because width in pixels goes as 1/R: equal steps in range spend half the clip
+  beyond 42 m where the aircraft is already under twenty pixels, while equal steps in log R shed
+  the same fraction of width every frame.
+  One defect found on the way and fixed: the driver wrapped every phase with `% 1.0`, which is
+  right for a lemniscate that has to close for a looping clip and sends an outbound run's final
+  phase of exactly 1.0 back to 0.0 -- so the last frame of the first clip showed the aircraft at
+  80 m and then abruptly back at 4 m, filling the frame. It renders, and it encodes.
 - **Pigment colour can no longer drift into the thermal bands** (`GT.9`). The library already had
   this right — `car_paint_black` and `car_paint_white` carry the same ε in MWIR and LWIR and differ
   in `solar_absorptivity` — but nothing held it, so an author following the folk rule that "the
