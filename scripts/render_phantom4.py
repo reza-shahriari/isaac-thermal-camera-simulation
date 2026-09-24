@@ -56,9 +56,38 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 #: Where the prepared asset's prims land once referenced.
 ASSET_ROOT = "/World/Targets/phantom4"
 
-#: Source material name -> thermal target. The asset is grouped by material, so this is the only
-#: granularity available: the `Copper` prims are the motor windings and the rest is airframe.
-TARGET_BY_MATERIAL: dict[str, str] = {"copper": "motor"}
+#: Part name -> thermal target (AI.5, ADR 0138). The asset used with ``--asset phantom4_parts``
+#: has one prim per **part**, so a target can finally name hardware instead of a material.
+#:
+#: What this replaces, and why the old form could not be rescued. Until AI.5 this was
+#: ``TARGET_BY_MATERIAL = {"copper": "motor"}`` with everything else on ``airframe`` -- two thermal
+#: nodes for an aircraft with four motors, a battery and four propellers. It could not be made
+#: finer, because in the source asset a prim is a *material group*: only 25 of 41 prims are more
+#: than 90 % one part and those carry just 34.7 % of the area, and the prim containing the battery
+#: holds nine parts of which the battery is 26 %. So the geometry was regrouped instead
+#: (``prep_asset.py --emit-parts``), and this map keys on the result.
+TARGET_BY_PART: dict[str, str] = {
+    # The four motors are the hottest surfaces on a flying quadcopter: §6.6's aerial node peaks at
+    # +45 K over ambient at full throttle (ADR 0072). Four nodes, not one.
+    "motor_front_left": "motor",
+    "motor_front_right": "motor",
+    "motor_rear_left": "motor",
+    "motor_rear_right": "motor",
+    # The mounts carry the ESC wiring out of the arms; the ESC node peaks at +30 K.
+    "motor_mount_front_left": "esc",
+    "motor_mount_front_right": "esc",
+    "motor_mount_rear_left": "esc",
+    "motor_mount_rear_right": "esc",
+    # The pack: +15 K, large mass, and **enclosed by the shell**, so the camera sees it only
+    # through what it warms. It exists in the model for the first time as of ADR 0138.
+    "battery": "battery",
+    # Everything else takes the airframe's own energy balance. The propellers are named separately
+    # in the scene because they are 1 mm of ABS moving fastest through their own boundary layer.
+    "propeller_front_left": "airframe",
+    "propeller_front_right": "airframe",
+    "propeller_rear_left": "airframe",
+    "propeller_rear_right": "airframe",
+}
 DEFAULT_TARGET = "airframe"
 
 #: Which way the airframe's nose points **in the asset's own axes**, before the mount rotation.
@@ -104,6 +133,15 @@ parser.add_argument(
     help="scene seconds the clip covers; one circuit of the track per clip",
 )
 parser.add_argument("--laps", type=float, default=1.0, help="circuits of the eight per clip")
+# --- framing -------------------------------------------------------------------------------------
+# A Phantom 4 is 464 mm tip to tip and this sensor is a 30.7 deg HFOV Boson 640, so the aircraft
+# spans 640 * 0.464 / (2 R tan 15.35 deg) pixels: 108 px at 5 m, 271 px at 2 m. The defaults below
+# keep the old flypast; bring `--centre-range-m` in to about 2 m for a close pass where a 27 mm
+# motor can is ~16 px and per-part temperature is actually legible.
+parser.add_argument("--centre-range-m", type=float, default=None, help="track centre distance")
+parser.add_argument("--half-width-m", type=float, default=None, help="half-width of the eight")
+parser.add_argument("--altitude-low-m", type=float, default=None, help="lowest track altitude")
+parser.add_argument("--altitude-high-m", type=float, default=None, help="highest track altitude")
 parser.add_argument("--rt-subframes", type=int, default=16)
 parser.add_argument("--settle", type=int, default=16)
 parser.add_argument("--span", default=None, help="display span 'loC,hiC'; default from the solve")
@@ -261,7 +299,17 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         f"-> stage +Y up, -Z north"
     )
 
-    track = FigureEightTrack()
+    track_kwargs = {
+        k: v
+        for k, v in (
+            ("centre_range_m", args.centre_range_m),
+            ("half_width_m", args.half_width_m),
+            ("altitude_low_m", args.altitude_low_m),
+            ("altitude_high_m", args.altitude_high_m),
+        )
+        if v is not None
+    }
+    track = FigureEightTrack(**track_kwargs)
     # The camera advances its clock *before* it hands back a frame, so frame i is at
     # (i + 1) * interval and the last one lands exactly on `--mission-s`. Dividing by
     # `frames - 1` instead overshoots by one interval, and the throttle schedule -- which refuses
@@ -419,15 +467,23 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         print(f"  UNMAPPED (renders magenta): {path}")
 
     # --- every prim needs a thermal node, or the camera refuses it ------------------------------
+    # A part-split asset names its prims after parts, so the leaf name is the key. A prim the map
+    # does not name falls to `airframe`, which is what every shell, arm and leg wants anyway.
     prim_to_target = {
-        record.path: TARGET_BY_MATERIAL.get((record.material_name or "").lower(), DEFAULT_TARGET)
+        record.path: TARGET_BY_PART.get(record.path.rsplit("/", 1)[-1], DEFAULT_TARGET)
         for record in records
     }
-    n_motor = sum(1 for v in prim_to_target.values() if v == "motor")
-    print(
-        f"thermal nodes: {n_motor} prim(s) on `motor`, "
-        f"{len(prim_to_target) - n_motor} on `airframe`"
-    )
+    by_node: dict[str, int] = {}
+    for value in prim_to_target.values():
+        by_node[value] = by_node.get(value, 0) + 1
+    summary = ", ".join(f"{n} prim(s) on `{k}`" for k, n in sorted(by_node.items()))
+    print(f"thermal nodes: {summary}")
+    if set(prim_to_target.values()) == {DEFAULT_TARGET}:
+        print(
+            "  NOTE: every prim is on the default node. With --asset phantom4 that is expected "
+            "(its prims are material groups); use --asset phantom4_parts for per-part heat.",
+            file=sys.stderr,
+        )
 
     # --- the camera: on the ground at the observer, slewing to hold the aircraft ----------------
     eye = np.asarray(track.observer_m, dtype=np.float64)

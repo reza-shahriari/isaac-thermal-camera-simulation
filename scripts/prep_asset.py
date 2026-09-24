@@ -54,6 +54,10 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 #: own relative area error -- see `emit_meshes`.
 PRIM_AREA_FLOOR_FRACTION = 0.001
 
+#: Integer face attribute carrying a part index. It survives both `join` and `separate`, which
+#: is what lets `split_by_part_usd` regroup geometry without depending on face order (ADR 0138).
+ATTR_PART = "irsim_part"
+
 #: Source formats the worker knows how to import.
 IMPORTERS: dict[str, str] = {
     ".fbx": "fbx",
@@ -371,6 +375,7 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
     import numpy as np
 
     components: list[dict[str, object]] = []
+    face_ids: dict[str, Any] = {}
     for obj in sorted((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: o.name):
         me = obj.data
         if not len(me.polygons):
@@ -407,6 +412,9 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
 
         face_root = roots[first]
         vert_root = roots
+        # global component index of every face of this object, filled in below
+        this_object = np.full(npoly, -1, dtype=np.int64)
+        face_ids[obj.name] = this_object
         for root in np.unique(face_root):
             fm = face_root == root
             pts = co[vert_root == root]
@@ -419,6 +427,7 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
                     continue
                 by_material[name] = by_material.get(name, 0.0) + float(a)
             dominant = max(by_material.items(), key=lambda kv: kv[1])[0] if by_material else None
+            this_object[fm] = len(components)
             components.append(
                 {
                     "index": len(components),
@@ -433,6 +442,9 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(components), encoding="utf-8")
+    # Per-face component ids, so `split_by_part_usd` can regroup geometry without recomputing the
+    # union-find -- and, more importantly, without depending on two runs agreeing about it.
+    np.savez_compressed(out_path.with_suffix(".faces.npz"), **face_ids)
     total_area = sum(float(c["area_m2"]) for c in components)
     total_faces = sum(int(c["faces"]) for c in components)
     print(
@@ -440,6 +452,114 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
         f"{total_faces:,} faces, {total_area:.5f} m2)"
     )
     return {"components": len(components), "faces": total_faces, "area_m2": total_area}
+
+
+def split_by_part_usd(
+    assignment_path: pathlib.Path, face_ids_path: pathlib.Path, out_usd: pathlib.Path
+) -> dict[str, object]:
+    """Rewrite the imported asset so that **one prim is one part**, then export it as USD.
+
+    Why this pass exists. The renderer binds a temperature per *prim*, and in the source asset a
+    prim is a material group -- so a prim is not a part, and no per-prim assignment can express
+    one. Measured on the Phantom 4: only 25 of its 41 prims are more than 90 % a single part, and
+    those 25 carry just 34.7 % of the asset's area. The prim holding the battery contains **nine**
+    parts, of which the battery is 26 % -- painting it at the battery's temperature would be wrong
+    about three quarters of it. So the geometry is regrouped rather than the assignment
+    approximated.
+
+    Faces are moved with Blender's own `separate` operator rather than rebuilt from arrays, because
+    it carries material slots, per-face material indices and UV layers along with the faces;
+    rebuilding would drop the textures the visible companion frame depends on.
+
+    The part index rides on the mesh as an integer **face attribute**, which survives both `join`
+    and `separate`. That is what makes this robust: nothing depends on face order being preserved
+    across an operator, which it is not.
+
+    The per-face component ids come from :func:`emit_components` in the same prepared run, so the
+    union-find is never recomputed and two passes cannot disagree about where a shell begins.
+    """
+    import bpy
+    import numpy as np
+
+    assignment = json.loads(assignment_path.read_text(encoding="utf-8"))
+    part_of_component: dict[str, str] = assignment["part_of_component"]
+    names: list[str] = list(assignment["parts"])
+    index_of = {n: i for i, n in enumerate(names)}
+    with np.load(face_ids_path, allow_pickle=False) as data:
+        face_ids = {k: np.asarray(data[k], dtype=np.int64) for k in data.files}
+
+    # 1. tag every face with its part index (-1 = unassigned, which is dropped)
+    tagged = 0
+    for obj in [o for o in bpy.data.objects if o.type == "MESH"]:
+        ids = face_ids.get(obj.name)
+        me = obj.data
+        npoly = len(me.polygons)
+        values = np.full(npoly, -1, dtype=np.int32)
+        if ids is not None and len(ids) == npoly:
+            for face, component in enumerate(ids):
+                part = part_of_component.get(str(int(component)))
+                if part is not None:
+                    values[face] = index_of[part]
+        attribute = me.attributes.new(name=ATTR_PART, type="INT", domain="FACE")
+        attribute.data.foreach_set("value", values)
+        tagged += int((values >= 0).sum())
+    print(f"tagged {tagged:,} faces with a part index")
+
+    # 2. one object, so one separate per part is enough
+    bpy.ops.object.select_all(action="SELECT")
+    meshes = [o for o in bpy.data.objects if o.type == "MESH"]
+    bpy.context.view_layer.objects.active = meshes[0]
+    if len(meshes) > 1:
+        bpy.ops.object.join()
+
+    # 3. peel off one part at a time
+    made: list[str] = []
+    for name in names:
+        target = index_of[name]
+        current = bpy.context.view_layer.objects.active
+        me = current.data
+        values = np.empty(len(me.polygons), dtype=np.int32)
+        me.attributes[ATTR_PART].data.foreach_get("value", values)
+        selected = values == target
+        if not selected.any():
+            print(f"  part {name!r} has no faces in the import; skipped")
+            continue
+        if selected.all():
+            current.name = current.data.name = name
+            made.append(name)
+            break
+        bpy.ops.object.select_all(action="DESELECT")
+        current.select_set(True)
+        bpy.context.view_layer.objects.active = current
+        me.polygons.foreach_set("select", selected.astype(np.int8))
+        before = set(bpy.data.objects.keys())
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.separate(type="SELECTED")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        fresh = [o.name for o in bpy.data.objects if o.name not in before]
+        if not fresh:
+            print(f"  part {name!r} did not separate; skipped")
+            continue
+        piece = bpy.data.objects[fresh[0]]
+        piece.name = piece.data.name = name
+        made.append(name)
+        bpy.context.view_layer.objects.active = current
+
+    # 4. anything still unassigned is geometry no part claimed; it must not reach the stage
+    leftovers = [o for o in bpy.data.objects if o.type == "MESH" and o.name not in made]
+    for o in leftovers:
+        print(f"  dropping {o.name}: {len(o.data.polygons):,} faces no part claimed")
+        bpy.data.objects.remove(o, do_unlink=True)
+
+    out_usd.parent.mkdir(parents=True, exist_ok=True)
+    bpy.ops.wm.usd_export(
+        filepath=str(out_usd),
+        export_materials=True,
+        generate_preview_surface=True,
+        root_prim_path="/World",
+    )
+    print(f"wrote {out_usd} ({len(made)} part prims)")
+    return {"parts": len(made), "names": made}
 
 
 def total_error_signed(before: float, after: float) -> float:
@@ -456,6 +576,9 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--scale", type=float, required=True)
     ap.add_argument("--out-meshes", type=pathlib.Path, default=None)
     ap.add_argument("--out-components", type=pathlib.Path, default=None)
+    ap.add_argument("--split-assignment", type=pathlib.Path, default=None)
+    ap.add_argument("--split-face-ids", type=pathlib.Path, default=None)
+    ap.add_argument("--split-out-usd", type=pathlib.Path, default=None)
     ap.add_argument("--dissolve-deg", type=float, default=5.0)
     ap.add_argument("--max-area-error", type=float, default=0.02)
     args = ap.parse_args(list(argv))
@@ -467,6 +590,11 @@ def run_worker(argv: Sequence[str]) -> int:
     print(f"imported {args.source.name} via {how}: {len(meshes)} meshes, {tris:,} triangles")
 
     _rescale(args.scale)
+    if args.split_assignment is not None:
+        # A split-only pass: exporting the un-split stage first would cost a 115 MB write of a
+        # file nobody reads.
+        split_by_part_usd(args.split_assignment, args.split_face_ids, args.split_out_usd)
+        return 0
     args.out_usd.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.usd_export(
         filepath=str(args.out_usd),
@@ -489,6 +617,40 @@ def run_worker(argv: Sequence[str]) -> int:
 # --------------------------------------------------------------------------------------------
 # driver -- runs under the project interpreter
 # --------------------------------------------------------------------------------------------
+
+
+def blender_split_command(
+    blender: str,
+    source: pathlib.Path,
+    scale: float,
+    components: pathlib.Path,
+    assignment: pathlib.Path,
+    out_usd: pathlib.Path,
+) -> list[str]:
+    """The argv for the part-splitting pass. Separate from :func:`blender_command` because it is a
+    different job: that one prepares an asset, this one regroups a prepared one."""
+    return [
+        blender,
+        "--background",
+        "--factory-startup",
+        "--python",
+        str(pathlib.Path(__file__).resolve()),
+        "--",
+        "--source",
+        str(source),
+        "--out-usd",
+        str(out_usd.with_name("unused.usdc")),
+        "--out-prims",
+        str(out_usd.with_name("unused.prims.json")),
+        "--scale",
+        repr(float(scale)),
+        "--split-assignment",
+        str(assignment),
+        "--split-face-ids",
+        str(components.with_suffix(".faces.npz")),
+        "--split-out-usd",
+        str(out_usd),
+    ]
 
 
 def blender_command(
@@ -572,6 +734,14 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
         help="refuse the mesh emit if any prim's area moves by more than this",
     )
     ap.add_argument("--threshold", type=float, default=None, help="coverage gate override")
+    ap.add_argument(
+        "--emit-parts",
+        action="store_true",
+        help=(
+            "regroup the prepared mesh archive by functional part (ADR 0138) and write it as a "
+            "sibling asset `<name>_parts`. Engine-free: reads the archive, not the source file"
+        ),
+    )
     # AI.3. Nothing counted the geometry until this, so the first import too heavy to solve was
     # discovered by waiting for the solve. The budget is GT.7's measurement, not a guess.
     ap.add_argument(
@@ -662,6 +832,81 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             ok = False
     elif args.emit_mesh:
         print(f"no mesh archive at {archive}: the geometry budget was not checked")
+
+    # The functional part decomposition (AI.5, ADR 0138). Engine-free: it regroups the triangles
+    # the archive already holds, so it needs neither Blender nor the source file, and a selector
+    # can be re-tuned in seconds rather than by re-importing a 60 MB FBX.
+    if args.emit_parts:
+        if asset.parts is None:
+            print(
+                f"{asset.name}: no `parts:` block in its config; nothing to emit", file=sys.stderr
+            )
+            return 1
+        if not archive.exists():
+            print(f"no mesh archive at {archive}; run with --emit-mesh first", file=sys.stderr)
+            return 1
+        from irsim.io.asset_parts import split_by_part
+        from irsim.io.assets import load_asset_meshes, write_asset_meshes
+
+        parts, part_report = split_by_part(load_asset_meshes(archive), asset.parts)
+        print()
+        print(part_report.render())
+        greedy = part_report.greedy_parts()
+        if greedy:
+            print(
+                f"  NOTE: {', '.join(greedy)} hold(s) over 60 % of the asset -- check the selector"
+            )
+        if not part_report.passed:
+            ok = False
+        else:
+            name = f"{asset.name}_parts"
+            written = write_asset_meshes(out_dir.parent / name / f"{name}.meshes.npz", parts)
+            print(f"wrote {written} ({len(parts)} parts)")
+
+            # The renderer binds a temperature per prim, so the asset needs a USD whose prims ARE
+            # parts. That regrouping is geometry work and happens in Blender -- on the CPU, in
+            # background mode, booting no Kit (ADR 0128's whole point).
+            components = out_dir / f"{asset.name}.components.json"
+            if not components.exists() or not components.with_suffix(".faces.npz").exists():
+                cmd = blender_command(
+                    args.blender, source, out_dir / "unused.usdc",
+                    out_dir / "unused.prims.json", asset.scale_to_metres,
+                ) + ["--out-components", str(components)]
+                print("measuring components: " + " ".join(cmd[:5]) + " ...")
+                if subprocess.run(cmd, check=False).returncode != 0:
+                    print("the component pass failed", file=sys.stderr)
+                    return 1
+
+            stats = json.loads(components.read_text(encoding="utf-8"))
+            from irsim.io.asset_parts import Component as _Component
+
+            part_of: dict[str, str] = {}
+            for entry in stats:
+                component = _Component(
+                    index=int(entry["index"]), faces=int(entry["faces"]),
+                    area_m2=float(entry["area_m2"]), centroid=tuple(entry["centroid"]),
+                    lo=tuple(entry["lo"]), hi=tuple(entry["hi"]),
+                    material_name=entry["material_name"],
+                )
+                for spec in asset.parts.parts:
+                    if spec.select.accepts(component, asset.parts.centre):
+                        part_of[str(component.index)] = spec.name
+                        break
+            assignment = out_dir / f"{asset.name}.part_assignment.json"
+            assignment.write_text(
+                json.dumps({"parts": list(asset.parts.names), "part_of_component": part_of}),
+                encoding="utf-8",
+            )
+            print(f"assigned {len(part_of):,} of {len(stats):,} components to parts")
+
+            cmd = blender_split_command(
+                args.blender, source, asset.scale_to_metres, components, assignment,
+                out_dir.parent / name / f"{name}.usdc",
+            )
+            print("splitting geometry by part: " + " ".join(cmd[:5]) + " ...")
+            if subprocess.run(cmd, check=False).returncode != 0:
+                print("the part-split pass failed", file=sys.stderr)
+                return 1
 
     return 0 if ok else 1
 

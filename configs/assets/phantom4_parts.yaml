@@ -1,0 +1,240 @@
+# DJI Phantom 4 Pro, as the third-party FBX in `3d_models/` carries it (ADR 0128).
+# Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py`.
+#
+# **Why this file exists at all.** The global globs in `configs/materials/mapping.yaml` map 20 of
+# this asset's 41 prims -- 48.8 %, below ADR 0047's 95 % gate -- and two of the twenty they *do*
+# map, they map wrongly for an aircraft:
+#
+#   * `*white*` -> `car_paint_white` is right for a car park and wrong here. This shell is moulded
+#     ABS, not paint on steel: 2205 against 4399 J m^-2 K^-1, so the real surface swings about
+#     twice as fast as the global rule would predict. `abs_plastic_white` exists for exactly this.
+#   * `*metal*` -> `bare_aluminium` puts eps = 0.09 on the motor housings, which makes them read as
+#     *reflected sky* rather than as their own temperature. `irsim_isaac/phantom3.py:249` already
+#     records this trap for the same part on the previous airframe; this file follows that
+#     precedent rather than rediscovering it.
+#
+# **How the ambiguous names were settled.** Not by reading them. Each source material's Principled
+# BSDF was dumped (base colour, alpha, metallic) and the decision made from that, because names in
+# a product-visualisation asset describe an artist's intent and the shader describes the surface:
+#
+#   material                alpha  metallic  base      reading
+#   tran_plastic            0.737  0.871     0.56 grey genuinely translucent -> the only tau > 0 entry
+#   tran_plastic_bump       0.488  0.000     0.83      more translucent still
+#   Glass                   0.807  0.000     0.00      translucent, at the camera -> a lens element
+#   Glass_Black             1.000  1.000     0.015     OPAQUE despite the name -> not glass
+#   metal_radial            1.000  0.000     0.80      NOT metallic despite the name
+#   Copper                  1.000  0.701     copper    genuinely copper-coloured, at the motors
+#
+# **Geometry identified by measurement, not by name.** Every prim is called `GeometryNode_<n>`, so
+# parts were identified by size and position: `GeometryNode_447` is a 43 x 47 cm plate only 1.7 cm
+# thick, so it is all four propellers as one prim; the `Copper` prims sit at the motor stations. The asset is grouped by *material*, not by function -- one prim is "all the
+# white plastic", scattered over 987 disconnected shells -- which is why no prim here is a part.
+# That is fine for material and not fine for temperature; see ADR 0128 on why the mesh field
+# (ADR 0110) makes it fine for temperature too.
+#
+# **`source: estimated` everywhere it matters.** Four of these are judgement, flagged in place.
+# Nothing here is a measurement of this aircraft.
+
+schema_version: 1
+asset:
+  name: phantom4_parts
+  source_file: 3d_models/phantom4.fbx
+  # The FBX is authored in centimetres and declares no unit. The model's true axis-aligned extent
+  # is 41.05 x 46.37 x 20.67 units; read as centimetres that is a 207 mm tall aircraft against a
+  # published 196 mm, and 410 x 464 mm across against the ~486 mm an X-quad's 350 mm diagonal and
+  # 239 mm props subtend on the axes. Millimetres would make it 2 cm tall and metres 20 m, so the
+  # factor is not in doubt. Left unapplied this aircraft enters the stage 41 m wide and still
+  # renders a perfectly plausible image, which is the whole hazard.
+  #
+  # Measure the extent from the *vertices*, never from `o.bound_box`: that is a LOCAL box, and
+  # transforming its eight corners under this asset's rotated parent chain and re-taking min/max
+  # inflates 41 x 46 cm to 60 x 62. An earlier revision of this file quoted the inflated number.
+  scale_to_metres: 0.01
+
+  materials:
+    # --- the shell and the propellers: moulded white ABS, NOT painted steel -------------------
+    white_plastic_matte: abs_plastic_white
+    _DJI_Phantom_4_Prowhite_plastic_matte: abs_plastic_white
+
+    # --- black mouldings ----------------------------------------------------------------------
+    # ESTIMATED. Chosen for solar absorptivity (0.94), which is what sets a small black part's
+    # daytime temperature; its areal heat capacity is a painted steel panel's and so about 2x too
+    # heavy for a moulding. The error is in the time constant, not the equilibrium.
+    Black_plastic_matte: car_paint_black
+    _DJI_Phantom_4_ProBlack_plastic_matte: car_paint_black
+    light_black: car_paint_black
+
+    # --- motor housings, arms and matte metal -------------------------------------------------
+    # eps 0.90, not bare_aluminium's 0.09. A matte/anodised housing emits; it does not mirror.
+    Metal_Matte: aircraft_aluminium_painted
+    _DJI_Phantom_4_ProMetal_Matte: aircraft_aluminium_painted
+
+    # --- genuinely polished trim --------------------------------------------------------------
+    # The one place bare_aluminium is right: metallic 0.987, and it is a trim ring, not a housing.
+    chrome_shiny: bare_aluminium
+
+    # --- motor windings -----------------------------------------------------------------------
+    # ESTIMATED, and the most consequential guess in this file. These prims sit at the motor
+    # stations and are the hottest surfaces on the aircraft. Bare copper is eps ~ 0.03; enamelled
+    # winding under varnish is ~ 0.85-0.90, so the coated value is used. If a motor ever needs to
+    # be right rather than plausible, this is the line to replace with a measurement.
+    Copper: aircraft_aluminium_painted
+
+    # --- grey coated bodywork, camera housing and decals --------------------------------------
+    gray_matte: painted_composite
+    camera_static: painted_composite
+    symbol_camera: painted_composite
+    metal_radial: painted_composite      # metallic 0.0 -- the name is wrong, the shader is not
+    Glass_Black: painted_composite       # alpha 1.0 -- opaque, so not the glass the name claims
+    red_light: painted_composite         # alpha 1.0 -- an opaque lens cover, not a window
+    Green_light: painted_composite
+
+    # --- the genuinely translucent surfaces ---------------------------------------------------
+    # glass_windshield is the library's only tau > 0 entry. In LWIR these are opaque anyway
+    # (eps 0.88); the mapping matters in SWIR and NIR, where they transmit.
+    Glass: glass_windshield
+    Crystal: glass_windshield            # the second camera lens element, beside `Glass`
+    _DJI_Phantom_4_ProGlass_Black: glass_windshield
+    tran_plastic: glass_windshield       # ESTIMATED -- a translucent polymer, not silica
+    tran_plastic_bump: glass_windshield  # ESTIMATED -- as above
+
+  # =============================================================================================
+  # The functional decomposition: what this aircraft IS, as opposed to what it is made of.
+  # Schema: irsim.io.asset_parts.PartsConfig. Roadmap `AI.5`; ADR 0138.
+  #
+  # **Why a second decomposition.** The `materials:` map above is compositional and the source
+  # asset's own grouping is compositional too, so between them they can say "0.176 m^2 of this
+  # aircraft is white ABS" and cannot say "this is a propeller". Every sentence worth saying about
+  # a flying quadcopter in the infrared is about parts:
+  #
+  #   * the **battery** is the largest stored-energy source on board and the thing an LWIR camera
+  #     finds first on an aircraft that has been flying. Until this block it did not exist in the
+  #     model at all: `configs/scenes/phantom4_pointwise.yaml` declared a `battery` heat source and
+  #     bound it to **no geometry**, because no prim is the battery. It solved nothing, warmed
+  #     nothing, and rendered an aircraft that looked entirely plausible without it.
+  #   * there are **four motors** with four duty histories, not one `Copper` prim.
+  #   * the **propellers** are 1 mm of ABS with almost no thermal inertia, moving through their own
+  #     boundary layer faster than any other surface on the airframe.
+  #
+  # **Parts come from connected components, not from names.** 31,068 shells over 2,486,459 faces,
+  # emitted by `scripts/prep_asset.py --emit-components`. A propeller is a separate shell from the
+  # motor it bolts to even when both are "white plastic", which is why this works at all.
+  #
+  # **The selectors are checked by four-fold symmetry.** A quadcopter's four stations are identical
+  # hardware, so the four `propeller_*` parts must come out the same size and so must the four
+  # `motor_*` parts. They do: propellers 0.00774 / 0.00754 / 0.00740 / 0.00740 m^2 (spread 4.4 %)
+  # and motors 0.00728 / 0.00727 / 0.00726 / 0.00723 m^2 (spread 0.7 %). A mis-authored selector
+  # does not produce that agreement, so it is the cheapest correctness check available here and it
+  # needs no reference data.
+  #
+  # **Station heights differ by 18 mm and that is not noise.** Fitting a plane through the four
+  # motor cans gives z = +0.0018 x + 0.0512 y + 0.0298 with **zero residual**: the asset is modelled
+  # pitched **2.93 deg nose-down**, rolled 0.10 deg. So a single global z cut cannot separate a
+  # propeller from the motor under it -- at the front-left station the blades sit at z = 0.062 and
+  # at the rear-right station the motor *can* reaches z = 0.064. Each station therefore carries its
+  # own measured height. An earlier revision used one global cut and silently lost nine tenths of
+  # the front-left propeller.
+  #
+  # Order is significant: first match wins, so specific parts precede the shells that enclose them.
+  # The battery is the case that matters -- it lies wholly inside the fuselage and is separated
+  # from the shell around it only by material and by face count (401 faces against 72,894).
+  parts:
+    # The asset does not sit at its own origin. Every `r_*` below is relative to this.
+    centre: [-0.0078, 0.4915, 0.0]
+    coverage_threshold: 0.95
+
+    parts:
+      # --- the battery: 88 x 83 x 28 mm, against DJI's published 88 x 78 x 35 mm --------------
+      # Modelled as an interior block, so it is never directly visible to the camera. That is
+      # correct and is the point: it heats the shell around it by conduction rather than radiating
+      # to the sensor, which is the coupling this project needs parts in order to express.
+      - name: battery
+        target: battery
+        select:
+          materials: [Black_plastic_matte, _DJI_Phantom_4_ProBlack_plastic_matte, light_black]
+          r_max_m: 0.06
+          faces_max: 2000
+          area_min_m2: 0.001
+
+      # --- the four rotor stations ------------------------------------------------------------
+      # Stations measured at r = 185 mm, 90 deg apart; bearings -73.7, -163.5, +16.5, +106.4 deg.
+      # Front/rear and left/right follow from the nose bearing of -118.6 deg (see `nose_xy` below).
+      - name: propeller_front_left
+        target: propeller
+        select: {near_xy: [0.044, 0.314], within_m: 0.075, z_min_m: 0.056,
+                 materials: [white_plastic_matte, _DJI_Phantom_4_Prowhite_plastic_matte]}
+      - name: motor_front_left
+        target: motor
+        select: {near_xy: [0.044, 0.314], within_m: 0.030, z_min_m: 0.016, z_max_m: 0.061,
+                 materials: [Metal_Matte, _DJI_Phantom_4_ProMetal_Matte, Copper, chrome_shiny]}
+      - name: motor_mount_front_left
+        target: motor
+        select: {near_xy: [0.044, 0.314], within_m: 0.030, z_min_m: 0.016,
+                 materials: [Black_plastic_matte, _DJI_Phantom_4_ProBlack_plastic_matte, light_black]}
+
+      - name: propeller_front_right
+        target: propeller
+        select: {near_xy: [-0.185, 0.439], within_m: 0.075, z_min_m: 0.062,
+                 materials: [white_plastic_matte, _DJI_Phantom_4_Prowhite_plastic_matte]}
+      - name: motor_front_right
+        target: motor
+        select: {near_xy: [-0.185, 0.439], within_m: 0.030, z_min_m: 0.022, z_max_m: 0.067,
+                 materials: [Metal_Matte, _DJI_Phantom_4_ProMetal_Matte, Copper, chrome_shiny]}
+      - name: motor_mount_front_right
+        target: motor
+        select: {near_xy: [-0.185, 0.439], within_m: 0.030, z_min_m: 0.022,
+                 materials: [Black_plastic_matte, _DJI_Phantom_4_ProBlack_plastic_matte, light_black]}
+
+      - name: propeller_rear_left
+        target: propeller
+        select: {near_xy: [0.170, 0.544], within_m: 0.075, z_min_m: 0.068,
+                 materials: [white_plastic_matte, _DJI_Phantom_4_Prowhite_plastic_matte]}
+      - name: motor_rear_left
+        target: motor
+        select: {near_xy: [0.170, 0.544], within_m: 0.030, z_min_m: 0.028, z_max_m: 0.073,
+                 materials: [Metal_Matte, _DJI_Phantom_4_ProMetal_Matte, Copper, chrome_shiny]}
+      - name: motor_mount_rear_left
+        target: motor
+        select: {near_xy: [0.170, 0.544], within_m: 0.030, z_min_m: 0.028,
+                 materials: [Black_plastic_matte, _DJI_Phantom_4_ProBlack_plastic_matte, light_black]}
+
+      - name: propeller_rear_right
+        target: propeller
+        select: {near_xy: [-0.060, 0.669], within_m: 0.075, z_min_m: 0.074,
+                 materials: [white_plastic_matte, _DJI_Phantom_4_Prowhite_plastic_matte]}
+      - name: motor_rear_right
+        target: motor
+        select: {near_xy: [-0.060, 0.669], within_m: 0.030, z_min_m: 0.034, z_max_m: 0.079,
+                 materials: [Metal_Matte, _DJI_Phantom_4_ProMetal_Matte, Copper, chrome_shiny]}
+      - name: motor_mount_rear_right
+        target: motor
+        select: {near_xy: [-0.060, 0.669], within_m: 0.030, z_min_m: 0.034,
+                 materials: [Black_plastic_matte, _DJI_Phantom_4_ProBlack_plastic_matte, light_black]}
+
+      # --- under the nose: the gimbal and its camera --------------------------------------------
+      # The lens elements first, because they are the only tau > 0 surfaces on the aircraft and in
+      # SWIR/NIR they transmit rather than emit.
+      - name: camera_lens
+        target: airframe
+        select: {materials: [Crystal, Glass, chrome_shiny, Glass_Black], r_max_m: 0.075, z_max_m: -0.035}
+      - name: gimbal
+        target: airframe
+        select: {r_max_m: 0.075, z_min_m: -0.090, z_max_m: -0.035}
+
+      # --- everything below the body that is not gimbal: the legs and their skid feet -----------
+      - name: landing_gear
+        target: airframe
+        select: {z_max_m: -0.030}
+
+      # --- the arms, outboard of the fuselage and inboard of the rotor hardware ------------------
+      - name: arms
+        target: airframe
+        select: {r_min_m: 0.105}
+
+      # --- the shells. Catch-alls, and deliberately last -----------------------------------------
+      - name: shell_upper
+        target: airframe
+        select: {z_min_m: 0.005}
+      - name: shell_lower
+        target: airframe
+        select: {}

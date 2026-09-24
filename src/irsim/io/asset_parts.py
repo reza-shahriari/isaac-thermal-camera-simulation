@@ -47,6 +47,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -359,3 +360,153 @@ def assign_parts(
         unassigned_faces=unassigned_faces,
     )
     return assignments, report
+
+
+# ------------------------------------------------------------------------------------------------
+# Splitting a prepared archive into per-part meshes.
+#
+# This runs on the **project interpreter**, not inside Blender: the archive is already world-space
+# triangles (ADR 0132), so connected components can be recovered from the face arrays with numpy
+# and no DCC is involved. That matters because selectors are iterated -- a part decomposition is
+# tuned by looking at the report and adjusting a threshold -- and a loop that needs a 60 MB FBX
+# re-imported each time is a loop nobody runs.
+# ------------------------------------------------------------------------------------------------
+
+
+def _shell_of_vertex(n_vertices: int, faces: Any) -> Any:
+    """Union-find over triangle edges: which connected shell each vertex belongs to."""
+    import numpy as np
+
+    parent = np.arange(n_vertices, dtype=np.int64)
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = int(parent[x])
+        return int(x)
+
+    for tri in faces:
+        a = find(int(tri[0]))
+        for other in (int(tri[1]), int(tri[2])):
+            b = find(other)
+            if a != b:
+                parent[b] = a
+    return np.array([find(i) for i in range(n_vertices)], dtype=np.int64)
+
+
+def mesh_components(name: str, vertices_m: Any, faces: Any, material_name: str | None) -> Any:
+    """The connected shells of one prim's triangles, as :class:`Component` statistics.
+
+    Areas are the shells' own, computed from the triangles rather than carried over from the prim,
+    because a prim's area says nothing about how it divides between the parts inside it.
+    """
+    import numpy as np
+
+    v = np.asarray(vertices_m, dtype=np.float64)
+    f = np.asarray(faces, dtype=np.int64)
+    if not len(f):
+        return []
+    shell = _shell_of_vertex(len(v), f)
+    face_shell = shell[f[:, 0]]
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    face_area = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=-1)
+
+    out = []
+    for root in np.unique(face_shell):
+        mask = face_shell == root
+        used = np.unique(f[mask])
+        pts = v[used]
+        out.append(
+            (
+                Component(
+                    index=len(out),
+                    faces=int(mask.sum()),
+                    area_m2=float(face_area[mask].sum()),
+                    centroid=tuple(float(x) for x in pts.mean(axis=0)),
+                    lo=tuple(float(x) for x in pts.min(axis=0)),
+                    hi=tuple(float(x) for x in pts.max(axis=0)),
+                    material_name=material_name,
+                ),
+                mask,
+            )
+        )
+    return out
+
+
+def split_by_part(meshes: Any, config: PartsConfig) -> tuple[dict[str, Any], PartReport]:
+    """Regroup a prepared asset's per-prim triangles into per-**part** meshes.
+
+    Takes an :class:`irsim.io.assets.AssetMeshes` and returns ``{part name: AssetMesh}`` plus the
+    decomposition report. The returned meshes are ordinary ``AssetMesh`` objects keyed by part
+    name, so a scene binds ``mesh: {asset: phantom4, prim: battery}`` through exactly the machinery
+    that already binds a prim -- no new scene concept, and the solver is unchanged.
+
+    A part's ``material_name`` is that of whichever source material contributes the most area to
+    it, which is the right answer for the parts that matter (a propeller is white ABS, a motor can
+    is matte metal) and an arbitrary one for a part that genuinely spans materials.
+    """
+    import numpy as np
+
+    from irsim.io.assets import AssetMesh
+
+    per_part_faces: dict[str, list[tuple[Any, Any]]] = {}
+    per_part_material: dict[str, dict[str, float]] = {}
+    all_components: list[Component] = []
+    running = 0
+
+    for name in sorted(meshes):
+        mesh = meshes[name]
+        for component, mask in mesh_components(
+            name, mesh.vertices_m, mesh.faces, mesh.material_name
+        ):
+            stat = Component(
+                index=running,
+                faces=component.faces,
+                area_m2=component.area_m2,
+                centroid=component.centroid,
+                lo=component.lo,
+                hi=component.hi,
+                material_name=component.material_name,
+            )
+            running += 1
+            all_components.append(stat)
+            hit = None
+            for spec in config.parts:
+                if spec.select.accepts(stat, config.centre):
+                    hit = spec
+                    break
+            if hit is None:
+                continue
+            per_part_faces.setdefault(hit.name, []).append(
+                (mesh.vertices_m, np.asarray(mesh.faces)[mask])
+            )
+            if stat.material_name:
+                bucket = per_part_material.setdefault(hit.name, {})
+                bucket[stat.material_name] = bucket.get(stat.material_name, 0.0) + stat.area_m2
+
+    _, report = assign_parts(all_components, config)
+
+    out: dict[str, Any] = {}
+    for part, chunks in per_part_faces.items():
+        verts: list[Any] = []
+        faces: list[Any] = []
+        offset = 0
+        for v, f in chunks:
+            used, inverse = np.unique(f, return_inverse=True)
+            verts.append(np.asarray(v, dtype=np.float64)[used])
+            faces.append(inverse.reshape(f.shape).astype(np.intp) + offset)
+            offset += len(used)
+        v_all = np.concatenate(verts, axis=0)
+        f_all = np.concatenate(faces, axis=0)
+        materials = per_part_material.get(part, {})
+        dominant = max(materials.items(), key=lambda kv: kv[1])[0] if materials else None
+        area = float(report.area_by_part.get(part, 0.0))
+        out[part] = AssetMesh(
+            name=part,
+            material_name=dominant,
+            vertices_m=v_all,
+            faces=f_all,
+            area_m2=area,
+            area_before_m2=area,
+        )
+    return out, report

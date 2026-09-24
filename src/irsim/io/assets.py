@@ -168,3 +168,39 @@ def load_asset_meshes(path: str | os.PathLike[str], *, check_area: float = 1e-6)
                 raise ValueError(f"{p}: two prims named {mesh.name!r}")
             meshes[mesh.name] = mesh
     return AssetMeshes(name=p.stem.split(".")[0], meshes=meshes)
+
+
+def write_asset_meshes(
+    path: str | os.PathLike[str], meshes: Mapping[str, AssetMesh]
+) -> pathlib.Path:
+    """Write an archive :func:`load_asset_meshes` can read back.
+
+    Used by ``scripts/prep_asset.py --emit-parts`` to store an asset regrouped by **part** rather
+    than by prim (ADR 0138). The result is an ordinary archive, so a scene binds a part through
+    exactly the machinery that binds a prim and the solver never learns a new concept.
+
+    Areas are recomputed from the arrays rather than trusted from the caller, because the loader
+    checks the manifest against the arrays and an archive that fails its own check on the way back
+    in is worse than one that was never written.
+    """
+    p = pathlib.Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    manifest: list[dict[str, object]] = []
+    arrays: dict[str, NDArray[np.float64] | NDArray[np.intp]] = {}
+    for i, name in enumerate(sorted(meshes)):
+        mesh = meshes[name]
+        area = mesh.computed_area_m2()
+        manifest.append(
+            {
+                "index": i,
+                "name": name,
+                "material_name": mesh.material_name,
+                "n_faces": mesh.n_faces,
+                "area_m2": area,
+                "area_before_m2": mesh.area_before_m2 or area,
+            }
+        )
+        arrays[f"v{i}"] = np.asarray(mesh.vertices_m, dtype=np.float64)
+        arrays[f"f{i}"] = np.asarray(mesh.faces, dtype=np.intp)
+    np.savez_compressed(p, manifest=json.dumps(manifest), **arrays)
+    return p

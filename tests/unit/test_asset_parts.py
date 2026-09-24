@@ -375,3 +375,133 @@ def test_the_phantom4_shells_are_last_so_they_cannot_swallow_a_part():
     assert catchalls, "expected a terminal catch-all"
     assert max(catchalls) == len(parts.parts) - 1
     assert min(catchalls) >= len(parts.parts) - 2
+
+
+# ------------------------------------------------------------------------------------------------
+# Regrouping a prepared archive into per-part meshes (ADR 0138).
+# ------------------------------------------------------------------------------------------------
+
+
+def two_shell_archive():
+    """An archive whose single prim holds two disconnected shells belonging to different parts.
+
+    This is the Phantom 4's situation in miniature: one *material* prim, two *parts*.
+    """
+    import numpy as np
+
+    from irsim.io.assets import AssetMesh, AssetMeshes
+
+    def cube(origin):
+        o = np.asarray(origin, dtype=np.float64)
+        v = (
+            np.array(
+                [
+                    [0, 0, 0],
+                    [1, 0, 0],
+                    [1, 1, 0],
+                    [0, 1, 0],
+                    [0, 0, 1],
+                    [1, 0, 1],
+                    [1, 1, 1],
+                    [0, 1, 1],
+                ],
+                dtype=np.float64,
+            )
+            * 0.02
+            + o
+        )
+        f = np.array(
+            [
+                [0, 1, 2],
+                [0, 2, 3],
+                [4, 6, 5],
+                [4, 7, 6],
+                [0, 4, 5],
+                [0, 5, 1],
+                [1, 5, 6],
+                [1, 6, 2],
+                [2, 6, 7],
+                [2, 7, 3],
+                [3, 7, 4],
+                [3, 4, 0],
+            ],
+            dtype=np.intp,
+        )
+        return v, f
+
+    v0, f0 = cube((0.0, 0.0, 0.0))
+    v1, f1 = cube((0.5, 0.0, 0.0))
+    verts = np.concatenate([v0, v1])
+    faces = np.concatenate([f0, f1 + len(v0)])
+    mesh = AssetMesh(
+        name="GeometryNode_1",
+        material_name="white_plastic",
+        vertices_m=verts,
+        faces=faces,
+        area_m2=0.0048,
+        area_before_m2=0.0048,
+    )
+    return AssetMeshes(name="toy", meshes={"GeometryNode_1": mesh})
+
+
+def test_one_prim_of_two_shells_becomes_two_parts():
+    """The whole point: a part is a shell, not a prim."""
+    from irsim.io.asset_parts import split_by_part
+
+    config = PartsConfig(
+        centre=(0.0, 0.0, 0.0),
+        parts=[
+            PartSpec(name="left", target="motor", select=PartSelector(r_max_m=0.2)),
+            PartSpec(name="right", target="battery", select=PartSelector()),
+        ],
+    )
+    parts, report = split_by_part(two_shell_archive(), config)
+    assert set(parts) == {"left", "right"}
+    assert report.empty_parts == ()
+    # every face of the source survives, in exactly one part
+    assert sum(p.n_faces for p in parts.values()) == 24
+    for part in parts.values():
+        assert part.faces.max() < len(part.vertices_m), "a part indexes a vertex it does not carry"
+
+
+def test_splitting_conserves_area():
+    """Regrouping triangles must not create or destroy surface: it is the same aircraft."""
+    from irsim.io.asset_parts import split_by_part
+
+    archive = two_shell_archive()
+    config = PartsConfig(
+        centre=(0.0, 0.0, 0.0),
+        parts=[
+            PartSpec(name="left", select=PartSelector(r_max_m=0.2)),
+            PartSpec(name="right", select=PartSelector()),
+        ],
+    )
+    parts, _ = split_by_part(archive, config)
+    before = sum(m.computed_area_m2() for m in archive.values())
+    after = sum(m.computed_area_m2() for m in parts.values())
+    assert after == pytest.approx(before, rel=1e-9)
+
+
+def test_a_part_archive_round_trips_through_the_loader(tmp_path):
+    """`write_asset_meshes` must produce something `load_asset_meshes` accepts.
+
+    The loader cross-checks each manifest area against the arrays, so an archive that fails on the
+    way back in would be worse than one never written.
+    """
+    from irsim.io.asset_parts import split_by_part
+    from irsim.io.assets import load_asset_meshes, write_asset_meshes
+
+    config = PartsConfig(
+        centre=(0.0, 0.0, 0.0),
+        parts=[
+            PartSpec(name="left", target="motor", select=PartSelector(r_max_m=0.2)),
+            PartSpec(name="right", target="battery", select=PartSelector()),
+        ],
+    )
+    parts, _ = split_by_part(two_shell_archive(), config)
+    path = write_asset_meshes(tmp_path / "toy_parts.meshes.npz", parts)
+    back = load_asset_meshes(path)
+    assert set(back) == {"left", "right"}
+    for name, mesh in parts.items():
+        assert back[name].n_faces == mesh.n_faces
+        assert back[name].computed_area_m2() == pytest.approx(mesh.computed_area_m2(), rel=1e-9)
