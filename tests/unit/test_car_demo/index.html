@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car demo — irsim</title>
+<meta name="description" content="MP.4b — the scene point-wise temperature exists for, checked without a renderer.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Car demo</h1>
+  <p class="subtitle">MP.4b — the scene point-wise temperature exists for, checked without a renderer.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py" target="_blank" rel="noopener">tests/unit/test_car_demo.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>test_the_bonnet_is_a_gradient_and_the_frame_0_panel_is_not</code> is the milestone's own acceptance: one prim, flat at the start, several kelvin across by the end. Every frame this project rendered before ADR 0087 would fail it by the whole gradient, because a per-prim bridge has one number to give.</p>
+<p><code>test_the_wheels_do_not_warm</code> is here because it is the result a viewer will disbelieve. §6.6 makes tyre heating flexing work and brake heating kinetic energy, so a car idling in a car park has cold wheels however long it idles. Pinning it stops a later change from quietly "fixing" the wheels.</p>
+<p><code>test_the_road_patch_covers_the_camera_frame</code> guards the tedious failure: a patch smaller than the frame makes <code>PointwiseTemperature</code> raise at render time, half an hour into a Kit session.</p>
+<p>docs/physics-model.md §6.1, §6.6; ADR 0087, ADR 0088, ADR 0089</p>
+<p class='made-by'>25 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py" target="_blank" rel="noopener">tests/unit/test_car_demo.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L69" target="_blank" rel="noopener">the bonnet is a gradient and the frame 0 panel is not</a><br><code>test_the_bonnet_is_a_gradient_and_the_frame_0_panel_is_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L84" target="_blank" rel="noopener">the bonnet gradient falls away from the engine and is not a step</a><br><code>test_the_bonnet_gradient_falls_away_from_the_engine_and_is_not_a_step</code></td><td>A step would mean the view factor was a mask; it is a configuration factor.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L102" target="_blank" rel="noopener">the road under the car warms and the far road does not</a><br><code>test_the_road_under_the_car_warms_and_the_far_road_does_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L113" target="_blank" rel="noopener">the road patch falls with distance from the car</a><br><code>test_the_road_patch_falls_with_distance_from_the_car</code></td><td>The view factor's falloff, seen on the surface it lands on.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L126" target="_blank" rel="noopener">the wheels do not warm</a><br><code>test_the_wheels_do_not_warm</code></td><td>§6.6: tyre heating is flexing work and brake heating is kinetic energy. Neither is idling.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L137" target="_blank" rel="noopener">the engine is solved and sits at its thermostat</a><br><code>test_the_engine_is_solved_and_sits_at_its_thermostat</code></td><td>TC.5/TC.6: the block is a solved node held by its thermostat, inside §6.6's band, and the key went off at 1200 s so at 1500 s it is already cooling through the bay.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L154" target="_blank" rel="noopener">the road patch covers the camera frame</a><br><code>test_the_road_patch_covers_the_camera_frame</code></td><td>Every ground point the camera can see must land in a cell, or MP.3 raises mid-render.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L182" target="_blank" rel="noopener">the bonnet patch claims the bonnet and nothing else</a><br><code>test_the_bonnet_patch_claims_the_bonnet_and_nothing_else</code></td><td>ADR 0087's slab rule at scene scale: the road and the cabin roof project into it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L197" target="_blank" rel="noopener">every rendered prim has a thermal node</a><br><code>test_every_rendered_prim_has_a_thermal_node</code></td><td>The bridge refuses a rendered prim with no temperature; catch it here, not in Kit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L209" target="_blank" rel="noopener">the bonnet sees most of the bay and the wings see little</a><br><code>test_the_bonnet_sees_most_of_the_bay_and_the_wings_see_little</code></td><td>The gradient's cause, isolated from the solve.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L222" target="_blank" rel="noopener">ground radiator view factors never exceed one</a><span class="tag">parametrize</span><br><code>test_ground_radiator_view_factors_never_exceed_one</code></td><td>PT.3 / ADR 0090: <code>underbody</code>, <code>engine_bay</code> and <code>exhaust_pipe</code> are nested, not disjoint.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L244" target="_blank" rel="noopener">the camera stands where it says it does</a><br><code>test_the_camera_stands_where_it_says_it_does</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L274" target="_blank" rel="noopener">a clear sky puts far more of the patch on the road than the engine does</a><br><code>test_a_clear_sky_puts_far_more_of_the_patch_on_the_road_than_the_engine_does</code></td><td>ADR 0088's occlusion term, isolated by holding the engine identical.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L299" target="_blank" rel="noopener">frame 0 carries the patch a parked car has already made</a><br><code>test_frame_0_carries_the_patch_a_parked_car_has_already_made</code></td><td>The MP.5 limit, inverted (PT.7).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L335" target="_blank" rel="noopener">the engine is identical in both scenes</a><br><code>test_the_engine_is_identical_in_both_scenes</code></td><td>What makes the comparison a comparison rather than two different cars.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L355" target="_blank" rel="noopener">the demo grids are the scene config s own</a><br><code>test_the_demo_grids_are_the_scene_config_s_own</code></td><td>The owner's bar, on this lane: the YAML declares the patch, Python only checks it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L369" target="_blank" rel="noopener">two loads of the config give bit identical fields</a><br><code>test_two_loads_of_the_config_give_bit_identical_fields</code></td><td>Declared numbers are numbers: no camera-derived sizing can make two runs differ.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L391" target="_blank" rel="noopener">a declared bonnet patch off the bonnet is refused</a><br><code>test_a_declared_bonnet_patch_off_the_bonnet_is_refused</code></td><td>A grid 24 cm above the skin is partly cabin roof and partly air; it must not solve.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L400" target="_blank" rel="noopener">a declared road patch smaller than the frame is refused</a><br><code>test_a_declared_road_patch_smaller_than_the_frame_is_refused</code></td><td>The tedious failure, caught at build time with the two footprints in the message.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L407" target="_blank" rel="noopener">a scene that declares no grid still gets the hand built ones</a><br><code>test_a_scene_that_declares_no_grid_still_gets_the_hand_built_ones</code></td><td>The pre-PT.17 path is kept, so an older scene renders as it did.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L443" target="_blank" rel="noopener">the night scenes carry no beam and the noon one does</a><br><code>test_the_night_scenes_carry_no_beam_and_the_noon_one_does</code></td><td>Before PT.18 the fields had no solar term at all: a noon run rendered a sun-free bonnet.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L464" target="_blank" rel="noopener">the car shades the road beside it and the shaded road runs colder</a><br><code>test_the_car_shades_the_road_beside_it_and_the_shaded_road_runs_colder</code></td><td>The car's own faces are occluders for the road field; the shadow lands north of the car.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L503" target="_blank" rel="noopener">a scene whose world frame is not y up is refused</a><br><code>test_a_scene_whose_world_frame_is_not_y_up_is_refused</code></td><td>The stage is +Y up; a scene that leaves the v8 frame at its ENU default would put the sun on the wrong side of the car, quietly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L518" target="_blank" rel="noopener">the fields carry the scene s own material properties exactly</a><br><code>test_the_fields_carry_the_scene_s_own_material_properties_exactly</code></td><td><code>build_car_demo</code> with no overrides reproduces <code>ThermalProperties.from_material</code> bit for bit -- C 101 200 for asphalt where the driver used to author 60 000 (1.7× in the road's time constant), ε 0.853 for the paint where it authored 0.92 -- and the lateral operator carries the material's own k and δ.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_car_demo.py#L548" target="_blank" rel="noopener">an authored override is refused and names the material files</a><br><code>test_an_authored_override_is_refused_and_names_the_material_files</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nuc residual — irsim</title>
+<meta name="description" content="NUC residual (M9.6): what survives the two-point correction, and in which units.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Nuc residual</h1>
+  <p class="subtitle">NUC residual (M9.6): what survives the two-point correction, and in which units.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py" target="_blank" rel="noopener">tests/unit/test_nuc_residual.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>§11.2 says "model the residual, not the ideal". The residual is what makes a shutterless core drift and a shuttered one need an FFC at all, so the tests pin its three defining behaviours:</p>
+<ul>
+<li>it is <strong>zero at ΔT_FPA = 0</strong> by construction, not by cancellation -- a camera that has just shuttered is perfectly corrected;</li>
+<li>it is <strong>linear in ΔT_FPA</strong>, so the offset std at 2 K is exactly twice the 1 K value and lands on the configured millikelvin figure;</li>
+<li>it is applied in <strong>DN, not kelvin</strong> (non-negotiable #3, ADR 0056). The headline test for this is <code>test_residual_not_kelvin_flat</code>: a fixed DN error is a <em>smaller</em> apparent-temperature error at 373 K than at 300 K, in the ratio of the thermal derivatives, because ∂L/∂T rises with temperature. A residual added in kelvin would be flat across the range and would fail it.</li>
+</ul>
+<p>And the FFC signature: a reset draws a new realisation, so the pattern after the event is uncorrelated with the pattern before -- the fixed pattern is replaced, not faded.</p>
+<p>docs/physics-model.md §11.2, §2, §12.2. ADR 0053, ADR 0056.</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py" target="_blank" rel="noopener">tests/unit/test_nuc_residual.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L70" target="_blank" rel="noopener">a freshly shuttered camera has no residual</a><br><code>test_a_freshly_shuttered_camera_has_no_residual</code></td><td>ΔT_FPA = 0 -&gt; gain ≡ 1 and offset ≡ 0, exactly. Not approximately, not on average.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L81" target="_blank" rel="noopener">offset std is the configured millikelvin figure</a><br><code>test_offset_std_is_the_configured_millikelvin_figure</code></td><td>45 mK/K at ΔT = 2 K is 90 mK, within 2 %, and exactly twice the 1 K value.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L95" target="_blank" rel="noopener">the residual is linear in delta t</a><span class="tag">parametrize</span><br><code>test_the_residual_is_linear_in_delta_t</code></td><td>Both terms scale with ΔT_FPA and nothing else; a negative ΔT flips the pattern's sign.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L106" target="_blank" rel="noopener">the gain residual scales with the signal</a><br><code>test_the_gain_residual_scales_with_the_signal</code></td><td>g_ij multiplies, so the error is proportional to DN -- exactly, per pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L130" target="_blank" rel="noopener">the offset residual does not scale with the signal</a><br><code>test_the_offset_residual_does_not_scale_with_the_signal</code></td><td>The control for the test above: o_ij is additive, so the same error appears at any level.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L152" target="_blank" rel="noopener">residual not kelvin flat</a><br><code>test_residual_not_kelvin_flat</code></td><td>The same DN residual is a <em>smaller</em> apparent-T error at 373 K than at 300 K (within 5 %).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L185" target="_blank" rel="noopener">dn per kelvin rises with temperature</a><br><code>test_dn_per_kelvin_rises_with_temperature</code></td><td>The conversion reference is itself temperature-dependent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L201" target="_blank" rel="noopener">ffc reset decorrelates the pattern</a><br><code>test_ffc_reset_decorrelates_the_pattern</code></td><td>|r| &lt; 0.05 between the pattern before and after the shutter: replaced, not faded.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L214" target="_blank" rel="noopener">ffc reset preserves the configured amplitude</a><br><code>test_ffc_reset_preserves_the_configured_amplitude</code></td><td>A new epoch is a new realisation of the same distribution, within 5 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L225" target="_blank" rel="noopener">the gain and offset fields are independent</a><br><code>test_the_gain_and_offset_fields_are_independent</code></td><td>Separate streams: a camera whose gain and offset errors were the same pattern would show a residual that vanishes at one signal level, which is not what a real FPA does.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L232" target="_blank" rel="noopener">the fields are unit variance and zero mean</a><br><code>test_the_fields_are_unit_variance_and_zero_mean</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L241" target="_blank" rel="noopener">the residual is deterministic per sensor seed</a><br><code>test_the_residual_is_deterministic_per_sensor_seed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L251" target="_blank" rel="noopener">float16 and integer planes are refused</a><br><code>test_float16_and_integer_planes_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L258" target="_blank" rel="noopener">output is float32</a><br><code>test_output_is_float32</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L263" target="_blank" rel="noopener">a non positive conversion reference is refused</a><br><code>test_a_non_positive_conversion_reference_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nuc_residual.py#L269" target="_blank" rel="noopener">a mismatched shape is refused</a><br><code>test_a_mismatched_shape_is_refused</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

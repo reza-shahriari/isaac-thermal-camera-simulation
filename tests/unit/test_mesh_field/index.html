@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh field — irsim</title>
+<meta name="description" content="WM.2 — a temperature field on a triangle mesh, for the geometry a plane cannot cover.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Mesh field</h1>
+  <p class="subtitle">WM.2 — a temperature field on a triangle mesh, for the geometry a plane cannot cover.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py" target="_blank" rel="noopener">tests/unit/test_mesh_field.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>ADR 0087 gave a near-planar surface a field by projecting the position AOV onto a rectangle and recorded curved geometry as the limit: a sphere, a wheel or a pipe takes one temperature for the whole prim. <code>WM.1</code> measured that the parameterisation can be derived from the mesh instead of transported by the renderer; this module is the solve that sits behind it.</p>
+<p>Two claims carry the step:</p>
+<ul>
+<li>a sphere under a directional sun holds <strong>each face</strong> to the equilibrium its own cos θ gives, to well under a millikelvin, where one facet for the whole sphere is a single number across a span of tens of kelvin; and</li>
+<li>the change is <strong>provably a redistribution</strong>: under uniform forcing the mesh reproduces the per-prim scalar solve exactly, and under varying forcing its area-weighted mean departs from the per-prim value only in the direction and by the amount the concavity of <code>T(q)</code> requires.</li>
+</ul>
+<p>docs/physics-model.md §6.1, §6.4; ADR 0087 (and its WM.1 addendum); roadmap WM.2.</p>
+<p class='made-by'>14 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py" target="_blank" rel="noopener">tests/unit/test_mesh_field.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L92" target="_blank" rel="noopener">a sphere holds every face to its own cosine equilibrium</a><span class="tag">slow</span><br><code>test_a_sphere_holds_every_face_to_its_own_cosine_equilibrium</code></td><td>The measurement ADR 0087's curved-geometry limit costs. A 0.25 m sphere under an overhead sun: the cap facing the sun absorbs 900 W/m², the terminator absorbs nothing, and each face settles on the root of its own §6.1 balance to under a millikelvin. One facet for the whole sphere would carry a single number across that entire span, which is the defect.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L119" target="_blank" rel="noopener">one facet for the whole sphere misses by the pole to terminator span</a><span class="tag">slow</span><br><code>test_one_facet_for_the_whole_sphere_misses_by_the_pole_to_terminator_span</code></td><td>The negative control the row names. Solve the same sphere as a single facet on its area-weighted mean flux -- which is what every prim in this project carried before a field -- and it lands one number inside a 34 K spread, 25 K under the cap and 9 K over the far side.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L143" target="_blank" rel="noopener">uniform forcing reproduces the per prim solve exactly</a><span class="tag">slow</span><br><code>test_uniform_forcing_reproduces_the_per_prim_solve_exactly</code></td><td>The conservation claim in its strongest form. Give every cell the same flux and the mesh field must return the <em>same number</em> the one-facet solve returns -- not close, the same. A field that added energy, double-counted an area or mis-weighted a cell fails here before any gradient is involved.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L160" target="_blank" rel="noopener">the area weighted mean departs from the per prim value only by the concavity</a><span class="tag">slow</span><br><code>test_the_area_weighted_mean_departs_from_the_per_prim_value_only_by_the_concavity</code></td><td>Under varying forcing the mean of the field and the field at the mean are not equal, and they should not be: T rises as roughly q^(1/4), so by Jensen the mean temperature is <em>below</em> the temperature of the mean flux, by an amount set by the curvature over the span. Asserting equality here would be asserting a linear balance; asserting the sign and a bound is the honest statement that nothing was created.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L200" target="_blank" rel="noopener">sub face cells resolve a source that one cell per face cannot</a><span class="tag">slow</span><br><code>test_sub_face_cells_resolve_a_source_that_one_cell_per_face_cannot</code></td><td>Per-face normals mean a directional sun varies between faces and not within one, so the sphere above never exercises the sub-face grid. A heat source under half of a large triangle does: at level 1 the face is one temperature, at level 12 the halves stand 20 K apart and every cell is on its own root.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L227" target="_blank" rel="noopener">a cell index round trips from its own centroid at every level</a><br><code>test_a_cell_index_round_trips_from_its_own_centroid_at_every_level</code></td><td>Generation and lookup are inverses. If they drift apart a cell's temperature lands on a different part of the triangle, and nothing raises -- so this is pinned at several levels.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L240" target="_blank" rel="noopener">a query lands in the sub triangle it names</a><br><code>test_a_query_lands_in_the_sub_triangle_it_names</code></td><td>Stronger than the round trip: uniformly sampled points over each face must fall inside the sub-triangle the lookup returns, or the index is self-consistent and geometrically wrong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L263" target="_blank" rel="noopener">cell areas sum to the mesh area and split evenly inside a face</a><br><code>test_cell_areas_sum_to_the_mesh_area_and_split_evenly_inside_a_face</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L276" target="_blank" rel="noopener">an edge or a vertex picks a neighbouring cell instead of raising</a><br><code>test_an_edge_or_a_vertex_picks_a_neighbouring_cell_instead_of_raising</code></td><td>A closest-point query lands exactly on an edge often enough that refusing would refuse a legitimate pixel, so the corners of the barycentric domain must resolve.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L288" target="_blank" rel="noopener">per face resolution follows face size</a><br><code>test_per_face_resolution_follows_face_size</code></td><td>Ptex style: a big face gets many cells and a small one gets few, so the cell count follows the thermal gradient rather than the tessellation.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L310" target="_blank" rel="noopener">warps uv pair is translated in one place</a><br><code>test_warps_uv_pair_is_translated_in_one_place</code></td><td><code>WM.1</code> measured Warp's (u, v) as the weights of vertices 0 and 1. Reading them as the weights of 1 and 2 misses by 0.56 m on a 0.4 m box, silently, so the conversion has exactly one home and this pins it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L325" target="_blank" rel="noopener">the mesh refuses what it cannot solve</a><br><code>test_the_mesh_refuses_what_it_cannot_solve</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L350" target="_blank" rel="noopener">a missing hit takes the fill rather than a cell</a><br><code>test_a_missing_hit_takes_the_fill_rather_than_a_cell</code></td><td>A pixel that hit nothing must not silently take cell 0's temperature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_field.py#L361" target="_blank" rel="noopener">the field delegates the never mutate on query rule</a><br><code>test_the_field_delegates_the_never_mutate_on_query_rule</code></td><td>Composed on <code>ThermalField</code> rather than restating it, so a renderer asking many times per tick cannot change the answer by asking -- the rule <code>PlanarThermalField</code> carries.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

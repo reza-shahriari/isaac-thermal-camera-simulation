@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Continuous depth — irsim</title>
+<meta name="description" content="OC.11 and OC.13 -- a receding surface is one surface, not a stack of occluders (ADR 0134).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Continuous depth</h1>
+  <p class="subtitle">OC.11 and OC.13 -- a receding surface is one surface, not a stack of occluders (ADR 0134).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py" target="_blank" rel="noopener">tests/unit/test_continuous_depth.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>OC.6</code> composites depth layers back to front with <code>over</code>. That is right between a foreground and the background behind it and <strong>wrong between two slices of one surface that recedes through both</strong>, because those slices do not hide each other. The wrong version leaves a seam of <code>alpha (1 - alpha) (L_surface - L_behind)</code> -- a quarter of the contrast at its worst -- ruled along every bin boundary, and <em>more</em> layers means more seams, so the error grew with the knob that is supposed to reduce it.</p>
+<p>The oracle is the old composite itself, reimplemented here in nine lines. A test that only asserted "the seam is small" would pass just as well against a version that had quietly reverted, so the reference is the defect: <code>_over_chain</code> is what <code>OC.6</code> shipped, and the fix has to beat it by an order of magnitude on a scene made of one receding surface while matching it where two separate objects genuinely occlude.</p>
+<p><code>OC.13</code> then removed what <code>OC.11</code> left. With hard bins the geometry's blurred coverage <code>sum_b K_b * cover_b</code> rippled by about +/-0.5 % across a bin boundary rather than staying at one -- adjacent bins carry different kernels, the wider one spreads its coverage further than the narrower one gathers it back -- and wherever it dipped the composite read the shortfall as sky showing through and filled it with background. Making membership <strong>fractional</strong>, so a pixel is shared between the two bins its W020 falls between, removes the step those mismatched kernels act on: the ripple goes to +/-0.06 % and the interior error with it, 0.079 -&gt; 0.0023 at three layers.</p>
+<p>One assertion had to change rather than tighten. Under <code>OC.11</code> the error fell monotonically as layers were added, and that was worth asserting because the defect had made it <em>rise</em>. It no longer falls monotonically, and nothing is wrong: at 4e-4 on a contrast of 7 the residual is second order, and which cap does best is decided by where the bin edges happen to land on this ramp rather than by how many there are. What is asserted instead is that it stays small at every cap while the reference keeps growing.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py" target="_blank" rel="noopener">tests/unit/test_continuous_depth.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L127" target="_blank" rel="noopener">a receding surface loses its seam</a><span class="tag">parametrize</span><br><code>test_a_receding_surface_loses_its_seam</code></td><td>The whole of <code>OC.11</code>, measured against the composite it replaces, at every layer count.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L147" target="_blank" rel="noopener">the error does not grow with the layer cap</a><br><code>test_the_error_does_not_grow_with_the_layer_cap</code></td><td>The knob has to point the right way: more layers must never mean a worse picture.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L188" target="_blank" rel="noopener">a genuinely separate object still occludes</a><br><code>test_a_genuinely_separate_object_still_occludes</code></td><td>The other half: additivity must not be bought by letting a far object shine through a near.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L209" target="_blank" rel="noopener">the span says which layers are one surface</a><br><code>test_the_span_says_which_layers_are_one_surface</code></td><td>The record that carries the decision, checked on both cases it has to tell apart.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L229" target="_blank" rel="noopener">sky is never read as the same surface as the geometry</a><br><code>test_sky_is_never_read_as_the_same_surface_as_the_geometry</code></td><td>Sky spans infinity, so nothing can abut it and the gap test always separates it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L245" target="_blank" rel="noopener">membership is a partition of unity</a><br><code>test_membership_is_a_partition_of_unity</code></td><td>Every geometry pixel is spread over the layers and adds up to exactly one of itself.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L263" target="_blank" rel="noopener">a surface crossing a bin boundary ramps rather than steps</a><br><code>test_a_surface_crossing_a_bin_boundary_ramps_rather_than_steps</code></td><td>The point of <code>OC.13</code>: a boundary is a ramp, leaving no step for the kernels to act on.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L279" target="_blank" rel="noopener">two discrete slabs keep hard membership</a><br><code>test_two_discrete_slabs_keep_hard_membership</code></td><td>Where the scene has no continuum, the split degenerates to the one <code>OC.6</code> made.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_continuous_depth.py#L292" target="_blank" rel="noopener">the coverage ripple is what oc13 removed</a><br><code>test_the_coverage_ripple_is_what_oc13_removed</code></td><td>The mechanism, measured: hard bins leave a ripple in the blurred coverage and ramps do not.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

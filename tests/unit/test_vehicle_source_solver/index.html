@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicle source solver — irsim</title>
+<meta name="description" content="MP.4a / ADR 0089 — §6.6&#x27;s ground-vehicle heat sources, reachable from a scene.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Vehicle source solver</h1>
+  <p class="subtitle">MP.4a / ADR 0089 — §6.6's ground-vehicle heat sources, reachable from a scene.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py" target="_blank" rel="noopener">tests/unit/test_vehicle_source_solver.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The table and its integrator have existed since M6.14 and nothing outside their own unit tests could reach them. The scene schema's <code>heat_source</code> is ADR 0072's <em>aerial</em> node, whose law is a steady-state relation with no time constant at all -- so an engine bay authored through it shows its full 65 K in the first frame after ignition, which is the one thing an engine bay does not do.</p>
+<p><code>test_the_rise_is_the_closed_form_and_not_a_step</code> is the test that separates the two. Everything else guards the seams: the load profile lives on scene-relative time while the solver lives on the weather's absolute axis, and getting that offset wrong reads a plausible temperature from the wrong hour.</p>
+<p>docs/physics-model.md §6.6; ADR 0038, ADR 0089</p>
+<p class='made-by'>14 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py" target="_blank" rel="noopener">tests/unit/test_vehicle_source_solver.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L57" target="_blank" rel="noopener">the rise is the closed form and not a step</a><span class="tag">parametrize</span><br><code>test_the_rise_is_the_closed_form_and_not_a_step</code></td><td>Held to §6.6's own curve to 1 mK. A steady-state law fails this by up to 65 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L66" target="_blank" rel="noopener">one time constant is 63 percent and not the whole rise</a><br><code>test_one_time_constant_is_63_percent_and_not_the_whole_rise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L73" target="_blank" rel="noopener">the answer does not depend on the step size</a><br><code>test_the_answer_does_not_depend_on_the_step_size</code></td><td>The exact exponential, which is why a render at 60 Hz and a time-lapse agree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L82" target="_blank" rel="noopener">switching off cools on the other time constant</a><br><code>test_switching_off_cools_on_the_other_time_constant</code></td><td>tau_cool is 1800 s against tau_rise's 750 s: an engine forgets far slower than it warms.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L96" target="_blank" rel="noopener">a partial load reaches a partial rise</a><br><code>test_a_partial_load_reaches_a_partial_rise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L102" target="_blank" rel="noopener">a node that has just parked starts hot and forgets</a><br><code>test_a_node_that_has_just_parked_starts_hot_and_forgets</code></td><td>delta_t0_k is what makes a daylight scene of a recently parked car possible at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L110" target="_blank" rel="noopener">ambient enters in exactly one place</a><br><code>test_ambient_enters_in_exactly_one_place</code></td><td>A source cannot drift off the shared weather (CLAUDE.md #6).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L120" target="_blank" rel="noopener">a weather series is exposed for the one weather guard</a><br><code>test_a_weather_series_is_exposed_for_the_one_weather_guard</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L127" target="_blank" rel="noopener">the load profile is held flat not extrapolated</a><br><code>test_the_load_profile_is_held_flat_not_extrapolated</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L134" target="_blank" rel="noopener">bad profiles raise</a><br><code>test_bad_profiles_raise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L150" target="_blank" rel="noopener">the scene schema accepts a vehicle source</a><br><code>test_the_scene_schema_accepts_a_vehicle_source</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L162" target="_blank" rel="noopener">an aerial source name is refused for a vehicle node</a><br><code>test_an_aerial_source_name_is_refused_for_a_vehicle_node</code></td><td><code>motor</code> is an AERIAL_HEAT_SOURCES row; accepting it here would silently use a drone.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L168" target="_blank" rel="noopener">the two node kinds do not take each others profiles</a><br><code>test_the_two_node_kinds_do_not_take_each_others_profiles</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vehicle_source_solver.py#L198" target="_blank" rel="noopener">authoring a temperature directly is refused</a><br><code>test_authoring_a_temperature_directly_is_refused</code></td><td>The point of the solver is that the curve comes from the model, not from the YAML.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

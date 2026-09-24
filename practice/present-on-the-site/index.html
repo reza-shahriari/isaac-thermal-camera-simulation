@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>present-on-the-site — irsim</title>
+<meta name="description" content="How work in this repository reaches the public project site (the GitHub Pages site built by `make site`) — what is published automatically, what has to be added by hand to `site/ga">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>present-on-the-site</h1>
+  <p class="subtitle">How work in this repository reaches the public project site (the GitHub Pages site built by `make site`) — what is published automatically, what has to be added by hand to `site/gallery.yaml`, the rules for captions and media encoding, and the line between something worth presenting and debug output. Use this skill whenever a step produces something a reader outside the conversation would want to see — a render, a clip, a validation report, a new test file, a new module, a new scene or sensor config — and whenever the user says "put this on the site", "update the site", "publish", or asks why something is or is not on it. Run through it as part of finishing a step, before the commit.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/present-on-the-site/SKILL.md" target="_blank" rel="noopener">.claude/skills/present-on-the-site/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#what-is-already-automatic">What is already automatic</a></li>
+<li class="toc-2"><a href="#what-you-have-to-add-by-hand-renders">What you have to add by hand: renders</a></li>
+<li class="toc-3"><a href="#the-rules-for-that-entry">The rules for that entry</a></li>
+<li class="toc-2"><a href="#finishing-a-step">Finishing a step</a></li>
+<li class="toc-2"><a href="#what-not-to-publish">What not to publish</a></li>
+<li class="toc-2"><a href="#do-not-hand-edit-the-built-site">Do not hand-edit the built site</a></li></ul></nav>
+<article class="prose">
+<p>The site (<code>make site</code>, ADR 0139) is not a brochure kept beside the repository. It is the repository, rendered: 440-odd pages built from the documents, the tree and the renders, published to the <code>gh-pages</code> branch and served at <code>https://reza-shahriari.github.io/TCIsaacSim/</code>.</p>
+<p>The rule the owner set is short: <strong>everything that can be presented should be on the site.</strong> A test, a module, a decision, a report, a scene config, a clip. Not debug output — a probe dump, a scratch print, a one-off timing, a half-rendered frame kept to look at once.</p>
+<p>If you are not sure which side of that line something falls on, ask: <em>would somebody who was not in this conversation be better off seeing it?</em> If yes, it goes on the site.</p>
+<hr>
+<h2 id="what-is-already-automatic">What is already automatic<a class="anchor" href="#what-is-already-automatic" aria-label="permalink">#</a></h2>
+<p>These need nothing from you beyond doing the work well, because the build measures the tree:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>You added</th><th>It appears as</th><th>Because</th></tr></thead>
+<tbody>
+<tr><td>A module under <code>src/</code></td><td>a row on <strong>Code map</strong>, with its docstring and the spec sections it cites</td><td><code>site_survey.modules</code></td></tr>
+<tr><td>A test file</td><td>its <strong>own page</strong> under <strong>The test suite</strong>, every test listed with what it asserts</td><td><code>site_survey.test_modules</code></td></tr>
+<tr><td>An ADR</td><td>a row in the <strong>Decision log</strong> and its own page</td><td><code>docs/decisions/*.md</code> is a collection</td></tr>
+<tr><td>A document in <code>docs/</code></td><td>a rendered page under Physics, Plan or Evidence</td><td>the same</td></tr>
+<tr><td>A config in <code>configs/</code></td><td>a row in the <strong>Configuration catalogue</strong>, with its headline comment</td><td><code>site_survey.config_catalogue</code></td></tr>
+<tr><td>A script in <code>scripts/</code></td><td>a row on <strong>Commands</strong>, with its usage block</td><td><code>site_survey.script_catalogue</code></td></tr>
+<tr><td>A CHANGELOG or README edit</td><td>the Changelog and Status pages</td><td>rendered, not copied</td></tr>
+</tbody></table></div>
+<p>So: <strong>write the docstring</strong>. A module, a test file or a script with no docstring publishes an em dash where its explanation should be, and that is now visible to everyone rather than only to the next reader of the file. The first paragraph is what the site shows in a table; the rest becomes the body of its page.</p>
+<p>A test's own docstring is the "what it asserts" column. <code>test_the_bonnet_is_a_gradient</code> with no docstring tells a reader the name and nothing else; one sentence saying <em>6.3 K across one prim after thirty minutes, which is 127 NETD of structure</em> is the evidence the project claims to have.</p>
+<hr>
+<h2 id="what-you-have-to-add-by-hand-renders">What you have to add by hand: renders<a class="anchor" href="#what-you-have-to-add-by-hand-renders" aria-label="permalink">#</a></h2>
+<p><code>outputs/</code> is gitignored and 8 GB. The site carries a curated, re-encoded subset named by <strong><code>site/gallery.yaml</code></strong>, which is committed and reviewable. If your step produced frames or a clip worth showing, add a section:</p>
+<pre><code class="language-yaml">  - id: exhaust-plume              # the anchor; keep it stable, people link to it
+    title: The plume as a chord per pixel
+    lead: |
+      Markdown. Say what the reader is looking at and what it demonstrates, with the numbers
+      that make it a result rather than a picture.
+    media:
+      - video: car_exhaust/plume_agc.mp4     # relative to outputs/
+        width: full                          # full | half | third
+        caption: the camera's own AGC
+      - image: pointwise/exhaust_line/under_car_whitehot.png
+        width: half
+        caption: 425 °C at the downpipe falling to 128 °C through the silencer
+      - frames: vessel_departure/frames/agc_%05d.png   # a still sequence, assembled into a clip
+        fps: 8
+    note: |
+      Optional: the caveat, the known limit, the thing a reader would otherwise mistake.
+    source: scripts/render_car_ignition.py   # what produced it</code></pre>
+<p>Then <code>make site</code> re-encodes it. Defaults are H.264 CRF 34 capped at 720 px and WebP for stills; override per item with <code>crf:</code>, <code>width:</code> or <code>quality:</code> only if you can say why.</p>
+<h3 id="the-rules-for-that-entry">The rules for that entry<a class="anchor" href="#the-rules-for-that-entry" aria-label="permalink">#</a></h3>
+<ol>
+<li><strong>Every number in a caption is measured from the run on disk</strong> — the one the manifest points at, not the one the CHANGELOG describes. Read <code>outputs/&lt;run&gt;/summary.json</code>, or read the gauge off the frames themselves. A previous run's numbers beside this run's pixels is the kind of error nobody catches by looking.</li>
+<li><strong>No <code>.npy</code>, ever.</strong> The radiance and apparent-temperature planes are for the code. Publish the frames and the clips.</li>
+<li><strong>Say what it demonstrates, not what it is.</strong> "A quadrotor in LWIR" is a caption; "the deck moves 16.6 K over the mission while the object-wise aircraft moves 0.5 K" is the reason the clip exists.</li>
+<li><strong>A missing render is listed, not hidden.</strong> If the manifest names something this checkout lacks, the build says so on the page and in its output. Leave the entry in: it tells a reader the scene exists and which script regenerates it.</li>
+<li><strong>Check the licence before publishing somebody else's imagery</strong> (ADR 0041, XD.1). A licence noted in a dataset's README is not a grant over its frames.</li>
+</ol>
+<hr>
+<h2 id="finishing-a-step">Finishing a step<a class="anchor" href="#finishing-a-step" aria-label="permalink">#</a></h2>
+<p>Add this to the <code>ship-step</code> checklist, between the CHANGELOG entry and the commit:</p>
+<pre><code class="language-bash">make site PYTHON=…      # or `make site-preview` to look at it</code></pre>
+<p>and read its output, which is three things:</p>
+<ul>
+<li><strong>the page count and the media budget</strong> — <code>442 pages, 55 media files (20.7 MB re-encoded from 436.8 MB), 28.0 MB total</code>. The whole site must stay well under the ~1 GB GitHub Pages publishes; if one item has blown up, cap it with <code>crf:</code>/<code>width:</code> rather than dropping the section.</li>
+<li><strong><code>N manifest entries were not in outputs/</code></strong> — expected on a machine that has not run the renders, a mistake if it names the thing you just made.</li>
+<li><strong>dead links</strong> — <code>dead link in docs/decisions/0120-…: 0036-rk2-….md</code>. These are real broken references in the documents; fix them where they are, do not silence the report.</li>
+</ul>
+<p><code>tests/unit/test_site_build.py</code> runs in the gate and fails on a dead internal link or a root-absolute URL, so a broken site is a red <code>make check</code>, not a surprise after publishing.</p>
+<p>Publishing itself is manual and stays that way (ADR 0139): <code>make site-publish</code> rewrites the <code>gh-pages</code> branch locally, one commit, no history, and prints the push command. <strong>Do not push it unless the user asks.</strong></p>
+<hr>
+<h2 id="what-not-to-publish">What not to publish<a class="anchor" href="#what-not-to-publish" aria-label="permalink">#</a></h2>
+<ul>
+<li>Raw arrays, golden fixtures, weather CSVs, prim dumps — the code's input, not a reader's.</li>
+<li>Probe output kept to answer one question (<code>outputs/isaac_probe/</code>), unless the answer itself is worth a section, in which case write it up as an ADR and let the ADR be the thing on the site.</li>
+<li>A frame you have not looked at. Everything in the gallery is something you have opened and can describe; an unopened render on a public page is a claim you have not checked.</li>
+<li>Anything whose numbers you cannot source.</li>
+</ul>
+<hr>
+<h2 id="do-not-hand-edit-the-built-site">Do not hand-edit the built site<a class="anchor" href="#do-not-hand-edit-the-built-site" aria-label="permalink">#</a></h2>
+<p><code>_site/</code> is generated and gitignored, and so is every file in it. If a page is wrong, the fix is in <code>scripts/build_site.py</code>, <code>scripts/site_survey.py</code>, <code>scripts/site_gallery.py</code>, <code>site/gallery.yaml</code> or <code>site/assets/</code>, with a test in <code>tests/unit/test_site_build.py</code> or <code>tests/unit/test_site_markdown.py</code> if the failure could recur. The Markdown renderer is ours (<code>scripts/site_markdown.py</code>): if a document uses a construct it does not support, the corpus test fails rather than the site quietly publishing the raw syntax.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

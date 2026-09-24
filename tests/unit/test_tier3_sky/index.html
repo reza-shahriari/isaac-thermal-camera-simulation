@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier3 sky — irsim</title>
+<meta name="description" content="Tier 3 sky phenomenology on the aerial fixture (MS.8).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Tier3 sky</h1>
+  <p class="subtitle">Tier 3 sky phenomenology on the aerial fixture (MS.8).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py" target="_blank" rel="noopener">tests/unit/test_tier3_sky.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>These are the qualitative-but-decisive checks of the ir-sim-testing skill's Tier 3 list, in the sky-target half of the scope: the sky is not a constant background, cloud is warmer than clear sky, a target's contrast falls with range as τ(R)/R², and a two-pixel target aliases with its sub-pixel position unless the optical PSF is doing its job.</p>
+<p>Each assertion is stated against an independent oracle -- MS.2's sky model evaluated directly, the analytic τ(R)/R² law, flux conservation -- rather than against a stored number, so a wrong sky, a wrong atmosphere or a dropped PSF fails them.</p>
+<p>docs/physics-model.md §15 (Tier 3), §5.3; ADR 0044, 0050, 0070, 0071</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py" target="_blank" rel="noopener">tests/unit/test_tier3_sky.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L64" target="_blank" rel="noopener">fixture honours the contract in its sky aware form</a><br><code>test_fixture_honours_the_contract_in_its_sky_aware_form</code></td><td>The G-buffer validates, and <code>material_id</code> 0 appears <strong>only</strong> under the sky mask -- the ADR 0050 contract. (The ground fixtures forbid id 0 outright; a sky scene cannot.)</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L85" target="_blank" rel="noopener">sky is colder upward and matches the sky model</a><br><code>test_sky_is_colder_upward_and_matches_the_sky_model</code></td><td>Rendered apparent temperature on sky pixels equals MS.2's <code>T_sky(θ)</code> within 1 mK: stage 1 gives ε = 1 under the mask, stage 2 leaves those pixels untouched, and the radiometric branch divides the vignetting back out -- so the whole chain is an identity on the sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L104" target="_blank" rel="noopener">scale free profile and snr per degree</a><br><code>test_scale_free_profile_and_snr_per_degree</code></td><td>The <em>shape</em> of the sky profile, normalised by its own horizon-to-top span, is what a real image can be compared against (ME.4 reports it scale-free because gain and offset are unknown). It must match MS.2's shape to 1 %, and the per-degree gradient divided by the flat-sky noise must be a finite, positive detectability number.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L145" target="_blank" rel="noopener">clouds read warmer than the clear sky</a><br><code>test_clouds_read_warmer_than_the_clear_sky</code></td><td>Cloud at its base temperature against a clear sky tens of kelvin colder: the clutter a sky-target detector has to survive (MS.3). The covered pixels must also be <em>structured</em> -- a 1/f^β field, not salt and pepper -- so neighbouring pixels agree far more often than chance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L177" target="_blank" rel="noopener">target contrast falls as tau over range squared</a><br><code>test_target_contrast_falls_as_tau_over_range_squared</code></td><td>A sub-pixel target of fixed size and temperature, moved out in range.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L250" target="_blank" rel="noopener">two pixel target aliases and the psf spreads it</a><br><code>test_two_pixel_target_aliases_and_the_psf_spreads_it</code></td><td>A 2 px target swept through sub-pixel phases on a 4x supersampled render: total flux is conserved but the peak pixel is not -- the aliasing a point-sampled rasteriser cannot avoid (ADR 0071) -- and switching MS.4's optical PSF on lowers the peak and widens the footprint.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_sky.py#L321" target="_blank" rel="noopener">frame statistics inside the reference bands</a><span class="tag">skip</span><br><code>test_frame_statistics_inside_the_reference_bands</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aerial target — irsim</title>
+<meta name="description" content="MS.7 -- the four-material aerial library and the target thermal signature.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Aerial target</h1>
+  <p class="subtitle">MS.7 -- the four-material aerial library and the target thermal signature.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py" target="_blank" rel="noopener">tests/unit/test_aerial_target.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Covers the CLAUDE.md #4 library walk over the aerial materials, the prescribed motor / ESC / battery / airframe schedules against their analytic law, the warm-belly / cold-top ordering under a clear sky, and the fully specified horizon test: where a 300 K drone's contrast against the sky changes sign, by two independent routes.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py" target="_blank" rel="noopener">tests/unit/test_aerial_target.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L72" target="_blank" rel="noopener">aerial library closes in every band</a><br><code>test_aerial_library_closes_in_every_band</code></td><td>CLAUDE.md #4 over the four aerial materials: ε + ρ + τ = 1 to 1e-6, every band.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L88" target="_blank" rel="noopener">aerial library phenomenology is ordered</a><br><code>test_aerial_library_phenomenology_is_ordered</code></td><td>The orderings that make these four worth having, not just their numbers.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L109" target="_blank" rel="noopener">aerial materials pack into a material table</a><br><code>test_aerial_materials_pack_into_a_material_table</code></td><td>M7.18: the four pack to float32 ε/ρ/τ by id, closed, with their thermal columns.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L131" target="_blank" rel="noopener">throttle law is quadratic and ordered</a><br><code>test_throttle_law_is_quadratic_and_ordered</code></td><td>ΔT ∝ u²: dissipation is ohmic with current ∝ throttle (ADR 0072, ESTIMATED).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L145" target="_blank" rel="noopener">prescribed schedule matches the analytic law to 1mk</a><span class="tag">parametrize</span><br><code>test_prescribed_schedule_matches_the_analytic_law_to_1mk</code></td><td>The MS.7 criterion: the prescribed schedule <em>is</em> T_air + ΔT_max u², to 1 mK, everywhere between its nodes as well as on them.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L162" target="_blank" rel="noopener">refinement is driven by the tolerance</a><br><code>test_refinement_is_driven_by_the_tolerance</code></td><td>A tighter tolerance buys more nodes and a smaller error -- the grid is derived, not typed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L180" target="_blank" rel="noopener">airframe follows the shared weather</a><br><code>test_airframe_follows_the_shared_weather</code></td><td>Airframe near T_air (CLAUDE.md #6: T_air comes from the injected series, not a file).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L206" target="_blank" rel="noopener">belly reads warmer than top under a clear sky</a><br><code>test_belly_reads_warmer_than_top_under_a_clear_sky</code></td><td>Same skin temperature, opposite sky view: the belly reflects warm ground, the top reflects a cold sky, so the belly is brighter -- and the gap widens as emissivity falls.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L261" target="_blank" rel="noopener">drone is bright at zenith and inverts near the horizon</a><br><code>test_drone_is_bright_at_zenith_and_inverts_near_the_horizon</code></td><td>T_air = 300 K, ε = 0.9, V_s = 1, R = 1 km, the clear preset.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L289" target="_blank" rel="noopener">zero contrast elevation matches the rendered root within one degree</a><br><code>test_zero_contrast_elevation_matches_the_rendered_root_within_one_degree</code></td><td>The MS.7 criterion. Route A is the analytic root of τ(R,θ)[ε L_B(300) + (1−ε) L_env] + L_path(R,θ) = L_sky(θ); route B bisects the contrast that the stage-1 + stage-2 pipeline actually renders. They must agree within 1°.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L335" target="_blank" rel="noopener">the inversion is the reflected term</a><br><code>test_the_inversion_is_the_reflected_term</code></td><td>A blackbody target at air temperature never inverts: with ε = 1 there is no reflected sky to drag it below the horizon sky, so the crossing must disappear. This is what distinguishes the modelled mechanism from a path-radiance artefact, and it fixes the ordering: the lower the emissivity, the higher the elevation at which the target vanishes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_aerial_target.py#L355" target="_blank" rel="noopener">a hot target never crosses</a><br><code>test_a_hot_target_never_crosses</code></td><td>A motor-warm target is brighter than the sky everywhere -- the helper says so with None rather than inventing a root.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

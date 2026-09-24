@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Band scalability — irsim</title>
+<meta name="description" content="M11.1 — &quot;bands are data, not code&quot;, asserted rather than asserted-in-prose.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Band scalability</h1>
+  <p class="subtitle">M11.1 — "bands are data, not code", asserted rather than asserted-in-prose.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py" target="_blank" rel="noopener">tests/unit/test_band_scalability.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Two halves, and the second is the one that will fail first:</p>
+<ul>
+<li>a <strong>dynamic</strong> half parametrised over every YAML in <code>configs/sensors/</code>: each one loads, classifies into a canonical band by overlap, hashes reproducibly and distinctly, and tabulates a band LUT -- all through the same functions, with no branch anywhere on which band it is. Adding <code>example_swir_ingaas_640.yaml</code> next to the LWIR Boson exercised exactly this path and needed no code change; this test is what keeps that true.</li>
+<li><p>a <strong>static</strong> half over <strong>every</strong> module under <code>src/irsim</code>: none may contain a band name, in a string or in an identifier, nor a nominal band edge written as a wavelength. The registry in <code>irsim.config.bands</code> is the single place that knows the bands; a kernel that learns one has broken the abstraction CLAUDE.md calls the main scalability requirement of the project, and it breaks it silently -- the code still works, for the bands that were thought of.</p>
+<p>The static half used to name the six packages it scanned (<code>CORE_PACKAGES</code>), which made the exemption an <strong>omission</strong>: <code>atmosphere</code>, <code>materials</code>, <code>thermal</code>, <code>io</code>, <code>validation</code>, <code>config</code> and <code>scene.py</code> were unguarded because nobody had listed them, not because anybody had decided they should be. Four of those were already clean and had been for their whole lives. It also had two ways to switch itself off in silence -- a package renamed in the tuple made <code>rglob</code> walk a path that does not exist, which yields no files and therefore no offences, and the one coverage assertion counted the six packages' union against a floor of 30, which survives dropping the largest of them. AT.4 inverts it: scan everything, and carry the carve-out as :data:<code>BAND_AWARE</code>, a file-by-file constant with a reason and a ceiling for each entry.</p></li>
+</ul>
+<p>docs/physics-model.md §12.1, §12.2 line 900, §16.4 step 10; ADR 0092</p>
+<p class='made-by'>27 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py" target="_blank" rel="noopener">tests/unit/test_band_scalability.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L70" target="_blank" rel="noopener">the config directory is not empty</a><br><code>test_the_config_directory_is_not_empty</code></td><td>Guards the guard: every parametrised test below would vacuously pass on an empty glob.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L75" target="_blank" rel="noopener">more than one band is configured</a><br><code>test_more_than_one_band_is_configured</code></td><td>A scalability claim tested on one band is not tested at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L87" target="_blank" rel="noopener">every config loads and classifies by overlap</a><span class="tag">parametrize</span><br><code>test_every_config_loads_and_classifies_by_overlap</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L100" target="_blank" rel="noopener">every config hashes reproducibly</a><span class="tag">parametrize</span><br><code>test_every_config_hashes_reproducibly</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L108" target="_blank" rel="noopener">the configs hash distinctly</a><br><code>test_the_configs_hash_distinctly</code></td><td>Distinct <em>cameras</em>, and a band hash that collides <strong>exactly when the bands are the same</strong>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L133" target="_blank" rel="noopener">every config tabulates a lut with no code change</a><span class="tag">parametrize</span><br><code>test_every_config_tabulates_a_lut_with_no_code_change</code></td><td>The same <code>BandLUT.build</code> over the same four quantities, whatever the band.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L146" target="_blank" rel="noopener">the response curve covers the configured band</a><span class="tag">parametrize</span><br><code>test_the_response_curve_covers_the_configured_band</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L153" target="_blank" rel="noopener">the declared regime is physically possible for the band</a><span class="tag">parametrize</span><br><code>test_the_declared_regime_is_physically_possible_for_the_band</code></td><td>§12.1: no self-emission below ~2.5 um, no reflected sun beyond ~3 um.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L169" target="_blank" rel="noopener">the swir config is a photon fpa with no bolometer fields</a><br><code>test_the_swir_config_is_a_photon_fpa_with_no_bolometer_fields</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L177" target="_blank" rel="noopener">the swir config is reflective and claims no apparent temperature</a><br><code>test_the_swir_config_is_reflective_and_claims_no_apparent_temperature</code></td><td>Inverting Lb gives a temperature only where the signal <em>is</em> self-emission.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L184" target="_blank" rel="noopener">a 300 k scene is invisible in swir</a><br><code>test_a_300_k_scene_is_invisible_in_swir</code></td><td>The known answer that makes "reflective" a fact rather than a label.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L208" target="_blank" rel="noopener">swir self emission becomes significant at exhaust temperatures</a><br><code>test_swir_self_emission_becomes_significant_at_exhaust_temperatures</code></td><td>The other side of the same coin: "reflective" is a statement about 300 K, not about the band.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L229" target="_blank" rel="noopener">the nir config is a photon fpa that claims no apparent temperature</a><br><code>test_the_nir_config_is_a_photon_fpa_that_claims_no_apparent_temperature</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L237" target="_blank" rel="noopener">nir is the extreme case of reflective</a><br><code>test_nir_is_the_extreme_case_of_reflective</code></td><td>The fourth band, and the one that makes the point hardest.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L426" target="_blank" rel="noopener">no guarded module names a band</a><span class="tag">parametrize</span><br><code>test_no_guarded_module_names_a_band</code></td><td>Deny by default: a module is guarded the day it is created, not the day it is listed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L439" target="_blank" rel="noopener">the scan reaches every source file</a><br><code>test_the_scan_reaches_every_source_file</code></td><td>The failure the old shape could not see: a guard scanning nothing passes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L451" target="_blank" rel="noopener">every top level package is covered</a><br><code>test_every_top_level_package_is_covered</code></td><td>No package may be silently absent -- the second half of the same failure.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L482" target="_blank" rel="noopener">every exemption names a file that exists</a><br><code>test_every_exemption_names_a_file_that_exists</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L488" target="_blank" rel="noopener">every exemption is still load bearing</a><span class="tag">parametrize</span><br><code>test_every_exemption_is_still_load_bearing</code></td><td>The ratchet that removes a carve-out once it stops rescuing anything.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L503" target="_blank" rel="noopener">no exemption has grown</a><span class="tag">parametrize</span><br><code>test_no_exemption_has_grown</code></td><td>A carve-out may shrink freely and may not grow by accident.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L516" target="_blank" rel="noopener">every exemption states a reason</a><span class="tag">parametrize</span><br><code>test_every_exemption_states_a_reason</code></td><td>"Recorded with its reason" is the half of AT.4's exit bar a bare path list would miss.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L522" target="_blank" rel="noopener">no carve out is a band registry any more</a><br><code>test_no_carve_out_is_a_band_registry_any_more</code></td><td>The debt AT.4 recorded and ADR 0092 named is paid, and this is what stops it returning.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L555" target="_blank" rel="noopener">the guard would catch a planted band name</a><br><code>test_the_guard_would_catch_a_planted_band_name</code></td><td>The guard is worth only as much as its ability to fail.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L564" target="_blank" rel="noopener">the guard would catch the anchor band</a><br><code>test_the_guard_would_catch_the_anchor_band</code></td><td>The fifth band that already exists, and that the old forbidden set could not see.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L572" target="_blank" rel="noopener">the edge guard would catch a planted band edge</a><br><code>test_the_edge_guard_would_catch_a_planted_band_edge</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L579" target="_blank" rel="noopener">the illumination switch is on the regime not the band</a><br><code>test_the_illumination_switch_is_on_the_regime_not_the_band</code></td><td>§5.2's "compile-time flag" as a runtime function of the regime alone (ADR 0063).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_scalability.py#L593" target="_blank" rel="noopener">the weighting temperature is derived from the regime not the band name</a><br><code>test_the_weighting_temperature_is_derived_from_the_regime_not_the_band_name</code></td><td>The five rows <code>WEIGHT_T_REF_K</code> held, and the drift that made the obvious rule wrong.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

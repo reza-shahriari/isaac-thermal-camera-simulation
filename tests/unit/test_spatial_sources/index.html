@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spatial sources — irsim</title>
+<meta name="description" content="ADR 0088 — heat sources that vary across a surface, and the sky they block.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Spatial sources</h1>
+  <p class="subtitle">ADR 0088 — heat sources that vary across a surface, and the sky they block.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py" target="_blank" rel="noopener">tests/unit/test_spatial_sources.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Two things carry the weight here.</p>
+<p><code>test_corner_form_matches_a_brute_force_quadrature</code> checks the configuration factor against a direct numerical integration of <code>c^2 / (pi (x^2 + y^2 + c^2)^2)</code> rather than against a remembered constant. A view factor wrong by a factor of two produces a bonnet gradient of exactly the right <em>shape</em> and half the right size, which no picture would reveal.</p>
+<p><code>test_a_cold_sky_warms_the_ground_more_than_the_engine_does</code> is the physics this module exists for. A hot body over a surface both radiates onto it and <strong>removes the sky it was seeing</strong>; keeping only the first term invents energy, and under a clear night sky the second term is the larger one. That is why a parked car leaves a warm car-shaped patch on asphalt before its engine has ever run.</p>
+<p>docs/physics-model.md §6.1, §6.6; ADR 0087, ADR 0088</p>
+<p class='made-by'>24 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py" target="_blank" rel="noopener">tests/unit/test_spatial_sources.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L56" target="_blank" rel="noopener">corner form matches a brute force quadrature</a><span class="tag">parametrize</span><br><code>test_corner_form_matches_a_brute_force_quadrature</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L60" target="_blank" rel="noopener">a quarter infinite plane gives one quarter</a><br><code>test_a_quarter_infinite_plane_gives_one_quarter</code></td><td>The limit that fixes the constant: four quadrants of an infinite plane must sum to 1.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L65" target="_blank" rel="noopener">the corner form is odd in each argument</a><br><code>test_the_corner_form_is_odd_in_each_argument</code></td><td>What makes the four-corner superposition valid for an offset rectangle.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L75" target="_blank" rel="noopener">superposition matches brute force for an offset rectangle</a><br><code>test_superposition_matches_brute_force_for_an_offset_rectangle</code></td><td>The case the demo actually uses: a cell out at the wing, not under the block.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L93" target="_blank" rel="noopener">a large close radiator approaches a half</a><br><code>test_a_large_close_radiator_approaches_a_half</code></td><td>A cell directly under a wide, near parallel plane sees half a hemisphere, not all of it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L102" target="_blank" rel="noopener">the view factor falls with distance from the source</a><br><code>test_the_view_factor_falls_with_distance_from_the_source</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L117" target="_blank" rel="noopener">a cold sky warms the ground more than the engine does</a><br><code>test_a_cold_sky_warms_the_ground_more_than_the_engine_does</code></td><td>The occlusion term, and why the demo scene is overcast.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L143" target="_blank" rel="noopener">a body no warmer than the sky it blocks adds nothing</a><br><code>test_a_body_no_warmer_than_the_sky_it_blocks_adds_nothing</code></td><td>The sign convention, stated as an identity rather than a tolerance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L150" target="_blank" rel="noopener">a body colder than the sky cools the surface</a><br><code>test_a_body_colder_than_the_sky_cools_the_surface</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L156" target="_blank" rel="noopener">the source emissivity scales only the source term</a><br><code>test_the_source_emissivity_scales_only_the_source_term</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L163" target="_blank" rel="noopener">a tilted surface loses proportionally less sky</a><br><code>test_a_tilted_surface_loses_proportionally_less_sky</code></td><td>A wall already seeing half the sky can only have half as much taken away.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L176" target="_blank" rel="noopener">patch view factors peak over the source and fall at the edges</a><br><code>test_patch_view_factors_peak_over_the_source_and_fall_at_the_edges</code></td><td>The bonnet gradient, as geometry: hottest over the block, coolest at the wings.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L203" target="_blank" rel="noopener">a non parallel patch raises rather than returning a plausible number</a><br><code>test_a_non_parallel_patch_raises_rather_than_returning_a_plausible_number</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L212" target="_blank" rel="noopener">a point in the radiators plane raises</a><br><code>test_a_point_in_the_radiators_plane_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L223" target="_blank" rel="noopener">clamp view factor sum is a no op when the sum is already under one</a><br><code>test_clamp_view_factor_sum_is_a_no_op_when_the_sum_is_already_under_one</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L231" target="_blank" rel="noopener">clamp view factor sum caps the total at one</a><br><code>test_clamp_view_factor_sum_caps_the_total_at_one</code></td><td>The measured failure: three radiators, one cell over-counted by all three.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L246" target="_blank" rel="noopener">clamp view factor sum preserves relative weight</a><br><code>test_clamp_view_factor_sum_preserves_relative_weight</code></td><td>Scaling is proportional: the radiator with more raw view factor still dominates after.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L256" target="_blank" rel="noopener">clamp view factor sum scales the occlusion term the same as the source term</a><br><code>test_clamp_view_factor_sum_scales_the_occlusion_term_the_same_as_the_source_term</code></td><td>occluded_longwave_flux is linear in view_factors, so clamping bounds both consistently.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L271" target="_blank" rel="noopener">clamp view factor sum rejects an input already out of range</a><br><code>test_clamp_view_factor_sum_rejects_an_input_already_out_of_range</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L311" target="_blank" rel="noopener">one rectangle described two ways gives one answer</a><br><code>test_one_rectangle_described_two_ways_gives_one_answer</code></td><td>The invariant PT.4 is about: an in-plane relabelling is not a physical change.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L327" target="_blank" rel="noopener">the closed form matches a world space quadrature</a><span class="tag">parametrize</span><br><code>test_the_closed_form_matches_a_world_space_quadrature</code></td><td>The oracle that would catch a frame mix-up rather than merely a disagreement.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L340" target="_blank" rel="noopener">a patch rotated in its own plane sees the same radiator</a><br><code>test_a_patch_rotated_in_its_own_plane_sees_the_same_radiator</code></td><td>The defect as it would have reached a scene (PT.4).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L365" target="_blank" rel="noopener">a patch and a radiator turned together are unchanged</a><br><code>test_a_patch_and_a_radiator_turned_together_are_unchanged</code></td><td>Rotating the whole configuration about the shared normal changes nothing physical.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spatial_sources.py#L402" target="_blank" rel="noopener">the parallel guard still refuses a tilted radiator</a><br><code>test_the_parallel_guard_still_refuses_a_tilted_radiator</code></td><td>Removing <code>axes</code> must not have removed the check that the closed form applies at all.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

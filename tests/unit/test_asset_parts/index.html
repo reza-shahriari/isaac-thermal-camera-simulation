@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset parts — irsim</title>
+<meta name="description" content="Part decomposition of an imported asset: `irsim.io.asset_parts`.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Asset parts</h1>
+  <p class="subtitle">Part decomposition of an imported asset: `irsim.io.asset_parts`.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py" target="_blank" rel="noopener">tests/unit/test_asset_parts.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The fixtures here are a synthetic quadcopter, not the Phantom 4 archive, because the archive is generated and not in git. The numbers are the Phantom 4's measured ones -- rotor stations at r = 185 mm, a 88 x 83 x 28 mm battery block at the body centre, propeller blades at z = 80 mm -- so a selector that works here is authored against the real geometry's scale.</p>
+<p>Roadmap <code>AI.5</code>; ADR 0128.</p>
+<p class='made-by'>22 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py" target="_blank" rel="noopener">tests/unit/test_asset_parts.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L110" target="_blank" rel="noopener">each rotor station is its own part</a><br><code>test_each_rotor_station_is_its_own_part</code></td><td>Four rotors must be four parts, not one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L128" target="_blank" rel="noopener">stations are far enough apart that the selectors cannot overlap</a><br><code>test_stations_are_far_enough_apart_that_the_selectors_cannot_overlap</code></td><td>The geometry behind the previous test: a 60 mm radius on stations 262 mm apart.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L135" target="_blank" rel="noopener">the battery is found inside the shell that encloses it</a><br><code>test_the_battery_is_found_inside_the_shell_that_encloses_it</code></td><td>The defect this module exists for.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L165" target="_blank" rel="noopener">a part that matches nothing is reported rather than silently empty</a><br><code>test_a_part_that_matches_nothing_is_reported_rather_than_silently_empty</code></td><td>The Phantom 4 scene declared a battery target and bound no geometry to it for months.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L181" target="_blank" rel="noopener">coverage is area weighted not component counted</a><br><code>test_coverage_is_area_weighted_not_component_counted</code></td><td>Most components are specks; area is what a radiometric image cares about.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L197" target="_blank" rel="noopener">radius is measured from the asset centre not the origin</a><br><code>test_radius_is_measured_from_the_asset_centre_not_the_origin</code></td><td>The Phantom 4 sits at y = +0.49 m in its own frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L211" target="_blank" rel="noopener">extent separates a gear strut from the skid foot it stands on</a><br><code>test_extent_separates_a_gear_strut_from_the_skid_foot_it_stands_on</code></td><td>Same material, same radius, same region -- only the shell's own height tells them apart.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L234" target="_blank" rel="noopener">first match wins in declaration order</a><br><code>test_first_match_wins_in_declaration_order</code></td><td>Reversing the order moves the battery into the catch-all, and nothing else changes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L249" target="_blank" rel="noopener">unassigned geometry is returned not dropped</a><br><code>test_unassigned_geometry_is_returned_not_dropped</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L258" target="_blank" rel="noopener">greedy part is flagged without failing the report</a><br><code>test_greedy_part_is_flagged_without_failing_the_report</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L265" target="_blank" rel="noopener">near xy without a radius is an error not a silent pass</a><br><code>test_near_xy_without_a_radius_is_an_error_not_a_silent_pass</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L271" target="_blank" rel="noopener">duplicate part names are rejected</a><br><code>test_duplicate_part_names_are_rejected</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L278" target="_blank" rel="noopener">degenerate components are rejected</a><br><code>test_degenerate_components_are_rejected</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L285" target="_blank" rel="noopener">report renders every named part and the remainder</a><br><code>test_report_renders_every_named_part_and_the_remainder</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L310" target="_blank" rel="noopener">the phantom4 declares the parts its scene needs</a><br><code>test_the_phantom4_declares_the_parts_its_scene_needs</code></td><td>The <code>battery</code> heat source had no geometry. This is the test that keeps it bound.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L318" target="_blank" rel="noopener">the phantom4 has four of each rotor part</a><br><code>test_the_phantom4_has_four_of_each_rotor_part</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L327" target="_blank" rel="noopener">the phantom4 station selectors cannot claim each other</a><br><code>test_the_phantom4_station_selectors_cannot_claim_each_other</code></td><td>Four stations 262 mm apart, each claiming a 75 mm radius: no component is in two.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L341" target="_blank" rel="noopener">the phantom4 propeller cut clears the motor under it at every station</a><br><code>test_the_phantom4_propeller_cut_clears_the_motor_under_it_at_every_station</code></td><td>The asset is pitched 2.93 deg nose-down, so the stations sit at four different heights.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L368" target="_blank" rel="noopener">the phantom4 shells are last so they cannot swallow a part</a><br><code>test_the_phantom4_shells_are_last_so_they_cannot_swallow_a_part</code></td><td>Catch-alls must be terminal: an empty selector earlier would claim the whole aircraft.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L447" target="_blank" rel="noopener">one prim of two shells becomes two parts</a><br><code>test_one_prim_of_two_shells_becomes_two_parts</code></td><td>The whole point: a part is a shell, not a prim.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L467" target="_blank" rel="noopener">splitting conserves area</a><br><code>test_splitting_conserves_area</code></td><td>Regrouping triangles must not create or destroy surface: it is the same aircraft.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_parts.py#L485" target="_blank" rel="noopener">a part archive round trips through the loader</a><br><code>test_a_part_archive_round_trips_through_the_loader</code></td><td><code>write_asset_meshes</code> must produce something <code>load_asset_meshes</code> accepts.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

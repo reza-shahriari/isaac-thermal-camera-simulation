@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The test suite — irsim</title>
+<meta name="description" content="2,915 tests across 283 files — every one listed, with what it asserts.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../">Overview</a></li>
+<li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../physics/">Physics model</a></li>
+<li><a href="../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../roadmap/">Roadmap</a></li>
+<li><a href="../decisions/">Decision log</a></li>
+<li><a href="../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li class="here"><a href="./">The test suite</a></li>
+<li><a href="../validation/">Validation</a></li>
+<li><a href="../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../code/">Code map</a></li>
+<li><a href="../configs/">Configuration catalogue</a></li>
+<li><a href="../scripts/">Commands</a></li>
+<li><a href="../guide/">Working agreement</a></li>
+<li><a href="../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>The test suite</h1>
+  <p class="subtitle">2,915 tests across 283 files — every one listed, with what it asserts.</p>
+  
+</div>
+
+<article class="prose">
+<p>Nobody has intuition for what a correct thermal image looks like — a frame that is wrong by 20 K looks exactly as convincing as one that is right. That is why this project carries 2,915 tests across 283 files, and why a test here is expected to <em>fail if the physics were wrong</em> rather than merely to call the function. Each file below links to its own page, where every test is listed with what it asserts.</p>
+<p class="filterline"><input id="table-filter" type="search" placeholder="Filter 283 test files…" aria-label="Filter test files"></p>
+<h2 id="unit">Unit — <code>tests/unit</code></h2>
+<p>Fast, engine-free, and the half of the commit gate that runs on every change. No GPU, no Isaac Sim, no network. 259 files, 2,757 tests.</p>
+<div class='table-wrap'><table class="filterable suite"><thead><tr><th>file</th><th>what it guards</th><th>cites</th><th>tests</th></tr></thead><tbody>
+<tr><td><a href="unit/test_adr_citations/">test_adr_citations.py</a></td><td>RP.4 — every <code>ADR NNNN</code> citation in the repository resolves to a file that exists.</td><td>ADR 0042, ADR 0079, ADR 0078, ADR 0053</td><td>7</td></tr>
+<tr><td><a href="unit/test_adr_status/">test_adr_status.py</a></td><td>RP.5 — every ADR carries a status in one spelling, and supersessions are actually recorded.</td><td>ADR 0001, §9.2, ADR 0077, ADR 0014</td><td>9</td></tr>
+<tr><td><a href="unit/test_aerial_bridge/">test_aerial_bridge.py</a></td><td>Engine-free tests for the aerial thermal bridge (roadmap M10.18, ADR 0014/0060).</td><td>M10.18, ADR 0014</td><td>18</td></tr>
+<tr><td><a href="unit/test_aerial_target/">test_aerial_target.py</a></td><td>MS.7 -- the four-material aerial library and the target thermal signature.</td><td>—</td><td>12</td></tr>
+<tr><td><a href="unit/test_agc_collapse/">test_agc_collapse.py</a><span class="tag">slow</span></td><td>§15 Tier 3 phenomenology through the whole pipeline (M5.7): a hot exhaust entering the frame collapses the 8-bit contrast of a pedestrian against its background under linear AGC while the DN16 contrast is untouched; the Boson's plateau equalisation keeps most of the background contrast. Also the first-image reproducibility check.</td><td>§15, M5.7, DN16</td><td>3</td></tr>
+<tr><td><a href="unit/test_agc_local/">test_agc_local.py</a></td><td>ROI-weighted and locally-adaptive AGC (M9.10, §11.3).</td><td>M9.10, §11.3, §15</td><td>18</td></tr>
+<tr><td><a href="unit/test_aircraft_pass/">test_aircraft_pass.py</a></td><td>Engine-free tests for the aircraft, its aerodynamic heating and its flypast (ADR 0075).</td><td>ADR 0075</td><td>24</td></tr>
+<tr><td><a href="unit/test_analytic_targets/">test_analytic_targets.py</a></td><td>The analytic-target bridge's geometry (MS.6 in sim): world space back to the camera.</td><td>§8.3, ADR 0071, ADR 0014</td><td>6</td></tr>
+<tr><td><a href="unit/test_angular_level_b/">test_angular_level_b.py</a></td><td>M7.6 — Level B: ε(θ) = ε₀[1 − a(1 − cos θ)^p], and the fit that bakes it (§4.2).</td><td>M7.6, §4.2, §13.5, ADR 0042</td><td>15</td></tr>
+<tr><td><a href="unit/test_aperture/">test_aperture.py</a></td><td>Aperture factor and focal-plane irradiance (M3.1): identities, an independent cone integral, the spec's 20 % known answer, and the Boson pixel-power hand value.</td><td>M3.1</td><td>8</td></tr>
+<tr><td><a href="unit/test_aperture_guard/">test_aperture_guard.py</a></td><td>Non-negotiable #5: π/(4F² + 1) is written once, in irsim/optics/aperture.py.</td><td>—</td><td>4</td></tr>
+<tr><td><a href="unit/test_asset_budget/">test_asset_budget.py</a></td><td>AI.3 -- what an imported asset costs, and how much of that cost buys anything.</td><td>—</td><td>21</td></tr>
+<tr><td><a href="unit/test_asset_flight/">test_asset_flight.py</a></td><td>The mount rotation and the flight path of an imported asset (AI.2).</td><td>—</td><td>11</td></tr>
+<tr><td><a href="unit/test_asset_mapping/">test_asset_mapping.py</a></td><td>Per-asset material mapping: precedence, the two corrections it exists for, and the real asset.</td><td>ADR 0128, §13.3, ADR 0047</td><td>16</td></tr>
+<tr><td><a href="unit/test_asset_meshes/">test_asset_meshes.py</a></td><td>A real asset's triangles as engine-free solvable geometry (AI.2, ADR 0128, ADR 0132).</td><td>ADR 0128, ADR 0132, §6.1, ADR 0110</td><td>16</td></tr>
+<tr><td><a href="unit/test_asset_parts/">test_asset_parts.py</a></td><td>Part decomposition of an imported asset: <code>irsim.io.asset_parts</code>.</td><td>ADR 0128</td><td>22</td></tr>
+<tr><td><a href="unit/test_atmosphere_handout/">test_atmosphere_handout.py</a></td><td>A scene with a layered atmosphere will not hand out the grey one (AT.5).</td><td>§8.5, §8.6, ADR 0033</td><td>8</td></tr>
+<tr><td><a href="unit/test_atmosphere_ladder/">test_atmosphere_ladder.py</a></td><td>One wavelength ladder for the atmosphere's spectral classes (AT.10, ADR 0113).</td><td>ADR 0113, §7.1, §7.4, ADR 0071</td><td>10</td></tr>
+<tr><td><a href="unit/test_atmosphere_model/">test_atmosphere_model.py</a></td><td>Atmosphere bound to the shared WeatherSeries (M8.5): object-only constructor, T_air identity with the thermal solver's ambient, the exact humidity sensitivity, the humid/fog crossovers from weather alone, air radiance and the per-pixel kernel, regime mismatch.</td><td>M8.5</td><td>5</td></tr>
+<tr><td><a href="unit/test_atmosphere_presets/">test_atmosphere_presets.py</a></td><td>Atmosphere presets (M8.3): every preset x band reproduces its §7.2 row at the conditions it was fitted at, the schema refuses weather, and the library is consistent.</td><td>M8.3, §7.2</td><td>6</td></tr>
+<tr><td><a href="unit/test_atmosphere_spectral/">test_atmosphere_spectral.py</a></td><td>Grey-band approximation error (M8.7, ADR 0048): grey identity, the curve of growth, and the bounds the L2 atmosphere accepts for structured gamma(lambda).</td><td>M8.7, ADR 0048</td><td>3</td></tr>
+<tr><td><a href="unit/test_atmosphere_stage/">test_atmosphere_stage.py</a></td><td>Stage 2 on the G-buffer (M8.6): the §3.3 known answer through the whole chain, isothermal invariance at 10 m and 5 km, vectorised == scalar loop, sky pixels bit-identical, float16 refused, the constant-tau fallback, and identity without an Atmosphere.</td><td>M8.6, §3.3</td><td>6</td></tr>
+<tr><td><a href="unit/test_autofocus/">test_autofocus.py</a></td><td>OC.9 -- focus that moves (ADR 0129).</td><td>ADR 0129</td><td>9</td></tr>
+<tr><td><a href="unit/test_background_fill/">test_background_fill.py</a></td><td>OC.7 -- the analytic hidden layer (ADR 0129).</td><td>ADR 0129</td><td>5</td></tr>
+<tr><td><a href="unit/test_bad_pixel_replacement/">test_bad_pixel_replacement.py</a></td><td>Bad-pixel replacement (M9.5b): the stencil's three signatures, and the footprint it leaves.</td><td>M9.5b, §10.4, §11.1., ADR 0055</td><td>13</td></tr>
+<tr><td><a href="unit/test_bad_pixels/">test_bad_pixels.py</a></td><td>Bad-pixel map and defect injection (M9.5a): the spatial statistics and the RTS statistics.</td><td>M9.5a, §10.4, M9.5b, §11.1.</td><td>22</td></tr>
+<tr><td><a href="unit/test_band_average/">test_band_average.py</a></td><td>Band averaging (M1.5, ADR 0010): linearity, closure survival, and the size of the error the grey-within-band approximation accepts.</td><td>M1.5, ADR 0010</td><td>6</td></tr>
+<tr><td><a href="unit/test_band_class_coverage/">test_band_class_coverage.py</a></td><td>AT.2 / AT.3 — the camera's own R(λ) reaches the atmosphere, and every band's classes cover it.</td><td>§7.4, ADR 0071</td><td>10</td></tr>
+<tr><td><a href="unit/test_band_effective_emissivity/">test_band_effective_emissivity.py</a></td><td>M7.3 — band-effective material properties: ε(λ) through a camera's own eyes (§12.3, §3.1).</td><td>M7.3, §12.3, §3.1, ADR 0010</td><td>11</td></tr>
+<tr><td><a href="unit/test_band_integration/">test_band_integration.py</a></td><td>The quadrature oracle (M1.4) against the closed forms it must reproduce.</td><td>M1.4, §9.4</td><td>7</td></tr>
+<tr><td><a href="unit/test_band_scalability/">test_band_scalability.py</a></td><td>M11.1 — "bands are data, not code", asserted rather than asserted-in-prose.</td><td>M11.1, §12.1, §12.2, §16.4</td><td>27</td></tr>
+<tr><td><a href="unit/test_bands/">test_bands.py</a></td><td>Band registry (§12.1, §5.2): known answers for the four bands, classification, and the radiometric facts the table encodes -- self-emission negligible in SWIR, dominant in LWIR, MWIR straddling the crossover. A µm/nm mix-up or a wrong table entry breaks these by orders of magnitude.</td><td>§12.1, §5.2</td><td>6</td></tr>
+<tr><td><a href="unit/test_beer_lambert/">test_beer_lambert.py</a></td><td>Beer-Lambert kernel (M8.1): multiplicativity, isothermal invariance, the contrast identity, segment composition, convexity, the ramp fixture, and dtype guards.</td><td>M8.1</td><td>6</td></tr>
+<tr><td><a href="unit/test_bolometer/">test_bolometer.py</a></td><td>Ideal bolometer static transfer and the shared quantiser (M3.7, ADR 0019).</td><td>M3.7, ADR 0019</td><td>7</td></tr>
+<tr><td><a href="unit/test_bolometer_lowpass/">test_bolometer_lowpass.py</a></td><td>Microbolometer thermal time constant (M9.1): the exponential step response against the closed form, the sampled IIR against an RK4 integration of the membrane ODE, the trailing decay length of a moving edge, the absence of any tail on the photon path, and float32 state after 1000 steps.</td><td>M9.1, RK4</td><td>7</td></tr>
+<tr><td><a href="unit/test_bolometer_response/">test_bolometer_response.py</a></td><td>MicrobolometerDetector.response (M4.8, ADR 0026): the two-blackbody NETD bench reproduces the anchor at 300 K and the derivative ratio at 373 K; DN noise is scene-independent while NETD in kelvin falls (the pair that distinguishes signal-space from Kelvin-space noise); SITF linear in L_B; determinism; float16 refused.</td><td>M4.8, ADR 0026</td><td>4</td></tr>
+<tr><td><a href="unit/test_boson_datasheet/">test_boson_datasheet.py</a><span class="tag">slow</span></td><td>The Boson configs against FLIR's own published figures (SC.3, ADR 0091).</td><td>ADR 0091, §9.4, §10.2, §16.1</td><td>9</td></tr>
+<tr><td><a href="unit/test_boson_lut/">test_boson_lut.py</a><span class="tag">slow</span></td><td>The generated LWIR Boson LUT (M1.10, ADR 0013): the first configured band.</td><td>M1.10, ADR 0013</td><td>4</td></tr>
+<tr><td><a href="unit/test_cabin_node/">test_cabin_node.py</a></td><td>M6.14 — the cabin node, and the greenhouse it makes of a parked car (§6.6, ADR 0038).</td><td>M6.14, §6.6, ADR 0038</td><td>10</td></tr>
+<tr><td><a href="unit/test_cabin_scene/">test_cabin_scene.py</a></td><td>PT.15 — the cabin and the two-node substrate, reachable from a scene.</td><td>M6, §6.4, ADR 0038, §6.6</td><td>9</td></tr>
+<tr><td><a href="unit/test_camera_strictness/">test_camera_strictness.py</a></td><td>IG.1 -- <code>IrCamera</code>'s three strictness guards are three flags, and one cannot silence another.</td><td>§13.1, ADR 0047, ADR 0087</td><td>5</td></tr>
+<tr><td><a href="unit/test_car_demo/">test_car_demo.py</a><span class="tag">slow</span></td><td>MP.4b — the scene point-wise temperature exists for, checked without a renderer.</td><td>ADR 0087, §6.6, §6.1, ADR 0088</td><td>25</td></tr>
+<tr><td><a href="unit/test_cell_shadow/">test_cell_shadow.py</a></td><td>PT.1 — a wall half in sun, which is the case point-wise temperature exists for.</td><td>ADR 0087, §6.1, §5.2</td><td>10</td></tr>
+<tr><td><a href="unit/test_changelog_structure/">test_changelog_structure.py</a></td><td>RP.2 — <code>CHANGELOG.md</code> is grouped by day, and no heading repeats inside a section.</td><td>—</td><td>8</td></tr>
+<tr><td><a href="unit/test_claude_md_layout/">test_claude_md_layout.py</a></td><td>RP.8 — CLAUDE.md's repository-layout block describes the repository that exists.</td><td>—</td><td>4</td></tr>
+<tr><td><a href="unit/test_clip_admission/">test_clip_admission.py</a></td><td>Which clips a Tier 4 comparison may use, and the refusals it has to report (EV.2).</td><td>§15, ADR 0068, ADR 0023</td><td>8</td></tr>
+<tr><td><a href="unit/test_cloud_clutter/">test_cloud_clutter.py</a></td><td>Cloud clutter (MS.3): thick cloud = uniform L_B(T_base), cloud = 0 is MS.2 exactly, the generator's PSD slope self-test, exact coverage and determinism, the LCL base from the weather, and cloud edges warmer than the clear zenith sky by &gt; 20 K for a 1 km base.</td><td>—</td><td>7</td></tr>
+<tr><td><a href="unit/test_cloud_deck/">test_cloud_deck.py</a></td><td>A cloud with a top: the deck both bands read (AT.12, ADR 0127).</td><td>ADR 0127</td><td>23</td></tr>
+<tr><td><a href="unit/test_cloud_optical_depth/">test_cloud_optical_depth.py</a></td><td>A cloud has an optical depth and a distance (AT.11, ADR 0126).</td><td>ADR 0126, §4</td><td>17</td></tr>
+<tr><td><a href="unit/test_codec_floor/">test_codec_floor.py</a><span class="tag">slow</span></td><td>The floor an 8-bit, lossily-coded public set puts under every noise statistic (ME.2b, ADR 0023).</td><td>ADR 0023</td><td>9</td></tr>
+<tr><td><a href="unit/test_cold_shield/">test_cold_shield.py</a></td><td>M11.5 — the cold shield: the one §9.1 knob with no formula in the spec (S31, ADR 0066).</td><td>M11.5, §9.1, ADR 0066, §8.1</td><td>15</td></tr>
+<tr><td><a href="unit/test_conduction/">test_conduction.py</a></td><td>TC.1 — heat moves between facets, and the scene tick survives it.</td><td>§6.1, §6.4, ADR 0036, ADR 0094</td><td>12</td></tr>
+<tr><td><a href="unit/test_config_loader/">test_config_loader.py</a></td><td>Loader, data-root resolution and the two hashes (ADR 0008).</td><td>ADR 0008</td><td>12</td></tr>
+<tr><td><a href="unit/test_continuous_depth/">test_continuous_depth.py</a></td><td>OC.11 and OC.13 -- a receding surface is one surface, not a stack of occluders (ADR 0134).</td><td>ADR 0134</td><td>9</td></tr>
+<tr><td><a href="unit/test_convection/">test_convection.py</a></td><td>Convection coefficient (M6.3): the §6.2 known answers, the free/forced crossover, scalar speed composition, and the parked-vs-highway ratio that makes vehicle speed first-order.</td><td>M6.3, §6.2</td><td>4</td></tr>
+<tr><td><a href="unit/test_cost_budget/">test_cost_budget.py</a></td><td>GT.7 -- the cell and prim budget, pinned so nobody coarsens a patch for speed.</td><td>—</td><td>5</td></tr>
+<tr><td><a href="unit/test_coupling/">test_coupling.py</a></td><td>TC.3 — contactors and radiation between fields.</td><td>ADR 0088, §6.1, §6.4, ADR 0087</td><td>8</td></tr>
+<tr><td><a href="unit/test_defocus/">test_defocus.py</a></td><td>OC.1 -- defocus geometry (docs/physics-model.md §8.3).</td><td>§8.3</td><td>11</td></tr>
+<tr><td><a href="unit/test_defocus_otf/">test_defocus_otf.py</a></td><td>OC.2 -- the defocus OTF models (docs/physics-model.md §8.3).</td><td>§8.3</td><td>9</td></tr>
+<tr><td><a href="unit/test_detection_metrics/">test_detection_metrics.py</a></td><td>ME.7: the Tier 5 detection metrics, pinned on input where the answer is known by hand.</td><td>—</td><td>9</td></tr>
+<tr><td><a href="unit/test_detector_stage/">test_detector_stage.py</a></td><td>Stage 4 on the plane dict (M10.6's oracle): where the membrane lag sits and who owns its state.</td><td>M10.6, M9.1, ADR 0052</td><td>7</td></tr>
+<tr><td><a href="unit/test_directional_dispatch/">test_directional_dispatch.py</a></td><td>M7.7 — one entry point for ε(θ), dispatching on the level the <em>material</em> declares (§4.2, §13.3).</td><td>M7.7, §4.2, §13.3, M7.6</td><td>22</td></tr>
+<tr><td><a href="unit/test_directional_kernel/">test_directional_kernel.py</a></td><td>M7.14 — ε(θ) per pixel in stage 1, and the limb darkening it produces (§4.2, §13.5).</td><td>M7.14, §4.2, §13.5, M7.13</td><td>8</td></tr>
+<tr><td><a href="unit/test_display_signature/">test_display_signature.py</a></td><td>What the ISP left in the picture (ME.3b, ADR 0068).</td><td>ADR 0068</td><td>11</td></tr>
+<tr><td><a href="unit/test_display_span/">test_display_span.py</a></td><td>M10.23/M10.24: the manual display span, and why it has to know which band it is in.</td><td>M10.23, M10.24, §11.3, §12.1</td><td>9</td></tr>
+<tr><td><a href="unit/test_droplets/">test_droplets.py</a></td><td>PH.9 -- steam and droplet plumes: Mie extinction of condensed water (§7.4).</td><td>§7.4</td><td>11</td></tr>
+<tr><td><a href="unit/test_electron_budget_wiring/">test_electron_budget_wiring.py</a></td><td>A photon camera's noise comes from its electron datasheet, not from a NETD anchor (SC.1).</td><td>ADR 0025, M11.6, §9.4, §10.1</td><td>9</td></tr>
+<tr><td><a href="unit/test_electron_mutation/">test_electron_mutation.py</a></td><td>Perturbing <code>read_noise_e</code> moves the rendered noise, which it could not before (SC.2).</td><td>ADR 0025, §9.4, §10.1, M11.6</td><td>7</td></tr>
+<tr><td><a href="unit/test_electron_noise/">test_electron_noise.py</a></td><td>M11.6 — noise for a photon FPA, built from electrons rather than anchored to a NETD.</td><td>M11.6, ADR 0025, M11.1, §9.4</td><td>15</td></tr>
+<tr><td><a href="unit/test_emissivity_extrapolation/">test_emissivity_extrapolation.py</a><span class="tag">slow</span></td><td>How much of a scene's emissivity is an extension of the nearest band, and where it sits (AT.7).</td><td>§6.1, ADR 0043, ADR 0119</td><td>13</td></tr>
+<tr><td><a href="unit/test_engine_node/">test_engine_node.py</a></td><td>TC.5 — the engine as a solved node, not a schedule.</td><td>§6.6, §6.4, ADR 0096, ADR 0100</td><td>7</td></tr>
+<tr><td><a href="unit/test_environment_config/">test_environment_config.py</a></td><td>Environment presets (M7.11): the airglow unit conversion, §5.3 range guards, the regime enum round trip, weather-key refusal, and the three committed presets.</td><td>M7.11, §5.3</td><td>5</td></tr>
+<tr><td><a href="unit/test_eval_sequence/">test_eval_sequence.py</a></td><td>The sequence reader and the static-clip gate (ME.1b).</td><td>§10.2, §15, ADR 0003</td><td>22</td></tr>
+<tr><td><a href="unit/test_exhaust_line/">test_exhaust_line.py</a></td><td>TC.7 — the exhaust line as a gas stream in a wall.</td><td>§6.6, §6.4, ADR 0096, ADR 0100</td><td>10</td></tr>
+<tr><td><a href="unit/test_extinction/">test_extinction.py</a></td><td>Koschmieder aerosol extinction and the band crossovers (M8.4, ADR 0049): the visibility identity, the clear-air limit, fog ordering, the humid/fog LWIR-SWIR crossover from weather alone, and the exact humidity sensitivity.</td><td>M8.4, ADR 0049</td><td>5</td></tr>
+<tr><td><a href="unit/test_facet_solver/">test_facet_solver.py</a></td><td>M6.9 / M6.10 — the same balance over many facets, and where their initial condition comes from.</td><td>M6.9, M6.10, §6.4, §15</td><td>10</td></tr>
+<tr><td><a href="unit/test_ffc_controller/">test_ffc_controller.py</a></td><td>FFC controller (M9.7): the schedule, the freeze, and the ΔT_FPA each mode leaves behind.</td><td>M9.7, §11.2, M9.6, ADR 0091</td><td>19</td></tr>
+<tr><td><a href="unit/test_fidelity_switches/">test_fidelity_switches.py</a></td><td>ME.8: the §15 Tier 5 ablation switches are config, and the config is in the hash.</td><td>§15, M12.3</td><td>9</td></tr>
+<tr><td><a href="unit/test_fire/">test_fire.py</a></td><td>Fire: what a flame radiates onto a surface, and how hot the air above it is (roadmap PH.7).</td><td>§6.1, §6.6, ADR 0088, ADR 0090</td><td>15</td></tr>
+<tr><td><a href="unit/test_flat_field/">test_flat_field.py</a><span class="tag">slow</span></td><td>The camera's flat-field correction (M9.12): what it removes, and what it must not touch.</td><td>M9.12, M5, §11.1, §11.2</td><td>10</td></tr>
+<tr><td><a href="unit/test_flat_regions/">test_flat_regions.py</a></td><td>Flat-region finding and per-pixel temporal noise (ME.2b, ADR 0023).</td><td>ADR 0023</td><td>11</td></tr>
+<tr><td><a href="unit/test_focus_config/">test_focus_config.py</a></td><td>OC.4 -- the focus block and the two defocus switches (ADR 0129).</td><td>ADR 0129</td><td>9</td></tr>
+<tr><td><a href="unit/test_focus_demo/">test_focus_demo.py</a></td><td>OC.3 -- the two-cube focus demo (docs/physics-model.md §8.3, ADR 0129).</td><td>§8.3, ADR 0129</td><td>5</td></tr>
+<tr><td><a href="unit/test_focus_pipeline/">test_focus_pipeline.py</a></td><td>OC.5 -- the global defocus kernel, through <code>run_frame</code> (ADR 0129).</td><td>ADR 0129</td><td>10</td></tr>
+<tr><td><a href="unit/test_focus_sky_demo/">test_focus_sky_demo.py</a></td><td>OC.12 -- the focus pulled from a cloudy sky onto a cube (ADR 0129, ADR 0134).</td><td>ADR 0129, ADR 0134</td><td>6</td></tr>
+<tr><td><a href="unit/test_fpa_params/">test_fpa_params.py</a></td><td>FpaParams (M3.5): the Boson known answers, discriminated validation, and the schema-v3 detector constants.</td><td>M3.5</td><td>6</td></tr>
+<tr><td><a href="unit/test_fpa_thermal/">test_fpa_thermal.py</a></td><td>FPA temperature node and gain/offset(T_FPA) polynomials (M9.2, ADR 0053): the steady state, the time constant recovered from the 63.2 % crossing, normalisation at T_cal, the uniform DN shift a 5 K ambient rise produces (and its absence when TEC-pinned), per-step energy conservation, and the one-weather-object guard (CLAUDE.md #6).</td><td>M9.2, ADR 0053</td><td>9</td></tr>
+<tr><td><a href="unit/test_fpn_drift/">test_fpn_drift.py</a></td><td>Mean-reverting drift of the fixed pattern (M9.4): the statistics, not the API.</td><td>M9.4, M3.3, M9.3, ADR 0054</td><td>19</td></tr>
+<tr><td><a href="unit/test_frame_clock/">test_frame_clock.py</a></td><td>The time written beside a frame is the time that frame was captured at.</td><td>ADR 0087, §6.1.</td><td>4</td></tr>
+<tr><td><a href="unit/test_frame_writer/">test_frame_writer.py</a></td><td>Every render driver writes the frame, not only a picture of it (IG.13).</td><td>ADR 0068, §12.2, ADR 0004</td><td>10</td></tr>
+<tr><td><a href="unit/test_fresnel/">test_fresnel.py</a></td><td>Level A Fresnel reflectance from a complex index (M7.4, §4.2).</td><td>M7.4, §4.2</td><td>11</td></tr>
+<tr><td><a href="unit/test_gain_state/">test_gain_state.py</a></td><td>Fire on the camera: the gain state, the rail and what the AGC does with them (roadmap PH.8).</td><td>§9.2, §11.3, ADR 0091, ADR 0116</td><td>10</td></tr>
+<tr><td><a href="unit/test_gas_slab/">test_gas_slab.py</a></td><td>PH.4 — a gas slab in radiance space: the volumetric emitter a surface pipeline lacked.</td><td>§2, §8.1, §8.3, ADR 0098</td><td>12</td></tr>
+<tr><td><a href="unit/test_gas_tables/">test_gas_tables.py</a></td><td>The committed hot-gas absorption tables, and the contract for reading them (roadmap PH.5).</td><td>§8.1, §8.3, ADR 0098</td><td>15</td></tr>
+<tr><td><a href="unit/test_gbuffer_isaac/">test_gbuffer_isaac.py</a></td><td>Engine-free tests for the Isaac geometry adapter (roadmap M10.1).</td><td>M10.1</td><td>26</td></tr>
+<tr><td><a href="unit/test_gbuffer_schema/">test_gbuffer_schema.py</a></td><td>Freeze the G-buffer contract and verify the synthetic fixtures are what they claim.</td><td>—</td><td>13</td></tr>
+<tr><td><a href="unit/test_generate_luts/">test_generate_luts.py</a><span class="tag">slow</span></td><td>scripts/generate_luts.py (M1.9): a synthetic top-hat band reproduces the closed form, an invalid response file exits non-zero with nothing written, and the CLI entry point works.</td><td>M1.9</td><td>5</td></tr>
+<tr><td><a href="unit/test_hemispherical_emissivity/">test_hemispherical_emissivity.py</a></td><td>M7.8 — the ε a thermal solver needs, which is not the ε a camera sees (§6.1, §6.2, §4.2).</td><td>M7.8, §6.1, §6.2, §4.2</td><td>12</td></tr>
+<tr><td><a href="unit/test_housing_temperature/">test_housing_temperature.py</a></td><td>Housing temperature source (M9.3): the three §12.2 modes feeding §8.2's self-emission term.</td><td>M9.3, §12.2, §8.2, ADR 0016</td><td>20</td></tr>
+<tr><td><a href="unit/test_human_surfaces/">test_human_surfaces.py</a><span class="tag">slow</span></td><td>People: skin and clothing are two temperatures on one body (PH.12).</td><td>§6.1, §16.2, ADR 0122, §4</td><td>13</td></tr>
+<tr><td><a href="unit/test_humidity/">test_humidity.py</a></td><td>Magnus saturation pressure, absolute humidity and gamma(w) (M8.2).</td><td>M8.2</td><td>4</td></tr>
+<tr><td><a href="unit/test_illumination_bundle/">test_illumination_bundle.py</a></td><td>M11.2 — one shading core, three incident terms, and a gate that is data rather than code.</td><td>M11.2, §5.2, ADR 0063, §5.3</td><td>16</td></tr>
+<tr><td><a href="unit/test_illumination_isaac/">test_illumination_isaac.py</a></td><td>M10.22: the reflective bands' illumination reaches the Isaac render path.</td><td>M10.22, M11.3, M11.4, M11.2</td><td>7</td></tr>
+<tr><td><a href="unit/test_import_order/">test_import_order.py</a><span class="tag">slow</span></td><td>Every engine-free subpackage must import on its own, in a fresh interpreter, in any order.</td><td>—</td><td>3</td></tr>
+<tr><td><a href="unit/test_io_dataset/">test_io_dataset.py</a></td><td>Dataset writers (M10.10a): what reaches disk must still be the physics that left the pipeline.</td><td>M10.10a, §12.2</td><td>14</td></tr>
+<tr><td><a href="unit/test_ir_camera/">test_ir_camera.py</a></td><td><code>IrCamera</code>'s engine-free half (M10.9a-ii): the sensor config → USD camera mapping.</td><td>M10.9a, §8.3, §8.4, ADR 0015</td><td>13</td></tr>
+<tr><td><a href="unit/test_isaac_env/">test_isaac_env.py</a></td><td>Engine-availability probes and, in particular, how Warp is found (ADR 0014 addendum).</td><td>ADR 0014</td><td>15</td></tr>
+<tr><td><a href="unit/test_isaac_glue_imports/">test_isaac_glue_imports.py</a></td><td>Roadmap M2.1 (AST part): the Isaac glue never imports the deprecated sensor modules.</td><td>M2.1, ADR 0014</td><td>3</td></tr>
+<tr><td><a href="unit/test_isp_agc/">test_isp_agc.py</a></td><td>Linear AGC (M5.1, ADR 0027) and plateau equalisation (M5.2, ADR 0028): oracle checks against np.percentile and an argsort rank map, the analytic limits, monotonicity, entropy, bit-depth handling, and the §15 Tier 3 hot-exhaust collapse as a scalar assertion.</td><td>M5.1, ADR 0027, M5.2, ADR 0028</td><td>11</td></tr>
+<tr><td><a href="unit/test_isp_dde/">test_isp_dde.py</a></td><td>DDE unsharp mask (M5.3, ADR 0029): identity at zero gain, mean preservation, the analytic step overshoot of a 3x3 box, the spectral transfer |1 + g(1 - K)|^2, and clipping.</td><td>M5.3, ADR 0029</td><td>5</td></tr>
+<tr><td><a href="unit/test_isp_display/">test_isp_display.py</a></td><td>Display-branch assembly (M5.5, ADR 0031): identity settings on a ramp, the exact <code>agc: none</code> shift, the config hash, dtype boundaries, and the operator order.</td><td>M5.5, ADR 0031</td><td>5</td></tr>
+<tr><td><a href="unit/test_isp_nuc/">test_isp_nuc.py</a></td><td>Two-point NUC (M5.6, §11.2): removes a linear per-pixel gain/offset non-uniformity exactly, matches the spec formulas, is two-point (not a fit), and keeps the float32 path.</td><td>M5.6, §11.2</td><td>4</td></tr>
+<tr><td><a href="unit/test_isp_palette/">test_isp_palette.py</a></td><td>Polarity, palettes and 8-bit quantisation (M5.4, ADR 0030).</td><td>M5.4, ADR 0030</td><td>4</td></tr>
+<tr><td><a href="unit/test_isp_radiometric/">test_isp_radiometric.py</a></td><td>Radiometric branch (M3.10, ADR 0021): blackbody round trip through the ideal chain, the grey-body gap through the DN route, radiance units, and the omit-not-zero contract.</td><td>M3.10, ADR 0021</td><td>5</td></tr>
+<tr><td><a href="unit/test_latent_heat/">test_latent_heat.py</a></td><td>PH.1 — the latent-heat term and a wet film per cell.</td><td>§6.1, §15, ADR 0101</td><td>9</td></tr>
+<tr><td><a href="unit/test_lateral_conduction/">test_lateral_conduction.py</a></td><td>PT.11 — lateral conduction between a patch's cells.</td><td>§6.1, §6.4, ADR 0094, ADR 0102</td><td>6</td></tr>
+<tr><td><a href="unit/test_layered_atmosphere/">test_layered_atmosphere.py</a></td><td>Layered slant-path atmosphere (MS.1): horizontal identity with M8.1, isothermal invariance at every elevation, the exact exponential sum of M8.7's piecewise spectra, the fitter, the 200 m anchor for every preset, the R13 sky anchors, convergence along the ray, and stage-2 wiring.</td><td>M8.1, M8.7</td><td>8</td></tr>
+<tr><td><a href="unit/test_layered_defocus/">test_layered_defocus.py</a></td><td>OC.6 -- depth-varying defocus by layered compositing (ADR 0129).</td><td>ADR 0129</td><td>8</td></tr>
+<tr><td><a href="unit/test_layering/">test_layering.py</a></td><td>Enforce non-negotiable #1: the physics core imports no engine modules -- in either direction.</td><td>—</td><td>9</td></tr>
+<tr><td><a href="unit/test_layers/">test_layers.py</a></td><td>PT.12 — an N-layer stack through the thickness of every cell.</td><td>§6.4, ADR 0036, ADR 0094, ADR 0099</td><td>5</td></tr>
+<tr><td><a href="unit/test_leaf_transpiration/">test_leaf_transpiration.py</a><span class="tag">slow</span></td><td>Leaves transpire: the surface whose temperature its stomata set (PH.11).</td><td>§6.1, ADR 0121</td><td>10</td></tr>
+<tr><td><a href="unit/test_lens_mtf/">test_lens_mtf.py</a></td><td>The optical PSF's second factor, and where its number comes from (roadmap SC.4).</td><td>§8.3, ADR 0059, ADR 0117</td><td>6</td></tr>
+<tr><td><a href="unit/test_library_v0/">test_library_v0.py</a></td><td>M7.9 — the fifteen §16.2 materials, with provenance, and what separates the bands (§16.2, §12.3).</td><td>M7.9, §16.2, §12.3, §4.3</td><td>12</td></tr>
+<tr><td><a href="unit/test_longwave/">test_longwave.py</a></td><td>Broadband longwave down (M6.5): the overcast and enclosed limits to 1e-9, the clear dry sky range, the overcast margin, the "never below the LWIR-window proxy" guard, and monotonicity.</td><td>M6.5</td><td>4</td></tr>
+<tr><td><a href="unit/test_lut/">test_lut.py</a></td><td>BandLUT (M1.6, ADR 0011): the fast path against the quadrature oracle, in millikelvin.</td><td>M1.6, ADR 0011</td><td>16</td></tr>
+<tr><td><a href="unit/test_lut_files/">test_lut_files.py</a><span class="tag">slow</span></td><td>LUT bundles on disk (M1.8, ADR 0012): bitwise round trip, float32 enforced on disk, stale detection that names the changed input, and the raw .f32 export for non-NumPy consumers.</td><td>M1.8, ADR 0012</td><td>9</td></tr>
+<tr><td><a href="unit/test_maritime_stage/">test_maritime_stage.py</a></td><td>The sea ground mode, and the maritime stage's engine-free geometry (MM.5, MM.6).</td><td>§5.3, §12.2, ADR 0078</td><td>11</td></tr>
+<tr><td><a href="unit/test_matched_scenario/">test_matched_scenario.py</a><span class="tag">slow</span></td><td>M12.1: the camera and the scenarios a Tier 4 comparison is run against.</td><td>M12.1</td><td>7</td></tr>
+<tr><td><a href="unit/test_material_ids/">test_material_ids.py</a></td><td>Engine-free tests for instance-id → material-id transport (roadmap M10.2, ADR 0047).</td><td>M10.2, ADR 0047</td><td>10</td></tr>
+<tr><td><a href="unit/test_material_mapping/">test_material_mapping.py</a></td><td>Material mapping resolver and audit (M7.17): precedence, the named cases, loud misses with id 0, coverage and the CI exit code, ids stable and identical to the packed table.</td><td>M7.17</td><td>6</td></tr>
+<tr><td><a href="unit/test_material_table_angular/">test_material_table_angular.py</a></td><td>M7.10 — the angular columns in the packed table: (a, p, roughness) and a Level-A angle LUT.</td><td>M7.10, §4.2, M7.7, §13.3</td><td>16</td></tr>
+<tr><td><a href="unit/test_material_table_packing/">test_material_table_packing.py</a></td><td>Packed per-band MaterialTable (M7.18): closure survives float32 packing, the float16 guard is live, columns are float32, id 0 is UNMAPPED, ids are stable across loads, a stale table is refused, the kernel path still works, and the G-buffer fixtures never use id 0.</td><td>M7.18</td><td>5</td></tr>
+<tr><td><a href="unit/test_materials_library/">test_materials_library.py</a></td><td>Material schema and library (M7.2): author one property, derive the rest; closure to 1e-6 after load for the committed library, the §12.3 example and a tau = 0.7 glass; refusals that keep non-negotiable #4 honest; the round trip; §16.2 sanity.</td><td>M7.2, §12.3, §16.2</td><td>6</td></tr>
+<tr><td><a href="unit/test_measured_bench/">test_measured_bench.py</a></td><td>M12.4: the layout and the arithmetic a Tier 2 bench comparison will use when a camera arrives.</td><td>M12.4</td><td>6</td></tr>
+<tr><td><a href="unit/test_membrane_lag_wired/">test_membrane_lag_wired.py</a></td><td>The bolometer membrane IIR on <code>run_frame</code>'s own path (M9.13, §9.2, ADR 0052).</td><td>M9.13, §9.2, ADR 0052, M9.1</td><td>13</td></tr>
+<tr><td><a href="unit/test_mesh_bridge/">test_mesh_bridge.py</a></td><td>WM.3 — a mesh temperature field reaching the pixels of a curved prim.</td><td>ADR 0087, §13.1, ADR 0014</td><td>10</td></tr>
+<tr><td><a href="unit/test_mesh_conduction/">test_mesh_conduction.py</a></td><td>Lateral conduction between a mesh's cells (WM.6).</td><td>—</td><td>15</td></tr>
+<tr><td><a href="unit/test_mesh_field/">test_mesh_field.py</a></td><td>WM.2 — a temperature field on a triangle mesh, for the geometry a plane cannot cover.</td><td>ADR 0087, §6.1, §6.4</td><td>14</td></tr>
+<tr><td><a href="unit/test_mesh_geometry/">test_mesh_geometry.py</a></td><td>What a mesh cell can see, traced against geometry (WM.4).</td><td>—</td><td>15</td></tr>
+<tr><td><a href="unit/test_mesh_scene/">test_mesh_scene.py</a></td><td>WM.7 — a mesh temperature field, reachable from a scene config.</td><td>§6.1, §13.1, ADR 0110, ADR 0087</td><td>12</td></tr>
+<tr><td><a href="unit/test_motion_px/">test_motion_px.py</a></td><td>Engine-free tests for synthesised image-plane motion (roadmap M10.1b, §13.3, §9.2).</td><td>M10.1b, §13.3, §9.2, ADR 0014</td><td>12</td></tr>
+<tr><td><a href="unit/test_motion_smear/">test_motion_smear.py</a></td><td>Within-frame motion smear (§8.3, §9.2): the spatial twin of the cascade's <code>mtf_motion</code>.</td><td>§8.3, §9.2, M5</td><td>18</td></tr>
+<tr><td><a href="unit/test_motion_wired/">test_motion_wired.py</a></td><td><code>motion_px</code> reaches a rendered frame, and the smear it causes reaches the image (IG.6).</td><td>M10.1b, ADR 0077, M9.8, ADR 0082</td><td>14</td></tr>
+<tr><td><a href="unit/test_mtf/">test_mtf.py</a></td><td>MTF cascade and PSF synthesis (MS.4, ADR 0059): the §8.3 worked case, independent pupil autocorrelation and FFT checks of each term, the Airy ring, kernel properties and conservation.</td><td>ADR 0059, §8.3</td><td>6</td></tr>
+<tr><td><a href="unit/test_mtf_estimator/">test_mtf_estimator.py</a></td><td>Slant-edge MTF estimator (MS.5 / VAL-15): Gaussian and box-sampled known answers, polarity and noise invariance.</td><td>—</td><td>3</td></tr>
+<tr><td><a href="unit/test_netd_anchor/">test_netd_anchor.py</a></td><td>NETD anchoring (M4.6, ADR 0025): the anchor reproduces the datasheet number exactly, leaves the Poisson structure untouched, refuses unattainable targets, and lets F enter only through the transfer.</td><td>M4.6, ADR 0025</td><td>6</td></tr>
+<tr><td><a href="unit/test_netd_predictor/">test_netd_predictor.py</a></td><td>NETD predictor and datasheet figures of merit (M4.5, ADR 0024).</td><td>M4.5, ADR 0024</td><td>10</td></tr>
+<tr><td><a href="unit/test_network_schema/">test_network_schema.py</a></td><td>TC.4 — nodes, links and joints in the scene schema, and the joint table with its provenance.</td><td>§6.4, ADR 0096, ADR 0097</td><td>10</td></tr>
+<tr><td><a href="unit/test_night_illumination/">test_night_illumination.py</a></td><td>M11.4 — what lights a SWIR scene when the sun is down (§5.5).</td><td>M11.4, §5.5, ADR 0065, ADR 0063</td><td>19</td></tr>
+<tr><td><a href="unit/test_nk_tables/">test_nk_tables.py</a></td><td>n/k tables and the band-effective Fresnel emissivity built on them (M7.5, MM.1).</td><td>M7.5, §4.2, §12.3, ADR 0041</td><td>16</td></tr>
+<tr><td><a href="unit/test_noise_3d/">test_noise_3d.py</a></td><td>NVESD 3-D noise synthesiser (M4.3): axis conventions, temporal vs fixed terms, variance closure and the row-mean variance identity -- the structure that makes thermal imagery thermal.</td><td>M4.3</td><td>6</td></tr>
+<tr><td><a href="unit/test_noise_analysis/">test_noise_analysis.py</a></td><td>Noise analysers (ME.2a, ADR 0023): the leakage-corrected 3-D decomposition recovers injected components from the M4.3 synthesiser within its own sampling floors, single-component and white cubes behave, the sum-of-squares identity holds, and the PSD diagnostics see white noise as flat and column noise on the k_v = 0 line.</td><td>ADR 0023, M4.3</td><td>9</td></tr>
+<tr><td><a href="unit/test_noise_config/">test_noise_config.py</a></td><td>Noise and NUC schema (M4.1): variance closure of the 3-D ratios, the σ_TVH anchor, and the bad-pixel bounds.</td><td>M4.1</td><td>5</td></tr>
+<tr><td><a href="unit/test_noise_seeding/">test_noise_seeding.py</a></td><td>Seeded random streams (M4.2, ADR 0022): bit-identical replay, per-element isolation, traversal independence, independence across frames/streams/sensors, correct statistics of the hashed normals, and no global state.</td><td>M4.2, ADR 0022</td><td>8</td></tr>
+<tr><td><a href="unit/test_nuc_residual/">test_nuc_residual.py</a></td><td>NUC residual (M9.6): what survives the two-point correction, and in which units.</td><td>M9.6, §11.2, ADR 0056, §2</td><td>16</td></tr>
+<tr><td><a href="unit/test_occlusion_bound/">test_occlusion_bound.py</a></td><td>OC.8 -- what partial occlusion actually costs, in kelvin (ADR 0129, ADR 0131).</td><td>ADR 0129, ADR 0131</td><td>3</td></tr>
+<tr><td><a href="unit/test_optics_schema/">test_optics_schema.py</a></td><td>Optics/FPA schema extensions (M3.4, ADR 0017): derived quantities against the spec's worked numbers, and the physical consistency rules the new optional fields carry.</td><td>M3.4, ADR 0017</td><td>7</td></tr>
+<tr><td><a href="unit/test_optics_stage/">test_optics_stage.py</a></td><td>Box downsample and the composed optics stage (M3.9, ADR 0020): blackbody round trip, the on-axis power known answer, cos⁴ field, housing drift, detector-MTF transfer and aliasing.</td><td>M3.9, ADR 0020</td><td>9</td></tr>
+<tr><td><a href="unit/test_phantom4_orientation/">test_phantom4_orientation.py</a></td><td>Which way the imported Phantom 4 is facing, and why it is not a matter of opinion.</td><td>ADR 0138</td><td>5</td></tr>
+<tr><td><a href="unit/test_photon_detector/">test_photon_detector.py</a></td><td>Ideal photon-detector transfer (M3.8): independent quadrature, the 17/5 aperture identity, saturation without wrap, exact quantisation points, and the MWIR order of magnitude.</td><td>M3.8</td><td>6</td></tr>
+<tr><td><a href="unit/test_photon_response/">test_photon_response.py</a></td><td>PhotonDetector.response (M4.7, ADR 0026): Poisson statistics in electron space, Arrhenius dark current, the two-blackbody NETD bench against the anchor and the M4.5 prediction, seeded replay, saturation and dtype gates.</td><td>M4.7, ADR 0026, M4.5</td><td>6</td></tr>
+<tr><td><a href="unit/test_pipeline_radiance/">test_pipeline_radiance.py</a></td><td>Stage 1, emission-only band radiance (M3.6, ADR 0018): closed-form blackbody, grey-body apparent temperature through the LUT inverse, per-pixel material lookup, and the dtype/sentinel guards.</td><td>M3.6, ADR 0018</td><td>7</td></tr>
+<tr><td><a href="unit/test_planck/">test_planck.py</a></td><td>Analytic identity tests for Planck's law.</td><td>—</td><td>25</td></tr>
+<tr><td><a href="unit/test_plume/">test_plume.py</a></td><td>Stage 2d: an exhaust plume composited per pixel (roadmap PH.6).</td><td>CO2, §6.6, §8.1, §8.3</td><td>17</td></tr>
+<tr><td><a href="unit/test_png/">test_png.py</a></td><td>The stdlib PNG writer (M5.7): valid signature and chunks, and a decodable payload.</td><td>M5.7</td><td>1</td></tr>
+<tr><td><a href="unit/test_point_bridge/">test_point_bridge.py</a></td><td>MP.3 — the per-pixel temperature lookup, on synthetic G-buffers and no renderer.</td><td>M2.4, §13.1, §13.3, ADR 0087</td><td>22</td></tr>
+<tr><td><a href="unit/test_point_target/">test_point_target.py</a></td><td>Point-target injection (MS.6): 1/R^2 with tau = 1, tau(R)/R^2 with the atmosphere and the exact per-class identity, zero excess at the sky-beyond radiance, flux conservation over a sub-pixel sweep, handoff continuity in the phase mean, the rasteriser's measured error, the F-number ratio 3.4, and the whole chain.</td><td>—</td><td>7</td></tr>
+<tr><td><a href="unit/test_projection/">test_projection.py</a></td><td>Lens projection (M10.9a): frame conventions, the OpenCV model, and the inverse.</td><td>M10.9a, §8.4, ADR 0015</td><td>20</td></tr>
+<tr><td><a href="unit/test_quad_outbound/">test_quad_outbound.py</a></td><td>The outbound quadrotor stage, engine-free (PT.9/IG.2, ADR 0123).</td><td>ADR 0123, ADR 0087, ADR 0060</td><td>17</td></tr>
+<tr><td><a href="unit/test_quad_pointwise/">test_quad_pointwise.py</a></td><td>PT.9 (engine-free half) — the aerial scenario, regenerated point-wise.</td><td>§6.1, §6.6, ADR 0072, ADR 0087</td><td>7</td></tr>
+<tr><td><a href="unit/test_quadrotor/">test_quadrotor.py</a></td><td>Engine-free tests for the parametric quadrotor and the aerial solvers behind it (ADR 0074).</td><td>ADR 0074</td><td>18</td></tr>
+<tr><td><a href="unit/test_r2_scene/">test_r2_scene.py</a></td><td>TC.6 — the R2 reference scene: an engine warms the metal around it, from the scene config.</td><td>§6.4, §6.6, ADR 0096, ADR 0097</td><td>3</td></tr>
+<tr><td><a href="unit/test_radcal_port/">test_radcal_port.py</a></td><td>The RadCal transcription in <code>scripts/radcal.py</code>, checked against what it was transcribed from.</td><td>CO2, ADR 0098</td><td>6</td></tr>
+<tr><td><a href="unit/test_raycast/">test_raycast.py</a></td><td>PT.22 — shadows from geometry, neighbours included, and the sun's finite disc.</td><td>§5.2, §6.1, ADR 0095, ADR 0107</td><td>11</td></tr>
+<tr><td><a href="unit/test_readme_status_table/">test_readme_status_table.py</a></td><td>RP.1 — the README status table is a table, and stays one.</td><td>—</td><td>5</td></tr>
+<tr><td><a href="unit/test_reference_statistics/">test_reference_statistics.py</a></td><td>ME.5: the reference report's arithmetic, on synthetic input.</td><td>—</td><td>13</td></tr>
+<tr><td><a href="unit/test_reflected_environment/">test_reflected_environment.py</a></td><td>Reflected environment term (M7.13): the isothermal enclosure identity for every emissivity and sky-view factor, the sky-view-factor formula against a cosine-weighted Monte Carlo, the cold-roof drop under a clear sky vs overcast, bare aluminium colder than paint, and the Scene plumbing.</td><td>M7.13</td><td>5</td></tr>
+<tr><td><a href="unit/test_render_multiband/">test_render_multiband.py</a></td><td>The multi-band driver's bookkeeping (M10.24).</td><td>M10.24</td><td>13</td></tr>
+<tr><td><a href="unit/test_rendered_airframes/">test_rendered_airframes.py</a></td><td>Every rendered airframe against the scene config that describes it (PT.9, ADR 0123/0124).</td><td>ADR 0123</td><td>10</td></tr>
+<tr><td><a href="unit/test_roadmap_phase_table/">test_roadmap_phase_table.py</a></td><td>Revision 6 — the roadmap's phase-plan table says what the step rows say.</td><td>—</td><td>5</td></tr>
+<tr><td><a href="unit/test_roadmap_queue/">test_roadmap_queue.py</a></td><td>The roadmap's "do next" queue resolves to exactly one step, deterministically.</td><td>—</td><td>11</td></tr>
+<tr><td><a href="unit/test_roadmap_row_length/">test_roadmap_row_length.py</a></td><td>RP.9 — the row-length lint the roadmap says enforces it.</td><td>—</td><td>7</td></tr>
+<tr><td><a href="unit/test_ros2_bridge/">test_ros2_bridge.py</a></td><td>M10.10b: the ROS 2 message arithmetic, checked without a ROS graph.</td><td>M10.10b</td><td>8</td></tr>
+<tr><td><a href="unit/test_rotor_isaac/">test_rotor_isaac.py</a></td><td>Rotor discs on a stage (ADR 0081): prim transform -&gt; veil, and the occlusion that keeps a blade off the motor bell it is bolted to.</td><td>ADR 0081</td><td>20</td></tr>
+<tr><td><a href="unit/test_rotor_veil/">test_rotor_veil.py</a></td><td>A spinning rotor as a time-averaged veil (§8.3, §9.2; ADR 0074, ADR 0077).</td><td>§8.3, §9.2, ADR 0074, ADR 0077</td><td>37</td></tr>
+<tr><td><a href="unit/test_rotor_veil_injection/">test_rotor_veil_injection.py</a></td><td>Stage 2c: rotor veils composited onto the k× radiance plane (ADR 0081).</td><td>ADR 0081</td><td>18</td></tr>
+<tr><td><a href="unit/test_run_frame/">test_run_frame.py</a></td><td>run_frame (M3.11): output dtypes and omit-not-zero flags, DN monotone over blackbodies, apparent T equal to kinetic T for ε = 1, and the supersampled G-buffer contract.</td><td>M3.11</td><td>7</td></tr>
+<tr><td><a href="unit/test_scene/">test_scene.py</a></td><td>Scene builder (M6.17): the weather is loaded once and the same object reaches every consumer; no consumer constructor takes a file; two weather objects cannot coexist; the T_air used for path radiance equals the T_air used for convection at every timestamp.</td><td>M6.17</td><td>5</td></tr>
+<tr><td><a href="unit/test_scene_occluders/">test_scene_occluders.py</a></td><td>PT.18 — occluders and daylight in the config path: a wall half in sun, from YAML alone.</td><td>ADR 0087, §5.4, §6.1, ADR 0095</td><td>13</td></tr>
+<tr><td><a href="unit/test_scene_patch_spec/">test_scene_patch_spec.py</a></td><td>PT.2 — a point-wise surface is declarable in a scene config, not only in Python.</td><td>§6.1, §12.3, ADR 0087</td><td>10</td></tr>
+<tr><td><a href="unit/test_scene_surface_fields/">test_scene_surface_fields.py</a></td><td>PT.17 — a <code>patch:</code> block in a scene config buys a solved field, not just a grid.</td><td>ADR 0087, §6.1, §6.4, §12.3</td><td>10</td></tr>
+<tr><td><a href="unit/test_sea_envelope/">test_sea_envelope.py</a><span class="tag">slow</span></td><td>The sea model's angular validity envelope, and what fraction of a frame lies outside it (SE.1).</td><td>§5.3, §15, ADR 0078, ADR 0079</td><td>13</td></tr>
+<tr><td><a href="unit/test_sea_skin/">test_sea_skin.py</a></td><td>The sea skin temperature: cool skin and diurnal warm layer (MM.4, ADR 0080).</td><td>ADR 0080, §6.1, §6.5</td><td>19</td></tr>
+<tr><td><a href="unit/test_sea_surface/">test_sea_surface.py</a><span class="tag">slow</span></td><td>The sea as a background: Cox-Munk slopes and apparent temperature vs angle (MM.2, MM.3).</td><td>§5.3, §4.2, §7.4, ADR 0078</td><td>17</td></tr>
+<tr><td><a href="unit/test_self_emission/">test_self_emission.py</a></td><td>Optics self-emission (M3.3, ADR 0016): the isothermal-enclosure identity, the N-element stack against hand values and its reduction to the single-lens form, Kirchhoff closure of elements, and the shutterless-drift known answer (+1 K housing -&gt; +87 mK apparent).</td><td>M3.3, ADR 0016</td><td>6</td></tr>
+<tr><td><a href="unit/test_semi_transparent/">test_semi_transparent.py</a></td><td>Semi-transparent surfaces: the second ray and per-pixel closure (M7.15).</td><td>M7.15, §4.4, §4.1, §12.3</td><td>7</td></tr>
+<tr><td><a href="unit/test_sensor_chain/">test_sensor_chain.py</a></td><td>The wired M9 sensor chain (M9.8): the noise budget, and the order of §11.1.</td><td>M9, M9.8, §11.1., §11.1</td><td>13</td></tr>
+<tr><td><a href="unit/test_sensor_config/">test_sensor_config.py</a></td><td>§12.2 sensor schema: the Boson reference file loads exactly, physics constraints are enforced, derived quantities match the spec's worked numbers, and no aperture factor lives here.</td><td>§12.2, §8.3, §16.1, §9.2</td><td>10</td></tr>
+<tr><td><a href="unit/test_shipped_ledger/">test_shipped_ledger.py</a></td><td>RP.6 — every shipped-ledger row points at a commit that exists.</td><td>M0.1</td><td>7</td></tr>
+<tr><td><a href="unit/test_shutter_signature/">test_shutter_signature.py</a></td><td>Reading the shutter off the frames (ME.3a, ADR 0068).</td><td>ADR 0068</td><td>9</td></tr>
+<tr><td><a href="unit/test_signal_path/">test_signal_path.py</a></td><td>The signal-path vocabulary and what it refuses (XD.2).</td><td>§11.3, §15, ADR 0068</td><td>9</td></tr>
+<tr><td><a href="unit/test_site_build/">test_site_build.py</a><span class="tag">slow</span></td><td>The project site builds, and every link in it goes somewhere.</td><td>—</td><td>10</td></tr>
+<tr><td><a href="unit/test_site_markdown/">test_site_markdown.py</a></td><td>The site's Markdown renderer, against the constructs this repository's documents actually use.</td><td>§3.2</td><td>14</td></tr>
+<tr><td><a href="unit/test_sky_cloud/">test_sky_cloud.py</a></td><td>Structured cloud in the rendered background (MS.3/ADR 0070 into the M10.18 bridge).</td><td>ADR 0070, M10.18</td><td>21</td></tr>
+<tr><td><a href="unit/test_sky_model/">test_sky_model.py</a></td><td>SkyModel (MS.2): overcast limit to 1e-9, coldest at zenith and the horizon toward T_air, the tilt LUT against scipy quad, the elevation LUT within 0.5 K of the layered model, the cos^q form measured (not authored), broadband delegation, and the object-only constructor.</td><td>—</td><td>6</td></tr>
+<tr><td><a href="unit/test_sky_view/">test_sky_view.py</a></td><td>PT.21 — per-cell sky view factor and diffuse shadowing.</td><td>§5.4, §6.1, ADR 0095, ADR 0104</td><td>5</td></tr>
+<tr><td><a href="unit/test_skylight/">test_skylight.py</a></td><td>M11.10: scattered sunlight in the sky, and the black-sky bug it fixes.</td><td>M11.10</td><td>6</td></tr>
+<tr><td><a href="unit/test_slant_path/">test_slant_path.py</a></td><td>AT.1 — every pixel takes its own slant path, not a horizontal one.</td><td>§7.4, §5.3, ADR 0071</td><td>16</td></tr>
+<tr><td><a href="unit/test_snow_melt_cap/">test_snow_melt_cap.py</a><span class="tag">slow</span></td><td>Snow: the surface that cannot get warmer than freezing, and where the surplus goes (PH.10).</td><td>RK2, §6.1, ADR 0120</td><td>10</td></tr>
+<tr><td><a href="unit/test_solar/">test_solar.py</a></td><td>Solar geometry and loading (M6.4): NOAA known answers, declination at the solstice, the equinox-noon identity, sunrise azimuth at 40 N, a southern-hemisphere noon, and the facet cosine / shadow identities of the loading term.</td><td>M6.4</td><td>6</td></tr>
+<tr><td><a href="unit/test_solar_illumination/">test_solar_illumination.py</a></td><td>M11.3 — the reflected solar term, and the fact that decides which band you are in.</td><td>M11.3, §12.1, ADR 0064, §5.4</td><td>20</td></tr>
+<tr><td><a href="unit/test_solvers/">test_solvers.py</a></td><td>Temperature solvers (M6.6): Newton vs the analytic exponential at dt = tau/100 and dt = 5 tau (no overshoot), a stepped ambient restarting analytically, a ramping ambient, prescribed nodes exact, schedule guards, the Protocol, and the float64 guarantee.</td><td>M6.6</td><td>6</td></tr>
+<tr><td><a href="unit/test_spatial_sources/">test_spatial_sources.py</a></td><td>ADR 0088 — heat sources that vary across a surface, and the sky they block.</td><td>ADR 0088, §6.1, §6.6, ADR 0087</td><td>24</td></tr>
+<tr><td><a href="unit/test_spec_issue_status/">test_spec_issue_status.py</a></td><td>RP.7 — <code>docs/spec-issues.md</code> says per row what has been applied, and the summary matches.</td><td>M0</td><td>9</td></tr>
+<tr><td><a href="unit/test_spectral_response/">test_spectral_response.py</a></td><td>R(λ) file contract (ADR 0009) and the Band object.</td><td>ADR 0009</td><td>11</td></tr>
+<tr><td><a href="unit/test_specular_lobe/">test_specular_lobe.py</a></td><td>M11.7 — the reflection lobe: near-mirror sky in LWIR, and solar glint in MWIR (§4.3, §5.4).</td><td>M11.7, §4.3, §5.4, M7.13</td><td>18</td></tr>
+<tr><td><a href="unit/test_stage_own_hunk/">test_stage_own_hunk.py</a></td><td><code>scripts/stage_own_hunk.sh</code> stages only the caller's hunks — the shared-tree commit hazard.</td><td>—</td><td>13</td></tr>
+<tr><td><a href="unit/test_still_water/">test_still_water.py</a></td><td>PH.3 — still water: lakes, ponds and puddles.</td><td>§6.1, §16.2, ADR 0080, ADR 0101</td><td>9</td></tr>
+<tr><td><a href="unit/test_surface_balance/">test_surface_balance.py</a></td><td>M6.7 — §6.1's surface energy balance: the equation, its step, and its fixed point.</td><td>M6.7, §6.1, M7.8, §6.2</td><td>15</td></tr>
+<tr><td><a href="unit/test_surface_field/">test_surface_field.py</a></td><td>ADR 0087 — a temperature that varies across one surface, not one value per object.</td><td>ADR 0087, §6.1, §6.4</td><td>11</td></tr>
+<tr><td><a href="unit/test_target_statistics/">test_target_statistics.py</a></td><td>ME.4 — statistics that survive an unknown AGC (§5.3, §8.3, §15 T4; ADR 0068).</td><td>§5.3, §8.3, §15, ADR 0068</td><td>18</td></tr>
+<tr><td><a href="unit/test_temperature_encoding/">test_temperature_encoding.py</a></td><td>Non-negotiable #2 at the encode/decode boundary (docs/physics-model.md §13.3, §15 Tier 1).</td><td>§13.3, §15</td><td>9</td></tr>
+<tr><td><a href="unit/test_temporal_shape/">test_temporal_shape.py</a></td><td>Temporal PSD shape on a flat region (ME.2b, ADR 0023).</td><td>ADR 0023, ADR 0052</td><td>5</td></tr>
+<tr><td><a href="unit/test_thermal_bridge_surfaces/">test_thermal_bridge_surfaces.py</a></td><td>M10.3: a rendered prim can take its temperature from the §12.3 thermal solver.</td><td>M10.3, §12.3, M10.18, M6.12</td><td>7</td></tr>
+<tr><td><a href="unit/test_thermal_defocus/">test_thermal_defocus.py</a></td><td>OC.10 -- thermal defocus of an unathermalised IR lens (ADR 0129).</td><td>ADR 0129, M9.3</td><td>10</td></tr>
+<tr><td><a href="unit/test_thermal_field/">test_thermal_field.py</a></td><td>M6.11 — the object the engine glue reads: a fixed-tick solve behind a const query (§6.4, §1).</td><td>M6.11, §6.4, §1, ADR 0036</td><td>11</td></tr>
+<tr><td><a href="unit/test_thermal_maps/">test_thermal_maps.py</a></td><td>Temperature and parameter rasters draped onto a patch, engine-free (PT.13).</td><td>§6.1</td><td>20</td></tr>
+<tr><td><a href="unit/test_thermal_network/">test_thermal_network.py</a></td><td>TC.2 — a thermal network: nodes, links, boundaries, and the identity that catches a sign error.</td><td>§6.4, §6.6, ADR 0094, ADR 0096</td><td>13</td></tr>
+<tr><td><a href="unit/test_thermal_scene/">test_thermal_scene.py</a></td><td>M6.12 — the <code>thermal:</code> block, and the trap of pairing a site with the wrong weather file.</td><td>M6.12, §12.3, §12.2, ADR 0032</td><td>12</td></tr>
+<tr><td><a href="unit/test_tick_history/">test_tick_history.py</a></td><td>PT.8 — a field holds the ticks a query needs, not every tick it ever produced.</td><td>ADR 0074, §6.4, ADR 0093</td><td>9</td></tr>
+<tr><td><a href="unit/test_tier2_3d_noise/">test_tier2_3d_noise.py</a><span class="tag">slow</span></td><td>Tier 2 3-D noise bench (M4.4): the synthesiser + detector + NoiseStage round trip through the ME.2a decomposition on a uniform scene. Tolerances are 3x the estimator's own sampling floors (ADR 0023).</td><td>M4.4, ADR 0023</td><td>4</td></tr>
+<tr><td><a href="unit/test_tier2_mtf/">test_tier2_mtf.py</a><span class="tag">slow</span></td><td>Tier 2 MTF bench (MS.5 / VAL-16): the hotplate/aluminium step edge at 4x through the Boson optical PSF and the box filter, measured by the slant-edge estimator against the analytic cascade; the supersampled path aliases while a native-resolution blur does not; the PSF-before- box order matters; the edge contrast is the radiometric one.</td><td>—</td><td>5</td></tr>
+<tr><td><a href="unit/test_tier2_netd/">test_tier2_netd.py</a><span class="tag">slow</span></td><td>Tier 2 NETD bench end to end (M4.9): two blackbodies through run_frame (band radiance → optics → detector noise → correlated noise → ADC), measured in the DN domain; replay is bit-identical, frame 500 can be reached directly, float16 is refused, sensors are independent.</td><td>M4.9</td><td>5</td></tr>
+<tr><td><a href="unit/test_tier2_sitf/">test_tier2_sitf.py</a><span class="tag">slow</span></td><td>Tier 2 SITF bench on the CPU reference (M3.12; docs/physics-model.md §15 Tier 2).</td><td>M3.12, §15, ADR 0003</td><td>5</td></tr>
+<tr><td><a href="unit/test_tier3_atmosphere/">test_tier3_atmosphere.py</a><span class="tag">slow</span></td><td>Tier 3 atmosphere phenomenology and the solar-path stub (M8.8).</td><td>M8.8, §7.2, §15, §7.3</td><td>8</td></tr>
+<tr><td><a href="unit/test_tier3_maritime/">test_tier3_maritime.py</a><span class="tag">slow</span></td><td>Tier 3 maritime phenomenology on the synthetic sea fixture (MM.8).</td><td>ADR 0078, ADR 0118, §15, §5.3</td><td>10</td></tr>
+<tr><td><a href="unit/test_tier3_multiband/">test_tier3_multiband.py</a><span class="tag">slow</span></td><td>M11.8 — Tier 3 multi-band phenomenology, and the architecture claim that makes it possible.</td><td>M11.8, M1.11, M6, §15</td><td>14</td></tr>
+<tr><td><a href="unit/test_tier3_reflection/">test_tier3_reflection.py</a><span class="tag">slow</span></td><td>M7.16 — Tier 3 reflection phenomenology: what a facet <em>reads</em> at 03:00, not what it <em>is</em>.</td><td>M7.16, §5.3, §6.1, §15</td><td>5</td></tr>
+<tr><td><a href="unit/test_tier3_sensor_chain/">test_tier3_sensor_chain.py</a><span class="tag">slow</span></td><td>M9.9 — Tier 3 sensor-chain phenomenology: what the camera does to the picture (§15 T3).</td><td>M9.9, §15, §11.2, §11.3</td><td>7</td></tr>
+<tr><td><a href="unit/test_tier3_sky/">test_tier3_sky.py</a><span class="tag">slow</span></td><td>Tier 3 sky phenomenology on the aerial fixture (MS.8).</td><td>§15, §5.3, ADR 0044</td><td>7</td></tr>
+<tr><td><a href="unit/test_tier3_thermal/">test_tier3_thermal.py</a><span class="tag">slow</span></td><td>M6.13 — Tier 3 diurnal phenomenology on the facet scene (§6.3, §15 T3, §16.4 step 6).</td><td>M6.13, §6.3, §15, §16.4</td><td>14</td></tr>
+<tr><td><a href="unit/test_tier4_comparison/">test_tier4_comparison.py</a><span class="tag">slow</span></td><td>ME.6: the DN8 acceptance checks, and the control every one of them depends on.</td><td>DN8, ADR 0068, §15</td><td>21</td></tr>
+<tr><td><a href="unit/test_transmittance_derivation/">test_transmittance_derivation.py</a></td><td>RP.7 — a material's transmittance either comes from its n/k table or says that it does not.</td><td>§4.4, §12.1</td><td>9</td></tr>
+<tr><td><a href="unit/test_two_node_solver/">test_two_node_solver.py</a><span class="tag">slow</span></td><td>M6.8 — §6.4's two-node solver, and the factor of 400 hiding in its stability bound.</td><td>M6.8, §6.4, §6.3, §16.2</td><td>11</td></tr>
+<tr><td><a href="unit/test_unverified_aov_channels/">test_unverified_aov_channels.py</a></td><td>IG.5 — the motion AOV does not reach the G-buffer, and its convention is never guessed.</td><td>ADR 0014, §13.3, §9.2</td><td>10</td></tr>
+<tr><td><a href="unit/test_validation_manifest/">test_validation_manifest.py</a></td><td>The validation-data index (ME.1): the fields that gate a measurement, and the refusals.</td><td>§15, ADR 0003</td><td>39</td></tr>
+<tr><td><a href="unit/test_vehicle_and_traces/">test_vehicle_and_traces.py</a></td><td>M6.15 / M6.16 — §6.6's active heat sources, and the ghosts a scene leaves behind.</td><td>M6.15, M6.16, §6.6, ADR 0039</td><td>17</td></tr>
+<tr><td><a href="unit/test_vehicle_source_solver/">test_vehicle_source_solver.py</a></td><td>MP.4a / ADR 0089 — §6.6's ground-vehicle heat sources, reachable from a scene.</td><td>ADR 0089, §6.6, M6.14, ADR 0072</td><td>14</td></tr>
+<tr><td><a href="unit/test_vessel_pointwise/">test_vessel_pointwise.py</a></td><td>The point-wise vessel, engine-free (PT.10; ADR 0087, ADR 0095, ADR 0123).</td><td>ADR 0087, ADR 0095, ADR 0123, §6</td><td>11</td></tr>
+<tr><td><a href="unit/test_vignetting/">test_vignetting.py</a></td><td>Field angle and cos⁴ vignetting (M3.2, ADR 0015): Boson known answers, symmetry, an independent per-pixel derivation, and supersample consistency.</td><td>M3.2, ADR 0015</td><td>9</td></tr>
+<tr><td><a href="unit/test_visible_sky/">test_visible_sky.py</a></td><td>Engine-free tests for the companion frame's environment dome (ADR 0073).</td><td>ADR 0073</td><td>19</td></tr>
+<tr><td><a href="unit/test_wall_half_in_sun/">test_wall_half_in_sun.py</a><span class="tag">slow</span></td><td>PT.20 — the R1 reference scene: a wall half in sun, from YAML plus one command.</td><td>§6.1, §5.4, ADR 0087, ADR 0095</td><td>6</td></tr>
+<tr><td><a href="unit/test_warp_mesh_probe/">test_warp_mesh_probe.py</a></td><td>WM.1 — the closest-point oracle, and Warp's query where Warp is installed.</td><td>ADR 0087, ADR 0014</td><td>4</td></tr>
+<tr><td><a href="unit/test_warp_stages_contract/">test_warp_stages_contract.py</a></td><td>Roadmap M10.4, engine-free half: the Warp stage module imports without Warp, refuses what the CPU oracle refuses, and keys its device tables by content (so an identical table is never re-uploaded and a rebuilt one always is). The kernel itself is compared to the oracle in <code>tests/integration/test_kernels_vs_reference.py</code>.</td><td>M10.4</td><td>20</td></tr>
+<tr><td><a href="unit/test_weather_fx_bridge/">test_weather_fx_bridge.py</a><span class="tag">skipif(not weather_fx_available()</span></td><td>The seam between this project and the isaac-weather-fx submodule.</td><td>—</td><td>10</td></tr>
+<tr><td><a href="unit/test_weather_fx_series/">test_weather_fx_series.py</a><span class="tag">skipif(not weather_fx_available()</span></td><td>The scene's weather, synthesised from a weather-fx state instead of read from a CSV.</td><td>—</td><td>13</td></tr>
+<tr><td><a href="unit/test_weather_io/">test_weather_io.py</a></td><td>Weather CSV round trip, unit-header conversion, malformed files, the synthetic clear day's analytic properties, and the committed sample's provenance (M6.2).</td><td>M6.2</td><td>5</td></tr>
+<tr><td><a href="unit/test_weather_series/">test_weather_series.py</a></td><td>WeatherSeries (M6.1): interpolation identities, unit guards, immutability, the hash, and the no-file-anywhere rule that makes CLAUDE.md #6 enforceable.</td><td>M6.1</td><td>7</td></tr>
+<tr><td><a href="unit/test_wet_road/">test_wet_road.py</a><span class="tag">slow</span></td><td>PH.2 — the wet/dry road: one object, two states, from the scene config alone.</td><td>§6.1, §15, ADR 0101</td><td>5</td></tr>
+</tbody></table></div>
+<h2 id="golden">Golden — <code>tests/golden</code></h2>
+<p>Regression fixtures: a reference array plus a JSON sidecar carrying the config hash, and a stated tolerance in physical units (ADR 0004). Regenerated deliberately, never to silence a failure. 9 files, 28 tests.</p>
+<div class='table-wrap'><table class="filterable suite"><thead><tr><th>file</th><th>what it guards</th><th>cites</th><th>tests</th></tr></thead><tbody>
+<tr><td><a href="golden/test_background_golden/">test_background_golden.py</a></td><td>Golden arrays for the backgrounds a target is seen against (GT.2).</td><td>§7.1, §7.4, §5.3, ADR 0004</td><td>5</td></tr>
+<tr><td><a href="golden/test_boson_sitf_golden/">test_boson_sitf_golden.py</a></td><td>Golden SITF of the committed Boson configuration (M4.8): noiseless floor DN for ten extended blackbodies through the calibrated bolometer transfer, keyed on the config hash, 1 DN tolerance. A regenerated response file or a band-block change reports STALE; a change in the transfer, the LUT or the optics with the same inputs reports FAILING.</td><td>M4.8</td><td>1</td></tr>
+<tr><td><a href="golden/test_field_golden/">test_field_golden.py</a></td><td>Golden arrays for a surface temperature <em>field</em> and the frame made from one (GT.2).</td><td>§6.1, §6.4, §12.3, ADR 0004</td><td>2</td></tr>
+<tr><td><a href="golden/test_golden_helper/">test_golden_helper.py</a></td><td>Self-tests for the golden fixture helper (tests/golden/conftest.py).</td><td>ADR 0004</td><td>12</td></tr>
+<tr><td><a href="golden/test_lut_golden/">test_lut_golden.py</a></td><td>Golden slice of the LWIR Boson LUT (M1.11): the committed regression for the radiometry core.</td><td>M1.11</td><td>2</td></tr>
+<tr><td><a href="golden/test_multiband_golden/">test_multiband_golden.py</a></td><td>Golden frames beyond LWIR (GT.2): one MWIR, one SWIR and one NIR.</td><td>§5.2, §9, §10, §11</td><td>2</td></tr>
+<tr><td><a href="golden/test_noise_cube_golden/">test_noise_cube_golden.py</a></td><td>Golden noise cube (M4.10): 8 frames of 64x64 pre-quantisation signal from the Boson detector + NoiseStage on a uniform 300 K flux, keyed on the config hash <em>and</em> the NumPy version (the Box-Muller log/cos can move by an ulp between libms, so a NumPy change is reported STALE rather than FAILING). Compared at 1e-4 DN, about 1e-6 of the noise sigma.</td><td>M4.10</td><td>1</td></tr>
+<tr><td><a href="golden/test_pipeline_golden/">test_pipeline_golden.py</a></td><td>End-to-end golden frame (M5.7): the four outputs of run_frame on gbuffer_ramp and on a hot-patch scene with the Boson configuration (noise on, sensor seed fixed), stored with the config hash + NumPy version. Tolerances: radiance 1e-5 relative, apparent T 1 mK, DN16 +/-1, display +/-1 code. Also writes outputs/first_image_*.png for the human look.</td><td>M5.7, DN16</td><td>2</td></tr>
+<tr><td><a href="golden/test_sensor_chain_golden/">test_sensor_chain_golden.py</a></td><td>Golden frame for the assembled M9 sensor chain (M9.8).</td><td>M9, M9.8, ADR 0004</td><td>1</td></tr>
+</tbody></table></div>
+<h2 id="integration">Integration — <code>tests/integration</code></h2>
+<p>Needs the engine. Marked <code>isaac</code> (a running Isaac Sim) or <code>gpu</code> (Warp and a CUDA device) and skipped by default, so the gate never depends on hardware. 15 files, 130 tests.</p>
+<div class='table-wrap'><table class="filterable suite"><thead><tr><th>file</th><th>what it guards</th><th>cites</th><th>tests</th></tr></thead><tbody>
+<tr><td><a href="integration/test_aerial_bridge_isaac/">test_aerial_bridge_isaac.py</a></td><td>Roadmap M10.18: the thermal bridge closed against real rendered instance ids and rays.</td><td>M10.18</td><td>7</td></tr>
+<tr><td><a href="integration/test_aerial_demo_isaac/">test_aerial_demo_isaac.py</a></td><td>Roadmap M10.19: in-sim aerial phenomenology on the demo stage.</td><td>M10.19, ADR 0014, §15, §5.3</td><td>12</td></tr>
+<tr><td><a href="integration/test_aircraft_pass_isaac/">test_aircraft_pass_isaac.py</a></td><td>In-sim aircraft phenomenology: the nozzle appears when the aspect turns (ADR 0075).</td><td>ADR 0075, §6.6</td><td>5</td></tr>
+<tr><td><a href="integration/test_environment/">test_environment.py</a></td><td>Roadmap M2.1: the integration environment is what tests/integration and ADR 0014 assume.</td><td>M2.1, ADR 0014</td><td>5</td></tr>
+<tr><td><a href="integration/test_gbuffer_isaac/">test_gbuffer_isaac.py</a></td><td>Roadmap M10.1: the geometry AOVs, measured against an analytically known scene.</td><td>M10.1, ADR 0014, M2.4</td><td>12</td></tr>
+<tr><td><a href="integration/test_ir_camera_isaac/">test_ir_camera_isaac.py</a></td><td>Roadmap M10.9a-ii: the camera closed against the renderer -- the lens, then a whole frame.</td><td>M10.9a</td><td>12</td></tr>
+<tr><td><a href="integration/test_isaac_transport/">test_isaac_transport.py</a></td><td>Roadmap M2.2 / M2.4: the renderer-side transport ADR 0014 settled on, kept as regression guards.</td><td>M2.2, M2.4, ADR 0014</td><td>4</td></tr>
+<tr><td><a href="integration/test_kernels_vs_reference/">test_kernels_vs_reference.py</a><span class="tag">gpu</span></td><td>Roadmap M10.4: the CPU-vs-GPU equivalence harness, parametrised over (stage, fixture, device).</td><td>M10.4, ADR 0018, ADR 0014</td><td>15</td></tr>
+<tr><td><a href="integration/test_material_ids_isaac/">test_material_ids_isaac.py</a></td><td>Roadmap M10.2: material-ID transport measured on a stage that exercises every mapping rule.</td><td>M10.2, ADR 0047</td><td>8</td></tr>
+<tr><td><a href="integration/test_motion_px_isaac/">test_motion_px_isaac.py</a></td><td>In-sim synthesised motion: the roadmap M10.1b acceptance criteria, against the renderer.</td><td>M10.1b, §13.3, §9.2, ADR 0014</td><td>4</td></tr>
+<tr><td><a href="integration/test_point_targets_isaac/">test_point_targets_isaac.py</a></td><td>Roadmap M10.19: the MS.6 analytic path, in sim, against the renderer it replaces.</td><td>M10.19, ADR 0071, §8.1, §8.3</td><td>7</td></tr>
+<tr><td><a href="integration/test_position_frame_isaac/">test_position_frame_isaac.py</a></td><td>Roadmap IG.2: the position decode and the point bridge, against real rendered geometry.</td><td>ADR 0014, M10.19, §13.1, §13.3</td><td>3</td></tr>
+<tr><td><a href="integration/test_warp_defects_stage/">test_warp_defects_stage.py</a><span class="tag">gpu</span></td><td>Roadmap M10.7b: device-side defects, the iterated replacement and the FFC hold.</td><td>M10.7b, M10.7a, ADR 0022, ADR 0014</td><td>15</td></tr>
+<tr><td><a href="integration/test_warp_display_stage/">test_warp_display_stage.py</a><span class="tag">gpu</span></td><td>Roadmap M10.8: Warp stage 6 -- device histogram, AGC, DDE and palette against the CPU branch.</td><td>M10.8, §11.3, ADR 0028, DN16</td><td>9</td></tr>
+<tr><td><a href="integration/test_warp_noise_stage/">test_warp_noise_stage.py</a><span class="tag">gpu</span></td><td>Roadmap M10.7a: Warp stage 5 -- the 3-D noise, the OU drift and the NUC residual on device.</td><td>M10.7a, ADR 0022, M10.4, ADR 0014</td><td>12</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../assets/site.js"></script>
+</body>
+</html>

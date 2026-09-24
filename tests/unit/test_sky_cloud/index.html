@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sky cloud — irsim</title>
+<meta name="description" content="Structured cloud in the rendered background (MS.3/ADR 0070 into the M10.18 bridge).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Sky cloud</h1>
+  <p class="subtitle">Structured cloud in the rendered background (MS.3/ADR 0070 into the M10.18 bridge).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py" target="_blank" rel="noopener">tests/unit/test_sky_cloud.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>SkyModel.radiance</code> has always carried cloud, but as its <strong>expectation</strong>: the uniform blend (1 - c eps) L_clear + c eps L_base, which is the mean over a structured field and is exactly right for a LUT or a tilt integral. What a rendered frame needs is the field itself, because against a sky background the dominant false alarm is not sensor noise, it is a cloud edge -- and an edge has no mean.</p>
+<p>So the property that makes this an upgrade rather than a different model is that <strong>the mean is preserved</strong>: averaged over the whole sky the structured field returns the uniform blend it replaced. If that failed, every existing LUT, tilt integral and reflected term would silently disagree with the rendered background.</p>
+<p>The second property is that the field is fixed to the <strong>sky</strong>. A field fixed to the image plane is equally stable frame to frame and travels with the sensor, so a slewing mount never sweeps across cloud and a tracked target never crosses one -- which removes the very clutter the field is for.</p>
+<p class='made-by'>21 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py" target="_blank" rel="noopener">tests/unit/test_sky_cloud.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L65" target="_blank" rel="noopener">the sky coverage is the cloud fraction it was asked for</a><span class="tag">parametrize</span><br><code>test_the_sky_coverage_is_the_cloud_fraction_it_was_asked_for</code></td><td>Within 15 % relative, on a densely sampled sky, from the shared weather's own number.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L85" target="_blank" rel="noopener">a clear sky has no cloud at all</a><br><code>test_a_clear_sky_has_no_cloud_at_all</code></td><td>c = 0 must give exactly nothing, not a few stray pixels from a tail estimate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L92" target="_blank" rel="noopener">cloud edges are resolved at the sampling scale not the grid</a><br><code>test_cloud_edges_are_resolved_at_the_sampling_scale_not_the_grid</code></td><td>Interpolating the field before thresholding is what stops edges being grid-sized blocks.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L119" target="_blank" rel="noopener">one elevation ring is not the sky average</a><br><code>test_one_elevation_ring_is_not_the_sky_average</code></td><td>Cloud clumps: a single ring departs from c, which is the point of having structure at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L134" target="_blank" rel="noopener">the structured field preserves the uniform blend it replaces</a><br><code>test_the_structured_field_preserves_the_uniform_blend_it_replaces</code></td><td>Averaged over the sky, the field returns the expectation every other consumer uses.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L162" target="_blank" rel="noopener">covered pixels read warmer than clear ones</a><br><code>test_covered_pixels_read_warmer_than_clear_ones</code></td><td>Cloud base sits far above a cold clear zenith, so cloud is a <em>positive</em> contrast feature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L185" target="_blank" rel="noopener">without a seed the background is unchanged</a><br><code>test_without_a_seed_the_background_is_unchanged</code></td><td>Bit-identical to the uniform blend: every existing frame and golden stays exactly as it was.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L199" target="_blank" rel="noopener">a seed puts structure in the background</a><br><code>test_a_seed_puts_structure_in_the_background</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L207" target="_blank" rel="noopener">the field is fixed to the sky not to the frame</a><br><code>test_the_field_is_fixed_to_the_sky_not_to_the_frame</code></td><td>The same world direction gives the same cloud however the camera happens to be pointed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L230" target="_blank" rel="noopener">cloud without a sky model is refused</a><br><code>test_cloud_without_a_sky_model_is_refused</code></td><td>Both terms of a covered pixel come from the sky model; a seed alone cannot make cloud.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L236" target="_blank" rel="noopener">cloud without azimuth falls back rather than banding</a><br><code>test_cloud_without_azimuth_falls_back_rather_than_banding</code></td><td>Sampling the field by elevation alone would stripe the sky horizontally. It does not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L253" target="_blank" rel="noopener">azimuth from rays is measured from forward about up</a><br><code>test_azimuth_from_rays_is_measured_from_forward_about_up</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L259" target="_blank" rel="noopener">azimuth ignores the component along up</a><br><code>test_azimuth_ignores_the_component_along_up</code></td><td>A ray climbing in elevation keeps its bearing, which is what makes the sampling stable.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L268" target="_blank" rel="noopener">azimuth and elevation agree on their conventions</a><br><code>test_azimuth_and_elevation_agree_on_their_conventions</code></td><td>Straight up is elevation 90; the azimuth there is degenerate but must stay finite.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L275" target="_blank" rel="noopener">azimuth refuses a forward parallel to up</a><br><code>test_azimuth_refuses_a_forward_parallel_to_up</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L283" target="_blank" rel="noopener">the dome and the background sample the same cloud</a><br><code>test_the_dome_and_the_background_sample_the_same_cloud</code></td><td>The visible dome and the infrared background must put cloud in the same part of the sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L317" target="_blank" rel="noopener">the dome paints cloud by depth and leaves clear sky alone</a><br><code>test_the_dome_paints_cloud_by_depth_and_leaves_clear_sky_alone</code></td><td>The three regimes of a soft-edged cloud, asserted separately (ADR 0125).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L371" target="_blank" rel="noopener">the edge ramp leaves the coverage fraction exactly where it was</a><br><code>test_the_edge_ramp_leaves_the_coverage_fraction_exactly_where_it_was</code></td><td>The ramp crosses 0.5 at the threshold, so it cannot have moved the covered fraction.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L386" target="_blank" rel="noopener">switching the ramp off restores the hard mask exactly</a><br><code>test_switching_the_ramp_off_restores_the_hard_mask_exactly</code></td><td>The old behaviour is a value of a parameter, not a deleted branch.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L398" target="_blank" rel="noopener">a boolean mask gives the radiance it always did</a><br><code>test_a_boolean_mask_gives_the_radiance_it_always_did</code></td><td><code>cloud_radiance</code> generalised without moving any pixel that was already decided.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_cloud.py#L413" target="_blank" rel="noopener">a dome without a field is unchanged</a><br><code>test_a_dome_without_a_field_is_unchanged</code></td><td>Bit-identical to before ADR 0076, so a clear-sky scene renders exactly as it did.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

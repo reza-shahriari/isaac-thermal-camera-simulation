@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Human surfaces — irsim</title>
+<meta name="description" content="People: skin and clothing are two temperatures on one body (PH.12).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Human surfaces</h1>
+  <p class="subtitle">People: skin and clothing are two temperatures on one body (PH.12).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py" target="_blank" rel="noopener">tests/unit/test_human_surfaces.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The measurement, at 0 °C in still air with 1 clo: skin <strong>34.07 °C</strong>, clothing <strong>13.96 °C</strong>, a <strong>20.1 K</strong> step across one person. Indoors at 22 °C in 0.5 clo the same person's step is <strong>4.9 K</strong>. How much of a person stands out is a property of the weather, not of the person.</p>
+<p>⚠️ <strong>PH.12's third criterion does not hold at the condition it names, and the reason is worth more than the criterion.</strong> The row expects 1 clo at 0 °C to land the clothing 10-15 °C below skin; ISO 7730's own equation gives <strong>20.1 K</strong> there. The row's band is what the same equation produces at <strong>10-15 °C</strong> of air -- which is exactly ISO 7730's Annex A validity floor. The criterion was written for a condition the standard does not cover, and the model is behaving correctly outside it. <code>test_the_ten_to_fifteen_kelvin_band_belongs_to_the_standards_own_range</code> pins that rather than loosening the band until 20.1 fits.</p>
+<p>The fourth criterion -- agreement with <code>pythermalcomfort</code>'s two-node model to 0.5 K -- <strong>is not run here</strong>: the package is not installed and is not a dependency of this project. The test that would run it skips, loudly, and <code>test_the_two_node_oracle_is_declared_even_though_it_cannot_run</code> asserts that the extra is declared so the skip is a recorded gap rather than an absence.</p>
+<p>docs/physics-model.md §6.1, §16.2; roadmap PH.12; ADR 0122; ISO 7730:2005 §4</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py" target="_blank" rel="noopener">tests/unit/test_human_surfaces.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L52" target="_blank" rel="noopener">skin is authored from metabolism and falls as work rises</a><br><code>test_skin_is_authored_from_metabolism_and_falls_as_work_rises</code></td><td>34.07 °C seated, 32.44 °C walking -- working <em>lowers</em> skin, which is counter-intuitive.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L77" target="_blank" rel="noopener">no clothing gives the skin temperature exactly</a><br><code>test_no_clothing_gives_the_skin_temperature_exactly</code></td><td>PH.12's first criterion, and it is exact rather than converged.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L90" target="_blank" rel="noopener">one clo at zero celsius is twenty kelvin not the rows ten to fifteen</a><br><code>test_one_clo_at_zero_celsius_is_twenty_kelvin_not_the_rows_ten_to_fifteen</code></td><td>PH.12's third criterion measured at the condition it names, and it is 20.1 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L105" target="_blank" rel="noopener">the ten to fifteen kelvin band belongs to the standards own range</a><br><code>test_the_ten_to_fifteen_kelvin_band_belongs_to_the_standards_own_range</code></td><td>The row's band is the equation's answer at 10-15 °C -- ISO 7730's validity floor.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L126" target="_blank" rel="noopener">wind lowers the clothing surface</a><br><code>test_wind_lowers_the_clothing_surface</code></td><td>PH.12's second criterion, monotone across two decades of air speed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L139" target="_blank" rel="noopener">wind drives the coat toward air temperature in either direction</a><br><code>test_wind_drives_the_coat_toward_air_temperature_in_either_direction</code></td><td>Wind does not always cool: a heavily insulated coat under a cold sky is <strong>warmed</strong> by it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L168" target="_blank" rel="noopener">a cold sky pulls the coat down further than the air does</a><br><code>test_a_cold_sky_pulls_the_coat_down_further_than_the_air_does</code></td><td>The mean radiant temperature is the term that makes an outdoor coat read cold.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L181" target="_blank" rel="noopener">the solver converges where a fixed point iteration diverges</a><br><code>test_the_solver_converges_where_a_fixed_point_iteration_diverges</code></td><td>The regime that broke the textbook form: a coat in wind under a cold sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L199" target="_blank" rel="noopener">the area factor never shrinks a person</a><br><code>test_the_area_factor_never_shrinks_a_person</code></td><td>f_cl ≥ 1 always, and the two branches meet at the 0.5 clo break.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L214" target="_blank" rel="noopener">convection takes the larger of free and forced</a><br><code>test_convection_takes_the_larger_of_free_and_forced</code></td><td>Not their sum: one mechanism sets the boundary layer, which is ISO 7730's own choice.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L233" target="_blank" rel="noopener">the indoor and outdoor cases differ by four times</a><br><code>test_the_indoor_and_outdoor_cases_differ_by_four_times</code></td><td>A person indoors is a much weaker target than the same person outside.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L250" target="_blank" rel="noopener">the two node oracle is declared even though it cannot run</a><br><code>test_the_two_node_oracle_is_declared_even_though_it_cannot_run</code></td><td>PH.12's fourth criterion is <strong>not met</strong>, and the gap is declared rather than silent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_human_surfaces.py#L268" target="_blank" rel="noopener">against pythermalcomfort when it is installed</a><br><code>test_against_pythermalcomfort_when_it_is_installed</code></td><td>The comparison PH.12 asked for, run only where the extra is installed.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quad pointwise — irsim</title>
+<meta name="description" content="PT.9 (engine-free half) — the aerial scenario, regenerated point-wise.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Quad pointwise</h1>
+  <p class="subtitle">PT.9 (engine-free half) — the aerial scenario, regenerated point-wise.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py" target="_blank" rel="noopener">tests/unit/test_quad_pointwise.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The quadrotor mission was four numbers: an airframe pinned to the air and three powered nodes. Here the airframe is a field. One prim carries a gradient, the deck and the belly of the same aircraft are 29 K apart, the deck's excess over air collapses when the mission takes off and comes back when it lands, and every cell holds its own equilibrium to a millikelvin. The per-prim scene beside it is untouched, and reports 0.000 K of gradient, which is the number this row exists to replace.</p>
+<p>The curved-prim binding a fuselage needs is <code>WM.3</code>'s and the rendered frame is <code>IG.2</code>'s; <code>scripts/quad_flight_pointwise.py</code> writes the engine-free one from a synthetic G-buffer.</p>
+<p>docs/physics-model.md §6.1, §6.6; ADR 0072, ADR 0087, ADR 0095, ADR 0109; roadmap PT.9.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py" target="_blank" rel="noopener">tests/unit/test_quad_pointwise.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L52" target="_blank" rel="noopener">one airframe carries a gradient where the per prim scene carries none</a><span class="tag">slow</span><br><code>test_one_airframe_carries_a_gradient_where_the_per_prim_scene_carries_none</code></td><td>The deck at 55.5 C and the belly at 26.2 C are the same aircraft at the same instant: a quadrotor seen from above is a hot carbon plate and seen from below it is air temperature. Within one arm the spread is 29 K, because the deck's own shadow and the motor pods fall across it. The per-prim scene's airframe is one number and its gradient is exactly zero.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L80" target="_blank" rel="noopener">taking off collapses the deck s excess and landing brings it back</a><span class="tag">slow</span><br><code>test_taking_off_collapses_the_deck_s_excess_and_landing_brings_it_back</code></td><td>The mission drives the skin's convection (ADR 0109). On the pad the deck runs 29 K over air; in the hard climb at 13 m/s forced convection has it down to 14 K; landed, it is 30 K again. The per-prim <code>airframe</code> solver asserted the flying value for the whole mission.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L95" target="_blank" rel="noopener">holding the speed at its pad value is what keeps the deck hot</a><span class="tag">slow</span><br><code>test_holding_the_speed_at_its_pad_value_is_what_keeps_the_deck_hot</code></td><td>The negative control for the schedule: freeze the speed at the pad's 1 m/s and the deck never cools in the climb, which is how we know the collapse above is the mission and not the sun moving.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L117" target="_blank" rel="noopener">every cell holds its own equilibrium to a millikelvin</a><span class="tag">slow</span><br><code>test_every_cell_holds_its_own_equilibrium_to_a_millikelvin</code></td><td>Freeze the forcing at the scene start and let the arm settle: each cell converges to the root <code>steady_state_temperature</code> gives for its <strong>own</strong> flux, to under 1 mK. A field that averaged or broadcast the forcing across the arm would miss by the 29 K the shadow spans.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L163" target="_blank" rel="noopener">a speed schedule interpolates and holds flat outside itself</a><br><code>test_a_speed_schedule_interpolates_and_holds_flat_outside_itself</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L183" target="_blank" rel="noopener">the schema takes a schedule or a constant and not both</a><br><code>test_the_schema_takes_a_schedule_or_a_constant_and_not_both</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_quad_pointwise.py#L205" target="_blank" rel="noopener">the mission is the same flight as the per prim scene</a><span class="tag">slow</span><br><code>test_the_mission_is_the_same_flight_as_the_per_prim_scene</code></td><td>The regeneration changes how the airframe is solved, not what the pilot did: the throttle profile, the site, the weather file and the start time are the per-prim scene's own.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weather fx series — irsim</title>
+<meta name="description" content="The scene&#x27;s weather, synthesised from a weather-fx state instead of read from a CSV.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Weather fx series</h1>
+  <p class="subtitle">The scene's weather, synthesised from a weather-fx state instead of read from a CSV.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py" target="_blank" rel="noopener">tests/unit/test_weather_fx_series.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The joint tested here is narrow and the failure it guards against is not: a series that is individually plausible but anchored at the wrong instant, or whose cloud fraction disagrees with the cloud the camera is looking at, produces a scene where the sky and the surfaces describe two different days. Both halves look right on their own.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py" target="_blank" rel="noopener">tests/unit/test_weather_fx_series.py</a>. The whole file is marked <code>skipif(not weather_fx_available()</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L56" target="_blank" rel="noopener">the result is a validated immutable weather series</a><br><code>test_the_result_is_a_validated_immutable_weather_series</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L68" target="_blank" rel="noopener">two builds from one state are the same weather</a><br><code>test_two_builds_from_one_state_are_the_same_weather</code></td><td>The content hash keys every spin-up cache and golden in this project, so a synthetic series that is not reproducible quietly invalidates all of them on every run.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L79" target="_blank" rel="noopener">a different state is a different weather</a><br><code>test_a_different_state_is_a_different_weather</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L90" target="_blank" rel="noopener">the series covers the scene start with a day of history in front of it</a><br><code>test_the_series_covers_the_scene_start_with_a_day_of_history_in_front_of_it</code></td><td><code>Scene.from_config</code> refuses to extrapolate, so a series that starts at the scene start fails on the first spin-up step -- and a series centred on the wrong day fails at the render, which is much later and much harder to read.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L104" target="_blank" rel="noopener">the air temperature at the scene start is the state s own temperature</a><br><code>test_the_air_temperature_at_the_scene_start_is_the_state_s_own_temperature</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L112" target="_blank" rel="noopener">synchronise state moves the clock to the scene s own start</a><br><code>test_synchronise_state_moves_the_clock_to_the_scene_s_own_start</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L123" target="_blank" rel="noopener">a naive datetime is refused rather than assumed to be utc</a><br><code>test_a_naive_datetime_is_refused_rather_than_assumed_to_be_utc</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L133" target="_blank" rel="noopener">the night is dark and the day is not</a><br><code>test_the_night_is_dark_and_the_day_is_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L151" target="_blank" rel="noopener">the thermal model sees the cover the camera is actually looking at</a><br><code>test_the_thermal_model_sees_the_cover_the_camera_is_actually_looking_at</code></td><td>A thresholded noise field covers what it covers. If the solver uses the requested cover and the render marches the built one, the sky emissivity and the picture disagree by a few percent for no reason anyone can find later.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L175" target="_blank" rel="noopener">the state s own parameter limits are the first guard</a><br><code>test_the_state_s_own_parameter_limits_are_the_first_guard</code></td><td>weather-fx clamps every authored field to the range its <code>param</code> declares, so an absurd temperature never reaches this project at all. Worth pinning: it is the reason the wrapper below only has to catch what is <em>computed</em>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L183" target="_blank" rel="noopener">a computed column out of range is refused at the seam not in a solver</a><br><code>test_a_computed_column_out_of_range_is_refused_at_the_seam_not_in_a_solver</code></td><td><code>WeatherSeries</code> is where the ranges live, and this is the reason the columns are wrapped rather than handed on. A swing nobody clamps is the way an out-of-range column can still be produced from an in-range state, and it must fail here rather than five layers down.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L193" target="_blank" rel="noopener">a random regime gives a usable scene weather</a><br><code>test_a_random_regime_gives_a_usable_scene_weather</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_weather_fx_series.py#L212" target="_blank" rel="noopener">it drops into scene from config where the csv would have been</a><br><code>test_it_drops_into_scene_from_config_where_the_csv_would_have_been</code></td><td>The whole point: the injection point already exists, so weather-fx can own the weather without a second path through the scene builder and without a second series in play.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

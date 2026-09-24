@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plume — irsim</title>
+<meta name="description" content="Stage 2d: an exhaust plume composited per pixel (roadmap PH.6).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Plume</h1>
+  <p class="subtitle">Stage 2d: an exhaust plume composited per pixel (roadmap PH.6).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py" target="_blank" rel="noopener">tests/unit/test_plume.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Three things have to be true and are each measured here rather than argued.</p>
+<p><strong>The geometry is exact.</strong> A chord through a cone has a closed form at the stations where one exists -- broadside through a cylinder is <code>2r</code>, broadside through a cone at station <code>s</code> is <code>2r(s)</code>, straight down the axis is the cone's own length -- and the intersection is checked against all three. A ray-marched or sampled version would pass a loose tolerance and hide a half-pixel bias; these are exact to floating point.</p>
+<p><strong>The two bands disagree, and a grey slab cannot make them.</strong> This is the feature <code>PH.4</code> exists for and the one a scene author would never notice was missing: a CO2/H2O plume absorbs a fifth of the MWIR band and almost none of the LWIR one. The negative control builds a <em>grey</em> table from the same machinery and shows it gives the two bands the same transmittance, so the test that passes is measuring the tables and not the plumbing.</p>
+<p><strong>A frame with no plume is untouched.</strong> Bit for bit, the same object, so every golden written before this step still describes what the pipeline does.</p>
+<p>docs/physics-model.md §6.6, §8.1, §8.3, §13.4 stage 2; ADR 0098.</p>
+<p class='made-by'>17 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py" target="_blank" rel="noopener">tests/unit/test_plume.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L69" target="_blank" rel="noopener">a broadside chord through a cylinder is its diameter</a><br><code>test_a_broadside_chord_through_a_cylinder_is_its_diameter</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L77" target="_blank" rel="noopener">a broadside chord through a cone follows its radius</a><br><code>test_a_broadside_chord_through_a_cone_follows_its_radius</code></td><td>The radius grows linearly along the axis, so the chord has to as well.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L86" target="_blank" rel="noopener">a ray down the axis traverses the whole plume</a><br><code>test_a_ray_down_the_axis_traverses_the_whole_plume</code></td><td>The case that breaks a naive quadratic: within the cone's half-angle of its own axis the inequality holds <em>outside</em> the roots, not between them, and a solver that misses it renders a plume seen end-on -- the commonest view of a tailpipe -- as empty.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L97" target="_blank" rel="noopener">a ray that misses gets nothing</a><br><code>test_a_ray_that_misses_gets_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L104" target="_blank" rel="noopener">the depth plane cuts the chord where the geometry is</a><br><code>test_the_depth_plane_cuts_the_chord_where_the_geometry_is</code></td><td>Occlusion without a mask: the G-buffer already knows what stands in front.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L113" target="_blank" rel="noopener">entrainment dilutes temperature and species by the same factor</a><br><code>test_entrainment_dilutes_temperature_and_species_by_the_same_factor</code></td><td>One authored length, one conserved scalar: they cannot be set inconsistently.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L133" target="_blank" rel="noopener">a plume that is not one is refused</a><span class="tag">parametrize</span><br><code>test_a_plume_that_is_not_one_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L219" target="_blank" rel="noopener">the plume absorbs far more of mwir than of lwir</a><br><code>test_the_plume_absorbs_far_more_of_mwir_than_of_lwir</code></td><td><code>PH.6</code>'s acceptance bands, from NIRATAM's plume fits.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L238" target="_blank" rel="noopener">a grey table gives the two bands the same answer</a><br><code>test_a_grey_table_gives_the_two_bands_the_same_answer</code></td><td>The negative control, and the measurement it controls, in one test.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L265" target="_blank" rel="noopener">transmittance falls towards the exit</a><br><code>test_transmittance_falls_towards_the_exit</code></td><td>Hottest and densest at the pipe; the plume clears as it mixes out.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L285" target="_blank" rel="noopener">a frame with no plume is the same object</a><br><code>test_a_frame_with_no_plume_is_the_same_object</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L306" target="_blank" rel="noopener">the plume dominates the mwir frame and barely marks the lwir one</a><br><code>test_the_plume_dominates_the_mwir_frame_and_barely_marks_the_lwir_one</code></td><td>Through the whole chain, in apparent temperature -- what the two cameras actually show.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L327" target="_blank" rel="noopener">an occluded plume leaves the frame alone</a><br><code>test_an_occluded_plume_leaves_the_frame_alone</code></td><td>A wall between the camera and the plume: the depth plane alone has to be enough.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L350" target="_blank" rel="noopener">a band with no table refuses a gas plume</a><br><code>test_a_band_with_no_table_refuses_a_gas_plume</code></td><td>SWIR has no CO2 table (<code>PH.5</code>), so a plume there is an error, not a clear plume.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L395" target="_blank" rel="noopener">the scene takes the plume temperature from the solved gas not the skin</a><br><code>test_the_scene_takes_the_plume_temperature_from_the_solved_gas_not_the_skin</code></td><td><code>PH.6</code>'s "T and species from the exhaust node", and the trap inside it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L410" target="_blank" rel="noopener">one scene file gives the two bands completely different pictures</a><br><code>test_one_scene_file_gives_the_two_bands_completely_different_pictures</code></td><td>The step's own acceptance: one authored plume, two cameras, nothing else changed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_plume.py#L430" target="_blank" rel="noopener">a plume authored on anything but an exhaust is refused</a><br><code>test_a_plume_authored_on_anything_but_an_exhaust_is_refused</code></td><td>The temperature has to come from a solved pipe; there is no way to author one.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

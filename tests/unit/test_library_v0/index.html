@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library v0 — irsim</title>
+<meta name="description" content="M7.9 — the fifteen §16.2 materials, with provenance, and what separates the bands (§16.2, §12.3).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Library v0</h1>
+  <p class="subtitle">M7.9 — the fifteen §16.2 materials, with provenance, and what separates the bands (§16.2, §12.3).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py" target="_blank" rel="noopener">tests/unit/test_library_v0.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The §16.2 table gives ε_LWIR, ε_MWIR, α_sol and the three thermal properties, and nothing about NIR or SWIR. Every NIR/SWIR value in the library is therefore ESTIMATED and labelled so — but two of them are not guesses at all, and they are the reason a multi-band library is worth having:</p>
+<ul>
+<li>a <strong>leaf</strong> in the near-infrared reflects ~0.45 and <em>transmits</em> ~0.45, absorbing a tenth. That is the red edge, and it makes a canopy brilliant and semi-transparent at 0.9 µm while being an ordinary opaque high-ε dielectric at 10 µm.</li>
+<li><strong>snow</strong> reflects ~0.85 at 0.9 µm and ~0.10 at 1.6 µm, because ice absorbs strongly in the SWIR. A swing of 0.75 in ε between adjacent bands — larger than any other material here — and the reason snow and cloud are indistinguishable in the visible and obvious at 1.6 µm.</li>
+</ul>
+<p>A single-band library cannot be wrong about either, because it cannot say anything about them.</p>
+<p>docs/physics-model.md §16.2, §12.3, §4.3, §4.4; ADR 0040, ADR 0043</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py" target="_blank" rel="noopener">tests/unit/test_library_v0.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L57" target="_blank" rel="noopener">all fifteen section 16 2 materials are present</a><br><code>test_all_fifteen_section_16_2_materials_are_present</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L64" target="_blank" rel="noopener">each material reproduces its section 16 2 row</a><span class="tag">parametrize</span><br><code>test_each_material_reproduces_its_section_16_2_row</code></td><td>The thermal-band ε and every thermal property, exactly. ADR 0043 reads the ε columns as normal incidence, which is what <code>band_properties</code> returns.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L79" target="_blank" rel="noopener">each material declares its provenance</a><span class="tag">parametrize</span><br><code>test_each_material_declares_its_provenance</code></td><td><code>source</code> is required by the schema; this checks it is <em>used</em>, and that anything estimated says so. A number nobody can trace is a number nobody can correct.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L90" target="_blank" rel="noopener">every material closes in every band</a><br><code>test_every_material_closes_in_every_band</code></td><td>CLAUDE.md #4, over the whole library and all four bands.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L101" target="_blank" rel="noopener">every material has a valid angular model</a><br><code>test_every_material_has_a_valid_angular_model</code></td><td>After M7.7's §4.2 guard, a Level C material must clear ε = 0.93 in <strong>every</strong> band.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L116" target="_blank" rel="noopener">a leaf is semi transparent in the near infrared and opaque in lwir</a><br><code>test_a_leaf_is_semi_transparent_in_the_near_infrared_and_opaque_in_lwir</code></td><td>The red edge: a canopy is not opaque at 0.9 µm, and is at 10 µm.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L130" target="_blank" rel="noopener">snow swings further between adjacent bands than anything else</a><br><code>test_snow_swings_further_between_adjacent_bands_than_anything_else</code></td><td>ε 0.15 in NIR and 0.90 in SWIR — the snow/cloud discriminator, as a material property.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L146" target="_blank" rel="noopener">glass shows itself in lwir and what is behind it in swir</a><br><code>test_glass_shows_itself_in_lwir_and_what_is_behind_it_in_swir</code></td><td>§4.4's headline, and the row §16.2 says is most likely to break a naïve simulator.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L154" target="_blank" rel="noopener">bare metal is the other row that breaks naive simulators</a><br><code>test_bare_metal_is_the_other_row_that_breaks_naive_simulators</code></td><td>§16.2: "aluminium because ε = 0.09 means it is a mirror, not a surface".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L165" target="_blank" rel="noopener">the wet and dry soil pair differ where it matters</a><br><code>test_the_wet_and_dry_soil_pair_differ_where_it_matters</code></td><td>The pair exists so a scene can show what rain does to a surface's diurnal behaviour.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L177" target="_blank" rel="noopener">the paint pair differ only where they should</a><br><code>test_the_paint_pair_differ_only_where_they_should</code></td><td>Black and white paint are the same in the thermal bands and opposite in the solar ones — which is why a white car and a black car look identical in LWIR and nothing alike at noon.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_library_v0.py#L193" target="_blank" rel="noopener">water carries the only measured optical constants in the library</a><br><code>test_water_carries_the_only_measured_optical_constants_in_the_library</code></td><td>And it is the one material a maritime scene stands on, which is why it gets Level A.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

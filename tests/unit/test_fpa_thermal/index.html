@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fpa thermal — irsim</title>
+<meta name="description" content="FPA temperature node and gain/offset(T_FPA) polynomials (M9.2, ADR 0053): the steady state, the time constant recovered from the 63.2 % crossing, normalisation at T_cal, the unifor">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Fpa thermal</h1>
+  <p class="subtitle">FPA temperature node and gain/offset(T_FPA) polynomials (M9.2, ADR 0053): the steady state, the time constant recovered from the 63.2 % crossing, normalisation at T_cal, the uniform DN shift a 5 K ambient rise produces (and its absence when TEC-pinned), per-step energy conservation, and the one-weather-object guard (CLAUDE.md #6).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py" target="_blank" rel="noopener">tests/unit/test_fpa_thermal.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py" target="_blank" rel="noopener">tests/unit/test_fpa_thermal.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L37" target="_blank" rel="noopener">schema version bumped for the fpa node</a><br><code>test_schema_version_bumped_for_the_fpa_node</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L44" target="_blank" rel="noopener">steady state is ambient plus self heating</a><br><code>test_steady_state_is_ambient_plus_self_heating</code></td><td>T -&gt; T_amb + P/h to 1 mK, from either side, and it is the fixed point of step().</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L64" target="_blank" rel="noopener">time constant from the 63 2 percent crossing</a><br><code>test_time_constant_from_the_63_2_percent_crossing</code></td><td>Settled at one ambient, stepped to another, the node crosses 63.2 % of the change at t = tau within 1 % -- the observable definition of the time constant, not the one the code was given.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L91" target="_blank" rel="noopener">energy is conserved each step</a><br><code>test_energy_is_conserved_each_step</code></td><td>Each RK2 step satisfies C dT = (P - h (T_stage - T_amb)) dt to 1e-6 relative.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L116" target="_blank" rel="noopener">gain and offset are normalised at t cal</a><br><code>test_gain_and_offset_are_normalised_at_t_cal</code></td><td>g(T_cal) == 1 and o(T_cal) == 0 exactly -- structural, since the coefficients carry no constant term and so cannot be authored with one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L138" target="_blank" rel="noopener">five kelvin ambient rise shifts dn uniformly and not when tec pinned</a><br><code>test_five_kelvin_ambient_rise_shifts_dn_uniformly_and_not_when_tec_pinned</code></td><td>The phenomenology M9.2 exists for: shutterless drift. A 5 K ambient rise moves every pixel of a uniform scene by the same DN, and a TEC-pinned core does not move at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L169" target="_blank" rel="noopener">ambient mode tracks air temperature with no lag</a><br><code>test_ambient_mode_tracks_air_temperature_with_no_lag</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L175" target="_blank" rel="noopener">one weather object only</a><br><code>test_one_weather_object_only</code></td><td>CLAUDE.md #6: the FPA node takes the shared WeatherSeries or a provider, never both, and never neither -- two ambient sources is exactly the summer/winter split that rule forbids.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpa_thermal.py#L196" target="_blank" rel="noopener">configuration guards</a><br><code>test_configuration_guards</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

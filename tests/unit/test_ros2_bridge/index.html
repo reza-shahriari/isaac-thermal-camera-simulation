@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ros2 bridge — irsim</title>
+<meta name="description" content="M10.10b: the ROS 2 message arithmetic, checked without a ROS graph.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Ros2 bridge</h1>
+  <p class="subtitle">M10.10b: the ROS 2 message arithmetic, checked without a ROS graph.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py" target="_blank" rel="noopener">tests/unit/test_ros2_bridge.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>ROS 2 is a system-level install, not a pip dependency this repository can pull in, and it is not available here. So everything that can be checked without it is: the intrinsics, the encodings, the stamp, and which outputs get published at all. The part that needs rclpy is one function, and it names what is missing rather than failing with an import traceback.</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py" target="_blank" rel="noopener">tests/unit/test_ros2_bridge.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L38" target="_blank" rel="noopener">fx is the focal length over the pitch</a><br><code>test_fx_is_the_focal_length_over_the_pitch</code></td><td>The one number a <code>CameraInfo</code> exists to carry, derived from the sensor's own blocks so a camera and its intrinsics cannot disagree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L50" target="_blank" rel="noopener">the principal point uses the pixel edge convention</a><br><code>test_the_principal_point_uses_the_pixel_edge_convention</code></td><td><code>width/2</code>, not <code>(width - 1)/2</code>. The half-pixel difference is invisible in a preview and is a systematic half-pixel bias in anything that triangulates.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L60" target="_blank" rel="noopener">the distortion travels exactly as the config wrote it</a><br><code>test_the_distortion_travels_exactly_as_the_config_wrote_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L68" target="_blank" rel="noopener">the stamp is integer nanoseconds of sim time</a><br><code>test_the_stamp_is_integer_nanoseconds_of_sim_time</code></td><td>A ROS stamp is (sec, nanosec); a float second at hour scale has already lost sub-microsecond resolution, so the conversion happens once, here, in integers.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L77" target="_blank" rel="noopener">apparent temperature goes out in float32 and never narrower</a><br><code>test_apparent_temperature_goes_out_in_float32_and_never_narrower</code></td><td>Non-negotiable #2 on the wire: at 300 K a float16 grid is 0.25 K coarse, five times a 50 mK NETD, so a subscriber would be reading a camera five times worse than the one that sent it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L92" target="_blank" rel="noopener">each output takes the encoding that does not lose it</a><br><code>test_each_output_takes_the_encoding_that_does_not_lose_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L105" target="_blank" rel="noopener">an output the config switched off is skipped not zeroed</a><br><code>test_an_output_the_config_switched_off_is_skipped_not_zeroed</code></td><td>A subscriber receiving a black <code>apparent_t</code> topic has no way to tell it from a scene at absolute zero.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ros2_bridge.py#L117" target="_blank" rel="noopener">publishing without ros says what is missing</a><br><code>test_publishing_without_ros_says_what_is_missing</code></td><td>The one call that needs a ROS graph names the dependency instead of raising ImportError from somewhere inside a library nobody asked for.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

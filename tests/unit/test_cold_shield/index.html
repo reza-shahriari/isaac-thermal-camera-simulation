@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cold shield — irsim</title>
+<meta name="description" content="M11.5 — the cold shield: the one §9.1 knob with no formula in the spec (S31, ADR 0066).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Cold shield</h1>
+  <p class="subtitle">M11.5 — the cold shield: the one §9.1 knob with no formula in the spec (S31, ADR 0066).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py" target="_blank" rel="noopener">tests/unit/test_cold_shield.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>§9.1 says a mismatched cold stop raises background flux and degrades NETD, and stops there. The geometry chosen here is Ω_admit = min(π, Ω_lens/η_cs), so the pixel's extra cone -- the part the lens does not fill -- is filled by warm dewar structure. Two boundary identities pin it: η_cs = 1 admits <strong>exactly</strong> nothing, and η_cs = 0 opens the full hemisphere, where an isothermal enclosure reads A_d·π·L_B(T) through the two terms together.</p>
+<p>The cost is not the offset (NUC removes offsets) but the <strong>shot noise the offset carries</strong>, so the degradation is √((N_signal + N_bg)/N_signal) and the test holds it to that analytically.</p>
+<p>docs/physics-model.md §9.1, §8.1, §2; ADR 0066, spec issue S31</p>
+<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py" target="_blank" rel="noopener">tests/unit/test_cold_shield.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L63" target="_blank" rel="noopener">a matched shield admits exactly nothing</a><span class="tag">parametrize</span><br><code>test_a_matched_shield_admits_exactly_nothing</code></td><td>Exactly 0.0, not 1e-17: a spurious Poisson term in every well-shielded camera's budget.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L71" target="_blank" rel="noopener">a fully open shield reaches the hemisphere and no further</a><span class="tag">parametrize</span><br><code>test_a_fully_open_shield_reaches_the_hemisphere_and_no_further</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L78" target="_blank" rel="noopener">the isothermal enclosure identity holds at zero efficiency</a><br><code>test_the_isothermal_enclosure_identity_holds_at_zero_efficiency</code></td><td>Scene through the lens plus background around it = A_d π L_B(T), the enclosure answer.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L93" target="_blank" rel="noopener">the background grows monotonically as the shield opens</a><span class="tag">parametrize</span><br><code>test_the_background_grows_monotonically_as_the_shield_opens</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L100" target="_blank" rel="noopener">out of range efficiency and area are refused</a><br><code>test_out_of_range_efficiency_and_area_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L110" target="_blank" rel="noopener">the background is not the optics self emission</a><br><code>test_the_background_is_not_the_optics_self_emission</code></td><td>Two different warm surfaces in two different solid angles. Neither contains the other.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L135" target="_blank" rel="noopener">the degradation factor is the analytic shot ratio</a><br><code>test_the_degradation_factor_is_the_analytic_shot_ratio</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L144" target="_blank" rel="noopener">netd rises with the analytic factor in the shot limited case</a><br><code>test_netd_rises_with_the_analytic_factor_in_the_shot_limited_case</code></td><td>σ_gaussian = 0 isolates the shot term, which is the part the cold shield controls.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L167" target="_blank" rel="noopener">netd still rises monotonically with real read noise</a><br><code>test_netd_still_rises_monotonically_with_real_read_noise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L189" target="_blank" rel="noopener">a badly matched shield can fill the well on its own</a><br><code>test_a_badly_matched_shield_can_fill_the_well_on_its_own</code></td><td>The trade study §9.1 calls for, as a fact rather than a curve: at η_cs = 0.2 this camera saturates on its own dewar before it sees the scene.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L205" target="_blank" rel="noopener">the mwir config loads classifies and is cooled</a><br><code>test_the_mwir_config_loads_classifies_and_is_cooled</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L215" target="_blank" rel="noopener">the mwir band sits on both sides of the crossover</a><br><code>test_the_mwir_band_sits_on_both_sides_of_the_crossover</code></td><td><code>mixed</code> earns its name: a 300 K scene emits usefully here, unlike SWIR.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L221" target="_blank" rel="noopener">an uncooled camera is untouched by any of this</a><br><code>test_an_uncooled_camera_is_untouched_by_any_of_this</code></td><td>Every LWIR golden in this repository must be bit-identical after M11.5.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L228" target="_blank" rel="noopener">the pipeline config carries the background only for the cooled camera</a><br><code>test_the_pipeline_config_carries_the_background_only_for_the_cooled_camera</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cold_shield.py#L246" target="_blank" rel="noopener">the background scales with the surround radiance</a><br><code>test_the_background_scales_with_the_surround_radiance</code></td><td>A warm day costs more than a cold one, which is the other half of the trade study.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

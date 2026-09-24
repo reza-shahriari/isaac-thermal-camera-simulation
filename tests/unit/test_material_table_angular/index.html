@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material table angular — irsim</title>
+<meta name="description" content="M7.10 — the angular columns in the packed table: (a, p, roughness) and a Level-A angle LUT.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Material table angular</h1>
+  <p class="subtitle">M7.10 — the angular columns in the packed table: (a, p, roughness) and a Level-A angle LUT.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py" target="_blank" rel="noopener">tests/unit/test_material_table_angular.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The point of packing is that a kernel should not branch on which of §4.2's three levels a material declares. It cannot: a Fresnel material needs an n/k file and a Planck-weighted band average, and a GPU has neither. So <code>angle_lut</code> carries ε(θ) for <strong>every</strong> material on one cos θ grid, sampled through the M7.7 dispatch, and the kernel does one lookup. The (a, p) columns stay alongside it because §4.2's "two instructions in a shader" is cheaper still where it applies.</p>
+<p>The grid is uniform in <strong>cos θ</strong>, not in θ, because a kernel has <code>n·v</code> in hand and would otherwise have to call acos to index it. The spacing that buys is uneven in angle — one step is ~10° near normal and ~1° near grazing — so the node count is set by measuring the interpolation error against the exact dispatch rather than by taste: 33 nodes leaves 0.0048 on water, 65 leaves 0.0012, an order of magnitude below the 0.02 §4.2 allows Level B itself.</p>
+<p>docs/physics-model.md §13.3, §13.5, §14; ADR 0042</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py" target="_blank" rel="noopener">tests/unit/test_material_table_angular.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L60" target="_blank" rel="noopener">the angular columns are populated for every level b material</a><br><code>test_the_angular_columns_are_populated_for_every_level_b_material</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L73" target="_blank" rel="noopener">roughness is packed per band</a><br><code>test_roughness_is_packed_per_band</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L80" target="_blank" rel="noopener">the unmapped sentinel stays undefined</a><br><code>test_the_unmapped_sentinel_stays_undefined</code></td><td>Id 0 must not acquire a plausible emissivity just because the table grew a column.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L92" target="_blank" rel="noopener">the lut grid is uniform in cosine</a><br><code>test_the_lut_grid_is_uniform_in_cosine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L101" target="_blank" rel="noopener">the lut reproduces the exact dispatch at its own nodes</a><br><code>test_the_lut_reproduces_the_exact_dispatch_at_its_own_nodes</code></td><td>Packing must not change the answer — only where it is available.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L121" target="_blank" rel="noopener">interpolating the lut is exact where section 4 2 makes a claim</a><span class="tag">parametrize</span><br><code>test_interpolating_the_lut_is_exact_where_section_4_2_makes_a_claim</code></td><td>Inside 70°, every material interpolates to <strong>2e-4</strong> — two orders below Level B's own 0.02.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L140" target="_blank" rel="noopener">the lut stays usable out to eighty seven degrees</a><span class="tag">parametrize</span><br><code>test_the_lut_stays_usable_out_to_eighty_seven_degrees</code></td><td>Past §4.2's bound the error grows, and the worst case is the metal: 0.010 against water's 0.0009. That is the cos-uniform grid running out of resolution where ε is steepest.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L155" target="_blank" rel="noopener">the metal has a grazing spike no cosine uniform table can resolve</a><br><code>test_the_metal_has_a_grazing_spike_no_cosine_uniform_table_can_resolve</code></td><td>⚠️ Recorded, not fixed. Bare aluminium's ε reaches <strong>0.96 within 0.2° of grazing</strong>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L187" target="_blank" rel="noopener">the lut lookup uses the absolute cosine</a><br><code>test_the_lut_lookup_uses_the_absolute_cosine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L194" target="_blank" rel="noopener">a table without a lut says so rather than guessing</a><br><code>test_a_table_without_a_lut_says_so_rather_than_guessing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L201" target="_blank" rel="noopener">packing the lut is off by default so older tables are unchanged</a><br><code>test_packing_the_lut_is_off_by_default_so_older_tables_are_unchanged</code></td><td>Every table packed before M7.10 must still hash and load the same way.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L218" target="_blank" rel="noopener">closure survives float32 packing</a><br><code>test_closure_survives_float32_packing</code></td><td>ε + ρ + τ = 1 to 1e-6 <em>after</em> the float64 authored values are narrowed to float32.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L231" target="_blank" rel="noopener">a deliberate float16 pack fails the same closure test</a><br><code>test_a_deliberate_float16_pack_fails_the_same_closure_test</code></td><td>The counter-test, because "float32 is enough" is only meaningful if float16 is not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L253" target="_blank" rel="noopener">the lut round trips through disk by name</a><br><code>test_the_lut_round_trips_through_disk_by_name</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L265" target="_blank" rel="noopener">a stale table is rejected</a><br><code>test_a_stale_table_is_rejected</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_material_table_angular.py#L276" target="_blank" rel="noopener">a float16 table on disk is refused</a><br><code>test_a_float16_table_on_disk_is_refused</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

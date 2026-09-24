@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sea surface — irsim</title>
+<meta name="description" content="The sea as a background: Cox-Munk slopes and apparent temperature vs angle (MM.2, MM.3).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Sea surface</h1>
+  <p class="subtitle">The sea as a background: Cox-Munk slopes and apparent temperature vs angle (MM.2, MM.3).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py" target="_blank" rel="noopener">tests/unit/test_sea_surface.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The load-bearing test here is :func:<code>test_isothermal_identity_holds_at_every_angle_and_wind</code>. It holds for <em>any</em> emissivity, so it catches a mis-weighted reflection — the failure a plausible looking gradient would hide, and the one no amount of looking at a rendered frame would reveal.</p>
+<p>The rest of the file documents a profile shape that is <strong>not</strong> the simple monotone ramp from SST at nadir to sky at the horizon that this milestone was planned around. Two effects fight:</p>
+<ul>
+<li>looking further down raises the incidence emissivity (0.11 at 89°, 0.99 at nadir), which pulls the sea toward its own temperature;</li>
+<li>looking further down also reflects sky from <em>higher</em> elevations, which is colder (290 K at the horizon, 226 K at zenith).</li>
+</ul>
+<p>The second wins between roughly 2° and 15° of depression and the first wins outside it, so the profile has a <strong>minimum a few degrees below the horizon</strong>, not a monotone slope. Adding the atmospheric path then pulls the far field back toward air temperature, because at 4 km there is more air than sea in the ray. Tests pin the shape rather than the wrong prediction.</p>
+<p>docs/physics-model.md §5.3, §4.2, §7.4; ADR 0078</p>
+<p class='made-by'>17 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py" target="_blank" rel="noopener">tests/unit/test_sea_surface.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L72" target="_blank" rel="noopener">cox munk slope variance reproduces the published coefficients</a><br><code>test_cox_munk_slope_variance_reproduces_the_published_coefficients</code></td><td>sigma_u^2 = 3.16e-3 U and sigma_c^2 = 3.0e-3 + 1.92e-3 U, the component fits.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L96" target="_blank" rel="noopener">negative wind is refused</a><br><code>test_negative_wind_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L104" target="_blank" rel="noopener">horizon depression and the range to it</a><br><code>test_horizon_depression_and_the_range_to_it</code></td><td>0.045° at 2 m, 0.144° at 20 m — the whole sea lives in the first degree below horizontal.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L123" target="_blank" rel="noopener">a ray above the horizon never hits the sea</a><br><code>test_a_ray_above_the_horizon_never_hits_the_sea</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L133" target="_blank" rel="noopener">isothermal identity holds at every angle and wind</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_isothermal_identity_holds_at_every_angle_and_wind</code></td><td>Sky at the sea's own temperature ⇒ the sea reads its own temperature, to 1 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L157" target="_blank" rel="noopener">facet weights sum to one</a><br><code>test_facet_weights_sum_to_one</code></td><td>The invariant the identity rests on, asserted directly so a failure is legible.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L171" target="_blank" rel="noopener">nadir reads just below the sea surface temperature</a><br><code>test_nadir_reads_just_below_the_sea_surface_temperature</code></td><td>Straight down, ε = 0.988, so the sea reads ~0.5 K under SST — the reflected cold sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L201" target="_blank" rel="noopener">the profile has a minimum rather than a monotone ramp</a><br><code>test_the_profile_has_a_minimum_rather_than_a_monotone_ramp</code></td><td>Warmest at nadir, coldest a few degrees down, warming again toward the horizon.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L228" target="_blank" rel="noopener">the atmosphere pulls the far field back toward air temperature</a><br><code>test_the_atmosphere_pulls_the_far_field_back_toward_air_temperature</code></td><td>At 4 km there is more air than sea in the ray, so the path fills the grazing sea back in.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L249" target="_blank" rel="noopener">roughening the sea flattens the profile</a><br><code>test_roughening_the_sea_flattens_the_profile</code></td><td>A 15 m/s sea has a shallower nadir-to-minimum span than a glassy one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L272" target="_blank" rel="noopener">overcast flattens the profile only as far as the cloud base is warm</a><br><code>test_overcast_flattens_the_profile_only_as_far_as_the_cloud_base_is_warm</code></td><td>Cloud compresses the span, but nowhere near to zero, and the reason is checkable.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L297" target="_blank" rel="noopener">the emissivity lut matches direct band averaging</a><br><code>test_the_emissivity_lut_matches_direct_band_averaging</code></td><td>The 0.25° incidence LUT is an optimisation, so it has to be shown not to be an error.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L311" target="_blank" rel="noopener">the sea cannot be built on a different weather</a><br><code>test_the_sea_cannot_be_built_on_a_different_weather</code></td><td>The sea is mostly reflected sky; the two disagreeing about weather breaks #6.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L318" target="_blank" rel="noopener">a sky in the other radiance form is refused</a><br><code>test_a_sky_in_the_other_radiance_form_is_refused</code></td><td>The bug this caught, in the one place it can be caught (ADR 0021).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L337" target="_blank" rel="noopener">the skin is derived from the bulk and never authored beside it</a><br><code>test_the_skin_is_derived_from_the_bulk_and_never_authored_beside_it</code></td><td>MM.4: the deficit is computed from the scene's own wind and flux, not passed in.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L356" target="_blank" rel="noopener">the profile lut matches the exact evaluation</a><br><code>test_the_profile_lut_matches_the_exact_evaluation</code></td><td>The depression LUT is what makes a frame renderable, so it has to be shown not to be a lie.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_surface.py#L374" target="_blank" rel="noopener">the profile lut is far cheaper than the exact path</a><br><code>test_the_profile_lut_is_far_cheaper_than_the_exact_path</code></td><td>The LUT exists to answer a frame's worth of angles; the exact path cannot.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

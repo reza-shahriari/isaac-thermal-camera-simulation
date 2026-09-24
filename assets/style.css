@@ -246,10 +246,20 @@ td.nowrap, th.nowrap { white-space: nowrap; }
 
 /* The decision table: four columns whose natural widths fight each other, because one status
    cell carries a sentence and the dates must not wrap. */
-#adr-table td:first-child, #adr-table th:first-child { width: 58px; }
-#adr-table td:nth-child(2) { width: 44%; }
-#adr-table td:nth-child(3) { width: 38%; }
-#adr-table td:nth-child(4) { width: 96px; }
+table.adr td:first-child, table.adr th:first-child { width: 58px; }
+table.adr td:nth-child(2) { width: 44%; }
+table.adr td:nth-child(3) { width: 38%; }
+table.adr td:nth-child(4) { width: 96px; }
+
+/* The test index: four columns, of which two must not be allowed to take the width. */
+table.suite td:first-child { width: 22%; }
+table.suite td:nth-child(3) { width: 16%; color: var(--dim); font-size: 13px; }
+table.suite td:last-child { width: 70px; text-align: right; }
+
+/* A pytest marker, beside the test or the file it applies to. */
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px;
+       background: var(--surface-2); color: var(--dim); font-family: var(--mono);
+       font-size: 11px; vertical-align: middle; }
 
 .filterline input { width: 100%; max-width: 420px; padding: 7px 12px; border-radius: 8px;
                     font: inherit; font-size: 14px; background: var(--surface); color: var(--fg);

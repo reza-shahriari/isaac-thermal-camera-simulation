@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion px — irsim</title>
+<meta name="description" content="Engine-free tests for synthesised image-plane motion (roadmap M10.1b, §13.3, §9.2).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Motion px</h1>
+  <p class="subtitle">Engine-free tests for synthesised image-plane motion (roadmap M10.1b, §13.3, §9.2).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py" target="_blank" rel="noopener">tests/unit/test_motion_px.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The renderer does not transport motion on this build (ADR 0014 addendum), so <code>motion_px</code> is computed from rigid-body transforms instead. That makes it <em>exact</em> rather than approximate, which raises the bar these tests should hold it to: a displacement of 3 px/frame is not "about 3", it is 3 to floating-point, uniformly across the frame, and a static scene is not "small", it is zero.</p>
+<p>The three cases the roadmap names are each a different way for the arithmetic to be wrong:</p>
+<ul>
+<li>a <strong>moving object</strong> with a static camera catches the scale and the sign;</li>
+<li>a <strong>static scene</strong> catches a stray transform being applied twice or not at all;</li>
+<li>an <strong>object and camera moving together</strong> catches the two halves being composed in the wrong order -- which is invisible in the first two cases, because there the camera is identity.</li>
+</ul>
+<p>A fourth case is here because the tracked-target stages depend on it: the <strong>background</strong> is at infinity, so it does not translate with the camera, only rotate. If that were wrong the sky behind a tracked aircraft would smear by the target's translation instead of the mount's rotation.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py" target="_blank" rel="noopener">tests/unit/test_motion_px.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L100" target="_blank" rel="noopener">a translating object reports its own pixel velocity</a><span class="tag">parametrize</span><br><code>test_a_translating_object_reports_its_own_pixel_velocity</code></td><td>A bar at 3 px/frame reports 3.0 -- exactly, and identically at every pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L113" target="_blank" rel="noopener">the y axis points down as the gbuffer contract says</a><br><code>test_the_y_axis_points_down_as_the_gbuffer_contract_says</code></td><td>An object moving <em>up</em> in the world gives a negative v: image y increases downwards.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L125" target="_blank" rel="noopener">a static scene reports exactly zero</a><br><code>test_a_static_scene_reports_exactly_zero</code></td><td>Not "small": zero. Both projections are of the same point through the same pose.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L131" target="_blank" rel="noopener">an object and camera moving together report zero</a><br><code>test_an_object_and_camera_moving_together_report_zero</code></td><td>A tracked target is stationary on the focal plane however fast it crosses the sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L143" target="_blank" rel="noopener">the object and camera case is not trivially zero</a><br><code>test_the_object_and_camera_case_is_not_trivially_zero</code></td><td>Guard on the test above: each half alone must produce a large, opposite displacement.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L158" target="_blank" rel="noopener">the background does not translate with the camera</a><br><code>test_the_background_does_not_translate_with_the_camera</code></td><td>Sky is at infinity: a camera that slides sideways does not move it at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L170" target="_blank" rel="noopener">the background does rotate with the camera</a><br><code>test_the_background_does_rotate_with_the_camera</code></td><td>A yawing mount sweeps the sky across the frame by about f tan(delta). This is the smear a tracked target's background actually gets.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L196" target="_blank" rel="noopener">a static camera leaves the background still</a><br><code>test_a_static_camera_leaves_the_background_still</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L204" target="_blank" rel="noopener">the plane matches the gbuffer contract</a><br><code>test_the_plane_matches_the_gbuffer_contract</code></td><td>(H, W, 2) float32 -- what <code>irsim.config.gbuffer</code> will accept as <code>motion_px</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L212" target="_blank" rel="noopener">a padded position aov is accepted</a><br><code>test_a_padded_position_aov_is_accepted</code></td><td>The renderer hands positions over as (H, W, 4) with a padded fourth component.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L231" target="_blank" rel="noopener">it refuses mismatched or wrongly typed inputs</a><br><code>test_it_refuses_mismatched_or_wrongly_typed_inputs</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_motion_px.py#L268" target="_blank" rel="noopener">transform points uses the row vector convention</a><br><code>test_transform_points_uses_the_row_vector_convention</code></td><td>USD matrices multiply on the left of a row vector; the column convention transposes them.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

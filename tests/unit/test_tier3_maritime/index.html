@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier3 maritime — irsim</title>
+<meta name="description" content="Tier 3 maritime phenomenology on the synthetic sea fixture (MM.8).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Tier3 maritime</h1>
+  <p class="subtitle">Tier 3 maritime phenomenology on the synthetic sea fixture (MM.8).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py" target="_blank" rel="noopener">tests/unit/test_tier3_maritime.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The sea half of the ir-sim-testing skill's Tier 3 list, run through the whole engine-free chain -- MM.2's Cox-Munk slopes, MM.3's depression profile, MM.4's skin temperature, MS.1's layered atmosphere, MS.2's sky above the horizon -- on a frame rather than on the models directly. <code>tests/unit/test_sea_surface.py</code> checks <code>SeaModel</code>; this file checks what a <em>camera</em> reads.</p>
+<p>⚠️ <strong>Two of MM.8's three written criteria are backwards, and these tests measure rather than assert them.</strong> Both assume the sea behaves like an overcast ground scene, and MM.3 had already found it does not (ADR 0078):</p>
+<ul>
+<li>"sea near the horizon reads colder than sea close in" -- it reads <strong>warmer</strong>, by 2.9 K here. The profile's coldest point is an interior trough about 5 degrees down, so a near-horizon frame sits on the <em>rising</em> side of it (1.2 K of the span), and the atmospheric path then roughly doubles that because the far ray is 7 km of air pulling toward T_air. The criterion is true only of sea past the trough, not of the band a shore or mast camera works in.</li>
+<li>"overcast collapses that span below 20 % of clear" -- it collapses to <strong>57 %</strong>. An overcast sky stops the reflection varying with angle, but the cloud base is still colder than the water and the atmospheric path does not care about cloud at all.</li>
+</ul>
+<p>The third -- polarity flips with range -- holds, and is the one that matters for detection.</p>
+<p><strong>And all three are statements about an extrapolation.</strong> SE.1 measured this frame against the angles published in-situ radiometry actually covers: <strong>1.0000 of its sea is outside them.</strong> The 50 deg validated limit is crossed 31 m from a 20 m camera and this frame starts at 530 m, so nothing here is backed by a measurement of a sea. The isothermal identity holds throughout and is not evidence to the contrary -- it holds for a wrong angular emissivity too (ADR 0118).</p>
+<p>docs/physics-model.md §15 (Tier 3), §5.3; ADR 0078, ADR 0080</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py" target="_blank" rel="noopener">tests/unit/test_tier3_maritime.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L162" target="_blank" rel="noopener">the fixture puts sea and sky both under the background mask</a><br><code>test_the_fixture_puts_sea_and_sky_both_under_the_background_mask</code></td><td>Both halves are computed backgrounds, so both carry distance 0 and the UNMAPPED id.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L188" target="_blank" rel="noopener">a sea reflecting a different sky is refused</a><br><code>test_a_sea_reflecting_a_different_sky_is_refused</code></td><td>CLAUDE.md #6 at its most literal: one horizon cannot have two weathers across it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L200" target="_blank" rel="noopener">the rendered sea is an identity on the sea model</a><br><code>test_the_rendered_sea_is_an_identity_on_the_sea_model</code></td><td>Rendered apparent temperature on water equals MM.3's own profile, to under a millikelvin.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L218" target="_blank" rel="noopener">the near horizon sea reads warmer than the close sea not colder</a><br><code>test_the_near_horizon_sea_reads_warmer_than_the_close_sea_not_colder</code></td><td>MM.8's first criterion, measured and <strong>inverted</strong>, with the mechanism separated out.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L258" target="_blank" rel="noopener">the profile has a cold trough a few degrees below the horizon</a><br><code>test_the_profile_has_a_cold_trough_a_few_degrees_below_the_horizon</code></td><td>Seen in a frame: the minimum is interior, so neither end of the sea is its coldest part.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L283" target="_blank" rel="noopener">overcast compresses the span but nowhere near to nothing</a><br><code>test_overcast_compresses_the_span_but_nowhere_near_to_nothing</code></td><td>MM.8's second criterion, measured at <strong>57 %</strong> of clear rather than under 20 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L305" target="_blank" rel="noopener">roughening the sea flattens the profile in the frame</a><br><code>test_roughening_the_sea_flattens_the_profile_in_the_frame</code></td><td>The wind reaches the picture through Cox-Munk, not through a roughness knob.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L346" target="_blank" rel="noopener">a vessels contrast polarity flips with range</a><br><code>test_a_vessels_contrast_polarity_flips_with_range</code></td><td>MM.8's third criterion, and the one that holds: bright near, dark far, same vessel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L364" target="_blank" rel="noopener">a hot vessel stays bright at every range</a><br><code>test_a_hot_vessel_stays_bright_at_every_range</code></td><td>The control. The flip is a property of <em>this</em> vessel temperature, not of range itself.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_maritime.py#L376" target="_blank" rel="noopener">the report prints how much of the frame is outside the validated envelope</a><br><code>test_the_report_prints_how_much_of_the_frame_is_outside_the_validated_envelope</code></td><td>SE.1: <strong>1.0000</strong> of this frame's sea is past the angle published radiometry reaches.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

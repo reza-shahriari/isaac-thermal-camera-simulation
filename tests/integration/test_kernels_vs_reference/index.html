@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kernels vs reference — irsim</title>
+<meta name="description" content="Roadmap M10.4: the CPU-vs-GPU equivalence harness, parametrised over (stage, fixture, device).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Kernels vs reference</h1>
+  <p class="subtitle">Roadmap M10.4: the CPU-vs-GPU equivalence harness, parametrised over (stage, fixture, device).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py" target="_blank" rel="noopener">tests/integration/test_kernels_vs_reference.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Every Warp stage registers its (CPU oracle, GPU twin) pair in <code>irsim_isaac.pipeline.warp_stages.EQUIVALENCE_STAGES</code>; this file runs both on the same synthetic G-buffers from tests/conftest.py and demands agreement within the ir-sim-testing budget for a GPU kernel against its CPU reference: ≤ 1e-4 relative, and ≤ 5 mK when the radiance error is expressed through dL_B/dT at the pixel's temperature (one tenth of the tightest NETD modelled). The CPU reference is the oracle (ADR 0018); a disagreement is a kernel bug until proven otherwise.</p>
+<p>Nothing here renders, and nothing here needs Kit: <code>irsim_isaac.env.ensure_warp_on_path</code> puts the <code>omni.warp.core</code> extension on <code>sys.path</code>, so the whole file runs from a bare Isaac Sim interpreter in seconds (ADR 0014 addendum). <code>cuda:0</code> is the production device; Warp's <code>cpu</code> device runs the same kernel source through the C++ backend and is included as a second, compiler-independent check of the arithmetic.</p>
+<p>make test-all                      # with everything else $PYTHON -m pytest tests/integration/test_kernels_vs_reference.py -m gpu</p>
+<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py" target="_blank" rel="noopener">tests/integration/test_kernels_vs_reference.py</a>. The whole file is marked <code>gpu</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L219" target="_blank" rel="noopener">stage matches cpu reference</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_stage_matches_cpu_reference</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L252" target="_blank" rel="noopener">sky mask and environment term match</a><br><code>test_sky_mask_and_environment_term_match</code></td><td>ε = 1 under the mask, ids ignored there, and the reflected term blended like the CPU.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L272" target="_blank" rel="noopener">isothermal enclosure identity on gpu</a><br><code>test_isothermal_enclosure_identity_on_gpu</code></td><td>Kirchhoff on the device: with L_env = L_B(T) the radiance is L_B(T) for every ε (1e-5).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L286" target="_blank" rel="noopener">lut device pointer is stable across frames</a><br><code>test_lut_device_pointer_is_stable_across_frames</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L302" target="_blank" rel="noopener">gpu refuses what the oracle refuses</a><br><code>test_gpu_refuses_what_the_oracle_refuses</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L318" target="_blank" rel="noopener">sky pixels bypass the atmosphere bit identically</a><span class="tag">parametrize</span><br><code>test_sky_pixels_bypass_the_atmosphere_bit_identically</code></td><td>ADR 0050: a sky pixel already carries the whole column to space, so stage 2 must not attenuate it again. Bit-identical, not merely close -- the CPU returns the input array.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L339" target="_blank" rel="noopener">every atmosphere path matches its oracle</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_every_atmosphere_path_matches_its_oracle</code></td><td>The three branches <code>atmosphere_stage</code> can take: one grey term, the constant-tau L1 fallback, and MS.1's multi-term sum. A single kernel serves all three because Sum w_k = 1 makes the per-term path radiance collapse to (1 - tau) L_air.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L376" target="_blank" rel="noopener">step edge psf then box matches the cpu to 1e5</a><span class="tag">parametrize</span><br><code>test_step_edge_psf_then_box_matches_the_cpu_to_1e5</code></td><td>M10.5's tight case: the optical PSF on the 4x grid <em>then</em> the block mean, in that order, across a 373/293 K edge where the blur has the most to do. A GPU path that downsampled first would still look plausible and would lose the sub-pixel edge profile MS.5 measures.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L394" target="_blank" rel="noopener">vignetting and self emission come from the host</a><span class="tag">parametrize</span><br><code>test_vignetting_and_self_emission_come_from_the_host</code></td><td>cos^4 across the field and Phi_self at the corner, against <code>irsim.optics</code> directly: the kernel may scale and add, it may not own the aperture factor (non-negotiable #5).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L419" target="_blank" rel="noopener">a warmer housing raises apparent temperature exactly as the cpu does</a><span class="tag">parametrize</span><br><code>test_a_warmer_housing_raises_apparent_temperature_exactly_as_the_cpu_does</code></td><td>Phi_self is why a shutterless camera drifts (§8.2, §11.2). A 1 K housing step must move the apparent temperature by the same amount on both paths, or the GPU drift is not the CPU's drift and every NUC/FFC test written against the oracle stops meaning anything.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L484" target="_blank" rel="noopener">twenty frame step tracks the cpu iir</a><span class="tag">parametrize</span><br><code>test_twenty_frame_step_tracks_the_cpu_iir</code></td><td>The membrane lag is the one stage with memory, so an agreement measured on a single frame proves nothing: the CPU adopts its input on frame 1 and so does the GPU. Drive a flux step through twenty frames, where a wrong alpha, a stale state or a state reset each show up as a growing divergence rather than a constant offset.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L505" target="_blank" rel="noopener">the first frame of a step covers alpha of it</a><span class="tag">parametrize</span><br><code>test_the_first_frame_of_a_step_covers_alpha_of_it</code></td><td>1 - e^{-dt/tau} = 0.8755 at 60 Hz and tau_th = 8 ms. §9.2's "smears over roughly 0.6 frames" is tau/dt, not the extent of the smear (spec issue S8) -- one frame already covers 88 % of a step, and this pins the number the kernel actually applies.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L535" target="_blank" rel="noopener">the iir state is allocated once and never leaves the device</a><span class="tag">parametrize</span><br><code>test_the_iir_state_is_allocated_once_and_never_leaves_the_device</code></td><td>Re-allocating the state per frame would be a silent correctness bug (a fresh buffer adopts its input, so the lag would vanish and every frame would look ideal) as well as a performance one, and round-tripping it to the host would defeat the point of keeping the chain on device.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L563" target="_blank" rel="noopener">the photon path has no memory and allocates no state</a><span class="tag">parametrize</span><br><code>test_the_photon_path_has_no_memory_and_allocates_no_state</code></td><td>Cooled photon detectors are memoryless on these timescales (ADR 0052) -- the Tier 3 phenomenology that LWIR smears and cooled MWIR does not. Two identical frames must give a bit-identical answer and no IIR buffer may exist at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_kernels_vs_reference.py#L583" target="_blank" rel="noopener">photon dn saturates and floors exactly like the cpu</a><span class="tag">parametrize</span><br><code>test_photon_dn_saturates_and_floors_exactly_like_the_cpu</code></td><td>DN = clip(floor(S), 0, 2^bits - 1). Floor rather than round is what makes the quantisation error uniform on [0, 1) LSB (ADR 0019), and saturation must clip, never wrap -- a wrapped well would turn the brightest part of the scene into the darkest.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

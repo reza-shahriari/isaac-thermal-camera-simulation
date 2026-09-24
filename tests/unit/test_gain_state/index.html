@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gain state — irsim</title>
+<meta name="description" content="Fire on the camera: the gain state, the rail and what the AGC does with them (roadmap PH.8).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Gain state</h1>
+  <p class="subtitle">Fire on the camera: the gain state, the rail and what the AGC does with them (roadmap PH.8).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py" target="_blank" rel="noopener">tests/unit/test_gain_state.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Everything before this step measured radiometry. This one measures a <em>camera</em>, and the two questions it answers are the ones a scene author cannot answer by looking at a frame.</p>
+<p><strong>Is the ceiling in the right units?</strong> For a single blackbody pixel, clipping the temperature at 500 °C and clipping the radiance at <code>L_B(500 °C)</code> are the same operation, which is exactly why the mistake survives review. They part company the moment a pixel is a <em>scene</em>: what arrives is <code>ε L_B(T) + (1 − ε) L_env</code>, which is not <code>L_B</code> of anything. Measured below on the shipped Boson, for a 1273 K surface under the low-gain ceiling: at ε = 0.6 the radiance clip rails and a kelvin clip <strong>misses the rail</strong>; at ε = 0.4 neither rails and a kelvin clip is <strong>120 K wrong on a pixel nowhere near saturation</strong>. A frame with a saturated flame in it looks like a frame with a saturated flame in it, so neither error would be questioned.</p>
+<p><strong>What does the rail do to everything else?</strong> FLIR's own note: a linear AGC collapses. Measured below: the same person against the same room goes from <strong>252 DN</strong> of separation to <strong>1.0 DN</strong> when a fire enters the frame, while plateau equalisation keeps <strong>90 DN</strong>. That is the whole argument for the plateau mode, as a number.</p>
+<p>docs/physics-model.md §9.2, §11.3; ADR 0091, ADR 0116.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py" target="_blank" rel="noopener">tests/unit/test_gain_state.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L99" target="_blank" rel="noopener">the bosons two states are the datasheets</a><br><code>test_the_bosons_two_states_are_the_datasheets</code></td><td>Rev 340's "Scene Dynamic Range": −40 to +140 °C high gain, −40 to +500 °C low.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L105" target="_blank" rel="noopener">a scene under the ceiling is the same object</a><br><code>test_a_scene_under_the_ceiling_is_the_same_object</code></td><td>Bit-identical, and the <em>same array</em>, so every golden written before <code>PH.8</code> still holds.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L114" target="_blank" rel="noopener">the ceiling is refused in float16 and at a nonsense level</a><br><code>test_the_ceiling_is_refused_in_float16_and_at_a_nonsense_level</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L123" target="_blank" rel="noopener">high gain rails on a 400 degree object and low gain does not</a><br><code>test_high_gain_rails_on_a_400_degree_object_and_low_gain_does_not</code></td><td>The gain state is the transfer, so the clip lands exactly on the converter's top code.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L144" target="_blank" rel="noopener">a state whose ceiling is below its floor is refused</a><br><code>test_a_state_whose_ceiling_is_below_its_floor_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L156" target="_blank" rel="noopener">a kelvin ceiling misses a rail a radiance ceiling catches</a><span class="tag">parametrize</span><br><code>test_a_kelvin_ceiling_misses_a_rail_a_radiance_ceiling_catches</code></td><td>The first half of ADR 0116's argument, and it only shows on a non-black surface.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L179" target="_blank" rel="noopener">a kelvin ceiling corrupts pixels that never reached it</a><br><code>test_a_kelvin_ceiling_corrupts_pixels_that_never_reached_it</code></td><td>The second half, and the worse one: it changes a pixel that is nowhere near saturation.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L216" target="_blank" rel="noopener">a linear agc collapses on a fire and plateau equalisation does not</a><br><code>test_a_linear_agc_collapses_on_a_fire_and_plateau_equalisation_does_not</code></td><td><code>PH.8</code>'s acceptance, and FLIR's own observation, as four numbers.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L243" target="_blank" rel="noopener">the radiometric branch does not pass through the agc</a><br><code>test_the_radiometric_branch_does_not_pass_through_the_agc</code></td><td>Whatever the display does, the measurement is the same. The rail is the camera's only cap.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gain_state.py#L259" target="_blank" rel="noopener">a low gain radiometric config gives flame 3 s histogram</a><br><code>test_a_low_gain_radiometric_config_gives_flame_3_s_histogram</code></td><td>The shape FLAME 3's radiometric TIFFs have: an ambient mode and a tail piled at the rail.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

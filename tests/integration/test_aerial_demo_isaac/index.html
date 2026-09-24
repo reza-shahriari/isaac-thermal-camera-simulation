@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aerial demo isaac — irsim</title>
+<meta name="description" content="Roadmap M10.19: in-sim aerial phenomenology on the demo stage.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Aerial demo isaac</h1>
+  <p class="subtitle">Roadmap M10.19: in-sim aerial phenomenology on the demo stage.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py" target="_blank" rel="noopener">tests/integration/test_aerial_demo_isaac.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Every claim here is about the <em>background</em>, because on a sky-target camera the background is most of the image and is the thing the detector has to separate a target from. It is also where the errors hide: a sky that is smooth, monotonic and completely wrong looks exactly like a sky.</p>
+<p>The sharpest check is where the <strong>horizon</strong> falls. It is not free parameters -- with the camera tilted by a known angle and a known focal length, elevation zero lands at <code>cy + f_px * tan(tilt)</code> and nowhere else. That single number caught the bug this stage was built to find: <code>Camera3dPositionSD</code> returns positions in <strong>camera</strong> space, not world space as ADR 0014 recorded, which only becomes visible once the camera is rotated. Read as world, the frame centre's ray has zero elevation, so the horizon sits in the middle of the picture, the upper half of the sky is painted with the ground temperature, and every <code>normal_dot_view</code> and sky-view factor tilts with it -- a perfectly plausible frame.</p>
+<p>docs/physics-model.md §15 T3, §5.3; ADR 0003 (aerial first), ADR 0044/MS.2 (the sky profile), ADR 0060 (the thermal bridge), ADR 0014 addendum (the position frame).</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py" target="_blank" rel="noopener">tests/integration/test_aerial_demo_isaac.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L158" target="_blank" rel="noopener">every target resolves to a material</a><br><code>test_every_target_resolves_to_a_material</code></td><td>The stage authors <code>thermal:material</code> on each prim, so nothing should be UNMAPPED.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L174" target="_blank" rel="noopener">the boresight points where the camera was tilted</a><br><code>test_the_boresight_points_where_the_camera_was_tilted</code></td><td>The ray at the frame centre must rise 8 degrees, because that is how the camera was posed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L187" target="_blank" rel="noopener">the horizon falls where the geometry puts it</a><br><code>test_the_horizon_falls_where_the_geometry_puts_it</code></td><td>Elevation zero at cy + f_px tan(tilt), to within a pixel. No free parameters.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L199" target="_blank" rel="noopener">the horizon is not a visible edge</a><br><code>test_the_horizon_is_not_a_visible_edge</code></td><td>A grazing clear sky converges on the ground temperature, so nothing marks the horizon.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L217" target="_blank" rel="noopener">the sky gets colder with elevation all the way up</a><br><code>test_the_sky_gets_colder_with_elevation_all_the_way_up</code></td><td>MS.2 in-sim: apparent sky temperature falls monotonically as the ray rises.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L231" target="_blank" rel="noopener">the ground below the horizon is one temperature</a><br><code>test_the_ground_below_the_horizon_is_one_temperature</code></td><td>Phase 1 has no ground thermal model: below the horizon is a single T_ground (ADR 0060).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L240" target="_blank" rel="noopener">the sky is colder than the air and the ground is not</a><br><code>test_the_sky_is_colder_than_the_air_and_the_ground_is_not</code></td><td>A clear LWIR sky reads far below ambient, the ground reads at it: the scene's whole sign.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L273" target="_blank" rel="noopener">the resolved targets stand out against the sky</a><br><code>test_the_resolved_targets_stand_out_against_the_sky</code></td><td>A 296 K airframe against a 250-270 K sky is strong positive contrast, and must read so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L288" target="_blank" rel="noopener">a sub pixel target is diluted rather than missing</a><br><code>test_a_sub_pixel_target_is_diluted_rather_than_missing</code></td><td>0.27 px of drone spread over a whole pixel loses most of its contrast -- why MS.6 exists.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L313" target="_blank" rel="noopener">the four outputs come back at the declared dtypes</a><br><code>test_the_four_outputs_come_back_at_the_declared_dtypes</code></td><td>§12.2 on a real scene rather than a test stage.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L327" target="_blank" rel="noopener">the dome does not touch one infrared pixel</a><br><code>test_the_dome_does_not_touch_one_infrared_pixel</code></td><td>The whole safety argument for ADR 0073, as an equality: same stage, dome or no dome.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_aerial_demo_isaac.py#L366" target="_blank" rel="noopener">the sun renders where noaa puts it</a><br><code>test_the_sun_renders_where_noaa_puts_it</code></td><td>Point the camera down the sun's own azimuth; the disc must land on the predicted pixel.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

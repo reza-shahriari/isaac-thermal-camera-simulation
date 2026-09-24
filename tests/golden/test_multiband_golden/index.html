@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multiband golden — irsim</title>
+<meta name="description" content="Golden frames beyond LWIR (GT.2): one MWIR, one SWIR and one NIR.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Multiband golden</h1>
+  <p class="subtitle">Golden frames beyond LWIR (GT.2): one MWIR, one SWIR and one NIR.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_multiband_golden.py" target="_blank" rel="noopener">tests/golden/test_multiband_golden.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Every golden array in this store came from one Boson LWIR config. That left the two subsystems where drift is hardest to see by eye -- the reflective-band chain and the sky/sea background -- with no reference array at all, and <code>SC.1</code> is the proof it matters: a 1.52x sigma and a zero dark current sat in the MWIR configuration until someone read the numbers, and a single MWIR golden would have caught both.</p>
+<p>Each frame runs the <strong>real</strong> shipped config, its committed band LUT and the material library's own table for that band, on a synthetic G-buffer whose scene is chosen to span the ADC without clipping -- a saturated golden hides exactly the changes it exists to catch. The reflective bands carry an <code>l_sun</code> plane scaled from <code>SolarIllumination</code>'s own band irradiance, because at 300 K their self-emission is ~1e-9 of LWIR's and an emission-only frame would be a picture of the noise.</p>
+<p>docs/physics-model.md §5.2, §9, §10, §11; ADR 0004 (the golden policy), ADR 0084 (illumination).</p>
+<p class='made-by'>2 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_multiband_golden.py" target="_blank" rel="noopener">tests/golden/test_multiband_golden.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_multiband_golden.py#L81" target="_blank" rel="noopener">golden frame for every band beyond lwir</a><span class="tag">parametrize</span><br><code>test_golden_frame_for_every_band_beyond_lwir</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/golden/test_multiband_golden.py#L121" target="_blank" rel="noopener">the reflective bands really are running on reflected sunlight</a><br><code>test_the_reflective_bands_really_are_running_on_reflected_sunlight</code></td><td>Why the <code>l_sun</code> plane is in the scene at all, asserted rather than assumed.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

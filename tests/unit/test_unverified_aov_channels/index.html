@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unverified aov channels — irsim</title>
+<meta name="description" content="IG.5 — the motion AOV does not reach the G-buffer, and its convention is never guessed.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Unverified aov channels</h1>
+  <p class="subtitle">IG.5 — the motion AOV does not reach the G-buffer, and its convention is never guessed.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py" target="_blank" rel="noopener">tests/unit/test_unverified_aov_channels.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Three places in this repository say the motion plane is omitted on this build. <code>gbuffer_isaac</code>'s own channel table says "no motion AOV transports motion"; <code>irsim.optics.motion</code> opens by saying the <code>motion_px</code> plane "had to be left empty", which is the reason the analytic tracker exists at all; and ADR 0014's addendum has the measurement — <code>motion_vectors</code> sitting at a ~6e-5 floor after a <strong>180 px</strong> displacement.</p>
+<p>The code delivered it anyway. <code>_reject_reason</code> applies its all-zero test only to <em>required</em> channels, and 6e-5 is not zero in any case, so the plane reached <code>RawAovs.motion</code>, was scaled by a <strong>defaulted</strong> <code>motion_convention="pixels"</code>, and arrived in the G-buffer where <code>irsim.optics.stage</code> ran the smear path on it.</p>
+<p>Numerically that is a no-op. The hazard is the convention: nothing has ever checked the sign, Replicator's documentation gives both signs opposite to this project's contract, and a plane that is noise today is a plane that is backwards the day a build starts filling it in. So the channel is not attached, and the conversion refuses to guess.</p>
+<p>docs/physics-model.md §13.3, §9.2; ADR 0014 addendum; roadmap IG.5, IG.6.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py" target="_blank" rel="noopener">tests/unit/test_unverified_aov_channels.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L57" target="_blank" rel="noopener">motion is the unverified channel</a><br><code>test_motion_is_the_unverified_channel</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L64" target="_blank" rel="noopener">a reader does not attach an unverified channel by default</a><br><code>test_a_reader_does_not_attach_an_unverified_channel_by_default</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L73" target="_blank" rel="noopener">a caller can still ask for it deliberately</a><br><code>test_a_caller_can_still_ask_for_it_deliberately</code></td><td>What <code>scripts/probe_isaac_geometry.py</code> does — surveying is the point of a probe.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L80" target="_blank" rel="noopener">requiring an unverified channel is refused</a><br><code>test_requiring_an_unverified_channel_is_refused</code></td><td>Otherwise the reader would drop it and then raise 'produced no data', blaming the build.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L86" target="_blank" rel="noopener">only a real unverified channel can be opted into</a><br><code>test_only_a_real_unverified_channel_can_be_opted_into</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L94" target="_blank" rel="noopener">a motion plane without a convention is refused</a><br><code>test_a_motion_plane_without_a_convention_is_refused</code></td><td>The defect: <code>motion_convention</code> used to default to "pixels" and nothing had checked it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L100" target="_blank" rel="noopener">a named convention still works</a><br><code>test_a_named_convention_still_works</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L108" target="_blank" rel="noopener">no motion aov means no plane and no complaint</a><br><code>test_no_motion_aov_means_no_plane_and_no_complaint</code></td><td>The shipped path. <code>motion_px</code> is optional in M0.6, so its absence is not an error.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L117" target="_blank" rel="noopener">the three conventions disagree by far more than a rounding</a><br><code>test_the_three_conventions_disagree_by_far_more_than_a_rounding</code></td><td>A defaulted convention is not a small error: it is the resolution, and the sign of y.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_unverified_aov_channels.py#L136" target="_blank" rel="noopener">the measured floor is not zero so an all zero guard would never have caught it</a><br><code>test_the_measured_floor_is_not_zero_so_an_all_zero_guard_would_never_have_caught_it</code></td><td>Why the fix is 'do not attach' rather than 'reject an empty plane'.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

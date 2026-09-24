@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage own hunk — irsim</title>
+<meta name="description" content="`scripts/stage_own_hunk.sh` stages only the caller&#x27;s hunks — the shared-tree commit hazard.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Stage own hunk</h1>
+  <p class="subtitle">`scripts/stage_own_hunk.sh` stages only the caller's hunks — the shared-tree commit hazard.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py" target="_blank" rel="noopener">tests/unit/test_stage_own_hunk.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Several sessions edit this repo's README, CHANGELOG and roadmap in one working tree at the same time, so <code>git add README.md</code> commits whatever another session had in flight; it has cost real prose here more than once. These tests drive the script the way two sessions actually collide: both hold an edit to one file, one commits first, and each commit must carry only its author's line while the other's stays in the worktree.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py" target="_blank" rel="noopener">tests/unit/test_stage_own_hunk.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L59" target="_blank" rel="noopener">two sessions editing one file keep their commits separate</a><br><code>test_two_sessions_editing_one_file_keep_their_commits_separate</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L93" target="_blank" rel="noopener">an edit made after your snapshot and never committed is the known blind spot</a><br><code>test_an_edit_made_after_your_snapshot_and_never_committed_is_the_known_blind_spot</code></td><td>The one case the script cannot tell from your own work, asserted so it stays documented.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L113" target="_blank" rel="noopener">a change the other session committed after your snapshot is not re applied</a><br><code>test_a_change_the_other_session_committed_after_your_snapshot_is_not_re_applied</code></td><td>The common case, and why this is a three-way merge rather than <code>git apply</code>: B's line is on both sides of the merge, so it is a no-op in A's commit instead of a failed patch.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L135" target="_blank" rel="noopener">a file absent from head is refused with advice</a><br><code>test_a_file_absent_from_head_is_refused_with_advice</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L142" target="_blank" rel="noopener">staging without a snapshot is refused</a><br><code>test_staging_without_a_snapshot_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L147" target="_blank" rel="noopener">an unchanged file stages nothing</a><br><code>test_an_unchanged_file_stages_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L154" target="_blank" rel="noopener">a collision on the same lines is reported not forced</a><br><code>test_a_collision_on_the_same_lines_is_reported_not_forced</code></td><td>When the other session changed the same lines the merge conflicts. The script must say so and stage nothing, rather than silently picking a side.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L169" target="_blank" rel="noopener">sessions do not share a snapshot slot</a><br><code>test_sessions_do_not_share_a_snapshot_slot</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L180" target="_blank" rel="noopener">check refuses a plain git add that would clobber a committed change</a><br><code>test_check_refuses_a_plain_git_add_that_would_clobber_a_committed_change</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L203" target="_blank" rel="noopener">check passes content staged by stage</a><br><code>test_check_passes_content_staged_by_stage</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L220" target="_blank" rel="noopener">check requires a snapshot</a><br><code>test_check_requires_a_snapshot</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L230" target="_blank" rel="noopener">check ignores files with nothing staged</a><br><code>test_check_ignores_files_with_nothing_staged</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_stage_own_hunk.py#L235" target="_blank" rel="noopener">check allows a solo edit with no intervening commit</a><br><code>test_check_allows_a_solo_edit_with_no_intervening_commit</code></td><td>The common case: nobody else touched the file, so a plain <code>git add</code> is harmless.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

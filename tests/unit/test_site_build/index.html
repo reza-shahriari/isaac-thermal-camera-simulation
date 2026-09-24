@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site build — irsim</title>
+<meta name="description" content="The project site builds, and every link in it goes somewhere.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Site build</h1>
+  <p class="subtitle">The project site builds, and every link in it goes somewhere.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py" target="_blank" rel="noopener">tests/unit/test_site_build.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The site is 150-odd pages generated from documents that cross-reference each other heavily, and the failure mode is not a crash: it is a page that builds fine and links to <code>/physics/</code>, which works in a local preview and 404s once GitHub Pages serves the site from <code>/&lt;repo&gt;/</code>. So the tests here are about the <em>links</em>, not about the prose:</p>
+<ul>
+<li>every internal href resolves to a file this build actually wrote;</li>
+<li>no href is root-absolute, because the published site lives under a subdirectory;</li>
+<li>the search index names pages that exist.</li>
+</ul>
+<p>The build runs with <code>media=False</code>: encoding the gallery needs ffmpeg and a tree of renders that is not in git, and neither belongs in the commit gate. The gallery's own behaviour when those renders are absent -- list them rather than drop the section -- is asserted instead.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py" target="_blank" rel="noopener">tests/unit/test_site_build.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L45" target="_blank" rel="noopener">it builds a page for every document</a><br><code>test_it_builds_a_page_for_every_document</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L56" target="_blank" rel="noopener">no link is root absolute</a><br><code>test_no_link_is_root_absolute</code></td><td>Works locally, 404s under the <code>/&lt;repo&gt;/</code> prefix a project page is served from.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L63" target="_blank" rel="noopener">every internal link resolves</a><br><code>test_every_internal_link_resolves</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L78" target="_blank" rel="noopener">the search index names pages that exist</a><br><code>test_the_search_index_names_pages_that_exist</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L89" target="_blank" rel="noopener">the gallery reports renders it could not find</a><br><code>test_the_gallery_reports_renders_it_could_not_find</code></td><td>With no renders to hand the section still publishes, naming what is missing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L99" target="_blank" rel="noopener">the front page counts the repository</a><br><code>test_the_front_page_counts_the_repository</code></td><td>Every headline figure is measured at build time, so it cannot go stale in a commit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L111" target="_blank" rel="noopener">every test file is published with what it guards</a><br><code>test_every_test_file_is_published_with_what_it_guards</code></td><td>The suite is this project's evidence, so all of it is on the site, and none of it is blank.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L133" target="_blank" rel="noopener">every script is on the commands page</a><br><code>test_every_script_is_on_the_commands_page</code></td><td>If it can be run from a shell, a reader can find out what it does without reading it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L140" target="_blank" rel="noopener">the working practice skills are published</a><br><code>test_the_working_practice_skills_are_published</code></td><td>The conventions the documents assume are published with them, not left beside the code.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_site_build.py#L151" target="_blank" rel="noopener">a citation in the specification links to the code</a><br><code>test_a_citation_in_the_specification_links_to_the_code</code></td><td>A repository path that is not a rendered page becomes a link to the file on GitHub.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

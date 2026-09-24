@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Band class coverage — irsim</title>
+<meta name="description" content="AT.2 / AT.3 — the camera&#x27;s own R(λ) reaches the atmosphere, and every band&#x27;s classes cover it.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Band class coverage</h1>
+  <p class="subtitle">AT.2 / AT.3 — the camera's own R(λ) reaches the atmosphere, and every band's classes cover it.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py" target="_blank" rel="noopener">tests/unit/test_band_class_coverage.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>Scene.from_config</code> built <code>LayeredAtmosphere(preset, weather, luts)</code> and never passed the fourth <code>responses</code> argument, so <code>class_weights</code> fell back to a <strong>nominal top-hat</strong> for every band. The model then describes a different camera than the one being simulated, and says nothing about it.</p>
+<p>Measured on the shipped InSb MWIR response: the <code>h2o_wing</code> class weight goes <strong>0.0192 → 0.1303, a 6.8× change</strong> in how much of the band is treated as a water wing (0.0238 before <code>AT.10</code> derived the classes from the band's span rather than reading them off a hand-written table). LWIR barely moves, because the Boson's response happens to be close to its nominal top-hat — which is exactly why this stayed invisible: the one band the project renders most is the one the shortcut suits.</p>
+<p>The two steps land together because AT.2 exposes AT.3. Supplying the real NIR response used to <strong>raise</strong>: <code>BAND_CLASSES['nir']</code> stopped at 1.05 µm and <code>nir_si.csv</code> reaches 1.10, carrying 0.188 % of the Planck-weighted band outside any class. SWIR and MWIR had the same shortfall and passed only because their responses carry 0.000 % out there — luck, not coverage.</p>
+<p>docs/physics-model.md §7.4; ADR 0071; roadmap AT.2, AT.3.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py" target="_blank" rel="noopener">tests/unit/test_band_class_coverage.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L56" target="_blank" rel="noopener">there are sensors to walk</a><br><code>test_there_are_sensors_to_walk</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L61" target="_blank" rel="noopener">every shipped sensor response is inside its bands classes</a><span class="tag">parametrize</span><br><code>test_every_shipped_sensor_response_is_inside_its_bands_classes</code></td><td>The guard AT.3 asks for: a response reaching past its classes must not be possible to ship.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L78" target="_blank" rel="noopener">the class edges span the detector</a><span class="tag">parametrize</span><br><code>test_the_class_edges_span_the_detector</code></td><td>Coverage by construction, not by the response happening to be zero out there.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L98" target="_blank" rel="noopener">the mwir water wing weight moves by a factor of six</a><br><code>test_the_mwir_water_wing_weight_moves_by_a_factor_of_six</code></td><td>The measured defect, recorded as a number so a later change cannot quietly undo it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L116" target="_blank" rel="noopener">lwir barely moves which is why this hid</a><br><code>test_lwir_barely_moves_which_is_why_this_hid</code></td><td>The Boson's response is close to its nominal top-hat, so the band rendered most was fine.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L123" target="_blank" rel="noopener">a layered atmosphere without a response warns</a><br><code>test_a_layered_atmosphere_without_a_response_warns</code></td><td>Silent was the problem: the output looks like an output either way.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L130" target="_blank" rel="noopener">a layered atmosphere with a response is quiet and different</a><br><code>test_a_layered_atmosphere_with_a_response_is_quiet_and_different</code></td><td>The two answers differ in the transmittance, not only in a weight vector.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L151" target="_blank" rel="noopener">the response loader and the lut come from one path</a><br><code>test_the_response_loader_and_the_lut_come_from_one_path</code></td><td>They must describe one camera, so they are loaded from the same field of the same config.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L162" target="_blank" rel="noopener">a scene threads the response into its layered atmosphere</a><br><code>test_a_scene_threads_the_response_into_its_layered_atmosphere</code></td><td>The defect was a missing argument at exactly one call site; this is that argument.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_class_coverage.py#L175" target="_blank" rel="noopener">a scene without a response still builds but warns</a><br><code>test_a_scene_without_a_response_still_builds_but_warns</code></td><td>Existing callers keep working; they are told what they are getting.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

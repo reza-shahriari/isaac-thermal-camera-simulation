@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ship-step — irsim</title>
+<meta name="description" content="The completion checklist for finishing any unit of work in this repo — running the check gate, updating README status and CHANGELOG, writing an ADR when a decision was made, and co">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ship-step</h1>
+  <p class="subtitle">The completion checklist for finishing any unit of work in this repo — running the check gate, updating README status and CHANGELOG, writing an ADR when a decision was made, and committing with the project's Conventional Commits format. Use this skill EVERY time a piece of work is finished, before committing, and whenever the user says "commit this", "that's done", "next step", "ship it", or asks to wrap up. Do not reconstruct the process from memory — the README and CHANGELOG updates are the parts most often skipped and they are what keep a multi-person project legible.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/ship-step/SKILL.md" target="_blank" rel="noopener">.claude/skills/ship-step/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#the-gate">The gate</a></li>
+<li class="toc-2"><a href="#the-checklist">The checklist</a></li>
+<li class="toc-2"><a href="#when-to-stop-instead-of-shipping">When to stop instead of shipping</a></li>
+<li class="toc-2"><a href="#quick-version">Quick version</a></li></ul></nav>
+<article class="prose">
+<p>A step is not done when the code works. It is done when someone who was not in the conversation can tell what happened and why.</p>
+<h2 id="the-gate">The gate<a class="anchor" href="#the-gate" aria-label="permalink">#</a></h2>
+<p>Run in order. Do not proceed past a failure.</p>
+<pre><code class="language-bash">make check        # lint + typecheck + unit tests</code></pre>
+<p>If <code>make check</code> fails, fix it. Never commit with <code>--no-verify</code>. Never disable a lint rule to get past it without saying so in the commit body.</p>
+<h2 id="the-checklist">The checklist<a class="anchor" href="#the-checklist" aria-label="permalink">#</a></h2>
+<p><strong>1. Code</strong></p>
+<ul>
+<li>[ ] Implements one coherent thing. If it implements three, split the commit.</li>
+<li>[ ] Docstrings cite the physics spec where relevant: <code># docs/physics-model.md §3.2</code></li>
+<li>[ ] No engine imports in <code>src/irsim/</code> (there is a test; it should have caught this)</li>
+<li>[ ] No float16 anywhere temperature or radiance flows</li>
+<li>[ ] No new physical constants defined inline — they belong in <code>irsim.radiometry.constants</code></li>
+</ul>
+<p><strong>2. Tests</strong></p>
+<ul>
+<li>[ ] New physics has a test that would fail if the physics were wrong (see the <code>ir-sim-testing</code> skill)</li>
+<li>[ ] Tolerances expressed in physically meaningful units (mK, K, relative)</li>
+<li>[ ] Randomness seeded</li>
+<li>[ ] Unit suite still runs in under 30 s</li>
+</ul>
+<p><strong>3. README</strong></p>
+<p>Update <code>README.md</code> — specifically:</p>
+<ul>
+<li>the <strong>status table</strong> (which components exist, and at what validation tier)</li>
+<li>anything the change makes untrue (commands, layout, requirements, supported bands)</li>
+<li>the <strong>Current limitations</strong> section if the change added or removed one</li>
+</ul>
+<p>This is the step most often skipped. A README that lags the code by three weeks is worse than no README, because people trust it.</p>
+<p><strong>4. CHANGELOG</strong></p>
+<p>Add an entry under <code>## [Unreleased]</code>, in the appropriate subsection (<code>Added</code>, <code>Changed</code>, <code>Fixed</code>, <code>Removed</code>). One line, written for a teammate, not for a compiler:</p>
+<pre><code class="language-markdown">### Added
+- Band-integrated Planck LUT with inverse lookup (200-1000 K, 0.05 K, float32). Round-trip &lt; 1 mK.</code></pre>
+<p><strong>5. ADR, if a decision was made</strong></p>
+<p>Write <code>docs/decisions/NNNN-short-title.md</code> when the change involved a choice that outlives the commit:</p>
+<ul>
+<li>a solver, encoding, or algorithm chosen over alternatives</li>
+<li>a fidelity level deliberately skipped</li>
+<li>a tolerance loosened</li>
+<li>a dependency added</li>
+<li>an approximation whose error you cannot currently bound</li>
+</ul>
+<p>Use the template in <code>docs/decisions/0001-record-architecture-decisions.md</code>. Keep it to a page. This project involves a lot of "we chose the cheaper approximation on purpose", and without the reasoning recorded, someone will later mistake a deliberate choice for a bug — or worse, mistake a bug for a deliberate choice.</p>
+<p><strong>6. The site</strong></p>
+<p>Run <code>make site</code> and read its output. Most of what you just wrote reaches the project site on its own — a module, a test file, an ADR, a config and a script are all published from their own docstrings, so a missing docstring is now a blank cell on a public page. A <strong>render or a clip is not automatic</strong>: name it in <code>site/gallery.yaml</code>, with captions whose numbers come from that run's own <code>summary.json</code> or off its frames.</p>
+<p>The build reports its page count, its media budget, any manifest entry this checkout could not supply, and any dead link in the documents. <code>tests/unit/test_site_build.py</code> fails the gate on a dead internal link, so a broken site shows up in step 1, not after publishing.</p>
+<p>Do not push <code>gh-pages</code> unless the user asks. Full detail: the <code>present-on-the-site</code> skill.</p>
+<p><strong>7. Commit</strong></p>
+<p>Conventional Commits. Scope from: <code>radiometry</code>, <code>materials</code>, <code>thermal</code>, <code>atmosphere</code>, <code>optics</code>, <code>detector</code>, <code>noise</code>, <code>isp</code>, <code>config</code>, <code>isaac</code>, <code>spg</code>, <code>build</code>, <code>docs</code>.</p>
+<pre><code>feat(radiometry): add band-integrated Planck LUT with inverse lookup
+
+Implements docs/physics-model.md §3.2 (b) and §3.3. LUT covers 200-1000 K at
+0.05 K spacing, float32, linear interpolation. Inverse by binary search.
+
+Round-trip error &lt; 1 mK across the full range; agrees with direct Simpson
+quadrature to &lt; 2 mK equivalent (tests/unit/test_planck.py).
+
+Refs: ADR 0004</code></pre>
+<p>Body should say <strong>what physics it implements</strong> and <strong>what the verification showed</strong>. "Added LUT" tells a reviewer nothing they could not read from the diff.</p>
+<p>Several sessions share this working tree. Never <code>git add -A</code>: a blanket add stages whoever else has <code>README.md</code>, <code>CHANGELOG.md</code> or <code>docs/roadmap.md</code> open, and their prose lands in your commit under your message — this has actually happened, more than once. Stage named paths instead:</p>
+<pre><code class="language-bash">git add path/to/your_module.py tests/unit/test_your_module.py   # files only you touched
+make stage FILES="README.md CHANGELOG.md docs/roadmap.md"       # the three shared files, if you
+                                                                  # touched them and snapshotted first
+git commit -F &lt;message-file&gt;     # or -m with a heredoc; keep the body</code></pre>
+<p><code>make stage</code> runs <code>scripts/stage_own_hunk.sh stage</code> (three-way merges your edit onto current HEAD, so a change someone else <em>committed</em> meanwhile is a no-op instead of getting overwritten) followed by <code>scripts/stage_own_hunk.sh check</code> (refuses and explains if the staged content still isn't safe to commit). It only works if you snapshotted the files <em>before</em> editing them:</p>
+<pre><code class="language-bash">scripts/stage_own_hunk.sh snapshot README.md CHANGELOG.md docs/roadmap.md   # before you edit</code></pre>
+<p>The same check runs as a pre-commit hook (<code>.pre-commit-config.yaml</code>, install once with <code>pre-commit install</code>) so a plain <code>git add</code> on a shared file is refused even if this step is skipped. Full detail: README.md's Contributing section.</p>
+<p>Do not <code>git push</code> unless asked — the user may want to review or amend first.</p>
+<h2 id="when-to-stop-instead-of-shipping">When to stop instead of shipping<a class="anchor" href="#when-to-stop-instead-of-shipping" aria-label="permalink">#</a></h2>
+<p>Say so in the conversation rather than committing, if:</p>
+<ul>
+<li>the step turned out larger than expected and is half-tested → propose a split</li>
+<li>a test is failing and the fix is not obvious → do not loosen the tolerance to go green</li>
+<li>something about the Isaac Sim API turned out ambiguous → propose an experiment, do not guess</li>
+<li>the change contradicts <code>docs/physics-model.md</code> → raise the disagreement first; the spec may be wrong, but silently diverging from it is what makes a spec worthless</li>
+</ul>
+<h2 id="quick-version">Quick version<a class="anchor" href="#quick-version" aria-label="permalink">#</a></h2>
+<pre><code>make check  →  README status  →  CHANGELOG entry  →  ADR if a decision  →  make site  →  commit</code></pre>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

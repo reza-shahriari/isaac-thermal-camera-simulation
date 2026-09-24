@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scene occluders — irsim</title>
+<meta name="description" content="PT.18 — occluders and daylight in the config path: a wall half in sun, from YAML alone.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Scene occluders</h1>
+  <p class="subtitle">PT.18 — occluders and daylight in the config path: a wall half in sun, from YAML alone.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py" target="_blank" rel="noopener">tests/unit/test_scene_occluders.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>PT.1 shipped the per-cell shadow and PT.17 the per-cell solve, and between them no scene config could reach either: <code>cell_shadow</code> had no caller outside its own tests, a patched surface under the sun took one <code>shaded</code> bool for all of its cells, and nothing said which way a scene's world frame was up. This file is the scene-config half of ADR 0087's headline case.</p>
+<p>The load-bearing test is <code>test_a_wall_half_in_sun_from_yaml_alone</code>. Its companion <code>test_unshaded_cells_stay_bit_identical_to_the_per_prim_solve</code> is the guard that the beam term did not move anything it should not have: a cell no occluder ever reaches must reproduce the per-prim value exactly, spin-up included, because the two are the same arithmetic on the same operands.</p>
+<p>docs/physics-model.md §5.4, §6.1; ADR 0087, ADR 0095; roadmap PT.18.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py" target="_blank" rel="noopener">tests/unit/test_scene_occluders.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L155" target="_blank" rel="noopener">a wall half in sun from yaml alone</a><span class="tag">slow</span><br><code>test_a_wall_half_in_sun_from_yaml_alone</code></td><td>The scene config declares the wall and the overhang; the field carries the step.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L182" target="_blank" rel="noopener">the per cell beam is pt1 s shadow on the scene s own sun</a><br><code>test_the_per_cell_beam_is_pt1_s_shadow_on_the_scene_s_own_sun</code></td><td>The forcing's q_solar equals <code>solar_loading</code> on <code>cell_shadow</code>, exactly, cell for cell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L208" target="_blank" rel="noopener">unshaded cells stay bit identical to the per prim solve</a><span class="tag">slow</span><br><code>test_unshaded_cells_stay_bit_identical_to_the_per_prim_solve</code></td><td>The verification cell's "1 mK where unshaded".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L246" target="_blank" rel="noopener">y up and enu authoring of one wall shade identically</a><br><code>test_y_up_and_enu_authoring_of_one_wall_shade_identically</code></td><td>The car stage is Y-up; the frame block is what lets its patches be shaded at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L267" target="_blank" rel="noopener">a shaded flag beside occluders is two authorities</a><br><code>test_a_shaded_flag_beside_occluders_is_two_authorities</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L273" target="_blank" rel="noopener">a shaded flag without occluders is still the v7 scene</a><br><code>test_a_shaded_flag_without_occluders_is_still_the_v7_scene</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L281" target="_blank" rel="noopener">an occluder in a moving frame is refused at load</a><br><code>test_an_occluder_in_a_moving_frame_is_refused_at_load</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L287" target="_blank" rel="noopener">a patch in a moving frame under occluders is refused at build</a><br><code>test_a_patch_in_a_moving_frame_under_occluders_is_refused_at_build</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L295" target="_blank" rel="noopener">a patch whose plane disagrees with its tilt is refused</a><br><code>test_a_patch_whose_plane_disagrees_with_its_tilt_is_refused</code></td><td>A vertical grid on a surface that says it faces up: the shadow would be cast on cells the balance's normal never faces.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L303" target="_blank" rel="noopener">malformed frames and occluders fail at load</a><br><code>test_malformed_frames_and_occluders_fail_at_load</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L323" target="_blank" rel="noopener">the world frame is right handed and exact</a><br><code>test_the_world_frame_is_right_handed_and_exact</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L336" target="_blank" rel="noopener">a v7 scene reads as enu with nothing to shade</a><br><code>test_a_v7_scene_reads_as_enu_with_nothing_to_shade</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_scene_occluders.py#L341" target="_blank" rel="noopener">a box casts from all six faces</a><br><code>test_a_box_casts_from_all_six_faces</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

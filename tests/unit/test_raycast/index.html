@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raycast — irsim</title>
+<meta name="description" content="PT.22 — shadows from geometry, neighbours included, and the sun&#x27;s finite disc.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Raycast</h1>
+  <p class="subtitle">PT.22 — shadows from geometry, neighbours included, and the sun's finite disc.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py" target="_blank" rel="noopener">tests/unit/test_raycast.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Three claims. The mesh path and the rectangle path agree cell-for-cell on a box occluder, so swapping the representation cannot change the physics. A neighbouring block shades a wall that the wall's own mesh never can, which is what "the query walks every opaque prim" means. And the 0.53 deg solar disc, sampled on 7 to 37 rays, makes the terminator a ramp <code>d tan(0.53 deg)</code> wide -- 9.3 mm per metre of standoff, held to 10 % -- where a binary test gives a step of zero width and fails outright.</p>
+<p>docs/physics-model.md §5.2, §6.1; ADR 0095, ADR 0107; roadmap PT.22.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py" target="_blank" rel="noopener">tests/unit/test_raycast.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L64" target="_blank" rel="noopener">the rectangle occluder is cell shadow generalised to per ray origins</a><br><code>test_the_rectangle_occluder_is_cell_shadow_generalised_to_per_ray_origins</code></td><td>The oracle: the same exact ray-rectangle test, so nothing about the physics moved.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L85" target="_blank" rel="noopener">the mesh path and the rectangle path agree cell for cell on a box</a><br><code>test_the_mesh_path_and_the_rectangle_path_agree_cell_for_cell_on_a_box</code></td><td>A box as six rectangles and as twelve triangles: the same shadow, cell for cell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L113" target="_blank" rel="noopener">a neighbouring block shades a wall its own mesh cannot</a><br><code>test_a_neighbouring_block_shades_a_wall_its_own_mesh_cannot</code></td><td>Self-shadowing is what a surface's own normal already gives; the interesting shadow comes from something else in the scene, and the query has to walk that too.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L152" target="_blank" rel="noopener">the disc rays cover it to the limb and weigh it correctly</a><br><code>test_the_disc_rays_cover_it_to_the_limb_and_weigh_it_correctly</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L173" target="_blank" rel="noopener">the penumbra ramp is d tan half a degree within ten per cent</a><span class="tag">parametrize</span><br><code>test_the_penumbra_ramp_is_d_tan_half_a_degree_within_ten_per_cent</code></td><td>An infinite edge <code>d</code> above the ground under an overhead sun. The partly lit cells are the penumbra, and they span <code>d tan(0.53 deg)</code> = 9.3 mm per metre. Measured at 2 m: 18.0 mm against 18.6 mm expected, the difference being the 1 mm cell the ramp is sampled on.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L213" target="_blank" rel="noopener">a soup refuses what it cannot index and rejects rays that miss its box</a><br><code>test_a_soup_refuses_what_it_cannot_index_and_rejects_rays_that_miss_its_box</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L232" target="_blank" rel="noopener">a scene can turn the disc on and one ray is the shadow it always had</a><br><code>test_a_scene_can_turn_the_disc_on_and_one_ray_is_the_shadow_it_always_had</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L268" target="_blank" rel="noopener">the numpy soup agrees with trimesh where trimesh is installed</a><br><code>test_the_numpy_soup_agrees_with_trimesh_where_trimesh_is_installed</code></td><td>An independent intersector on the same triangles. <code>trimesh</code> is optional and not a dependency of the core (CLAUDE.md #1): the rectangles are the oracle, and this is a third opinion where the library happens to be present. It is skipped on the CI gate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L288" target="_blank" rel="noopener">a sphere mesh closes on the analytic sphere and occludes like one</a><br><code>test_a_sphere_mesh_closes_on_the_analytic_sphere_and_occludes_like_one</code></td><td>The curved occluder, and the geometry <code>WM.2</code> hangs a field on. A UV sphere is a chord approximation, so its area is <em>under</em> 4 pi r^2 and closes on it as the tessellation refines -- a mesh whose area went the other way would have inverted winding or duplicated faces.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L322" target="_blank" rel="noopener">every generated mesh winds its faces outward</a><br><code>test_every_generated_mesh_winds_its_faces_outward</code></td><td>The invariant a <code>WM.2</code> field depends on and a ray test does not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_raycast.py#L354" target="_blank" rel="noopener">a cylinder closes on its analytic area and can be left open</a><br><code>test_a_cylinder_closes_on_its_analytic_area_and_can_be_left_open</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

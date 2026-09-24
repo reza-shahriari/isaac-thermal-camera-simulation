@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cost budget — irsim</title>
+<meta name="description" content="GT.7 -- the cell and prim budget, pinned so nobody coarsens a patch for speed.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Cost budget</h1>
+  <p class="subtitle">GT.7 -- the cell and prim budget, pinned so nobody coarsens a patch for speed.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py" target="_blank" rel="noopener">tests/unit/test_cost_budget.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Fraunhofer ran 1,313,410 triangles with a 10-layer stack through five day-night cycles in 252 s, in MATLAB, on one i7-8700. That is the number this lane's sizing rests on: 10^5-10^6 cells is affordable, so a patch authored coarsely to "keep the solve cheap" is trading accuracy for nothing. This file measures whether that is still true here.</p>
+<p><strong>Timing tests on a shared workstation flake.</strong> Two things keep these honest. The budgets are set roughly an order of magnitude above the measured value, because the regression worth catching is an accidental O(n^2) or a per-cell Python loop, not a 20 % drift -- and a tight budget would be red whenever somebody else's render is running. And the one assertion that can be made <em>structurally</em> is: <code>test_sample_computes_the_local_coordinates_once</code> counts calls instead of seconds, so the <code>GT.7</code> optimisation is guarded by something that cannot flake at all.</p>
+<p>Measured on this workstation while otherwise loaded, at the values the budgets are set from:</p>
+<p>===========================================  ==========  =========== what                                         measured    budget here ===========================================  ==========  =========== 102,400-cell field, 48 h spin-up at 60 s      11.5 s      90 s <code>PointwiseTemperature.apply</code>, 640x512       32.7 ms     250 ms ===========================================  ==========  ===========</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py" target="_blank" rel="noopener">tests/unit/test_cost_budget.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py#L82" target="_blank" rel="noopener">sample computes the local coordinates once</a><br><code>test_sample_computes_the_local_coordinates_once</code></td><td><code>GT.7</code>: <code>sample</code> needed both the patch coordinates and the inside test, and computed the coordinates twice to get them -- once itself and once inside <code>contains</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py#L114" target="_blank" rel="noopener">contains and contains local agree</a><br><code>test_contains_and_contains_local_agree</code></td><td>The split must not have moved the slab test, only the coordinates it reads.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py#L125" target="_blank" rel="noopener">a hundred thousand cells spin up inside the budget</a><span class="tag">slow</span><br><code>test_a_hundred_thousand_cells_spin_up_inside_the_budget</code></td><td>The row's premise, measured: 10^5 cells over 48 h is affordable, so do not coarsen a patch.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py#L153" target="_blank" rel="noopener">a bound prim costs a fraction of a frame</a><span class="tag">slow</span><br><code>test_a_bound_prim_costs_a_fraction_of_a_frame</code></td><td>The render half: what one patched prim costs per frame at a real sensor's resolution.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cost_budget.py#L190" target="_blank" rel="noopener">the solve scales with the cell count and not worse</a><span class="tag">slow</span><br><code>test_the_solve_scales_with_the_cell_count_and_not_worse</code></td><td>A ratio, not a clock: sixteen times the cells must not cost far more than sixteen times.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>thermal-materials — irsim</title>
+<meta name="description" content="Material modelling for the IR camera simulator — spectral emissivity, Kirchhoff closure, Fresnel angular emissivity from complex refractive index, per-band roughness, semi-transpar">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>thermal-materials</h1>
+  <p class="subtitle">Material modelling for the IR camera simulator — spectral emissivity, Kirchhoff closure, Fresnel angular emissivity from complex refractive index, per-band roughness, semi-transparent glass, and the mapping layer that assigns thermal/optical properties to imported USD assets. Use this skill whenever the task involves emissivity, reflectance, transmittance, material libraries, material YAML, BRDF or roughness in the IR, n/k optical constants, how a specific surface (paint, glass, metal, skin, asphalt, vegetation) should look in a given band, or importing a mesh that has no thermal properties. Also use it before adding any new material, since the closure and audit rules are easy to violate.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/thermal-materials/SKILL.md" target="_blank" rel="noopener">.claude/skills/thermal-materials/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#rule-1-author-one-property-derive-the-rest">Rule 1: author one property, derive the rest</a></li>
+<li class="toc-2"><a href="#rule-2-the-metal-question-is-paint-not-alloy">Rule 2: the metal question is paint, not alloy</a></li>
+<li class="toc-2"><a href="#rule-3-roughness-is-per-band">Rule 3: roughness is per-band</a></li>
+<li class="toc-2"><a href="#rule-4-bands-change-what-a-material-is">Rule 4: bands change what a material is</a></li>
+<li class="toc-2"><a href="#angular-emissivity">Angular emissivity</a></li>
+<li class="toc-2"><a href="#the-usd-import-problem">The USD import problem</a></li>
+<li class="toc-2"><a href="#material-schema">Material schema</a></li>
+<li class="toc-2"><a href="#tests-to-write">Tests to write</a></li></ul></nav>
+<article class="prose">
+<p>Materials are where an IR simulator most often stops being physical without anyone noticing. The rules here are cheap to follow and expensive to retrofit.</p>
+<p>Reference: <code>docs/physics-model.md</code> §4, §12.3, §16.2.</p>
+<h2 id="rule-1-author-one-property-derive-the-rest">Rule 1: author one property, derive the rest<a class="anchor" href="#rule-1-author-one-property-derive-the-rest" aria-label="permalink">#</a></h2>
+<p>Kirchhoff's law for an opaque surface in local thermodynamic equilibrium:</p>
+<pre><code>ε(λ,θ) = α(λ,θ) = 1 − ρ(λ,θ)</code></pre>
+<p>and in general <code>ε + ρ + τ = 1</code>.</p>
+<p>Author <strong>spectral reflectance or spectral emissivity, never both.</strong> The other is computed. Authoring both is how simulators silently violate energy conservation, and the resulting error looks like a temperature error, so it gets "fixed" in the wrong place.</p>
+<p>There is a test that walks every material in <code>configs/materials/</code> and asserts closure to 1e-6 in every configured band. Keep it passing. When it fails, fix the material data — do not loosen the tolerance.</p>
+<h2 id="rule-2-the-metal-question-is-paint-not-alloy">Rule 2: the metal question is paint, not alloy<a class="anchor" href="#rule-2-the-metal-question-is-paint-not-alloy" aria-label="permalink">#</a></h2>
+<p>The instinct when modelling a vehicle is to distinguish steel from aluminium from magnesium. That is mostly wasted effort. For thin panels under solar load the thermal answer is dominated by thickness and by the coating, not by the substrate alloy.</p>
+<p>What matters enormously is the <strong>surface finish</strong>:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Finish</th><th>ε (LWIR)</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td>Painted (any colour)</td><td>0.88–0.93</td><td>Emits its own temperature. Colour changes <code>solar_absorptivity</code>, not ε.</td></tr>
+<tr><td>Bare / polished metal</td><td>0.05–0.15</td><td><strong>A mirror.</strong> Shows the sky and surroundings, not itself.</td></tr>
+<tr><td>Oxidised / corroded</td><td>0.75–0.90</td><td>Climbs back toward painted behaviour.</td></tr>
+<tr><td>Coated exhaust / heat shield</td><td>0.20–0.85</td><td>Highly variable, measure it.</td></tr>
+</tbody></table></div>
+<p>So the material taxonomy is by finish, with alloy as a second-order correction to substrate heat capacity. A bare aluminium trim strip at ε = 0.09 will dominate the visual character of a vehicle in LWIR far more than the choice between steel and aluminium body panels.</p>
+<h2 id="rule-3-roughness-is-per-band">Rule 3: roughness is per-band<a class="anchor" href="#rule-3-roughness-is-per-band" aria-label="permalink">#</a></h2>
+<p>Surface roughness that scatters 0.5 µm light diffusely can be optically smooth at 10 µm (when σ ≪ λ/8). IR reflection lobes are therefore <strong>narrower and stronger</strong> than the same material's visible lobe. Never reuse visible-band roughness values.</p>
+<pre><code class="language-yaml">roughness_per_band: { nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12 }</code></pre>
+<p>The decreasing trend is the physics. This one parameter is what makes vehicles reflect the sky correctly in LWIR, so it is worth getting approximately right rather than leaving at a default.</p>
+<h2 id="rule-4-bands-change-what-a-material-is">Rule 4: bands change what a material <em>is</em><a class="anchor" href="#rule-4-bands-change-what-a-material-is" aria-label="permalink">#</a></h2>
+<p>Glass is opaque in LWIR (ε ≈ 0.88) and transparent in SWIR/NIR. A windshield in LWIR shows the windshield's own temperature; in SWIR it shows the driver behind it. Water is emissive in LWIR (ε ≈ 0.96) and strongly absorbing — dark — in SWIR. Vegetation is very bright in NIR.</p>
+<p>The schema must express <code>transmittance_per_band</code>, and the shading path must handle <code>τ &gt; 0</code> as a second ray in the reflective bands. Build this in from the start; retrofitting transmission into a surface-only model is painful.</p>
+<h2 id="angular-emissivity">Angular emissivity<a class="anchor" href="#angular-emissivity" aria-label="permalink">#</a></h2>
+<p>Three levels. Pick per material class, not globally.</p>
+<p><strong>Level A — Fresnel from complex refractive index.</strong> Physically correct. With <code>ñ = n + ik</code> and <code>Z = ñ² − sin²θᵢ</code>, use the branch-safe reformulation:</p>
+<pre><code>A = sqrt((|Z| + Re(Z)) / 2)
+B = sign(Im(Z)) * sqrt((|Z| − Re(Z)) / 2)
+sqrt(Z) = A + jB</code></pre>
+<p>then the standard Fresnel amplitudes with <code>sqrt(Z)</code> replaced by <code>A + jB</code>, <code>R = (R⊥ + R∥)/2</code>, <code>ε(λ,θ) = 1 − R(λ,θ)</code>.</p>
+<p>The reformulation is not cosmetic. A naive complex square root has two algebraic branches; passivity requires <code>Im(k_z) &gt; 0</code>. Picking the wrong branch gives reflectance discontinuities across wavelength, instability near grazing incidence, and reflectances exceeding unity. In the IR this bites hard because <code>k</code> is large for many materials. Assert <code>0 ≤ R ≤ 1</code> in the implementation.</p>
+<p>Sanity check: in strongly absorbing media there is no sharp total internal reflection — R stays below 1 at every angle. If your implementation shows a hard TIR knee for a lossy material, the branch is wrong.</p>
+<p>n/k tables live in <code>data/nk/</code>. refractiveindex.info is the usual source; record the source in the material YAML.</p>
+<p><strong>Level B — empirical falloff.</strong> Adequate for most of the scene:</p>
+<pre><code>ε(θ) = ε₀ · (1 − a·(1 − cos θ)^p)</code></pre>
+<p><code>a ≈ 0.15–0.35</code>, <code>p ≈ 4–6</code> for painted metals and plastics; <code>a → 0</code> for rough dielectrics (asphalt, vegetation, fabric). Fit <code>(a, p)</code> once per class against Level A and bake it. Two instructions in a shader.</p>
+<p><strong>Level C — constant ε.</strong> Only for rough, high-emissivity surfaces (ε &gt; 0.93) within ±50° of normal. Vehicle bodies, glass and water all violate this — do not use Level C for them.</p>
+<h2 id="the-usd-import-problem">The USD import problem<a class="anchor" href="#the-usd-import-problem" aria-label="permalink">#</a></h2>
+<p>No asset in the wild ships with thermal properties. Every imported mesh has visible-band materials only. This is the real per-object cost of the project, and it is automatable.</p>
+<p>Build a <strong>mapping layer</strong>, not a manual process:</p>
+<ol>
+<li>Resolve by explicit override (a <code>thermal:material</code> USD attribute) if present.</li>
+<li>Else resolve by semantic class (<code>car_body</code>, <code>road</code>, <code>pedestrian</code>) from the semantics schema.</li>
+<li>Else resolve by material-name pattern matching (<code>*paint*</code>, <code>*glass*</code>, <code>*chrome*</code>, <code>*rubber*</code>).</li>
+<li>Else fall back to a loud default and <strong>record the miss</strong>.</li>
+</ol>
+<p>Then provide two things the team can actually use:</p>
+<ul>
+<li><code>scripts/audit_materials.py</code> — prints every prim that fell through to the default, grouped and counted, with a coverage percentage. Run it on every new asset. Coverage below a threshold fails CI.</li>
+<li>A debug AOV / render mode that colours unmapped surfaces magenta. Nobody can eyeball whether a thermal image is right, but everybody can spot magenta.</li>
+</ul>
+<p>These two tools are what turn "adding an object takes ages and I'm never sure it worked" into a 30-second check. Build them early — before the material library is large, not after.</p>
+<h2 id="material-schema">Material schema<a class="anchor" href="#material-schema" aria-label="permalink">#</a></h2>
+<pre><code class="language-yaml">car_paint_black:
+  source: "measured|literature|estimated"     # be honest; it drives how much to trust results
+  thermal:
+    density_kg_m3: 7800
+    specific_heat_j_kgk: 470
+    conductivity_w_mk: 45
+    thickness_m: 0.0012
+    solar_absorptivity: 0.94
+  optical:
+    spectral_emissivity: "spectra/car_paint_black.csv"    # λ(µm), ε(λ), 0.3–15 µm
+    roughness_per_band: { nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12 }
+    angular_model: { type: fresnel, n_k_file: "nk/acrylic_paint.csv" }
+    transmittance_per_band: { nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0 }</code></pre>
+<p>The <code>source</code> field matters more than it looks. When a validation comparison disagrees with reality, the first question is always "which of these numbers did we actually measure?" — and without this field nobody can answer it six months later.</p>
+<p>Starting values for common materials are in <code>docs/physics-model.md</code> §16.2. They are literature estimates, not measurements. Mark them as such and replace them for anything the project depends on.</p>
+<h2 id="tests-to-write">Tests to write<a class="anchor" href="#tests-to-write" aria-label="permalink">#</a></h2>
+<ul>
+<li>Kirchhoff closure across the whole library, every band, 1e-6.</li>
+<li>Fresnel: <code>0 ≤ R ≤ 1</code> for a sweep over θ ∈ [0°, 89.9°] and a lossy/lossless material pair.</li>
+<li>Fresnel vs. a known reference: water at 10 µm (n = 1.218, k = 0.0508) against published curves.</li>
+<li>Level B fit vs. Level A: max ε error &lt; 0.02 over 0–70°.</li>
+<li>Band resolution: glass returns τ &gt; 0.5 in SWIR and τ ≈ 0 in LWIR.</li>
+<li>Import mapping: an asset with known material names resolves to the expected thermal materials, and an asset with unknown names is reported as unmapped rather than silently defaulted.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detection metrics — irsim</title>
+<meta name="description" content="ME.7: the Tier 5 detection metrics, pinned on input where the answer is known by hand.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Detection metrics</h1>
+  <p class="subtitle">ME.7: the Tier 5 detection metrics, pinned on input where the answer is known by hand.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py" target="_blank" rel="noopener">tests/unit/test_detection_metrics.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>A detector is somebody's model; average precision at IoU 0.5 is arithmetic, and the arithmetic is what decides what a sim-to-real number means. These tests need no GPU, no torch and nobody's labels.</p>
+<p>The metric that carries the weight for this project is <strong>P_d against SCR</strong>, not AP: a drone at 2 km subtends two pixels at an SCR of 2 and is a rounding error in an AP dominated by close, large targets -- so two sets can agree on AP and disagree completely about the regime the simulator exists to model.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py" target="_blank" rel="noopener">tests/unit/test_detection_metrics.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L39" target="_blank" rel="noopener">iou on boxes whose overlap is known by hand</a><br><code>test_iou_on_boxes_whose_overlap_is_known_by_hand</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L48" target="_blank" rel="noopener">a truth is claimed once and by the highest score</a><br><code>test_a_truth_is_claimed_once_and_by_the_highest_score</code></td><td>The rule that stops a detector inflating recall by emitting ten boxes on one target.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L58" target="_blank" rel="noopener">average precision on a perfect and a hopeless detector</a><br><code>test_average_precision_on_a_perfect_and_a_hopeless_detector</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L70" target="_blank" rel="noopener">average precision is the all point rule not the eleven point one</a><br><code>test_average_precision_is_the_all_point_rule_not_the_eleven_point_one</code></td><td>Two hits and two false alarms, interleaved, with the answer worked out by hand.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L88" target="_blank" rel="noopener">a detection cannot claim a target in another frame</a><br><code>test_a_detection_cannot_claim_a_target_in_another_frame</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L94" target="_blank" rel="noopener">an empty bin reports nan and never zero</a><br><code>test_an_empty_bin_reports_nan_and_never_zero</code></td><td>"No target was this small" and "every target this small was missed" are opposite conclusions, and a zero would let a reader draw the second from the first.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L108" target="_blank" rel="noopener">detection rate falls with scr which is the metric that matters</a><br><code>test_detection_rate_falls_with_scr_which_is_the_metric_that_matters</code></td><td>The breakdown a single AP hides: a small-SCR regime can collapse while AP barely moves.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L121" target="_blank" rel="noopener">false alarms are counted per frame and respect a score threshold</a><br><code>test_false_alarms_are_counted_per_frame_and_respect_a_score_threshold</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_detection_metrics.py#L136" target="_blank" rel="noopener">the four protocols are named and each says what it answers</a><br><code>test_the_four_protocols_are_named_and_each_says_what_it_answers</code></td><td>§15 asks for four, and they answer different questions -- <code>mixed_to_real</code> in particular is not implied by the others: a simulator can have a large gap and still be worth training on.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

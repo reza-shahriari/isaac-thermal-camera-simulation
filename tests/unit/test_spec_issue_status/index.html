@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec issue status — irsim</title>
+<meta name="description" content="RP.7 — `docs/spec-issues.md` says per row what has been applied, and the summary matches.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Spec issue status</h1>
+  <p class="subtitle">RP.7 — `docs/spec-issues.md` says per row what has been applied, and the summary matches.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py" target="_blank" rel="noopener">tests/unit/test_spec_issue_status.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The file's header has always promised that "the <strong>status</strong> column below records what has been applied". There was no status column. What there was instead was one prose sentence listing ten M0-era resolutions and ending "Everything else is open" — which had been wrong for months, because fifty-six of the sixty rows had shipped, thirty-seven of them with an ADR written.</p>
+<p>A sentence somebody has to remember to edit is the failure mode. These tests make the claim per row and mechanical: an ADR named in a status cell must exist, a row may not be <code>open</code> while the ADR its own resolution names is already written, and the summary paragraph's counts are recomputed from the table rather than trusted.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py" target="_blank" rel="noopener">tests/unit/test_spec_issue_status.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L90" target="_blank" rel="noopener">the file still holds seventy one issues</a><br><code>test_the_file_still_holds_seventy_one_issues</code></td><td>If this moves, the summary paragraph's counts move with it and the tests below say so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L100" target="_blank" rel="noopener">every row has a non empty status</a><br><code>test_every_row_has_a_non_empty_status</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L105" target="_blank" rel="noopener">every status is one of the three forms</a><br><code>test_every_status_is_one_of_the_three_forms</code></td><td><code>ADR NNNN</code>, <code>code — &lt;step&gt;</code>, or <code>open</code>. A free-text status is one nobody can audit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L118" target="_blank" rel="noopener">every adr named by a status exists</a><br><code>test_every_adr_named_by_a_status_exists</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L129" target="_blank" rel="noopener">no row is open while its own resolution names a written adr</a><br><code>test_no_row_is_open_while_its_own_resolution_names_a_written_adr</code></td><td>The exact way the old prose went stale: the decision shipped and the ledger did not move.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L145" target="_blank" rel="noopener">the summary counts are the table s own</a><br><code>test_the_summary_counts_are_the_table_s_own</code></td><td>The paragraph is spelled out in words, so it cannot be left behind by a status edit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L170" target="_blank" rel="noopener">s13 is open and says why</a><br><code>test_s13_is_open_and_says_why</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L184" target="_blank" rel="noopener">the glass material and the issue agree</a><br><code>test_the_glass_material_and_the_issue_agree</code></td><td>Two files, one claim: the YAML defers to S13 and S13 must still be open to receive it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_spec_issue_status.py#L198" target="_blank" rel="noopener">the status parser reads compound citations</a><span class="tag">parametrize</span><br><code>test_the_status_parser_reads_compound_citations</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

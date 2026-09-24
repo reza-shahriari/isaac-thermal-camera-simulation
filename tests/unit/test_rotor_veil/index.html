@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotor veil — irsim</title>
+<meta name="description" content="A spinning rotor as a time-averaged veil (§8.3, §9.2; ADR 0074, ADR 0077).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Rotor veil</h1>
+  <p class="subtitle">A spinning rotor as a time-averaged veil (§8.3, §9.2; ADR 0074, ADR 0077).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py" target="_blank" rel="noopener">tests/unit/test_rotor_veil.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>ADR 0074 left propellers off the quadrotor rather than draw a blade frozen at one azimuth, which is a picture no thermal camera takes. The model that replaces that absence makes two claims worth testing harder than "it draws a disc":</p>
+<ol>
+<li><strong>The shutter moves the disc's flux around without changing how much there is.</strong> Coverage is a running mean of the blade-passage pulse train, and a running mean cannot move the mean of a periodic function -- so a bolometer's smooth annulus and a cooled detector's resolved arcs carry the same total. If that failed, the rotor would be a brightness knob disguised as geometry.</li>
+</ol>
+<ol>
+<li><strong>Viewing tilt enters only through the projected area of a pitched plate.</strong> The blade area that lands in the image is <code>N S k(tilt, pitch)</code> whatever the foreshortening, because the ellipse shrinking and the per-pixel coverage rising are the same fact counted once.</li>
+</ol>
+<p>Both are area identities, so both are checked by summing the rasterised map and comparing against closed-form geometry -- not against a previous run of the same code.</p>
+<p class='made-by'>37 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py" target="_blank" rel="noopener">tests/unit/test_rotor_veil.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L62" target="_blank" rel="noopener">azimuthal mean is the solidity for every window</a><span class="tag">parametrize</span><br><code>test_azimuthal_mean_is_the_solidity_for_every_window</code></td><td>Mean coverage is the local solidity whatever the integration window.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L77" target="_blank" rel="noopener">a whole number of blade spacings is exactly flat</a><span class="tag">parametrize</span><br><code>test_a_whole_number_of_blade_spacings_is_exactly_flat</code></td><td>No ripple when the window holds a whole number of blade passes -- and ripple otherwise.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L87" target="_blank" rel="noopener">a fractional window bands the disc by one whole blade pass</a><br><code>test_a_fractional_window_bands_the_disc_by_one_whole_blade_pass</code></td><td>At 1.67 spacings some azimuths are crossed twice and some once -- the banding is real.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L105" target="_blank" rel="noopener">a short window resolves one arc per blade</a><br><code>test_a_short_window_resolves_one_arc_per_blade</code></td><td>A cooled 2 ms integration leaves the blades separate, each smeared by the swept angle.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L121" target="_blank" rel="noopener">a frozen shutter shows the blade itself</a><br><code>test_a_frozen_shutter_shows_the_blade_itself</code></td><td>Zero window: the indicator, not an average -- coverage 1 on the blade and 0 beside it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L136" target="_blank" rel="noopener">face on projection is the cosine of the pitch</a><span class="tag">parametrize</span><br><code>test_face_on_projection_is_the_cosine_of_the_pitch</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L142" target="_blank" rel="noopener">edge on projection is two over pi times the sine</a><span class="tag">parametrize</span><br><code>test_edge_on_projection_is_two_over_pi_times_the_sine</code></td><td>The closed form of the azimuthal mean of |sin|, and the reason pitch is a parameter.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L148" target="_blank" rel="noopener">a feathered blade is invisible edge on and a pitched one is not</a><br><code>test_a_feathered_blade_is_invisible_edge_on_and_a_pitched_one_is_not</code></td><td>Zero pitch edge-on projects nothing; 18 degrees of pitch keeps a fifth of the blade area.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L154" target="_blank" rel="noopener">projection factor is continuous where the branch changes</a><br><code>test_projection_factor_is_continuous_where_the_branch_changes</code></td><td>|A| = |B| is the boundary between the two closed forms; they must agree on it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L164" target="_blank" rel="noopener">projection factor never exceeds one or falls below zero</a><br><code>test_projection_factor_never_exceeds_one_or_falls_below_zero</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L175" target="_blank" rel="noopener">solidity integrates to the blade planform area</a><br><code>test_solidity_integrates_to_the_blade_planform_area</code></td><td><code>integral sigma(r) 2 pi r dr = N S</code> -- the definition, checked against the chord model.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L182" target="_blank" rel="noopener">a heavy lift prop covers only a few percent</a><br><code>test_a_heavy_lift_prop_covers_only_a_few_percent</code></td><td>The number ADR 0074 predicted: a faint annulus, not a solid disc.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L188" target="_blank" rel="noopener">the chord is zero off the blade span</a><br><code>test_the_chord_is_zero_off_the_blade_span</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L208" target="_blank" rel="noopener">impossible rotors are refused</a><span class="tag">parametrize</span><br><code>test_impossible_rotors_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L232" target="_blank" rel="noopener">the blade area that lands in the image depends on tilt only through k</a><span class="tag">parametrize</span><br><code>test_the_blade_area_that_lands_in_the_image_depends_on_tilt_only_through_k</code></td><td>Sum of coverage = <code>N S k</code> in pixel units, at every foreshortening.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L249" target="_blank" rel="noopener">coverage is tilt invariant until the disc is within a pitch of edge on</a><span class="tag">parametrize</span><br><code>test_coverage_is_tilt_invariant_until_the_disc_is_within_a_pitch_of_edge_on</code></td><td><code>k / cos(tilt)</code> is exactly <code>cos(pitch)</code> while <code>tilt &lt; 90 - pitch</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L267" target="_blank" rel="noopener">past that crossover the annulus densifies towards edge on</a><br><code>test_past_that_crossover_the_annulus_densifies_towards_edge_on</code></td><td>Within <code>pitch</code> degrees of edge-on the same blade area is packed into a vanishing ellipse.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L287" target="_blank" rel="noopener">the root cutout is a hole and outside the tip is empty</a><br><code>test_the_root_cutout_is_a_hole_and_outside_the_tip_is_empty</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L297" target="_blank" rel="noopener">coverage is clipped at one at grazing incidence</a><br><code>test_coverage_is_clipped_at_one_at_grazing_incidence</code></td><td>Beyond a certain tilt the blades stack up along the ray and the annulus is opaque.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L304" target="_blank" rel="noopener">an exactly edge on disc draws nothing</a><br><code>test_an_exactly_edge_on_disc_draws_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L309" target="_blank" rel="noopener">rotating the ellipse moves the disc and keeps its area</a><br><code>test_rotating_the_ellipse_moves_the_disc_and_keeps_its_area</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L316" target="_blank" rel="noopener">phase turns the arcs without changing the total</a><br><code>test_phase_turns_the_arcs_without_changing_the_total</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L333" target="_blank" rel="noopener">impossible ellipses are refused</a><span class="tag">parametrize</span><br><code>test_impossible_ellipses_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L351" target="_blank" rel="noopener">the veil is linear in radiance</a><br><code>test_the_veil_is_linear_in_radiance</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L358" target="_blank" rel="noopener">blending temperatures instead of radiance reads the disc cold</a><br><code>test_blending_temperatures_instead_of_radiance_reads_the_disc_cold</code></td><td>Planck is convex in T, so the two blends are different numbers and one of them is wrong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L379" target="_blank" rel="noopener">an occluder in front of the disc removes the veil</a><br><code>test_an_occluder_in_front_of_the_disc_removes_the_veil</code></td><td>Without this the blade would be painted over the motor bell it is bolted to.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L390" target="_blank" rel="noopener">zero coverage returns the background untouched</a><br><code>test_zero_coverage_returns_the_background_untouched</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L401" target="_blank" rel="noopener">bad composites are refused</a><span class="tag">parametrize</span><br><code>test_bad_composites_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L413" target="_blank" rel="noopener">a bolometer draws an annulus and a cooled detector draws arcs</a><br><code>test_a_bolometer_draws_an_annulus_and_a_cooled_detector_draws_arcs</code></td><td>ADR 0077's split again: the window length alone decides, and the totals agree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L441" target="_blank" rel="noopener">a face on disc projects to a circle of the textbook size</a><br><code>test_a_face_on_disc_projects_to_a_circle_of_the_textbook_size</code></td><td>Axis along the line of sight: no foreshortening, and the radius is <code>f R / Z</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L452" target="_blank" rel="noopener">the minor axis is the major axis foreshortened</a><span class="tag">parametrize</span><br><code>test_the_minor_axis_is_the_major_axis_foreshortened</code></td><td>The axis ratio <em>is</em> the cosine of the tilt, which is what <code>coverage_map</code> reads it as.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L464" target="_blank" rel="noopener">the ellipse matches the projected rim</a><br><code>test_the_ellipse_matches_the_projected_rim</code></td><td>Bound the approximation: project 256 rim points and measure how far they miss the ellipse.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L494" target="_blank" rel="noopener">the ellipse follows the distortion the lens was authored with</a><br><code>test_the_ellipse_follows_the_distortion_the_lens_was_authored_with</code></td><td>A barrel lens shrinks an off-axis disc; the oracle must see that, not an ideal pinhole.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L505" target="_blank" rel="noopener">the major axis turns with the disc</a><br><code>test_the_major_axis_turns_with_the_disc</code></td><td>Tilting about x puts the long axis across the frame; about y, up and down it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L519" target="_blank" rel="noopener">a disc behind the camera has no ellipse</a><br><code>test_a_disc_behind_the_camera_has_no_ellipse</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L526" target="_blank" rel="noopener">a degenerate disc is refused</a><br><code>test_a_degenerate_disc_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil.py#L533" target="_blank" rel="noopener">the demo rotor is forty pixels across and a quarter as tall</a><br><code>test_the_demo_rotor_is_forty_pixels_across_and_a_quarter_as_tall</code></td><td>The quadrotor stage, end to end: 20 m, 15 degrees of camera tilt, a Boson-class lens.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agc local — irsim</title>
+<meta name="description" content="ROI-weighted and locally-adaptive AGC (M9.10, §11.3).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Agc local</h1>
+  <p class="subtitle">ROI-weighted and locally-adaptive AGC (M9.10, §11.3).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py" target="_blank" rel="noopener">tests/unit/test_agc_local.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Both variants exist because the global operators have one failure mode between them: <strong>one hot object sets the stretch for every pixel in the frame</strong>. That is not a defect to be fixed -- a real core does it and §15 Tier 5 requires the simulator to do it too -- so the global operators stay the default and these are alternatives a config asks for by name.</p>
+<p>Two of the tests here are identities rather than tolerances, and they are what make the additions safe: uniform weights must reproduce the global operator <strong>bit for bit</strong>, and a single tile must reproduce it bit for bit as well. An approximation in either would mean the new code path had quietly become a second, slightly different AGC.</p>
+<p class='made-by'>18 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py" target="_blank" rel="noopener">tests/unit/test_agc_local.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L64" target="_blank" rel="noopener">uniform weights reproduce the global operator bit for bit</a><br><code>test_uniform_weights_reproduce_the_global_operator_bit_for_bit</code></td><td>Weighting every pixel by 1.0 must change nothing, in either operator.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L79" target="_blank" rel="noopener">a single tile is the global operator bit for bit</a><br><code>test_a_single_tile_is_the_global_operator_bit_for_bit</code></td><td>One tile blends one mapping with weight 1.0, and multiplying by one changes no bits.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L85" target="_blank" rel="noopener">scaling every weight changes nothing</a><br><code>test_scaling_every_weight_changes_nothing</code></td><td>The histogram is normalised by its own sum, so weights carry a ratio and not a unit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L100" target="_blank" rel="noopener">an roi moves the stretch onto the region that matters</a><br><code>test_an_roi_moves_the_stretch_onto_the_region_that_matters</code></td><td>Weighting a dim corner stretches <em>it</em>, at the cost of the bright rest of the frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L115" target="_blank" rel="noopener">a zero weight region does not set the stretch</a><br><code>test_a_zero_weight_region_does_not_set_the_stretch</code></td><td>Pixels weighted zero are still displayed -- they just get no vote on how.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L130" target="_blank" rel="noopener">impossible weights are refused</a><span class="tag">parametrize</span><br><code>test_impossible_weights_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L140" target="_blank" rel="noopener">local keeps the background readable under an exhaust</a><br><code>test_local_keeps_the_background_readable_under_an_exhaust</code></td><td>The measurement M9.10 exists for, and the answer to "why not just use the global one".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L157" target="_blank" rel="noopener">the global linear collapse is the worst of the three</a><br><code>test_the_global_linear_collapse_is_the_worst_of_the_three</code></td><td>Context for the number above: linear percentile clipping fares far worse than plateau.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L164" target="_blank" rel="noopener">blending removes the tile seam entirely</a><br><code>test_blending_removes_the_tile_seam_entirely</code></td><td>A tile boundary must be no more of a step than any other column.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L200" target="_blank" rel="noopener">a flat tile displays mid grey like a flat frame</a><br><code>test_a_flat_tile_displays_mid_grey_like_a_flat_frame</code></td><td>A tile with no dynamic range takes the same answer the global operator gives a flat frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L210" target="_blank" rel="noopener">output stays in range and float32</a><br><code>test_output_stays_in_range_and_float32</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L217" target="_blank" rel="noopener">any tiling covers the frame</a><span class="tag">parametrize</span><br><code>test_any_tiling_covers_the_frame</code></td><td>Tile counts that do not divide the frame must still tile it: no ragged last row.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L228" target="_blank" rel="noopener">impossible tilings are refused</a><span class="tag">parametrize</span><br><code>test_impossible_tilings_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L233" target="_blank" rel="noopener">the local operator refuses float16 like the others</a><br><code>test_the_local_operator_refuses_float16_like_the_others</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L256" target="_blank" rel="noopener">a scene can ask for the local operator by name</a><br><code>test_a_scene_can_ask_for_the_local_operator_by_name</code></td><td><code>agc: plateau_local</code> reaches the display branch, and one tile still means the global one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L268" target="_blank" rel="noopener">the tiling is part of the isp hash</a><br><code>test_the_tiling_is_part_of_the_isp_hash</code></td><td>Two cameras that tile differently are two cameras, and the hash has to say so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L275" target="_blank" rel="noopener">the global default is unchanged by any of this</a><br><code>test_the_global_default_is_unchanged_by_any_of_this</code></td><td>Adding a mode must not move the camera every existing config already describes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_agc_local.py#L285" target="_blank" rel="noopener">a config with an impossible tiling is refused</a><span class="tag">parametrize</span><br><code>test_a_config_with_an_impossible_tiling_is_refused</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ir-sim-testing — irsim</title>
+<meta name="description" content="Testing strategy for the IR camera simulator — the five validation tiers, how to write tests that would actually fail if the physics were wrong, tolerance conventions in physical u">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ir-sim-testing</h1>
+  <p class="subtitle">Testing strategy for the IR camera simulator — the five validation tiers, how to write tests that would actually fail if the physics were wrong, tolerance conventions in physical units, golden/regression fixtures, synthetic G-buffer fixtures for engine-free kernel testing, and the phenomenology checklist. Use this skill whenever writing or reviewing tests, choosing a tolerance, deciding whether something is adequately verified, setting up pytest markers or fixtures, adding regression data, or when a test is failing and the question is whether the test or the code is wrong. You cannot eyeball a thermal image for correctness, so tests carry more weight in this project than usual.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/ir-sim-testing/SKILL.md" target="_blank" rel="noopener">.claude/skills/ir-sim-testing/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#the-test-that-is-worth-writing">The test that is worth writing</a></li>
+<li class="toc-2"><a href="#tolerances-in-physical-units">Tolerances in physical units</a></li>
+<li class="toc-2"><a href="#test-layout-and-markers">Test layout and markers</a></li>
+<li class="toc-2"><a href="#synthetic-g-buffer-fixtures">Synthetic G-buffer fixtures</a></li>
+<li class="toc-2"><a href="#golden--regression-fixtures">Golden / regression fixtures</a></li>
+<li class="toc-2"><a href="#the-five-tiers">The five tiers</a></li>
+<li class="toc-2"><a href="#reviewing-a-test-before-accepting-it">Reviewing a test before accepting it</a></li></ul></nav>
+<article class="prose">
+<p>Nobody has intuition for what a correct thermal image looks like. That is the central problem of this project, and tests are the only way around it. A simulator you have not validated is a renderer with physics-flavoured variable names.</p>
+<p>Reference: <code>docs/physics-model.md</code> §15.</p>
+<h2 id="the-test-that-is-worth-writing">The test that is worth writing<a class="anchor" href="#the-test-that-is-worth-writing" aria-label="permalink">#</a></h2>
+<p>A test that calls a function and asserts it returned something is worthless here. Every physics test should satisfy: <strong>if the physics were wrong, would this fail?</strong></p>
+<p>Three patterns that meet the bar:</p>
+<ol>
+<li><strong>Analytic identity.</strong> Two independent routes to the same number must agree. <code>∫L dλ == σT⁴/π</code>. <code>L_q·hc/λ == L</code>. <code>Lb⁻¹(Lb(T)) == T</code>. These catch wrong constants, dropped π, unit errors — the exact class of bug that is invisible in output imagery.</li>
+</ol>
+<ol>
+<li><strong>Independent implementation.</strong> Fast path vs. reference path. LUT vs. quadrature. CUDA kernel vs. NumPy. Neither is trusted; agreement between two independent derivations is the evidence.</li>
+</ol>
+<ol>
+<li><strong>Known-answer / published reference.</strong> Water at 10 µm against published Fresnel curves. Wien's displacement law. A datasheet NETD figure. These anchor the model to reality rather than to itself.</li>
+</ol>
+<p>Everything else — smoke tests, shape assertions, does-not-crash — is fine to have, but it is not verification and should not be counted as such in the README status table.</p>
+<h2 id="tolerances-in-physical-units">Tolerances in physical units<a class="anchor" href="#tolerances-in-physical-units" aria-label="permalink">#</a></h2>
+<p>Never write <code>assert abs(a - b) &lt; 1e-6</code> on a radiance value. Nobody reading it knows whether that is tight or absurdly loose. Convert to a unit a human can judge:</p>
+<pre><code class="language-python"># BAD
+assert abs(Lb_lut - Lb_ref) &lt; 1e-4
+
+# GOOD
+err_mK = abs(Lb_lut - Lb_ref) / dLb_dT * 1000
+assert err_mK &lt; 5.0, f"LUT error {err_mK:.2f} mK exceeds 5 mK (NETD is 50 mK)"</code></pre>
+<p>Standard tolerances for this project:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Comparison</th><th>Tolerance</th><th>Rationale</th></tr></thead>
+<tbody>
+<tr><td>Analytic identities (Planck forms, Stefan-Boltzmann)</td><td>1e-12 relative</td><td>Floating point only</td></tr>
+<tr><td>LUT vs. quadrature</td><td>&lt; 5 mK equivalent</td><td>1/10 of the tightest NETD we model</td></tr>
+<tr><td>Apparent-temperature round trip</td><td>&lt; 1 mK</td><td>Must be negligible vs. everything else</td></tr>
+<tr><td>GPU kernel vs. CPU reference</td><td>1e-4 relative, or 5 mK</td><td>fp32 accumulation differences</td></tr>
+<tr><td>Encode/decode through an AOV</td><td>&lt; 10 mK</td><td>1/5 of a 50 mK NETD</td></tr>
+<tr><td>Kirchhoff closure</td><td>1e-6 absolute</td><td>Data quality, not arithmetic</td></tr>
+<tr><td>Thermal equilibrium vs. analytic</td><td>0.1 K</td><td>Solver convergence</td></tr>
+<tr><td>Validation vs. real imagery, per class</td><td>2 K bias</td><td>Realistic given material uncertainty</td></tr>
+</tbody></table></div>
+<p>When a test fails, the default assumption is that <strong>the code is wrong, not the tolerance</strong>. Loosening a tolerance requires a comment explaining why, and if it is a physics tolerance, an ADR.</p>
+<h2 id="test-layout-and-markers">Test layout and markers<a class="anchor" href="#test-layout-and-markers" aria-label="permalink">#</a></h2>
+<pre><code>tests/unit/          # no GPU, no Isaac Sim, &lt; 30 s total. The default gate.
+tests/integration/   # needs Isaac Sim. @pytest.mark.isaac — deselected by default.
+tests/golden/        # regression fixtures: reference arrays + the config that produced them</code></pre>
+<pre><code class="language-python"># pytest.ini / pyproject markers
+isaac: requires a running Isaac Sim environment
+slow:  takes more than a second
+gpu:   requires CUDA</code></pre>
+<p><code>make test</code> runs unit only. <code>make test-all</code> adds the rest. Keep the unit suite genuinely fast — the moment it takes minutes, people stop running it, and this project depends on people running it.</p>
+<h2 id="synthetic-g-buffer-fixtures">Synthetic G-buffer fixtures<a class="anchor" href="#synthetic-g-buffer-fixtures" aria-label="permalink">#</a></h2>
+<p>The most useful fixture in the repo. A function that produces a fake render output — flat or ramped temperature field, known normals, known distances, known material IDs — so that <strong>kernels can be tested without launching Isaac Sim at all</strong>.</p>
+<pre><code class="language-python">@pytest.fixture
+def gbuffer_ramp():
+    """256x256 G-buffer with a linear 250-450 K temperature ramp,
+    normals facing camera, constant 50 m distance, single material."""</code></pre>
+<p>Most kernel bugs are findable this way in seconds instead of minutes. Provide at least: uniform field, linear ramp, two-material split, grazing-angle sphere, and a step edge for MTF work.</p>
+<h2 id="golden--regression-fixtures">Golden / regression fixtures<a class="anchor" href="#golden--regression-fixtures" aria-label="permalink">#</a></h2>
+<p>For things with no analytic answer — a full pipeline render, an AGC output — store a reference array and compare. Rules that keep golden tests from becoming a liability:</p>
+<ul>
+<li>Store the <strong>config hash</strong> alongside the array. A golden file whose config changed is stale, not failing; detect and say which.</li>
+<li>Compare with a stated tolerance, never exact equality.</li>
+<li>On failure, write the actual output next to the expected one and print both paths. A golden failure you cannot inspect wastes more time than it saves.</li>
+<li>Regenerate deliberately via <code>make golden-update</code>, never by editing files by hand, and never in the same commit as a behaviour change without saying so in the commit body.</li>
+</ul>
+<h2 id="the-five-tiers">The five tiers<a class="anchor" href="#the-five-tiers" aria-label="permalink">#</a></h2>
+<p><strong>Tier 1 — Unit.</strong> Analytic identities. No renderer. Covered above.</p>
+<p><strong>Tier 2 — Radiometric bench.</strong> Reproduce standard lab characterisation inside the simulator: SITF (DN vs. blackbody temperature), NETD, 3D noise decomposition, MTF from a slant edge. These are the same measurements made on real cameras, so they are directly comparable.</p>
+<p><strong>Tier 3 — Phenomenology.</strong> Qualitative but decisive. Each should emerge without being scripted; treat them as a checklist run against a demo scene, and automate the ones that can be automated:</p>
+<ul>
+<li>[ ] Diurnal cycle runs; contrast collapses near dawn and dusk (thermal crossover)</li>
+<li>[ ] Overcast flattens the image; clear night sky darkens vehicle roofs and glass</li>
+<li>[ ] Wet asphalt reads colder than dry; shaded ground colder than sunlit</li>
+<li>[ ] A departed vehicle leaves a warm tyre trace and a cool body shadow</li>
+<li>[ ] Fog kills visible and SWIR before LWIR</li>
+<li>[ ] Humid clear air degrades LWIR more than SWIR</li>
+<li>[ ] MWIR shows solar glint at midday and looks like LWIR at night</li>
+<li>[ ] SWIR at night is usable from airglow alone, with no modelled light source</li>
+<li>[ ] A hot exhaust entering frame collapses global AGC contrast</li>
+<li>[ ] FFC freezes the image and resets the fixed pattern</li>
+<li>[ ] Fast lateral motion smears edges in LWIR but not in cooled MWIR</li>
+</ul>
+<p>Several of these are automatable as scalar assertions (contrast ratio at 0600 vs. 1200, roof apparent temperature clear vs. overcast). Automate those; leave the rest as a documented manual pass.</p>
+<p><strong>Tier 4 — Against real data.</strong> Recreate a real dataset scene's geometry, materials, weather and time, then compare:</p>
+<ul>
+<li>apparent-temperature histograms by semantic class (shape and separation matter more than absolute bias)</li>
+<li>radiometric contrast between object classes and local background</li>
+<li><strong>noise power spectral density of a flat region</strong> — the single most diagnostic comparison, because it exposes wrong 3D-noise ratios immediately</li>
+<li>edge spread function on real edges</li>
+</ul>
+<p><strong>Tier 5 — Task-level.</strong> Train a detector on synthetic only, evaluate on real, and vice versa. Measure both gaps. If Tier 4's noise PSD comparison fails, no amount of Tier 2 accuracy will save Tier 5.</p>
+<h2 id="reviewing-a-test-before-accepting-it">Reviewing a test before accepting it<a class="anchor" href="#reviewing-a-test-before-accepting-it" aria-label="permalink">#</a></h2>
+<ul>
+<li>Would it fail if the physics were wrong, or only if the code crashed?</li>
+<li>Is the tolerance in a unit a human can judge?</li>
+<li>Does it depend on Isaac Sim when it could use a synthetic G-buffer instead?</li>
+<li>Is randomness seeded?</li>
+<li>Does the failure message say what went wrong, or just that something did?</li>
+<li>If it is a golden test, can the reviewer see the diff?</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

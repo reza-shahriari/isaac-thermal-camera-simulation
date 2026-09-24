@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skylight — irsim</title>
+<meta name="description" content="M11.10: scattered sunlight in the sky, and the black-sky bug it fixes.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Skylight</h1>
+  <p class="subtitle">M11.10: scattered sunlight in the sky, and the black-sky bug it fixes.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py" target="_blank" rel="noopener">tests/unit/test_skylight.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>SkyModel</code> is a <em>thermal</em> sky -- the atmospheric column's own emission -- which is right for LWIR and essentially zero at 0.9 um. Rendering a NIR scene with it produced a black sky under a brightly sunlit target, which is backwards: in the near infrared the daytime sky is the brightest thing in the frame and an aircraft is usually a dark silhouette against it. These tests pin the size of the term in each band, the reason the emissive one is left alone, and the unit arithmetic that makes the isotropic form reproduce the weather's own DHI.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py" target="_blank" rel="noopener">tests/unit/test_skylight.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py#L48" target="_blank" rel="noopener">the isotropic form reproduces the measured dhi</a><br><code>test_the_isotropic_form_reproduces_the_measured_dhi</code></td><td>The arithmetic that justifies isotropy: ∫ L cosθ dΩ over the hemisphere is L·π exactly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py#L68" target="_blank" rel="noopener">the diffuse spectrum is bluer than the beam that made it</a><br><code>test_the_diffuse_spectrum_is_bluer_than_the_beam_that_made_it</code></td><td>Rayleigh goes as λ⁻⁴, so skylight is far bluer than the direct beam -- which is exactly why a near-infrared band gets a much smaller share of DHI than of DNI, and why weighting the direct spectrum instead would over-light a NIR sky.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py#L86" target="_blank" rel="noopener">the term matters in the reflective bands and not in lwir</a><br><code>test_the_term_matters_in_the_reflective_bands_and_not_in_lwir</code></td><td>The measurement that decides where this model is load-bearing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py#L104" target="_blank" rel="noopener">an emissive band gets no skylight at all</a><br><code>test_an_emissive_band_gets_no_skylight_at_all</code></td><td><code>None</code>, not a small number: it is what keeps every LWIR golden bit-identical.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py#L112" target="_blank" rel="noopener">a mismatched quantity is refused rather than scaled</a><br><code>test_a_mismatched_quantity_is_refused_rather_than_scaled</code></td><td><code>lb</code> and <code>lb_q</code> differ by ~1e19. A mismatch would render a plausible sky at a wrong brightness that the AGC would then normalise away, so the sky model refuses it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_skylight.py#L132" target="_blank" rel="noopener">the sky model is brighter with the term than without it</a><br><code>test_the_sky_model_is_brighter_with_the_term_than_without_it</code></td><td>End to end on the real SkyModel: the term reaches <code>clear_radiance</code>, and therefore reaches both the sky background <em>and</em> the reflected environment term, from one place.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

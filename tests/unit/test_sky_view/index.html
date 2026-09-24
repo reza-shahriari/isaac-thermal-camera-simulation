@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sky view — irsim</title>
+<meta name="description" content="PT.21 — per-cell sky view factor and diffuse shadowing.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Sky view</h1>
+  <p class="subtitle">PT.21 — per-cell sky view factor and diffuse shadowing.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py" target="_blank" rel="noopener">tests/unit/test_sky_view.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The 145-patch dome, gated by the same ray-rectangle test the beam uses, is held to three analytic anchors within 0.01 -- open sky 1.000, the foot of an infinite wall 0.5, under an infinite overhang 0.5 -- and to the phenomenon it exists for: two identical cells at SVF 0.2 and 0.9 under one weather file swing with a diurnal-amplitude ratio near 2 (a hot-dry-climate study: 1.97 against 4.21 °C), and a factor applied to the solar term alone cannot reproduce it.</p>
+<p>docs/physics-model.md §5.4, §6.1; ADR 0095, ADR 0104; roadmap PT.21.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py" target="_blank" rel="noopener">tests/unit/test_sky_view.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L54" target="_blank" rel="noopener">the dome has 145 patches that tile the hemisphere</a><br><code>test_the_dome_has_145_patches_that_tile_the_hemisphere</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L69" target="_blank" rel="noopener">the analytic anchors hold within 0 01</a><br><code>test_the_analytic_anchors_hold_within_0_01</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L99" target="_blank" rel="noopener">a tilted open cell keeps its tilt s factor exactly and a downward one sees nothing</a><br><code>test_a_tilted_open_cell_keeps_its_tilt_s_factor_exactly_and_a_downward_one_sees_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L121" target="_blank" rel="noopener">cells at svf 0 2 and 0 9 swing less and keep their night warmth</a><span class="tag">slow</span><br><code>test_cells_at_svf_0_2_and_0_9_swing_less_and_keep_their_night_warmth</code></td><td>Two identical shaded asphalt cells under one weather file, one seeing a fifth of the sky and one nine tenths. The roadmap's anchor is a hot-dry-climate passage swinging 1.97 °C against 4.21 °C in the open (ratio near 2); with the hidden hemisphere at the <em>scene's one</em> air temperature the swing cannot fall below the air's own 12 K, and the measured ratio is 1.25 (11.9 K against 14.9 K). What the factor does get -- and what a factor on the solar term alone cannot -- is the night: the enclosed cell loses less to the sky and stays 3.2 K warmer at its minimum, where the solar-only control leaves the two minima within 0.05 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sky_view.py#L165" target="_blank" rel="noopener">the scene gives cells their own sky and open cells the tilt s factor</a><span class="tag">slow</span><br><code>test_the_scene_gives_cells_their_own_sky_and_open_cells_the_tilt_s_factor</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

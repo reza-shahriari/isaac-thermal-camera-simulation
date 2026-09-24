@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boson datasheet — irsim</title>
+<meta name="description" content="The Boson configs against FLIR&#x27;s own published figures (SC.3, ADR 0091).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Boson datasheet</h1>
+  <p class="subtitle">The Boson configs against FLIR's own published figures (SC.3, ADR 0091).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py" target="_blank" rel="noopener">tests/unit/test_boson_datasheet.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>[R24] is <em>FLIR Boson® Thermal Imaging Core Product Datasheet</em>, Doc. # 102-2013-40 Release 340, March 2021 -- free, public, EAR99. This project has no camera and is not getting one, so a datasheet is the only external anchor available for the reference core, and three committed values disagreed with it:</p>
+<ul>
+<li><code>ffc_interval_s: 180</code>, which matches <strong>no</strong> published default (Section 5 says 300 s);</li>
+<li><code>thermal_time_constant_ms: 10.0</code>, marked ESTIMATED against "typical VOx 8-12 ms" while the datasheet states "Nominally 8 msec" outright;</li>
+<li><code>ratios_3d</code> carrying no provenance marker at all, in files whose headers promise one.</li>
+</ul>
+<p>The bench below reproduces the acceptance conditions Table 13 states -- lensless at f/1.0, high gain, 20 C camera, 30 C background, averager disabled, free-running -- and asserts the three components FLIR actually bounds. It asserts <strong>compliance with the limits</strong>, not equality with the ratio between them: Table 13 publishes upper bounds, and the ratio of two upper bounds is not the ratio of two typical values. ADR 0091 argues that at length; <code>SC.2</code> substitutes ME.5's measured ratios, which is the only thing that can settle the number.</p>
+<p>docs/physics-model.md §9.4, §10.2, §16.1; ADR 0025 (σ_TVH convention), ADR 0091.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py" target="_blank" rel="noopener">tests/unit/test_boson_datasheet.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L70" target="_blank" rel="noopener">the ffc period is the published factory default</a><span class="tag">parametrize</span><br><code>test_the_ffc_period_is_the_published_factory_default</code></td><td>[R24] S5: "the factory-default value of 300 represents a 300 second ... maximum time".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L81" target="_blank" rel="noopener">the membrane is the published nominal and not a range midpoint</a><span class="tag">parametrize</span><br><code>test_the_membrane_is_the_published_nominal_and_not_a_range_midpoint</code></td><td>[R24]: "Boson's sensor assembly has a characteristic thermal time constant, nominally 8 msec." The configs carried 10.0, the middle of the generic VOx 8-12 ms range, as ESTIMATED -- a literature figure standing in for a number the datasheet publishes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L96" target="_blank" rel="noopener">the 640 carries datasheet limits and says its ratios are estimated</a><br><code>test_the_640_carries_datasheet_limits_and_says_its_ratios_are_estimated</code></td><td>Open question 6's split, one half: the 640 has no field measurement of its own.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L114" target="_blank" rel="noopener">the 320 carries me 5s measured ratios and names their bounds</a><br><code>test_the_320_carries_me_5s_measured_ratios_and_names_their_bounds</code></td><td>The other half: the 320 is the camera the public Halmstad set was recorded with.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L136" target="_blank" rel="noopener">the two cameras never share a ratios block</a><br><code>test_the_two_cameras_never_share_a_ratios_block</code></td><td>Open question 6, stated as a check rather than as a plan.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L153" target="_blank" rel="noopener">the configured ratio is far inside the limit ratio and that is recorded</a><br><code>test_the_configured_ratio_is_far_inside_the_limit_ratio_and_that_is_recorded</code></td><td>The measurement SC.3 exists to surface, stated rather than silently corrected.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L228" target="_blank" rel="noopener">the bench meets table 13 at the configured grade</a><br><code>test_the_bench_meets_table_13_at_the_configured_grade</code></td><td>The committed camera is the professional grade: &lt; 50 / &lt; 18 / &lt; 18 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L250" target="_blank" rel="noopener">the limit check has teeth</a><br><code>test_the_limit_check_has_teeth</code></td><td>A compliance check that cannot fail is decoration, so here is the failing direction.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_boson_datasheet.py#L272" target="_blank" rel="noopener">the measured ratios are recovered from a rendered cube</a><br><code>test_the_measured_ratios_are_recovered_from_a_rendered_cube</code></td><td>ME.5's ratios survive the round trip through the chain and the decomposition.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thermal defocus — irsim</title>
+<meta name="description" content="OC.10 -- thermal defocus of an unathermalised IR lens (ADR 0129).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Thermal defocus</h1>
+  <p class="subtitle">OC.10 -- thermal defocus of an unathermalised IR lens (ADR 0129).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py" target="_blank" rel="noopener">tests/unit/test_thermal_defocus.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The distinctly infrared focus effect, and the one this project already had the input for and was not using: <code>HousingTemperature</code> has solved the lens housing over a diurnal run since M9.3, for the self-emission term, and nothing else read it.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py" target="_blank" rel="noopener">tests/unit/test_thermal_defocus.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L27" target="_blank" rel="noopener">germanium is the material that has to be athermalised</a><br><code>test_germanium_is_the_material_that_has_to_be_athermalised</code></td><td>beta = (dn/dT)/(n-1) - alpha. Germanium's is three to four times the alternatives', which is why it is the one paired with them rather than used alone.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L37" target="_blank" rel="noopener">an aluminium barrel is a better partner than invar</a><br><code>test_an_aluminium_barrel_is_a_better_partner_than_invar</code></td><td>The residue is alpha_housing - beta, so a <em>large</em> housing expansion cancels more of it. Invar is the low-expansion choice and is the wrong one here, which is a result worth pinning: it is the opposite of the instinct that low expansion means stable.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L50" target="_blank" rel="noopener">the defocus is signed and linear in temperature</a><br><code>test_the_defocus_is_signed_and_linear_in_temperature</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L59" target="_blank" rel="noopener">a twenty kelvin rise takes infinity focus inside hyperfocal</a><br><code>test_a_twenty_kelvin_rise_takes_infinity_focus_inside_hyperfocal</code></td><td>The headline number: an unathermalised Boson that warms 20 K is no longer focused at infinity but at 6.8 m, well inside its own 16.3 m hyperfocal distance, so distant targets go soft. This is the whole reason the effect is worth modelling for an aerial sensor.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L74" target="_blank" rel="noopener">cooling pushes focus past infinity</a><br><code>test_cooling_pushes_focus_past_infinity</code></td><td>The other sign, and it must not come back as a near distance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L79" target="_blank" rel="noopener">zero shift and athermal change nothing</a><br><code>test_zero_shift_and_athermal_change_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L88" target="_blank" rel="noopener">w020 is the longitudinal shift over eight f squared</a><br><code>test_w020_is_the_longitudinal_shift_over_eight_f_squared</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L95" target="_blank" rel="noopener">unknown materials are refused</a><br><code>test_unknown_materials_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L102" target="_blank" rel="noopener">the schema defaults to athermal and keeps the hash</a><br><code>test_the_schema_defaults_to_athermal_and_keeps_the_hash</code></td><td>v11 must be the pre-v11 camera: every existing config describes an athermal lens.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_thermal_defocus.py#L131" target="_blank" rel="noopener">a warming lens softens a distant scene through the pipeline</a><br><code>test_a_warming_lens_softens_a_distant_scene_through_the_pipeline</code></td><td>End to end: the same camera, the same scene, a housing 25 K warmer.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

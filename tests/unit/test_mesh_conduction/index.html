@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh conduction — irsim</title>
+<meta name="description" content="Lateral conduction between a mesh&#x27;s cells (WM.6).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Mesh conduction</h1>
+  <p class="subtitle">Lateral conduction between a mesh's cells (WM.6).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py" target="_blank" rel="noopener">tests/unit/test_mesh_conduction.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Two things can go wrong here and neither shows up as an error. A conductance of the wrong <em>magnitude</em> renders a gradient that is simply too strong or too weak, and nothing complains; a <strong>negative</strong> conductance breaks the discrete maximum principle and puts a cell outside the range its neighbours and its forcing span, which arrives as a bright speck indistinguishable from a bad pixel. The tests below measure the first against the fin equation's own answer and pin the second shut.</p>
+<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py" target="_blank" rel="noopener">tests/unit/test_mesh_conduction.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L48" target="_blank" rel="noopener">an equilateral face carries the cotan weight exactly</a><span class="tag">parametrize</span><br><code>test_an_equilateral_face_carries_the_cotan_weight_exactly</code></td><td>The one geometry where the shipped scheme and the consistent one must agree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L63" target="_blank" rel="noopener">refining a face adds cells without changing how fast heat crosses it</a><br><code>test_refining_a_face_adds_cells_without_changing_how_fast_heat_crosses_it</code></td><td>The barycentric cut is affine, so <code>w</code> and <code>d</code> shrink together and <code>w/d</code> is scale-free.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L79" target="_blank" rel="noopener">the link and span bookkeeping covers each sub edge once</a><br><code>test_the_link_and_span_bookkeeping_covers_each_sub_edge_once</code></td><td>Every interior sub-edge touches exactly one inverted cell, and an inverted cell has three upright neighbours -- so counting inverted cells counts the edges, once each.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L112" target="_blank" rel="noopener">a linear field is exact on an equilateral face</a><br><code>test_a_linear_field_is_exact_on_an_equilateral_face</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L121" target="_blank" rel="noopener">a linear field is not exact on a skewed face and the error is recorded</a><span class="tag">parametrize</span><br><code>test_a_linear_field_is_not_exact_on_a_skewed_face_and_the_error_is_recorded</code></td><td>The measured price of the choice, asserted so it cannot grow unnoticed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L141" target="_blank" rel="noopener">the circumcentric weight goes negative on an obtuse face</a><br><code>test_the_circumcentric_weight_goes_negative_on_an_obtuse_face</code></td><td>The defect <code>WM.6</code> exists for. Inside one face the two sub-triangles across a sub-edge are congruent, so the two angles opposite it are both the parent's own and the consistent weight is <code>k δ tan Θ</code> -- negative for every obtuse face, and singular for a right-angled one, where the circumcentre lies on the shared edge.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L155" target="_blank" rel="noopener">an operator built from the negative weight is refused outright</a><br><code>test_an_operator_built_from_the_negative_weight_is_refused_outright</code></td><td><code>ConductionOperator</code> will not hold a negative conductance, so the cotan assembly cannot even be constructed on an obtuse face -- the failure is at build, not a speck in a frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L170" target="_blank" rel="noopener">no cell leaves the range its neighbours and the forcing span</a><br><code>test_no_cell_leaves_the_range_its_neighbours_and_the_forcing_span</code></td><td>The discrete maximum principle, on the deliberately obtuse mesh, through the real step.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L195" target="_blank" rel="noopener">conduction moves heat without creating it</a><br><code>test_conduction_moves_heat_without_creating_it</code></td><td>Symmetry is what makes the exchange conservative for cells of unequal area: the total <code>Σ C A dT</code> from conduction alone is zero, and the operator checks the symmetry at build.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L230" target="_blank" rel="noopener">two faces conduct across the edge they share</a><br><code>test_two_faces_conduct_across_the_edge_they_share</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L241" target="_blank" rel="noopener">faces of different levels meet by the length they actually share</a><span class="tag">parametrize</span><br><code>test_faces_of_different_levels_meet_by_the_length_they_actually_share</code></td><td>Non-conforming levels are matched by overlap, as <code>TC.3</code>'s contactors match two patches whose grids do not line up.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L265" target="_blank" rel="noopener">an open boundary conducts to nothing</a><br><code>test_an_open_boundary_conducts_to_nothing</code></td><td>A single face has three sides and no neighbour on any of them; its cells conduct only to each other, and no link runs off the edge.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L274" target="_blank" rel="noopener">no conductivity means no operator at all</a><br><code>test_no_conductivity_means_no_operator_at_all</code></td><td><code>None</code>, not a matrix of zeros: the field then takes the operator-free path bit for bit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L305" target="_blank" rel="noopener">a tube attenuates its gradient as the fin equation says</a><br><code>test_a_tube_attenuates_its_gradient_as_the_fin_equation_says</code></td><td>The headline. A sheet of <code>k δ</code> losing heat at <code>h</code> cannot hold a feature smaller than <code>L = √(kδ/h)</code>, and a gradient of wavelength <code>λ</code> survives at <code>1/(1 + (2πL/λ)²)</code> -- the steady fin equation, not a rule of thumb. On carbon fibre round a 30 mm tube that is 0.744, and the operator reproduces it to <strong>1 %</strong> when the tessellation is cut near-square.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_conduction.py#L320" target="_blank" rel="noopener">a long thin tessellation under conducts and the rule says so</a><br><code>test_a_long_thin_tessellation_under_conducts_and_the_rule_says_so</code></td><td>What the aspect ratio costs, measured -- the authoring rule <code>ADR 0112</code> states.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

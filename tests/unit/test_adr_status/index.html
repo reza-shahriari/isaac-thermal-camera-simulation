@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adr status — irsim</title>
+<meta name="description" content="RP.5 — every ADR carries a status in one spelling, and supersessions are actually recorded.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Adr status</h1>
+  <p class="subtitle">RP.5 — every ADR carries a status in one spelling, and supersessions are actually recorded.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py" target="_blank" rel="noopener">tests/unit/test_adr_status.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Two problems, both of which make the decision record less trustworthy than its own size suggests.</p>
+<p><strong>Three spellings.</strong> <code>**Status:** Accepted</code>, <code>Status: accepted</code> and <code>- Status: accepted</code> were all in use across 88 files, so no single grep answered "what is the state of the record". They are now one label, <code>**Status:**</code>, with the bullet preserved where a file's metadata is a list.</p>
+<p><strong>Nothing was ever superseded.</strong> ADR 0001's template offers <code>Superseded by ADR NNNN</code> and not one file had used it — while at least three decisions had been overtaken in part:</p>
+<ul>
+<li><strong>0059</strong> ruled that "bolometer smear is the inter-frame IIR of §9.2, never a second blur". ADR 0077 then made <code>smear_duty(None)</code> mean <em>a bolometer and therefore 1</em>, so <code>optics/stage.py</code> applies exactly the second blur that clause forbade. The two are different mechanisms and a bolometer has both, so 0077 is right and the clause was wrong.</li>
+<li><strong>0006</strong> designed a temperature encoding for a render G-buffer; ADR 0014 measured that no colour AOV can carry it, so the transport it was written for does not exist.</li>
+<li><strong>0048</strong> documented the grey band model as valid to ~500 m; ADR 0071's layered slant path replaced that clause for non-horizontal geometry.</li>
+</ul>
+<p>None of the three is superseded <em>entirely</em>, which is why the status line names the clause. A record that can only say "Accepted" or "dead" cannot describe what actually happens to decisions.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py" target="_blank" rel="noopener">tests/unit/test_adr_status.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L59" target="_blank" rel="noopener">there are adrs to check</a><br><code>test_there_are_adrs_to_check</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L63" target="_blank" rel="noopener">every adr carries a status</a><br><code>test_every_adr_carries_a_status</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L68" target="_blank" rel="noopener">no adr uses an unbolded status label</a><br><code>test_no_adr_uses_an_unbolded_status_label</code></td><td>The three spellings this step collapsed. A grep has to answer for the whole record.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L78" target="_blank" rel="noopener">every status starts with a sanctioned state</a><br><code>test_every_status_starts_with_a_sanctioned_state</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L88" target="_blank" rel="noopener">every adr a status supersedes to exists</a><br><code>test_every_adr_a_status_supersedes_to_exists</code></td><td>A status that names a replacement which was never written is worse than no status.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L100" target="_blank" rel="noopener">no adr declares itself superseded by itself</a><br><code>test_no_adr_declares_itself_superseded_by_itself</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L115" target="_blank" rel="noopener">the known supersessions are recorded</a><span class="tag">parametrize</span><br><code>test_the_known_supersessions_are_recorded</code></td><td>The self-test the step asks for: these were live contradictions in the record.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L123" target="_blank" rel="noopener">the superseded clause in 0059 is marked in the body too</a><br><code>test_the_superseded_clause_in_0059_is_marked_in_the_body_too</code></td><td>A reader who lands mid-document must not act on the clause the header retired.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_adr_status.py#L130" target="_blank" rel="noopener">a status the parser would reject</a><br><code>test_a_status_the_parser_would_reject</code></td><td>Negative control, so the vocabulary check is known to be able to fail.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

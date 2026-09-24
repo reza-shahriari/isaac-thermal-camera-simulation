@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap row length — irsim</title>
+<meta name="description" content="RP.9 — the row-length lint the roadmap says enforces it.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Roadmap row length</h1>
+  <p class="subtitle">RP.9 — the row-length lint the roadmap says enforces it.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py" target="_blank" rel="noopener">tests/unit/test_roadmap_row_length.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Revision 3 of the plan held 224,508 of its 298,272 characters inside markdown table cells, averaging 1,234 per row with a 4,958-character maximum. Rows that size are a second changelog: unrenderable, unreviewable as a diff, and unmergeable between two sessions without a manual rewrite — which is how four subsystems came to be over-reported and how a whole-file write silently reverted committed work.</p>
+<p>Revision 4 states the fix in its own prose: "<strong>Step rows are capped at 600 characters and ledger rows at 200</strong>, enforced by a parser in <code>make check</code> (RP.9)." This is that parser. Until it existed the cap was a sentence, and a sentence is what revision 3 had too.</p>
+<p><strong>Scope, because a lint that creeps is a lint that gets disabled.</strong> Step tables and the shipped ledger only — never prose, never the generated <em>Do next</em> block, never the phase or risk tables. A paragraph is allowed to be a paragraph; the cap exists because a <em>table cell</em> is the thing that does not diff.</p>
+<p>This is a lint, not a physics verification, and is not counted as one.</p>
+<p>The ledger's own 200-character cap has an owner already (<code>test_shipped_ledger.py</code>, RP.6) and is not duplicated here; this file owns the 600 and the self-test that proves the parser catches rather than merely passes.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py" target="_blank" rel="noopener">tests/unit/test_roadmap_row_length.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L66" target="_blank" rel="noopener">the parser finds the step tables</a><br><code>test_the_parser_finds_the_step_tables</code></td><td>A lint that matched nothing would pass for ever, which is the failure mode of a lint.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L75" target="_blank" rel="noopener">no step row is over the cap</a><br><code>test_no_step_row_is_over_the_cap</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L84" target="_blank" rel="noopener">the document still states the cap this test enforces</a><br><code>test_the_document_still_states_the_cap_this_test_enforces</code></td><td>If the prose and the parser disagree, the prose is what a reader will believe.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L95" target="_blank" rel="noopener">the parser catches a synthetic over length row</a><br><code>test_the_parser_catches_a_synthetic_over_length_row</code></td><td>Proof the lint catches rather than merely passes, without making this document red.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L115" target="_blank" rel="noopener">the row pattern matches nothing outside a step table</a><span class="tag">parametrize</span><br><code>test_the_row_pattern_matches_nothing_outside_a_step_table</code></td><td>Phase, risk, queue, ledger and spec-issue rows and prose are all out of scope.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L126" target="_blank" rel="noopener">no step row is found before the first lane heading</a><br><code>test_no_step_row_is_found_before_the_first_lane_heading</code></td><td>The section filter, checked rather than assumed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_row_length.py#L139" target="_blank" rel="noopener">the ledger is not linted at the step cap</a><br><code>test_the_ledger_is_not_linted_at_the_step_cap</code></td><td>Its rows are capped at 200 and owned by <code>test_shipped_ledger.py</code>; double ownership rots.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

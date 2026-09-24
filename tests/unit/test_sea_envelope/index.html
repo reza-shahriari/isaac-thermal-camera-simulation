@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sea envelope — irsim</title>
+<meta name="description" content="The sea model&#x27;s angular validity envelope, and what fraction of a frame lies outside it (SE.1).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Sea envelope</h1>
+  <p class="subtitle">The sea model's angular validity envelope, and what fraction of a frame lies outside it (SE.1).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py" target="_blank" rel="noopener">tests/unit/test_sea_envelope.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>test_sea_surface.py</code> checks that the sea model is self-consistent. This file checks something it cannot: <strong>whether anyone has measured the sea at the angles we ask the model about.</strong></p>
+<p>The finding, in one line: <strong>every shore and mast frame this project renders is 100 % outside the validated envelope, and every down-looking airborne frame is 100 % inside it.</strong> At a 20 m eye height the 50° limit is crossed at 31 m of slant range, so the whole maritime working band -- hundreds of metres to the horizon -- runs on an extrapolation.</p>
+<p>⚠️ <strong>The isothermal identity is deliberately not the test here.</strong> It is the load-bearing check in <code>test_sea_surface.py</code> precisely because it holds for <em>any</em> emissivity, which is the same reason it cannot see this: a sea model with a badly wrong angular emissivity satisfies it exactly. :func:<code>test_the_isothermal_identity_cannot_see_the_envelope</code> demonstrates that rather than asserting it, by holding the identity while the emissivity is replaced with a constant.</p>
+<p>What does discriminate, in rising order of sharpness:</p>
+<ul>
+<li>the <strong>axis</strong>: the envelope is indexed by view zenith at the <em>surface</em>, not by camera depression, and the two differ by the horizon dip -- exactly at the grazing end the envelope is about;</li>
+<li>the <strong>geometry</strong>: shore 1.0000 beyond, airborne 0.0000, so the flag separates two real deployments instead of firing everywhere;</li>
+<li>the <strong>magnitude</strong>: our facet-integrated emissivity falls 2.07 % by 55° in a calm sea, inside the published 2-3 %, and crosses 3 % at 7.3 m/s of wind -- so the envelope turns out to have a wind axis the roadmap row did not know about.</li>
+</ul>
+<p>docs/physics-model.md §5.3, §15; roadmap SE.1; ADR 0078, ADR 0079, ADR 0118</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py" target="_blank" rel="noopener">tests/unit/test_sea_envelope.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L102" target="_blank" rel="noopener">the view zenith is exactly grazing at the horizon</a><span class="tag">parametrize</span><br><code>test_the_view_zenith_is_exactly_grazing_at_the_horizon</code></td><td>θ = 90° at the geometric horizon and 0° at nadir, for every camera height.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L121" target="_blank" rel="noopener">the conversion is the flat earth one plus a curvature term</a><br><code>test_the_conversion_is_the_flat_earth_one_plus_a_curvature_term</code></td><td>Away from grazing the two agree to millidegrees; at grazing they part by the dip.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L140" target="_blank" rel="noopener">a ray above the horizon has no incidence angle on the sea</a><br><code>test_a_ray_above_the_horizon_has_no_incidence_angle_on_the_sea</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L148" target="_blank" rel="noopener">the flag turns over exactly at the published limit</a><br><code>test_the_flag_turns_over_exactly_at_the_published_limit</code></td><td>Inside at 49.99°, outside at 50.01°, and the crossing depression inverts the conversion.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L164" target="_blank" rel="noopener">the envelope ends 31 m from a shore camera</a><br><code>test_the_envelope_ends_31_m_from_a_shore_camera</code></td><td>The number that makes the risk legible: everything past a boat length is extrapolated.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L194" target="_blank" rel="noopener">the envelope separates shore cameras from airborne ones</a><span class="tag">parametrize</span><br><code>test_the_envelope_separates_shore_cameras_from_airborne_ones</code></td><td>The headline: shore frames are <strong>entirely</strong> outside, airborne frames <strong>entirely</strong> inside.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L220" target="_blank" rel="noopener">recording the envelope against depression inverts the answer</a><br><code>test_recording_the_envelope_against_depression_inverts_the_answer</code></td><td>The negative control, and it fails <strong>backwards</strong>, which is the dangerous direction.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L254" target="_blank" rel="noopener">a frame with no sea reports no samples rather than raising</a><br><code>test_a_frame_with_no_sea_reports_no_samples_rather_than_raising</code></td><td>An empty mask is an answer, not an error -- the caller asked what fraction is outside.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L268" target="_blank" rel="noopener">the emissivity drop by 55 degrees matches published in situ radiometry</a><br><code>test_the_emissivity_drop_by_55_degrees_matches_published_in_situ_radiometry</code></td><td>2.07 % in a calm sea, inside the published 2-3 %: an external check the identity cannot give.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L296" target="_blank" rel="noopener">the published drop is only reproduced below a wind</a><br><code>test_the_published_drop_is_only_reproduced_below_a_wind</code></td><td>The envelope has a second axis: past 7.3 m/s our drop at 55° exceeds the published 3 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L331" target="_blank" rel="noopener">the isothermal identity cannot see the envelope</a><br><code>test_the_isothermal_identity_cannot_see_the_envelope</code></td><td>Demonstrated, not asserted: the identity holds with the emissivity replaced by a constant.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L359" target="_blank" rel="noopener">the maritime scene carries the report in its metadata</a><br><code>test_the_maritime_scene_carries_the_report_in_its_metadata</code></td><td>So a Tier 3 report can print it without knowing the geometry, and it cannot drift.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_sea_envelope.py#L377" target="_blank" rel="noopener">the sea model flags its own angles</a><br><code>test_the_sea_model_flags_its_own_angles</code></td><td><code>SeaModel.beyond_envelope</code> is the flag on the model, not only on a frame.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

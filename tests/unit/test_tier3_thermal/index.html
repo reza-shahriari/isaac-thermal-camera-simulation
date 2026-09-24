@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier3 thermal — irsim</title>
+<meta name="description" content="M6.13 — Tier 3 diurnal phenomenology on the facet scene (§6.3, §15 T3, §16.4 step 6).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Tier3 thermal</h1>
+  <p class="subtitle">M6.13 — Tier 3 diurnal phenomenology on the facet scene (§6.3, §15 T3, §16.4 step 6).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py" target="_blank" rel="noopener">tests/unit/test_tier3_thermal.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>§6.3 gives this bench its acceptance test in one sentence: <em>"If your simulator does not reproduce a contrast collapse near sunrise/sunset, your temperature model is not running. Make 'does the scene go flat at 0600 and 1900?' an acceptance test."</em> So that is measured first, on the <strong>scene-wide spread</strong> rather than on a chosen pair — a pair's crossing time depends on which pair you choose by a couple of hours, and the operational claim is about the picture.</p>
+<p>Half of it reproduces spectacularly and half does not, and both are recorded below.</p>
+<p>The facet scene is deliberately made of pairs that differ in exactly one thing — sunlit vs shaded asphalt, wet vs dry soil, black vs white paint, a parked hood vs one at 100 km/h — so that when a difference appears there is only one thing it can be attributed to.</p>
+<p>docs/physics-model.md §6.3, §15 T3, §16.4 step 6; ADR 0036, ADR 0037</p>
+<p class='made-by'>14 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py" target="_blank" rel="noopener">tests/unit/test_tier3_thermal.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L97" target="_blank" rel="noopener">the scene goes flat at dawn</a><br><code>test_the_scene_goes_flat_at_dawn</code></td><td>From <strong>13.2 K</strong> of spread at midday to <strong>1.39 K</strong> an hour after sunrise: an 89 % collapse.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L114" target="_blank" rel="noopener">the dusk flat is not reproduced and that is recorded</a><br><code>test_the_dusk_flat_is_not_reproduced_and_that_is_recorded</code></td><td>⚠️ §6.3 asks for a collapse at <strong>both</strong> ends. This scene has one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L147" target="_blank" rel="noopener">the morning crossover lands near sunrise</a><br><code>test_the_morning_crossover_lands_near_sunrise</code></td><td>The half that does work at the pair level: a fast, light surface crosses a slow one within about an hour of sunrise (measured 70 min).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L163" target="_blank" rel="noopener">sunlit asphalt peaks in the early afternoon</a><br><code>test_sunlit_asphalt_peaks_in_the_early_afternoon</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L171" target="_blank" rel="noopener">the swing exceeds the roadmaps band and the reason is the back boundary</a><br><code>test_the_swing_exceeds_the_roadmaps_band_and_the_reason_is_the_back_boundary</code></td><td>⚠️ Measured <strong>47.1 K</strong> against the roadmap's 15–40 K, and the model says why.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L191" target="_blank" rel="noopener">the surface falls below the air at night</a><br><code>test_the_surface_falls_below_the_air_at_night</code></td><td>Radiative cooling to a clear sky, which is half the swing and the reason a clear night reads colder than the thermometer says.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L206" target="_blank" rel="noopener">shade is far colder by day and indistinguishable at night</a><br><code>test_shade_is_far_colder_by_day_and_indistinguishable_at_night</code></td><td>The same material, the same hour, differing only in the direct beam.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L219" target="_blank" rel="noopener">wet soil is colder than dry in the afternoon</a><br><code>test_wet_soil_is_colder_than_dry_in_the_afternoon</code></td><td>Three times the areal heat capacity, and it shows in both directions.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L230" target="_blank" rel="noopener">a moving hood is far colder than a parked one</a><br><code>test_a_moving_hood_is_far_colder_than_a_parked_one</code></td><td>100 km/h against parked: forced convection and nothing else differs. <strong>26 K</strong> at 14:00.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L240" target="_blank" rel="noopener">black and white paint are identical at night and nothing alike at noon</a><br><code>test_black_and_white_paint_are_identical_at_night_and_nothing_alike_at_noon</code></td><td>Same ε, opposite α_sol — which is why a white car and a black car look the same in LWIR at 03:00 and 29 K apart at 13:00.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L261" target="_blank" rel="noopener">overcast cuts both the swing and the night contrast</a><br><code>test_overcast_cuts_both_the_swing_and_the_night_contrast</code></td><td>Cloud removes the beam by day and the cold sky by night, so it flattens both ends.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L288" target="_blank" rel="noopener">doubling the wind lowers the peak</a><br><code>test_doubling_the_wind_lowers_the_peak</code></td><td>2.5 → 5 m/s. Forced convection is the only term that moves, and it moves the peak by more than a kelvin — which is why a scene that ignores wind gets its hottest surfaces wrong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L298" target="_blank" rel="noopener">the bench runs on a sixty second tick</a><br><code>test_the_bench_runs_on_a_sixty_second_tick</code></td><td>The scene's own tick, so this bench is measuring what a render would see.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_thermal.py#L306" target="_blank" rel="noopener">the sun times this module asserts against are the scene s own</a><br><code>test_the_sun_times_this_module_asserts_against_are_the_scene_s_own</code></td><td>The sunrise and sunset constants above are derived, not typed — if the site or the start date moves, this fails rather than the phenomenology quietly drifting past them.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

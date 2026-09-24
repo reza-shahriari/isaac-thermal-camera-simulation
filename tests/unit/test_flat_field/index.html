@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flat field — irsim</title>
+<meta name="description" content="The camera&#x27;s flat-field correction (M9.12): what it removes, and what it must not touch.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Flat field</h1>
+  <p class="subtitle">The camera's flat-field correction (M9.12): what it removes, and what it must not touch.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py" target="_blank" rel="noopener">tests/unit/test_flat_field.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>TwoPointNuc</code> was built in M5 and nothing applied it, so the 8-bit picture carried every fixed spatial structure the optics put into the DN plane -- most visibly cos⁴ vignetting, 21 % at the corner of the Boson's 14 mm lens, which plateau equalisation then stretches into black corners. No real camera looks like that, because every one of them flat-fields before the AGC.</p>
+<p>The subtle half is what the correction must <em>not</em> do. The radiometric branch already divides cos⁴ out per pixel analytically in <code>invert_optics</code>, which is why apparent temperature was flat across a row while the picture was not. Correcting it again would remove the same term twice, so the flat field belongs to the display branch alone and <code>dn16</code> stays the raw ADC plane.</p>
+<p>docs/physics-model.md §11.1, §11.2; ADR 0021.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py" target="_blank" rel="noopener">tests/unit/test_flat_field.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L95" target="_blank" rel="noopener">the raw dn plane really does carry cos4</a><br><code>test_the_raw_dn_plane_really_does_carry_cos4</code></td><td>The premise, measured: an un-corrected camera darkens toward the corners by ~21 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L107" target="_blank" rel="noopener">a uniform scene comes out uniform</a><br><code>test_a_uniform_scene_comes_out_uniform</code></td><td>The definition of a flat field: one blackbody filling the field reads the same everywhere.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L119" target="_blank" rel="noopener">it is flat at a temperature it was not calibrated at</a><br><code>test_it_is_flat_at_a_temperature_it_was_not_calibrated_at</code></td><td>Two points calibrate a line, so the correction holds between and beyond them.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L133" target="_blank" rel="noopener">the correction is of the right size</a><br><code>test_the_correction_is_of_the_right_size</code></td><td>The gain has to be about 1/cos⁴ at the corner, or it is correcting something else.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L145" target="_blank" rel="noopener">dn16 and the radiometric outputs are bit identical either way</a><br><code>test_dn16_and_the_radiometric_outputs_are_bit_identical_either_way</code></td><td>The flat field is a <em>display</em> correction; the linear outputs must not move by one bit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L191" target="_blank" rel="noopener">the picture stops having dark corners</a><br><code>test_the_picture_stops_having_dark_corners</code></td><td>End to end, in the 8-bit image: the artefact the complaint was about.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L216" target="_blank" rel="noopener">the apparent temperature was already flat</a><br><code>test_the_apparent_temperature_was_already_flat</code></td><td>Why the correction is display-only, stated as a measurement rather than an argument.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L226" target="_blank" rel="noopener">the pedestal defaults to the spec convention</a><br><code>test_the_pedestal_defaults_to_the_spec_convention</code></td><td>Without <code>restore_pedestal</code> the corrected cold blackbody reads 0, as §11.2 says.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L235" target="_blank" rel="noopener">restoring the pedestal keeps the dn range</a><br><code>test_restoring_the_pedestal_keeps_the_dn_range</code></td><td>With it, the corrected cold frame sits at the cold frame's own mean level.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_flat_field.py#L250" target="_blank" rel="noopener">calibration refuses a pair that does not respond</a><br><code>test_calibration_refuses_a_pair_that_does_not_respond</code></td><td>A pixel that answers the hot blackbody no more than the cold one has no gain to compute.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

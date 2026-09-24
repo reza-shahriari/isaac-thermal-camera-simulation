@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eval sequence — irsim</title>
+<meta name="description" content="The sequence reader and the static-clip gate (ME.1b).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Eval sequence</h1>
+  <p class="subtitle">The sequence reader and the static-clip gate (ME.1b).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py" target="_blank" rel="noopener">tests/unit/test_eval_sequence.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Two things are under test and they fail in different ways. The reader fails loudly -- a missing frame or a widened dtype raises. The <strong>classifier</strong> fails silently, and that is why most of this file is about it: a panned clip that gets called static produces a per-pixel temporal standard deviation that is larger than the sensor's, perfectly smooth, and indistinguishable from a noisier camera. The two controls the roadmap names -- a translated clip and a jittered one -- are the whole point, so they are built with the <em>same per-frame step size</em> and must come out opposite.</p>
+<p>docs/physics-model.md §10.2, §15 T4; ADR 0003.</p>
+<p class='made-by'>22 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py" target="_blank" rel="noopener">tests/unit/test_eval_sequence.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L106" target="_blank" rel="noopener">a synthetic sequence round trips through disk</a><br><code>test_a_synthetic_sequence_round_trips_through_disk</code></td><td>Frames, boxes and per-frame attributes all come back exactly as they went in.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L133" target="_blank" rel="noopener">boxes are readable without decoding any frame</a><br><code>test_boxes_are_readable_without_decoding_any_frame</code></td><td>A size histogram over a whole set must not pay for the pixels it never looks at.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L145" target="_blank" rel="noopener">the box convention is the project convention</a><br><code>test_the_box_convention_is_the_project_convention</code></td><td>Top-left plus size; a box on exactly the first pixel has its centre at (0.5, 0.5).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L160" target="_blank" rel="noopener">a frame wider than the declaration is refused</a><br><code>test_a_frame_wider_than_the_declaration_is_refused</code></td><td>The width is declared, not inferred: a dtype that contradicts it is an error.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L177" target="_blank" rel="noopener">a sixteen bit sequence round trips every count</a><br><code>test_a_sixteen_bit_sequence_round_trips_every_count</code></td><td>The step's whole point: a Y16 set has to reach the analysers without being narrowed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L199" target="_blank" rel="noopener">counts narrower than their container are checked against the declaration</a><br><code>test_counts_narrower_than_their_container_are_checked_against_the_declaration</code></td><td>FLIR's ADAS frames are 14 bits in a 16-bit TIFF, and the difference is a factor of four.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L215" target="_blank" rel="noopener">the container follows the declaration and nothing else</a><br><code>test_the_container_follows_the_declaration_and_nothing_else</code></td><td>One rule in one place, so no converter can pick a wider container "to be safe".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L225" target="_blank" rel="noopener">a sequence knows which measurements its path supports</a><br><code>test_a_sequence_knows_which_measurements_its_path_supports</code></td><td>The clip in hand answers the same question the index answers for a whole set.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L241" target="_blank" rel="noopener">a sixteen bit sequence refuses to be written as eight bit png</a><br><code>test_a_sixteen_bit_sequence_refuses_to_be_written_as_eight_bit_png</code></td><td>Writing the low byte would be a different clip, not a smaller file.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L251" target="_blank" rel="noopener">a frame whose shape contradicts the index is an error</a><br><code>test_a_frame_whose_shape_contradicts_the_index_is_an_error</code></td><td>Silently reshaping would misaddress every pixel a later analyser touched.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L262" target="_blank" rel="noopener">an unknown schema version is refused</a><br><code>test_an_unknown_schema_version_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L275" target="_blank" rel="noopener">a version one index reads as what it actually said</a><br><code>test_a_version_one_index_reads_as_what_it_actually_said</code></td><td>Version 1 could hold nothing but 8-bit and recorded no path. Both are read, not assumed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L300" target="_blank" rel="noopener">frames are zero padded so a directory sorts in order</a><br><code>test_frames_are_zero_padded_so_a_directory_sorts_in_order</code></td><td>frame 9 before frame 10 in every tool that lists a directory.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L313" target="_blank" rel="noopener">phase correlation recovers a known sub pixel shift</a><br><code>test_phase_correlation_recovers_a_known_sub_pixel_shift</code></td><td>The estimator itself, against shifts it was given, to a tenth of a pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L322" target="_blank" rel="noopener">a translated clip is flagged as moving</a><br><code>test_a_translated_clip_is_flagged_as_moving</code></td><td>The roadmap's first control. 0.35 px a frame for 24 frames is 8 px of pan.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L330" target="_blank" rel="noopener">a jittered clip is flagged as static</a><br><code>test_a_jittered_clip_is_flagged_as_static</code></td><td>The roadmap's second control: the same step size, but it goes nowhere.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L338" target="_blank" rel="noopener">the two controls take the same size steps</a><br><code>test_the_two_controls_take_the_same_size_steps</code></td><td>Without this the pair proves nothing: it would just be 'big motion versus small motion'.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L355" target="_blank" rel="noopener">drift ratio separates a pan from a shake</a><br><code>test_drift_ratio_separates_a_pan_from_a_shake</code></td><td>The number that explains a verdict: near 1 the steps agree, near 0 they cancel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L363" target="_blank" rel="noopener">a still clip with only noise is static</a><br><code>test_a_still_clip_with_only_noise_is_static</code></td><td>The degenerate case that matters most: a tripod. Noise must not read as motion.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L379" target="_blank" rel="noopener">displacement is measured from the first frame not accumulated</a><br><code>test_displacement_is_measured_from_the_first_frame_not_accumulated</code></td><td>Summing per-frame estimates would sum their errors and random-walk past the threshold.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L392" target="_blank" rel="noopener">the threshold is the detector pixel</a><br><code>test_the_threshold_is_the_detector_pixel</code></td><td>One pixel is the line because below it scene content has not left its own pixel.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_eval_sequence.py#L399" target="_blank" rel="noopener">a clip too short to have motion is an error</a><br><code>test_a_clip_too_short_to_have_motion_is_an_error</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

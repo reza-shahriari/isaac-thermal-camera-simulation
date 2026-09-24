@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emissivity extrapolation — irsim</title>
+<meta name="description" content="How much of a scene&#x27;s emissivity is an extension of the nearest band, and where it sits (AT.7).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Emissivity extrapolation</h1>
+  <p class="subtitle">How much of a scene's emissivity is an extension of the nearest band, and where it sits (AT.7).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py" target="_blank" rel="noopener">tests/unit/test_emissivity_extrapolation.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>total_hemispherical_emissivity</code> has always computed <code>extrapolated_fraction</code>. Every scene build then took <code>.value</code> and <strong>threw the fraction away</strong>, so 61 % of the weight that sets every surface temperature was an assumption no scene author could see. This file pins what that number is, what it is made of, and that a report quoting an absolute temperature now carries it.</p>
+<p>Two things the roadmap row assumed that turned out not to hold, both measured here:</p>
+<ul>
+<li><strong>It does not vary across materials.</strong> The row asks for "the worst fraction across its materials". The fraction is <em>bit-identical</em> for all twenty shipped materials -- 0.606695073 at 300 K for each -- because it is a property of the band set and the Planck weight, not of anything a material does. The worst across materials is any of them.</li>
+<li><strong>The single number hides which assumption is being made.</strong> At 300 K the 0.607 is four fifths red tail beyond 13.5 µm, which is the standard and defensible thermal-solver assumption. At 800 K it is 0.465 of which 0.394 is the <em>interior gaps</em> -- 1.7-3.0 µm and 5.0-7.5 µm -- where "extend the nearest band" is a far weaker claim, because a real spectrum is bounded on both sides and can do anything in between. PH.6 and PH.7 shipped 594 K plumes and 1200 K flames, so this is now the regime the project actually renders in.</li>
+</ul>
+<p>docs/physics-model.md §6.1; roadmap AT.7; ADR 0043, ADR 0119</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py" target="_blank" rel="noopener">tests/unit/test_emissivity_extrapolation.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L70" target="_blank" rel="noopener">the three shares account for the whole extrapolation</a><span class="tag">parametrize</span><br><code>test_the_three_shares_account_for_the_whole_extrapolation</code></td><td>Red tail + interior gaps + blue end = the total, to floating point.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L86" target="_blank" rel="noopener">the fraction is identical for every material in the library</a><br><code>test_the_fraction_is_identical_for_every_material_in_the_library</code></td><td>The row's premise, measured and corrected: it does not vary across materials at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L108" target="_blank" rel="noopener">the material free breakdown is exactly the material one</a><br><code>test_the_material_free_breakdown_is_exactly_the_material_one</code></td><td>So a report can ask for the fraction with no material and cannot get a different answer.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L124" target="_blank" rel="noopener">which assumption dominates flips with temperature</a><br><code>test_which_assumption_dominates_flips_with_temperature</code></td><td>At ambient it is the tail; by 800 K it is the interior gaps. Same number, different claim.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L152" target="_blank" rel="noopener">the fraction is not monotone in temperature</a><br><code>test_the_fraction_is_not_monotone_in_temperature</code></td><td>It falls to a minimum near 800 K and rises again -- the SWIR-MWIR hole swallows the peak.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L178" target="_blank" rel="noopener">the gaps are the ones the nominal band set actually leaves</a><br><code>test_the_gaps_are_the_ones_the_nominal_band_set_actually_leaves</code></td><td>Named rather than implied, so the number cannot drift from the band table it describes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L201" target="_blank" rel="noopener">a scene build reports its extrapolated fraction</a><span class="tag">parametrize</span><br><code>test_a_scene_build_reports_its_extrapolated_fraction</code></td><td>AT.7's first clause, on real shipped scene configs.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L221" target="_blank" rel="noopener">a scene with no library material says so instead of quoting one</a><br><code>test_a_scene_with_no_library_material_says_so_instead_of_quoting_one</code></td><td><code>car_exhaust_plume.yaml</code> names none -- its targets are exhaust-line solvers.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L236" target="_blank" rel="noopener">the report describes the emissivity that is actually in the solver</a><br><code>test_the_report_describes_the_emissivity_that_is_actually_in_the_solver</code></td><td>The evaluation temperature the report quotes is the one the build used, not a second copy.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L254" target="_blank" rel="noopener">a scene can be asked what the fraction would be when hot</a><br><code>test_a_scene_can_be_asked_what_the_fraction_would_be_when_hot</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L265" target="_blank" rel="noopener">every report script has decided whether to carry the fraction</a><br><code>test_every_report_script_has_decided_whether_to_carry_the_fraction</code></td><td>AT.7's second clause, as a registry: a new report must classify itself.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L289" target="_blank" rel="noopener">the reports that must carry it call for it</a><span class="tag">parametrize</span><br><code>test_the_reports_that_must_carry_it_call_for_it</code></td><td>Checked in the AST, not by a substring: a mention in a comment is not a report.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_emissivity_extrapolation.py#L301" target="_blank" rel="noopener">the tier4 acceptance report really does quote no absolute temperature</a><br><code>test_the_tier4_acceptance_report_really_does_quote_no_absolute_temperature</code></td><td>Pins the premise of <code>validation_report.py</code>'s exemption rather than trusting the note.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

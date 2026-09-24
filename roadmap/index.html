@@ -39,13 +39,16 @@
 <li><a href="../changelog/">Changelog</a></li>
 </ul>
 <h2>Evidence</h2><ul>
+<li><a href="../tests/">The test suite</a></li>
 <li><a href="../validation/">Validation</a></li>
 <li><a href="../research/">Research</a></li>
 </ul>
 <h2>Reference</h2><ul>
 <li><a href="../code/">Code map</a></li>
 <li><a href="../configs/">Configuration catalogue</a></li>
+<li><a href="../scripts/">Commands</a></li>
 <li><a href="../guide/">Working agreement</a></li>
+<li><a href="../practice/">Working practice</a></li>
 </ul>
 </nav>
 <main id="content" class="main has-toc">
@@ -163,20 +166,20 @@
 <thead><tr><th>#</th><th>step</th><th>lane</th><th>phase</th><th>size</th><th>unblocks</th><th>waiting on</th></tr></thead>
 <tbody>
 <tr><td>1</td><td><strong><code>IG.2</code></strong></td><td>IG</td><td>A</td><td>M</td><td>—</td><td>ready</td></tr>
-<tr><td>2</td><td><strong><code>AI.2</code></strong></td><td>AI</td><td>A</td><td>L</td><td>—</td><td>ready</td></tr>
-<tr><td>3</td><td><strong><code>AI.4</code></strong></td><td>AI</td><td>B</td><td>S</td><td>—</td><td>ready</td></tr>
-<tr><td>4</td><td><strong><code>IG.16</code></strong></td><td>IG</td><td>B</td><td>M</td><td>—</td><td>ready</td></tr>
-<tr><td>5</td><td><strong><code>SE.2</code></strong></td><td>SE</td><td>B</td><td>M</td><td>—</td><td>ready</td></tr>
-<tr><td>6</td><td><strong><code>TC.8</code></strong></td><td>TC</td><td>C</td><td>S</td><td>—</td><td>ready</td></tr>
-<tr><td>7</td><td><strong><code>AT.6</code></strong></td><td>AT</td><td>C</td><td>M</td><td>—</td><td>ready</td></tr>
-<tr><td>8</td><td><strong><code>AT.9</code></strong></td><td>AT</td><td>C</td><td>M</td><td>—</td><td>ready</td></tr>
-<tr><td>9</td><td><strong><code>PT.16</code></strong></td><td>PT</td><td>C</td><td>M</td><td>—</td><td>ready</td></tr>
-<tr><td>10</td><td><strong><code>XD.10</code></strong></td><td>XD</td><td>C</td><td>L</td><td>—</td><td>ready</td></tr>
-<tr><td>11</td><td><strong><code>IG.3</code></strong></td><td>IG</td><td>X</td><td>S</td><td>3</td><td>ready</td></tr>
-<tr><td>12</td><td><strong><code>EV.5</code></strong></td><td>EV</td><td>X</td><td>M</td><td>3</td><td>ready</td></tr>
-<tr><td>13</td><td><strong><code>SC.5</code></strong></td><td>SC</td><td>X</td><td>M</td><td>3</td><td>ready</td></tr>
-<tr><td>14</td><td><strong><code>SC.6</code></strong></td><td>SC</td><td>X</td><td>S</td><td>2</td><td><code>SC.5</code></td></tr>
-<tr><td>15</td><td><strong><code>EV.7</code></strong></td><td>EV</td><td>X</td><td>M</td><td>2</td><td><code>EV.5</code></td></tr>
+<tr><td>2</td><td><strong><code>PT.23</code></strong></td><td>PT</td><td>A</td><td>M</td><td>—</td><td>ready</td></tr>
+<tr><td>3</td><td><strong><code>AI.2</code></strong></td><td>AI</td><td>A</td><td>L</td><td>—</td><td>ready</td></tr>
+<tr><td>4</td><td><strong><code>AI.4</code></strong></td><td>AI</td><td>B</td><td>S</td><td>—</td><td>ready</td></tr>
+<tr><td>5</td><td><strong><code>IG.16</code></strong></td><td>IG</td><td>B</td><td>M</td><td>—</td><td>ready</td></tr>
+<tr><td>6</td><td><strong><code>SE.2</code></strong></td><td>SE</td><td>B</td><td>M</td><td>—</td><td>ready</td></tr>
+<tr><td>7</td><td><strong><code>TC.8</code></strong></td><td>TC</td><td>C</td><td>S</td><td>—</td><td>ready</td></tr>
+<tr><td>8</td><td><strong><code>AT.6</code></strong></td><td>AT</td><td>C</td><td>M</td><td>—</td><td>ready</td></tr>
+<tr><td>9</td><td><strong><code>AT.9</code></strong></td><td>AT</td><td>C</td><td>M</td><td>—</td><td>ready</td></tr>
+<tr><td>10</td><td><strong><code>PT.16</code></strong></td><td>PT</td><td>C</td><td>M</td><td>—</td><td>ready</td></tr>
+<tr><td>11</td><td><strong><code>XD.10</code></strong></td><td>XD</td><td>C</td><td>L</td><td>—</td><td>ready</td></tr>
+<tr><td>12</td><td><strong><code>IG.3</code></strong></td><td>IG</td><td>X</td><td>S</td><td>3</td><td>ready</td></tr>
+<tr><td>13</td><td><strong><code>EV.5</code></strong></td><td>EV</td><td>X</td><td>M</td><td>3</td><td>ready</td></tr>
+<tr><td>14</td><td><strong><code>SC.5</code></strong></td><td>SC</td><td>X</td><td>M</td><td>3</td><td>ready</td></tr>
+<tr><td>15</td><td><strong><code>SC.6</code></strong></td><td>SC</td><td>X</td><td>S</td><td>2</td><td><code>SC.5</code></td></tr>
 </tbody></table></div>
 <p>…and 49 more — <code>python scripts/next_step.py --queue 40</code>.</p>
 <!-- next:end -->
@@ -295,6 +298,7 @@ python scripts/next_step.py --lane PT  # restrict to one lane</code></pre>
 <tr><td>PT.20</td><td>✅ <strong>done.</strong> <code>wall_half_in_sun.yaml</code>: a concrete building (4 walls + roof; the west wall half concrete, half the new <code>etics_render</code>), a neighbour block as occluders, asphalt ground, 18:00; <code>scripts/wall_half_in_sun.py</code> prints the faces and writes the west wall as a synthetic-G-buffer frame.</td><td><strong>Measured</strong> (after PT.21). Terminator: concrete <strong>9.7 K</strong> (10.3 before), render <strong>6.3 K</strong>; roof − north 12.4 K, west − east 7.9 K, west − north 7.7 K (not &gt; 10: a grazing beam); 30 min after the shadow lifts the concrete is 8.05 K cooler (83 %, not &gt; 10). Frame: IG.2. 6 cases.</td><td>—</td><td>M</td><td>P</td></tr>
 <tr><td>PT.21</td><td>✅ <strong>done.</strong> <code>irsim.thermal.skyview</code>: a 145-patch Tregenza dome, each patch sub-sampled 3 × 4, gated by the beam's own <code>cell_shadow</code>, an open cell keeping <code>V_s</code> to the bit; patches under occluders get their factor and <code>CellForcing</code> scales diffuse solar and longwave down by it. Perez split deferred (ADR 0104).</td><td><strong>Measured.</strong> Open sky 1.000; wall foot and overhang edge 0.5 within 0.01. Shaded asphalt, SVF 0.2 vs 0.9: swing ratio 1.25 (not ~2: one air temperature floors it), night minimum 3.2 K warmer; solar-only: minima within 0.05 K. R1 terminator 10.3 → 9.7 K.</td><td>PT.18</td><td>M</td><td>P</td></tr>
 <tr><td>PT.22</td><td>✅ <strong>done.</strong> <code>irsim.thermal.raycast</code>: an <code>(origins, directions) → hit</code> protocol over <code>RectangleOccluders</code> (the oracle), a NumPy Möller–Trumbore <code>TriangleSoup</code>/<code>MeshOccluders</code> and <code>AnyOccluders</code>; the 0.53° disc on 1/7/19/37 concentric rays, outermost on the limb, as a sunlit fraction. Schema v11 <code>penumbra_rays:</code> (ADR 0107).</td><td><strong>Measured.</strong> Box: rectangles = mesh cell-for-cell at 10–85°, and = trimesh. A neighbour block shades a wall its own mesh cannot. Ramp within 10 % of d·tan 0.53° at 0.5/2/6 m (18.0 vs 18.6 mm); binary gives zero width.</td><td>PT.21</td><td>M</td><td>P</td></tr>
+<tr><td>PT.23</td><td><strong>The analytic point target delivers 0.7785 of its own model.</strong> <code>IG.2</code>'s first in-sim run measured it: the chain returns that fraction of <code>excess_radiance</code> at <strong>every</strong> range, converged from frame 3.</td><td>Range- and position-independent to four figures across 400–3200 m, so it is one scalar, not geometry, the summation window or cos⁴ — the four targets are at different azimuths. Not 0.92 (τ_opt) nor 0.800 (the F/1.0 aperture ratio). Bisect the stages <strong>engine-free</strong> — <code>run_frame</code> needs only a G-buffer — then the in-sim test's <code>xfail(strict)</code> comes off.</td><td>—</td><td>M</td><td>A</td></tr>
 <tr><td>PT.16</td><td><strong>Make <code>HeatTraceLayer</code> reachable</strong> (ADR 0039, M6.16). §6.6 calls heat traces a signature phenomenon of the band, and the sim-to-real literature says detectors trained on synthetic data lacking them are confused by them — so this is an evaluation deliverable, not a nicety.</td><td>A rendered frame shows the trace ghost at the authored offset and amplitude; the overlay is absent bit-identically when unbound. Red today: <code>irsim.thermal.traces</code> is imported only by its own unit test.</td><td>PT.15</td><td>M</td><td>C</td></tr>
 </tbody></table></div>
 <hr>
@@ -432,7 +436,7 @@ python scripts/next_step.py --lane PT  # restrict to one lane</code></pre>
 <thead><tr><th>id</th><th>what</th><th>verification (red today → green after)</th><th>deps</th><th>size</th><th>phase</th></tr></thead>
 <tbody>
 <tr><td>EV.1</td><td>✅ <strong>done — pooling could invert a verdict, not just blur one.</strong> Loaders keep clip boundaries; <code>compare_clips</code> runs each whole-frame check on every (real, synthetic) mosaic pair, aggregating by <strong>median</strong> — stated in the note, carried as data in the JSON.</td><td>At the row's own 55-code spread the pooled composite reads <strong>2.39 codes, a PASS</strong>, while <strong>0 of 36</strong> pairs meet the 8-code target (median 17.4). Each set is also compared with <strong>itself</strong>: synthetic clips differ by 30 codes, so the target was unreachable. One clip a side reduces to <code>compare_frames</code> exactly. 6 cases.</td><td>—</td><td>M</td><td>X</td></tr>
-<tr><td>EV.2</td><td><strong>Gate the real side.</strong> <code>sorted(...)[:limit]</code> takes the first six clips alphabetically with none of the three gates the project built — <code>classify_clip</code>, flat-region, codec floor.</td><td>Measured on the same archive: 81 of 365 clips are moving (every per-pixel temporal statistic invalid on them), 306 of 365 have a robust noise scale at or below one code, and only 28 support a noise table at all. That is exactly the condition under which <code>noise_scale</code> separates the sets for reasons unrelated to the simulator.</td><td>—</td><td>M</td><td>X</td></tr>
+<tr><td>EV.2</td><td>✅ <strong>done.</strong> <code>irsim_eval.admission</code> runs the three gates the project already had — static, noise scale, flat window — and the loader scans until <code>limit</code> clips <strong>pass</strong>, not the first <code>limit</code> alphabetically.</td><td>Refusals are returned, not dropped: the report prints <code>N of M admitted (…)</code>, since "six clips" and "six of forty-one, the rest codec-flattened" are different claims. The <strong>first</strong> failing gate is the reason: a pan invalidates the median the window finder judges against. The synthetic side is audited by the same gate but <strong>not</strong> gated (EV.3 owns that). 8 cases.</td><td>—</td><td>M</td><td>X</td></tr>
 <tr><td>EV.3</td><td><strong>Make the synthetic side admissible.</strong> <code>find_flat_regions</code> returns <code>[]</code> for every rendered clip, so the synthetic side cannot be measured by the route the real side was measured by, in either direction.</td><td>Measured on <code>matched_000</code>: the best window has structure_ratio 1.50 against a 0.25 limit; a raw 64×64 sky window reads σ_TVH <strong>0.329 codes</strong> against the real set's 7.272 — about <strong>20× too quiet</strong>, the opposite sign to the report's headline. The gap is then stated as a number rather than as a refusal.</td><td>EV.2</td><td>M</td><td>X</td></tr>
 <tr><td>EV.4</td><td><strong>Permutation null for the discriminator.</strong> The analytic <code>null_sigma</code> assumes independent patches; patches are drawn four per frame from 60 frames of 6 clips.</td><td>The report says the sets are separated "38 null standard errors from chance". At the clip level the null σ is ~0.17 and the run sits ~2.4 σ out — a <strong>~16× overstatement</strong>, with the caveat living in the code and not in the report. A permutation null (repeated refits on shuffled labels) absorbs the dependence and needs no new dependency.</td><td>—</td><td>M</td><td>X</td></tr>
 <tr><td>EV.5</td><td><strong>Content-matched patch sampling.</strong> Patches are drawn uniformly at random anywhere in the frame; the real clips are tripod shots containing ground, trees, buildings and horizon, the synthetic ones are sky-only renders.</td><td><code>gradient_median</code> and <code>skew</code> are the 2nd and 3rd heaviest discriminator features — exactly the statistics content mismatch moves. After: patches are drawn from matched content classes and the report separates the physics question from the scene-composition question.</td><td>EV.1</td><td>M</td><td>X</td></tr>
@@ -499,7 +503,7 @@ python scripts/next_step.py --lane PT  # restrict to one lane</code></pre>
 <tr><td>AI.2</td><td><strong>Put the Phantom 4 in a scene.</strong> 🟡 <strong>Mostly shipped:</strong> schema v16 binds a field to a prepared asset's prims (ADR 0132) and <code>render_phantom4.py</code> flies it in LWIR and colour, mounted by the rotation its own <code>world_frame:</code> implies (ADR 0133). <strong>Left:</strong> 234,923 solved cells reach no pixel — <code>MeshPointBridge</code> has never been driven by a render.</td><td>Green: 41/41 prims mapped, motor prims peak 19.6 K over the shell. <strong>Red:</strong> a bridge bound to an imported prim, carrying the mount rotation, showing a gradient <em>across</em> one prim.</td><td>AI.1</td><td>L</td><td>A</td></tr>
 <tr><td>AI.3</td><td>✅ <strong>done.</strong> <code>irsim.io.asset_budget</code> measures a prepared archive engine-free and <code>prep_asset.py</code> refuses over it: 1.3 M faces total (GT.7's reference), 200 k per prim, plus a <em>resolution floor</em> derived from conduction — <code>sqrt(alpha x 60 s)</code> = 1.11 mm at the library's slowest material. ADR 0137.</td><td><strong>Measured.</strong> The Phantom 4 is 1,532,656 faces against that budget, and <strong>77 %</strong> of them are finer than the floor; one prim holds 100,926 faces over 2.7 cm2 — a 73 um cell. 19 tests.</td><td>AI.1, GT.7</td><td>M</td><td>B</td></tr>
 <tr><td>AI.4</td><td><strong>Exercise the <code>materialBind</code> subset path with a real asset.</strong> <code>prep_asset.py</code> reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data — and it is the branch that stops a multi-material building mapping entirely to slot 0.</td><td>A committed fixture with subsets audits per subset, and a mesh carrying both a subset and a direct binding is reported rather than silently resolved from the binding.</td><td>AI.1</td><td>S</td><td>B</td></tr>
-<tr><td>AI.5</td><td>✅ <strong>done.</strong> An imported asset is decomposed into <strong>functional parts</strong> by connected component, with the parts authored as data in the asset config (<code>irsim.io.asset_parts</code>, <code>prep_asset.py --emit-components</code>). ADR 0138.</td><td><strong>Measured.</strong> The Phantom 4's 41 material-grouped prims split into 31,068 components and resolve to 19 parts at 100 % of 0.294 m2: four propellers (spread 4.4 %), four motors (spread <strong>0.0 %</strong>), four mounts, and a <strong>battery</strong> — 0.00570 m2, 401 faces, 88 x 83 x 28 mm — which the scene declared a heat source and bound to no geometry at all. 19 tests.</td><td>AI.1</td><td>M</td><td>A</td></tr>
+<tr><td>AI.5</td><td>✅ <strong>done.</strong> An imported asset is decomposed into <strong>functional parts</strong> by connected component, authored as data in the asset config, and regrouped so that one prim is one part. ADR 0138.</td><td><strong>Measured.</strong> 41 material prims → 31,068 components → 19 parts at 100 % of 0.294 m2; the part-split USD keeps all 2,486,459 faces. Four nodes separate at T+600 s: airframe 26.4 C, battery 32.9 C, ESC 39.5 C, motor 46.0 C. 22 tests. <strong>Left:</strong> the clip — not rendered.</td><td>AI.1</td><td>M</td><td>A</td></tr>
 </tbody></table></div>
 <hr>
 <h2 id="gt--gates-tests-and-tooling">GT — Gates, tests and tooling<a class="anchor" href="#gt--gates-tests-and-tooling" aria-label="permalink">#</a></h2>
@@ -628,7 +632,7 @@ python scripts/next_step.py --lane PT  # restrict to one lane</code></pre>
 <p><em>A standing caution about this document's own numbers.</em> Everything marked <em>measured</em> carries the commit and the tree state above. Anything quoted from outside the repository is labelled as external evidence, not as an irsim measurement — that distinction is what R13 exists to protect, and revision 4 broke it by attributing another group's correlation to an irsim ADR that did not exist.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

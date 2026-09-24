@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lens mtf — irsim</title>
+<meta name="description" content="The optical PSF&#x27;s second factor, and where its number comes from (roadmap SC.4).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Lens mtf</h1>
+  <p class="subtitle">The optical PSF's second factor, and where its number comes from (roadmap SC.4).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py" target="_blank" rel="noopener">tests/unit/test_lens_mtf.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>aberration_sigma_um</code> was 0.0 on every shipped camera while the schema docstring called it "the Gaussian fitted from a measured slant edge". A zero there is not a neutral default: it renders a <strong>diffraction-limited</strong> lens, which is the best lens physics allows and not the lens anyone sells.</p>
+<p>The check that matters is not the system MTF. FLIR's 42 % at Nyquist cascaded with the ideal 12 µm box (sinc = 0.637) predicts 0.267, and the roadmap's acceptance band is 0.27 ± 0.03 — but a diffraction-only Boson gives <strong>0.294</strong>, which is <em>inside</em> that band. The band alone would have passed the broken camera. What separates them is the lens factor against the datasheet: 0.420 authored against 0.461 diffraction-only, a 10 % error that the system band hides because the box filter dilutes it.</p>
+<p>So this file checks the <strong>derivation</strong>, not the outcome: that the number in the YAML is the solution of the datasheet's own equation and not a value fitted to make a golden pass.</p>
+<p>docs/physics-model.md §8.3; ADR 0059, ADR 0117.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py" target="_blank" rel="noopener">tests/unit/test_lens_mtf.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py#L68" target="_blank" rel="noopener">the solved sigma puts the lens back on its published figure</a><span class="tag">parametrize</span><br><code>test_the_solved_sigma_puts_the_lens_back_on_its_published_figure</code></td><td>Round trip: solve for σ, cascade it with diffraction, land on the number asked for.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py#L77" target="_blank" rel="noopener">the solver leaves the detector out of it</a><br><code>test_the_solver_leaves_the_detector_out_of_it</code></td><td>The box filter is the pipeline's (ADR 0059); folding it in here would count it twice.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py#L92" target="_blank" rel="noopener">an unreachable target is refused rather than solved</a><br><code>test_an_unreachable_target_is_refused_rather_than_solved</code></td><td>No Gaussian raises an MTF, so a figure above diffraction is a datasheet to re-read.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py#L108" target="_blank" rel="noopener">the shipped boson carries the sigma its datasheet implies</a><span class="tag">parametrize</span><br><code>test_the_shipped_boson_carries_the_sigma_its_datasheet_implies</code></td><td>The YAML's number, re-derived. If it ever drifts, this says so before an image does.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py#L122" target="_blank" rel="noopener">a diffraction limited boson is ten percent too sharp</a><span class="tag">parametrize</span><br><code>test_a_diffraction_limited_boson_is_ten_percent_too_sharp</code></td><td>The defect <code>SC.4</code> exists to fix, as the number the system band cannot see.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_lens_mtf.py#L143" target="_blank" rel="noopener">every shipped camera has decided about its lens</a><br><code>test_every_shipped_camera_has_decided_about_its_lens</code></td><td>A zero is a claim -- "diffraction-limited" -- so it has to be made on purpose.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ffc controller — irsim</title>
+<meta name="description" content="FFC controller (M9.7): the schedule, the freeze, and the ΔT_FPA each mode leaves behind.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Ffc controller</h1>
+  <p class="subtitle">FFC controller (M9.7): the schedule, the freeze, and the ΔT_FPA each mode leaves behind.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py" target="_blank" rel="noopener">tests/unit/test_ffc_controller.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>§11.2 is unusually direct about priorities here -- "that freeze is a real behavioural artefact that a perception stack must survive. Simulating it is worth more than another decimal place of radiometry" -- so the tests are about behaviour, at the frame level:</p>
+<ul>
+<li>at 60 Hz / 300 s / 700 ms the shutter closes on frame 18000 and the output is held for exactly 42 frames, bit-identical while the input keeps changing underneath;</li>
+<li>the rounding rule is round, not ceil: 9 Hz x 0.7 s is 6 frames, not 7;</li>
+<li>the residual immediately after the event is below one LSB (it is exactly zero);</li>
+<li>one second before the next event, under a 0.05 K/s drift, the residual is M9.6's prediction within 5 % -- 673 mK at the corrected 300 s schedule, where the 180 s this project used to carry gave 403 mK (SC.3, ADR 0091);</li>
+<li><code>ideal</code> never freezes and never has a residual;</li>
+<li><code>shutterless</code> never freezes and its residual at 540 s is at most 1.5x its 180 s value, because a scene-based correction bounds it rather than letting it grow.</li>
+</ul>
+<p>docs/physics-model.md §11.2, §12.2. ADR 0057, ADR 0056.</p>
+<p class='made-by'>19 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py" target="_blank" rel="noopener">tests/unit/test_ffc_controller.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L65" target="_blank" rel="noopener">boson schedule at 60 hz</a><br><code>test_boson_schedule_at_60_hz</code></td><td>300 s at 60 Hz is 18000 frames; 700 ms is 42 ([R24] S5's FFC Period, SC.3).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L76" target="_blank" rel="noopener">the rounding rule at 9 hz</a><br><code>test_the_rounding_rule_at_9_hz</code></td><td>round, not ceil: 9 x 0.7 = 6.3 -&gt; 6 frames. A freeze is a duration sampled by the clock.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L86" target="_blank" rel="noopener">freeze frames across rates</a><span class="tag">parametrize</span><br><code>test_freeze_frames_across_rates</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L90" target="_blank" rel="noopener">frame zero never fires</a><br><code>test_frame_zero_never_fires</code></td><td>The camera was calibrated when it started; firing at 0 would freeze every sequence's open.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L96" target="_blank" rel="noopener">an interval below one frame is refused</a><br><code>test_an_interval_below_one_frame_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L114" target="_blank" rel="noopener">the freeze lasts exactly 42 frames and holds the last good one</a><br><code>test_the_freeze_lasts_exactly_42_frames_and_holds_the_last_good_one</code></td><td>Held, not blanked: the image goes stale rather than obviously wrong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L135" target="_blank" rel="noopener">every held frame is bit identical while the input changes</a><br><code>test_every_held_frame_is_bit_identical_while_the_input_changes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L144" target="_blank" rel="noopener">the event is reported on exactly one frame</a><br><code>test_the_event_is_reported_on_exactly_one_frame</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L151" target="_blank" rel="noopener">resettables are called once per event</a><br><code>test_resettables_are_called_once_per_event</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L160" target="_blank" rel="noopener">an object without a reset hook is refused</a><br><code>test_an_object_without_a_reset_hook_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L166" target="_blank" rel="noopener">the output does not alias the input</a><br><code>test_the_output_does_not_alias_the_input</code></td><td>A held frame that aliased the caller's buffer would change when the caller reused it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L178" target="_blank" rel="noopener">the residual is below one lsb right after the event</a><br><code>test_the_residual_is_below_one_lsb_right_after_the_event</code></td><td>ΔT_eff returns to zero at the shutter, so the residual is exactly zero.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L201" target="_blank" rel="noopener">just before the next event the residual matches the m9 6 prediction</a><br><code>test_just_before_the_next_event_the_residual_matches_the_m9_6_prediction</code></td><td>The worst case the schedule allows: one second short of the next shutter.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L230" target="_blank" rel="noopener">the next event resets it again</a><br><code>test_the_next_event_resets_it_again</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L246" target="_blank" rel="noopener">ideal never freezes and never drifts</a><br><code>test_ideal_never_freezes_and_never_drifts</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L266" target="_blank" rel="noopener">shutterless never freezes</a><br><code>test_shutterless_never_freezes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L274" target="_blank" rel="noopener">shutterless residual is bounded not growing</a><br><code>test_shutterless_residual_is_bounded_not_growing</code></td><td>At 540 s it is at most 1.5x its 180 s value; an uncorrected core would be at 3x.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L300" target="_blank" rel="noopener">shutterless needs a positive time constant</a><br><code>test_shutterless_needs_a_positive_time_constant</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ffc_controller.py#L309" target="_blank" rel="noopener">a non positive frame rate is refused</a><br><code>test_a_non_positive_frame_rate_is_refused</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

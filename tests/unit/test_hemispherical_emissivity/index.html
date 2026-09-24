@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hemispherical emissivity — irsim</title>
+<meta name="description" content="M7.8 — the ε a thermal solver needs, which is not the ε a camera sees (§6.1, §6.2, §4.2).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Hemispherical emissivity</h1>
+  <p class="subtitle">M7.8 — the ε a thermal solver needs, which is not the ε a camera sees (§6.1, §6.2, §4.2).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py" target="_blank" rel="noopener">tests/unit/test_hemispherical_emissivity.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>A camera measures ε(θ) along one ray; an energy balance radiates into the whole sky. The two differ by more than a rounding — water reads <strong>0.990</strong> at normal and <strong>0.951</strong> hemispherically, because the cos θ sin θ weight peaks at 45° where water's collapse has already begun — and the difference is systematic and one-signed, so it does not average out over a scene.</p>
+<p><strong>The sign flips for metals</strong>, which is the part that would survive a long time if it were wrong: aluminium's ε rises with angle, so its ε_hemi is <em>above</em> its normal value. Any model that assumed ε_hemi ≤ ε(0) would be right for every dielectric in the library and wrong for every metal.</p>
+<p>docs/physics-model.md §6.1, §6.2, §4.2; ADR 0043</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py" target="_blank" rel="noopener">tests/unit/test_hemispherical_emissivity.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L57" target="_blank" rel="noopener">a constant emissivity integrates to itself</a><span class="tag">parametrize</span><br><code>test_a_constant_emissivity_integrates_to_itself</code></td><td>2∫₀¹ ε µ dµ = ε for constant ε — exactly, since 2∫µ dµ = 1. To 1e-12, not approximately.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L63" target="_blank" rel="noopener">the quadrature has converged far below the node count used</a><br><code>test_the_quadrature_has_converged_far_below_the_node_count_used</code></td><td>16 vs 64 nodes to 1e-6 — asserted, rather than 32 being asserted to be "enough".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L75" target="_blank" rel="noopener">water reads lower hemispherically than at nadir</a><br><code>test_water_reads_lower_hemispherically_than_at_nadir</code></td><td>The headline number: 0.951 against 0.990, on [R1]'s own optical constants.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L86" target="_blank" rel="noopener">the sign flips for a metal</a><br><code>test_the_sign_flips_for_a_metal</code></td><td>Aluminium's ε <em>rises</em> with angle, so ε_hemi is above ε(0). A model assuming otherwise would be right for every dielectric in the library and wrong for every metal.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L97" target="_blank" rel="noopener">a callable returning the wrong shape is refused</a><br><code>test_a_callable_returning_the_wrong_shape_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L109" target="_blank" rel="noopener">level c materials integrate to their own constant</a><br><code>test_level_c_materials_integrate_to_their_own_constant</code></td><td>ε_hemi == ε_B to 1e-12 when the material declares no angular variation.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L129" target="_blank" rel="noopener">level b materials read lower hemispherically</a><br><code>test_level_b_materials_read_lower_hemispherically</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L150" target="_blank" rel="noopener">the total form reports how much of itself is extrapolated</a><br><code>test_the_total_form_reports_how_much_of_itself_is_extrapolated</code></td><td>⚠️ <strong>61 % of Planck's weight at 300 K falls outside every configured band</strong>, mostly beyond 13.5 µm, and is filled by extending the nearest one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L166" target="_blank" rel="noopener">bands with no planck weight are skipped rather than queried</a><br><code>test_bands_with_no_planck_weight_are_skipped_rather_than_queried</code></td><td>At 300 K, NIR and SWIR hold ~1e-9 of the exitance between them.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L184" target="_blank" rel="noopener">the total is bounded by the band values it was built from</a><br><code>test_the_total_is_bounded_by_the_band_values_it_was_built_from</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L224" target="_blank" rel="noopener">using the directional value instead of the hemispherical one costs kelvins</a><br><code>test_using_the_directional_value_instead_of_the_hemispherical_one_costs_kelvins</code></td><td>ε 0.990 against 0.951 on a clear night: <strong>0.230 K at worst</strong>, systematic and one-signed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_hemispherical_emissivity.py#L253" target="_blank" rel="noopener">radiative equilibrium alone does not depend on epsilon</a><br><code>test_radiative_equilibrium_alone_does_not_depend_on_epsilon</code></td><td>The reason the difference above has a maximum: with h = 0, ε cancels out of the balance.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

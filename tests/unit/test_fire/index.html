@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire — irsim</title>
+<meta name="description" content="Fire: what a flame radiates onto a surface, and how hot the air above it is (roadmap PH.7).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Fire</h1>
+  <p class="subtitle">Fire: what a flame radiates onto a surface, and how hot the air above it is (roadmap PH.7).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py" target="_blank" rel="noopener">tests/unit/test_fire.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The correlations here are published, so most of these tests are not "does it compute" but "does it still say what its source says". Three in particular earn their place.</p>
+<p><strong>The flame tip falls out at 453 K whatever the fire is.</strong> Heskestad's mean flame height is <em>defined</em> as the height at which the centreline excess has dropped to roughly 500 K, so the constant has to reappear when the correlation is evaluated at that height — and it does, independent of Q and D, for a one-bar gas ring and a burning tanker alike. If a coefficient were transcribed wrong, or the virtual origin used with the wrong heat release, this number would move and nothing else in the module would notice.</p>
+<p><strong>A flame's SEP is not its σT⁴.</strong> The flux term deliberately takes the surface's absorptivity for the flame's spectrum and its own emissivity for the sky it blocks, which are the same number only for a grey surface. The steady-state test pins the whole chain through <code>FacetSolver</code>.</p>
+<p><strong>The slab a camera sees and the air a thermometer reads come from one model.</strong> <code>flame_plume</code> solves the mixing length rather than taking one, so the two cannot be authored apart.</p>
+<p>docs/physics-model.md §6.1, §6.6; ADR 0088, ADR 0090, ADR 0114.</p>
+<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py" target="_blank" rel="noopener">tests/unit/test_fire.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L58" target="_blank" rel="noopener">the flame tip is the same temperature whatever the fire</a><span class="tag">parametrize</span><br><code>test_the_flame_tip_is_the_same_temperature_whatever_the_fire</code></td><td>Heskestad's flame height <em>means</em> "where ΔT₀ ≈ 500 K", so the constant has to reappear.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L73" target="_blank" rel="noopener">the profile is continuous at the tip monotone above it and vanishes</a><br><code>test_the_profile_is_continuous_at_the_tip_monotone_above_it_and_vanishes</code></td><td>The three things the roadmap asks of ΔT₀, in one sweep.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L92" target="_blank" rel="noopener">the correlations are the published ones</a><br><code>test_the_correlations_are_the_published_ones</code></td><td>L and z₀ against their closed forms, and the ordering that makes the model well posed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L102" target="_blank" rel="noopener">a heat release written in watts is refused</a><br><code>test_a_heat_release_written_in_watts_is_refused</code></td><td>1 MW is 1000, not 1 000 000, and the difference is a plume 100 times too strong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L109" target="_blank" rel="noopener">a fire that does not clear its own rim is refused</a><br><code>test_a_fire_that_does_not_clear_its_own_rim_is_refused</code></td><td>Below the correlation's range the flame height goes negative, which is not a small fire.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L115" target="_blank" rel="noopener">the plume is hottest on the axis and cools outward</a><br><code>test_the_plume_is_hottest_on_the_axis_and_cools_outward</code></td><td>The Gaussian is the one estimated number here, so what is tested is its limits.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L132" target="_blank" rel="noopener">a surface beside or below the fire is at ambient</a><br><code>test_a_surface_beside_or_below_the_fire_is_at_ambient</code></td><td>The plume rises; a wall next to a fire is heated by radiation, not by this term.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L141" target="_blank" rel="noopener">a flame rectangle radiates its sep and refuses a temperature</a><br><code>test_a_flame_rectangle_radiates_its_sep_and_refuses_a_temperature</code></td><td>The two ways of saying what a radiator emits, and the refusal to hold both at once.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L168" target="_blank" rel="noopener">smoke takes most of a large fires radiation away</a><br><code>test_smoke_takes_most_of_a_large_fires_radiation_away</code></td><td>Why a bigger pool is not proportionally worse to stand beside: its flame is shrouded.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L173" target="_blank" rel="noopener">the flux uses absorptivity for the flame and emissivity for the sky</a><br><code>test_the_flux_uses_absorptivity_for_the_flame_and_emissivity_for_the_sky</code></td><td>The distinction the term exists for. A grey surface is the special case, not the rule.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L188" target="_blank" rel="noopener">the pinned steady state is reproduced through the solver</a><br><code>test_the_pinned_steady_state_is_reproduced_through_the_solver</code></td><td><code>PH.7</code>'s own acceptance: F = 0.10 facing 120 kW/m², ε = 0, h &gt; 0.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L212" target="_blank" rel="noopener">overlapping radiators are clamped to a unit solid angle</a><br><code>test_overlapping_radiators_are_clamped_to_a_unit_solid_angle</code></td><td>ADR 0090 still holds when one of the radiators is a flame: Σ F ≤ 1 per cell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L226" target="_blank" rel="noopener">the slab cools to exactly the tip heskestad gives</a><br><code>test_the_slab_cools_to_exactly_the_tip_heskestad_gives</code></td><td>One model, two consumers. The mixing length is solved, not authored, so they agree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L240" target="_blank" rel="noopener">a flame colder than its own tip is refused</a><br><code>test_a_flame_colder_than_its_own_tip_is_refused</code></td><td>The slab would have to warm as it rises, which is not a cooling model with a bad number.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fire.py#L246" target="_blank" rel="noopener">soot is greyish where the exhaust gas is banded</a><br><code>test_soot_is_greyish_where_the_exhaust_gas_is_banded</code></td><td>Why a fire looks alike in both bands and a plume does not, as a number rather than a claim.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

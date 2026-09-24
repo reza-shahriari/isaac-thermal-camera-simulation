@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset budget — irsim</title>
+<meta name="description" content="AI.3 -- what an imported asset costs, and how much of that cost buys anything.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Asset budget</h1>
+  <p class="subtitle">AI.3 -- what an imported asset costs, and how much of that cost buys anything.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py" target="_blank" rel="noopener">tests/unit/test_asset_budget.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Two separate claims are tested here and they fail for different reasons.</p>
+<p><em>Affordability</em> is a measurement someone else made: <code>GT.7</code> timed 102,400 cells over a 48-hour spin-up at 11.5 s, against Fraunhofer's 1,313,410-triangle reference. If the budget drifts away from that, the number stops meaning anything.</p>
+<p><em>Usefulness</em> is physics. A cell holds one temperature, and two cells closer together than <code>sqrt(alpha dt)</code> cannot hold different ones, because conduction erases the difference inside the step. A test that only counted triangles would pass on a mesh with a million faces on a postage stamp, which is the actual condition of the only imported asset this project has.</p>
+<p class='made-by'>21 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py" target="_blank" rel="noopener">tests/unit/test_asset_budget.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L66" target="_blank" rel="noopener">the conduction length is the square root law</a><br><code>test_the_conduction_length_is_the_square_root_law</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L73" target="_blank" rel="noopener">the conduction length refuses a nonsense argument</a><br><code>test_the_conduction_length_refuses_a_nonsense_argument</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L79" target="_blank" rel="noopener">the floor is a millimetre and the ceiling is seven centimetres</a><br><code>test_the_floor_is_a_millimetre_and_the_ceiling_is_seven_centimetres</code></td><td>Both ends matter. The floor is the point past which no material can use the geometry; the ceiling says an aluminium panel is already one temperature over most of its own width.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L89" target="_blank" rel="noopener">the two diffusivities bracket the material library</a><br><code>test_the_two_diffusivities_bracket_the_material_library</code></td><td>The floor is only a floor if nothing in the library is slower. This walks the library, so adding an aerogel without revisiting the constant fails here rather than silently lowering the resolution everything is measured against.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L107" target="_blank" rel="noopener">a cell edge is the side of the square two triangles tile</a><br><code>test_a_cell_edge_is_the_side_of_the_square_two_triangles_tile</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L116" target="_blank" rel="noopener">a degenerate prim is not infinitely fine</a><br><code>test_a_degenerate_prim_is_not_infinitely_fine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L121" target="_blank" rel="noopener">the affordable face count tiles the area at the floor</a><br><code>test_the_affordable_face_count_tiles_the_area_at_the_floor</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L131" target="_blank" rel="noopener">a budget refuses nonsense limits</a><br><code>test_a_budget_refuses_nonsense_limits</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L140" target="_blank" rel="noopener">a modest asset passes and wastes nothing</a><br><code>test_a_modest_asset_passes_and_wastes_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L151" target="_blank" rel="noopener">the whole budget buys less than a square metre at the floor</a><br><code>test_the_whole_budget_buys_less_than_a_square_metre_at_the_floor</code></td><td>Worth knowing before anyone reads "finer than the floor" as an instruction to refine. The affordable face count resolves about 0.8 m2 at a millimetre, so a vehicle or a building has to be solved <em>coarser</em> than the floor and the waste report is about geometry that is finer than even that -- not about geometry anyone should add.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L162" target="_blank" rel="noopener">too many faces in total is refused even when every prim is small</a><br><code>test_too_many_faces_in_total_is_refused_even_when_every_prim_is_small</code></td><td>The failure an import actually has: no single part is outrageous and the sum is.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L173" target="_blank" rel="noopener">one heavy prim is refused and named</a><br><code>test_one_heavy_prim_is_refused_and_named</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L184" target="_blank" rel="noopener">geometry finer than the physics is reported but not refused</a><br><code>test_geometry_finer_than_the_physics_is_reported_but_not_refused</code></td><td>A million faces on a postage stamp is a waste, not an error -- the lever that fixes it is the caller's. But nothing should be able to hide it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L196" target="_blank" rel="noopener">the report is ordered by what costs most</a><br><code>test_the_report_is_ordered_by_what_costs_most</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L202" target="_blank" rel="noopener">an empty asset measures to zero rather than dividing by it</a><br><code>test_an_empty_asset_measures_to_zero_rather_than_dividing_by_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L223" target="_blank" rel="noopener">the only imported asset this project has is over budget</a><br><code>test_the_only_imported_asset_this_project_has_is_over_budget</code></td><td>The point of the step. Before this, nothing counted, so an asset too heavy to solve was discovered by waiting for the solve. The Phantom 4 is over, and by a knowable amount.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L232" target="_blank" rel="noopener">three quarters of the phantom 4 s faces cannot carry a gradient</a><br><code>test_three_quarters_of_the_phantom_4_s_faces_cannot_carry_a_gradient</code></td><td>Its mesh came out of a renderer. One prim holds 100,926 faces over 2.7 cm2 -- a 73 um cell, fifteen times below the distance heat crosses in one tick in the slowest material here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L243" target="_blank" rel="noopener">the measured area and prim count are what adr 0128 recorded</a><br><code>test_the_measured_area_and_prim_count_are_what_adr_0128_recorded</code></td><td>A guard on the archive itself: 41 prims and a third of a square metre of aircraft. If the prep tool changes what it emits, this says so before a budget number is read as a regression.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L251" target="_blank" rel="noopener">a report can be built without measuring anything</a><br><code>test_a_report_can_be_built_without_measuring_anything</code></td><td><code>BudgetReport</code> is a value, so a caller can construct one for a hypothetical budget.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L270" target="_blank" rel="noopener">the prep tool refuses an over budget asset and can be told not to</a><br><code>test_the_prep_tool_refuses_an_over_budget_asset_and_can_be_told_not_to</code></td><td>The gate, end to end, without Blender: <code>--skip-convert</code> audits what is already on disk. A budget nothing enforces is a comment.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_budget.py#L286" target="_blank" rel="noopener">a raised budget accepts the same asset</a><br><code>test_a_raised_budget_accepts_the_same_asset</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

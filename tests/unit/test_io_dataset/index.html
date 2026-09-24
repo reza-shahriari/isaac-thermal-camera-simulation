@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Io dataset — irsim</title>
+<meta name="description" content="Dataset writers (M10.10a): what reaches disk must still be the physics that left the pipeline.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Io dataset</h1>
+  <p class="subtitle">Dataset writers (M10.10a): what reaches disk must still be the physics that left the pipeline.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py" target="_blank" rel="noopener">tests/unit/test_io_dataset.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The failure this module guards is not a crash. It is a frame that writes, opens, looks right, and has had its sensitivity quantised away -- a 16-bit PNG of apparent temperature, or a half-float EXR. So the tests are about <strong>exactness in physical units</strong> and about the refusals, not about whether a file appears.</p>
+<p>docs/physics-model.md §12.2 outputs; CLAUDE.md non-negotiable #2.</p>
+<p class='made-by'>14 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py" target="_blank" rel="noopener">tests/unit/test_io_dataset.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L55" target="_blank" rel="noopener">a temperature ramp round trips to under a millikelvin</a><span class="tag">parametrize</span><br><code>test_a_temperature_ramp_round_trips_to_under_a_millikelvin</code></td><td>Write, read, compare in kelvin: both float32 containers must be bit-exact, so 0 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L74" target="_blank" rel="noopener">the quantisation a 16 bit png would have cost is not small</a><br><code>test_the_quantisation_a_16_bit_png_would_have_cost_is_not_small</code></td><td>The reason for the rule, stated as a number rather than an opinion.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L89" target="_blank" rel="noopener">a float16 plane is refused at the disk boundary</a><br><code>test_a_float16_plane_is_refused_at_the_disk_boundary</code></td><td>float16 must not reach disk by any route: the writer, and the EXR encoder underneath it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L98" target="_blank" rel="noopener">a half float exr is refused even when asked for</a><br><code>test_a_half_float_exr_is_refused_even_when_asked_for</code></td><td>EXR's most common pixel type is the one that destroys the sensor, so asking still fails.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L104" target="_blank" rel="noopener">radiometric planes never land in an integer container</a><br><code>test_radiometric_planes_never_land_in_an_integer_container</code></td><td>radiance and apparent_t go to .npy/.exr; only dn16 and display8 are PNGs.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L122" target="_blank" rel="noopener">dn16 survives the png exactly</a><br><code>test_dn16_survives_the_png_exactly</code></td><td>An ADC code is an integer, so the one PNG that carries physics loses nothing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L155" target="_blank" rel="noopener">a uint16 png must be single channel</a><br><code>test_a_uint16_png_must_be_single_channel</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L160" target="_blank" rel="noopener">exr header matches the specification</a><br><code>test_exr_header_matches_the_specification</code></td><td>Magic, version, FLOAT pixel type and the little-endian sample bytes, checked by hand.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L178" target="_blank" rel="noopener">exr round trips a two dimensional plane</a><br><code>test_exr_round_trips_a_two_dimensional_plane</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L187" target="_blank" rel="noopener">exr channels come back in alphabetical order</a><br><code>test_exr_channels_come_back_in_alphabetical_order</code></td><td>EXR stores channels by name, so RGB written comes back B, G, R -- pinned, not surprising.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L201" target="_blank" rel="noopener">the sidecar says what every plane is</a><br><code>test_the_sidecar_says_what_every_plane_is</code></td><td>Units, dtypes, shapes and hashes: without them a directory of arrays is not a dataset.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L233" target="_blank" rel="noopener">a frame index sorts lexicographically</a><br><code>test_a_frame_index_sorts_lexicographically</code></td><td>frame_000009 before frame_000010: a bare 9/10 puts a sequence out of order in every tool.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L240" target="_blank" rel="noopener">an output that is off is absent rather than zero</a><br><code>test_an_output_that_is_off_is_absent_rather_than_zero</code></td><td>A disabled output must leave no file: zeros are indistinguishable from a real dark frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_io_dataset.py#L249" target="_blank" rel="noopener">missing time is recorded as null not invented</a><br><code>test_missing_time_is_recorded_as_null_not_invented</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

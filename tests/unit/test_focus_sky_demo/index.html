@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus sky demo — irsim</title>
+<meta name="description" content="OC.12 -- the focus pulled from a cloudy sky onto a cube (ADR 0129, ADR 0134).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Focus sky demo</h1>
+  <p class="subtitle">OC.12 -- the focus pulled from a cloudy sky onto a cube (ADR 0129, ADR 0134).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py" target="_blank" rel="noopener">tests/unit/test_focus_sky_demo.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The demonstration is a <strong>crossover</strong>, so the tests are about the crossover rather than about anything being blurry: each region must be sharpest when the lens is on it and measurably softer when the lens is on the other. A test that only asserted "the sky got blurrier" would pass against a render that blurred everything, which is the failure worth catching.</p>
+<p><code>test_a_clear_sky_barely_changes_at_all</code> is the one that says why the demo has clouds in it. It is not a robustness check; it is the physics claim the scene is built on, asserted.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py" target="_blank" rel="noopener">tests/unit/test_focus_sky_demo.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py#L64" target="_blank" rel="noopener">each region is sharpest when the lens is on it</a><br><code>test_each_region_is_sharpest_when_the_lens_is_on_it</code></td><td>The crossover, which is the whole demonstration.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py#L75" target="_blank" rel="noopener">a clear sky barely changes at all</a><br><code>test_a_clear_sky_barely_changes_at_all</code></td><td>Why the demo carries cloud, asserted rather than claimed in a docstring.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py#L94" target="_blank" rel="noopener">the blur circles are the thin lens ones</a><br><code>test_the_blur_circles_are_the_thin_lens_ones</code></td><td>The readout burnt into every frame has to be the real quantity, not an illustration.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py#L110" target="_blank" rel="noopener">the background is defined behind the cube too</a><br><code>test_the_background_is_defined_behind_the_cube_too</code></td><td><code>OC.7</code>'s precondition: the analytic sky must be finite on the rays the cube hides.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py#L122" target="_blank" rel="noopener">the sky warms toward the horizon and cloud is warmer still</a><br><code>test_the_sky_warms_toward_the_horizon_and_cloud_is_warmer_still</code></td><td>The two gradients the sky is made of, each measured where it is the one in charge.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_focus_sky_demo.py#L141" target="_blank" rel="noopener">the pull is linear in dioptres and returns</a><br><code>test_the_pull_is_linear_in_dioptres_and_returns</code></td><td>A sweep linear in metres would spend nine tenths of itself with nothing moving.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

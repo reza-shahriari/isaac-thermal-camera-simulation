@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sensor-noise-chain — irsim</title>
+<meta name="description" content="Detector and signal-chain modelling for the IR camera simulator — photon detectors vs microbolometers, responsivity/NEP/D*, NETD anchoring, the NVESD three-dimensional noise model,">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>sensor-noise-chain</h1>
+  <p class="subtitle">Detector and signal-chain modelling for the IR camera simulator — photon detectors vs microbolometers, responsivity/NEP/D*, NETD anchoring, the NVESD three-dimensional noise model, fixed-pattern noise, bad pixels, NUC and flat-field correction, AGC/plateau equalisation, DDE and palettes. Use this skill whenever the task involves noise, NETD, SNR, detector response, integration time, well capacity, quantum efficiency, bolometer time constant, striping or fixed-pattern artefacts, dead pixels, shutter/FFC behaviour, dynamic range compression, or converting radiance into 8-bit display imagery. Low-level noise structure dominates sim-to-real transfer more than radiometric accuracy, so consult this before tuning radiometry to fix an appearance problem.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/sensor-noise-chain/SKILL.md" target="_blank" rel="noopener">.claude/skills/sensor-noise-chain/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#two-detector-classes-one-interface">Two detector classes, one interface</a></li>
+<li class="toc-3"><a href="#photon-detector--cooled-mwir--swir-and-nir">Photon detector — cooled MWIR / SWIR, and NIR</a></li>
+<li class="toc-3"><a href="#microbolometer--uncooled-lwir">Microbolometer — uncooled LWIR</a></li>
+<li class="toc-2"><a href="#netd-anchor-dont-generate">NETD: anchor, don&#x27;t generate</a></li>
+<li class="toc-2"><a href="#the-3d-noise-model--use-this-not-a-single-sigma">The 3D noise model — use this, not a single sigma</a></li>
+<li class="toc-2"><a href="#bad-pixels">Bad pixels</a></li>
+<li class="toc-2"><a href="#nuc-and-flat-field-correction">NUC and flat-field correction</a></li>
+<li class="toc-2"><a href="#agc--part-of-the-sensor-model-not-a-display-detail">AGC — part of the sensor model, not a display detail</a></li>
+<li class="toc-2"><a href="#pipeline-order">Pipeline order</a></li>
+<li class="toc-2"><a href="#tests">Tests</a></li></ul></nav>
+<article class="prose">
+<p>Everything from photons to pixels. This layer creates most of the <em>visual character</em> of a thermal image and most of the sim-to-real gap. Networks overfit to noise structure, NUC residual and AGC behaviour far more than to a 3 K error on a car door.</p>
+<p>Reference: <code>docs/physics-model.md</code> §9, §10, §11.</p>
+<h2 id="two-detector-classes-one-interface">Two detector classes, one interface<a class="anchor" href="#two-detector-classes-one-interface" aria-label="permalink">#</a></h2>
+<p>Implement <code>Detector.response(band_power_or_photons, dt) -&gt; counts</code> with two implementations.</p>
+<h3 id="photon-detector--cooled-mwir--swir-and-nir">Photon detector — cooled MWIR / SWIR, and NIR<a class="anchor" href="#photon-detector--cooled-mwir--swir-and-nir" aria-label="permalink">#</a></h3>
+<pre><code>N_e = η · A_d · t_int · (π·τ_opt/(4F² + 1)) · ∫ R(λ)·L_q(λ) dλ  +  i_dark·t_int/q
+DN  = clip(floor((N_e + noise) / N_well · 2**bits), 0, 2**bits − 1)</code></pre>
+<p>Uses the <strong>photon</strong> form of Planck. Dark current follows Arrhenius <code>i_dark ∝ T^1.5·exp(−E_g/2k_BT)</code> — model the cooldown transient if startup behaviour matters. Expose <code>cold_shield_efficiency ∈ [0,1]</code>; mismatch between the cold stop and the lens raises background flux and degrades NETD, and it is a real trade-study knob.</p>
+<h3 id="microbolometer--uncooled-lwir">Microbolometer — uncooled LWIR<a class="anchor" href="#microbolometer--uncooled-lwir" aria-label="permalink">#</a></h3>
+<p>Different physics: absorbed power heats a thermally isolated membrane, changing its resistance. Uses the <strong>energy</strong> form of Planck.</p>
+<pre><code>C_th · dΔT/dt = α_abs·Φ(t) − G_th·ΔT
+τ_th = C_th / G_th                          # typically 8–12 ms</code></pre>
+<p>Implement as a per-pixel exponential IIR across frames:</p>
+<pre><code>S_n = S_{n−1} + (S_ideal_n − S_{n−1}) · (1 − exp(−Δt/τ_th))</code></pre>
+<p>Two lines, and it produces genuine motion smear: at 60 Hz with τ_th = 10 ms a moving object smears over ~0.6 frames. For a vehicle-mounted camera at speed, edges visibly trail. Most simulators omit this and it is one of the strongest "this is a real uncooled camera" cues available.</p>
+<p>Also model FPA temperature coupling: bolometer gain and offset are functions of the FPA's own temperature, which drifts with ambient and self-heating. This is the physical origin of shutterless drift — model it and NUC behaviour falls out naturally instead of having to be faked.</p>
+<h2 id="netd-anchor-dont-generate">NETD: anchor, don't generate<a class="anchor" href="#netd-anchor-dont-generate" aria-label="permalink">#</a></h2>
+<p>NETD is a <strong>calibration handle</strong>, not a noise generator. The workflow:</p>
+<ol>
+<li>Build the full physical chain with best-estimate parameters.</li>
+<li>Compute predicted NETD at a 300 K reference: <code>NETD = σ_total / (∂N_e/∂T)</code>.</li>
+<li>Scale the noise terms so predicted NETD matches the datasheet number.</li>
+<li>Now the spatial and spectral <em>structure</em> of the noise is physical and its <em>magnitude</em> matches the real device.</li>
+</ol>
+<p>Critically: <strong>NETD must fall as scene temperature rises</strong>, because <code>∂L/∂T</code> rises with T. A real uncooled core measured ≈39 mK at ambient and ≈23 mK against a 100 °C blackbody. If your simulated NETD is flat across scene temperature, noise is being added in the wrong domain — find it and move it into radiance or electron space.</p>
+<p>When comparing against published NETD figures, check the convention: derivations differ in whether target and atmosphere temperatures are treated as independent.</p>
+<h2 id="the-3d-noise-model--use-this-not-a-single-sigma">The 3D noise model — use this, not a single sigma<a class="anchor" href="#the-3d-noise-model--use-this-not-a-single-sigma" aria-label="permalink">#</a></h2>
+<p>NVESD decomposition into components along temporal (T), vertical (V) and horizontal (H) directions. This is what real EO/IR test equipment reports, so it can be <strong>parameterised from measurements of the actual camera you intend to model</strong>.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Component</th><th>Meaning</th><th>How to synthesise</th></tr></thead>
+<tbody>
+<tr><td><code>σ_TVH</code></td><td>random spatio-temporal (pixel temporal noise)</td><td>i.i.d. Gaussian, per pixel, per frame</td></tr>
+<tr><td><code>σ_VH</code></td><td>fixed 2-D pattern (pixel non-uniformity, 1/f)</td><td>one fixed 2-D field, slowly drifting</td></tr>
+<tr><td><code>σ_V</code></td><td>fixed row noise (line-to-line non-uniformity)</td><td>one value per row, fixed</td></tr>
+<tr><td><code>σ_H</code></td><td>fixed column noise</td><td>one value per column, fixed</td></tr>
+<tr><td><code>σ_TV</code></td><td>temporal row noise (ROIC line noise)</td><td>new value per row, per frame</td></tr>
+<tr><td><code>σ_TH</code></td><td>temporal column noise</td><td>new value per column, per frame</td></tr>
+<tr><td><code>σ_T</code></td><td>frame-to-frame bounce</td><td>one global value per frame</td></tr>
+</tbody></table></div>
+<p><code>σ_total² = σ_T² + σ_V² + σ_H² + σ_TV² + σ_TH² + σ_VH² + σ_TVH²</code></p>
+<p>Configure as <strong>ratios relative to σ_TVH</strong>, with overall magnitude set by the NETD anchor. Starting point for an uncooled LWIR core after NUC: <code>TVH:VH:H:V ≈ 1.0 : 0.3 : 0.15 : 0.08</code>. Cooled MWIR has smaller <code>σ_VH</code> and <code>σ_TVH</code> dominant.</p>
+<p><strong>Directional noise (row/column striping) is what makes thermal imagery look thermal</strong>, and it is what detection networks latch onto. Getting the ratios wrong is a larger contributor to sim-to-real gap than radiometric error.</p>
+<p>Do not freeze the fixed-pattern terms — give them a slow random walk (correlation time seconds to minutes). That produces the characteristic "pattern breathing" between NUC events.</p>
+<p>Seed all noise deterministically from <code>(frame_id, sensor_id)</code> so runs are reproducible and a failing test can be replayed exactly.</p>
+<h2 id="bad-pixels">Bad pixels<a class="anchor" href="#bad-pixels" aria-label="permalink">#</a></h2>
+<p>0.05–0.5% of pixels, slightly clustered (Poisson cluster process, not uniform). Types: dead (stuck low), hot (stuck high), flickering (random telegraph), blinking (intermittent).</p>
+<p><strong>Simulate the defect <em>and</em> the camera's replacement of it.</strong> Cameras replace bad pixels by neighbour interpolation, leaving a detectable smoothed footprint — and that footprint is what a perception stack actually sees. Modelling only the defect, or only clean pixels, both miss the real artefact.</p>
+<h2 id="nuc-and-flat-field-correction">NUC and flat-field correction<a class="anchor" href="#nuc-and-flat-field-correction" aria-label="permalink">#</a></h2>
+<pre><code>DN_corr = G·(DN − O)</code></pre>
+<p>with two-point coefficients from two blackbody temperatures. <strong>Model the residual, not the ideal:</strong></p>
+<ul>
+<li>Coefficients calibrated at one FPA temperature, applied at another → drift proportional to ΔT_FPA.</li>
+<li>Residual non-uniformity growing between shutter events.</li>
+<li>The FFC event itself: shutter closes, <strong>image freezes for 0.5–1 s</strong>, pattern resets.</li>
+</ul>
+<p>That freeze is a real behavioural artefact a perception stack must survive. Simulating it is worth more than another decimal place of radiometry. For shutterless cores, model slow drift plus a scene-based correction residual instead of periodic freezes.</p>
+<h2 id="agc--part-of-the-sensor-model-not-a-display-detail">AGC — part of the sensor model, not a display detail<a class="anchor" href="#agc--part-of-the-sensor-model-not-a-display-detail" aria-label="permalink">#</a></h2>
+<p>A 14–16 bit radiometric image must become 8 bits, and the mapping changes the image drastically.</p>
+<ul>
+<li><strong>Linear with percentile clipping</strong>: clip at 0.5%/99.5%, normalise, optional gamma.</li>
+<li><strong>Plateau equalisation</strong>: histogram equalisation with per-bin counts clipped at a plateau value before integrating the CDF. Low plateau → near-linear; high → full HE. <strong>This is what most real thermal cores use</strong> and it is the algorithm behind the characteristic thermal look.</li>
+<li><strong>DDE</strong>: high-pass boost added back over the compressed image. Unsharp mask with configurable gain. It is why real thermal imagery looks crunchy.</li>
+</ul>
+<p>Model AGC as <strong>global by default</strong>, because that reproduces a genuine failure mode: a hot exhaust entering frame collapses contrast on everything else. That is a real hazard for perception and it only appears in simulation if AGC is modelled. Offer ROI-weighted and locally-adaptive variants as options.</p>
+<p><strong>AGC must match between training and deployment.</strong> Same algorithm, same plateau, same palette. A model trained on linear-AGC synthetic data and deployed on plateau-EQ real data underperforms for reasons that look like a physics problem and are not.</p>
+<h2 id="pipeline-order">Pipeline order<a class="anchor" href="#pipeline-order" aria-label="permalink">#</a></h2>
+<pre><code>raw DN → bad-pixel replace → NUC (2-pt) → temporal filter
+       → [linearise → T_apparent]                      # radiometric branch
+       → AGC/DRC → gamma → DDE → polarity → palette    # display branch</code></pre>
+<p>Emit <strong>both</strong> branches. Perception usually consumes the 8-bit display image; validation needs the linear one. A camera config declares whether it is radiometric — non-radiometric cores expose only the display branch, and simulating that restriction honestly is part of modelling a specific camera.</p>
+<h2 id="tests">Tests<a class="anchor" href="#tests" aria-label="permalink">#</a></h2>
+<ul>
+<li>NETD anchor: measured NETD from simulated two-blackbody imagery matches the config within 10%.</li>
+<li>NETD vs. scene temperature <strong>decreases</strong> — assert the slope, not just the value.</li>
+<li>3D noise round trip: synthesise with known ratios, decompose 200 frames of a uniform field, recover the ratios within 5%.</li>
+<li>Bolometer smear: a step edge moving at known velocity produces the analytically predicted trailing profile for the configured τ_th.</li>
+<li>Determinism: same seed and frame id → bit-identical output.</li>
+<li>Well saturation: a very hot source clips at <code>2**bits − 1</code> and does not wrap or go negative.</li>
+<li>AGC: plateau = 0 behaves like linear; increasing plateau monotonically increases output entropy.</li>
+<li>FFC: a freeze of the configured duration occurs at the configured interval, and fixed-pattern residual is reset afterwards.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

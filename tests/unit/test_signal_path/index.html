@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signal path — irsim</title>
+<meta name="description" content="The signal-path vocabulary and what it refuses (XD.2).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Signal path</h1>
+  <p class="subtitle">The signal-path vocabulary and what it refuses (XD.2).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py" target="_blank" rel="noopener">tests/unit/test_signal_path.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>This file is mostly about <em>refusals</em>, because a permission table is only worth having if it says no. Three properties are pinned and each one is a mistake that has actually been made in this project or is one step away from being made:</p>
+<ul>
+<li>the table and the index agree -- a permission written in YAML that the table would refuse cannot be loaded at all, so the two cannot drift;</li>
+<li>the paths that carry the ISP and the paths that carry the sensor are disjoint, which is the physical content of the whole vocabulary and not a naming convention;</li>
+<li><code>unknown</code> is not a synonym for <code>display</code>.</li>
+</ul>
+<p>docs/physics-model.md §11.3, §15 Tier 4; ADR 0068.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py" target="_blank" rel="noopener">tests/unit/test_signal_path.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L34" target="_blank" rel="noopener">the vocabulary is the four words and nothing else</a><br><code>test_the_vocabulary_is_the_four_words_and_nothing_else</code></td><td>A closed vocabulary is the point: a fifth value would be a claim nobody defined.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L39" target="_blank" rel="noopener">the isp and the sensor live on disjoint paths</a><br><code>test_the_isp_and_the_sensor_live_on_disjoint_paths</code></td><td>The physical content of the vocabulary, stated as a property rather than a table read.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L52" target="_blank" rel="noopener">an undocumented path is not a display path</a><br><code>test_an_undocumented_path_is_not_a_display_path</code></td><td><code>unknown</code> is the most common value in the index and the easiest to treat as <code>display</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L65" target="_blank" rel="noopener">only a radiometric path reaches kelvin</a><br><code>test_only_a_radiometric_path_reaches_kelvin</code></td><td>The measurement XD.10 exists to make, and the one no 8-bit display set may ever claim.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L74" target="_blank" rel="noopener">a refusal carries the reason not the rule</a><br><code>test_a_refusal_carries_the_reason_not_the_rule</code></td><td>The message is the only record of <em>why</em> once the traceback is in somebody's terminal.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L82" target="_blank" rel="noopener">a name that is not a measurement is refused not ignored</a><br><code>test_a_name_that_is_not_a_measurement_is_refused_not_ignored</code></td><td>A typo in a permission list is a permission granted to nothing, or to the wrong thing.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L90" target="_blank" rel="noopener">a path that is not in the vocabulary is refused</a><br><code>test_a_path_that_is_not_in_the_vocabulary_is_refused</code></td><td>A misspelt path must not read as "permits nothing", which would look like a strict gate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L102" target="_blank" rel="noopener">every measurement is possible on at least one path</a><br><code>test_every_measurement_is_possible_on_at_least_one_path</code></td><td>A row permitting nothing would be a measurement that can never run, written as if it can.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_signal_path.py#L110" target="_blank" rel="noopener">the geometry measurements survive every path</a><br><code>test_the_geometry_measurements_survive_every_path</code></td><td>A box's extent in pixels is not radiometry, and no tone map can change it.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

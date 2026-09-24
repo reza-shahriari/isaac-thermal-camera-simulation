@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slant path — irsim</title>
+<meta name="description" content="AT.1 — every pixel takes its own slant path, not a horizontal one.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Slant path</h1>
+  <p class="subtitle">AT.1 — every pixel takes its own slant path, not a horizontal one.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py" target="_blank" rel="noopener">tests/unit/test_slant_path.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>pipeline/atmosphere.py</code> passed elevation <strong>0.0 unconditionally</strong>, so every <em>resolved</em> pixel was given surface-density extinction and surface-temperature emission over its whole slant range — while the <em>unresolved</em> point-target path beside it used <code>target.elevation_rad</code>, and so did the sky behind it. Contrast therefore jumped at the resolved/unresolved handoff for no physical reason, and the error grows with elevation exactly where phase 1's subject lives: a target against the sky.</p>
+<p>The tests that carry weight are the three at the end. <code>test_the_defect_it_fixes_is_this_big</code> records the size of the error as a number rather than a claim; <code>test_contrast_does_not_jump_across_the_handoff</code> is the acceptance criterion; and <code>test_the_lut_reproduces_the_exact_quadrature</code> is what lets the LUT be trusted at all, since a table that is smooth and wrong looks exactly like a table that is right.</p>
+<p>docs/physics-model.md §7.4, §5.3; ADR 0071; roadmap AT.1.</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py" target="_blank" rel="noopener">tests/unit/test_slant_path.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L54" target="_blank" rel="noopener">column length broadcasts elevation against distance</a><br><code>test_column_length_broadcasts_elevation_against_distance</code></td><td>It took a scalar elevation, which is why the stage could only pass one for a whole frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L65" target="_blank" rel="noopener">a horizontal ray keeps the flat column</a><br><code>test_a_horizontal_ray_keeps_the_flat_column</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L71" target="_blank" rel="noopener">an upward column saturates at the scale height</a><br><code>test_an_upward_column_saturates_at_the_scale_height</code></td><td>H/sinθ is the point: a vertical ray leaves the atmosphere, a horizontal one does not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L78" target="_blank" rel="noopener">transmittance varies across a plane</a><br><code>test_transmittance_varies_across_a_plane</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L91" target="_blank" rel="noopener">the lut reproduces the exact quadrature</a><span class="tag">parametrize</span><br><code>test_the_lut_reproduces_the_exact_quadrature</code></td><td>Against the 4000-step Simpson quadrature it replaces, in millikelvin.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L109" target="_blank" rel="noopener">the lut degrades beyond the ranges this project renders</a><br><code>test_the_lut_degrades_beyond_the_ranges_this_project_renders</code></td><td>The stated envelope, measured rather than assumed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L129" target="_blank" rel="noopener">the grid is uniform in transmittance not optical depth</a><br><code>test_the_grid_is_uniform_in_transmittance_not_optical_depth</code></td><td>The coordinate choice, pinned, because it is worth 500x.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L148" target="_blank" rel="noopener">an isothermal path is exact</a><br><code>test_an_isothermal_path_is_exact</code></td><td>The closed form the coordinate was chosen for: constant L_B gives (1 - tau) L_B exactly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L173" target="_blank" rel="noopener">a downward ray is refused by the table</a><br><code>test_a_downward_ray_is_refused_by_the_table</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L182" target="_blank" rel="noopener">the defect it fixes is this big</a><br><code>test_the_defect_it_fixes_is_this_big</code></td><td>The number, recorded rather than claimed: us_standard_clear, LWIR, 5 km.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L201" target="_blank" rel="noopener">contrast does not jump across the handoff</a><br><code>test_contrast_does_not_jump_across_the_handoff</code></td><td>The acceptance criterion: a resolved pixel and the unresolved path must agree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L227" target="_blank" rel="noopener">the stage without an elevation plane is bit identical</a><br><code>test_the_stage_without_an_elevation_plane_is_bit_identical</code></td><td>Every scene that does not supply the plane renders exactly as it did.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L240" target="_blank" rel="noopener">the stage varies across a frame</a><br><code>test_the_stage_varies_across_a_frame</code></td><td>A frame with a horizon in it must not come out with one transmittance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L253" target="_blank" rel="noopener">a float16 elevation plane is refused</a><br><code>test_a_float16_elevation_plane_is_refused</code></td><td>Non-negotiable #2: elevation scales the optical depth of the whole slant path.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L269" target="_blank" rel="noopener">the join at the horizon is continuous</a><br><code>test_the_join_at_the_horizon_is_continuous</code></td><td>θ = 0 is a node, not a clamp, so the join is exact rather than within a tolerance.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_slant_path.py#L287" target="_blank" rel="noopener">a downward ray takes the horizontal form</a><br><code>test_a_downward_ray_takes_the_horizontal_form</code></td><td>Below the horizon is the sea's business (ADR 0078), not this model's.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

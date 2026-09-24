@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Defocus otf — irsim</title>
+<meta name="description" content="OC.2 -- the defocus OTF models (docs/physics-model.md §8.3).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Defocus otf</h1>
+  <p class="subtitle">OC.2 -- the defocus OTF models (docs/physics-model.md §8.3).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py" target="_blank" rel="noopener">tests/unit/test_defocus_otf.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The load-bearing test is the first one: Hopkins reduces to the diffraction MTF at zero defocus. That is what licenses it to <em>replace</em> the cascade's first factor rather than multiply onto it, and it is a property no amount of plausible-looking blur would give you by accident.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py" target="_blank" rel="noopener">tests/unit/test_defocus_otf.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L28" target="_blank" rel="noopener">hopkins at zero defocus is the diffraction mtf</a><br><code>test_hopkins_at_zero_defocus_is_the_diffraction_mtf</code></td><td>The oracle. Hopkins carries diffraction inside it, so it must reproduce the Airy MTF exactly when there is nothing to defocus -- checked at the limit, not at the special case.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L42" target="_blank" rel="noopener">the bessel quadrature is j1</a><span class="tag">parametrize</span><br><code>test_the_bessel_quadrature_is_j1</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L46" target="_blank" rel="noopener">defocus only ever costs contrast</a><br><code>test_defocus_only_ever_costs_contrast</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L66" target="_blank" rel="noopener">the geometric disk converges to hopkins only as the defocus deepens</a><br><code>test_the_geometric_disk_converges_to_hopkins_only_as_the_defocus_deepens</code></td><td>Both halves asserted, so swapping one model for the other fails the test.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L80" target="_blank" rel="noopener">the cheap models lose half the contrast where this project operates</a><br><code>test_the_cheap_models_lose_half_the_contrast_where_this_project_operates</code></td><td>A Boson focused at infinity looking at 10 m: c = 19.6 µm, W020 = 0.23λ. All three are the pure lens OTF with no aberration term, so the comparison is like for like.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L95" target="_blank" rel="noopener">hopkins reverses contrast and the gaussian cannot</a><br><code>test_hopkins_reverses_contrast_and_the_gaussian_cannot</code></td><td>Spurious resolution is real and is why the Gaussian is an ablation, not a model.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L104" target="_blank" rel="noopener">defocus is achromatic and band averaging only reshapes the tail</a><br><code>test_defocus_is_achromatic_and_band_averaging_only_reshapes_the_tail</code></td><td>Measured, and it corrects the assumption <code>OC</code> was planned on.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L138" target="_blank" rel="noopener">band averaging weights by the response</a><br><code>test_band_averaging_weights_by_the_response</code></td><td>A response that only passes the short half must give the short half's OTF.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_defocus_otf.py#L148" target="_blank" rel="noopener">an unknown model is refused</a><br><code>test_an_unknown_model_is_refused</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Band effective emissivity — irsim</title>
+<meta name="description" content="M7.3 — band-effective material properties: ε(λ) through a camera&#x27;s own eyes (§12.3, §3.1).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Band effective emissivity</h1>
+  <p class="subtitle">M7.3 — band-effective material properties: ε(λ) through a camera's own eyes (§12.3, §3.1).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py" target="_blank" rel="noopener">tests/unit/test_band_effective_emissivity.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>A material's ε is a spectrum; a band is a number. Which number depends on the camera, and on which <em>kind</em> of camera: a bolometer absorbs power and averages under B(λ, T), a photon detector counts photons and averages under B_q(λ, T). The two differ by hc/λ inside the integral, and the direction of the difference is fixed — photon weighting leans long, so a falling ε(λ) always averages lower under it. That is not a convention to be chosen per call site; it follows from the FPA type, and <code>weighting_for_fpa</code> is the one place that decides.</p>
+<p>The failure this step is really about is quieter: <strong>extrapolating a curve past its own support.</strong> For a material whose ε falls off a cliff at a band edge — glass, most paints — carrying the last tabulated value across is a large error that looks like a small one, biased in whichever direction the curve happened to be heading. So a response the curve does not cover is refused.</p>
+<p>docs/physics-model.md §12.3, §3.1, Appendix A #3; ADR 0010</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py" target="_blank" rel="noopener">tests/unit/test_band_effective_emissivity.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L64" target="_blank" rel="noopener">a flat spectrum averages to itself</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_a_flat_spectrum_averages_to_itself</code></td><td>The one exact identity available: no weighting can move a constant.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L71" target="_blank" rel="noopener">a step spectrum equals the closed form top hat ratio</a><br><code>test_a_step_spectrum_equals_the_closed_form_top_hat_ratio</code></td><td>ε = 1 below 10 µm and 0 above, over a 7.5–13.5 µm top-hat: a ratio of closed-form band radiances, computed independently of the quadrature that produced it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L92" target="_blank" rel="noopener">the band average is linear in the spectrum</a><span class="tag">parametrize</span><br><code>test_the_band_average_is_linear_in_the_spectrum</code></td><td>be(α s₁ + β s₂) = α be(s₁) + β be(s₂) to 1e-12 — exact, and quadrature-independent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L111" target="_blank" rel="noopener">photon weighting is lower than energy weighting for a falling spectrum</a><br><code>test_photon_weighting_is_lower_than_energy_weighting_for_a_falling_spectrum</code></td><td>hc/λ inside the integral leans the average towards the long-wave end, always.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L125" target="_blank" rel="noopener">the weighting follows the detector and not the caller</a><br><code>test_the_weighting_follows_the_detector_and_not_the_caller</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L132" target="_blank" rel="noopener">the reference temperature matters and is explicit</a><br><code>test_the_reference_temperature_matters_and_is_explicit</code></td><td>A band-effective value is defined <em>at a temperature</em>; the same curve gives a different number at 1000 K, because Planck has moved under it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L147" target="_blank" rel="noopener">a band the curve does not cover is refused</a><br><code>test_a_band_the_curve_does_not_cover_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L155" target="_blank" rel="noopener">coverage is judged on where the response responds not on the file extent</a><br><code>test_coverage_is_judged_on_where_the_response_responds_not_on_the_file_extent</code></td><td>A response padded with zeros beyond its band does not need ε(λ) out there.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L173" target="_blank" rel="noopener">the committed paint curve works through the boson</a><br><code>test_the_committed_paint_curve_works_through_the_boson</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L183" target="_blank" rel="noopener">the committed paint curve covers every configured camera</a><span class="tag">parametrize</span><br><code>test_the_committed_paint_curve_covers_every_configured_camera</code></td><td>0.3–15 µm, which is the point: a material spectrum authored for one band is a trap the moment a second band is configured, and M11 configured two.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_band_effective_emissivity.py#L193" target="_blank" rel="noopener">a thermal only curve is refused by a swir camera rather than extrapolated</a><br><code>test_a_thermal_only_curve_is_refused_by_a_swir_camera_rather_than_extrapolated</code></td><td>The mistake this step exists to prevent: a table that stops at the band edge, and a camera that looks past it. Carrying the last value across is invisible and biased.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

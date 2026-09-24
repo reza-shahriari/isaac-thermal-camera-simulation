@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap phase table — irsim</title>
+<meta name="description" content="Revision 6 — the roadmap&#x27;s phase-plan table says what the step rows say.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Roadmap phase table</h1>
+  <p class="subtitle">Revision 6 — the roadmap's phase-plan table says what the step rows say.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py" target="_blank" rel="noopener">tests/unit/test_roadmap_phase_table.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The table under <em>Phase plan</em> is the one place a reader sees the whole order at a glance, and revision 5's had drifted from its own rows in seven cells and omitted five steps: <code>IG.12</code> listed under B while its row said X, <code>XD.*</code> listed under X while <code>XD.3</code> was B and <code>XD.10</code> was C, and <code>AT.5</code>, <code>AT.10</code>, <code>IG.16</code>, <code>GT.7</code> and <code>SC.14</code> in no cell at all. The queue is computed from the rows, so the table was describing an order the tooling did not use.</p>
+<p>The table is now generated from the rows (the revision-6 script that wrote it is not in the tree; this test is what keeps the next hand edit honest). Three claims: every step id appears in exactly one phase cell, that cell's phase letter is the row's phase, and nothing in a cell is not a step.</p>
+<p>docs/roadmap.md ("Phase plan"); scripts/next_step.py (<code>load</code>, <code>PHASE_RANK</code>).</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py" target="_blank" rel="noopener">tests/unit/test_roadmap_phase_table.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py#L64" target="_blank" rel="noopener">the table was found and covers every phase</a><br><code>test_the_table_was_found_and_covers_every_phase</code></td><td>Guards the guard: a reformatted table would make the assertions below vacuous.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py#L70" target="_blank" rel="noopener">every step is in exactly one phase cell</a><br><code>test_every_step_is_in_exactly_one_phase_cell</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py#L82" target="_blank" rel="noopener">the cell a step sits in is its own phase</a><br><code>test_the_cell_a_step_sits_in_is_its_own_phase</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py#L93" target="_blank" rel="noopener">nothing in a cell is not a step</a><br><code>test_nothing_in_a_cell_is_not_a_step</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_roadmap_phase_table.py#L99" target="_blank" rel="noopener">a range expands inclusively</a><br><code>test_a_range_expands_inclusively</code></td><td>The one piece of parsing that could silently drop a step.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

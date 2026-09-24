@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ir camera — irsim</title>
+<meta name="description" content="``IrCamera``&#x27;s engine-free half (M10.9a-ii): the sensor config → USD camera mapping.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Ir camera</h1>
+  <p class="subtitle">``IrCamera``'s engine-free half (M10.9a-ii): the sensor config → USD camera mapping.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py" target="_blank" rel="noopener">tests/unit/test_ir_camera.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Everything here runs without Isaac Sim, which is the point: the config→USD mapping is where a camera silently becomes a different camera, and catching that should not cost a 35 s Kit boot. The in-sim closure -- that the renderer honours what was written -- is <code>tests/integration/test_ir_camera_isaac.py</code>.</p>
+<p>docs/physics-model.md §8.3, §8.4; ADR 0015 addendum.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py" target="_blank" rel="noopener">tests/unit/test_ir_camera.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L64" target="_blank" rel="noopener">aperture is the physical sensor size</a><br><code>test_aperture_is_the_physical_sensor_size</code></td><td>640 × 12 µm = 7.68 mm across, 512 × 12 µm = 6.144 mm down.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L72" target="_blank" rel="noopener">focal length in pixels follows from the usd aperture ratio</a><br><code>test_focal_length_in_pixels_follows_from_the_usd_aperture_ratio</code></td><td>USD derives f_px from focalLength/horizontalAperture × width; it must equal f/pitch.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L86" target="_blank" rel="noopener">render product is the supersampled grid</a><br><code>test_render_product_is_the_supersampled_grid</code></td><td>The renderer is asked for k × native (§8.3), the grid <code>run_frame</code> demands.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L94" target="_blank" rel="noopener">supersampling does not change the aperture</a><br><code>test_supersampling_does_not_change_the_aperture</code></td><td>Subdividing pixels is not a different lens: the physical aperture is unchanged.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L106" target="_blank" rel="noopener">brown conrady maps to the opencv pinhole schema</a><br><code>test_brown_conrady_maps_to_the_opencv_pinhole_schema</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L114" target="_blank" rel="noopener">every attribute of the schema is written</a><br><code>test_every_attribute_of_the_schema_is_written</code></td><td>All 17, not just the coefficients -- an unwritten attribute is someone else's camera.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L128" target="_blank" rel="noopener">written intrinsics are the ones the projection oracle uses</a><br><code>test_written_intrinsics_are_the_ones_the_projection_oracle_uses</code></td><td>The schema carries its own fx/cx/imageSize; they must be the oracle's, else the two disagree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L141" target="_blank" rel="noopener">brown conrady coefficients are written positionally</a><br><code>test_brown_conrady_coefficients_are_written_positionally</code></td><td>[k1, k2, p1, p2, k3] land on those names; k4..s4 are written as explicit zeros.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L155" target="_blank" rel="noopener">fisheye writes all four coefficients over a non zero default</a><br><code>test_fisheye_writes_all_four_coefficients_over_a_non_zero_default</code></td><td>The fisheye schema defaults k1 to 0.00245, so a zero-distortion fisheye must say so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L176" target="_blank" rel="noopener">ftheta is refused by the usd mapping too</a><br><code>test_ftheta_is_refused_by_the_usd_mapping_too</code></td><td>Refused in both places, for the same reason: the convention is unmeasured (ADR 0015).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L191" target="_blank" rel="noopener">a pipeline built for another sensor is refused</a><br><code>test_a_pipeline_built_for_another_sensor_is_refused</code></td><td>The config and the camera must describe one camera; two would differ only in the numbers.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L206" target="_blank" rel="noopener">an atmosphere on another weather series is refused</a><br><code>test_an_atmosphere_on_another_weather_series_is_refused</code></td><td>CLAUDE.md #6: a camera cannot run one weather in the sky and another in the solvers.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_ir_camera.py#L224" target="_blank" rel="noopener">the camera clock advances one frame period</a><br><code>test_the_camera_clock_advances_one_frame_period</code></td><td>60 Hz means 16.67 ms per capture -- the base the FFC schedule and the drift run on.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

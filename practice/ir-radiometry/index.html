@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ir-radiometry — irsim</title>
+<meta name="description" content="Radiometric physics for the IR camera simulator — Planck&#x27;s law, band integration, radiance LUTs, apparent temperature inversion, thermal derivatives, and radiometric unit conventio">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ir-radiometry</h1>
+  <p class="subtitle">Radiometric physics for the IR camera simulator — Planck's law, band integration, radiance LUTs, apparent temperature inversion, thermal derivatives, and radiometric unit conventions. Use this skill whenever the task touches blackbody radiance, spectral bands, wavelength or wavenumber, W/m2/sr, photon flux, LUT generation, emissivity-weighted radiance, temperature-to-radiance conversion, or NETD scaling — even if the request just says "compute the signal" or "convert temperature to pixel value". Also use it before adding any new spectral band, since band definitions live in this layer.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/ir-radiometry/SKILL.md" target="_blank" rel="noopener">.claude/skills/ir-radiometry/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#constants">Constants</a></li>
+<li class="toc-2"><a href="#unit-convention--one-convention-enforced">Unit convention — one convention, enforced</a></li>
+<li class="toc-2"><a href="#the-two-planck-forms">The two Planck forms</a></li>
+<li class="toc-2"><a href="#band-integration">Band integration</a></li>
+<li class="toc-2"><a href="#apparent-temperature">Apparent temperature</a></li>
+<li class="toc-2"><a href="#thermal-derivative">Thermal derivative</a></li>
+<li class="toc-2"><a href="#invariants-to-assert-in-tests">Invariants to assert in tests</a></li>
+<li class="toc-2"><a href="#adding-a-band">Adding a band</a></li>
+<li class="toc-2"><a href="#common-failure-modes">Common failure modes</a></li></ul></nav>
+<article class="prose">
+<p>This is the bottom of the stack. Everything above it is wrong if this is wrong, and errors here are invisible in the output image — a 15% radiometric error still produces a picture that looks fine.</p>
+<p>Reference: <code>docs/physics-model.md</code> §3. Cite section numbers in docstrings.</p>
+<h2 id="constants">Constants<a class="anchor" href="#constants" aria-label="permalink">#</a></h2>
+<p>Never inline these. They live in <code>irsim.radiometry.constants</code> with sources.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Name</th><th>Value</th><th>Units</th></tr></thead>
+<tbody>
+<tr><td><code>C1L</code> = 2hc²</td><td>1.19104297e8</td><td>W·µm⁴·m⁻²·sr⁻¹</td></tr>
+<tr><td><code>C1Q</code> = 2c</td><td>5.995849e26</td><td>ph·s⁻¹·µm³·m⁻²·sr⁻¹</td></tr>
+<tr><td><code>C2</code> = hc/k_B</td><td>1.4387769e4</td><td>µm·K</td></tr>
+<tr><td><code>SIGMA_SB</code></td><td>5.670374419e-8</td><td>W·m⁻²·K⁻⁴</td></tr>
+<tr><td><code>WIEN_B</code></td><td>2897.771955</td><td>µm·K</td></tr>
+<tr><td><code>Q_E</code></td><td>1.602176634e-19</td><td>C</td></tr>
+</tbody></table></div>
+<h2 id="unit-convention--one-convention-enforced">Unit convention — one convention, enforced<a class="anchor" href="#unit-convention--one-convention-enforced" aria-label="permalink">#</a></h2>
+<p>Ambiguity about π and about per-µm vs per-m is the single largest source of silent radiometric error.</p>
+<ul>
+<li>Wavelength is <strong>always µm</strong>. Never metres, never nanometres, never wavenumber.</li>
+<li>Spectral radiance is <strong>always W·m⁻²·sr⁻¹·µm⁻¹</strong>. Variable names start with <code>L_</code>.</li>
+<li>Band radiance is <strong>W·m⁻²·sr⁻¹</strong>. Variable names start with <code>Lb_</code>.</li>
+<li>Exitance is <strong>W·m⁻²</strong>, names start with <code>M_</code>. Relationship for a Lambertian surface: <code>L = M / π</code>.</li>
+<li>Photon quantities mirror this with a <code>_q</code> suffix: <code>L_q</code>, <code>Lb_q</code>, units <code>ph·s⁻¹·m⁻²·sr⁻¹[·µm⁻¹]</code>.</li>
+<li>Temperature is <strong>always Kelvin</strong>, float32 minimum, name <code>T_*</code>. Celsius only at the UI boundary.</li>
+</ul>
+<p>Any function that returns radiance states its units in the docstring's first line. Any function that takes a wavelength array asserts it is monotonic increasing and in a plausible µm range (0.1–100).</p>
+<h2 id="the-two-planck-forms">The two Planck forms<a class="anchor" href="#the-two-planck-forms" aria-label="permalink">#</a></h2>
+<pre><code>L(λ,T)   = C1L / (λ**5 * (exp(C2/(λ*T)) - 1))     # W·m⁻²·sr⁻¹·µm⁻¹
+L_q(λ,T) = C1Q / (λ**4 * (exp(C2/(λ*T)) - 1))     # ph·s⁻¹·m⁻²·sr⁻¹·µm⁻¹</code></pre>
+<p>Use the <strong>photon form for photon detectors</strong> (MWIR/SWIR/NIR — quantum efficiency is per-photon) and the <strong>energy form for bolometers</strong> (uncooled LWIR — the membrane absorbs power). Getting this backwards produces an error that varies across the band, so it does not show up as a simple gain offset.</p>
+<p>Numerical care: for large <code>x = C2/(λT)</code> (cold scenes, short wavelengths) <code>exp(x)</code> overflows. Use <code>np.expm1(x)</code> for the denominator and clip <code>x</code> at ~700 before exponentiating. Add a test at T = 200 K, λ = 0.8 µm — it will overflow a naive implementation.</p>
+<h2 id="band-integration">Band integration<a class="anchor" href="#band-integration" aria-label="permalink">#</a></h2>
+<p><code>Lb(T) = ∫ R(λ) L(λ,T) dλ</code> where <code>R(λ)</code> is the normalised spectral response.</p>
+<p>Two paths, both needed:</p>
+<p><strong>Reference path</strong> — direct quadrature (Simpson) on a 0.01 µm grid with the real <code>R(λ)</code>. Slow, correct, used as the oracle in tests and for LUT generation.</p>
+<p><strong>Fast path</strong> — precomputed LUT, 200–1000 K at 0.05 K spacing, float32, linear interpolation. One table per band per quantity (<code>Lb</code>, <code>Lb_q</code>, <code>dLb_dT</code>). ~16k entries, 64 kB. Generated by <code>make luts</code> and checked into <code>data/lut/</code> with a hash of the config that produced it, so a stale LUT is detectable.</p>
+<p>A third form is useful for validation and for top-hat responses — the closed-form fractional exitance:</p>
+<pre><code>F(λT) = (15/π⁴) Σ_{n≥1} (exp(-n·x)/n) · (x³ + 3x²/n + 6x/n² + 6/n³),   x = C2/(λT)
+Lb(T) = (σT⁴/π) · [F(λ₂T) − F(λ₁T)]</code></pre>
+<p>Converges in 3–8 terms for x &gt; 2. Use it to cross-check the quadrature path — if the two disagree by more than 0.1% on a top-hat response, one of them has a bug.</p>
+<h2 id="apparent-temperature">Apparent temperature<a class="anchor" href="#apparent-temperature" aria-label="permalink">#</a></h2>
+<p><code>Lb(T)</code> is monotonic, so invert by binary search on the LUT (or a precomputed inverse table).</p>
+<p>Keep the distinction sharp in naming and in your head:</p>
+<ul>
+<li><code>T_kinetic</code> — the true physical surface temperature. Ground truth. The scene knows it.</li>
+<li><code>T_apparent</code> — what the camera reports. <code>Lb⁻¹(L_measured)</code>.</li>
+</ul>
+<p>They differ by exactly the emissivity + reflection + atmosphere error. <strong>That difference is the product.</strong> A pipeline that returns <code>T_kinetic</code> as the camera output has simulated a temperature probe, not a camera. If you find yourself tempted to shortcut through the true temperature, that is a bug in the design, not a convenience.</p>
+<h2 id="thermal-derivative">Thermal derivative<a class="anchor" href="#thermal-derivative" aria-label="permalink">#</a></h2>
+<pre><code>dL_dT(λ,T) = L(λ,T) · (C2/(λ·T²)) · exp(x)/(exp(x)−1),   x = C2/(λT)</code></pre>
+<p>Tabulate in-band alongside <code>Lb</code>. This is what NETD divides by, and it is why NETD falls as scene temperature rises. Any code that treats NETD as a scene-independent constant in Kelvin is wrong — see the <code>sensor-noise-chain</code> skill.</p>
+<h2 id="invariants-to-assert-in-tests">Invariants to assert in tests<a class="anchor" href="#invariants-to-assert-in-tests" aria-label="permalink">#</a></h2>
+<p>These catch real bugs, not typos:</p>
+<ol>
+<li><code>L_q(λ,T) · h·c/λ == L(λ,T)</code> to 1e-12 relative. Catches a wrong <code>C1Q</code>.</li>
+<li><code>∫₀^∞ L(λ,T) dλ == σT⁴/π</code> to 1e-6. Catches a wrong <code>C1L</code> or a π error.</li>
+<li><code>Lb_lut(T)</code> vs <code>Lb_quadrature(T)</code>: max error &lt; 5 mK equivalent over 200–1000 K. Express the tolerance in mK, not in radiance — radiance tolerances are meaningless to read.</li>
+<li><code>Lb⁻¹(Lb(T)) == T</code> to &lt; 1 mK over the full range.</li>
+<li><code>dLb_dT</code> vs central finite difference of <code>Lb</code>: &lt; 1e-5 relative.</li>
+<li><code>Lb(T)</code> strictly increasing in T.</li>
+<li>Wien: <code>argmax_λ L(λ,T) · T == 2897.77</code> to 0.1%.</li>
+<li>No overflow, no NaN, no negative radiance anywhere on a 200–2000 K × 0.4–20 µm sweep.</li>
+</ol>
+<h2 id="adding-a-band">Adding a band<a class="anchor" href="#adding-a-band" aria-label="permalink">#</a></h2>
+<p>A band is a data file, not code. Adding one should touch:</p>
+<ul>
+<li><code>configs/sensors/&lt;name&gt;.yaml</code> — range, spectral response path, regime (<code>emissive</code>/<code>reflective</code>/<code>mixed</code>)</li>
+<li><code>data/spectra/&lt;detector&gt;.csv</code> — λ, R(λ), normalised</li>
+<li><code>make luts</code> to generate the tables</li>
+</ul>
+<p>and <strong>nothing in <code>irsim/radiometry/</code></strong>. If adding a band requires editing radiometry code, stop and fix the abstraction — scalability across bands is a core requirement of this project.</p>
+<h2 id="common-failure-modes">Common failure modes<a class="anchor" href="#common-failure-modes" aria-label="permalink">#</a></h2>
+<ul>
+<li>Mixing per-µm and per-m spectral radiance. Factor of 1e6, so it is obvious once you look — but people don't look, because the AGC rescales it away and the image still looks correct.</li>
+<li>Dropping or double-applying π when converting exitance to radiance. Factor of ~3.14, easily mistaken for an emissivity error.</li>
+<li>Normalising <code>R(λ)</code> when you shouldn't, or failing to when you should. Decide once: <code>R(λ)</code> is normalised to peak 1.0, and absolute responsivity lives in the detector model. Document it in the loader and assert it.</li>
+<li>Generating a LUT from one config and using it with another. Hence the config hash.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

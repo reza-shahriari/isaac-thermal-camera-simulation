@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phantom4 orientation — irsim</title>
+<meta name="description" content="Which way the imported Phantom 4 is facing, and why it is not a matter of opinion.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Phantom4 orientation</h1>
+  <p class="subtitle">Which way the imported Phantom 4 is facing, and why it is not a matter of opinion.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py" target="_blank" rel="noopener">tests/unit/test_phantom4_orientation.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>scripts/render_phantom4.py</code> turns <code>NOSE_IN_ASSET</code> into the yaw that a heading of zero means, so an error in it flies the aircraft crabbed through every frame of every clip while still rendering something entirely plausible. It <em>was</em> wrong, by 28.6 degrees, from AI.2 until <code>AI.5</code>.</p>
+<p>These tests are engine-free: the driver's module-level imports are all stdlib, so importing it boots no Kit and touches no GPU. They re-derive the nose from the airframe's own geometry rather than trusting the constant, which is the only way this class of error gets caught -- the wrong value renders a perfectly good aircraft.</p>
+<p>Roadmap <code>AI.5</code>; ADR 0138.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py" target="_blank" rel="noopener">tests/unit/test_phantom4_orientation.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py#L54" target="_blank" rel="noopener">the four rotor stations are square and equidistant</a><br><code>test_the_four_rotor_stations_are_square_and_equidistant</code></td><td>The premise everything else rests on: this really is an X quad, measured.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py#L73" target="_blank" rel="noopener">the nose bisects the two front arms</a><br><code>test_the_nose_bisects_the_two_front_arms</code></td><td>The correction itself.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py#L96" target="_blank" rel="noopener">the gimbal camera agrees with the arms to within three degrees</a><br><code>test_the_gimbal_camera_agrees_with_the_arms_to_within_three_degrees</code></td><td>The independent cross-check, and the measurement the old constant botched.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py#L114" target="_blank" rel="noopener">the old nose value is not restored</a><br><code>test_the_old_nose_value_is_not_restored</code></td><td>-Y is the value this step removed. It is wrong by 28.6 degrees.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_phantom4_orientation.py#L121" target="_blank" rel="noopener">every arm carries the same status lamp so leds cannot mark the front</a><br><code>test_every_arm_carries_the_same_status_lamp_so_leds_cannot_mark_the_front</code></td><td>Guards the reasoning, not just the number.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

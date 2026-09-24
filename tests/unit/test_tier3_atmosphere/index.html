@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier3 atmosphere — irsim</title>
+<meta name="description" content="Tier 3 atmosphere phenomenology and the solar-path stub (M8.8).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Tier3 atmosphere</h1>
+  <p class="subtitle">Tier 3 atmosphere phenomenology and the solar-path stub (M8.8).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py" target="_blank" rel="noopener">tests/unit/test_tier3_atmosphere.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The §7.2 table's decisive claims are not about absolute transmittance -- they are about <em>which band wins</em>: LWIR beats everything in fog, SWIR beats LWIR in humid clear air, and the visible dies first in both. A simulator that reproduces those orderings from the weather alone is doing real work (§7.2); one that merely lands each number in its row could still have the bands in the wrong order. These tests assert the orderings and the crossovers over every committed preset, plus the geometric self-consistency of the layered model and the Bouguer solar stub.</p>
+<p>docs/physics-model.md §15 (Tier 3), §7.2, §7.3, §5.4; ADR 0048, 0049, 0051, 0071</p>
+<p class='made-by'>8 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py" target="_blank" rel="noopener">tests/unit/test_tier3_atmosphere.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L50" target="_blank" rel="noopener">magnus known values and humidity ordering</a><br><code>test_magnus_known_values_and_humidity_ordering</code></td><td>The Magnus/Bolton anchors the whole humidity chain rests on (§7.3).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L65" target="_blank" rel="noopener">every preset orders the bands by particle size</a><span class="tag">parametrize</span><br><code>test_every_preset_orders_the_bands_by_particle_size</code></td><td>Aerosol and droplet extinction both fall with wavelength, so at any one weather the transmittance must rise monotonically from the visible to the SWIR. (LWIR and MWIR can sit below SWIR: their molecular water-vapour absorption is a different mechanism, which is exactly why the humid crossover exists.)</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L77" target="_blank" rel="noopener">fog ordering and ranges at 200 m</a><br><code>test_fog_ordering_and_ranges_at_200_m</code></td><td>§7.2's light-fog row, and the ordering that is the commercial argument for LWIR.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L88" target="_blank" rel="noopener">humid and fog crossover from one preset and the weather</a><br><code>test_humid_and_fog_crossover_from_one_preset_and_the_weather</code></td><td>The §7.2 crossover: water vapour hits 8-12 um hardest, so humid clear air makes LWIR <em>worse</em> than SWIR, while fog droplets reverse it. One preset, weather alone.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L109" target="_blank" rel="noopener">a target at air temperature is distance invariant</a><span class="tag">parametrize</span><br><code>test_a_target_at_air_temperature_is_distance_invariant</code></td><td>The isothermal identity on a horizontal path: a target radiating exactly L_B(T_air) is indistinguishable from the air at any range, for the grey and the layered model alike. Any error here is a bookkeeping bug in attenuation vs path radiance (§7.1).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L128" target="_blank" rel="noopener">short slant path matches the horizontal one</a><br><code>test_short_slant_path_matches_the_horizontal_one</code></td><td>A 300 m path at 10 deg rises only 52 m -- 2.6 % of the water-vapour scale height -- so it must read within 0.1 K of the same length horizontally. This is the self-consistency check on MS.1's column integrals: get the geometry wrong and the two diverge immediately.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L162" target="_blank" rel="noopener">bouguer airmass and the 60 degree identity</a><br><code>test_bouguer_airmass_and_the_60_degree_identity</code></td><td>τ_sun(θ) = τ_zenith^{sec θ}: at 60° the airmass is exactly 2, so the transmittance is the zenith value squared. Pinning that identity is what makes the stub checkable before M11 replaces it (ADR 0051).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_tier3_atmosphere.py#L187" target="_blank" rel="noopener">solar stub orders the presets by how much they block the sun</a><br><code>test_solar_stub_orders_the_presets_by_how_much_they_block_the_sun</code></td><td>Clear air passes more sun than haze, which passes more than fog -- in every band. A preset table that got this backwards would produce daytime MWIR glint in dense fog.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

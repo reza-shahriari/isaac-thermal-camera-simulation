@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>isaac-sim-spg — irsim</title>
+<meta name="description" content="Isaac Sim 6.0 integration for the IR camera simulator — AOV/render-product setup, temperature encoding, the RTX Sensor Processing Graph (omni.rtx.spg) CUDA+Lua+USD structure, the W">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>isaac-sim-spg</h1>
+  <p class="subtitle">Isaac Sim 6.0 integration for the IR camera simulator — AOV/render-product setup, temperature encoding, the RTX Sensor Processing Graph (omni.rtx.spg) CUDA+Lua+USD structure, the Warp/annotator alternative, and reflection strategies. Use this skill for ANY task that touches Isaac Sim, Omniverse, Kit, USD render products, RenderVars, AOVs, OmniPBR emission, PtSelfIllumination, SPG kernels, Warp kernels, Replicator annotators, or getting simulated imagery out of the renderer — including vague requests like "hook the sensor up to the sim" or "render a thermal frame". Isaac Sim 6.0 is recent and its SPG API differs from what you may recall, so consult this before writing engine code.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/isaac-sim-spg/SKILL.md" target="_blank" rel="noopener">.claude/skills/isaac-sim-spg/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#the-strategy-in-one-paragraph">The strategy in one paragraph</a></li>
+<li class="toc-2"><a href="#two-implementation-paths--start-with-the-second">Two implementation paths — start with the second</a></li>
+<li class="toc-3"><a href="#path-a-sensor-processing-graph-omnirtxspg">Path A: Sensor Processing Graph (omni.rtx.spg)</a></li>
+<li class="toc-3"><a href="#path-b-annotators--warp-start-here">Path B: Annotators + Warp (start here)</a></li>
+<li class="toc-2"><a href="#temperature-encoding--verify-this-before-anything-else">Temperature encoding — verify this before anything else</a></li>
+<li class="toc-2"><a href="#aov-set">AOV set</a></li>
+<li class="toc-2"><a href="#pipeline-stages">Pipeline stages</a></li>
+<li class="toc-2"><a href="#the-reflection-problem">The reflection problem</a></li>
+<li class="toc-2"><a href="#verification-discipline">Verification discipline</a></li>
+<li class="toc-2"><a href="#performance-notes">Performance notes</a></li>
+<li class="toc-2"><a href="#when-something-is-unclear">When something is unclear</a></li></ul></nav>
+<article class="prose">
+<p>Isaac Sim has <strong>no built-in IR camera</strong>. We build one on top of the RTX renderer. This skill records what is actually true about the 6.0 API, because it is newer than most training data and the public guidance is partly contradictory.</p>
+<p>Reference: <code>docs/physics-model.md</code> §13.</p>
+<h2 id="the-strategy-in-one-paragraph">The strategy in one paragraph<a class="anchor" href="#the-strategy-in-one-paragraph" aria-label="permalink">#</a></h2>
+<p>Do not try to make the RTX renderer produce infrared radiance. Make it produce a <strong>G-buffer of physical quantities</strong> — encoded temperature, material ID, normals, distance, sky visibility — and do all the radiometry ourselves in GPU post-processing. The renderer handles what it is good at: visibility, geometry, and material lookup. We handle what it knows nothing about: Planck's law.</p>
+<h2 id="two-implementation-paths--start-with-the-second">Two implementation paths — start with the second<a class="anchor" href="#two-implementation-paths--start-with-the-second" aria-label="permalink">#</a></h2>
+<h3 id="path-a-sensor-processing-graph-omnirtxspg">Path A: Sensor Processing Graph (<code>omni.rtx.spg</code>)<a class="anchor" href="#path-a-sensor-processing-graph-omnirtxspg" aria-label="permalink">#</a></h3>
+<p>NVIDIA's recommended route. Runs custom GPU code as post-processing passes on RTX AOVs, entirely on the GPU with no CPU round trip. Requires Kit launched with <code>--enable omni.rtx.spg</code>.</p>
+<p>Each SPG shader is <strong>three co-located files</strong>:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>File</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><code>Kernel.cu</code></td><td>CUDA kernel, an <code>extern "C" __global__</code> function. Compiled at runtime via NVRTC.</td></tr>
+<tr><td><code>Kernel.cu.lua</code></td><td>Lua launch script. Called every frame: validates inputs, allocates outputs, returns launch config. Function name must match the CUDA function name.</td></tr>
+<tr><td><code>Kernel.usda</code></td><td>USD shader definition. Declares <code>opaque inputs:X</code> / <code>opaque outputs:Y</code>, points at the <code>.cu</code> via <code>info:spg:sourceAsset</code>, names the entry point via <code>info:spg:sourceAsset:subIdentifier</code>.</td></tr>
+</tbody></table></div>
+<p>SPG finds the Lua script by appending <code>.lua</code> to the source asset path. The three names — CUDA function, Lua function, <code>subIdentifier</code> — must all be identical.</p>
+<p>Wiring in the scene file: <code>RenderVar.omni:rtx:aov</code> → <code>Shader.inputs:X</code> → <code>Shader.outputs:Y</code> → <code>RenderVar.omni:rtx:aov.connect</code></p>
+<p>Shaders chain output-to-input directly with no intermediate RenderVar. Execution order comes from the connection dependency graph, <strong>not</strong> from the order of <code>orderedVars</code>. Every RenderVar consumed or produced must appear in <code>orderedVars</code>.</p>
+<p>Useful API details:</p>
+<ul>
+<li><code>cuda.static(fn, ...)</code> caches a computation, recomputing only when its arguments change. <strong>This is how the Planck LUT gets uploaded once instead of per frame.</strong> Use it for every constant table.</li>
+<li><code>rtx.frameId</code> is a Lua global — use it to seed temporal noise so runs are reproducible.</li>
+<li><code>cuda.image(w, h, dtype)</code> for image outputs; <code>cuda.empty(shape, dtype)</code> for LUTs and statistics.</li>
+<li><code>cuda.TextureObject(...)</code> for read-only input, <code>cuda.SurfaceObject(...)</code> for writable output, <code>cuda.array(...)</code> for raw device pointers.</li>
+<li>Value inputs (typed USD attributes like <code>float inputs:strength</code>) arrive in the same <code>inputs</code> table as resource inputs but carry a <code>.value</code> field. Distinguish with <code>inputs["x"].value ~= nil</code>.</li>
+<li>Stdlib nodes exist for trivial ops (<code>spg:rtx.spg.stdlib/Add</code>, <code>/Multiply</code>, <code>/Scale</code>, <code>/Swizzle</code>), authored inline in USD with <code>info:implementationSource = "id"</code>. Not useful for our physics, but handy for debug taps.</li>
+</ul>
+<p>Known limitations to design around:</p>
+<ul>
+<li>Only <strong>local</strong> <code>.cu</code>, <code>.cu.lua</code>, <code>.usda</code> files are supported.</li>
+<li>SPG shader prims <strong>must not be nested under a Material prim</strong>.</li>
+<li>Stdlib nodes handle 2D textures only; integer texture formats (<code>SINT</code>/<code>UINT</code>) and buffer-backed resources are not supported by them.</li>
+<li><code>display_render_var</code> only works for RGBA unorm textures. Our float32 outputs will not show in the viewport — use <code>FileCapture</code> to write them to disk, or add a separate 8-bit display AOV.</li>
+</ul>
+<h3 id="path-b-annotators--warp-start-here">Path B: Annotators + Warp (start here)<a class="anchor" href="#path-b-annotators--warp-start-here" aria-label="permalink">#</a></h3>
+<p><code>isaacsim.sensors.experimental.rtx</code> provides <code>RtxCamera</code> (authoring — wraps a USD Camera prim and exposes optical parameters) and <code>CameraSensor</code> (runtime — creates a Replicator render product, attaches annotators, and provides <code>get_data()</code> returning numpy or <strong>warp</strong> arrays). <code>TiledCameraSensor</code> batches many cameras for dataset generation.</p>
+<p>Because <code>get_data()</code> can return warp arrays, the data is already on the GPU. Run the same six pipeline stages as Warp kernels and there is no round trip. Cost: Python-side per-frame dispatch, well under a millisecond at 640×512.</p>
+<p><strong>Use Path B until the physics is verified against <code>irsim</code>'s CPU reference, then port hot stages to Path A.</strong> Debugging radiometry inside a runtime-compiled CUDA kernel wired through USD is the worst possible place to discover that your emissivity model has a sign error.</p>
+<p>Note: some community guidance describes SPG as being scripted "in Python or Warp". It is not — SPG is CUDA + Lua + USD. Path B is where Python and Warp live. If you find yourself confused about which one you are writing, that mismatch is why.</p>
+<p>Note the deprecations: <code>isaacsim.sensors.camera</code> and <code>isaacsim.sensors.rtx</code> are deprecated as of 6.0 in favour of <code>isaacsim.sensors.experimental.rtx</code>. Do not write new code against the old extensions.</p>
+<h2 id="temperature-encoding--verify-this-before-anything-else">Temperature encoding — verify this before anything else<a class="anchor" href="#temperature-encoding--verify-this-before-anything-else" aria-label="permalink">#</a></h2>
+<p>The renderer transports temperature to us through an emissive channel. Emissive channels are commonly fp16 or 8-bit unorm. At 300 K:</p>
+<ul>
+<li>fp16 spacing → <strong>0.25 K</strong> (5× coarser than a 50 mK NETD)</li>
+<li>8-bit unorm over 200–400 K → <strong>0.78 K</strong></li>
+</ul>
+<p>Either destroys the sensor completely while still producing a plausible-looking image.</p>
+<p>Encode as:</p>
+<pre><code>c = (T - T_REF) / T_SPAN        # T_REF = 200.0 K, T_SPAN = 800.0 K → c in [0, 1]
+T = c * T_SPAN + T_REF</code></pre>
+<p>into a <strong>float32</strong> AOV. If float32 is unavailable on a given channel, split coarse/fine across two fp16 channels rather than accepting the precision loss.</p>
+<p><strong>First engine task in the project:</strong> render a ramp of known temperatures, decode, assert round-trip error &lt; 10 mK. This is <code>tests/integration/test_temperature_encoding.py</code>. Nothing downstream matters if it fails, so do not build anything else until it passes.</p>
+<h2 id="aov-set">AOV set<a class="anchor" href="#aov-set" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th>AOV</th><th>Carries</th><th>Format</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>PtSelfIllumination</code> (or custom)</td><td>encoded temperature</td><td><strong>float32</strong></td><td>emission-encoded; bounces must not contaminate it</td></tr>
+<tr><td>material ID / <code>DiffuseAlbedo</code></td><td>emissivity lookup key</td><td>uint / float</td><td>index into the material table</td></tr>
+<tr><td><code>Normal</code></td><td>surface normal</td><td>fp16 ok</td><td>for ε(θ) and sky-view factor</td></tr>
+<tr><td><code>DistanceToCamera</code></td><td>path length d</td><td><strong>float32</strong></td><td>atmospheric attenuation</td></tr>
+<tr><td><code>AmbientOcclusion</code> (or custom)</td><td>sky-view factor V_s</td><td>fp16 ok</td><td>reflected-sky term</td></tr>
+<tr><td><code>MotionVectors</code></td><td>image-plane velocity</td><td>fp16 ok</td><td>motion MTF, bolometer smear</td></tr>
+<tr><td><code>SemanticSegmentation</code></td><td>ground truth labels</td><td>uint</td><td>dataset export</td></tr>
+</tbody></table></div>
+<p><code>PtSelfIllumination</code> captures only the self-illumination component, giving a clean per-pixel temperature readout without contamination from reflected or bounced light. The alternative is <code>HdrColor</code> with max bounces set to 0.</p>
+<h2 id="pipeline-stages">Pipeline stages<a class="anchor" href="#pipeline-stages" aria-label="permalink">#</a></h2>
+<p>Six kernels, each independently testable against the <code>irsim</code> CPU reference:</p>
+<ol>
+<li><code>band_radiance</code> — decode T, look up <code>Lb(T)</code>, apply ε(θ), add reflected environment</li>
+<li><code>atmosphere</code> — <code>τ = exp(-γ·d)</code>; <code>L' = τ·L + (1−τ)·B(T_air)</code></li>
+<li><code>optics</code> — <code>π·τ_opt/(4F²+1)</code>, cos⁴θ vignetting, optics self-emission</li>
+<li><code>detector</code> — bolometer IIR (thermal time constant) or photon → electrons → well → ADC</li>
+<li><code>noise</code> — 3D noise components, NUC residual, bad pixels; seeded from <code>rtx.frameId</code></li>
+<li><code>isp</code> — AGC/plateau equalisation, DDE, gamma, polarity, palette</li>
+</ol>
+<p>Outputs: <code>IrRadiance</code> (float32), <code>IrApparentT</code> (float32), <code>IrDN16</code> (uint16), <code>IrDisplay8</code> (RGBA8). Publish all four — perception consumes the 8-bit, validation needs the linear ones.</p>
+<p>MTF and aliasing: render at 3–4× the sensor resolution and box-filter down to the pixel footprint in stage 3. This gives correct detector MTF <em>and</em> correct aliasing for free. Rendering at native resolution and blurring afterwards gives you the blur without the aliasing, and aliasing is exactly what corrupts small-target detection at range.</p>
+<h2 id="the-reflection-problem">The reflection problem<a class="anchor" href="#the-reflection-problem" aria-label="permalink">#</a></h2>
+<p><code>PtSelfIllumination</code> deliberately excludes bounced light — which is what gives a clean temperature buffer, and which also means <strong>no reflections at all</strong>. But painted bodywork and glass are near-mirrors in LWIR reflecting a very cold sky; that is why car roofs read cold at night. Options, cheapest first:</p>
+<ol>
+<li><strong>Sky-view factor blend.</strong> Use the AO AOV as <code>V_s</code>, blend sky and ground band radiance. No specular structure, but gets the broad behaviour and the cold-roof effect. <strong>Implement this first.</strong></li>
+<li><strong>Low-res T-cubemap.</strong> A second small render product (64×64 per face) of the encoded-T field from a probe near the camera, converted to band radiance and used as a reflection probe. Good value.</li>
+<li><strong>Second render product with bounces</strong>, where emission encodes band radiance rather than temperature. Most correct available; costs a full extra render and requires keeping the two encodings from mixing.</li>
+<li><strong>Warp ray cast</strong> against the T-field for mirror directions on flagged specular materials only. Surgical and cheap when only a few materials need it.</li>
+</ol>
+<p>Whichever is in use must be recorded in an ADR, because it is the largest remaining approximation in the system and reviewers will ask.</p>
+<h2 id="verification-discipline">Verification discipline<a class="anchor" href="#verification-discipline" aria-label="permalink">#</a></h2>
+<p>Every SPG or Warp kernel gets a companion test that runs the same inputs through the <code>irsim</code> CPU reference and asserts agreement. Tolerance: 1e-4 relative on radiance, or 5 mK on apparent temperature.</p>
+<p>Build a synthetic G-buffer fixture (flat temperature field, known normals, known distances) so kernels can be tested without launching Isaac Sim at all. Most kernel bugs are findable this way in seconds.</p>
+<h2 id="performance-notes">Performance notes<a class="anchor" href="#performance-notes" aria-label="permalink">#</a></h2>
+<p>The kernels are element-wise and trivial — six passes over 640×512 is microseconds. The cost is the renderer: 4× supersampling means 2560×2048, and a second render product for reflections doubles it. Budget there, not in the physics. Use <code>TiledCameraSensor</code> when generating datasets with many cameras.</p>
+<h2 id="when-something-is-unclear">When something is unclear<a class="anchor" href="#when-something-is-unclear" aria-label="permalink">#</a></h2>
+<p>The SPG documentation is explicitly incomplete and states the API may evolve across releases. If the docs do not answer a question, say so and propose a minimal experiment to resolve it — do not write code that assumes the ambiguity resolved conveniently, and do not silently invent an API surface.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

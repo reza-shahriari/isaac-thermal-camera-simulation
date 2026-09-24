@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two node solver — irsim</title>
+<meta name="description" content="M6.8 — §6.4&#x27;s two-node solver, and the factor of 400 hiding in its stability bound.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Two node solver</h1>
+  <p class="subtitle">M6.8 — §6.4's two-node solver, and the factor of 400 hiding in its stability bound.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py" target="_blank" rel="noopener">tests/unit/test_two_node_solver.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>One node gives a surface that tracks the air and forgets yesterday. Two give it somewhere to put the day's heat, which is the difference between a road that is still warm at midnight and one that is not — and thermal crossover, which §6.3 calls one of the most operationally important phenomena in thermal imaging, is a consequence of materials having <em>different</em> amounts of somewhere.</p>
+<p><strong>§6.4 states its stability bound correctly and evaluates it wrongly.</strong> The formula <code>Δt &lt; 2C₁/(h + 4εσT³ + 1/R₁₂)</code> is right; the claim that it "lands around 60–200 s" for thin painted metal is not. For the §16.2 car-paint row, <code>1/R₁₂</code> is <strong>37 500 W m⁻² K⁻¹</strong> against <code>h + 4εσT³ ≈ 43</code>, and the bound is <strong>0.235 s</strong> — 400 times smaller. The quoted range is what the single-node bound gives at high wind, i.e. the formula with the term that dominates it removed. Spec issue S39.</p>
+<p>docs/physics-model.md §6.3, §6.4; ADR 0036, spec issue S39</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py" target="_blank" rel="noopener">tests/unit/test_two_node_solver.py</a>. The whole file is marked <code>slow</code>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L81" target="_blank" rel="noopener">the car paint bound is a quarter of a second not a minute</a><br><code>test_the_car_paint_bound_is_a_quarter_of_a_second_not_a_minute</code></td><td>⚠️ §6.4's own formula on §6.4's own example: <strong>0.235 s</strong>, against its claimed 60–200 s.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L99" target="_blank" rel="noopener">a thick surface is comfortable at a one hertz tick</a><br><code>test_a_thick_surface_is_comfortable_at_a_one_hertz_tick</code></td><td>The problem is specific to <em>thin, conductive</em> layers, which is why it is a design decision and not a blanket one: asphalt and concrete have bounds of an hour or more.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L109" target="_blank" rel="noopener">r12 is the sum of two half thickness resistances</a><br><code>test_r12_is_the_sum_of_two_half_thickness_resistances</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L121" target="_blank" rel="noopener">the guard fires at construction and not on frame four thousand</a><br><code>test_the_guard_fires_at_construction_and_not_on_frame_four_thousand</code></td><td>0.9× the bound constructs, 1.1× raises. In the constructor, because a caller that has chosen a tick has chosen it once, and finding out mid-render is finding out too late.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L134" target="_blank" rel="noopener">a finite back resistance without a deep temperature is refused</a><br><code>test_a_finite_back_resistance_without_a_deep_temperature_is_refused</code></td><td>R₂d without T_deep is a path to an unspecified reservoir (ADR 0036).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L148" target="_blank" rel="noopener">an isolated surface node reproduces the single node solver</a><br><code>test_an_isolated_surface_node_reproduces_the_single_node_solver</code></td><td>R₁₂ → ∞ decouples the two nodes, and the surface must then be M6.7's, to <strong>0.1 mK</strong>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L172" target="_blank" rel="noopener">an adiabatic pair equilibrates where the single node does</a><br><code>test_an_adiabatic_pair_equilibrates_where_the_single_node_does</code></td><td>With no path out the back, at steady state nothing flows through R₁₂ and both nodes sit at the one-node answer — whatever R₁₂ is.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L188" target="_blank" rel="noopener">the two node equilibrium is a root of the coupled system</a><br><code>test_the_two_node_equilibrium_is_a_root_of_the_coupled_system</code></td><td>Against brentq on the same residual, &lt; 0.1 K, with a finite back boundary so the two nodes genuinely differ.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L206" target="_blank" rel="noopener">the integrator matches the linearised matrix exponential</a><br><code>test_the_integrator_matches_the_linearised_matrix_exponential</code></td><td>Linearise about the equilibrium and step 6 h both ways: &lt; 10 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L239" target="_blank" rel="noopener">energy is conserved across the pair</a><br><code>test_energy_is_conserved_across_the_pair</code></td><td>What enters the surface, minus what leaves the back, equals what the two nodes stored.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_two_node_solver.py#L258" target="_blank" rel="noopener">the diurnal swing is ordered by areal heat capacity</a><br><code>test_the_diurnal_swing_is_ordered_by_areal_heat_capacity</code></td><td>A surface with more heat capacity per square metre swings less over a day — which is the whole reason the substrate node exists, and the mechanism behind thermal crossover.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

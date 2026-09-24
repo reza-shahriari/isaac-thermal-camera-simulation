@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vessel pointwise — irsim</title>
+<meta name="description" content="The point-wise vessel, engine-free (PT.10; ADR 0087, ADR 0095, ADR 0123).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Vessel pointwise</h1>
+  <p class="subtitle">The point-wise vessel, engine-free (PT.10; ADR 0087, ADR 0095, ADR 0123).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py" target="_blank" rel="noopener">tests/unit/test_vessel_pointwise.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The maritime lane carried three temperatures for three prims -- hull, deckhouse, funnel -- and a deck that was one number. This scene makes the deck and the deckhouse fields, and what has to be checked is not that a field exists but that it is <strong>the right field in the right place</strong>:</p>
+<ul>
+<li>every patch cell and every occluder face in <code>vessel_pointwise_clear_day.yaml</code> lies on the prim :mod:<code>irsim_isaac.vessel_pointwise</code> authors for it. A patch that drifts off its prim does not fail -- <code>PointwiseTemperature</code> leaves those pixels at the prim's per-prim fallback and the frame looks entirely normal, with part of a deck at one temperature. That is the failure ADR 0087 exists to remove, so it is asserted cell by cell.</li>
+<li>the shadow is where the <strong>sun</strong> puts it, not merely somewhere. A field with a plausible-looking gradient in the wrong place is the most expensive kind of wrong here, because nothing about the picture says so.</li>
+<li>the change is provably a <strong>redistribution</strong>, not an addition: take the occluders away and the point-wise deck has to collapse onto the single number it replaced.</li>
+</ul>
+<p>The hour is not chosen for the sun alone. This coast's sea breeze climbs from 3 m/s at dawn to 9 m/s by mid-afternoon, and h(U) decides how far a sunlit plate gets from the air, so the largest sun is not the largest signature. Swept hour by hour the deck's own span peaks at 7.7 K at local noon while the deckhouse's sunlit-to-shaded step peaks at 5.3 K in mid-morning; the scene sits at 09:00Z, where both are above 5 K at once.</p>
+<p>docs/physics-model.md §6; roadmap PT.10.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py" target="_blank" rel="noopener">tests/unit/test_vessel_pointwise.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L90" target="_blank" rel="noopener">the pointwise vessel and the demo stage describe one boat</a><br><code>test_the_pointwise_vessel_and_the_demo_stage_describe_one_boat</code></td><td>The boxes come from <code>maritime_demo</code>, not from numbers retyped beside it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L111" target="_blank" rel="noopener">every patch binds to a prim that exists</a><br><code>test_every_patch_binds_to_a_prim_that_exists</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L118" target="_blank" rel="noopener">every patch cell lies inside its own prim</a><br><code>test_every_patch_cell_lies_inside_its_own_prim</code></td><td>Cell by cell, because one cell off the prim is one wrong patch of deck in every frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L131" target="_blank" rel="noopener">every patched prims visible face is inside its patch</a><br><code>test_every_patched_prims_visible_face_is_inside_its_patch</code></td><td>The other direction: a pixel at the edge of the prim must still find a cell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L160" target="_blank" rel="noopener">a displaced patch is caught</a><br><code>test_a_displaced_patch_is_caught</code></td><td>The containment check above has teeth: move a patch a metre and it must go red.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L170" target="_blank" rel="noopener">every occluder face sits on the deckhouse</a><br><code>test_every_occluder_face_sits_on_the_deckhouse</code></td><td>An occluder adrift shades the wrong metres of deck and nothing says so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L186" target="_blank" rel="noopener">the deckhouse lays a step across the weather deck</a><br><code>test_the_deckhouse_lays_a_step_across_the_weather_deck</code></td><td>PT.10's headline: one deck prim, two temperatures, and the step is the deckhouse's.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L192" target="_blank" rel="noopener">the shadow is where the sun puts it</a><br><code>test_the_shadow_is_where_the_sun_puts_it</code></td><td>A gradient in the wrong place looks exactly like a gradient in the right one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L234" target="_blank" rel="noopener">the deck under the house is warmer than the deck in its shadow</a><br><code>test_the_deck_under_the_house_is_warmer_than_the_deck_in_its_shadow</code></td><td>Both have no beam at all, and they are not the same temperature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L262" target="_blank" rel="noopener">one deckhouse has a sunlit face and a shaded face</a><br><code>test_one_deckhouse_has_a_sunlit_face_and_a_shaded_face</code></td><td>Two patches on the SAME prim, differing only in which way they point.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_vessel_pointwise.py#L272" target="_blank" rel="noopener">taking the shadow away collapses the field onto what it replaced</a><br><code>test_taking_the_shadow_away_collapses_the_field_onto_what_it_replaced</code></td><td>The conservation bar (WM.2's): the change must be provably a redistribution.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset flight — irsim</title>
+<meta name="description" content="The mount rotation and the flight path of an imported asset (AI.2).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Asset flight</h1>
+  <p class="subtitle">The mount rotation and the flight path of an imported asset (AI.2).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py" target="_blank" rel="noopener">tests/unit/test_asset_flight.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Both are geometry a render driver would otherwise carry inline, and both fail silently: a mirrored mount gives a convincing aircraft facing the wrong way, and a path that dips below the observer's horizon puts near-air-temperature ground behind a warm target instead of cold sky.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py" target="_blank" rel="noopener">tests/unit/test_asset_flight.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L19" target="_blank" rel="noopener">the stage s own frame needs no rotation</a><br><code>test_the_stage_s_own_frame_needs_no_rotation</code></td><td>A scene already authored in stage axes must mount as the identity, not as a near-identity.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L25" target="_blank" rel="noopener">a z up enu asset lands with its up on y and its north on minus z</a><br><code>test_a_z_up_enu_asset_lands_with_its_up_on_y_and_its_north_on_minus_z</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L35" target="_blank" rel="noopener">the mount is a rotation and never a mirror</a><span class="tag">parametrize</span><br><code>test_the_mount_is_a_rotation_and_never_a_mirror</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L41" target="_blank" rel="noopener">a north tilted out of the horizontal keeps only its bearing</a><br><code>test_a_north_tilted_out_of_the_horizontal_keeps_only_its_bearing</code></td><td>Declaring north with a vertical component must not tilt the whole scene.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L47" target="_blank" rel="noopener">a degenerate world frame is refused rather than guessed</a><br><code>test_a_degenerate_world_frame_is_refused_rather_than_guessed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L54" target="_blank" rel="noopener">the circuit closes so a looping clip does not jump</a><br><code>test_the_circuit_closes_so_a_looping_clip_does_not_jump</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L59" target="_blank" rel="noopener">the eight crosses its own track twice at the centre</a><br><code>test_the_eight_crosses_its_own_track_twice_at_the_centre</code></td><td>A lemniscate, not an orbit: the quarter and three-quarter points are the same place.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L68" target="_blank" rel="noopener">the aspect sweeps a full turn which an orbit would not</a><br><code>test_the_aspect_sweeps_a_full_turn_which_an_orbit_would_not</code></td><td>The point of the shape. Yaw relative to the line of sight must cover both broadsides.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L83" target="_blank" rel="noopener">the range swings by more than two to one</a><br><code>test_the_range_swings_by_more_than_two_to_one</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L89" target="_blank" rel="noopener">the aircraft never drops below the observer s horizon</a><br><code>test_the_aircraft_never_drops_below_the_observer_s_horizon</code></td><td>Below the horizon the background stops being sky, which is the whole scene's premise.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_asset_flight.py#L96" target="_blank" rel="noopener">the nose follows the velocity it is derived from</a><br><code>test_the_nose_follows_the_velocity_it_is_derived_from</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

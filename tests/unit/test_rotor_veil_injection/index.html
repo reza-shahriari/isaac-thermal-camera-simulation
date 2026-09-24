@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotor veil injection — irsim</title>
+<meta name="description" content="Stage 2c: rotor veils composited onto the k× radiance plane (ADR 0081).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Rotor veil injection</h1>
+  <p class="subtitle">Stage 2c: rotor veils composited onto the k× radiance plane (ADR 0081).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py" target="_blank" rel="noopener">tests/unit/test_rotor_veil_injection.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The veil is a <em>blend</em>, not MS.6's excess, and that choice is what most of this file checks. The plane already carries the correctly attenuated background at every pixel — sky beyond the disc for some, the aircraft's own arm for others — so the blend is exact for both at once, where an excess form carrying a <code>sky_beyond</code> term would subtract a sky column that is not behind the airframe pixels at all. Two tests put a rotor half over sky and half over a warm arm to hold that.</p>
+<p>The other load-bearing test is that windowing is invisible: the coverage is built on the ellipse's bounding box for memory, and a full-frame reference must agree bit for bit.</p>
+<p class='made-by'>18 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py" target="_blank" rel="noopener">tests/unit/test_rotor_veil_injection.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L88" target="_blank" rel="noopener">no veils returns the very same plane</a><br><code>test_no_veils_returns_the_very_same_plane</code></td><td>A scene without rotors must pay nothing and leave every golden untouched.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L94" target="_blank" rel="noopener">the windowed coverage equals a full frame composite</a><br><code>test_the_windowed_coverage_equals_a_full_frame_composite</code></td><td>The bounding box is a memory optimisation and must be invisible in the result.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L118" target="_blank" rel="noopener">the lift is the projected blade area times the contrast</a><br><code>test_the_lift_is_the_projected_blade_area_times_the_contrast</code></td><td>Summed over the frame, the veil adds <code>(sum alpha) (L_blade - L_background)</code>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L142" target="_blank" rel="noopener">the shutter changes the picture and not the flux</a><br><code>test_the_shutter_changes_the_picture_and_not_the_flux</code></td><td>A bolometer's annulus and a cooled detector's arcs add the same total to the frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L154" target="_blank" rel="noopener">the veil blends sky and airframe in one pass</a><br><code>test_the_veil_blends_sky_and_airframe_in_one_pass</code></td><td>Half the disc over cold sky, half over a warm arm: each pixel keeps its own background.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L176" target="_blank" rel="noopener">a blade at ambient over ambient sky changes nothing</a><br><code>test_a_blade_at_ambient_over_ambient_sky_changes_nothing</code></td><td>Zero contrast, zero effect — whatever the coverage is.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L190" target="_blank" rel="noopener">without an atmosphere the blade arrives as authored</a><br><code>test_without_an_atmosphere_the_blade_arrives_as_authored</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L196" target="_blank" rel="noopener">the blade is attenuated at its own range</a><br><code>test_the_blade_is_attenuated_at_its_own_range</code></td><td>A disc at 3 km reads closer to air temperature than the same disc at 20 m.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L218" target="_blank" rel="noopener">range pulls the composited disc towards ambient</a><span class="tag">parametrize</span><br><code>test_range_pulls_the_composited_disc_towards_ambient</code></td><td>Distance moves the disc towards air temperature, which is not the same as "fainter".</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L250" target="_blank" rel="noopener">the window covers the ellipse at every rotation</a><br><code>test_the_window_covers_the_ellipse_at_every_rotation</code></td><td>Built from the semi-major axis both ways, so no rotation can clip the disc.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L265" target="_blank" rel="noopener">a disc entirely off the frame is skipped</a><br><code>test_a_disc_entirely_off_the_frame_is_skipped</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L274" target="_blank" rel="noopener">a partly visible disc composites the visible part</a><br><code>test_a_partly_visible_disc_composites_the_visible_part</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L283" target="_blank" rel="noopener">an occlusion mask keeps the blade off what is in front</a><br><code>test_an_occlusion_mask_keeps_the_blade_off_what_is_in_front</code></td><td>Without this the veil paints a blade over the motor bell it is bolted to.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L294" target="_blank" rel="noopener">two rotors compose independently</a><br><code>test_two_rotors_compose_independently</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L307" target="_blank" rel="noopener">the plane dtype survives</a><br><code>test_the_plane_dtype_survives</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L317" target="_blank" rel="noopener">impossible veils are refused</a><span class="tag">parametrize</span><br><code>test_impossible_veils_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L335" target="_blank" rel="noopener">the veil survives the whole chain</a><span class="tag">parametrize</span><br><code>test_the_veil_survives_the_whole_chain</code></td><td>A hot rotor over a uniform 290 K scene: the flux it adds is conserved through the optics.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_rotor_veil_injection.py#L383" target="_blank" rel="noopener">a frame without rotors is bit identical</a><br><code>test_a_frame_without_rotors_is_bit_identical</code></td><td>Stage 2c must cost existing scenes nothing at all, goldens included.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

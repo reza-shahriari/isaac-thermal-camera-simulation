@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gbuffer schema — irsim</title>
+<meta name="description" content="Freeze the G-buffer contract and verify the synthetic fixtures are what they claim.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Gbuffer schema</h1>
+  <p class="subtitle">Freeze the G-buffer contract and verify the synthetic fixtures are what they claim.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py" target="_blank" rel="noopener">tests/unit/test_gbuffer_schema.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The key set and dtypes asserted here are what the Isaac annotator adapter must emit; changing them is an interface change for every kernel and for the engine glue, so it must be deliberate. The fixture-geometry tests matter because a fixture that never reaches grazing incidence, or a step edge that is already blurred, would let a wrong angular-emissivity or MTF model pass.</p>
+<p class='made-by'>13 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py" target="_blank" rel="noopener">tests/unit/test_gbuffer_schema.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L72" target="_blank" rel="noopener">contract key set is frozen</a><br><code>test_contract_key_set_is_frozen</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L78" target="_blank" rel="noopener">fixture honours contract</a><span class="tag">parametrize</span><br><code>test_fixture_honours_contract</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L93" target="_blank" rel="noopener">moving edge frames honour contract</a><br><code>test_moving_edge_frames_honour_contract</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L105" target="_blank" rel="noopener">float16 on precision path raises</a><span class="tag">parametrize</span><br><code>test_float16_on_precision_path_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L112" target="_blank" rel="noopener">float16 radiance plane raises</a><br><code>test_float16_radiance_plane_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L120" target="_blank" rel="noopener">float16 ancillary planes are upcast</a><span class="tag">parametrize</span><br><code>test_float16_ancillary_planes_are_upcast</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L129" target="_blank" rel="noopener">float64 temperature is narrowed to float32</a><br><code>test_float64_temperature_is_narrowed_to_float32</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L135" target="_blank" rel="noopener">inconsistent encoded t raises</a><br><code>test_inconsistent_encoded_t_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L142" target="_blank" rel="noopener">missing unknown and misshapen planes raise</a><br><code>test_missing_unknown_and_misshapen_planes_raise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L164" target="_blank" rel="noopener">sphere fixture matches analytic cos theta</a><br><code>test_sphere_fixture_matches_analytic_cos_theta</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L181" target="_blank" rel="noopener">step edge is ideal</a><br><code>test_step_edge_is_ideal</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L197" target="_blank" rel="noopener">moving edge translates at stated velocity</a><br><code>test_moving_edge_translates_at_stated_velocity</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_schema.py#L212" target="_blank" rel="noopener">sky mask plane contract</a><br><code>test_sky_mask_plane_contract</code></td><td>sky_mask: bool or 0/1 integer in, bool out; floats and other integers refused; shape checked; absent means every pixel is geometry (sky_mask is None).</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

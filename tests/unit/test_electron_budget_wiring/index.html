@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electron budget wiring — irsim</title>
+<meta name="description" content="A photon camera&#x27;s noise comes from its electron datasheet, not from a NETD anchor (SC.1).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Electron budget wiring</h1>
+  <p class="subtitle">A photon camera's noise comes from its electron datasheet, not from a NETD anchor (SC.1).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py" target="_blank" rel="noopener">tests/unit/test_electron_budget_wiring.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>ADR 0025 made NETD the calibration handle: the physical chain sets the <em>structure</em> of the noise and the datasheet number sets its <em>magnitude</em>, by solving for one scene-independent Gaussian. That is right for a microbolometer, whose datasheet quotes NETD and nothing else usable.</p>
+<p>Its M11.6 addendum says it is wrong for a photon FPA, and <code>irsim.noise.electron.electron_budget</code> was written to implement the reversal -- but nothing in <code>src/</code> ever called it. Every photon camera this project has rendered was anchored, which means:</p>
+<ul>
+<li>the <strong>MWIR InSb</strong> rendered at sigma 533.3 e- against the 350 e- read noise its own config authors -- <strong>1.52x</strong> -- because the solver was free to invent whatever Gaussian reached 20 mK;</li>
+<li>the <strong>SWIR InGaAs</strong> rendered with dark = 0 against the ~200 e- per integration its own Arrhenius block implies -- a term <em>larger than its 120 e- read noise</em>, simply absent.</li>
+</ul>
+<p>Neither is visible in an image. Both are exactly the kind of error that makes a sensor trade study come out confidently wrong, which is what this simulator is for.</p>
+<p>These tests drive <code>PipelineConfig.from_sensor</code> -- the selection site -- rather than <code>electron_budget</code> directly, because the defect was never in the physics. It was that the physics had no caller.</p>
+<p>docs/physics-model.md §9.4, §10.1; ADR 0025 and its M11.6 addendum.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py" target="_blank" rel="noopener">tests/unit/test_electron_budget_wiring.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L68" target="_blank" rel="noopener">a photon camera uses the read noise its config authors</a><span class="tag">parametrize</span><br><code>test_a_photon_camera_uses_the_read_noise_its_config_authors</code></td><td>sigma_gaussian <em>is</em> read_noise_e -- used, not solved for.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L80" target="_blank" rel="noopener">the mwir insb stops rendering at twice its datasheet read noise</a><br><code>test_the_mwir_insb_stops_rendering_at_twice_its_datasheet_read_noise</code></td><td>The headline defect, measured on the shipped config.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L99" target="_blank" rel="noopener">the swir ingaas gets the dark current its own config implies</a><br><code>test_the_swir_ingaas_gets_the_dark_current_its_own_config_implies</code></td><td>~200 e- per integration, larger than the 120 e- read noise, and previously just absent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L118" target="_blank" rel="noopener">a bolometer keeps the netd anchor</a><br><code>test_a_bolometer_keeps_the_netd_anchor</code></td><td>ADR 0025 stands where it was right: NETD is a bolometer's only usable handle.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L131" target="_blank" rel="noopener">a bolometer cannot be forced onto an electron budget</a><br><code>test_a_bolometer_cannot_be_forced_onto_an_electron_budget</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L139" target="_blank" rel="noopener">the mwir now beats its own datasheet instead of reproducing it</a><br><code>test_the_mwir_now_beats_its_own_datasheet_instead_of_reproducing_it</code></td><td>The point of the reversal: NETD is now a prediction that can disagree.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L159" target="_blank" rel="noopener">a camera that cannot reach its own claim is refused</a><br><code>test_a_camera_that_cannot_reach_its_own_claim_is_refused</code></td><td>The cross-check has to be able to fail, or it is decoration.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L177" target="_blank" rel="noopener">the reflective bands are not checked against a vacuous netd</a><br><code>test_the_reflective_bands_are_not_checked_against_a_vacuous_netd</code></td><td>§9.4's 300 K definition says nothing in a band a 300 K scene does not emit in.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_electron_budget_wiring.py#L192" target="_blank" rel="noopener">the change reaches the pixels and not only the budget</a><br><code>test_the_change_reaches_the_pixels_and_not_only_the_budget</code></td><td>A budget nothing reads is a comment. This measures the detector's own sigma.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

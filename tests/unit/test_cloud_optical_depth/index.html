@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloud optical depth — irsim</title>
+<meta name="description" content="A cloud has an optical depth and a distance (AT.11, ADR 0126).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Cloud optical depth</h1>
+  <p class="subtitle">A cloud has an optical depth and a distance (AT.11, ADR 0126).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py" target="_blank" rel="noopener">tests/unit/test_cloud_optical_depth.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Before this step a cloud was a switch: the environment preset authored one transmittance, every covered ray took <code>eps L_B(T_base) + tau L_clear</code> with the same <code>eps</code>, and <code>L_B(T_base)</code> was evaluated as though the cloud were at zero range. Measured on a rendered 640x512 aerial frame, <strong>55 % of the pixels fell inside a single 2.3 K histogram bin</strong> -- one flat level covering most of the picture, which is what "the clouds are always white" describes.</p>
+<p>Two things are wrong there and this file pins both.</p>
+<ul>
+<li>A cloud's LWIR emissivity follows from its <strong>liquid water path</strong>, not from a preset: Shaw &amp; Nugent 2013 (Eur. J. Phys. 34 S111) §4 give it as <code>1 - exp(-0.79 tau_vis)</code> for a flux, and that 0.79 is <code>1.58 x 0.5</code> -- the diffusivity factor times the LWIR/visible optical depth ratio. Decomposed that way one relation serves a flux <em>and</em> a ray, because a ray brings its own airmass instead of the diffusivity.</li>
+<li>A cloud is <strong>kilometres away</strong>, and the air in front of it attenuates its excess over the clear sky by <code>tau(R)</code>, which runs as <code>1/sin(theta)</code>. Shaw &amp; Nugent's figure 7(a) is the observation this reproduces: in a calibrated all-sky LWIR image "the overall spatial pattern is dominated by the variation of atmospheric path length with angle from the zenith", not by the clouds.</li>
+</ul>
+<p>The load-bearing test here is <code>test_a_cloud_of_zero_emissivity_is_the_clear_sky_to_the_bit</code>, because every other claim is a perturbation of it: if the clear-sky limit drifted, so would every frame with a gap in the cloud.</p>
+<p class='made-by'>17 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py" target="_blank" rel="noopener">tests/unit/test_cloud_optical_depth.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L85" target="_blank" rel="noopener">the flux emissivity is the published one to the bit</a><br><code>test_the_flux_emissivity_is_the_published_one_to_the_bit</code></td><td>eps(tau, diffusivity) == 1 - exp(-0.79 tau), Shaw &amp; Nugent 2013 §4.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L99" target="_blank" rel="noopener">a ray brings its own airmass and a flux brings the diffusivity</a><br><code>test_a_ray_brings_its_own_airmass_and_a_flux_brings_the_diffusivity</code></td><td>The decomposition is what lets one relation serve both, so the two must differ correctly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L111" target="_blank" rel="noopener">the airmass is one over sin and is bounded at the horizon</a><br><code>test_the_airmass_is_one_over_sin_and_is_bounded_at_the_horizon</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L123" target="_blank" rel="noopener">an optically thin cloud is thin and a thick one is a blackbody</a><br><code>test_an_optically_thin_cloud_is_thin_and_a_thick_one_is_a_blackbody</code></td><td>The saturation is the physics, and it is why authoring one tau was wrong.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L138" target="_blank" rel="noopener">emissivity refuses a negative depth and a non positive path</a><br><code>test_emissivity_refuses_a_negative_depth_and_a_non_positive_path</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L148" target="_blank" rel="noopener">a cloud of zero emissivity is the clear sky to the bit</a><br><code>test_a_cloud_of_zero_emissivity_is_the_clear_sky_to_the_bit</code></td><td>The limit every gap in every cloud takes. Not approximately: <code>np.where</code>, not arithmetic.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L158" target="_blank" rel="noopener">an opaque cloud reads the path in front of it plus its own emission</a><br><code>test_an_opaque_cloud_reads_the_path_in_front_of_it_plus_its_own_emission</code></td><td>eps = 1 gives L_path(R) + tau(R) L_base, which is an emitter inserted at R and nothing else.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L170" target="_blank" rel="noopener">the layered models own identity holds so the clear limit is exact</a><br><code>test_the_layered_models_own_identity_holds_so_the_clear_limit_is_exact</code></td><td>L_path(R, θ) + τ_band(R, θ) · L_beyond(R, θ) == L_sky(θ), exactly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L200" target="_blank" rel="noopener">the cloud in a frame is no longer one flat level</a><br><code>test_the_cloud_in_a_frame_is_no_longer_one_flat_level</code></td><td>The complaint, measured. A cloud at zero range with one emissivity is one number.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L233" target="_blank" rel="noopener">the cloud is cooler where the air in front of it is thicker</a><br><code>test_the_cloud_is_cooler_where_the_air_in_front_of_it_is_thicker</code></td><td>The sign of the range term, which is the one thing that could be backwards.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L252" target="_blank" rel="noopener">a tau preset is untouched by any of this</a><br><code>test_a_tau_preset_is_untouched_by_any_of_this</code></td><td>Every scene authored before ADR 0126 renders bit-identically.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L275" target="_blank" rel="noopener">a preset authors one opacity or the other but never both</a><br><code>test_a_preset_authors_one_opacity_or_the_other_but_never_both</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L284" target="_blank" rel="noopener">an optical depth preset refuses to hand out one emissivity</a><br><code>test_an_optical_depth_preset_refuses_to_hand_out_one_emissivity</code></td><td>Returning 1 - 0 = 1 would render a thin cirrus as an opaque deck, silently.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L291" target="_blank" rel="noopener">the shipped presets say what they mean</a><br><code>test_the_shipped_presets_say_what_they_mean</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L303" target="_blank" rel="noopener">the cloud base temperature matches the papers modelled altostratus</a><br><code>test_the_cloud_base_temperature_matches_the_papers_modelled_altostratus</code></td><td>A public anchor for the one number the whole cloud reads: T at the base altitude.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L323" target="_blank" rel="noopener">a cloud returns more light the deeper it is and never more than all of it</a><br><code>test_a_cloud_returns_more_light_the_deeper_it_is_and_never_more_than_all_of_it</code></td><td>The two-stream reflectance, which is what stops a marched cloud drawing as a flat shape.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cloud_optical_depth.py#L344" target="_blank" rel="noopener">the reflectance is a spread and not one value over a real frame</a><br><code>test_the_reflectance_is_a_spread_and_not_one_value_over_a_real_frame</code></td><td>The whole reason it replaced a constant: over a marched frame it must actually vary.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

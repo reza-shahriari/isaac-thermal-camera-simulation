@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nk tables — irsim</title>
+<meta name="description" content="n/k tables and the band-effective Fresnel emissivity built on them (M7.5, MM.1).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Nk tables</h1>
+  <p class="subtitle">n/k tables and the band-effective Fresnel emissivity built on them (M7.5, MM.1).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py" target="_blank" rel="noopener">tests/unit/test_nk_tables.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The material under test is water, because it is the one the maritime lane rests on and the one §4.2 singles out as impossible to model with a constant emissivity. The tests that matter here are the ones about <em>reduction</em>: that the band average is not a formality, that interpolation happens on the data rather than on something derived from it, and that a table is never quietly extrapolated.</p>
+<p>docs/physics-model.md §4.2, §12.3; ADR 0041, ADR 0079</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py" target="_blank" rel="noopener">tests/unit/test_nk_tables.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L43" target="_blank" rel="noopener">the water table loads with provenance</a><br><code>test_the_water_table_loads_with_provenance</code></td><td>A table with no <code># source:</code> is unusable, so the loader treats provenance as data.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L56" target="_blank" rel="noopener">a table without a source header is refused</a><br><code>test_a_table_without_a_source_header_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L63" target="_blank" rel="noopener">grid points come back exactly</a><br><code>test_grid_points_come_back_exactly</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L69" target="_blank" rel="noopener">n and k are interpolated separately</a><br><code>test_n_and_k_are_interpolated_separately</code></td><td>Interpolating ε or R instead would make the answer depend on the table's sampling.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L92" target="_blank" rel="noopener">outside the table raises rather than extrapolating</a><br><code>test_outside_the_table_raises_rather_than_extrapolating</code></td><td>20 µm from a 15.6 µm table is a fabricated number, and fabricated numbers propagate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L111" target="_blank" rel="noopener">fresnel from table agrees with the direct call</a><br><code>test_fresnel_from_table_agrees_with_the_direct_call</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L118" target="_blank" rel="noopener">band effective water emissivity over the boson band</a><br><code>test_band_effective_water_emissivity_over_the_boson_band</code></td><td>ε_B(θ) for water: near-blackbody at nadir, collapsing past 70°.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L134" target="_blank" rel="noopener">the band average is not a formality</a><br><code>test_the_band_average_is_not_a_formality</code></td><td>Band-effective ε differs from Fresnel-at-10-µm by enough to matter, and worst at angle.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L150" target="_blank" rel="noopener">hemispherical emissivity brackets the spec table value</a><br><code>test_hemispherical_emissivity_brackets_the_spec_table_value</code></td><td>2∫ε(θ)cosθ sinθ dθ = 0.945, below the normal 0.988 — §16.2's 0.96 sits between them.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L170" target="_blank" rel="noopener">a response wider than the table is refused</a><br><code>test_a_response_wider_than_the_table_is_refused</code></td><td>Averaging over held end values would be inventing optical constants.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L205" target="_blank" rel="noopener">the proxy tables carry the dataset they claim</a><span class="tag">parametrize</span><br><code>test_the_proxy_tables_carry_the_dataset_they_claim</code></td><td>A check value from each source dataset, at the wavelength its header quotes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L221" target="_blank" rel="noopener">a proxy table declares that it is a proxy</a><span class="tag">parametrize</span><br><code>test_a_proxy_table_declares_that_it_is_a_proxy</code></td><td>Neither substance is what the material is made of, and the file has to say so.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L235" target="_blank" rel="noopener">the proxy tables span every configured band</a><span class="tag">parametrize</span><br><code>test_the_proxy_tables_span_every_configured_band</code></td><td>Coverage, not accuracy: the loader refuses to extrapolate, so a short table raises.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L247" target="_blank" rel="noopener">glass and the paint proxy are different materials</a><br><code>test_glass_and_the_paint_proxy_are_different_materials</code></td><td>Both are transparent dielectrics in the visible; only one has a reststrahlen band.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L267" target="_blank" rel="noopener">the glass table carries the reststrahlen band</a><br><code>test_the_glass_table_carries_the_reststrahlen_band</code></td><td>Silica's Si-O stretch, the feature that makes glass unlike every other dielectric here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_nk_tables.py#L285" target="_blank" rel="noopener">the paint proxy has no such band</a><br><code>test_the_paint_proxy_has_no_such_band</code></td><td>The polymer has absorption bands here too, but they never turn it metallic.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

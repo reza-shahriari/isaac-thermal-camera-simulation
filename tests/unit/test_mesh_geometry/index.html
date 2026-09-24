@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh geometry — irsim</title>
+<meta name="description" content="What a mesh cell can see, traced against geometry (WM.4).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Mesh geometry</h1>
+  <p class="subtitle">What a mesh cell can see, traced against geometry (WM.4).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py" target="_blank" rel="noopener">tests/unit/test_mesh_geometry.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>WM.7</code> gave each cell its own normal and left two terms analytic: the sky view as the tilt's <code>(1 + n·up)/2</code>, and the beam as the surface's one <code>shaded</code> flag. Both are now traced. The tests here are the ones that would fail if the trace were wrong in a way the picture would not show -- an occluder that stops the wrong rays reads as plausible shading, and the only way to tell is against an independent answer.</p>
+<p>Three independent answers are used: the analytic <code>(1 + n·up)/2</code> where convexity makes it exact, <code>PT.21</code>'s planar quadrature at the same point through a different occluder implementation, and <code>PT.22</code>'s box-as-rectangles against the same box as triangles.</p>
+<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py" target="_blank" rel="noopener">tests/unit/test_mesh_geometry.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L65" target="_blank" rel="noopener">tracing a convex mesh returns the analytic factor to the bit</a><span class="tag">parametrize</span><br><code>test_tracing_a_convex_mesh_returns_the_analytic_factor_to_the_bit</code></td><td>The claim the auto-skip rests on, measured rather than argued.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L80" target="_blank" rel="noopener">the convexity test separates a tube from a fold</a><br><code>test_the_convexity_test_separates_a_tube_from_a_fold</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L90" target="_blank" rel="noopener">an inward wound mesh is not convex</a><br><code>test_an_inward_wound_mesh_is_not_convex</code></td><td>Winding is part of the test on purpose. An inside-out mesh has normals pointing into the body, and nothing downstream should be allowed to skip a trace on the strength of them -- <code>cylinder_mesh</code> shipped wound inward once, and only a picture caught it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L103" target="_blank" rel="noopener">a mesh cell and a patch cell agree about the sky at the same point</a><br><code>test_a_mesh_cell_and_a_patch_cell_agree_about_the_sky_at_the_same_point</code></td><td><code>PT.21</code>'s answer and <code>WM.4</code>'s, for one point under one wall, through two different occluder implementations -- <code>cell_shadow</code>'s ray-rectangle test and <code>RectangleOccluders</code>'.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L143" target="_blank" rel="noopener">the foot of a tall wall sees half the sky</a><br><code>test_the_foot_of_a_tall_wall_sees_half_the_sky</code></td><td>The analytic anchor: an infinite wall hides exactly half the dome from its own foot.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L156" target="_blank" rel="noopener">the edge of a wide overhang sees half the sky</a><br><code>test_the_edge_of_a_wide_overhang_sees_half_the_sky</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L168" target="_blank" rel="noopener">shelter only takes sky away and takes more of it closer in</a><br><code>test_shelter_only_takes_sky_away_and_takes_more_of_it_closer_in</code></td><td>Two properties one wall must have: the trace can never <em>add</em> sky, and a cell closer to the wall must see less of it. A sign error in the ray test passes neither.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L194" target="_blank" rel="noopener">a cell facing straight down is given no sky rather than a nan</a><br><code>test_a_cell_facing_straight_down_is_given_no_sky_rather_than_a_nan</code></td><td>Its whole hemisphere is below the horizon, so the open quadrature is empty and the ratio would be 0/0. The answer is zero sky, and it has to be a number: it multiplies the longwave down, and one NaN there poisons a whole field's solve.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L207" target="_blank" rel="noopener">the dome is rotated into the scene s own frame</a><br><code>test_the_dome_is_rotated_into_the_scene_s_own_frame</code></td><td>A Y-up scene and a Z-up one describing the same geometry must trace the same rays. The car scenes are Y-up; a dome built in ENU and never rotated would shade them sideways.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L225" target="_blank" rel="noopener">the box as rectangles and the box as triangles cast the same shadow</a><br><code>test_the_box_as_rectangles_and_the_box_as_triangles_cast_the_same_shadow</code></td><td><code>PT.22</code>'s cross-check, at mesh cell origins: the exact ray-rectangle oracle against Moeller-Trumbore on the same box. Two implementations, one shadow, cell for cell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L238" target="_blank" rel="noopener">a tube under a plate goes dark where the cosine leaves it lit</a><br><code>test_a_tube_under_a_plate_goes_dark_where_the_cosine_leaves_it_lit</code></td><td>The headline. <code>WM.7</code>'s arm was dark on its underside because its normal faced away; its crown was lit everywhere, including the half of it tucked under the airframe. Here the plate covers the near half of the tube, and the cells it covers face the sun and receive none of it -- which is the difference between a cosine and a shadow.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L263" target="_blank" rel="noopener">the sun s disc turns the terminator into a ramp</a><br><code>test_the_sun_s_disc_turns_the_terminator_into_a_ramp</code></td><td><code>PT.22</code>'s penumbra, on mesh cells: one ray gives a hard edge and every cell reads 0 or 1; 19 rays put a band of partly-lit cells along it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L275" target="_blank" rel="noopener">a convex mesh with nothing around it traces nothing</a><br><code>test_a_convex_mesh_with_nothing_around_it_traces_nothing</code></td><td><code>cell_occluders</code> returning None is what keeps every mesh shipped so far bit-identical to <code>WM.7</code>, and what keeps a scene's build from paying for a trace whose answer it knows.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L284" target="_blank" rel="noopener">the origins are lifted along each cell s own normal</a><br><code>test_the_origins_are_lifted_along_each_cell_s_own_normal</code></td><td>One shared lift would push a tube's cells sideways off their own faces. The distance from the centroid is the same for every cell and the direction is not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_mesh_geometry.py#L297" target="_blank" rel="noopener">a soup of the patch is the patch s own triangles</a><br><code>test_a_soup_of_the_patch_is_the_patch_s_own_triangles</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

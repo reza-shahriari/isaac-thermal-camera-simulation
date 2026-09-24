@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gbuffer isaac — irsim</title>
+<meta name="description" content="Engine-free tests for the Isaac geometry adapter (roadmap M10.1).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Gbuffer isaac</h1>
+  <p class="subtitle">Engine-free tests for the Isaac geometry adapter (roadmap M10.1).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py" target="_blank" rel="noopener">tests/unit/test_gbuffer_isaac.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The adapter's arithmetic -- per-pixel ray directions, the two cosines, V_s, the motion scaling, the sky mask -- needs no renderer, so it is verified here in milliseconds against closed forms rather than inside a 35 s Kit boot. <code>tests/integration/test_gbuffer_isaac.py</code> then checks only what genuinely needs the engine: that the AOVs exist, carry float32, and agree with the scene.</p>
+<p>The sphere case is the one that catches the expensive bug. Taking the cosine against the optical axis (or reading a view-space normal's z channel) is right at the principal point and wrong everywhere else; <code>test_sphere_cos_theta_needs_the_per_pixel_ray</code> asserts both that the adapter matches the closed form and that the axis shortcut would miss by more than the tolerance.</p>
+<p class='made-by'>26 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py" target="_blank" rel="noopener">tests/unit/test_gbuffer_isaac.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L83" target="_blank" rel="noopener">sphere cos theta needs the per pixel ray</a><br><code>test_sphere_cos_theta_needs_the_per_pixel_ray</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L103" target="_blank" rel="noopener">sphere silhouette and nose are exact</a><br><code>test_sphere_silhouette_and_nose_are_exact</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L116" target="_blank" rel="noopener">ray directions are unit and point away from the camera</a><br><code>test_ray_directions_are_unit_and_point_away_from_the_camera</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L124" target="_blank" rel="noopener">camera frame positions rotate into world axes</a><br><code>test_camera_frame_positions_rotate_into_world_axes</code></td><td>A camera-space position AOV gives the same cosines once rotated to world axes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L140" target="_blank" rel="noopener">two sided normals are flipped into the viewing hemisphere</a><br><code>test_two_sided_normals_are_flipped_into_the_viewing_hemisphere</code></td><td>A double-sided quad may store the away-facing normal; the cosine must stay positive.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L150" target="_blank" rel="noopener">orient to viewer returns the flipped normal</a><br><code>test_orient_to_viewer_returns_the_flipped_normal</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L166" target="_blank" rel="noopener">sky view factor of up vertical and under planes</a><span class="tag">parametrize</span><br><code>test_sky_view_factor_of_up_vertical_and_under_planes</code></td><td>V_s = (1 + n.up)/2, not raw occlusion: a wall sees half the sky, a soffit none.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L175" target="_blank" rel="noopener">occlusion scales the sky view factor</a><br><code>test_occlusion_scales_the_sky_view_factor</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L189" target="_blank" rel="noopener">z up stage uses the z axis</a><br><code>test_z_up_stage_uses_the_z_axis</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L209" target="_blank" rel="noopener">motion conventions all report three pixels per frame</a><span class="tag">parametrize</span><br><code>test_motion_conventions_all_report_three_pixels_per_frame</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L219" target="_blank" rel="noopener">ndc motion flips the y axis</a><br><code>test_ndc_motion_flips_the_y_axis</code></td><td>NDC y points up, image y points down; a sign error here reverses smear direction.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L229" target="_blank" rel="noopener">sky pixels are masked and left finite</a><br><code>test_sky_pixels_are_masked_and_left_finite</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L259" target="_blank" rel="noopener">to gbuffer satisfies the m0 6 contract</a><br><code>test_to_gbuffer_satisfies_the_m0_6_contract</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L293" target="_blank" rel="noopener">float16 normals are refused</a><br><code>test_float16_normals_are_refused</code></td><td>Inverted by IG.8. This test used to assert the opposite, on a false premise.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L312" target="_blank" rel="noopener">float32 normals still work</a><br><code>test_float32_normals_still_work</code></td><td>The guard must refuse the dtype, not the channel: float32 normals go through untouched.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L319" target="_blank" rel="noopener">float16 occlusion is refused</a><br><code>test_float16_occlusion_is_refused</code></td><td>The other plane the carve-out covered. No AO AOV delivers here, so nothing is lost.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L332" target="_blank" rel="noopener">float16 motion is refused</a><br><code>test_float16_motion_is_refused</code></td><td>The third, reachable only by a caller that named a convention (IG.5).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L345" target="_blank" rel="noopener">float16 distance is refused</a><br><code>test_float16_distance_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L356" target="_blank" rel="noopener">float16 position is refused</a><br><code>test_float16_position_is_refused</code></td><td>Position is distance in three components: the ray length it implies must stay float32.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L368" target="_blank" rel="noopener">float16 facet temperature is refused</a><br><code>test_float16_facet_temperature_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L378" target="_blank" rel="noopener">non integer material id is refused</a><br><code>test_non_integer_material_id_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L417" target="_blank" rel="noopener">pinhole rays are the cameras own axes</a><br><code>test_pinhole_rays_are_the_cameras_own_axes</code></td><td>The anchor the rest of this cluster stands on: rays built from named world axes.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L472" target="_blank" rel="noopener">position frame residuals name the frame they were given</a><span class="tag">parametrize</span><br><code>test_position_frame_residuals_name_the_frame_they_were_given</code></td><td>The discriminator M2.4 rests on: each encoding must be recognised, and only that one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L493" target="_blank" rel="noopener">an unrotated camera at the origin cannot tell the frames apart</a><br><code>test_an_unrotated_camera_at_the_origin_cannot_tell_the_frames_apart</code></td><td>Why ADR 0014 and its M10.19 addendum disagreed: both scenes were degenerate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L516" target="_blank" rel="noopener">camera and rotated world are separated by the camera offset</a><br><code>test_camera_and_rotated_world_are_separated_by_the_camera_offset</code></td><td>The two readings the ADR holds differ by exactly |C|, so a camera at the origin cannot tell.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_gbuffer_isaac.py#L533" target="_blank" rel="noopener">position frame residuals ignore sky and the miss sentinel</a><br><code>test_position_frame_residuals_ignore_sky_and_the_miss_sentinel</code></td><td>Sky pixels carry <code>inf</code> distance and a miss sentinel 1000 m down the ray; neither is geometry.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

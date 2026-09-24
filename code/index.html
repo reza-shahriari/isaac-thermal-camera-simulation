@@ -39,13 +39,16 @@
 <li><a href="../changelog/">Changelog</a></li>
 </ul>
 <h2>Evidence</h2><ul>
+<li><a href="../tests/">The test suite</a></li>
 <li><a href="../validation/">Validation</a></li>
 <li><a href="../research/">Research</a></li>
 </ul>
 <h2>Reference</h2><ul>
 <li class="here"><a href="./">Code map</a></li>
 <li><a href="../configs/">Configuration catalogue</a></li>
+<li><a href="../scripts/">Commands</a></li>
 <li><a href="../guide/">Working agreement</a></li>
+<li><a href="../practice/">Working practice</a></li>
 </ul>
 </nav>
 <main id="content" class="main wide">
@@ -58,7 +61,7 @@
 <article class="prose">
 <p>Every module under <code>src/</code>, its own one-line docstring, and the sections of the physics specification it cites. The layering rule that keeps the first column engine-free is not a convention here — <code>tests/unit/test_layering.py</code> fails the build if <code>irsim</code> imports an engine module.</p>
 <h2 id="irsim">irsim</h2>
-<p>the engine-free physics core — pure Python and NumPy, no engine import anywhere. 184 modules, 41,699 lines.</p>
+<p>the engine-free physics core — pure Python and NumPy, no engine import anywhere. 184 modules, 41,886 lines.</p>
 <div class='table-wrap'><table><thead><tr><th>module</th><th>what it is</th>
 <th>spec §</th><th>lines</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/__init__.py" target="_blank" rel="noopener">irsim</a></td><td>irsim — engine-free physics core for a multi-band infrared camera simulator.</td><td class='nowrap'>—</td><td>9</td></tr>
@@ -105,8 +108,8 @@
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/detector/response.py" target="_blank" rel="noopener">irsim.detector.response</a></td><td>The uniform detector interface (ADR 0026): pre-quantisation signal in DN, DN, and σ.</td><td class='nowrap'>—</td><td>44</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/__init__.py" target="_blank" rel="noopener">irsim.io</a></td><td>File I/O for the engine-free core: PNG for the look, float32 .npy / EXR for the physics.</td><td class='nowrap'>—</td><td>40</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/asset_budget.py" target="_blank" rel="noopener">irsim.io.asset_budget</a></td><td>How much geometry a prepared asset carries, and how much of it a thermal solve can use.</td><td class='nowrap'>§6.6</td><td>253</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/asset_parts.py" target="_blank" rel="noopener">irsim.io.asset_parts</a></td><td>What an imported asset's geometry <em>is</em>, as opposed to what it is made of.</td><td class='nowrap'>§6.6</td><td>362</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/assets.py" target="_blank" rel="noopener">irsim.io.assets</a></td><td>Engine-free mesh archives: a prepared asset's real triangles, without importing <code>pxr</code>.</td><td class='nowrap'>§6.1</td><td>171</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/asset_parts.py" target="_blank" rel="noopener">irsim.io.asset_parts</a></td><td>What an imported asset's geometry <em>is</em>, as opposed to what it is made of.</td><td class='nowrap'>§6.6</td><td>513</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/assets.py" target="_blank" rel="noopener">irsim.io.assets</a></td><td>Engine-free mesh archives: a prepared asset's real triangles, without importing <code>pxr</code>.</td><td class='nowrap'>§6.1</td><td>207</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/dataset.py" target="_blank" rel="noopener">irsim.io.dataset</a></td><td>Write one frame's four outputs to disk, in units, with a sidecar that says what they are.</td><td class='nowrap'>§12.2</td><td>311</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/exr.py" target="_blank" rel="noopener">irsim.io.exr</a></td><td>Minimal OpenEXR writer: single-part, scanline, <strong>float32</strong>, no compression. Stdlib only.</td><td class='nowrap'>§12.2</td><td>209</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/io/png.py" target="_blank" rel="noopener">irsim.io.png</a></td><td>Minimal PNG writer (8-bit gray, RGB, RGBA) with only the standard library.</td><td class='nowrap'>§12.2</td><td>73</td></tr>
@@ -289,10 +292,11 @@
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/weather_fx_stage.py" target="_blank" rel="noopener">irsim_isaac.weather_fx_stage</a></td><td>Author an <code>isaac-weather-fx</code> sky onto a stage, and hand the <em>same</em> cloud to the infrared band.</td><td class='nowrap'>—</td><td>165</td></tr>
 </tbody></table></div>
 <h2 id="irsim_eval">irsim_eval</h2>
-<p>evaluation and imaging: dataset readers, detection metrics, sim-to-real scoring. 11 modules, 2,743 lines.</p>
+<p>evaluation and imaging: dataset readers, detection metrics, sim-to-real scoring. 12 modules, 2,912 lines.</p>
 <div class='table-wrap'><table><thead><tr><th>module</th><th>what it is</th>
 <th>spec §</th><th>lines</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_eval/__init__.py" target="_blank" rel="noopener">irsim_eval</a></td><td>Evaluation stack: everything that reads somebody else's imagery.</td><td class='nowrap'>—</td><td>45</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_eval/admission.py" target="_blank" rel="noopener">irsim_eval.admission</a></td><td>Which clips a Tier 4 comparison is allowed to use, and why the rest were refused (EV.2).</td><td class='nowrap'>§15</td><td>169</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_eval/data.py" target="_blank" rel="noopener">irsim_eval.data</a></td><td><code>Sequence</code> / <code>Frame</code>: the one shape every validation analyser reads.</td><td class='nowrap'>—</td><td>462</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_eval/decode.py" target="_blank" rel="noopener">irsim_eval.decode</a></td><td>Decode a published video clip to the 8-bit frames every Tier 4 statistic is measured on.</td><td class='nowrap'>—</td><td>133</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_eval/detection.py" target="_blank" rel="noopener">irsim_eval.detection</a></td><td>Detection metrics and the four §15 Tier 5 transfer protocols (ME.7).</td><td class='nowrap'>§15</td><td>238</td></tr>
@@ -308,13 +312,13 @@
 <p>The gate is <code>make check</code>: ruff, mypy <code>--strict</code>, and the unit and golden suites, none of which need a GPU or Isaac Sim. Integration tests are marked <code>@pytest.mark.isaac</code> and skipped by default.</p>
 <div class='table-wrap'><table><thead><tr><th>suite</th><th>files</th>
 <th>test functions</th><th>what it covers</th></tr></thead><tbody>
-<tr><td><code>tests/unit</code></td><td>257</td><td>2738</td><td>fast, engine-free; the developer loop and the commit gate</td></tr>
+<tr><td><code>tests/unit</code></td><td>259</td><td>2757</td><td>fast, engine-free; the developer loop and the commit gate</td></tr>
 <tr><td><code>tests/golden</code></td><td>9</td><td>28</td><td>regression fixtures: reference arrays with stated tolerances</td></tr>
 <tr><td><code>tests/integration</code></td><td>15</td><td>130</td><td>needs a running Isaac Sim; marked `isaac` and skipped by default</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

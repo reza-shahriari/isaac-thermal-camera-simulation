@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fpn drift — irsim</title>
+<meta name="description" content="Mean-reverting drift of the fixed pattern (M9.4): the statistics, not the API.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Fpn drift</h1>
+  <p class="subtitle">Mean-reverting drift of the fixed pattern (M9.4): the statistics, not the API.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py" target="_blank" rel="noopener">tests/unit/test_fpn_drift.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>The whole point of choosing Ornstein-Uhlenbeck over a random walk is a property you cannot see in one frame, so every test here measures a long run against a closed form:</p>
+<ul>
+<li>the lag-τ autocorrelation is e^{-1}, which a random walk cannot produce -- its lag-τ correlation tends to 1 as the run lengthens;</li>
+<li>the variance is stationary after 2000 frames, so the configured 3-D ratios survive a long sequence (a random walk destroys them silently, a little per frame, while every frame still looks plausible);</li>
+<li>the mean stays at zero, so drift adds no pedestal -- the pedestal is physical and comes from the housing and FPA nodes (M3.3, M9.3), which is exactly the separation ADR 0054 records;</li>
+<li>τ = ∞ is frozen bit-identical, the control case;</li>
+<li>and the step is <em>exact</em>: a coarse step and many fine steps over the same interval give the same stationary law, so the drift does not depend on the frame rate it happens to be run at.</li>
+</ul>
+<p>docs/physics-model.md §10.3, §10.2. ADR 0054.</p>
+<p class='made-by'>19 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py" target="_blank" rel="noopener">tests/unit/test_fpn_drift.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L68" target="_blank" rel="noopener">lag tau autocorrelation is one over e</a><span class="tag">parametrize</span><br><code>test_lag_tau_autocorrelation_is_one_over_e</code></td><td>rho(tau) = e^{-1} = 0.368 +/- 0.05. A random walk gives ~1 here; this is the whole ADR.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L90" target="_blank" rel="noopener">the autocorrelation decays exponentially at every lag</a><span class="tag">parametrize</span><br><code>test_the_autocorrelation_decays_exponentially_at_every_lag</code></td><td>Not just at tau: rho(k) = e^{-k/tau} across the curve, pinning the shape of the process.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L105" target="_blank" rel="noopener">a random walk would fail the autocorrelation test</a><br><code>test_a_random_walk_would_fail_the_autocorrelation_test</code></td><td>The control: the test above genuinely discriminates, rather than passing on anything noisy.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L135" target="_blank" rel="noopener">variance is stationary after 2000 frames</a><span class="tag">parametrize</span><br><code>test_variance_is_stationary_after_2000_frames</code></td><td>sigma stays at the configured value, so the 3-D ratios remain the sensor's identity.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L152" target="_blank" rel="noopener">the ratio vector survives a long run</a><br><code>test_the_ratio_vector_survives_a_long_run</code></td><td>sigma_V : sigma_H : sigma_VH after 2000 frames still matches the configured ratios.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L167" target="_blank" rel="noopener">the mean stays at zero</a><span class="tag">parametrize</span><br><code>test_the_mean_stays_at_zero</code></td><td>Drift must add no pedestal: the DC level is physical (M3.3/M9.3), not stochastic.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L181" target="_blank" rel="noopener">one coarse step has the same law as many fine ones</a><br><code>test_one_coarse_step_has_the_same_law_as_many_fine_ones</code></td><td>The update is the closed-form OU solution, so the drift does not depend on the frame rate.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L206" target="_blank" rel="noopener">the stationary variance is exactly preserved in expectation</a><br><code>test_the_stationary_variance_is_exactly_preserved_in_expectation</code></td><td>Var(x') = sigma^2 e^{-2dt/tau} + sigma^2 (1 - e^{-2dt/tau}) = sigma^2, at any step size.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L223" target="_blank" rel="noopener">infinite tau is frozen bit identical</a><br><code>test_infinite_tau_is_frozen_bit_identical</code></td><td>The control case, and the right model for an ideal sensor.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L237" target="_blank" rel="noopener">a zero step changes nothing</a><br><code>test_a_zero_step_changes_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L243" target="_blank" rel="noopener">a zero sigma component stays zero</a><br><code>test_a_zero_sigma_component_stays_zero</code></td><td>A camera configured with no column FPN must not acquire some by drifting.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L258" target="_blank" rel="noopener">dtype and shape are preserved</a><br><code>test_dtype_and_shape_are_preserved</code></td><td>float32 or better everywhere the signal flows (non-negotiable #2).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L267" target="_blank" rel="noopener">advance does not mutate its input</a><br><code>test_advance_does_not_mutate_its_input</code></td><td>A golden sequence must not depend on how many times the pattern was read.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L277" target="_blank" rel="noopener">the run is reproducible from the sensor seed</a><br><code>test_the_run_is_reproducible_from_the_sensor_seed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L287" target="_blank" rel="noopener">restricting the component set freezes the rest</a><br><code>test_restricting_the_component_set_freezes_the_rest</code></td><td>The ablation switch: breathe VH only, and the stripes must stay put.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L300" target="_blank" rel="noopener">the global term cannot be drifted here</a><br><code>test_the_global_term_cannot_be_drifted_here</code></td><td>ADR 0054: the DC level is produced by the housing and FPA nodes, not by a random walk.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L309" target="_blank" rel="noopener">a non positive tau is refused</a><br><code>test_a_non_positive_tau_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L315" target="_blank" rel="noopener">a negative step is refused</a><br><code>test_a_negative_step_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_fpn_drift.py#L321" target="_blank" rel="noopener">the drifting set is the fixed terms of the ratio vector</a><br><code>test_the_drifting_set_is_the_fixed_terms_of_the_ratio_vector</code></td><td>A guard on the abstraction: every drifting name must be a real 3-D component.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

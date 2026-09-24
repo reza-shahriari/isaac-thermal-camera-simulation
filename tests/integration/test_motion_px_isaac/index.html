@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion px isaac — irsim</title>
+<meta name="description" content="In-sim synthesised motion: the roadmap M10.1b acceptance criteria, against the renderer.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Motion px isaac</h1>
+  <p class="subtitle">In-sim synthesised motion: the roadmap M10.1b acceptance criteria, against the renderer.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_motion_px_isaac.py" target="_blank" rel="noopener">tests/integration/test_motion_px_isaac.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>tests/unit/test_motion_px.py</code> holds the arithmetic to exact values on transforms it makes up. What it cannot check is the half that talks to USD: that the transforms read off a stage are the ones the renderer drew with, in the convention the projection expects, and broadcast by an instance id that means the prim it appears to mean. Those are four separate chances to be plausibly wrong, and all of them produce smooth, believable motion of the wrong magnitude or sign.</p>
+<p>So this renders a real prim at a known displacement and asks what came back. The bar is the roadmap's: a bar moving at 3 px/frame reports 3.0 within a tenth of a pixel, a static scene reports 0, and a prim moving with the camera reports 0.</p>
+<p>docs/physics-model.md §13.3, §9.2; ADR 0014 addendum (no motion AOV on this build)</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_motion_px_isaac.py" target="_blank" rel="noopener">tests/integration/test_motion_px_isaac.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_motion_px_isaac.py#L154" target="_blank" rel="noopener">a bar at three pixels per frame reports three</a><br><code>test_a_bar_at_three_pixels_per_frame_reports_three</code></td><td>The roadmap's headline number, measured through USD and the renderer rather than assumed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_motion_px_isaac.py#L164" target="_blank" rel="noopener">a static scene reports zero</a><br><code>test_a_static_scene_reports_zero</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_motion_px_isaac.py#L170" target="_blank" rel="noopener">a prim and camera moving together report zero</a><br><code>test_a_prim_and_camera_moving_together_report_zero</code></td><td>A tracked target is still on the focal plane -- the case that catches a composition error.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/integration/test_motion_px_isaac.py#L183" target="_blank" rel="noopener">the first frame of a sequence reports zero rather than guessing</a><br><code>test_the_first_frame_of_a_sequence_reports_zero_rather_than_guessing</code></td><td>Motion is a difference; a tracker that has seen one frame does not have one to report.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

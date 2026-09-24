@@ -39,13 +39,16 @@
 <li><a href="../changelog/">Changelog</a></li>
 </ul>
 <h2>Evidence</h2><ul>
+<li><a href="../tests/">The test suite</a></li>
 <li><a href="../validation/">Validation</a></li>
 <li><a href="../research/">Research</a></li>
 </ul>
 <h2>Reference</h2><ul>
 <li><a href="../code/">Code map</a></li>
 <li class="here"><a href="./">Configuration catalogue</a></li>
+<li><a href="../scripts/">Commands</a></li>
 <li><a href="../guide/">Working agreement</a></li>
+<li><a href="../practice/">Working practice</a></li>
 </ul>
 </nav>
 <main id="content" class="main wide">
@@ -68,7 +71,7 @@
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/sensors/halmstad_boson_320.yaml" target="_blank" rel="noopener">halmstad_boson_320.yaml</a></td><td>FLIR Breach PTQ-136 -- the camera behind the Halmstad reference set (roadmap M12.1).</td></tr>
 </tbody></table></div>
 <h2 id="scenes">configs/scenes</h2>
-<p>A scene is a config, not code: geometry, weather, mission and what the camera does. 18 file(s).</p>
+<p>A scene is a config, not code: geometry, weather, mission and what the camera does. 19 file(s).</p>
 <div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
 </tr></thead><tbody>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/aircraft_pass_clear_noon.yaml" target="_blank" rel="noopener">aircraft_pass_clear_noon.yaml</a></td><td>A light business jet flying a low pass in front of a ground sensor, clear midday.</td></tr>
@@ -77,6 +80,7 @@
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/car_ignition_overcast_night.yaml" target="_blank" rel="noopener">car_ignition_overcast_night.yaml</a></td><td>A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v9).</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/parked_car_cabin.yaml" target="_blank" rel="noopener">parked_car_cabin.yaml</a></td><td>The cabin reference scene: a parked car whose panels lose heat into the air behind them.</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/phantom3_outbound_pointwise.yaml" target="_blank" rel="noopener">phantom3_outbound_pointwise.yaml</a></td><td>A **DJI Phantom 3** filmed from the ground as it flies out, under broken cumulus, with the</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/phantom4_parts.yaml" target="_blank" rel="noopener">phantom4_parts.yaml</a></td><td>A **DJI Phantom 4 Pro** hovering in clear midday air, solved point-wise on the triangles of a</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/phantom4_pointwise.yaml" target="_blank" rel="noopener">phantom4_pointwise.yaml</a></td><td>A **DJI Phantom 4 Pro** hovering in clear midday air, solved point-wise on the triangles of a</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/quad_flight_clear_noon.yaml" target="_blank" rel="noopener">quad_flight_clear_noon.yaml</a></td><td>A heavy-lift quadrotor flying a 30-minute mission on a clear midday. Schema: irsim.config.scene</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/quad_flight_mesh.yaml" target="_blank" rel="noopener">quad_flight_mesh.yaml</a></td><td>The quadrotor&#x27;s arms as **tubes**, not flat patches: the same 30-minute mission, with the two</td></tr>
@@ -146,10 +150,11 @@
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/thermal/joints.yaml" target="_blank" rel="noopener">joints.yaml</a></td><td>Joint conductances a scene&#x27;s `links:` may name instead of typing a number (TC.4, ADR 0097).</td></tr>
 </tbody></table></div>
 <h2 id="assets">configs/assets</h2>
-<p>Per-asset material mapping for an imported mesh. 1 file(s).</p>
+<p>Per-asset material mapping for an imported mesh. 2 file(s).</p>
 <div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
 </tr></thead><tbody>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/assets/phantom4.yaml" target="_blank" rel="noopener">phantom4.yaml</a></td><td>DJI Phantom 4 Pro, as the third-party FBX in `3d_models/` carries it (ADR 0128).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/assets/phantom4_parts.yaml" target="_blank" rel="noopener">phantom4_parts.yaml</a></td><td>DJI Phantom 4 Pro, as the third-party FBX in `3d_models/` carries it (ADR 0128).</td></tr>
 </tbody></table></div>
 <h2 id="data">data/</h2>
 <p>Spectral response curves, optical constants, weather files and generated lookup tables. <code>$IRSIM_DATA_DIR</code> overrides the root. Generated artefacts (the band LUTs) are not in git — <code>make luts</code> rebuilds them from the configs and the curves, which is ADR 0012.</p>
@@ -157,18 +162,18 @@
 </thead><tbody>
 <tr><td><code>.npy</code></td><td>34</td></tr>
 <tr><td><code>.csv</code></td><td>19</td></tr>
+<tr><td><code>.json</code></td><td>17</td></tr>
 <tr><td><code>.f32</code></td><td>16</td></tr>
-<tr><td><code>.json</code></td><td>14</td></tr>
 <tr><td><code>(none)</code></td><td>4</td></tr>
+<tr><td><code>.npz</code></td><td>3</td></tr>
+<tr><td><code>.usdc</code></td><td>3</td></tr>
 <tr><td><code>.yaml</code></td><td>1</td></tr>
 <tr><td><code>.md</code></td><td>1</td></tr>
 <tr><td><code>.zip</code></td><td>1</td></tr>
-<tr><td><code>.usdc</code></td><td>1</td></tr>
-<tr><td><code>.npz</code></td><td>1</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

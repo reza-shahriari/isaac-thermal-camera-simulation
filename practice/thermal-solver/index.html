@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>thermal-solver — irsim</title>
+<meta name="description" content="Surface temperature prediction for the IR camera simulator — energy balance, lumped-capacitance and slab solvers, convection coefficients, thermal inertia and diurnal crossover, we">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>thermal-solver</h1>
+  <p class="subtitle">Surface temperature prediction for the IR camera simulator — energy balance, lumped-capacitance and slab solvers, convection coefficients, thermal inertia and diurnal crossover, weather ingestion and spin-up, and the multi-regime vehicle thermal model (panels, engine bay, exhaust, brakes, tyres, cabin). Use this skill whenever the task involves surface temperature, heating or cooling, solar loading, wind, humidity, weather files, time of day, thermal transients, Newton's law of cooling, engine or exhaust heat, or why something in the scene is the temperature it is. In LWIR the temperature field IS the image, so consult this before tuning anything radiometric to fix a temperature problem.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/.claude/skills/thermal-solver/SKILL.md" target="_blank" rel="noopener">.claude/skills/thermal-solver/SKILL.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#the-energy-balance">The energy balance</a></li>
+<li class="toc-2"><a href="#solver-architecture-pluggable-not-singular">Solver architecture: pluggable, not singular</a></li>
+<li class="toc-2"><a href="#the-two-node-model">The two-node model</a></li>
+<li class="toc-2"><a href="#convection-coefficient">Convection coefficient</a></li>
+<li class="toc-2"><a href="#thermal-inertia-and-crossover">Thermal inertia and crossover</a></li>
+<li class="toc-2"><a href="#weather-and-spin-up">Weather and spin-up</a></li>
+<li class="toc-2"><a href="#the-vehicle-five-regimes-not-one-material">The vehicle: five regimes, not one material</a></li>
+<li class="toc-2"><a href="#environmental-heat-traces">Environmental heat traces</a></li>
+<li class="toc-2"><a href="#tests">Tests</a></li></ul></nav>
+<article class="prose">
+<p>In LWIR your image <em>is</em> your temperature field. No amount of radiometric sophistication rescues a bad <code>T_s</code>. When an LWIR image looks wrong, suspect this layer first.</p>
+<p>Reference: <code>docs/physics-model.md</code> §6.</p>
+<h2 id="the-energy-balance">The energy balance<a class="anchor" href="#the-energy-balance" aria-label="permalink">#</a></h2>
+<p>For a surface element with area-normalised heat capacity <code>C = ρ·c_p·δ</code> (J·m⁻²·K⁻¹):</p>
+<pre><code>C · dT_s/dt = α_sol·Q_sol                 # absorbed solar
+            + ε·Q_LW_down                 # absorbed sky / environment longwave
+            − ε·σ·T_s⁴                    # emitted
+            − h·(T_s − T_air)             # convection
+            − k·∂T/∂z|₀                   # conduction into substrate
+            + q_int                       # internal generation</code></pre>
+<p>Write <code>α_sol·Q_sol</code> in that form — not <code>(1 − α)·Q</code> — so the sign is unambiguous at a glance.</p>
+<h2 id="solver-architecture-pluggable-not-singular">Solver architecture: pluggable, not singular<a class="anchor" href="#solver-architecture-pluggable-not-singular" aria-label="permalink">#</a></h2>
+<p>This is the design decision that keeps the system honest. Implement a common <code>TemperatureSolver</code> interface with several implementations, chosen per object:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Solver</th><th>Use for</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>PrescribedSolver</code></td><td>Anything measured or scripted: engine bay, exhaust, brakes</td><td>Reads a time series or a function of vehicle state</td></tr>
+<tr><td><code>NewtonCoolingSolver</code></td><td>Objects relaxing with no solar input: a parked car cooling, a body in shade</td><td><code>dT/dt = −κ(T − T∞)</code>. Cheap and exactly right in its domain</td></tr>
+<tr><td><code>LumpedTwoNodeSolver</code></td><td>Environment surfaces: road, buildings, terrain, vehicle panels</td><td>Surface + substrate node. <strong>The workhorse.</strong></td></tr>
+<tr><td><code>SlabSolver</code></td><td>When the two-node model proves inadequate</td><td>1-D diffusion, N nodes</td></tr>
+<tr><td><code>ImportedSolver</code></td><td>Results from an external tool</td><td>Reads precomputed per-facet temperatures</td></tr>
+</tbody></table></div>
+<p>Newton's law of cooling is a legitimate solver, not a mistake — it is the linearised, radiation-free, solar-free special case. It is wrong only when used for something under solar load or exchanging with a cold sky, because it has no <code>T⁴</code> term and no <code>Q_sol</code>. Keep it; scope it.</p>
+<h2 id="the-two-node-model">The two-node model<a class="anchor" href="#the-two-node-model" aria-label="permalink">#</a></h2>
+<pre><code>C₁·dT₁/dt = α_sol·Q_sol + ε·Q_LW↓ − ε·σ·T₁⁴ − h·(T₁ − T_air) − (T₁ − T₂)/R₁₂ + q_int
+C₂·dT₂/dt = (T₁ − T₂)/R₁₂ − (T₂ − T_deep)/R₂ᵈ</code></pre>
+<p>with <code>R₁₂ = δ₁/(2k) + δ₂/(2k)</code>. Integrate with explicit RK2 at a 1–60 s step. Stability limit:</p>
+<pre><code>Δt &lt; 2·C₁ / (h + 4·ε·σ·T³ + 1/R₁₂)</code></pre>
+<p>Assert this at solver construction and fail loudly rather than producing a diverging temperature field — an unstable thermal solver produces beautiful, completely wrong images.</p>
+<p><strong>Run the thermal tick decoupled from the render loop.</strong> 1 Hz thermal, interpolated to frame rate. The timescales differ by orders of magnitude and coupling them wastes enormous compute.</p>
+<h2 id="convection-coefficient">Convection coefficient<a class="anchor" href="#convection-coefficient" aria-label="permalink">#</a></h2>
+<p><code>h</code> is the largest single source of uncertainty in temperature prediction — it depends on surface roughness, fluid viscosity, vertical stability and humidity. Do not ask users to supply it; derive it:</p>
+<pre><code>h_free   = c · |T_s − T_air|^(1/3)                  # c ≈ 1.5
+h_forced = a + b · v_wind^n                          # a ≈ 5, b ≈ 4, n ≈ 0.8  (SI, v in m/s)
+h        = max(h_free, h_forced)</code></pre>
+<p><strong>For a moving vehicle, <code>v_wind</code> must include vehicle speed.</strong> A car at 100 km/h has a completely different hood temperature from the same car parked. This is a first-order effect for automotive IR, it is two lines of code, and it is routinely forgotten.</p>
+<h2 id="thermal-inertia-and-crossover">Thermal inertia and crossover<a class="anchor" href="#thermal-inertia-and-crossover" aria-label="permalink">#</a></h2>
+<p><code>P = sqrt(k·ρ·c_p)</code> controls diurnal swing amplitude. Low P (dry sand, foliage, thin painted metal): fast, large swings. High P (water, concrete, wet soil): sluggish, damped.</p>
+<p><strong>Thermal crossover</strong> — contrast collapsing near dawn and dusk as different materials pass through equal apparent temperature — falls out of this automatically. It is one of the most operationally important phenomena in thermal imaging.</p>
+<p>Make it an acceptance test: <em>does the scene go flat around 0600 and 1900?</em> If not, the thermal solver is not actually running, whatever the code says.</p>
+<h2 id="weather-and-spin-up">Weather and spin-up<a class="anchor" href="#weather-and-spin-up" aria-label="permalink">#</a></h2>
+<p><strong>One <code>WeatherSeries</code> object feeds both the thermal solver and the atmosphere model.</strong> Nothing may allow summer weather in one and winter in the other. Enforce by construction — both take the same injected object, neither reads a file itself.</p>
+<p>Fields: air temperature, relative humidity, wind speed, cloud fraction, direct and diffuse solar irradiance, optionally precipitation. Hourly is enough; interpolate.</p>
+<p><strong>Spin-up is mandatory.</strong> Initialise to air temperature 24–48 h before <code>t = 0</code> and integrate forward. Without it, night scenes are wrong — surfaces have no thermal history and everything sits at ambient. Cheap (a few thousand steps per material class) and it is the difference between plausible and correct. Cache spin-up results keyed by (material, weather hash, start time).</p>
+<h2 id="the-vehicle-five-regimes-not-one-material">The vehicle: five regimes, not one material<a class="anchor" href="#the-vehicle-five-regimes-not-one-material" aria-label="permalink">#</a></h2>
+<p>A car is not one thermal object. Model it as five:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Regime</th><th>Solver</th><th>ΔT over ambient</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Skin panels</td><td><code>LumpedTwoNode</code></td><td>environment-driven</td><td>Thin, low mass, responds in minutes</td></tr>
+<tr><td>Engine bay</td><td><code>Prescribed</code></td><td>+40 … +90 K</td><td>Internal generation + forced airflow. <strong>Measure, don't model.</strong></td></tr>
+<tr><td>Driveline (manifold → tips)</td><td><code>Prescribed</code>, gradient along path</td><td>+80 … +250 K</td><td>Hottest at the manifold. Strongest MWIR signature on the vehicle</td></tr>
+<tr><td>Brakes and tyres</td><td><code>Prescribed</code> from vehicle dynamics</td><td>brakes +50…+400 K, tyres +10…+35 K</td><td>Brakes are the fastest transient in the scene</td></tr>
+<tr><td>Glazing</td><td><code>LumpedTwoNode</code>, coupled to cabin</td><td>cabin-driven</td><td>Different surface entirely per band</td></tr>
+</tbody></table></div>
+<p>Plus one more node people forget: <strong>cabin air</strong>. A car in sun becomes a greenhouse, and the cabin drives roof and glass temperatures from the inside. Model the vehicle as a shell with nothing behind it and daytime roofs come out too cold. One extra node fixes it.</p>
+<p>For the engine bay and exhaust: thermocouples on a warm-up cycle produce a driven schedule more accurate than any lumped model, and remove the largest uncertainty in the scene. That is a parallel task someone can run while rendering work proceeds.</p>
+<h2 id="environmental-heat-traces">Environmental heat traces<a class="anchor" href="#environmental-heat-traces" aria-label="permalink">#</a></h2>
+<p>These are signature phenomena of the band and they routinely confuse detectors trained on synthetic data that lacks them. Implement as decaying overlays on the ground temperature field:</p>
+<ul>
+<li>Warm tyre traces where a vehicle drove (+3…+10 K, decaying over 5–20 min)</li>
+<li>Cool body shadow where a vehicle was parked (−3…−8 K)</li>
+<li>Recently occupied seat, recently touched surface</li>
+</ul>
+<p>They are cheap and they matter more for perception realism than another decimal place of radiometry.</p>
+<h2 id="tests">Tests<a class="anchor" href="#tests" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Analytic equilibrium</strong>: constant forcing, no solar → steady state matches the analytic root of the balance equation to 0.1 K.</li>
+<li><strong>Energy conservation</strong>: over one integration step, energy in − energy out equals stored change, 1e-6.</li>
+<li><strong>Stability guard</strong>: constructing a solver with a too-large <code>Δt</code> raises, rather than diverging.</li>
+<li><strong>Diurnal shape</strong>: a 24 h run of dry asphalt produces max near 1400–1500 local and min near dawn, with a swing in a plausible range.</li>
+<li><strong>Crossover</strong>: two materials of very different thermal inertia cross within an hour of dawn and dusk.</li>
+<li><strong>Vehicle speed effect</strong>: hood temperature at 0 m/s and 28 m/s differ by a meaningful margin.</li>
+<li><strong>Spin-up convergence</strong>: 48 h spin-up and 96 h spin-up agree to &lt; 0.5 K at t = 0.</li>
+<li><strong>Weather coupling</strong>: constructing a scene with mismatched weather sources is impossible by API design (test that the constructor requires the shared object).</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

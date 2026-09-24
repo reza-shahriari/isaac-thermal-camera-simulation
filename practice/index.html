@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Working practice — irsim</title>
+<meta name="description" content="The conventions the code and the documents assume, one file each.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../">Overview</a></li>
+<li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../physics/">Physics model</a></li>
+<li><a href="../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../roadmap/">Roadmap</a></li>
+<li><a href="../decisions/">Decision log</a></li>
+<li><a href="../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../tests/">The test suite</a></li>
+<li><a href="../validation/">Validation</a></li>
+<li><a href="../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../code/">Code map</a></li>
+<li><a href="../configs/">Configuration catalogue</a></li>
+<li><a href="../scripts/">Commands</a></li>
+<li><a href="../guide/">Working agreement</a></li>
+<li class="here"><a href="./">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Working practice</h1>
+  <p class="subtitle">The conventions the code and the documents assume, one file each.</p>
+  
+</div>
+
+<article class="prose">
+<p>Several people and several sessions work on this repository at once, so the conventions are written down rather than carried in anyone's head: what a tolerance means, which unit a radiometric quantity is in, what a material file may author, how a step is finished. They live beside the code as skills and are published here unchanged.</p><div class="cards"><a class="card" href="ir-radiometry/"><h3>ir-radiometry</h3><p>Radiometric physics for the IR camera simulator — Planck&#x27;s law, band integration, radiance LUTs, apparent temperature inversion, thermal derivatives, and radiometric unit conventions. Use this skill w…</p></a><a class="card" href="ir-sim-testing/"><h3>ir-sim-testing</h3><p>Testing strategy for the IR camera simulator — the five validation tiers, how to write tests that would actually fail if the physics were wrong, tolerance conventions in physical units, golden/regress…</p></a><a class="card" href="isaac-sim-spg/"><h3>isaac-sim-spg</h3><p>Isaac Sim 6.0 integration for the IR camera simulator — AOV/render-product setup, temperature encoding, the RTX Sensor Processing Graph (omni.rtx.spg) CUDA+Lua+USD structure, the Warp/annotator altern…</p></a><a class="card" href="present-on-the-site/"><h3>present-on-the-site</h3><p>How work in this repository reaches the public project site (the GitHub Pages site built by `make site`) — what is published automatically, what has to be added by hand to `site/gallery.yaml`, the rul…</p></a><a class="card" href="sensor-noise-chain/"><h3>sensor-noise-chain</h3><p>Detector and signal-chain modelling for the IR camera simulator — photon detectors vs microbolometers, responsivity/NEP/D*, NETD anchoring, the NVESD three-dimensional noise model, fixed-pattern noise…</p></a><a class="card" href="ship-step/"><h3>ship-step</h3><p>The completion checklist for finishing any unit of work in this repo — running the check gate, updating README status and CHANGELOG, writing an ADR when a decision was made, and committing with the pr…</p></a><a class="card" href="thermal-materials/"><h3>thermal-materials</h3><p>Material modelling for the IR camera simulator — spectral emissivity, Kirchhoff closure, Fresnel angular emissivity from complex refractive index, per-band roughness, semi-transparent glass, and the m…</p></a><a class="card" href="thermal-solver/"><h3>thermal-solver</h3><p>Surface temperature prediction for the IR camera simulator — energy balance, lumped-capacitance and slab solvers, convection coefficients, thermal inertia and diurnal crossover, weather ingestion and …</p></a></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../assets/site.js"></script>
+</body>
+</html>

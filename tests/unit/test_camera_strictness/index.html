@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera strictness — irsim</title>
+<meta name="description" content="IG.1 -- ``IrCamera``&#x27;s three strictness guards are three flags, and one cannot silence another.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Camera strictness</h1>
+  <p class="subtitle">IG.1 -- ``IrCamera``'s three strictness guards are three flags, and one cannot silence another.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py" target="_blank" rel="noopener">tests/unit/test_camera_strictness.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>A frame can be wrong in three unrelated ways: a prim the renderer drew that the label table does not name, a prim with no thermal node, and a pixel on a field-backed prim that falls outside every one of its patches. Until IG.1 all three were behind <code>strict_materials</code>, and all six render scripts passed it <code>False</code> to get past the first two -- so the third, the one whose own docstring calls the fallback "a seam that looks like physics", was off in every frame this project has produced.</p>
+<p>The tests drive the real :meth:<code>IrCamera.planes</code> over a synthetic frame rather than asserting on the attributes, because the defect being guarded against is a <em>routing</em> one: three flags that are all stored and then all read from the same place would pass an attribute test and fail here.</p>
+<p>docs/physics-model.md §13.1; ADR 0047 (UNMAPPED takes eps = 1), ADR 0087 (the field), roadmap IG.1.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py" target="_blank" rel="noopener">tests/unit/test_camera_strictness.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py#L149" target="_blank" rel="noopener">an unlabelled prim trips only the material guard</a><br><code>test_an_unlabelled_prim_trips_only_the_material_guard</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py#L167" target="_blank" rel="noopener">a prim with no thermal node trips only the node guard</a><br><code>test_a_prim_with_no_thermal_node_trips_only_the_node_guard</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py#L193" target="_blank" rel="noopener">a pixel outside every patch trips only the coverage guard</a><br><code>test_a_pixel_outside_every_patch_trips_only_the_coverage_guard</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py#L229" target="_blank" rel="noopener">relaxing the other two leaves patch coverage on</a><br><code>test_relaxing_the_other_two_leaves_patch_coverage_on</code></td><td>Exactly what the six render scripts now ask for, against exactly the frame that was silent.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_camera_strictness.py#L252" target="_blank" rel="noopener">a covered surface still reads its own cells</a><br><code>test_a_covered_surface_still_reads_its_own_cells</code></td><td>The guard must not be passing by refusing to sample: the field still reaches the plane.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atmosphere ladder — irsim</title>
+<meta name="description" content="One wavelength ladder for the atmosphere&#x27;s spectral classes (AT.10, ADR 0113).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Atmosphere ladder</h1>
+  <p class="subtitle">One wavelength ladder for the atmosphere's spectral classes (AT.10, ADR 0113).</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_ladder.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>BAND_CLASSES</code> was five hand-written tables filed under camera names, and two of them disagreed about the same air: NIR resolved the 0.94 µm water band at ×10 while SWIR's window swallowed 0.90–0.98 µm at ×0.5 — a factor of twenty on one sky, depending on which camera looked at it. Two stretches of spectrum, 1.80–2.00 and 6.00–7.00 µm, belonged to no class at all, so a response reaching either raised rather than absorbing. And a fifth band meant a sixth table in <code>src/</code>.</p>
+<p>The tests here are the ones that fail if the ladder stops being one ladder.</p>
+<p>docs/physics-model.md §7.1, §7.4; ADR 0071, ADR 0092, ADR 0113.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py" target="_blank" rel="noopener">tests/unit/test_atmosphere_ladder.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L63" target="_blank" rel="noopener">the ladder is wavelength ordered and gap free</a><br><code>test_the_ladder_is_wavelength_ordered_and_gap_free</code></td><td>A gap is a band that raises at the far end of a render, which is how 1.80–2.00 µm and 6.00–7.00 µm sat unnoticed: no shipped response reached either.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L76" target="_blank" rel="noopener">a rung name means one thing everywhere it appears</a><br><code>test_a_rung_name_means_one_thing_everywhere_it_appears</code></td><td><code>window</code> appears three times in LWIR's span and twice in MWIR's, and every appearance has to be the same air -- otherwise merging them into one class averages two different gases.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L87" target="_blank" rel="noopener">two bands never disagree about the same wavelength</a><br><code>test_two_bands_never_disagree_about_the_same_wavelength</code></td><td><strong>The defect, as a property.</strong> Whatever wavelength two bands both reach, they must model it the same way. Before the ladder, 0.94 µm was a ×10 water band to NIR and a ×0.5 window to SWIR, and a scene rendered in both bands described two different atmospheres.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L116" target="_blank" rel="noopener">a band reaching past the ladder is refused rather than guessed at</a><br><code>test_a_band_reaching_past_the_ladder_is_refused_rather_than_guessed_at</code></td><td>The numbers outside are spectroscopy nobody has written down here, and a nearest-class fallback would look exactly like a model.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L133" target="_blank" rel="noopener">every registered band derives classes that cover it</a><span class="tag">parametrize</span><br><code>test_every_registered_band_derives_classes_that_cover_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L145" target="_blank" rel="noopener">a band the registry has never heard of still gets classes</a><br><code>test_a_band_the_registry_has_never_heard_of_still_gets_classes</code></td><td>The exit bar: a fifth band must need no <code>src/</code> edit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L166" target="_blank" rel="noopener">lwir and nir are untouched and mwir moves by a rounding error</a><br><code>test_lwir_and_nir_are_untouched_and_mwir_moves_by_a_rounding_error</code></td><td>The three bands whose hand-written tables the ladder reproduces.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L186" target="_blank" rel="noopener">swir stops swallowing the point nine four water band</a><br><code>test_swir_stops_swallowing_the_point_nine_four_water_band</code></td><td>The fix, as the two numbers AT.10 was written around.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L213" target="_blank" rel="noopener">the holes are filled with water bands and not with window</a><br><code>test_the_holes_are_filled_with_water_bands_and_not_with_window</code></td><td>1.80–2.00 and 6.00–7.00 µm are the 1.9 and 6.3 µm water bands, both strong enough to be opaque over the ranges this simulator works at. Calling either a window would have made a future band look through a wall.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_atmosphere_ladder.py#L224" target="_blank" rel="noopener">the nominal range alone would not cover the detectors</a><br><code>test_the_nominal_range_alone_would_not_cover_the_detectors</code></td><td>Why <code>band_span_um</code> takes both. The nominal range alone was AT.3's defect; every shipped response reaches past its own band's nominal edges.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

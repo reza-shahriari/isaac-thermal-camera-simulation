@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R2 scene — irsim</title>
+<meta name="description" content="TC.6 — the R2 reference scene: an engine warms the metal around it, from the scene config.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>R2 scene</h1>
+  <p class="subtitle">TC.6 — the R2 reference scene: an engine warms the metal around it, from the scene config.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py" target="_blank" rel="noopener">tests/unit/test_r2_scene.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p>Both car scenes now declare the engine as a solved node (<code>solver: engine</code>) and the metal around it as <code>nodes:</code> and <code>links:</code>: the block followed as a boundary, rubber mounts as a link node to the subframe, a wing bracket bolted to the block through 25 cm² of a new ferrous joint whose fan-driven convection stops at key-off, and the wing hung off it by two small bolts.</p>
+<p>The row's checks: a bracket lags the block by its RC time and settles at G/(G + hA) of the block's rise, to 1e-6 (held on a fixed block, where the closed form is exact); parts warm in conductance order; the synthetic-G-buffer bonnet shows 10–40 K max–min with the engine on (<code>test_car_demo</code> holds that on the shared fixture). Frames need <code>IG.2</code>.</p>
+<p>docs/physics-model.md §6.4, §6.6; ADR 0096, ADR 0097, ADR 0100; roadmap TC.6.</p>
+<p class='made-by'>3 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py" target="_blank" rel="noopener">tests/unit/test_r2_scene.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py#L54" target="_blank" rel="noopener">a bracket lags the block by its rc time and settles at the two resistor share</a><br><code>test_a_bracket_lags_the_block_by_its_rc_time_and_settles_at_the_two_resistor_share</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py#L80" target="_blank" rel="noopener">the car scenes declare the metal around the engine</a><span class="tag">parametrize</span><br><code>test_the_car_scenes_declare_the_metal_around_the_engine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_r2_scene.py#L94" target="_blank" rel="noopener">parts warm in conductance order and the bracket follows the block</a><span class="tag">slow</span><br><code>test_parts_warm_in_conductance_order_and_the_bracket_follows_the_block</code></td><td>Block → bracket (a 30 W/K bolted joint) → mounts (12 W/K of rubber) → wing (two small bolts) → subframe (behind the rubber, with mass). Measured at 600 s: +51, +45, +27, +4 K.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

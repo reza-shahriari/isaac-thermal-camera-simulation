@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabin scene — irsim</title>
+<meta name="description" content="PT.15 — the cabin and the two-node substrate, reachable from a scene.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Cabin scene</h1>
+  <p class="subtitle">PT.15 — the cabin and the two-node substrate, reachable from a scene.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py" target="_blank" rel="noopener">tests/unit/test_cabin_scene.py on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>LumpedTwoNodeSolver</code> and <code>CabinNode</code> shipped in M6 and neither could be reached from a config: every solved surface in every scene had an adiabatic back. Here the cabin becomes a lumped member of its panels' coupled solve -- one implicit operator over panels <em>and</em> air, not an alternating step -- and a layered surface gets §6.4's R₂d and T_deep from <code>back:</code>.</p>
+<p>The bar is ADR 0038's own measurement, through the new path: the coupled member reproduces <code>CabinNode</code>'s equilibrium to 0.1 K on ADR 0038's panels, where the roof stands 4.8 K above an adiabatic back. A scene then shows the same mechanism on a schematic saloon (+1.6 K there, because its only sun-facing panel is the roof), a cabin at the 60-80 C a sealed car reaches, and roof and cabin both more than 2 K below the air on a clear night.</p>
+<p>docs/physics-model.md §6.6, §6.4; ADR 0036, ADR 0038, ADR 0103, ADR 0106; roadmap PT.15.</p>
+<p class='made-by'>9 test(s) in <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py" target="_blank" rel="noopener">tests/unit/test_cabin_scene.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L95" target="_blank" rel="noopener">the coupled cabin reproduces cabin node s equilibrium to a tenth of a kelvin</a><span class="tag">slow</span><br><code>test_the_coupled_cabin_reproduces_cabin_node_s_equilibrium_to_a_tenth_of_a_kelvin</code></td><td>Two integrators on one balance: <code>CabinNode</code>'s midpoint step on lumps, and the coupled field's IMEX step on cells joined to a lumped member. They must agree, or the scene and the module would be two copies of §6.6 drifting apart.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L126" target="_blank" rel="noopener">the links are the cabin s own conductances and the member its own capacity</a><br><code>test_the_links_are_the_cabin_s_own_conductances_and_the_member_its_own_capacity</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L162" target="_blank" rel="noopener">the cabin makes the roof hotter than the same paint with an adiabatic back</a><span class="tag">slow</span><br><code>test_the_cabin_makes_the_roof_hotter_than_the_same_paint_with_an_adiabatic_back</code></td><td>The bonnet is the control: the same material, the same tilt, the same forcing, an engine bay behind it instead of the cabin. Measured +1.60 K at local noon -- smaller than ADR 0038's 4.8 K because this saloon's only sun-facing panel is the roof, where ADR 0038's set had the bonnet too; the mechanism and its sign are the same, and the magnitude is what the geometry gives.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L184" target="_blank" rel="noopener">on a clear night the roof and the cabin are both below the air</a><span class="tag">slow</span><br><code>test_on_a_clear_night_the_roof_and_the_cabin_are_both_below_the_air</code></td><td>Local midnight, 14 h on: the roof radiates to a cold sky and drags the cabin with it. Measured roof −3.8 K and cabin −3.0 K against the air, where the row asks for 2 K.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L197" target="_blank" rel="noopener">without the cabin block the panels are the fields they always were</a><span class="tag">slow</span><br><code>test_without_the_cabin_block_the_panels_are_the_fields_they_always_were</code></td><td>The block is additive: delete it and the roof is bit-identical to the adiabatic bonnet.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L213" target="_blank" rel="noopener">the schema refuses a cabin it cannot build</a><br><code>test_the_schema_refuses_a_cabin_it_cannot_build</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L242" target="_blank" rel="noopener">a layered surface takes r2d and t deep from the config</a><br><code>test_a_layered_surface_takes_r2d_and_t_deep_from_the_config</code></td><td>§6.4's deep boundary, which ADR 0036 defined and no scene could declare. With it the stack is <code>LumpedTwoNodeSolver</code>'s system (ADR 0103 holds the two to 1 mK); without it the back is adiabatic, which is what every scene had.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L280" target="_blank" rel="noopener">a back boundary without layers is refused</a><br><code>test_a_back_boundary_without_layers_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/tests/unit/test_cabin_scene.py#L295" target="_blank" rel="noopener">the two node solver and the cabin are importable from the package</a><br><code>test_the_two_node_solver_and_the_cabin_are_importable_from_the_package</code></td><td>The other half of the row: both objects shipped in M6 and neither was reachable.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 07:13 UTC from <code>90d4096</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>
