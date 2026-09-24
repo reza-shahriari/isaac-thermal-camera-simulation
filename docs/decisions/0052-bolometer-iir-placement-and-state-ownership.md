@@ -76,3 +76,41 @@ power-on explicitly.
   intra-frame spatial one. Motion vectors feed `MTF_motion` for photon detectors (ADR 0059, spec
   issue S20); the bolometer gets its smear from state, for free, and correctly for arbitrary
   motion including objects that stop.
+
+## Addendum (`PT.23`, 2026-09-24): one owner means `replace` must not fork a second one
+
+`IG.2`'s first in-sim run reported that the analytic point-target chain delivered **0.7785** of
+the excess the model predicts — at 400, 800, 1600 and 3200 m alike, to four figures. It was not
+the chain. The test built its two branches with `dataclasses.replace(base_state)`, and
+`PipelineState.buffers` was an ordinary `init=False`-less field, so `replace` handed both states
+the *same dict object*. Two states that look independent, one membrane, alternating inputs.
+
+The algebra of that is exact. With the filter's fixed point alternating between the two inputs
+`A` and `B`,
+
+    y_on  = (1 − α) y_off + α B
+    y_off = (1 − α) y_on  + α A
+    ⟹ y_on − y_off = α (B − A) / (2 − α)
+
+so the recovered difference is `α/(2 − α)` of the truth, which at 60 Hz and `τ_th = 8 ms` is
+**0.778545** against the 0.778546 measured through the renderer. The first frame returns `α`
+itself (0.8755), because only one step of the blend has happened. This is the same `α/(2 − α)`
+quoted above for what filtering *after* the noise stage would do to the per-frame temporal
+variance, reached by the same algebra applied to a difference instead of a variance.
+
+The decision: **`buffers` is `init=False`**, so `dataclasses.replace(state)` yields a state
+carrying the clock, the frame index and the housing temperature but **no inherited cross-frame
+buffers**. That is the only default consistent with the one-owner rule this ADR sets — a buffer
+with two owners is not a degraded copy, it is a different camera — and it costs nothing, because
+the filter adopts its first input rather than ramping from zero, so a forked state opens settled
+on its own scene. A caller that genuinely wants to continue a sequence keeps using the same state
+object, which is what every render driver already does.
+
+What makes this worth an addendum rather than a one-line fix is how it presented: a clean,
+range-independent, position-independent scalar, stable across summation windows, reproducible to
+four figures. Everything about it argued for a missing radiometric factor, and two plausible
+candidates were close enough to be tempting (0.800, the F/1.0 aperture-factor ratio, and 0.92, the
+optical transmittance). The evidence that it was neither was that it was *too* clean: a spatial
+defect in a chain with a PSF, a box filter and a quantiser does not reproduce to six figures.
+The engine-free twin in `tests/unit/test_point_target.py` now carries the shared-state case as an
+explicit negative control, so the mechanism is pinned and not only the symptom.

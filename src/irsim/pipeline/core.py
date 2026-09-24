@@ -347,7 +347,16 @@ class PipelineState:
     #: Cross-frame buffers, one owner and one reset path each (ADR 0052). NumPy arrays on the
     #: reference path; the Warp path (M10.6) keeps its device-resident equivalents here too, so
     #: the values are not all ndarrays and moving a stage to the GPU stays a transport change.
-    buffers: dict[str, Any] = field(default_factory=dict)
+    #:
+    #: **`init=False`, so `dataclasses.replace(state)` gives a state with no inherited buffers**
+    #: (`PT.23`). It is a dict, so `replace` would otherwise hand the new state the *same* dict
+    #: object: two states that look independent, sharing one membrane. That is not a degraded
+    #: copy, it is a different camera -- drive one IIR with two alternating scenes and the
+    #: difference between them settles to alpha/(2 - alpha) of the truth, 0.7785 at 60 Hz and
+    #: tau = 8 ms, which is exactly the number `IG.2`'s first in-sim run reported as a broken
+    #: point-target chain. Starting empty is safe by construction: the filter adopts its first
+    #: input rather than ramping from zero, so a forked state opens settled on its own scene.
+    buffers: dict[str, Any] = field(default_factory=dict, init=False)
 
     def advance(self) -> None:
         self.frame_index += 1

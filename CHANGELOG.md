@@ -6,6 +6,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The point-target chain was never wrong: two cameras were sharing one membrane** (`PT.23`,
+  raised by `IG.2`). The 22 % shortfall the first in-sim run measured is **alpha / (2 - alpha)**,
+  which is 0.778545 at 60 Hz and tau_th = 8 ms against the 0.778546 the render produced -- six
+  figures, and an explanation for why it looked like physics. `excess_map` built its two branches
+  with `dataclasses.replace(base_state)`. That copies every field, and `PipelineState.buffers` is
+  a dict, so both states held the *same* dict and drove one bolometer IIR with alternating inputs:
+  one frame of the blend on the first frame (hence the alpha = 0.8755 the settling fix removed)
+  and alpha / (2 - alpha) once the alternation reached its own fixed point. Being range- and
+  position-independent is what made it convincing, and is exactly what a temporal artefact would
+  be. It is the same alpha / (2 - alpha) ADR 0052 quotes for what filtering after the noise stage
+  would do to the per-frame variance, reached here by the same algebra on the difference of two
+  alternating inputs.
+  `PipelineState.buffers` is now `init=False`, so `dataclasses.replace(state)` yields a state with
+  **no inherited cross-frame buffers** -- the only safe default under ADR 0052's one-owner rule,
+  and harmless because the membrane adopts its first input rather than ramping from zero, so a
+  forked state opens settled on its own scene. Nothing constructed a `PipelineState` with explicit
+  buffers, and one caller used `replace` on one: the test this was found in.
+  `tests/unit/test_point_target.py` gains the engine-free twin of the in-sim law -- two states run
+  alternately over one scene for six frames must recover the injected excess to 1e-4 on **every**
+  frame -- with the shared-`buffers` case as its negative control, asserting alpha on the first
+  frame and alpha / (2 - alpha) thereafter, so the mechanism is pinned and not merely the symptom.
+  The in-sim test's `xfail(strict=True)` is removed and the law holds at all four ranges.
 - **The integration suite has been run** (`IG.2`). `tests/integration` -- 15 modules, one Kit per
   session -- had never been executed on this workstation, so every `@pytest.mark.isaac` assertion
   in the repository was a claim about a build nobody had asked. It ran on the A6000: **225 passed,

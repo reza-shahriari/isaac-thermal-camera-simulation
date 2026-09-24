@@ -130,11 +130,11 @@ def make_camera(targets: tuple, lut: Any, *, hide: bool = True, noise: bool = Fa
     return camera
 
 
-#: Frames run before the difference is taken, so the detector's thermal membrane has settled.
-#: The lag is a first-order IIR with alpha = 1 - e^{-dt/tau_th} = 0.8755 at 60 Hz and tau = 8 ms
-#: (`SC.3`), so the deficit after n frames is 0.1245^n: 3e-5 by the fifth, far under the 5 % this
-#: file asserts. Eight is that with margin and still costs nothing -- no render is repeated.
-SETTLE_FRAMES = 8
+#: Frames each branch runs before the difference is taken. One would do -- the membrane adopts its
+#: first input rather than ramping from zero (`irsim.detector.lowpass`) -- and the sequence is run
+#: anyway, because `PT.23` was a defect that only a *sequence* of frames could show and this is
+#: where it showed. It costs nothing: the render is not repeated, only the chain.
+SEQUENCE_FRAMES = 6
 
 
 def excess_map(camera: Any) -> tuple[np.ndarray, list[Any]]:
@@ -144,15 +144,14 @@ def excess_map(camera: Any) -> tuple[np.ndarray, list[Any]]:
     render, no noise realisation to cancel, and the difference is the injected excess and only
     that.
 
-    **Both branches are run to steady state first (IG.2).** A single frame from a fresh
-    ``PipelineState`` starts the detector's thermal membrane at zero, and a first-order lag adopts
-    only ``alpha`` of its input on frame one -- so the difference came back at exactly
-    ``alpha = 0.8755`` of the injected excess, at **every** range, and the test read that 12.5 %
-    shortfall as a broken chain. It is not: it is the bolometer doing what §9.2 says it does. The
-    claim this file makes is about the *spatial* chain -- splat, PSF, box filter, electrons, DN,
-    and the radiometric inverse -- so the temporal stage is settled out of the way rather than
-    left to confound it. Measured across 400-3200 m the ratio was 0.8755 at all four ranges,
-    which is what identified it: a spatial defect would not be range-independent to four figures.
+    **Each branch keeps its own cross-frame state (`PT.23`).** They used to be built with
+    ``replace(base_state)``, which copies the *reference* to ``PipelineState.buffers``, so both
+    ran through one membrane IIR with alternating inputs and the difference between them settled
+    to ``alpha / (2 - alpha)`` -- 0.7785 at 60 Hz and tau_th = 8 ms. That is what `IG.2`'s first
+    in-sim run reported, and it read as physics because it is range-independent to four figures:
+    it has nothing to do with range. ``buffers`` is now ``init=False`` so ``replace`` cannot share
+    it, and the engine-free twin of this law, with the shared-state case as its negative control,
+    is `tests/unit/test_point_target.py`.
     """
     from dataclasses import replace
 
@@ -163,7 +162,7 @@ def excess_map(camera: Any) -> tuple[np.ndarray, list[Any]]:
     targets = camera.point_targets()
     base_state = PipelineState(t_s=camera.scene.t0_s + camera.t_rel_s)
     without_state, with_state = replace(base_state), replace(base_state)
-    for _ in range(SETTLE_FRAMES):
+    for _ in range(SEQUENCE_FRAMES):
         without = run_frame(planes, camera.config, without_state, ())
         with_targets = run_frame(planes, camera.config, with_state, targets)
     assert without.radiance is not None and with_targets.radiance is not None
@@ -227,18 +226,6 @@ def predicted_excess(camera: Any, target: Any) -> float:
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "IG.2, first in-sim run: the chain delivers 0.7785 of the model's excess at EVERY range "
-        "(400/800/1600/3200 m agree to four figures), converged from frame 3. Range- and "
-        "position-independence rules out the geometry, the window and cos^4 -- the four targets "
-        "sit at different azimuths. It is a single scalar somewhere between excess_radiance and "
-        "the radiometric inverse, and it is not 0.92 (tau_opt) or 0.800 (the F/1.0 aperture-factor "
-        "ratio). Needs an engine-free bisection of the stages; see the roadmap. Marked strict so "
-        "that fixing the chain fails this and forces the marker off."
-    ),
-)
 def test_the_injected_excess_survives_the_whole_chain(ranged: Any) -> None:
     """What comes out of the camera equals the excess that went in, to 5 %.
 
@@ -246,6 +233,9 @@ def test_the_injected_excess_survives_the_whole_chain(ranged: Any) -> None:
     filtered to the detector grid, turned into electrons and DN, and inverted back to radiance by
     the radiometric branch. Each of those either conserves flux or is undone by its own inverse,
     and this is the statement that the composition actually does.
+
+    It read 0.7785 of the model on `IG.2`'s first run, at every range. The composition was fine;
+    the two branches shared a membrane (`PT.23`, and `excess_map` above).
     """
     camera = ranged["camera"]
     for target in ranged["targets"]:

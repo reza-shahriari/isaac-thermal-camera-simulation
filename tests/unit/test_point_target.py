@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import math
 import pathlib
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -15,6 +16,7 @@ import yaml
 
 from irsim.atmosphere import Atmosphere, LayeredAtmosphere, load_atmosphere_preset
 from irsim.config.sensor import SensorConfig
+from irsim.detector.lowpass import alpha_for
 from irsim.materials import MaterialTable
 from irsim.optics.aperture import aperture_factor
 from irsim.optics.sampling import box_downsample
@@ -230,6 +232,73 @@ def test_through_the_chain(tophat_lwir_lut: BandLUT) -> None:
             assert np.count_nonzero(excess > 1e-6 * excess.max()) == 1
         else:
             assert np.count_nonzero(excess > 1e-3 * excess.max()) > 1, "the PSF spreads it"
+
+
+#: Frames each camera runs in :func:`test_a_second_camera_must_not_borrow_the_first_ones_membrane`.
+#: More than one on purpose: the defect it guards is invisible on a single frame and settles to a
+#: constant from the third, which is what made it look like a broken optical chain (`PT.23`).
+SEQUENCE_FRAMES = 6
+
+
+def test_a_second_camera_must_not_borrow_the_first_ones_membrane(tophat_lwir_lut: BandLUT) -> None:
+    """Two `PipelineState`s run alternately over one scene recover the injected excess exactly.
+
+    This is the engine-free twin of `tests/integration/test_point_targets_isaac.py`'s law, and it
+    exists because that test reported a **22 % shortfall in the point-target chain** on `IG.2`'s
+    first in-sim run (`PT.23`). The chain was right. The two branches were built with
+    `dataclasses.replace(base_state)`, which copied every field -- including the *reference* to
+    the `buffers` dict -- so both drove one membrane IIR with alternating inputs.
+
+    The negative control below is the whole argument: with the state deliberately shared, the
+    recovered excess is not noisy or biased, it is exactly alpha / (2 - alpha) of the truth, which
+    is 0.7785 at 60 Hz and tau_th = 8 ms. That is a *clean* number, which is why it read as
+    physics -- range-independent to four figures, because it has nothing to do with range. It is
+    the same alpha / (2 - alpha) ADR 0052 quotes for what filtering after the noise stage would do
+    to the per-frame variance, arrived at here by the same algebra on the difference of two
+    alternating inputs rather than on a variance.
+    """
+    shape = (32, 32)
+    planes = {
+        "temperature_k": np.full(shape, 290.0, np.float32),
+        "normal_dot_view": np.ones(shape, np.float32),
+        "distance_m": np.full(shape, 50.0, np.float32),
+        "material_id": np.ones(shape, np.int32),
+        "sky_view_factor": np.ones(shape, np.float32),
+    }
+    sensor_cfg = _sensor(width=32, height=32)
+    sensor = sensor_cfg.sensor
+    lt, lbg = _lb(tophat_lwir_lut, 400.0), _lb(tophat_lwir_lut, 290.0)
+    area = _area_for(sensor, 0.3, 2000.0)
+    target = PointTarget(area, 2000.0, lt, (16.5, 16.5))
+    cfg = PipelineConfig.from_sensor(
+        sensor_cfg, MaterialTable.constant(1.0), lut=tophat_lwir_lut, noise_enabled=False
+    )
+    truth = 0.3 * (lt - lbg)
+
+    def sequence(off: PipelineState, on: PipelineState) -> list[float]:
+        out = []
+        for _ in range(SEQUENCE_FRAMES):
+            a = run_frame(planes, cfg, off)
+            b = run_frame(planes, cfg, on, point_targets=[target])
+            assert a.radiance is not None and b.radiance is not None
+            out.append(float((b.radiance.astype(np.float64) - a.radiance).sum()))
+        return out
+
+    base = PipelineState(housing_temp_k=cfg.t_housing_cal_k)
+    measured = sequence(replace(base), replace(base))
+    for frame, value in enumerate(measured, start=1):
+        assert value == pytest.approx(truth, rel=1e-4), f"frame {frame} lost part of the excess"
+
+    # The negative control: one dict, two cameras. `alpha / (2 - alpha)` on every frame but the
+    # first, which sees only one step of the blend and so returns alpha itself.
+    shared, borrower = replace(base), replace(base)
+    borrower.buffers = shared.buffers
+    alpha = alpha_for(cfg.fpa.frame_dt_s, cfg.fpa.thermal_time_constant_s)
+    coupled = sequence(shared, borrower)
+    assert coupled[0] / truth == pytest.approx(alpha, rel=1e-3)
+    for value in coupled[2:]:
+        assert value / truth == pytest.approx(alpha / (2.0 - alpha), rel=1e-3)
+    assert alpha / (2.0 - alpha) < 0.8, "the control must be a failure, not a rounding difference"
 
 
 @pytest.mark.parametrize("k", [1, 2, 4])
