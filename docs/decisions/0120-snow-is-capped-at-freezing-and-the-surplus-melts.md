@@ -1,7 +1,7 @@
 # ADR 0120 — Snow is capped at freezing, and the surplus melts isothermally
 
 **Status:** Accepted. Adds a phase change to the §6.1 balance that
-[ADR 0036](0036-rk2-for-the-surface-balance.md) chose RK2 for; the cap is applied *instead of* the
+[ADR 0036](0036-two-node-integrator-and-parameters.md) chose RK2 for; the cap is applied *instead of* the
 RK2 step in the melting regime rather than after it, for the reason measured below.
 **Date:** 2026-09-22
 Roadmap: PH.10 (§6.1)

@@ -1,7 +1,7 @@
 # ADR 0114 — The exhaust plume: a chord per pixel, and where its temperature comes from
 
 **Status:** Accepted. Applies [ADR 0098](0098-participating-media-and-the-phenomena-tier.md)'s
-operator to a frame; takes its gas state from [ADR 0105](0105-the-exhaust-line-as-a-gas-stream-in-a-wall.md)'s
+operator to a frame; takes its gas state from [ADR 0105](0105-exhaust-line-as-a-gas-stream-in-a-wall.md)'s
 solved line and its coefficients from the tables `PH.5` generates.
 **Date:** 2026-09-22
 Roadmap: PH.6 (§6.6, §8.1, §8.3, §13.4 stage 2)

@@ -2,7 +2,7 @@
 
 **Status:** Accepted. Adds the first surface in this project whose temperature is **authored from a
 set point rather than solved**, alongside one that is solved by a standard's own equation rather
-than by [ADR 0036](0036-rk2-for-the-surface-balance.md)'s balance.
+than by [ADR 0036](0036-two-node-integrator-and-parameters.md)'s balance.
 **Date:** 2026-09-22
 Roadmap: PH.12 (§6.1, §16.2)
 

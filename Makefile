@@ -9,7 +9,8 @@ PYTHON ?= python
 CI_PYTHON ?= python3.10
 CI_VENV ?= .venv-ci
 
-.PHONY: install test test-slow test-all lint fmt typecheck check ci luts golden-update clean next stage
+.PHONY: install test test-slow test-all lint fmt typecheck check ci luts golden-update clean next stage \
+        site site-preview site-publish
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -70,6 +71,19 @@ luts:
 
 golden-update:
 	$(PYTHON) -m pytest tests/golden -q --update-golden
+
+# The project site: every document, the module and config catalogues measured from the tree, and
+# a web-sized copy of whatever renders are in outputs/ (scripts/build_site.py). `site` builds it
+# into the gitignored _site/; `site-preview` serves it; `site-publish` commits it onto the
+# gh-pages branch and tells you the push command.
+site:
+	$(PYTHON) scripts/build_site.py --out _site
+
+site-preview:
+	$(PYTHON) scripts/build_site.py --out _site --serve
+
+site-publish: site
+	scripts/publish_site.sh
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache dist build $(CI_VENV)

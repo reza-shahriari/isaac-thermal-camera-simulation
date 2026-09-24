@@ -1,6 +1,6 @@
 # ADR 0117 — The optical PSF's second factor: derived from the datasheet, not pasted
 
-**Status:** Accepted. Fills the gap [ADR 0059](0059-optical-psf-at-the-supersampled-pitch.md) left
+**Status:** Accepted. Fills the gap [ADR 0059](0059-mtf-conventions.md) left
 open: it fixed *where* the aberration Gaussian is applied and left *what it is* to the config,
 where it stayed zero on every camera.
 **Date:** 2026-09-22

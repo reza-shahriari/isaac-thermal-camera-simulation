@@ -1,6 +1,6 @@
 # ADR 0119 — The extrapolated emissivity fraction is reported, and decomposed
 
-**Status:** Accepted. Completes [ADR 0043](0043-emissivity-from-optical-data.md), which decided that
+**Status:** Accepted. Completes [ADR 0043](0043-hemispherical-vs-directional-emissivity.md), which decided that
 ε comes from the material's optical data and that `total_hemispherical_emissivity` should return
 how much of it rests on an extension of the nearest band — the returning was implemented and the
 reading never was.

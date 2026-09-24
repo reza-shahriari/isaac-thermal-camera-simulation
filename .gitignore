@@ -20,6 +20,10 @@ data/lut/*.npy
 data/lut/*.json
 data/lut/*.f32
 outputs/
+
+# The built site (`make site`). It is an artefact: the generator, the stylesheet and the
+# gallery manifest under site/ are tracked, the 20 MB of re-encoded media it produces is not.
+_site/
 *.usdc
 .DS_Store
 

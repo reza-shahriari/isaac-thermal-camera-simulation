@@ -1,7 +1,7 @@
 # ADR 0121 — A leaf is solved, not stepped, and has its own boundary layer
 
-**Status:** Accepted. Uses the latent term [ADR 0101](0101-the-latent-term-and-the-film.md) added and
-the stability guard [ADR 0094](0094-imex-for-conduction.md) introduced for `TC.1`; adds the first
+**Status:** Accepted. Uses the latent term [ADR 0101](0101-the-latent-term-and-a-wet-film-per-cell.md) added and
+the stability guard [ADR 0094](0094-imex-conduction-and-the-explicit-guard.md) introduced for `TC.1`; adds the first
 surface in this project whose boundary layer is *not* the bulk aerodynamic one.
 **Date:** 2026-09-22
 Roadmap: PH.11 (§6.1)
