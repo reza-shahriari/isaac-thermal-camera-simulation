@@ -386,12 +386,19 @@ and the frame came out as vertical streaks), and the march sizes its own step co
 geometry (a fixed 48 steps put samples 68 m apart across a 25 m grid, which drew bands along every
 cloud edge).
 
-One half of that does not work on this build, and the render says so rather than drawing nothing:
-Isaac Sim 6.1's **IndeX plugin refuses the NanoVDB grid** — "unable to create VDB subset" — even
-after its version stamp is matched to the plugin's own 32.7 and the file metadata's node and voxel
-counts are filled in from the tree. So `--cloud-deck` is the flag that works (the dome bakes the
-deck, both bands read one object) and `--cloud-volume` is off by default, kept because the
-artefact is what the AOV probe needs.
+One half of that does not work on this build, and `AT.13` has now found out why — which is not
+what the previous answer said. The grid is written with **the OpenVDB that ships inside Isaac
+Sim**: `omni.volume` carries OpenVDB 12 and NanoVDB bindings, importable outside Kit once the
+libraries they carry no RPATH for are preloaded, so there is no hand-stamped header and no
+back-filled file metadata any more, and writing a deck needs no GPU. It still does not render —
+and neither does a plain **cube carrying `OmniVolumeDensity` with no VDB file of any kind**, which
+is the measurement that matters: it was never our grid. In `PathTracing` the frames are
+*byte*-identical with and without the volume; in `RaytracedLighting` the difference sits below the
+denoiser's own floor. The MDL resolves, `carb.volume` and `usdVolImaging` load, and every setting
+reads back as set. `scripts/probe_cloud_volume.py` reproduces it in one command (ADR 0140).
+
+So `--cloud-deck` is the flag that works (the dome bakes the deck, both bands read one object) and
+`--cloud-volume` is off by default.
 
 Three limits of the deck, stated rather than left to be discovered. A cloud is still a **vertical
 extrusion** — a dome standing on the base plane, widest at the bottom — where a real cumulus bulges

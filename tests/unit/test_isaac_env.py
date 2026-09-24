@@ -105,6 +105,36 @@ def test_this_isaac_build_really_does_carry_an_importable_warp() -> None:
     assert env.has_warp()
 
 
+def test_force_no_openvdb_makes_the_probe_answer_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("IRSIM_FORCE_NO_OPENVDB", "1")
+    assert env.has_openvdb() is False
+    assert env.ensure_openvdb_on_path() is None
+
+
+def test_an_override_without_the_module_is_not_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A directory that merely exists is not an OpenVDB: the probe must look for the module, or a
+    caller gets a clean `sys.path` entry and an ImportError three frames later."""
+    monkeypatch.setenv("IRSIM_OPENVDB_PATH", str(tmp_path))
+    assert env.openvdb_extension_path() is None
+
+
+@pytest.mark.skipif(not env.has_isaac(), reason="no Isaac Sim build to look inside")
+def test_this_isaac_build_really_does_carry_an_importable_openvdb() -> None:
+    """**The finding ADR 0127 got wrong.** It recorded that there is no OpenVDB writer in this
+    environment, and the whole hand-built NanoVDB path followed from that. `omni.volume` ships
+    one; it is simply not importable until the shared libraries it names are preloaded and its
+    directory is on `sys.path`, which is what Kit would otherwise have done."""
+    assert env.openvdb_extension_path() is not None, env.isaac_root()
+    assert env.has_openvdb()
+
+    import openvdb  # noqa: PLC0415
+
+    assert openvdb.FILE_FORMAT_VERSION >= 224
+    assert hasattr(openvdb, "FloatGrid") and hasattr(openvdb, "write")
+
+
 # --- which GPU a render runs on ----------------------------------------------------------------
 
 

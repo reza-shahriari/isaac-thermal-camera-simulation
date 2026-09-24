@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `AI.4` is phase B, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 65 open steps
+#### Then, in order — 64 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`AI.4`** | AI | B | S | — | ready |
 | 2 | **`IG.16`** | IG | B | M | — | ready |
-| 3 | **`TC.8`** | TC | C | S | — | ready |
-| 4 | **`AT.17`** | AT | C | M | — | ready |
-| 5 | **`AT.6`** | AT | C | M | — | ready |
-| 6 | **`AT.9`** | AT | C | M | — | ready |
-| 7 | **`PT.16`** | PT | C | M | — | ready |
-| 8 | **`XD.10`** | XD | C | L | — | ready |
-| 9 | **`IG.3`** | IG | X | S | 3 | ready |
-| 10 | **`EV.5`** | EV | X | M | 3 | ready |
-| 11 | **`SC.5`** | SC | X | M | 3 | ready |
-| 12 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 13 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 14 | **`XD.7`** | XD | X | M | 2 | ready |
-| 15 | **`AT.13`** | AT | X | S | 1 | `IG.3` |
+| 3 | **`AT.14`** | AT | B | L | — | ready |
+| 4 | **`TC.8`** | TC | C | S | — | ready |
+| 5 | **`AT.17`** | AT | C | M | — | ready |
+| 6 | **`AT.6`** | AT | C | M | — | ready |
+| 7 | **`AT.9`** | AT | C | M | — | ready |
+| 8 | **`PT.16`** | PT | C | M | — | ready |
+| 9 | **`XD.10`** | XD | C | L | — | ready |
+| 10 | **`IG.3`** | IG | X | S | 3 | ready |
+| 11 | **`EV.5`** | EV | X | M | 3 | ready |
+| 12 | **`SC.5`** | SC | X | M | 3 | ready |
+| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 15 | **`XD.7`** | XD | X | M | 2 | ready |
 
-…and 50 more — `python scripts/next_step.py --queue 40`.
+…and 49 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -553,8 +553,8 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.12 | ✅ **done, one half in the engine.** `cloud_deck`: column depth at the LCL, each column given a top and the profile 6u(1−u), whose integral is the thickness — a vertical ray is ADR 0126 to the bit. LWIR marches it, the dome bakes it. The NanoVDB volume is written; **this build's IndeX plugin refuses it**. ADR 0127. | **Measured.** Cloud spans **19.7 K** against the sheet's 1.25 K; emission level **12–834 m** above base; largest bin 55 % → **40 %**. Three corrections: the angular field makes fins, 48 steps alias, every supersample costs 107 s/frame. 21 cases. | AT.11 | L | A |
 | AT.15 | ✅ **done.** The deck is a field of *towers*: column depth rises with the field's excess over the condensation threshold, clipped by the inversion, where it was a soft threshold — a flat-topped mesa. Band-limited at 400 m, tiled, marched by the **dome** too and lit by a two-stream reflectance in the same τ. ADR 0130. | **Measured.** Largest 0.25 K bin **53.9 % → 39.6 % → 6.4 %**; in-cloud spread **28.8 K**; dome/LWIR coverage was 26 % / 57 % of the same pixels, now identical. Step size carries the error, not stride: 0.073 → 0.029 for 3x. 25 cases. | AT.12 | M | A |
 | AT.16 | ✅ **done.** The thermal solver's weather is synthesised from the *same* weather-fx state the sky is drawn from: `diurnal_series` there, `weather_series_from_state` here, injected through `Scene.from_config(weather_override=)`. `--weather-csv` keeps the measured file. ADR 0136. | **Measured.** Irradiance from the real sun elevation with Kasten-Czeplak cloud attenuation: overcast keeps 25 % of the global and broken cloud *raises* diffuse above clear. Air anchored on the state's own hour, floored at the dew point. 36 + 13 tests. | AT.15 | M | A |
-| AT.13 | **Get a volume into this build at all, then probe the AOVs.** AT.12 writes a NanoVDB that Warp reads back with the right name, type and bounds, and IndeX still refuses it after both the version stamp and the metadata counts are fixed. Then: a volume is not a surface, so a ray through cloud may report no hit at all. | First a volume that loads, or NVIDIA's answer on why not. Then one cube and a flat target behind it, `PathTracing`, with depth, instance, alpha and the **Volumes** AOV dumped: the volume appears in a named plane, or the refusal is recorded. | AT.12, IG.3 | S | X |
-| AT.14 | **Volumetric infrared: per-ray optical depth from the engine.** Replace AT.12's analytic march with the renderer's own integration, so the cloud the infrared band integrates is the cloud the path tracer lit. The band-dependent half stays ours: an MDL volume material carries no thermal absorption coefficient. | A frame in which an aircraft passes **behind** a cloud and is attenuated by that cloud's own optical depth, against today, where a target is never occluded by cloud. AT.12's march stays the oracle, agreeing to a stated tolerance. | AT.13 | L | B |
+| AT.13 | ✅ **done, and the answer is no.** OpenVDB 12 ships inside Isaac Sim's `omni.volume`, so `write_openvdb` replaces the hand-stamped NanoVDB — no GPU, no Kit. **Nothing volumetric renders through a Replicator render product here**, and a cube carrying `OmniVolumeDensity` with no file is equally invisible. ADR 0140. | **Measured** against a rendered noise floor: `PathTracing` is byte-identical with and without the volume; `RaytracedLighting` moves 0.131 against a 0.081 floor. MDL resolves, extensions load. | AT.12, IG.3 | S | X |
+| AT.14 | **Volumetric infrared: per-ray optical depth from the engine.** *Blocked: AT.13 found nothing volumetric renders here.* Replace AT.12's analytic march with the renderer's own integration, so the cloud the infrared band integrates is the cloud the path tracer lit. | A frame in which an aircraft passes **behind** a cloud and is attenuated by that cloud's own optical depth, against today, where a target is never occluded by cloud. AT.12's march stays the oracle, agreeing to a stated tolerance. | AT.13 | L | B |
 | AT.17 | **Surface state becomes a named property (§4.5).** Every material names `surface_treatment` and cites the state its ε was measured on; `bare_aluminium` — labelled *polished*, valued *oxidised* — splits into polished 0.04, oxidised 0.09 and anodised 0.85 [R39]. | Red today: the file says polished, `directional.py` says oxidised, and measurement puts those 2.25× apart at 8 µm. After: every material names a state, and the three aluminiums share ρ, c_p and k while spanning ≥ 0.7 in ε — so a file copied without changing its optics fails. | — | M | C |
 | AT.18 | ✅ **done.** `*metal*`/`*alumin*` point at the matte entry and the `aircraft` class at painted skin; `*chrome*` is deleted, not redirected — `phantom4.yaml` settled its chrome from the shader's metallic 0.987, not the name. `audit(…, emissivity=)` fails a prim reaching ε < 0.2 by glob or class; only an asset map or an override may. | **Measured.** A 300 K housing under a 250 K sky reads **40.1 K** apart on a top-hat (38.0 K on the Boson response), **800 × NETD**, and the mirror reports the sky, not itself. Phantom 4 bare coverage 48.8 → **43.9 %**. 27 cases. | — | S | A |
 ---

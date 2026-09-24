@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **The cloud deck is written with the OpenVDB that ships inside Isaac Sim** (AT.13, ADR 0140).
+  `irsim_isaac.env.ensure_openvdb_on_path` makes `omni.volume`'s OpenVDB 12 and NanoVDB bindings
+  importable outside Kit — preload the libraries they carry no RPATH for, add the directory to
+  `sys.path` — and `cloud_volume.write_openvdb` uses them: named grid, fog-volume class, stats
+  metadata, sparse to 14 % occupancy, **no GPU and no Kit**, where the old NanoVDB path needed a
+  CUDA device to write a file. ADR 0127's premise that "there is no OpenVDB writer in this
+  environment" was wrong, and the hand-stamped grid header and back-filled file metadata followed
+  from it. `UsdVol.Volume` now also carries an `extent`, without which it has no bounding box and
+  is culled silently.
+- `scripts/probe_cloud_volume.py` — AT.13's probe. Renders the scene with and without the volume
+  and differences them, against a **noise floor measured by rendering the empty scene twice**.
+
+### Fixed
+- **No volume renders through a Replicator render product on this build, and it was never our
+  grid** (AT.13, ADR 0140). A `UsdGeom.Cube` carrying `OmniVolumeDensity` with no VDB file of any
+  kind is as invisible as the cloud is. In `PathTracing` the frames are *byte*-identical with and
+  without, which rules out a faint render; in `RaytracedLighting` the difference (0.131) sits
+  below the denoiser's own floor (0.081). The MDL resolves, `carb.volume` and `usdVolImaging`
+  load, and every setting reads back as set. AT.14 is blocked behind it: whether a volume reaches
+  `distance_to_camera` cannot be asked while nothing volumetric draws.
+
 ### Changed
 - **The project site has a front door** (ADR 0141). ADR 0139 got the depth right — 457 pages, the
   specification, every test with what it asserts, the catalogues measured from the tree at build

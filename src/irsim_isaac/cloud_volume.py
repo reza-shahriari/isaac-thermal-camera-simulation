@@ -7,18 +7,19 @@ could not move relative to it and no ray had a length within it. This module put
 :class:`~irsim.atmosphere.cloud_deck.CloudDeck` the infrared band marches into the stage as a
 participating medium, so the path tracer integrates the field the radiometry integrates.
 
-**Why NanoVDB and not OpenVDB.** There is no OpenVDB writer in this environment -- no `pyopenvdb`
-on any interpreter here, and the format is not something to hand-roll -- but Isaac Sim ships
-`omni.warp.core`, and `warp.Volume` round-trips a dense NumPy array to a `.nvdb` file. Omniverse
-documents `.nvdb` as loadable beside `.vdb`, and `UsdVol.OpenVDBAsset` is the prim either goes on.
-That last sentence is the one piece of this module that public documentation does not settle for
-Isaac Sim 6.0, and it is **verified by rendering**: if the volume does not load, the visible frame
-comes back with no cloud in it, which is loud rather than subtle.
+**OpenVDB is the writer; NanoVDB is the fallback.** ADR 0127 wrote this module on the premise
+that "there is no OpenVDB writer in this environment", and everything painful about it followed
+from that: the deck was voxelised through `warp.Volume`, whose grid header had to be re-stamped
+to a NanoVDB version the renderer accepts, whose file metadata had to be back-filled by hand out
+of the tree, and which the renderer refused anyway. **The premise was wrong.** Isaac Sim's
+`omni.volume` extension ships a full OpenVDB 12 binding (file format 224) and a NanoVDB one, and
+`irsim_isaac.env.ensure_openvdb_on_path` makes them importable outside Kit. :func:`write_openvdb`
+therefore writes a real `.vdb` with the library that defines the format -- named grid, fog-volume
+class, linear transform, stats metadata -- and none of the hand-patching applies to it.
 
-**The grid is named**, because `UsdVol.Volume`'s field relationship binds by name and Warp's
-allocator leaves the name empty. The name is written into the NanoVDB grid header before the file
-is saved, and the header's checksum is set to NanoVDB's own "not computed" sentinel rather than
-left stale -- a stale checksum is exactly the kind of thing a loader is entitled to reject.
+:func:`write_nanovdb` is kept because a `.nvdb` is still the cheaper thing for Warp itself to read
+back and because the two fixes in it are correct, but it is no longer the path a renderer is
+handed. ADR 0140 records the switch.
 
 **Units.** The grid carries *visible extinction per metre*, which is what
 :meth:`CloudDeck.density_at` returns, so the material's density multiplier is 1 and the column
@@ -42,10 +43,11 @@ from typing import Any
 import numpy as np
 
 from irsim.atmosphere.cloud_deck import DEFAULT_CELL_M, CloudDeck
-from irsim_isaac.env import ensure_warp_on_path
+from irsim_isaac.env import ensure_openvdb_on_path, ensure_warp_on_path
 
 __all__ = [
     "DENSITY_GRID_NAME",
+    "write_openvdb",
     "NANOVDB_NO_CHECKSUM",
     "INDEX_NANOVDB_VERSION",
     "CloudVolume",
@@ -109,18 +111,28 @@ class CloudVolume:
     #: ``(written, as generated)`` NanoVDB grid versions. They differ when the renderer's IndeX
     #: plugin is behind the bundled Warp; see :data:`INDEX_NANOVDB_VERSION`.
     nanovdb_version: tuple[tuple[int, int, int], tuple[int, int, int]] = ((0, 0, 0), (0, 0, 0))
+    #: Voxels the sparse tree actually stores. Zero when the writer did not report it (NanoVDB).
+    active_voxels: int = 0
+
+    @property
+    def occupancy(self) -> float:
+        """Stored voxels over the dense box -- what makes a sparse format worth using."""
+        dense = int(self.shape[0]) * int(self.shape[1]) * int(self.shape[2])
+        return float(self.active_voxels) / dense if dense and self.active_voxels else 0.0
 
     @property
     def caption(self) -> str:
         nx, ny, nz = self.shape
         written, generated = self.nanovdb_version
-        stamp = ".".join(str(v) for v in written)
-        if written != generated:
-            stamp += " (Warp wrote " + ".".join(str(v) for v in generated) + ")"
+        if self.path.suffix == ".vdb":
+            stamp = f"OpenVDB, {self.active_voxels:,} active ({self.occupancy:.1%})"
+        else:
+            stamp = "NanoVDB " + ".".join(str(v) for v in written)
+            if written != generated:
+                stamp += " (Warp wrote " + ".".join(str(v) for v in generated) + ")"
         return (
             f"{nx}x{ny}x{nz} voxels at {self.voxel_m:g} m "
-            f"({self.file_bytes / 1e6:.1f} MB), peak {self.max_density_per_m:.5f} /m, "
-            f"NanoVDB {stamp}"
+            f"({self.file_bytes / 1e6:.1f} MB), peak {self.max_density_per_m:.5f} /m, {stamp}"
         )
 
 
@@ -183,6 +195,67 @@ def write_nanovdb(
         max_density_per_m=float(grid.max()),
         file_bytes=out.stat().st_size,
         nanovdb_version=versions,
+    )
+
+
+def write_openvdb(
+    deck: CloudDeck,
+    path: Any,
+    *,
+    voxel_m: float = DEFAULT_CELL_M,
+    grid_name: str = DENSITY_GRID_NAME,
+    tolerance: float = 1e-4,
+) -> CloudVolume:
+    """Voxelise ``deck`` and write it as a named OpenVDB fog volume.
+
+    No GPU and no Kit: :meth:`CloudDeck.voxels` is engine-free NumPy and OpenVDB is a CPU library,
+    so this runs on the unit gate. That is the point of preferring it -- the old NanoVDB path
+    needed a CUDA device to *write a file*, because `warp.Volume.load_from_numpy` is CUDA-only.
+
+    ``tolerance`` is what `copyFromArray` treats as background. It is not cosmetic: a fog volume
+    is sparse, and a grid whose empty space is stored as 1e-30 rather than as absence is dense in
+    every way that costs memory. At the deck's usual cover the field is about **14 % occupied**,
+    so the tolerance is the difference between a megabyte and eight.
+    """
+    ensure_openvdb_on_path()
+    import openvdb  # noqa: PLC0415  -- engine glue, deliberately not imported at module scope
+
+    grid_array, min_world = deck.voxels(voxel_m)
+    out = pathlib.Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    grid = openvdb.FloatGrid()
+    grid.name = grid_name
+    grid.gridClass = openvdb.GridClass.FOG_VOLUME
+    # Index space is the array's own (X, Y, Z), so the transform is a scale by the voxel size and
+    # a translation putting index (0, 0, 0) at the deck's minimum corner in stage metres. Written
+    # as a matrix rather than by composing operations, because the order of `preScale` against
+    # `postTranslate` is exactly the kind of thing that silently puts a cloud underground.
+    transform = openvdb.createLinearTransform(
+        [
+            [float(voxel_m), 0.0, 0.0, 0.0],
+            [0.0, float(voxel_m), 0.0, 0.0],
+            [0.0, 0.0, float(voxel_m), 0.0],
+            [float(min_world[0]), float(min_world[1]), float(min_world[2]), 1.0],
+        ]
+    )
+    grid.transform = transform
+    grid.copyFromArray(np.ascontiguousarray(grid_array), tolerance=float(tolerance))
+    # **The counts the renderer asked for, written by the library that owns them.** IndeX
+    # reported "failed to generate VDB subset grid storage" against a Warp grid whose voxel, node
+    # and tile counts were zero; `addStatsMetadata` is OpenVDB's own way to put them in the file,
+    # so a consumer reading metadata alone sizes its storage correctly.
+    grid.addStatsMetadata()
+    openvdb.write(str(out), grids=[grid])
+
+    return CloudVolume(
+        path=out,
+        voxel_m=float(voxel_m),
+        shape=(int(grid_array.shape[0]), int(grid_array.shape[1]), int(grid_array.shape[2])),
+        min_world_m=(float(min_world[0]), float(min_world[1]), float(min_world[2])),
+        max_density_per_m=float(grid_array.max()),
+        file_bytes=out.stat().st_size,
+        active_voxels=int(grid.activeVoxelCount()),
     )
 
 
@@ -276,6 +349,7 @@ def author_cloud_volume(
     grid_name: str = DENSITY_GRID_NAME,
     albedo: float = 0.96,
     density_multiplier: float = 1.0,
+    with_material: bool = True,
 ) -> Any:
     """Define a `UsdVol.Volume` at ``prim_path`` bound to ``volume``'s grid, and shade it.
 
@@ -296,6 +370,18 @@ def author_cloud_volume(
     asset.CreateFilePathAttr(Sdf.AssetPath(str(volume.path)))
     asset.CreateFieldNameAttr(grid_name)
     prim.CreateFieldRelationship(grid_name, asset.GetPath())
+    # **A volume with no extent has no bounding box, and a prim with no bounding box is culled.**
+    # `UsdVol.Volume` is `Boundable`, and unlike a mesh it has no points for USD to fall back on:
+    # the bounds live inside a file the scene delegate has not opened yet. Authoring them is not
+    # optional, and leaving them out fails the way that is hardest to diagnose -- no error, no
+    # warning, and a frame that renders correctly without the cloud in it.
+    low = volume.min_world_m
+    high = tuple(low[i] + volume.shape[i] * volume.voxel_m for i in range(3))
+    prim.CreateExtentAttr([Gf.Vec3f(*(float(v) for v in low)), Gf.Vec3f(*(float(v) for v in high))])
+    if not with_material:
+        # Unshaded, so a probe can tell "the grid did not load" from "the grid loaded and the
+        # material did not": those two failures look identical in a frame and are different bugs.
+        return prim.GetPrim()
 
     material = UsdShade.Material.Define(stage, f"{prim_path}/Material")
     shader = UsdShade.Shader.Define(stage, f"{prim_path}/Material/Shader")

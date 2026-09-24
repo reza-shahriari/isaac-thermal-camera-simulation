@@ -89,6 +89,11 @@ module = [
     "isaacsim.*",
     "warp.*",
     "carb.*",
+    # OpenVDB and NanoVDB ship as compiled extension modules inside Isaac Sim's `omni.volume`
+    # (ADR 0140), with no stubs and no presence on `sys.path` until `ensure_openvdb_on_path`
+    # puts them there. Imported lazily inside `cloud_volume.write_openvdb` and nowhere else.
+    "openvdb.*",
+    "nanovdb.*",
     # ROS 2 is a system-level install (sourced setup.bash), not a pip package this project can
     # depend on, so it is never present for a type check. M10.10b's bridge imports it lazily in
     # exactly one function and everything else about the messages is checked without it.

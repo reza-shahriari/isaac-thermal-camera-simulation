@@ -21,6 +21,7 @@ is appended only when `warp` does not already resolve.
 
 from __future__ import annotations
 
+import ctypes
 import importlib
 import importlib.util
 import os
@@ -31,11 +32,15 @@ from typing import Any
 __all__ = [
     "render_device",
     "GPU_ENV_VAR",
+    "ensure_openvdb_on_path",
     "ensure_warp_on_path",
     "has_isaac",
+    "has_openvdb",
     "has_warp",
     "isaac_root",
+    "openvdb_extension_path",
     "require_isaac",
+    "require_openvdb",
     "require_warp",
     "simulation_app_config",
     "warp_extension_path",
@@ -43,6 +48,15 @@ __all__ = [
 
 #: The extension cache entry that holds the Warp package (`omni.warp.core-<version>+<platform>`).
 WARP_EXTENSION_GLOB = "extscache/omni.warp.core-*"
+
+#: The extension cache entry that holds the OpenVDB and NanoVDB Python bindings.
+VOLUME_EXTENSION_GLOB = "extscache/omni.volume-*"
+
+#: Shared libraries `openvdb.cpython-*.so` is linked against, in dependency order. The module
+#: carries **no RPATH**, so nothing resolves them unless they are already in the process; the
+#: alternative is making every caller export `LD_LIBRARY_PATH` before Python starts, which a
+#: library cannot do for itself.
+VOLUME_PRELOAD_LIBS = ("libtbb.so.12", "libtbbmalloc.so.2", "libopenvdb.so.12.0")
 
 
 def _spec_present(name: str) -> bool:
@@ -128,6 +142,79 @@ def has_warp() -> bool:
         return True
     ensure_warp_on_path()
     return _spec_present("warp")
+
+
+def openvdb_extension_path() -> Path | None:
+    """Directory to put on `sys.path` so that `import openvdb` resolves, or None if there is none.
+
+    `$IRSIM_OPENVDB_PATH` overrides the search. Otherwise the build's extension cache is globbed
+    for `omni.volume`, which is where Isaac Sim keeps OpenVDB and NanoVDB.
+    """
+    override = os.environ.get("IRSIM_OPENVDB_PATH")
+    if override:
+        candidate = Path(override)
+        return candidate if _has_openvdb_module(candidate) else None
+    root = isaac_root()
+    if root is None:
+        return None
+    found = [p for p in sorted(root.glob(VOLUME_EXTENSION_GLOB)) if _has_openvdb_module(p)]
+    return found[-1] if found else None
+
+
+def _has_openvdb_module(directory: Path) -> bool:
+    return any(directory.glob("openvdb*.so")) or (directory / "openvdb" / "__init__.py").is_file()
+
+
+def ensure_openvdb_on_path() -> Path | None:
+    """Make `import openvdb` resolve outside Kit; returns the directory added, else None.
+
+    **This is why `irsim_isaac.cloud_volume` no longer hand-builds a NanoVDB grid.** ADR 0127
+    recorded that "there is no OpenVDB writer in this environment -- no `pyopenvdb` on any
+    interpreter here", and on that premise the deck was voxelised through Warp, whose grid header
+    then had to be re-stamped and whose file metadata had to be back-filled by hand, and which
+    the renderer refused anyway. The premise is wrong on this build: `omni.volume` ships a full
+    OpenVDB 12 binding (file format 224) and a NanoVDB one beside it. They are simply not
+    importable until someone does the two things Kit would have done -- preload the shared
+    libraries the extension module names but cannot find, and put the directory on `sys.path`.
+
+    Idempotent, and a no-op when `openvdb` already resolves, so a pip copy is never shadowed.
+    Preloading opens shared libraries but imports nothing and starts no Kit application, so this
+    stays safe on a machine with no GPU.
+    """
+    if os.environ.get("IRSIM_FORCE_NO_OPENVDB") == "1" or _spec_present("openvdb"):
+        return None
+    ext = openvdb_extension_path()
+    if ext is None:
+        return None
+    for name in VOLUME_PRELOAD_LIBS:
+        library = ext / "bin" / name
+        if library.is_file():
+            # RTLD_GLOBAL so the extension module's own NEEDED entries resolve against these.
+            ctypes.CDLL(str(library), mode=ctypes.RTLD_GLOBAL)
+    entry = str(ext)
+    if entry not in sys.path:
+        sys.path.append(entry)
+    importlib.invalidate_caches()
+    return ext
+
+
+def has_openvdb() -> bool:
+    """True when the OpenVDB Python binding is importable (does not check for a GPU)."""
+    if os.environ.get("IRSIM_FORCE_NO_OPENVDB") == "1":
+        return False
+    if _spec_present("openvdb"):
+        return True
+    ensure_openvdb_on_path()
+    return _spec_present("openvdb")
+
+
+def require_openvdb() -> None:
+    if not has_openvdb():
+        raise RuntimeError(
+            "This code path needs OpenVDB. It ships inside Isaac Sim's `omni.volume` extension: "
+            "run through the Isaac Sim interpreter, or point $IRSIM_OPENVDB_PATH at a directory "
+            "containing an `openvdb` Python module (docs/decisions/0140)."
+        )
 
 
 def require_isaac() -> None:
