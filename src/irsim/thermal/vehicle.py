@@ -179,6 +179,19 @@ class SourceHistory:
         """Advance to ``state.t_s`` under a load fraction in [0, 1]; return ΔT over ambient."""
         if not 0.0 <= load <= 1.0:
             raise ValueError("load must lie in [0, 1]")
+        return self.step_to_target(state, self.spec.delta_t_max_k * load**self.spec.load_exponent)
+
+    def step_to_target(self, state: VehicleState, target_k: float) -> float:
+        """Advance to ``state.t_s`` toward an explicit steady rise; return ΔT over ambient.
+
+        :meth:`step` derives its target from a duty fraction, which is the right statement for an
+        engine bay. A tyre is not a duty fraction: §6.6 gives it as a relation in *speed*, and
+        `TC.8` drives it from one along a :class:`VehicleState` trace. Both go through this
+        method, so the exact-exponential integration and the rise/cool choice by **direction**
+        exist once. A second copy of that step is a second copy of §6.6 that can drift (ADR 0089).
+        """
+        if target_k < 0.0:
+            raise ValueError("a rise over ambient cannot be negative")
         if self._last_t_s is None:
             self._last_t_s = state.t_s
             return self.delta_t_k
@@ -186,11 +199,10 @@ class SourceHistory:
         if dt < 0.0:
             raise ValueError("a vehicle trace must move forward in time")
         self._last_t_s = state.t_s
-        target = self.spec.delta_t_max_k * load**self.spec.load_exponent
-        tau = self.spec.tau_rise_s if target > self.delta_t_k else self.spec.tau_cool_s
+        tau = self.spec.tau_rise_s if target_k > self.delta_t_k else self.spec.tau_cool_s
         # exact exponential step, so the result does not depend on the trace's sample spacing
         alpha = 1.0 - math.exp(-dt / tau)
-        self.delta_t_k += alpha * (target - self.delta_t_k)
+        self.delta_t_k += alpha * (target_k - self.delta_t_k)
         return self.delta_t_k
 
 

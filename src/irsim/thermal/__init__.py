@@ -42,6 +42,14 @@ from irsim.thermal.coupling import (
     cell_overlap_areas,
     contactor_conductances,
 )
+from irsim.thermal.drive_cycle import (
+    DriveCycle,
+    WheelHistory,
+    WheelSpec,
+    WheelTemperatures,
+    brake_energy_share,
+    passenger_car_wheels,
+)
 from irsim.thermal.layers import LayerStack, layered_field
 from irsim.thermal.longwave import (
     clear_sky_emissivity,
@@ -109,6 +117,12 @@ __all__ = [
     "throttle_profile",
     "PlanarPatch",
     "RadiantRectangle",
+    "DriveCycle",
+    "WheelHistory",
+    "WheelSpec",
+    "WheelTemperatures",
+    "brake_energy_share",
+    "passenger_car_wheels",
     "corner_view_factor",
     "occluded_longwave_flux",
     "patch_view_factors",

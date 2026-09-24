@@ -84,6 +84,17 @@ EZ = np.array([0.0, 0.0, 1.0])
 BAY_CAVITY_EMISSIVITY = 0.95
 #: A dirty painted underbody. ESTIMATED.
 UNDERBODY_EMISSIVITY = 0.88
+#: Tread rubber, which is close to a blackbody in the infrared. ESTIMATED but well constrained.
+TYRE_EMISSIVITY = 0.94
+#: A cast-iron brake disc: oxidised and rusty within a day of use, never the polished 0.1 of
+#: bare iron. ESTIMATED.
+DISC_EMISSIVITY = 0.80
+#: How much of the tread sits under the arch and radiates into it, as a half-extent along the
+#: car's length. The tyre's contact patch faces the road; this is the crown above it.
+ARCH_TREAD_HALF_LENGTH_M = 0.14
+#: The disc face a camera beside the car sees through the spokes -- a 300 mm disc's outer
+#: annulus, as a square of equal area rather than an annulus this model does not carry.
+DISC_HALF_EXTENT_M = 0.11
 
 
 @dataclass(frozen=True)
@@ -216,6 +227,69 @@ class CarGeometry:
             half_v_m=self.bay_half_length_m,
             emissivity=BAY_CAVITY_EMISSIVITY,
         )
+
+    def wheel_arch_radiators(self) -> tuple[tuple[str, RadiantRectangle], ...]:
+        """What a wheel radiates, per corner, paired with the drive-cycle source that heats it.
+
+        `TC.8`. Two rectangles per corner, because a thermal camera sees two different things at a
+        wheel and they are hot for different reasons:
+
+        * ``<corner>_tyre`` is the crown of the tread, facing **up** into the arch. It radiates at
+          the tyre temperature, which is a long-constant relation in speed (§6.6), and it is what
+          makes the arch panel above it warmer than the door beside it after a drive.
+        * ``<corner>_disc`` is the brake disc's outboard face, seen edge-on through the wheel and
+          facing **outboard**. It radiates at the disc temperature, which is an energy deposit
+          and can be hundreds of kelvin after one hard stop (ADR 0038).
+
+        The names match `irsim.thermal.drive_cycle.passenger_car_wheels`, so a driver pairs them
+        by name rather than by index -- an index would put the front-left disc's temperature on
+        whichever corner happened to be authored first.
+        """
+        half_len = 0.5 * self.length_m
+        wheel_z = half_len - 1.05
+        wheel_x = 0.5 * self.width_m - 0.5 * self.wheel_width_m
+        out: list[tuple[str, RadiantRectangle]] = []
+        for name, sx, sz in (
+            ("wheel_fl", -1.0, -1.0),
+            ("wheel_fr", 1.0, -1.0),
+            ("wheel_rl", -1.0, 1.0),
+            ("wheel_rr", 1.0, 1.0),
+        ):
+            centre_x = sx * wheel_x
+            centre_z = sz * wheel_z
+            out.append(
+                (
+                    f"{name}_tyre",
+                    RadiantRectangle(
+                        centre_m=np.array([centre_x, 2.0 * self.wheel_radius_m - 0.02, centre_z]),
+                        u_axis=EX,
+                        v_axis=EZ,
+                        half_u_m=0.5 * self.wheel_width_m,
+                        half_v_m=ARCH_TREAD_HALF_LENGTH_M,
+                        emissivity=TYRE_EMISSIVITY,
+                    ),
+                )
+            )
+            out.append(
+                (
+                    f"{name}_disc",
+                    RadiantRectangle(
+                        centre_m=np.array(
+                            [
+                                centre_x + sx * 0.5 * self.wheel_width_m,
+                                self.wheel_radius_m,
+                                centre_z,
+                            ]
+                        ),
+                        u_axis=EZ,
+                        v_axis=EY,
+                        half_u_m=DISC_HALF_EXTENT_M,
+                        half_v_m=DISC_HALF_EXTENT_M,
+                        emissivity=DISC_EMISSIVITY,
+                    ),
+                )
+            )
+        return tuple(out)
 
     def shadow_casters(self) -> tuple[ShadowRectangle, ...]:
         """The car as the sun sees it: the faces of its shell, bonnet and cabin boxes (PT.18).

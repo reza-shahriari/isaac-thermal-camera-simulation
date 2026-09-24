@@ -6,6 +6,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A driving vehicle's wheels, driven from a `VehicleState` trace** (TC.8, ADR 0089 addendum).
+  `irsim.thermal.drive_cycle` gives each corner a brake disc and a tyre and walks them along a
+  trace: the disc takes its axle's share of `f·½m(v₁²−v₂²)` as an instantaneous deposit and cools
+  at §6.6's 300 s, the tyre relaxes toward the speed relation with its own 1200/1800 s constants.
+  `brake_temperature_rise_k` and `tyre_delta_t_k` had been implemented since M6.14 with **no
+  caller outside their own unit tests**, so no frame this project has rendered has ever contained
+  a warm brake. `SourceHistory` gained `step_to_target`, so §6.6's exact-exponential step and its
+  rise/cool choice by direction still exist in exactly one place. `car_demo` authors a tread and a
+  disc rectangle per corner, named to pair with the drive cycle's corners.
+  Measured: 40 minutes at 27 m/s puts the tyre **28.1 K** over ambient and the arch liner 0.12 m
+  above it receives **285.9 W/m²** against the door's **0.11 W/m²**; a 1600 kg stop from 30 m/s
+  deposits **162 K** into an 8 kg disc and four times that from 60 m/s.
+- **A parked car now has cold wheels**, which §6.6 as written does not give. Its "+10 … +35 K,
+  rises with speed" describes a *rolling* tyre, and reading the relation literally at v = 0 gives
+  every car in every car park a +10 K wheel. Tyre heating is flexing work, so the drive cycle
+  targets zero when stopped and lets the tyre forget over its own 1800 s — a car that has just
+  pulled up is warm, one that parked an hour ago is not. The departure is recorded in ADR 0089.
 - **One prim per material, so a multi-material mesh can render as what it is** (AI.6).
   `irsim.io.asset_material_split` plans the split engine-free — which faces, what the pieces are
   called, and the **area** a render gets wrong without it — and `prep_asset.py

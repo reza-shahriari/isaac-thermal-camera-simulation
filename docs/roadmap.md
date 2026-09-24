@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.16` is phase B, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 62 open steps
+#### Then, in order — 61 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.16`** | IG | B | M | — | ready |
 | 2 | **`AT.14`** | AT | B | L | — | ready |
-| 3 | **`TC.8`** | TC | C | S | — | ready |
-| 4 | **`AT.17`** | AT | C | M | — | ready |
-| 5 | **`AT.6`** | AT | C | M | — | ready |
-| 6 | **`AT.9`** | AT | C | M | — | ready |
-| 7 | **`PT.16`** | PT | C | M | — | ready |
-| 8 | **`XD.10`** | XD | C | L | — | ready |
-| 9 | **`IG.3`** | IG | X | S | 3 | ready |
-| 10 | **`EV.5`** | EV | X | M | 3 | ready |
-| 11 | **`SC.5`** | SC | X | M | 3 | ready |
-| 12 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 13 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 14 | **`XD.7`** | XD | X | M | 2 | ready |
-| 15 | **`IG.4`** | IG | X | S | 1 | ready |
+| 3 | **`AT.17`** | AT | C | M | — | ready |
+| 4 | **`AT.6`** | AT | C | M | — | ready |
+| 5 | **`AT.9`** | AT | C | M | — | ready |
+| 6 | **`PT.16`** | PT | C | M | — | ready |
+| 7 | **`XD.10`** | XD | C | L | — | ready |
+| 8 | **`IG.3`** | IG | X | S | 3 | ready |
+| 9 | **`EV.5`** | EV | X | M | 3 | ready |
+| 10 | **`SC.5`** | SC | X | M | 3 | ready |
+| 11 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 12 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 13 | **`XD.7`** | XD | X | M | 2 | ready |
+| 14 | **`IG.4`** | IG | X | S | 1 | ready |
+| 15 | **`AT.8`** | AT | C | M | — | `IG.4` |
 
-…and 47 more — `python scripts/next_step.py --queue 40`.
+…and 46 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -488,7 +488,7 @@ closed by an analytic check; the frames of `TC.6` are the in-engine half and wai
 | TC.5 | ✅ **done.** `irsim.thermal.engine`: block + coolant, bay air, rubber mounts, subframe on the TC.2 network; heat = P_rated · load · bay_fraction; forced → natural convection and venting at key-off; `solver: engine` reports the bay air as the bonnet's cavity. ADR 0100 supersedes ADR 0089 for the bay. | **Measured.** From 93 °C at 27 °C: +32.3 K after 1 h (schedule: 9 K), +0.92 K after 7 h; full load +53.7 K; bay air overshoots +27 K peaking 145 s after key-off; the bonnet over the block keeps warming ~23 min (not 60–120 s, the manifold-skin figure: TC.7). 7 cases. | — | M | P |
 | TC.6 | ✅ **done.** Both car scenes: `solver: engine` (coolant loop + proportional thermostat) plus `nodes:`/`links:` — block followed as a boundary, rubber mounts, subframe, a bolted bracket whose fan convection stops at key-off, the wing on two bolts; key on 30 s, off 20 min. ADR 0100 addendum. | **Measured.** A bracket on a fixed block reaches 1 − e⁻¹ at τ = C/(G+hA) and settles at G/(G+hA) to 1e-6; parts warm block → bracket → mounts → wing; the overcast bonnet is 18 K max–min at 1500 s and warms 6 K more after key-off. Bonnet by contactor deferred. Frames need IG.2. | — | M | P |
 | TC.7 | ✅ **done.** `irsim.thermal.exhaust_line`: the gas marched segment by segment (exact `exp(−NTU)`, Dittus–Boelter h_i) as links into wall nodes of the S42 network; outside h forced/natural with motion, radiation to pan and road, hangers 1 W/K, an inner mass for catalyst and silencer, a heat shield node; `solver: exhaust` from YAML (ADR 0105). | **Measured.** March vs closed form 1e-6; gas heat = ṁc_p ΔT to 1e-9. 60 % load: manifold 557 → tail 368 °C, hangers 40–50 K cold. Key-off: shield 287 → 347 °C at +65 s, < 260 °C 5.3 min on; shell peaks +65 s (270 °C, not 400). | TC.6 | M | P |
-| TC.8 | **Wheel arches and brakes reach a frame.** A `RadiantRectangle` per wheel well carries the tyre and brake sources `vehicle.py` already computes but nothing calls; the closed-form brake deposit and the speed-driven tyre rise are driven from a `VehicleState` trace, as ADR 0089 asks. | Red today: zero callers for `brake_temperature_rise_k` and `tyre_delta_t_k`. After a drive cycle the arch cells nearest the tyre are > 2 K warmer than the door; a 1600 kg stop from 30 m/s deposits 162 K into an 8 kg disc and four times that from 60 m/s (ADR 0038). | TC.6 | S | C |
+| TC.8 | ✅ **done.** `irsim.thermal.drive_cycle` walks a `VehicleState` trace: the disc takes its axle's share of ½m(v₁²−v₂²) and cools at τ 300 s, the tyre relaxes toward §6.6's speed relation, and `car_demo` authors a tread and a disc rectangle per corner. `SourceHistory` gained `step_to_target` so §6.6's step still exists once. ADR 0089 addendum. | **Measured.** 40 min at 27 m/s puts the tyre **28.1 K** over ambient; the arch 0.12 m above it takes **285.9 W/m²** against the door's 0.11. A 1600 kg stop from 30 m/s deposits **162 K** into an 8 kg disc, 4× from 60. 15 tests. | TC.6 | S | C |
 
 ---
 

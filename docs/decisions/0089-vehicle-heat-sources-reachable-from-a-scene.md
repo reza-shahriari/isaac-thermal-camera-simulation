@@ -71,3 +71,42 @@ with it; `MIN_SCENE_SCHEMA_VERSION` stays at 4, so every older file still loads.
 A scene needs a driving vehicle, at which point the tyre and brake models want to be driven from a
 `VehicleState` trace (speed, braking) rather than from a duty fraction — the trace type already
 exists and `SourceHistory.step` already takes one.
+
+## Addendum (`TC.8`, 2026-09-24): the trace arrives, and a parked car has cold wheels
+
+"Revisit when a scene needs a driving vehicle" is now. `irsim.thermal.drive_cycle` walks a
+`VehicleState` trace and drives the two models this ADR told scenes not to reach through
+`vehicle_source`: the brake disc as an energy deposit and the tyre as a relation in speed. Until
+it, `brake_temperature_rise_k` and `tyre_delta_t_k` had **no caller outside their own unit tests**,
+so no frame this project has rendered has ever contained a warm brake.
+
+Three decisions worth recording, because each has a plausible alternative:
+
+**1. The integration still exists once.** `SourceHistory` gained `step_to_target`, and its old
+`step` is now that method with a load-derived target. A tyre's target is not a duty fraction, so
+the alternative was a second exact-exponential step inside the drive cycle — which is the second
+copy of §6.6 this ADR's Decision section exists to prevent.
+
+**2. The disc cools across the interval before the deposit lands.** The deposit is the work done
+arriving at the sample; the cooling is what happened on the way there. Depositing first and then
+cooling the sum lets a hard stop lose part of its own energy to a constant it has not yet spent,
+and makes the answer depend on the trace's sample spacing — the property the exact-exponential
+step exists to remove.
+
+**3. A parked car has cold wheels, and §6.6 does not say so.** `tyre_delta_t_k` returns its lower
+bound, +10 K, at zero speed, because §6.6's "+10 … +35 K, rises with speed" describes a *rolling*
+tyre and its bottom end is a tyre rolling slowly. Tyre heating is flexing work, so a stationary
+tyre has no source at all. The drive cycle therefore targets **zero** when the vehicle is stopped
+and lets the tyre forget over its own τ_cool of 1800 s: a car that has just pulled up has warm
+tyres and one that parked an hour ago does not. Reading the relation literally at v = 0 would give
+every car in every car park a +10 K wheel — a feature a detector would learn and no camera sees.
+This is a departure from §6.6 as written and is recorded here rather than left in the code.
+
+The front/rear split is `FRONT_AXLE_BRAKE_FRACTION = 0.65`, ESTIMATED like every other number in
+§6.6's table. It matters to a picture rather than to a total: the front discs run nearly twice as
+hot as the rear, and an even split would render four identical wheels.
+
+Measured on the demo car: forty minutes at 27 m/s puts the tyre **28.1 K** over ambient, and the
+arch liner 0.12 m above the tread receives **285.9 W/m²** against the door's **0.11 W/m²** — some
+23.8 K against 0.01 K through an ESTIMATED panel conductance. One stop from 30 m/s deposits
+**162 K** into an 8 kg disc (ADR 0038's own figure) and four times that from 60 m/s.
