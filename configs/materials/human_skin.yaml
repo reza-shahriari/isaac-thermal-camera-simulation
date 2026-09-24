@@ -1,9 +1,10 @@
 # Clothed-human proxy: skin (face, hands). Section 16.2; NIR/SWIR ESTIMATED (skin reflects
 # ~0.5 in the NIR and darkens past 1.4 um from water absorption).
-schema_version: 1
+schema_version: 2
 material:
   name: human_skin
   source: literature
+  surface_treatment: natural
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   thermal:
     density_kg_m3: 1050

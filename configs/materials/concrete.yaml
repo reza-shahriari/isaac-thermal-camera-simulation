@@ -1,10 +1,11 @@
 # Concrete: road surface, kerbs, buildings. Section 16.2; NIR/SWIR ESTIMATED.
 # Rough dielectric -- §4.2's "nearly flat (a -> 0)" class, so Level B with a small a rather than
 # a constant (the constant is only licensed above eps = 0.93 and the NIR value is far below it).
-schema_version: 1
+schema_version: 2
 material:
   name: concrete
   source: literature
+  surface_treatment: weathered
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Pavement, kerbs, structures. Holds heat: the classic night-time warm slab"
   thermal:

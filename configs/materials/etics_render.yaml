@@ -9,10 +9,11 @@
 # masonry figure). Every number ESTIMATED: the render's density and heat capacity are generic
 # mineral-render values, k is the insulation's (0.037 W/mK) because the back boundary is what the
 # two-node model's second layer sees, and the solar absorptivity is a light ochre's.
-schema_version: 1
+schema_version: 2
 material:
   name: etics_render
   source: estimated
+  surface_treatment: weathered
   reference: "docs/research/2026-09-18-thermal-coupling-survey.md (ETICS thermography, Madrid); ESTIMATED"
   description: "Light render over EPS insulation: a thin, low-mass, low-conductance facade skin"
   thermal:

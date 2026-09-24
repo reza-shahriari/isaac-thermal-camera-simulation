@@ -1,10 +1,11 @@
 # Windshield glass: opaque in LWIR (epsilon 0.88), transparent in SWIR/NIR (section 4.4).
 # Authored: emissivity (= absorptance) per band plus transmittance per band; reflectance derived.
 # LWIR/MWIR from section 16.2; the SWIR/NIR triple is ESTIMATED (two-surface Fresnel ~0.08).
-schema_version: 1
+schema_version: 2
 material:
   name: glass_windshield
   source: literature
+  surface_treatment: as_manufactured
   reference: "docs/physics-model.md section 16.2, section 4.4; SWIR/NIR ESTIMATED"
   thermal:
     density_kg_m3: 2500

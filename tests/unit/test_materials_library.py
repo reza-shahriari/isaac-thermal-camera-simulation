@@ -10,6 +10,7 @@ import pathlib
 import numpy as np
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from irsim.config.bands import BAND_IDS
 from irsim.config.materials import MaterialConfig
@@ -26,10 +27,13 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 
 # docs/physics-model.md §12.3, in the one-file-per-material layout (ADR 0040)
 EXAMPLE_12_3 = {
-    "schema_version": 1,
+    "schema_version": 2,
     "material": {
         "name": "car_paint_black",
         "source": "literature",
+        # `AT.17`: §4.5 requires the surface state the optics were measured on, and the field has
+        # no default, so every fixture names one too.
+        "surface_treatment": "painted",
         "thermal": {
             "density_kg_m3": 7800,
             "specific_heat_j_kgk": 470,
@@ -227,3 +231,75 @@ def test_file_layout_and_data_guards(tmp_path: pathlib.Path) -> None:
     thermal = MaterialLibrary.load()["car_paint_black"].spec.thermal
     assert thermal.heat_capacity_j_m2_k == pytest.approx(7800 * 470 * 0.0012)
     assert thermal.thermal_inertia == pytest.approx((45 * 7800 * 470) ** 0.5)
+
+
+# --- AT.17: surface state is a named property (§4.5) --------------------------------------------
+
+
+def test_every_material_names_the_surface_state_its_optics_were_measured_on() -> None:
+    """§4.5: emissivity is a property of the surface, not of the substance under it.
+
+    One measurement campaign on aluminium window profiles reports 0.834-0.856 for anodised
+    exterior surfaces and 0.055-0.82 across untreated cavities in the same frames [R39] -- one
+    metal, one paper, a fifteen-fold spread. A file that does not say which surface it describes is
+    not a material specification, and the field has no default for that reason: a default would be
+    a state nobody chose, on exactly the materials whose state is least obvious.
+    """
+    from irsim.config.materials import SURFACE_TREATMENTS
+
+    library = MaterialLibrary.load()
+    for name in library.names:
+        treatment = library[name].spec.surface_treatment
+        assert treatment in SURFACE_TREATMENTS, f"{name}: {treatment!r}"
+
+
+def test_the_three_aluminiums_are_one_metal_in_three_surface_states() -> None:
+    """The library's own demonstration of §4.5, and the defect `AT.17` was raised for.
+
+    `bare_aluminium` shipped described as *polished* and valued as *oxidised*: 0.04 against 0.09 at
+    8 µm [R39], a factor of 2.25 in the term that decides whether a surface reports itself or the
+    sky. The three files now differ **only** in surface state: they share ρ, c_p and k exactly,
+    because those belong to the metal, and they span the whole measured range in emissivity,
+    because that belongs to the surface. A file copied from one to another without changing its
+    optics fails here rather than rendering a plausible new material.
+    """
+    library = MaterialLibrary.load()
+    names = ("aluminium_polished", "bare_aluminium", "aluminium_anodised")
+    specs = [library[n].spec for n in names]
+
+    assert [s.surface_treatment for s in specs] == ["polished", "oxidised", "anodised"]
+    for field in ("density_kg_m3", "specific_heat_j_kgk", "conductivity_w_mk"):
+        values = {getattr(s.thermal, field) for s in specs}
+        assert len(values) == 1, f"{field} differs across one metal: {values}"
+
+    epsilon = [float(library[n].band_properties("lwir").emissivity) for n in names]
+    assert epsilon == sorted(epsilon), f"the states are not ordered by emissivity: {epsilon}"
+    assert epsilon[-1] - epsilon[0] >= 0.7, f"the three states span only {epsilon[-1] - epsilon[0]}"
+    # [R39]'s own figures, which is what makes this a measurement rather than a spread.
+    assert epsilon[0] == pytest.approx(0.04, abs=0.005)
+    assert 0.834 <= epsilon[-1] <= 0.856
+
+
+def test_a_material_that_does_not_name_its_state_is_refused() -> None:
+    """Silence is the failure mode: neither 0.04 nor 0.09 is wrong, unlabelled."""
+    raw = {
+        "schema_version": 2,
+        "material": {
+            "name": "unlabelled_alloy",
+            "source": "estimated",
+            "thermal": {
+                "density_kg_m3": 2700,
+                "specific_heat_j_kgk": 900,
+                "conductivity_w_mk": 205,
+                "thickness_m": 0.002,
+                "solar_absorptivity": 0.15,
+            },
+            "optical": {"emissivity_per_band": {"lwir": 0.09}},
+        },
+    }
+    with pytest.raises(ValidationError, match="surface_treatment"):
+        MaterialConfig.model_validate(raw)
+
+    raw["material"]["surface_treatment"] = "shiny"  # type: ignore[index]
+    with pytest.raises(ValidationError, match="surface_treatment"):
+        MaterialConfig.model_validate(raw)

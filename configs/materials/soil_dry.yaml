@@ -1,8 +1,9 @@
 # Dry soil / bare earth. Section 16.2; NIR/SWIR ESTIMATED.
-schema_version: 1
+schema_version: 2
 material:
   name: soil_dry
   source: literature
+  surface_treatment: natural
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Bare dry earth. Low conductivity and low capacity: large diurnal swing"
   thermal:

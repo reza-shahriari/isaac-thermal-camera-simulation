@@ -1,11 +1,20 @@
-# Bare / polished aluminium: a mirror in the thermal IR (epsilon 0.09), shows the sky, not itself.
+# Bare **oxidised** aluminium: a mirror in the thermal IR (epsilon 0.09), shows the sky, not itself.
+#
+# `AT.17`: this file used to open "bare / polished aluminium" and carry 0.09, which is not a
+# polished surface. Polished aluminium is **0.04** at 8 um and anodised is **0.834-0.856** [R39] --
+# one metal, three states, a factor of 21 between the ends of the range, and a file that named none
+# of them. The state is now declared (`surface_treatment: oxidised`), this line says so, and
+# `aluminium_polished.yaml` and `aluminium_anodised.yaml` sit beside it holding the other two.
+# The *name* is left alone deliberately: it is referenced by scenes, asset maps, the material probe
+# and some thirty tests, and renaming it is a change to those rather than to this library.
 # Section 16.2; NIR/SWIR ESTIMATED (aluminium reflects ~0.9 across the near IR).
-schema_version: 1
+schema_version: 2
 material:
   name: bare_aluminium
   source: literature
+  surface_treatment: oxidised
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
-  description: "Trim, wheels, unpainted aircraft skin; Level A (Fresnel) because a metal's emissivity RISES toward grazing and no Level B (a, p) can represent that"
+  description: "Trim, wheels, unpainted aircraft skin, in the oxidised state a bare alloy reaches within days; Level A (Fresnel) because a metal's emissivity RISES toward grazing and no Level B (a, p) can represent that"
   thermal:
     density_kg_m3: 2700
     specific_heat_j_kgk: 900

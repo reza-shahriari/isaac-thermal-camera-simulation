@@ -3,10 +3,11 @@
 # is why it carries Level A -- a sea surface is an angular emissivity problem before it is
 # anything else (ADR 0078). NIR/SWIR emissivities are ESTIMATED; §16.2 quotes only the two
 # thermal bands.
-schema_version: 1
+schema_version: 2
 material:
   name: water
   source: literature
+  surface_treatment: natural
   reference: "docs/physics-model.md section 16.2; n/k from Segelstein (1981) via data/nk/water.csv"
   description: "Open water. eps collapses toward grazing, which is what a sea background is made of"
   thermal:

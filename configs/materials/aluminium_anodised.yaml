@@ -1,0 +1,38 @@
+# Anodised aluminium: the same metal again, with an anodic oxide grown on it -- and a near-black
+# surface in the thermal infrared, epsilon 0.834-0.856 normal total [R39], against the polished
+# metal's 0.04. Twenty-one times the emissivity of the substance it is made of.
+#
+# `AT.17`, §4.5. This is the file that makes the point: the anodising is micrometres of oxide on a
+# millimetre of metal, so thermally it is aluminium and radiatively it is nearly a blackbody. A
+# library that named only the substance could not hold both facts at once.
+#
+# §4.5 (b) is the reason there is no film thickness here. An anodic oxide gives eps ~ 0.15 at 1 um
+# of film, 0.45 at 2 um and 0.91 above about 15 um [R40] -- real, steep, and **unobtainable**,
+# because no mesh carries a film thickness and `thermal.thickness_m` is the heat-capacity parameter
+# of §6.1 that nothing optical may read. The state is authored; the film is not solved.
+schema_version: 2
+material:
+  name: aluminium_anodised
+  source: literature
+  surface_treatment: anodised
+  reference: "[R39] Gustavsen & Berdahl (LBNL): anodised aluminium 0.834-0.856 normal total, 4.5-40 um; NIR/SWIR ESTIMATED"
+  description: "Anodised aluminium: window profiles, heat sinks, consumer housings -- thermally the metal, radiatively almost a blackbody"
+  thermal:
+    density_kg_m3: 2700
+    specific_heat_j_kgk: 900
+    conductivity_w_mk: 205
+    thickness_m: 0.002
+    solar_absorptivity: 0.35   # ESTIMATED: a dyed or clear anodic film, darker than bare metal
+  optical:
+    # The midpoint of [R39]'s 0.834-0.856 in LWIR and MWIR, where the measurement runs. NIR and
+    # SWIR are ESTIMATED: the oxide is thin against those wavelengths and the metal shows through,
+    # so they sit much closer to the substrate than the thermal bands do.
+    emissivity_per_band: {nir: 0.15, swir: 0.25, mwir: 0.82, lwir: 0.845}
+    roughness_per_band: {nir: 0.20, swir: 0.16, mwir: 0.10, lwir: 0.06}
+    # Level B, not Fresnel: the emitting surface is the oxide, a rough dielectric, and its
+    # emissivity falls toward grazing like any dielectric rather than rising like the metal under
+    # it. (a, p) are the painted-topcoat fit of `aircraft_aluminium_painted`, which is the nearest
+    # measured class in this library -- ESTIMATED, and the reason the state is named rather than
+    # inferred. §4.2 licenses a constant only above eps = 0.93, and this is 0.845.
+    angular_model: {type: empirical, a: 0.75, p: 4.0}
+    transmittance_per_band: {nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0}

@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.16` is phase B, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 61 open steps
+#### Then, in order — 60 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.16`** | IG | B | M | — | ready |
 | 2 | **`AT.14`** | AT | B | L | — | ready |
-| 3 | **`AT.17`** | AT | C | M | — | ready |
-| 4 | **`AT.6`** | AT | C | M | — | ready |
-| 5 | **`AT.9`** | AT | C | M | — | ready |
-| 6 | **`PT.16`** | PT | C | M | — | ready |
-| 7 | **`XD.10`** | XD | C | L | — | ready |
-| 8 | **`IG.3`** | IG | X | S | 3 | ready |
-| 9 | **`EV.5`** | EV | X | M | 3 | ready |
-| 10 | **`SC.5`** | SC | X | M | 3 | ready |
-| 11 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 12 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 13 | **`XD.7`** | XD | X | M | 2 | ready |
-| 14 | **`IG.4`** | IG | X | S | 1 | ready |
-| 15 | **`AT.8`** | AT | C | M | — | `IG.4` |
+| 3 | **`AT.6`** | AT | C | M | — | ready |
+| 4 | **`AT.9`** | AT | C | M | — | ready |
+| 5 | **`PT.16`** | PT | C | M | — | ready |
+| 6 | **`XD.10`** | XD | C | L | — | ready |
+| 7 | **`IG.3`** | IG | X | S | 3 | ready |
+| 8 | **`EV.5`** | EV | X | M | 3 | ready |
+| 9 | **`SC.5`** | SC | X | M | 3 | ready |
+| 10 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 11 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 12 | **`XD.7`** | XD | X | M | 2 | ready |
+| 13 | **`IG.4`** | IG | X | S | 1 | ready |
+| 14 | **`AT.8`** | AT | C | M | — | `IG.4` |
+| 15 | **`IG.9`** | IG | X | S | 1 | ready |
 
-…and 46 more — `python scripts/next_step.py --queue 40`.
+…and 45 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -555,7 +555,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.16 | ✅ **done.** The thermal solver's weather is synthesised from the *same* weather-fx state the sky is drawn from: `diurnal_series` there, `weather_series_from_state` here, injected through `Scene.from_config(weather_override=)`. `--weather-csv` keeps the measured file. ADR 0136. | **Measured.** Irradiance from the real sun elevation with Kasten-Czeplak cloud attenuation: overcast keeps 25 % of the global and broken cloud *raises* diffuse above clear. Air anchored on the state's own hour, floored at the dew point. 36 + 13 tests. | AT.15 | M | A |
 | AT.13 | ✅ **done, and the answer is no.** OpenVDB 12 ships inside Isaac Sim's `omni.volume`, so `write_openvdb` replaces the hand-stamped NanoVDB — no GPU, no Kit. **Nothing volumetric renders through a Replicator render product here**, and a cube carrying `OmniVolumeDensity` with no file is equally invisible. ADR 0140. | **Measured** against a rendered noise floor: `PathTracing` is byte-identical with and without the volume; `RaytracedLighting` moves 0.131 against a 0.081 floor. MDL resolves, extensions load. | AT.12, IG.3 | S | X |
 | AT.14 | **Volumetric infrared: per-ray optical depth from the engine.** *Blocked: AT.13 found nothing volumetric renders here.* Replace AT.12's analytic march with the renderer's own integration, so the cloud the infrared band integrates is the cloud the path tracer lit. | A frame in which an aircraft passes **behind** a cloud and is attenuated by that cloud's own optical depth, against today, where a target is never occluded by cloud. AT.12's march stays the oracle, agreeing to a stated tolerance. | AT.13 | L | B |
-| AT.17 | **Surface state becomes a named property (§4.5).** Every material names `surface_treatment` and cites the state its ε was measured on; `bare_aluminium` — labelled *polished*, valued *oxidised* — splits into polished 0.04, oxidised 0.09 and anodised 0.85 [R39]. | Red today: the file says polished, `directional.py` says oxidised, and measurement puts those 2.25× apart at 8 µm. After: every material names a state, and the three aluminiums share ρ, c_p and k while spanning ≥ 0.7 in ε — so a file copied without changing its optics fails. | — | M | C |
+| AT.17 | ✅ **done.** `surface_treatment` is required on every material, from §4.5's own vocabulary plus `as_manufactured`/`natural` for substances nobody treated, with **no default** — a default is a state nobody chose. Material schema v2. `aluminium_polished` and `aluminium_anodised` join the corrected `bare_aluminium`. ADR 0142. | **Measured.** 23 materials all name a state. One metal, three states: ρ/c_p/k identical, ε **0.04 → 0.09 → 0.845** [R39], a span of 0.805. The anodised one *falls* toward grazing where the two bare metals rise — its surface is oxide. 24 tests. | — | M | C |
 | AT.18 | ✅ **done.** `*metal*`/`*alumin*` point at the matte entry and the `aircraft` class at painted skin; `*chrome*` is deleted, not redirected — `phantom4.yaml` settled its chrome from the shader's metallic 0.987, not the name. `audit(…, emissivity=)` fails a prim reaching ε < 0.2 by glob or class; only an asset map or an override may. | **Measured.** A 300 K housing under a 250 K sky reads **40.1 K** apart on a top-hat (38.0 K on the Boson response), **800 × NETD**, and the mirror reports the sky, not itself. Phantom 4 bare coverage 48.8 → **43.9 %**. 27 cases. | — | S | A |
 ---
 

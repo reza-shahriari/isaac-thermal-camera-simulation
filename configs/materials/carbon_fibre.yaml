@@ -4,10 +4,11 @@
 # strong short-wave absorber, hence solar_absorptivity 0.90 -- carbon arms run hot in sunlight,
 # which is the phenomenology this material exists to produce.
 # Schema: irsim.config.materials. Values: literature + ESTIMATED where marked.
-schema_version: 1
+schema_version: 2
 material:
   name: carbon_fibre
   source: literature
+  surface_treatment: as_manufactured
   reference: "Epoxy-matrix laminate; emissivity of the epoxy surface layer. Thermal from CFRP laminate data; through-thickness conductivity"
   description: "CFRP arm / boom / frame plate; near-black in NIR-SWIR, dielectric-like in MWIR-LWIR"
   thermal:

@@ -3,10 +3,11 @@
 # strong short-wave absorber (carbon black), so a propeller is a high-emissivity, low-inertia
 # surface that follows air temperature quickly and shows up against a cold sky.
 # Schema: irsim.config.materials. Values: literature (section 16.2) + ESTIMATED where marked.
-schema_version: 1
+schema_version: 2
 material:
   name: propeller_rubber
   source: literature
+  surface_treatment: as_manufactured
   reference: "docs/physics-model.md section 16.2 (Rubber (tyre) row); NIR/SWIR ESTIMATED for carbon-black-filled rubber"
   description: "Propeller blade / skid / vibration mount; high epsilon in every band, low thermal inertia"
   thermal:

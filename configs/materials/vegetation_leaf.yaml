@@ -1,10 +1,11 @@
 # Vegetation (leaf): the material that most obviously separates the bands.
 # Section 16.2 for the thermal bands; NIR/SWIR ESTIMATED but NOT arbitrary -- the near-infrared
 # numbers below are the "red edge", the single best known spectral feature in remote sensing.
-schema_version: 1
+schema_version: 2
 material:
   name: vegetation_leaf
   source: literature
+  surface_treatment: natural
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED from the leaf red edge"
   description: "Broadleaf canopy. Nearly transparent and highly reflective in NIR, dark in LWIR"
   thermal:

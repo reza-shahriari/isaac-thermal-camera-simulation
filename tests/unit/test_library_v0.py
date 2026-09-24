@@ -152,14 +152,27 @@ def test_glass_shows_itself_in_lwir_and_what_is_behind_it_in_swir(library) -> No
 
 
 def test_bare_metal_is_the_other_row_that_breaks_naive_simulators(library) -> None:  # type: ignore[no-untyped-def]
-    """§16.2: "aluminium because ε = 0.09 means it is a mirror, not a surface"."""
+    """§16.2: "aluminium because ε = 0.09 means it is a mirror, not a surface".
+
+    `AT.17` made this a rule rather than an enumeration. Every material in the library that is
+    nearly a mirror must be a **bare metal** — a surface state of `polished` or `oxidised`, and
+    Level A, because a metal's ε rises toward grazing and no Level B (a, p) can produce that sign.
+    Stating it as "everything except this one name" would let the next low-emissivity material in
+    without a word; stating it as a property of the surface state is what §4.5 is for.
+    """
     aluminium = library["bare_aluminium"]
     assert aluminium.band_properties("lwir").reflectance == pytest.approx(0.91, abs=1e-9)
     assert angular_level(aluminium) == "A", "a metal needs Fresnel; Level B cannot rise with angle"
-    for name in library.names:
-        if name == "bare_aluminium":
-            continue
-        assert library[name].band_properties("lwir").emissivity > 0.2, name
+    mirrors = [n for n in library.names if library[n].band_properties("lwir").emissivity <= 0.2]
+    assert sorted(mirrors) == ["aluminium_polished", "bare_aluminium"], mirrors
+    for name in mirrors:
+        assert library[name].spec.surface_treatment in ("polished", "oxidised"), name
+        assert angular_level(library[name]) == "A", name
+    # And the third aluminium is not one, though it is the same metal: the anodic oxide is the
+    # surface, so it reads as a near-blackbody and takes a dielectric's angular model.
+    anodised = library["aluminium_anodised"]
+    assert anodised.band_properties("lwir").emissivity > 0.8
+    assert angular_level(anodised) != "A"
 
 
 def test_the_wet_and_dry_soil_pair_differ_where_it_matters(library) -> None:  # type: ignore[no-untyped-def]

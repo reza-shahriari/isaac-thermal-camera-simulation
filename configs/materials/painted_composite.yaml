@@ -4,10 +4,11 @@
 # substrate, sets epsilon). NIR/SWIR are ESTIMATED for a light grey shell and are tied to
 # solar_absorptivity 0.35: a light livery absorbs roughly a third of the short-wave flux.
 # Schema: irsim.config.materials. Values: literature (section 16.2) + ESTIMATED where marked.
-schema_version: 1
+schema_version: 2
 material:
   name: painted_composite
   source: literature
+  surface_treatment: painted
   reference: "docs/physics-model.md section 16.2 (paint row); NIR/SWIR and thermal ESTIMATED for a moulded shell"
   description: "Quadcopter body shell / painted composite fairing; the topcoat sets epsilon, not the substrate"
   thermal:

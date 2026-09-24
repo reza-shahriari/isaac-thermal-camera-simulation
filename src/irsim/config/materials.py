@@ -42,9 +42,46 @@ __all__ = [
     "OpticalSpec",
     "MaterialSpec",
     "MaterialConfig",
+    "SURFACE_TREATMENTS",
+    "SurfaceTreatment",
 ]
 
-MATERIAL_SCHEMA_VERSION = 1
+MATERIAL_SCHEMA_VERSION = 2
+
+#: §4.5's surface states. Emissivity is a property of the **surface**, not of the substance under
+#: it: one measurement campaign on aluminium window profiles reports 0.834-0.856 for anodised
+#: exterior surfaces and 0.055-0.82 across untreated cavities in the same frames [R39] -- one
+#: metal, one paper, a fifteen-fold spread. So "aluminium" is not a material specification, and a
+#: file that does not name its state is not either.
+#:
+#: The first seven are §4.5's own list. ``as_manufactured`` and ``natural`` are added for the
+#: substances that have no *treatment*: a moulded plastic, a woven fabric and a cast tyre leave the
+#: works in the state they will keep, and skin, snow, soil and water were never treated at all.
+#: Both are still *states* and still have to be chosen, because the alternative -- an optional
+#: field, or a free string -- is the field being left blank on exactly the materials whose state is
+#: least obvious.
+SURFACE_TREATMENTS: tuple[str, ...] = (
+    "polished",
+    "machined",
+    "oxidised",
+    "anodised",
+    "painted",
+    "sandblasted",
+    "weathered",
+    "as_manufactured",
+    "natural",
+)
+SurfaceTreatment = Literal[
+    "polished",
+    "machined",
+    "oxidised",
+    "anodised",
+    "painted",
+    "sandblasted",
+    "weathered",
+    "as_manufactured",
+    "natural",
+]
 _BAND_KEY = re.compile(r"^[a-z][a-z0-9_]*$")
 Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
 
@@ -218,8 +255,19 @@ class OpticalSpec(_Frozen):
 
 
 class MaterialSpec(_Frozen):
+    """One substance **in one surface state** (§4.5).
+
+    ``surface_treatment`` is required and has no default, which is the whole of `AT.17`. A default
+    would be a state somebody did not choose, and the failure it guards is silent: this library
+    shipped `bare_aluminium` described as *polished* and valued as *oxidised* -- 0.04 against 0.09
+    at 8 µm, a factor of 2.25 in the term that decides whether a surface reports itself or the sky
+    -- and nothing could see the contradiction because neither number had a state beside it.
+    """
+
     name: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     source: Literal["measured", "literature", "estimated"]
+    #: The surface state the optics were measured on, from §4.5's vocabulary.
+    surface_treatment: SurfaceTreatment
     reference: str = ""
     description: str = ""
     thermal: ThermalSpec

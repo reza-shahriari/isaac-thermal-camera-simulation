@@ -176,11 +176,20 @@ def test_no_committed_material_relies_on_an_illegal_constant(library, boson) -> 
             assert epsilon >= LEVEL_C_MIN_EPSILON, f"{name} band {band}: ε = {epsilon}"
 
 
-def test_the_metal_is_the_only_material_whose_emissivity_rises_with_angle(library, boson) -> None:  # type: ignore[no-untyped-def]
+def test_the_bare_metals_are_the_only_materials_whose_emissivity_rises_with_angle(
+    library, boson
+) -> None:  # type: ignore[no-untyped-def]
     """§4.2's dielectric/metal split, as a property of the whole committed library.
 
     Bare aluminium goes 0.090 at normal to 0.146 at 70°; everything else falls. This is why it
     needs Level A: the sign of its angular slope is one Level B cannot produce.
+
+    `AT.17` made the set two rather than one, and the *third* aluminium is the interesting case.
+    `aluminium_polished` rises, because it is the same exposed metal with less oxide on it.
+    `aluminium_anodised` does **not**: its emitting surface is micrometres of oxide, a rough
+    dielectric, so it falls toward grazing like a paint does even though the substance beneath it
+    is the same metal. A library keyed on substance could not hold that; one keyed on surface
+    state (§4.5) does, and this assertion is what says so.
     """
     rising = []
     for name in library.names:
@@ -189,7 +198,8 @@ def test_the_metal_is_the_only_material_whose_emissivity_rises_with_angle(librar
         limb = float(_dispatch(material, "lwir", np.float32(COS_70), boson))
         if limb > centre:
             rising.append(name)
-    assert rising == ["bare_aluminium"], rising
+    assert sorted(rising) == ["aluminium_polished", "bare_aluminium"], rising
+    assert "aluminium_anodised" not in rising
     aluminium = library["bare_aluminium"]
     assert float(_dispatch(aluminium, "lwir", np.float32(1.0), boson)) == pytest.approx(
         0.09, abs=1e-6

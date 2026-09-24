@@ -1,0 +1,33 @@
+# Polished aluminium: the same metal as `bare_aluminium` with the oxide taken off, and a mirror
+# even by a mirror's standards -- epsilon 0.04 at 8 um [R39], against the oxidised surface's 0.09.
+#
+# `AT.17`, §4.5. The three aluminium files in this library differ **only** in their surface state
+# and in what that state does to the optics: they share rho, c_p and k exactly, because those are
+# properties of the metal, and they span 0.04 to 0.845 in LWIR emissivity, because emissivity is a
+# property of the surface. A file copied from one to another without changing its optics is
+# therefore a test failure rather than a plausible new material.
+#
+# What it is for: freshly machined or hand-polished trim, a mirror finish on a show vehicle, and --
+# the one that matters for this project -- the *worst case* for an emissivity/temperature
+# confusion. At epsilon 0.04 a surface is 96 % a reflection: a 330 K polished panel under a 250 K
+# sky reads as 253 K, which is 77 K of error from one unwritten word.
+schema_version: 2
+material:
+  name: aluminium_polished
+  source: literature
+  surface_treatment: polished
+  reference: "[R39] Gustavsen & Berdahl (LBNL): polished aluminium 0.04 at 8 um; NIR/SWIR ESTIMATED from the same metal's reflectance"
+  description: "Mirror-finish aluminium: machined or polished trim, and the worst case for reading a reflection as a temperature"
+  thermal:
+    density_kg_m3: 2700
+    specific_heat_j_kgk: 900
+    conductivity_w_mk: 205
+    thickness_m: 0.002
+    solar_absorptivity: 0.08   # ESTIMATED: a polished surface reflects most of the solar band too
+  optical:
+    emissivity_per_band: {nir: 0.04, swir: 0.03, mwir: 0.03, lwir: 0.04}
+    roughness_per_band: {nir: 0.02, swir: 0.02, mwir: 0.01, lwir: 0.01}
+    # Level A for the same reason `bare_aluminium` is: a metal's emissivity RISES toward grazing,
+    # which no Level B (a, p) can represent, and §4.2 licenses a constant only above eps = 0.93.
+    # The n/k table supplies the shape; the values above supply the magnitude.
+    angular_model: {type: fresnel, n_k_file: nk/aluminium.csv}

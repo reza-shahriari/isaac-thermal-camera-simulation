@@ -1,9 +1,10 @@
 # Wet soil. Section 16.2; NIR/SWIR ESTIMATED. Darker and far more thermally massive than dry
 # soil -- the pair exists so a scene can show what rain does to a surface's diurnal behaviour.
-schema_version: 1
+schema_version: 2
 material:
   name: soil_wet
   source: literature
+  surface_treatment: natural
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Rain-wetted earth. Five times the volumetric heat capacity of the dry case"
   thermal:

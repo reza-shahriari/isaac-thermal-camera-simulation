@@ -6,6 +6,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A material must name the surface state its optics were measured on** (AT.17, §4.5). Material
+  schema **v2**: `surface_treatment` is required and has no default, from §4.5's own vocabulary —
+  polished, machined, oxidised, anodised, painted, sandblasted, weathered — plus `as_manufactured`
+  and `natural` for the substances nobody treated (a moulded plastic, a woven fabric; skin, snow,
+  soil, water). A default would be a state nobody chose, on exactly the materials whose state is
+  least obvious. All 21 committed materials declare one.
+- `aluminium_polished` (ε 0.04) and `aluminium_anodised` (ε 0.845) join a corrected
+  `bare_aluminium` (ε 0.09), which shipped **described as polished and valued as oxidised** — a
+  factor of 2.25 at 8 µm [R39] in the term that decides whether a surface reports itself or the
+  sky, invisible because neither number had a state beside it. The three share ρ, c_p and k
+  exactly and span 0.805 in LWIR emissivity, so a file copied from one to another without changing
+  its optics now fails a test instead of becoming a plausible new material. The anodised one
+  *falls* toward grazing where the two bare metals rise: its emitting surface is micrometres of
+  oxide, a rough dielectric, over the same metal. The name `bare_aluminium` is unchanged —
+  scenes, asset maps, the material probe and some thirty tests reference it. ADR 0142.
 - **A driving vehicle's wheels, driven from a `VehicleState` trace** (TC.8, ADR 0089 addendum).
   `irsim.thermal.drive_cycle` gives each corner a brake disc and a tyre and walks them along a
   trace: the disc takes its axle's share of `f·½m(v₁²−v₂²)` as an instantaneous deposit and cools

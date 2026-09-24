@@ -15,10 +15,11 @@
 # which is a detection fact and not a modelling convenience. Note that this is the *only* large
 # difference from carbon: at the same 1.5 mm the two carry 2205 and 2520 J m^-2 K^-1, 12 % apart,
 # so nothing here should be explained by thermal mass.
-schema_version: 1
+schema_version: 2
 material:
   name: abs_plastic_white
   source: literature
+  surface_treatment: as_manufactured
   reference: "docs/physics-model.md section 16.2; ABS bulk properties from polymer handbooks; NIR/SWIR ESTIMATED"
   thermal:
     density_kg_m3: 1050

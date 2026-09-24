@@ -1,10 +1,11 @@
 # Black automotive paint on a thin steel panel -- the docs/physics-model.md section 12.3 example
 # in the one-file-per-material layout (ADR 0040). Values: section 16.2 (literature), ESTIMATED
 # where marked. Schema: irsim.config.materials.
-schema_version: 1
+schema_version: 2
 material:
   name: car_paint_black
   source: literature
+  surface_treatment: painted
   reference: "docs/physics-model.md section 16.2; thickness from section 12.3"
   description: "Painted body panel (any dark colour); colour changes solar absorptivity, not epsilon"
   thermal:

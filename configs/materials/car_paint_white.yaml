@@ -1,9 +1,10 @@
 # White automotive paint on a thin steel panel. Section 16.2 (LWIR/MWIR/thermal); the NIR/SWIR
 # emissivities are ESTIMATED from a ~0.7 solar-band reflectance of white paint.
-schema_version: 1
+schema_version: 2
 material:
   name: car_paint_white
   source: literature
+  surface_treatment: painted
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   thermal:
     density_kg_m3: 7800

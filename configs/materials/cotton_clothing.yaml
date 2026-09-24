@@ -1,9 +1,10 @@
 # Cotton clothing: the surface most of a person actually presents to a camera.
 # Section 16.2; NIR/SWIR ESTIMATED and colour-dependent -- these are a mid-tone garment.
-schema_version: 1
+schema_version: 2
 material:
   name: cotton_clothing
   source: literature
+  surface_treatment: as_manufactured
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Mid-tone cotton. Low conductivity and low mass: it tracks air temperature, not body"
   thermal:

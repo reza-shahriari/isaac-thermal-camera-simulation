@@ -1,10 +1,11 @@
 # Snow: the other material that separates the bands, in the opposite direction to vegetation.
 # Section 16.2; NIR/SWIR ESTIMATED but not arbitrary -- snow is brilliant in the NIR and DARK in
 # the SWIR, which is how every satellite cloud/snow discriminator works.
-schema_version: 1
+schema_version: 2
 material:
   name: snow
   source: literature
+  surface_treatment: natural
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED from the snow/cloud contrast"
   description: "Fresh snow. Near-blackbody in LWIR, a mirror in NIR, a sponge in SWIR"
   thermal:

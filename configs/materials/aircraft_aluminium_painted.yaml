@@ -5,10 +5,11 @@
 # bare_aluminium (epsilon 0.09), which is the same metal with the paint removed and behaves as a
 # mirror -- the two together are the pair that catches an emissivity/temperature confusion.
 # Schema: irsim.config.materials. Values: literature (section 16.2 rows) + ESTIMATED where marked.
-schema_version: 1
+schema_version: 2
 material:
   name: aircraft_aluminium_painted
   source: literature
+  surface_treatment: painted
   reference: "docs/physics-model.md section 16.2 (paint row for optics, bare aluminium row for thermal); NIR/SWIR ESTIMATED"
   description: "Painted fixed-wing skin; radiatively a topcoat, thermally aluminium"
   thermal:

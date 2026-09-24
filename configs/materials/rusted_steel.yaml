@@ -1,10 +1,11 @@
 # Rusted steel: weathered structures, rail, old vehicles. Section 16.2; NIR/SWIR ESTIMATED.
 # NOT a metal for radiative purposes -- the oxide layer is a dielectric, which is why eps is 0.85
 # rather than bare steel's ~0.1 and why its emissivity FALLS with angle like a dielectric's.
-schema_version: 1
+schema_version: 2
 material:
   name: rusted_steel
   source: literature
+  surface_treatment: oxidised
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Weathered structural steel. The oxide dominates: high eps, dielectric angular falloff"
   thermal:

@@ -1,10 +1,11 @@
 # Tyre rubber: carbon-black filled, one of the darkest surfaces on a vehicle in every band.
 # Section 16.2; NIR/SWIR ESTIMATED. Distinct from propeller_rubber, which is a moulded
 # unfilled compound on an aircraft.
-schema_version: 1
+schema_version: 2
 material:
   name: rubber_tyre
   source: literature
+  surface_treatment: as_manufactured
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Carbon-black tyre tread and sidewall. Low conductivity, so it holds friction heat"
   thermal:

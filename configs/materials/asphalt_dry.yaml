@@ -1,8 +1,9 @@
 # Dry asphalt: rough, high-emissivity dielectric -- Level C is adequate (section 4.2).
-schema_version: 1
+schema_version: 2
 material:
   name: asphalt_dry
   source: literature
+  surface_treatment: weathered
   reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   thermal:
     density_kg_m3: 2200
