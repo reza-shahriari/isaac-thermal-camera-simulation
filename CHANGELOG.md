@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **One prim per material, so a multi-material mesh can render as what it is** (AI.6).
+  `irsim.io.asset_material_split` plans the split engine-free — which faces, what the pieces are
+  called, and the **area** a render gets wrong without it — and `prep_asset.py
+  --emit-material-split` regroups the geometry in Blender, on the CPU, booting no Kit. Blender's
+  importers put a USD `materialBind` subset, an FBX material group and an OBJ `usemtl` on one
+  footing, a per-face slot index, so this is one mechanism for every source format and reads no
+  USD itself. Piece names are derived here rather than by the exporter, because a scene config is
+  authored against a prim path. Measured end to end on the committed subset fixture: 3 meshes to 6
+  prims, **35.7 %** of its 14 m² rendered as the wrong material before the split, and the
+  production walk in Kit afterwards reports no subset mesh at all. The Phantom 4 is 41 prims to
+  41 and 0.0 % — it is grouped by material already, which is why nothing had exercised this.
 - **The `materialBind` subset branch runs on a USD file for the first time** (AI.4, ADR 0128
   addendum). `irsim_isaac.pipeline.materials_usd.walk_stage` replaces `prim_records` as the
   primitive: it reads `GeomSubset` material assignments and returns, beside the records,

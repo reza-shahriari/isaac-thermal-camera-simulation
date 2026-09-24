@@ -457,6 +457,120 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
     return {"components": len(components), "faces": total_faces, "area_m2": total_area}
 
 
+def emit_material_slots(out_path: pathlib.Path) -> dict[str, object]:
+    """Write every mesh's per-face material slot and area, for `AI.6`'s split.
+
+    The planning half is engine-free (:mod:`irsim.io.asset_material_split`) and cannot see a
+    Blender scene, so the worker's job is to hand it two parallel per-face arrays and the slot
+    table that indexes them. Areas are metres squared -- ``scale_to_metres`` has already been
+    applied by :func:`_rescale` -- because the decision the planner makes is about area and not
+    about face counts.
+
+    A slot with no material assigned is reported as an empty name rather than dropped: a face
+    painted with nothing is still a face, and silently merging it into slot 0 is the failure this
+    whole pass exists to end.
+    """
+    import bpy
+    import numpy as np
+
+    arrays: dict[str, Any] = {}
+    table: dict[str, list[str]] = {}
+    for obj in sorted((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: o.name):
+        me = obj.data
+        npoly = len(me.polygons)
+        if not npoly:
+            continue
+        slots = np.empty(npoly, dtype=np.int64)
+        me.polygons.foreach_get("material_index", slots)
+        areas = np.empty(npoly, dtype=np.float64)
+        me.polygons.foreach_get("area", areas)
+        names = [ms.material.name if ms.material else "" for ms in obj.material_slots] or [""]
+        # A face may reference a slot the object does not have (an import artefact); clamp rather
+        # than raise, and let the planner see it as the last real slot.
+        np.clip(slots, 0, len(names) - 1, out=slots)
+        arrays[f"{obj.name}::slot"] = slots
+        arrays[f"{obj.name}::area"] = areas
+        table[obj.name] = names
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(table, indent=1), encoding="utf-8")
+    np.savez_compressed(out_path.with_suffix(".slots.npz"), **arrays)
+    multi = sum(1 for k, v in arrays.items() if k.endswith("::slot") and len(set(v.tolist())) > 1)
+    print(f"wrote {out_path} ({len(table)} mesh(es), {multi} carrying more than one material)")
+    return {"meshes": len(table), "multi_material": multi}
+
+
+def split_by_material_usd(plan_path: pathlib.Path, out_usd: pathlib.Path) -> dict[str, object]:
+    """Rewrite the asset so that **one prim is one material**, then export it as USD (`AI.6`).
+
+    The renderer transports one instance id per prim and indexes the material table by it (ADR
+    0014), so a mesh carrying three materials renders as one of them however faithfully the asset
+    authored its ``materialBind`` subsets. `AI.4` made the audit read those subsets; this makes
+    the geometry match what the audit says.
+
+    Blender's importers put a USD subset, an FBX material group and an OBJ ``usemtl`` on the same
+    footing -- a per-face material index into the object's slot table -- so this pass is one
+    mechanism for every source format, and reads no USD itself.
+
+    Faces move with ``mesh.separate(type='MATERIAL')`` rather than being rebuilt from arrays,
+    which carries the slots, the per-face indices and the UV layers with them; rebuilding would
+    drop the textures the visible companion frame depends on (the same reason
+    :func:`split_by_part_usd` uses the operator).
+
+    Names come from the plan, not from the exporter. Blender names a separated piece after its
+    parent (``Facade.001``), which is neither stable nor a legal USD identifier, and a scene
+    config has to be authored against *some* prim path.
+    """
+    import bpy
+
+    plan: dict[str, list[dict[str, object]]] = json.loads(plan_path.read_text(encoding="utf-8"))
+    made: list[str] = []
+    for name in sorted(plan):
+        obj = bpy.data.objects.get(name)
+        if obj is None or obj.type != "MESH":
+            print(f"  {name!r} is not in the import; skipped")
+            continue
+        wanted = {str(s["material"]): str(s["piece"]) for s in plan[name]}
+        if len(wanted) == 1:
+            obj.name = obj.data.name = next(iter(wanted.values()))
+            made.append(obj.name)
+            continue
+        before = set(bpy.data.objects.keys())
+        bpy.ops.object.select_all(action="DESELECT")
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.mesh.separate(type="MATERIAL")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        # `bpy.data.objects` iterates *objects*, not their names, so the difference is taken
+        # over `.keys()` explicitly -- and materialised as a set first, because a comprehension
+        # over `.keys()` is what ruff's SIM118 rewrites into the iteration that does not work.
+        fresh = sorted(set(bpy.data.objects.keys()) - before)
+        pieces = [obj] + [bpy.data.objects[k] for k in fresh]
+        for piece in pieces:
+            # After the separate each piece uses exactly one material, so its first face names it.
+            slots = [ms.material.name if ms.material else "" for ms in piece.material_slots]
+            index = piece.data.polygons[0].material_index if len(piece.data.polygons) else 0
+            material = slots[index] if 0 <= index < len(slots) else ""
+            target = wanted.get(material)
+            if target is None:
+                print(f"  {piece.name!r} came out as {material!r}, which the plan does not name")
+                continue
+            piece.name = piece.data.name = target
+            made.append(target)
+
+    out_usd.parent.mkdir(parents=True, exist_ok=True)
+    bpy.ops.wm.usd_export(
+        filepath=str(out_usd),
+        export_materials=True,
+        generate_preview_surface=True,
+        root_prim_path="/World",
+    )
+    print(f"wrote {out_usd} ({len(made)} material prims)")
+    return {"prims": len(made), "names": made}
+
+
 def split_by_part_usd(
     assignment_path: pathlib.Path, face_ids_path: pathlib.Path, out_usd: pathlib.Path
 ) -> dict[str, object]:
@@ -582,6 +696,8 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--split-assignment", type=pathlib.Path, default=None)
     ap.add_argument("--split-face-ids", type=pathlib.Path, default=None)
     ap.add_argument("--split-out-usd", type=pathlib.Path, default=None)
+    ap.add_argument("--out-material-slots", type=pathlib.Path, default=None)
+    ap.add_argument("--split-material-plan", type=pathlib.Path, default=None)
     ap.add_argument("--dissolve-deg", type=float, default=5.0)
     ap.add_argument("--max-area-error", type=float, default=0.02)
     args = ap.parse_args(list(argv))
@@ -593,6 +709,14 @@ def run_worker(argv: Sequence[str]) -> int:
     print(f"imported {args.source.name} via {how}: {len(meshes)} meshes, {tris:,} triangles")
 
     _rescale(args.scale)
+    if args.out_material_slots is not None:
+        # A measure-only pass: the planner runs under the project interpreter, which Blender's
+        # does not share, so the two halves talk through files exactly as the part split does.
+        emit_material_slots(args.out_material_slots)
+        return 0
+    if args.split_material_plan is not None:
+        split_by_material_usd(args.split_material_plan, args.split_out_usd)
+        return 0
     if args.split_assignment is not None:
         # A split-only pass: exporting the un-split stage first would cost a 115 MB write of a
         # file nobody reads.
@@ -654,6 +778,90 @@ def blender_split_command(
         "--split-out-usd",
         str(out_usd),
     ]
+
+
+def blender_material_slots_command(
+    blender: str, source: pathlib.Path, scale: float, out_slots: pathlib.Path
+) -> list[str]:
+    """The argv for `AI.6`'s measuring pass: per-face material slot and area, no export."""
+    return [
+        blender,
+        "--background",
+        "--factory-startup",
+        "--python",
+        str(pathlib.Path(__file__).resolve()),
+        "--",
+        "--source",
+        str(source),
+        "--out-usd",
+        str(out_slots.with_name("unused.usdc")),
+        "--out-prims",
+        str(out_slots.with_name("unused.prims.json")),
+        "--scale",
+        repr(float(scale)),
+        "--out-material-slots",
+        str(out_slots),
+    ]
+
+
+def blender_material_split_command(
+    blender: str,
+    source: pathlib.Path,
+    scale: float,
+    plan: pathlib.Path,
+    out_usd: pathlib.Path,
+) -> list[str]:
+    """The argv for `AI.6`'s splitting pass: one prim per material, exported as USD."""
+    return [
+        blender,
+        "--background",
+        "--factory-startup",
+        "--python",
+        str(pathlib.Path(__file__).resolve()),
+        "--",
+        "--source",
+        str(source),
+        "--out-usd",
+        str(out_usd.with_name("unused.usdc")),
+        "--out-prims",
+        str(out_usd.with_name("unused.prims.json")),
+        "--scale",
+        repr(float(scale)),
+        "--split-material-plan",
+        str(plan),
+        "--split-out-usd",
+        str(out_usd),
+    ]
+
+
+def plan_from_slots(slots_json: pathlib.Path) -> tuple[Any, dict[str, list[dict[str, str]]]]:
+    """Turn the worker's per-face arrays into `AI.6`'s split plan.
+
+    Returns the report (for printing and for the gate) and the plan the worker reads back. Kept
+    out of :func:`run_driver` so a test can exercise it without Blender: the arrays on disk are
+    the whole interface between the two interpreters.
+    """
+    import numpy as np
+
+    from irsim.io.asset_material_split import MeshFaces, plan_material_split
+
+    table: dict[str, list[str]] = json.loads(slots_json.read_text(encoding="utf-8"))
+    with np.load(slots_json.with_suffix(".slots.npz"), allow_pickle=False) as data:
+        meshes = [
+            MeshFaces(
+                name=name,
+                slot_of_face=np.asarray(data[f"{name}::slot"], dtype=np.int64),
+                area_of_face=np.asarray(data[f"{name}::area"], dtype=np.float64),
+                materials=materials,
+            )
+            for name, materials in sorted(table.items())
+        ]
+    report = plan_material_split(meshes)
+    plan = {
+        mesh.mesh: [{"material": s.material, "piece": s.piece} for s in mesh.slots]
+        for mesh in report.meshes
+    }
+    return report, plan
 
 
 def blender_command(
@@ -763,6 +971,17 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
         "--allow-over-budget",
         action="store_true",
         help="report the geometry budget but do not fail on it",
+    )
+    # AI.6. A prim is what the renderer can address, so a mesh carrying several materials is
+    # rendered as one of them until it is split. This is opt-in rather than automatic because it
+    # changes an asset's prim paths, and scene configs are authored against those.
+    ap.add_argument(
+        "--emit-material-split",
+        action="store_true",
+        help=(
+            "write a sibling asset `<name>_materials` whose prims are one per material, so a "
+            "multi-material mesh can be rendered as what it is (AI.6)"
+        ),
     )
     ap.add_argument(
         "--skip-convert",
@@ -920,6 +1139,40 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             if subprocess.run(cmd, check=False).returncode != 0:
                 print("the part-split pass failed", file=sys.stderr)
                 return 1
+
+    # One prim per material (AI.6). Two Blender passes, like the part split: measure, plan under
+    # the project interpreter where `irsim` lives, then regroup. The plan is written to disk so
+    # the split is reproducible from it without re-measuring.
+    if args.emit_material_split:
+        if source is None:
+            print("no --source and the asset config has no source_file", file=sys.stderr)
+            return 1
+        slots_json = out_dir / f"{asset.name}.material_slots.json"
+        if not slots_json.exists() or not slots_json.with_suffix(".slots.npz").exists():
+            cmd = blender_material_slots_command(
+                args.blender, source, asset.scale_to_metres, slots_json
+            )
+            print("measuring material slots: " + " ".join(cmd[:5]) + " ...")
+            if subprocess.run(cmd, check=False).returncode != 0:
+                print("the material-slot pass failed", file=sys.stderr)
+                return 1
+        split_report, plan = plan_from_slots(slots_json)
+        print()
+        print(split_report.render())
+        plan_path = out_dir / f"{asset.name}.material_split.json"
+        plan_path.write_text(json.dumps(plan, indent=1), encoding="utf-8")
+        name = f"{asset.name}_materials"
+        cmd = blender_material_split_command(
+            args.blender,
+            source,
+            asset.scale_to_metres,
+            plan_path,
+            out_dir.parent / name / f"{name}.usdc",
+        )
+        print("splitting geometry by material: " + " ".join(cmd[:5]) + " ...")
+        if subprocess.run(cmd, check=False).returncode != 0:
+            print("the material-split pass failed", file=sys.stderr)
+            return 1
 
     return 0 if ok else 1
 
