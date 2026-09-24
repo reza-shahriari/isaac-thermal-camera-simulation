@@ -33,6 +33,7 @@ import os
 import pathlib
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -202,5 +203,9 @@ def write_asset_meshes(
         )
         arrays[f"v{i}"] = np.asarray(mesh.vertices_m, dtype=np.float64)
         arrays[f"f{i}"] = np.asarray(mesh.faces, dtype=np.intp)
-    np.savez_compressed(p, manifest=json.dumps(manifest), **arrays)
+    # `savez_compressed(file, *args, allow_pickle, **kwds)` types its positional tail as `bool`
+    # in the shipped stubs, so unpacking a dict of arrays into the call is checked against that
+    # flag. Naming the payload leaves the call identical at runtime and says what the keys are.
+    named: dict[str, Any] = {"manifest": json.dumps(manifest), **arrays}
+    np.savez_compressed(p, **named)
     return p

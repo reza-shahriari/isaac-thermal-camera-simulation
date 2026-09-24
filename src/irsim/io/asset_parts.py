@@ -394,6 +394,17 @@ def _shell_of_vertex(n_vertices: int, faces: Any) -> Any:
     return np.array([find(i) for i in range(n_vertices)], dtype=np.int64)
 
 
+def _xyz(point: Any) -> tuple[float, float, float]:
+    """A 3-vector as the fixed-length tuple :class:`Component` declares.
+
+    A generator expression over a NumPy row gives `tuple[float, ...]`, which is not the same type
+    and is not checkable: nothing then stops a 2-vector or a 4-vector reaching a field documented
+    as a point in the asset's frame. Unpacking is the check.
+    """
+    x, y, z = (float(v) for v in point)
+    return (x, y, z)
+
+
 def mesh_components(name: str, vertices_m: Any, faces: Any, material_name: str | None) -> Any:
     """The connected shells of one prim's triangles, as :class:`Component` statistics.
 
@@ -411,7 +422,7 @@ def mesh_components(name: str, vertices_m: Any, faces: Any, material_name: str |
     a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
     face_area = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=-1)
 
-    out = []
+    out: list[tuple[Component, Any]] = []
     for root in np.unique(face_shell):
         mask = face_shell == root
         used = np.unique(f[mask])
@@ -422,9 +433,9 @@ def mesh_components(name: str, vertices_m: Any, faces: Any, material_name: str |
                     index=len(out),
                     faces=int(mask.sum()),
                     area_m2=float(face_area[mask].sum()),
-                    centroid=tuple(float(x) for x in pts.mean(axis=0)),
-                    lo=tuple(float(x) for x in pts.min(axis=0)),
-                    hi=tuple(float(x) for x in pts.max(axis=0)),
+                    centroid=_xyz(pts.mean(axis=0)),
+                    lo=_xyz(pts.min(axis=0)),
+                    hi=_xyz(pts.max(axis=0)),
                     material_name=material_name,
                 ),
                 mask,

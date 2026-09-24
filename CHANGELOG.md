@@ -6,6 +6,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **`make check` was red on `main`, so it was not the gate.** Six defects had landed in committed
+  code: `src/irsim/io/asset_parts.py` built `Component`'s `centroid`, `lo` and `hi` from generator
+  expressions, which give `tuple[float, ...]` where the dataclass declares a 3-vector, and left
+  the accumulator in `mesh_components` unannotated; `src/irsim/io/assets.py` unpacked its array
+  dict into `np.savez_compressed`, whose positional tail the shipped stubs type as the
+  `allow_pickle` flag; and `scripts/prep_asset.py` was not formatted. A tree that fails its own
+  gate is worse than one with no gate, because every session after it has to decide, commit by
+  commit, which red is theirs -- and two commits in this session had to prove independently, from
+  a `git archive HEAD` export, that they were not making anything worse. Fixed at the source
+  rather than silenced: `_xyz` unpacks a 3-vector, so a 2- or 4-vector reaching a point field is
+  a `ValueError` and not a widened type, and the `savez_compressed` payload is named rather than
+  cast. `ruff check`, `ruff format` and `mypy` are clean across all 233 source files again.
 - **The site's clips were over-compressed, most visibly the one on the front page.** The encoder
   defaulted to 720 px and CRF 34, tuned for the four reflective-band clips whose content is mostly
   sensor grain, and applied to everything: the 1280 x 512 Phantom 4 pair -- a 542 kB source -- came

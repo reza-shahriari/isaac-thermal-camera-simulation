@@ -869,8 +869,11 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             components = out_dir / f"{asset.name}.components.json"
             if not components.exists() or not components.with_suffix(".faces.npz").exists():
                 cmd = blender_command(
-                    args.blender, source, out_dir / "unused.usdc",
-                    out_dir / "unused.prims.json", asset.scale_to_metres,
+                    args.blender,
+                    source,
+                    out_dir / "unused.usdc",
+                    out_dir / "unused.prims.json",
+                    asset.scale_to_metres,
                 ) + ["--out-components", str(components)]
                 print("measuring components: " + " ".join(cmd[:5]) + " ...")
                 if subprocess.run(cmd, check=False).returncode != 0:
@@ -883,9 +886,12 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             part_of: dict[str, str] = {}
             for entry in stats:
                 component = _Component(
-                    index=int(entry["index"]), faces=int(entry["faces"]),
-                    area_m2=float(entry["area_m2"]), centroid=tuple(entry["centroid"]),
-                    lo=tuple(entry["lo"]), hi=tuple(entry["hi"]),
+                    index=int(entry["index"]),
+                    faces=int(entry["faces"]),
+                    area_m2=float(entry["area_m2"]),
+                    centroid=tuple(entry["centroid"]),
+                    lo=tuple(entry["lo"]),
+                    hi=tuple(entry["hi"]),
                     material_name=entry["material_name"],
                 )
                 for spec in asset.parts.parts:
@@ -900,7 +906,11 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             print(f"assigned {len(part_of):,} of {len(stats):,} components to parts")
 
             cmd = blender_split_command(
-                args.blender, source, asset.scale_to_metres, components, assignment,
+                args.blender,
+                source,
+                asset.scale_to_metres,
+                components,
+                assignment,
                 out_dir.parent / name / f"{name}.usdc",
             )
             print("splitting geometry by part: " + " ".join(cmd[:5]) + " ...")
