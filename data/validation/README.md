@@ -32,6 +32,7 @@ unless asked explicitly, so using data on unknown terms is always a deliberate a
 | `anti_uav_600` | unstated | manual | supplement | `display` |
 | `cst_anti_uav` | unstated | unreleased | supplement | `display` |
 | `lrddv3` | CDLA-Permissive-2.0 | manual | supplement | `unknown` |
+| `massmind` | CC-BY-NC-SA-4.0 | manual | supplement | `unknown` |
 | `irstd_1k` | unstated | manual | prior | `unknown` |
 | `nuaa_sirst` | unstated | manual | prior | `unknown` |
 
@@ -186,6 +187,36 @@ The only indexed set with per-image **range** labels, which is the one thing nee
 **Must not be used for:** `noise_3d`, `temporal_psd`, `ffc_freeze`, `smear` -- see the signal path above.
 
 Ranges are mostly 0-50 m and reach only ~175 m, and the geometry is air-to-air with ground clutter behind the target. It therefore constrains the near end of the range law and says nothing about a 0.5-5 km sky-background target, which is the case phase 1 actually models.
+
+## `massmind`
+
+**MassMIND: Massachusetts Maritime INfrared Dataset**
+
+The first public LWIR maritime set, and the only indexed source with **pixel-level labels for sky and water**. Every noise statistic in this project needs a region where the scene is not, and `EV.3` showed the heuristic flat-window finder returning nothing at all on rendered clips. A labelled sky or water polygon is that window, stated by the publisher rather than guessed at, which is what the maritime lane needs before anything else.
+
+| field | value |
+|---|---|
+| licence | CC-BY-NC-SA-4.0 |
+| licence note | This one **is** a grant over the frames, and it was checked the way `XD.1` learned to check. The repository's LICENSE file is the CC BY-NC-SA 4.0 text, and the README's own Copyright section says it of the data rather than of code: "All datasets and benchmarks on this page are copyrighted by us and published under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 License." **NonCommercial is a real restriction on this project, not a formality.** This simulator is aimed at eventual deployment on a vehicle, and ShareAlike reaches anything derived from these frames. So the terms are known -- `licence_known` is true and the fetch gate opens -- and the use is still narrower than any other set here: measure against it, cite it, and keep anything built from it out of a commercial artefact. |
+| access | manual |
+| paper | 10.1177/02783649231153020 |
+| site | https://github.com/uml-marine-robotics/MassMIND |
+| sensor | FLIR ADK -- 320x256 in 2019, 640x512 from 2020 |
+| resolution | [640, 512] |
+| bit depth (native / stored) | 16 / None |
+| thermal images | 2916 |
+| annotated frames | 2916 |
+| classes | sky, water, bridge, obstacle, living obstacle, background, self |
+| label format | pixel-level semantic and instance masks (segments.ai export), one per image |
+| sha256 | not downloaded |
+
+**Signal path: `unknown`.** **The bit depth of the released frames is not stated by anybody, and this entry refuses to infer it.** The paper's camera table says the ADK writes "16 bit TIFF or compressed 8 bit PNG" (2019: 16-bit TIFF) -- that is the *camera's output options*, not a statement about what is inside `Images.zip`. The frames were extracted from rosbag files, the README does not say in what format, and the repository's own samples are 8-bit PNG. Taking the camera's capability for the file's contents is the same substitution `XD.1` caught on a licence, and it is load-bearing in the same way: `signal_path` is what opens the analyser gate. So this is `unknown` until one file is opened, which settles it in a line -- and the set becomes `radiometric` at that moment if the values are ADK counts, since those are linear in radiance and are not a calibrated temperature. **Half the set is upsampled and that is verified, not suspected.** The paper's Table 2 splits the 2916 images as 1423 from 2019 (48.8 %) and 1493 from 2020 (51.2 %), and the 2019 camera is 320x256. The release presents everything at 640x512 and the paper states "Original image resolution of 640x512 (width x height) pixels was used across all the architectures ... for both 2019 as well as the 2020 images". So nearly half these frames carry no sensor content above half their stated Nyquist: on those, a spatial PSD, an edge spread or a fixed-pattern measurement describes an interpolator. The two halves are separable by their timestamps, and any spatial statistic from this set has to say which half it was measured on.
+
+**May be used for:** `target_size_and_scr`, `target_size_prior`, `scr_prior`.
+
+**Must not be used for:** `noise_3d`, `temporal_psd`, `ffc_freeze`, `spatial_psd`, `edge_spread`, `agc_signature`, `size_vs_range` -- see the signal path above.
+
+Two cameras over two years, so one `fov_deg` cannot describe the set: 34 deg horizontal in 2019 at 320x256, 75 deg from 2020 at 640x512, both 12 um pitch, 8-14 um, NETD < 50 mK (paper Table 1). Both figures matter for any angular claim and neither applies to the whole set. Recorded 2026-09-24 from the repository and the arXiv full text; nothing has been downloaded, so there is no `sha256` and the format question above stays open until there is.
 
 ## `irstd_1k`
 

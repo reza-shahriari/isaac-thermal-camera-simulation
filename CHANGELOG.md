@@ -6,6 +6,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **MassMIND indexed — the maritime lane's first anchor, and its bit depth is not what the row
+  said** (`XD.3`). The first public LWIR maritime set: 2,916 Boston Harbor images, FLIR ADK,
+  NETD < 50 mK, pixel-level semantic *and* instance masks across seven classes. Its value here is
+  the **labelled sky and water polygons** — every noise statistic needs a region where the scene
+  is not, and `EV.3` showed the heuristic flat-window finder returning nothing at all on rendered
+  clips. A labelled polygon is that window, stated by the publisher instead of guessed at.
+  The licence is **CC BY-NC-SA 4.0 and is genuinely a grant over the frames**: the repository's
+  `LICENSE` is the CC text and the README says it of "all datasets and benchmarks on this page",
+  not of code. That is the distinction `XD.1` was about, coming out the other way for once. But
+  NonCommercial is a live restriction for a simulator aimed at a vehicle, and ShareAlike reaches
+  derivatives, so `licence_known` opening the fetch gate is not the whole question and the terms
+  are written where the generated README prints them.
+  **Two corrections to the roadmap row.** It asked for a 16-bit radiometric set. The ADK *writes*
+  16-bit TIFF — that is the camera's output option, from the paper's own table — and **nobody
+  states what is inside `Images.zip`**; the frames came out of rosbags, the README does not say,
+  and the repository's samples are 8-bit PNG. Inferring `radiometric` from a datasheet is the same
+  substitution `XD.1` caught on a licence, moved to the field that opens the analyser gate, so the
+  set is indexed `unknown` and the question stays open in writing until one file is opened.
+  Second: the row says 640×512, and **1,423 of the 2,916 frames (48.8 %) came off a 320×256
+  camera**, with the release presenting everything at 640×512 (paper Table 2, and "Original image
+  resolution of 640×512 ... was used ... for both 2019 as well as the 2020 images"). Nearly half
+  the set therefore carries no sensor content above half its stated Nyquist, so `spatial_psd` and
+  `edge_spread` are excluded with that reason recorded.
+- **A project site, generated from the repository** (`make site`, ADR 0139). `scripts/build_site.py`
+  builds 157 static pages into the gitignored `_site/`: every document rendered rather than copied
+  (`docs/physics-model.md`, the roadmap, 138 ADRs, the validation reports, the changelog, README and
+  CLAUDE.md), plus four pages that are **measured at build time** — the module map (231 modules with
+  their own docstrings and the spec sections each cites), the configuration catalogue, the decision
+  index, and a front page whose every number is counted from the tree, so none of it can go stale in
+  a commit. Search runs in the page off a 144 kB index; there is no service behind it.
+  **The gallery is a committed manifest over uncommitted media.** `site/gallery.yaml` names 55 frames
+  and clips and says what each demonstrates; the files come from `outputs/`, which is 8.3 GB and not
+  in git. Everything is re-encoded for the web — H.264 CRF 34 at 720 px, stills to WebP — which takes
+  **436.8 MB of source renders to 20.6 MB**, the whole site to 25 MB, against the ~1 GB GitHub Pages
+  publishes. No `.npy` plane is published at all. A clip the checkout does not have is *listed* on
+  the page, so a reader can tell "not rendered here" from "not modelled".
+  Two things were written rather than depended on, for reasons in the ADR: a Markdown renderer
+  (the project interpreter has none, and `$\tau_{\text{opt}}$` must survive an inline pass intact —
+  maths is extracted before anything else touches it and typeset by KaTeX in the browser), and the
+  publish step (`scripts/publish_site.sh` rewrites a `gh-pages` branch, one commit, no history).
+  Guarded by `tests/unit/test_site_markdown.py` — which renders **every** Markdown file in the
+  repository and fails if link syntax reaches a page as literal text — and
+  `tests/unit/test_site_build.py`, which builds the site and asserts every internal link resolves to
+  a file the build wrote and that **no** href is root-absolute, the failure that works in a local
+  preview and 404s under the `/<repo>/` prefix Pages serves a project site from.
+
 - **A radiometric signal path, and a bit depth the sequence declares** (`XD.2`, ADR 0068 addendum).
   `irsim_eval.data.Sequence` refused anything but 8-bit — right when every indexed set was 8-bit,
   and by now the one thing standing between this project and the 16-bit sets it needs (MassMIND,
@@ -73,6 +119,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   range, fall speed) rather than added as a second parameter to keep consistent with the first.
 
 ### Fixed
+- Seven dead cross-references in the ADR corpus, found by the site's link check: ADRs 0114, 0117,
+  0119, 0120, 0121 and 0122 linked to file names that no ADR has ever had (`0036-rk2-for-the-surface-
+  balance.md`, `0043-emissivity-from-optical-data.md`, `0059-optical-psf-at-the-supersampled-pitch.md`,
+  `0094-imex-for-conduction.md`, `0101-the-latent-term-and-the-film.md`,
+  `0105-the-exhaust-line-as-a-gas-stream-in-a-wall.md`). Each link's own label names the ADR number,
+  so every one was retargeted at the file carrying that number. `tests/unit/test_site_build.py` now
+  fails on a dead internal link rather than publishing it.
 - `vessel_pointwise_clear_day.yaml` was added by `PT.10` without a row in
   `scripts/render_multiband.py`'s `UNSWEPT_SCENES`, so `IG.13`'s coverage test -- every scene
   config is either filmed by a sweep or says in the file why it is not -- has been failing on

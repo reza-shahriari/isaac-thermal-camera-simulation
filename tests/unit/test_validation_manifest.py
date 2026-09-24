@@ -441,11 +441,16 @@ def test_the_paths_recorded_match_what_each_set_says_it_is(manifest: Manifest) -
     """One word per set, and the prose behind it has to agree -- the two are written separately."""
     assert manifest.datasets["halmstad_drone_detection"].signal_path == "recorder"
     assert manifest.with_signal_path("display") == ["anti_uav_410", "anti_uav_600", "cst_anti_uav"]
-    assert manifest.with_signal_path("unknown") == ["irstd_1k", "lrddv3", "nuaa_sirst"]
+    assert manifest.with_signal_path("unknown") == [
+        "irstd_1k",
+        "lrddv3",
+        "massmind",
+        "nuaa_sirst",
+    ]
     for name, dataset in manifest.datasets.items():
         if dataset.signal_path == "unknown":
             note = dataset.signal_path_note.lower()
-            assert "unknown" in note or "unverified" in note, name
+            assert any(w in note for w in ("unknown", "unverified", "not stated")), name
 
 
 def test_asking_about_a_measurement_that_does_not_exist_is_an_error(manifest: Manifest) -> None:
@@ -454,3 +459,93 @@ def test_asking_about_a_measurement_that_does_not_exist_is_an_error(manifest: Ma
         manifest.usable_for("noise_3d_kelvins")
     with pytest.raises(ValueError, match="unknown signal path"):
         manifest.with_signal_path("y16")  # type: ignore[arg-type]
+
+
+# --- the maritime anchor (XD.3) ------------------------------------------------------------------
+
+
+def test_the_maritime_set_is_indexed_with_a_licence_that_grants_the_frames(
+    manifest: Manifest,
+) -> None:
+    """MassMIND is the first public LWIR maritime set, and the first whose licence is a *data* one.
+
+    `XD.1`'s lesson applied in the other direction: two of the three entries it re-checked had a
+    licence written down nearby that did not reach the frames. Here the repository's LICENSE file
+    is the CC BY-NC-SA text *and* the README says it of "all datasets and benchmarks on this page",
+    so it is a grant, and the gate opens.
+    """
+    dataset = manifest.datasets["massmind"]
+    assert dataset.licence == "CC-BY-NC-SA-4.0"
+    assert dataset.licence_known
+    assert dataset.paper_doi == "10.1177/02783649231153020"
+    assert dataset.thermal_images == 2916
+    assert len(dataset.classes or []) == 7
+    assert {"sky", "water"} <= set(dataset.classes or [])
+
+
+def test_the_noncommercial_term_is_written_where_somebody_will_read_it(
+    manifest: Manifest,
+) -> None:
+    """`licence_known` opens the fetch gate, and on this set that is not the whole question.
+
+    Every other licence in the index permits use outright. This one forbids commercial use and
+    reaches derivatives through ShareAlike, which is a live constraint for a simulator aimed at a
+    vehicle — so a boolean gate is not enough and the restriction has to be in the prose the
+    README prints.
+    """
+    note = (manifest.datasets["massmind"].licence_note or "").lower()
+    assert "noncommercial" in note
+    assert "sharealike" in note
+    assert "commercial" in readme_path().read_text(encoding="utf-8").lower()
+
+
+def test_the_camera_can_write_sixteen_bits_and_the_release_still_does_not_say(
+    manifest: Manifest,
+) -> None:
+    """The row asked for a 16-bit set. The camera is 16-bit; what is in the archive is unstated.
+
+    This is the same substitution `XD.1` caught on a licence, moved to a different field: the
+    paper's table lists the ADK's *output options*, not the contents of `Images.zip`. Inferring
+    `radiometric` from a datasheet would hand every Kelvin measurement a permission nobody granted,
+    so the set is indexed `unknown` and the question stays open in writing. Opening one file
+    settles it, and this test changes when somebody does.
+    """
+    dataset = manifest.datasets["massmind"]
+    assert dataset.bit_depth_native == 16, "the ADK writes 16-bit TIFF -- that much is stated"
+    assert dataset.bit_depth_stored is None, "what the release contains is not stated by anybody"
+    assert dataset.signal_path == "unknown"
+    assert not dataset.may_run("noise_3d_kelvin")
+    assert "not stated" in dataset.signal_path_note.lower()
+
+
+def test_half_the_maritime_frames_are_upsampled_and_the_index_says_so(
+    manifest: Manifest,
+) -> None:
+    """1423 of 2916 came off a 320x256 camera and the release presents everything at 640x512.
+
+    Nearly half the set therefore carries no sensor content above half its stated Nyquist, so a
+    spatial statistic measured on those frames describes an interpolator. The set is excluded from
+    exactly those measurements, and the reason is in the note rather than in somebody's memory.
+    """
+    dataset = manifest.datasets["massmind"]
+    assert dataset.resolution == [640, 512]
+    for measurement in ("spatial_psd", "edge_spread"):
+        assert not dataset.may_run(measurement), measurement
+    note = dataset.signal_path_note
+    assert "1423" in note and "320x256" in note
+
+
+def test_the_labelled_sky_and_water_masks_are_why_this_set_is_here(manifest: Manifest) -> None:
+    """`EV.3` showed the heuristic flat-window finder returning nothing on every rendered clip.
+
+    A labelled sky or water polygon is a flat window stated by the publisher instead of guessed
+    at. That is the set's value and it is independent of the bit-depth question above, which is
+    why the entry is worth having while that question is open.
+    """
+    dataset = manifest.datasets["massmind"]
+    assert "sky" in (dataset.classes or []) and "water" in (dataset.classes or [])
+    assert "mask" in (dataset.label_format or "").lower()
+    assert "flat" in dataset.why.lower()
+    # Single frames, so nothing temporal, whatever the frames turn out to be.
+    for measurement in ("noise_3d", "temporal_psd", "ffc_freeze"):
+        assert measurement in dataset.excluded_analysers, measurement

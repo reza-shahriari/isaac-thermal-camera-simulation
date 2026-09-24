@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 66 open steps
+#### Then, in order — 65 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -184,18 +184,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`AI.4`** | AI | B | S | — | ready |
 | 4 | **`IG.16`** | IG | B | M | — | ready |
 | 5 | **`SE.2`** | SE | B | M | — | ready |
-| 6 | **`XD.3`** | XD | B | M | — | ready |
-| 7 | **`TC.8`** | TC | C | S | — | ready |
-| 8 | **`AT.6`** | AT | C | M | — | ready |
-| 9 | **`AT.9`** | AT | C | M | — | ready |
-| 10 | **`PT.16`** | PT | C | M | — | ready |
-| 11 | **`XD.10`** | XD | C | L | — | ready |
-| 12 | **`EV.1`** | EV | X | M | 5 | ready |
-| 13 | **`IG.3`** | IG | X | S | 3 | ready |
-| 14 | **`EV.5`** | EV | X | M | 3 | `EV.1` |
-| 15 | **`SC.5`** | SC | X | M | 3 | ready |
+| 6 | **`TC.8`** | TC | C | S | — | ready |
+| 7 | **`AT.6`** | AT | C | M | — | ready |
+| 8 | **`AT.9`** | AT | C | M | — | ready |
+| 9 | **`PT.16`** | PT | C | M | — | ready |
+| 10 | **`XD.10`** | XD | C | L | — | ready |
+| 11 | **`EV.1`** | EV | X | M | 5 | ready |
+| 12 | **`IG.3`** | IG | X | S | 3 | ready |
+| 13 | **`EV.5`** | EV | X | M | 3 | `EV.1` |
+| 14 | **`SC.5`** | SC | X | M | 3 | ready |
+| 15 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
 
-…and 51 more — `python scripts/next_step.py --queue 40`.
+…and 50 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -325,7 +325,7 @@ for Tier 3, and `M7` resolves to `1a0f13c`, the commit `RP.7` separately identif
 | M8 atmosphere, grey and layered | done | `e4caef9` | Layered exponential-sum slant path, R13-anchored. Per-pixel slant path was never in scope: `AT.1` |
 | M9 sensor chain | done | `d38c3f0` | 3-D noise, FPN, bad pixels, NUC residual, budget test. M9.8's IIR wiring is recorded by ADR 0082 |
 | M10 Isaac pipeline | partial | `b2f89f2` | AOVs, IrCamera, Warp stage twins, six demo stages. M10.12 and M10.13a/b/e blocked: see `DC.1` |
-| AI asset ingestion | partial | `pending` | Per-asset material map + CPU Blender prep (ADR 0128), solvable geometry (ADR 0132), and the asset flies in both bands (ADR 0133). Phantom 4: 48.8% -> 100%. Still one temperature per prim: `AI.2`'s remainder |
+| AI asset ingestion | partial | `pending` | Per-asset material map + CPU Blender prep (ADR 0128), solvable geometry (ADR 0132), and the asset flies in both bands (ADR 0133). Phantom 4: 48.8% -> 100%. Functional part decomposition and a bound battery (ADR 0138, `AI.5`). Still one temperature per prim: `AI.2`'s remainder |
 | M11 multi-band and aerial extras | done | `3553b33` | `72e8142` shipped the NIR config and response. Specular lobe not wired per pixel (ADR 0067) |
 | M12 Tier 4 acceptance | partial | `e22c010` | The run fails and says so. `EV.1`-`EV.4` redo it before its attribution is used |
 | ME evaluation data lane | partial | `2cac77d` | ME.5 measured 365 clips on a hashed archive. ME.7 blocked on labels, not compute: `EV.11`, `XD.11` |
@@ -698,7 +698,7 @@ effort in the whole plan.
 |---|---|---|---|---|---|
 | XD.1 | ✅ **done, and the row itself was wrong.** `anti_uav_600` indexed — 600 sequences, 723k IR frames, the largest here; `lrddv3`'s licence and camera corrected; `anti_uav_410`'s two fields left null on purpose. | **Verified at source 2026-09-24.** The row asked for **CC BY 4.0** on `lrddv3`: that is the *paper's* arXiv badge, the dataset page names **CDLA-Permissive-2.0**, and this field opens the fetch gate — so the row would have granted a permission the frames lack. Camera confirmed. 640×512/25 Hz is the RGBT *parent's*, and `probe_clip` reads it from the file. 5 cases. | — | S | X |
 | XD.2 | ✅ **done** (ADR 0068 addendum). `signal_path` is one of `display`/`recorder`/`radiometric`/`unknown`; the prose is `signal_path_note`; `Sequence` declares `bit_depth`, the **significant** width — FLIR's ADAS is 14-in-16, 4× in the floor. | 18 measurements declare their paths in one table and both locks turn from it: the index won't load if a set claims what its path can't carry, and `measure_clip` requires the path. ISP and sensor paths are **disjoint**, asserted as a property; `unknown` ⊂ `display`. `noise_3d_kelvin` has `[]` today, pinned — XD.3/4/10 each change it. | XD.1 | M | X |
-| XD.3 | **MassMIND** — 16-bit LWIR maritime, FLIR ADK, published NETD < 50 mK, 640×512, CC BY-NC-SA 4.0, 2,916 Boston Harbor images with 7-class sky/water/obstacle masks. | Brings the maritime lane to the bar the aerial lane reached, and the masks give **labelled flat windows**, replacing the heuristic finder that EV.3 shows returns `[]` on every rendered clip. Index honestly: the 16-bit values are ADK counts, linear in radiance, not calibrated temperature. | XD.2 | M | B |
+| XD.3 | ✅ **done, and the row's "16-bit" is unverified.** Indexed: CC BY-NC-SA 4.0 (a *data* grant — LICENSE plus the README's own Copyright line), DOI, 2916 images, 7 classes, ADK, NETD < 50 mK. | The ADK *writes* 16-bit TIFF; nobody states what is in `Images.zip`, so it is `unknown`, not `radiometric` — the XD.1 substitution moved to the field that opens the gate. Also **1423 of 2916 (48.8 %) came off a 320×256 camera** and the release presents 640×512, so `spatial_psd`/`edge_spread` are excluded. NC + ShareAlike is a live limit for a vehicle project. 5 cases. | XD.2 | M | B |
 | XD.4 | **LTIR v1.0** — the only 16-bit public source found that is made of *sequences* (20, 8-/16-bit variant), so the only one that can carry temporal PSD, FFC and fixed-pattern-growth work without a codec floor. | Indexed with ADR 0068's provenance fields and `licence: unstated`. The temporal analysers run on one 16-bit sequence and the 1/f knee they report lies inside the band `SC.5` declares for a Boson-class core; on the 8-bit variant of the same sequence they disagree by the codec floor. Red today: they skip. | XD.2 | M | X |
 | XD.5 | **FLAME 3** — per-pixel Celsius from a calibrated radiometric response, the only absolutely calibrated public imagery found, open access on IEEE DataPort. | `irsim.radiometry.encoding` round-trips every FLAME 3 pixel, 250 K to the 500 °C cap, within 10 mK; apparent-temperature inversion at FLAME 3's mode and tail returns the input within 1 mK; a low-gain radiometric config reproduces the 0–25 °C mode and the rail at 500 °C (`PH.8`). Frame-level labels only, so no detector claim. | XD.2 | M | X |
 | XD.6 | **ARM Infrared Cloud Imager** — radiometrically calibrated full-sky downwelling LWIR, 7.3–14 µm, 320×240 uncooled microbolometer, in W/(m²·sr) to better than 0.5, from a 9-month ARM SGP deployment with netCDF in a free archive. | **The only external check that exists** for ADR 0070 (cloud clutter), ADR 0086 (scattered-sunlight sky) and ADR 0071 (layered slant path) — the physics of the owner's first lane, validated against nothing at all today. Calibrated sky imagery, in the units the sky model predicts, with clouds. | AT.1 | L | X |
@@ -751,6 +751,7 @@ left of it is one thing: the solved cells do not reach a pixel.
 | AI.2 | **Put the Phantom 4 in a scene.** 🟡 **Mostly shipped:** schema v16 binds a field to a prepared asset's prims (ADR 0132) and `render_phantom4.py` flies it in LWIR and colour, mounted by the rotation its own `world_frame:` implies (ADR 0133). **Left:** 234,923 solved cells reach no pixel — `MeshPointBridge` has never been driven by a render. | Green: 41/41 prims mapped, motor prims peak 19.6 K over the shell. **Red:** a bridge bound to an imported prim, carrying the mount rotation, showing a gradient *across* one prim. | AI.1 | L | A |
 | AI.3 | ✅ **done.** `irsim.io.asset_budget` measures a prepared archive engine-free and `prep_asset.py` refuses over it: 1.3 M faces total (GT.7's reference), 200 k per prim, plus a *resolution floor* derived from conduction — `sqrt(alpha x 60 s)` = 1.11 mm at the library's slowest material. ADR 0137. | **Measured.** The Phantom 4 is 1,532,656 faces against that budget, and **77 %** of them are finer than the floor; one prim holds 100,926 faces over 2.7 cm2 — a 73 um cell. 19 tests. | AI.1, GT.7 | M | B |
 | AI.4 | **Exercise the `materialBind` subset path with a real asset.** `prep_asset.py` reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data — and it is the branch that stops a multi-material building mapping entirely to slot 0. | A committed fixture with subsets audits per subset, and a mesh carrying both a subset and a direct binding is reported rather than silently resolved from the binding. | AI.1 | S | B |
+| AI.5 | ✅ **done.** An imported asset is decomposed into **functional parts** by connected component, with the parts authored as data in the asset config (`irsim.io.asset_parts`, `prep_asset.py --emit-components`). ADR 0138. | **Measured.** The Phantom 4's 41 material-grouped prims split into 31,068 components and resolve to 19 parts at 100 % of 0.294 m2: four propellers (spread 4.4 %), four motors (spread **0.0 %**), four mounts, and a **battery** — 0.00570 m2, 401 faces, 88 x 83 x 28 mm — which the scene had declared as a heat source and bound to no geometry at all. 19 tests. | AI.1 | M | A |
 
 ---
 

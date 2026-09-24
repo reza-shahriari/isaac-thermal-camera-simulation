@@ -45,7 +45,7 @@
 # frames", and it is load-bearing: `licence_known` is what opens the fetch gate.
 
 schema_version: 2
-checked_utc: "2026-09-24"                     # XD.1 re-checked anti_uav_410, lrddv3; added anti_uav_600
+checked_utc: "2026-09-24"                     # XD.1: anti_uav_410, lrddv3, anti_uav_600. XD.3: massmind
 
 datasets:
   halmstad_drone_detection:
@@ -326,6 +326,85 @@ datasets:
       Ranges are mostly 0-50 m and reach only ~175 m, and the geometry is air-to-air with ground
       clutter behind the target. It therefore constrains the near end of the range law and says
       nothing about a 0.5-5 km sky-background target, which is the case phase 1 actually models.
+
+  massmind:
+    title: "MassMIND: Massachusetts Maritime INfrared Dataset"
+    role: supplement
+    why: >-
+      The first public LWIR maritime set, and the only indexed source with **pixel-level labels for
+      sky and water**. Every noise statistic in this project needs a region where the scene is not,
+      and `EV.3` showed the heuristic flat-window finder returning nothing at all on rendered clips.
+      A labelled sky or water polygon is that window, stated by the publisher rather than guessed
+      at, which is what the maritime lane needs before anything else.
+    site_url: "https://github.com/uml-marine-robotics/MassMIND"
+    paper_doi: "10.1177/02783649231153020"
+    paper_arxiv: "2209.04097"
+    licence: "CC-BY-NC-SA-4.0"                # VERIFIED 2026-09-24
+    licence_note: >-
+      This one **is** a grant over the frames, and it was checked the way `XD.1` learned to check.
+      The repository's LICENSE file is the CC BY-NC-SA 4.0 text, and the README's own Copyright
+      section says it of the data rather than of code: "All datasets and benchmarks on this page
+      are copyrighted by us and published under the Creative Commons
+      Attribution-NonCommercial-ShareAlike 4.0 License."
+
+      **NonCommercial is a real restriction on this project, not a formality.** This simulator is
+      aimed at eventual deployment on a vehicle, and ShareAlike reaches anything derived from these
+      frames. So the terms are known -- `licence_known` is true and the fetch gate opens -- and the
+      use is still narrower than any other set here: measure against it, cite it, and keep anything
+      built from it out of a commercial artefact.
+    access: manual                            # three Google Drive links; a human has to fetch them
+    sensor: "FLIR ADK -- 320x256 in 2019, 640x512 from 2020"
+    resolution: [640, 512]                    # what the release presents; see signal_path_note
+    fov_deg: null                             # two cameras, 34 deg and 75 deg horizontal -- see notes
+    frame_rate_hz: null                       # single frames selected from rosbags, not sequences
+    bit_depth_native: 16                      # VERIFIED: the ADK writes 16-bit TIFF (paper Table 1)
+    bit_depth_stored: null                    # NOT STATED by the publisher -- see signal_path_note
+    thermal_images: 2916                      # VERIFIED: README and paper Table 2
+    annotated_frames: 2916                    # every image is labelled; that is the point of the set
+    classes: ["sky", "water", "bridge", "obstacle", "living obstacle", "background", "self"]
+    label_format: "pixel-level semantic and instance masks (segments.ai export), one per image"
+    label_note: >-
+      Masks, not boxes. An instance mask gives an extent directly and more honestly than a box does,
+      but nothing here carries a range, so no size-versus-range claim is available.
+    signal_path: unknown                      # the release format is not stated; see the note
+    signal_path_note: >-
+      **The bit depth of the released frames is not stated by anybody, and this entry refuses to
+      infer it.** The paper's camera table says the ADK writes "16 bit TIFF or compressed 8 bit
+      PNG" (2019: 16-bit TIFF) -- that is the *camera's output options*, not a statement about
+      what is inside `Images.zip`. The frames were extracted from rosbag files, the README does not
+      say in what format, and the repository's own samples are 8-bit PNG. Taking the camera's
+      capability for the file's contents is the same substitution `XD.1` caught on a licence, and
+      it is load-bearing in the same way: `signal_path` is what opens the analyser gate. So this is
+      `unknown` until one file is opened, which settles it in a line -- and the set becomes
+      `radiometric` at that moment if the values are ADK counts, since those are linear in radiance
+      and are not a calibrated temperature.
+
+      **Half the set is upsampled and that is verified, not suspected.** The paper's Table 2 splits
+      the 2916 images as 1423 from 2019 (48.8 %) and 1493 from 2020 (51.2 %), and the 2019 camera
+      is 320x256. The release presents everything at 640x512 and the paper states "Original image
+      resolution of 640x512 (width x height) pixels was used across all the architectures ... for
+      both 2019 as well as the 2020 images". So nearly half these frames carry no sensor content
+      above half their stated Nyquist: on those, a spatial PSD, an edge spread or a fixed-pattern
+      measurement describes an interpolator. The two halves are separable by their timestamps, and
+      any spatial statistic from this set has to say which half it was measured on.
+    analysers:
+      - target_size_and_scr    # instance masks give an extent; SCR against the ring around it
+      - target_size_prior
+      - scr_prior
+    excluded_analysers:
+      - noise_3d               # single frames, not sequences -- there is no temporal axis at all
+      - temporal_psd           # ditto
+      - ffc_freeze             # ditto
+      - spatial_psd            # 48.8 % of the frames are upsampled; see signal_path_note
+      - edge_spread            # ditto, and DDE is unknown
+      - agc_signature          # nobody said whether these frames met an AGC
+      - size_vs_range          # no range label anywhere in the set
+    notes: >-
+      Two cameras over two years, so one `fov_deg` cannot describe the set: 34 deg horizontal in
+      2019 at 320x256, 75 deg from 2020 at 640x512, both 12 um pitch, 8-14 um, NETD < 50 mK
+      (paper Table 1). Both figures matter for any angular claim and neither applies to the whole
+      set. Recorded 2026-09-24 from the repository and the arXiv full text; nothing has been
+      downloaded, so there is no `sha256` and the format question above stays open until there is.
 
   irstd_1k:
     title: "IRSTD-1k infrared small-target detection set"
