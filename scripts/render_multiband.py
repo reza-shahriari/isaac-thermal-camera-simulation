@@ -99,6 +99,15 @@ SCENES: dict[str, tuple[str, list[str], int]] = {
 #: this accounts for every file in `configs/scenes/` that `SCENES` does not name, so a new scene
 #: cannot be added and quietly left unfilmed.
 UNSWEPT_SCENES: dict[str, str] = {
+    "phantom4_parts.yaml": (
+        "AI.5's reference scene: the Phantom 4 solved on its **functional parts** rather than its "
+        "material prims (ADR 0138), with four motors, four ESC mounts and a battery as separate "
+        "thermal nodes. Unswept for the same reason as `phantom4_pointwise.yaml` and one more: it "
+        "needs a *part-split* archive and USD that `scripts/prep_asset.py --asset phantom4 "
+        "--emit-parts` generates and git does not carry, so a sweep on a fresh checkout would "
+        "fail for a missing file. It is filmed by `scripts/render_phantom4.py --asset "
+        "phantom4_parts`, which is a single-asset driver rather than a band sweep."
+    ),
     "phantom4_pointwise.yaml": (
         "AI.2's reference scene: the first in this project whose geometry was not authored in "
         "Python. It needs a mesh archive that is generated rather than committed -- "
