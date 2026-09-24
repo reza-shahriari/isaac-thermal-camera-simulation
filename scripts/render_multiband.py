@@ -114,6 +114,15 @@ UNSWEPT_SCENES: dict[str, str] = {
         "synthetic G-buffer; the rendered frames are IG.2's, and when a driver places the car "
         "and its camera it joins the sweep."
     ),
+    "vessel_pointwise_clear_day.yaml": (
+        "PT.10's reference scene: a weather-deck field and two faces of one deckhouse prim on a "
+        "vessel held still, with no driver yet. `irsim_isaac.vessel_pointwise` authors the prims "
+        "the patches name, but nothing places a camera on the water in front of them -- the "
+        "maritime drivers all film the *moving* vessel of `vessel_departure_clear_day.yaml`, "
+        "which carries no patches. Its numbers are tests/unit/test_vessel_pointwise.py's, "
+        "measured engine-free; the rendered frames are IG.2's, and it joins the sweep when a "
+        "driver stands a camera off the beam."
+    ),
     "thermal_facet_scene.yaml": (
         "the §6.13 facet bench: seven surfaces, no camera and no prims. It is driven by "
         "scripts/validate_thermal_diurnal.py, which produces a diurnal curve, not a frame."

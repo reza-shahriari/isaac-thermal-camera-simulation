@@ -49,6 +49,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   range, fall speed) rather than added as a second parameter to keep consistent with the first.
 
 ### Fixed
+- `vessel_pointwise_clear_day.yaml` was added by `PT.10` without a row in
+  `scripts/render_multiband.py`'s `UNSWEPT_SCENES`, so `IG.13`'s coverage test -- every scene
+  config is either filmed by a sweep or says in the file why it is not -- has been failing on
+  `main` since that commit. The scene is genuinely unswept: `irsim_isaac.vessel_pointwise` authors
+  the prims its patches name, but no driver stands a camera off the beam, and the maritime sweeps
+  all film the *moving* vessel of `vessel_departure_clear_day.yaml`, which carries no patches.
+  Registered with that reason rather than papered over.
 - weather-fx's seasonal temperature draw was anchored on the new year instead of the warmest day,
   putting the northern hemisphere's maximum in mid-January: a December at 59 °N drew 17 °C, which
   reads as ordinary in a log line and is six months out.

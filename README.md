@@ -138,10 +138,13 @@ second PNG sequence. Still open for a full M10.19: the ME.6 real-vs-synthetic co
 τ(R)/R² SCR law, which needs MS.6's analytic injection rather than renderer geometry.
 
 **One command, every scene, every band (`IG.13`).** `python.sh scripts/render_multiband.py` films
-**seven of the eight** scene configs in all four bands; it used to reach three, so five scenes --
-the whole aerial point-target lane among them -- had only ever been seen in the single band their
-own driver defaults to. The eighth, `thermal_facet_scene`, is declared unswept with its reason: it
-is the §6.13 facet bench, seven surfaces with no camera and no prims. Adding the rows found two
+**nine of the eighteen** scene configs in all four bands; it used to reach three of the eight that
+existed then, so five scenes -- the whole aerial point-target lane among them -- had only ever been
+seen in the single band their own driver defaults to. The other nine are declared unswept, each
+with its own reason in the file: `thermal_facet_scene` is the §6.13 facet bench, seven surfaces
+with no camera and no prims, and the rest are reference scenes whose patches and numbers are
+engine-free tests' but which no driver yet points a camera at -- each names the step that would
+close it. Adding the rows found two
 gaps in the drivers themselves: `--rt-subframes` and `--integration-ms` are passed to every child
 process and were accepted by only three of the six, so a sweep over the new scenes would have
 failed twelve renders at once with the reason buried in a subprocess's stderr. Running it found a
