@@ -93,7 +93,11 @@ equal area at each station, and the `Green_light` it relied on is a 0.07 cm² sp
 near the body rather than an arm LED.
 
 Consequence: every Phantom 4 clip rendered before this ADR flew the aircraft roughly 30° crabbed.
-The correction is a deliberate regeneration of those outputs, not a silent fix.
+`NOSE_IN_ASSET` is now the bisector of the two front arms, (−0.4789, −0.8779, 0), taken from the
+four stations rather than from the camera because four points square to 0.23° and equidistant to
+0.6 mm are far better conditioned than one small component's centroid; the camera is kept as the
+cross-check, agreeing to 2.9°. **Regenerating the affected outputs is a deliberate act and is not
+part of this ADR** — the clips on disk are still the crabbed ones until somebody re-renders them.
 
 ## Options considered
 

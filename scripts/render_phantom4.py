@@ -62,20 +62,33 @@ TARGET_BY_MATERIAL: dict[str, str] = {"copper": "motor"}
 DEFAULT_TARGET = "airframe"
 
 #: Which way the airframe's nose points **in the asset's own axes**, before the mount rotation.
-#: Measured from the archive, not assumed, and the measurement is worth recording because the
-#: asset's prims are named `GeometryNode_<n>` and carry no hint of function. Three parts of a
-#: Phantom 4 that are deliberately not symmetric fore-and-aft all agree, each offset from the
-#: airframe's own centroid:
+#: Measured from the archive, and corrected in `AI.5` after the first measurement proved wrong by
+#: **28.6 degrees**. The correction matters: this vector is what a yaw of zero means, so an error
+#: here flies the whole aircraft crabbed through every frame of every clip.
 #:
-#:   * the gimbal camera body (`camera_static`) at -53 mm, and its lens (`Glass`, `Crystal`) at
-#:     -55 mm -- the camera points forward and hangs off the nose;
-#:   * `symbol_camera`, the badge beside it, at -55 mm;
-#:   * `Green_light` at +64 mm. DJI puts **red** status LEDs on the front arms and **green** on
-#:     the rear ones, so a green lamp behind the centre of mass is the tail.
+#: **What the first measurement got wrong.** It read the gimbal camera's offset from the airframe
+#: centroid as "-53 mm" and concluded the nose was -Y. That took only the *y* component. The
+#: camera body (`camera_static`) and its `Crystal` lens elements sit at offset (-32, -52) mm --
+#: bearing **-121.5 deg**, not -90.
 #:
-#: Read them back with a listing of `data/assets/phantom4/phantom4.meshes.npz`; the companion
-#: visible frame is the second check, and is one of the things that frame is for.
-NOSE_IN_ASSET = (0.0, -1.0, 0.0)
+#: **What it is measured from now.** The four rotor stations, which are the airframe's own axis of
+#: symmetry and are far better conditioned than one small component's centroid. They sit at
+#: r = 185 mm (spread 0.6 mm) and bearings -73.73, -163.50, +16.45 and +106.39 deg -- 90 deg
+#: apart to within 0.23 deg, which is the asset's own modelling tolerance and four hundred
+#: times smaller than the error being corrected. The two front arms bisect at **-118.61 deg**,
+#: and the camera agrees with that to
+#: 2.9 deg, which is the cross-check. This is the X configuration a Phantom 4 has: the camera
+#: points forward between the two front arms, not along one of them.
+#:
+#: **The old docstring's supporting argument does not hold either**, and it is worth writing down
+#: so nobody restores it. It reasoned that DJI puts red status LEDs on the front arms and green on
+#: the rear, so a green lamp aft of the centre of mass marks the tail. In *this* asset all four
+#: arms carry the same `red_light` material, equal area at each station, and the `Green_light` it
+#: relied on is a 0.07 cm2 speck at r = 77 mm near the body -- not an arm LED at all.
+#:
+#: Read the stations back with `scripts/prep_asset.py --emit-components`; ADR 0138 records the
+#: measurement and `tests/unit/test_phantom4_orientation.py` pins it.
+NOSE_IN_ASSET = (-0.4789, -0.8779, 0.0)
 
 parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
 parser.add_argument("--asset", default="phantom4")
