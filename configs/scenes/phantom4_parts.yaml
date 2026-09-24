@@ -88,7 +88,10 @@ scene:
     tick_s: 30.0
 
     surfaces:
-      - name: battery
+      # Named apart from the `battery` *node* above: `AerialThermalBridge` refuses a name that
+      # is both a target solver and a §12.3 surface, because resolving it by precedence would
+      # silently ignore one of them. The node is the pack's heat; this is the skin it warms.
+      - name: battery_skin
         material: car_paint_black
         tilt_deg: 0.0
         mesh: {asset: phantom4_parts, prim: battery, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/battery/battery}

@@ -92,3 +92,38 @@ holds 10–53°, and there is a test that says so.
 * Option 1 remains open and is the right answer for a *second* imported convention. What this ADR
   buys is that the driver does not have to be rewritten when it lands: the rotation is already a
   named function with tests, and making it the identity is all that changes.
+
+## Addendum (`AI.2`, 2026-09-24): the mount reaches the mesh bridge through the *binding*
+
+This ADR settled how an asset is mounted on the stage. It did not say how the object that queries
+the asset's triangles learns about that mount, because when it was written nothing queried them
+from a render: `MeshPointBridge` existed and `IrCamera` had no way to take one.
+
+Wiring it up (`mesh_fields=`) made the omission expensive in the least helpful way available.
+`TriangleMeshPatch.frame` is a *name*, and the thermal core refuses any value but `"world"`:
+`scene_forcing` needs a pose to put a shadow in a moving frame and the patch does not carry one,
+which is the same constraint behind this ADR's "the camera moves, the aircraft stands still". So
+the patch keeps calling the archive's coordinates `world` — and the render stage is Y-up with the
+aircraft flying a track, which means a world position handed to the bridge is nowhere near the
+archive coordinates the mesh is expressed in. Every closest-point query fell outside
+`DEFAULT_MAX_DISTANCE_M` (7 mm), coverage came back **zero for every prim, and nothing raised**: a
+query in the wrong frame is not an error, it is a query that finds nothing.
+
+The first fix attempted was a `frame:` key in the scene YAML, and the core refused it. That
+refusal is correct and is the decision this addendum records:
+
+**Mounting is a rendering fact, so it is expressed on `MeshBinding`, not on the patch.**
+`MeshBinding.frame` names the prim whose local frame world points are transformed into before they
+are queried, defaulting to the patch's own `frame` so nothing that already worked changes.
+`MeshPointBridge` groups its bindings by that name and `IrCamera._world_from_local` unions the
+frames both bridges ask for, so the planar and mesh paths resolve their poses through one
+mechanism.
+
+Consequences:
+
+* A scene that mounts an asset and forgets to say so still reads as coverage 0 rather than as an
+  exception. That is a real trap and the reason the count is written into every run's
+  `summary.json`: a render that silently falls back to per-prim temperatures looks fine.
+* The thermal core keeps its invariant — one frame, named `world` — and gains no knowledge of
+  stages, tracks or Xforms. The engine-free side of this repository still solves the same scene
+  with no renderer present.

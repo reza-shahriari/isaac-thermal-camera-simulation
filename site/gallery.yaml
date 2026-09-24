@@ -366,31 +366,48 @@ sections:
   - id: imported-asset-outbound
     title: Near to far, with the solve reaching the pixels
     lead: |
-      The same imported Phantom 4, departing from **4 m to 80 m** at a held 16° of elevation —
-      **180 px across down to 9**. Range is spaced geometrically rather than linearly, so the
-      aircraft sheds the same fraction of its width every frame instead of collapsing in the
-      first few and then crawling; the elevation is held so the sky behind it is the same at both
-      ends and the contrast that survives is a statement about range.
+      The same imported Phantom 4 — now **split into functional parts** rather than into the
+      material groups the FBX ships with — departing from **4 m to 80 m** at a held 16° of
+      elevation: **183 px across down to 9**. Range is spaced geometrically, so the aircraft sheds
+      the same fraction of its width every frame instead of collapsing in the first few and then
+      crawling; the elevation is held so the sky behind it is the same at both ends and the
+      contrast that survives is a statement about range.
 
       This is the clip where `AI.2` closed. `IrCamera` now takes `mesh_fields=`, so `WM.3`'s
-      `MeshPointBridge` asks each prim's own triangles for the closest point to every pixel —
-      **24,214 pixels took a cell** of the scene's own 234,923-cell solve, across all six bound
-      prims. Every one of the six carries a gradient *across itself*: 3.83 K on the motor
-      housings, 6.65 K on the lower shell, 8.52 K on the upper shell and **10.60 K** on the
-      propellers, against this camera's 50 mK NETD.
+      `MeshPointBridge` asks each bound prim's own triangles for the closest point to every pixel
+      — **4,756 pixels took a cell** of a 23,477-cell solve across the nine prims this scene
+      binds, and each of the four propellers carries a gradient *across itself*: **1.33 K, 1.46 K,
+      2.19 K and 2.28 K**, against this camera's 50 mK NETD. The readout carries **four** thermal
+      nodes, not the three the material grouping could express: airframe, motor, ESC and battery.
+
+      The honest limit is which prims those are. The scene binds the battery, the four motor
+      mounts and the four propellers; the shells and arms that make up most of the silhouette are
+      unbound and still render at their node's single temperature. Binding them is a scene edit
+      and a cell budget, not a code change.
     media:
-      - video: phantom4_outbound/phantom4_pair.mp4
+      - video: phantom4_outbound/phantom4_parts_pair.mp4
         width: full
-        caption: LWIR beside its visible companion, 4 m to 80 m
+        caption: LWIR beside its visible companion, 4 m to 80 m, stretched to the aircraft
+      - video: phantom4_outbound/phantom4_parts_skypair.mp4
+        width: full
+        caption: >-
+          the same frames stretched to the sky instead: the cumulus both bands march from one
+          cloud field, with the aircraft saturating
       - image: phantom4_outbound/near_structure_whitehot.png
         width: half
         caption: >-
-          the same first frame scaled to the airframe's own 19.6–26.6 °C instead of the whole
-          scene's −5.2–26.4 °C: the propellers and the gimbal read cool against the shell
+          the first frame cropped to the aircraft and scaled to its own 18.1–23.2 °C, where the
+          propellers read as four gradients rather than as four values
       - image: phantom4_outbound/frames/ir_00119.png
         width: half
         caption: 80 m — nine pixels across, on the sky it started against
     note: |
+      Two stretches, one radiometry. A grayscale ramp fitted to the aircraft's 16.6–34.7 °C clips
+      the sky to black, which makes the infrared frame look empty beside a visible companion full
+      of cloud; in the same float32 planes the clear sky is 245.9 K and the cloud in front of it
+      286.1 K, so weather-fx's 30 % cumulus is **40 K** of LWIR structure. Neither clip is more
+      true than the other — the plane both are quantised from is.
+
       The aircraft's own temperature moves during the run, because the 28-minute mission plays
       while it flies and the readout carries it. What is held constant is the background.
     source: scripts/render_phantom4.py

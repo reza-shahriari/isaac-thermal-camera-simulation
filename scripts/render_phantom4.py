@@ -138,6 +138,30 @@ parser.add_argument("--laps", type=float, default=1.0, help="circuits of the eig
 # spans 640 * 0.464 / (2 R tan 15.35 deg) pixels: 108 px at 5 m, 271 px at 2 m. The defaults below
 # keep the old flypast; bring `--centre-range-m` in to about 2 m for a close pass where a 27 mm
 # motor can is ~16 px and per-part temperature is actually legible.
+parser.add_argument(
+    "--bridge-device",
+    default="cpu",
+    help=(
+        "Warp device for the mesh bridge's closest-point query. 'cpu' is the default because "
+        "this is a correctness path and the workstation is shared; 'cuda:0' is much faster on a "
+        "quarter-million cells and gives the same answer -- the engine-free query is the oracle"
+    ),
+)
+parser.add_argument(
+    "--track",
+    default="figure8",
+    choices=("figure8", "outbound"),
+    help=(
+        "figure8: one lemniscate circuit, the aspect sweep. outbound: a climbing run straight "
+        "away from the observer, near to far, at a fixed elevation -- the detection question, "
+        "where range is the only thing changing"
+    ),
+)
+parser.add_argument("--near-m", type=float, default=None, help="outbound: range at the start")
+parser.add_argument("--far-m", type=float, default=None, help="outbound: range at the end")
+parser.add_argument(
+    "--elevation-deg", type=float, default=None, help="outbound: elevation held for the run"
+)
 parser.add_argument("--centre-range-m", type=float, default=None, help="track centre distance")
 parser.add_argument("--half-width-m", type=float, default=None, help="half-width of the eight")
 parser.add_argument("--altitude-low-m", type=float, default=None, help="lowest track altitude")
@@ -146,6 +170,19 @@ parser.add_argument("--rt-subframes", type=int, default=16)
 parser.add_argument("--settle", type=int, default=16)
 parser.add_argument("--span", default=None, help="display span 'loC,hiC'; default from the solve")
 parser.add_argument("--no-rgb", action="store_true", help="infrared only; no visible companion")
+# The aircraft and the sky it flies against do not share a stretch. An outbound Phantom 4 spans
+# 16.6..34.7 C while the same frame's clear sky reads -27 C and the cumulus in front of it +13 C,
+# so a grayscale ramp fitted to the aircraft clips every cloud to black -- the infrared band looks
+# empty beside a visible companion full of cloud, which reads as a missing model rather than as a
+# display choice. This writes the same planes a second time, stretched to the whole frame, where
+# the cloud is 40 K of structure and the aircraft is the part that saturates. Both are the same
+# radiometry; neither is an extra render.
+parser.add_argument(
+    "--sky-clip",
+    action="store_true",
+    help="also write a second clip stretched to the whole frame, showing the sky and cloud "
+    "structure the aircraft's own span clips away",
+)
 # --- the weather comes from the isaac-weather-fx submodule --------------------------------------
 # One weather, both bands: the visible dome, the sun and the moon are authored by weather-fx's own
 # SkyEffect, and the infrared band marches the *same* CloudField through `WeatherFxDeck`. Before
@@ -269,9 +306,15 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     from irsim.thermal.weather_fx_series import weather_series_from_state
     from irsim_eval.video import encode_mp4, ffmpeg_available, overlay_readout
     from irsim_isaac.aircraft_pass import look_at_quaternion
-    from irsim_isaac.asset_flight import FigureEightTrack, world_frame_to_stage
+    from irsim_isaac.asset_flight import (
+        FigureEightTrack,
+        StraightOutTrack,
+        world_frame_to_stage,
+    )
     from irsim_isaac.pipeline.ir_camera import IrCamera
+    from irsim_isaac.pipeline.material_ids import labels_to_paths
     from irsim_isaac.pipeline.materials_usd import prim_records
+    from irsim_isaac.pipeline.mesh_bridge import MeshBinding
     from irsim_isaac.stage import author_environment
     from irsim_isaac.visible_sky import dome_spec_from_scene
     from irsim_isaac.weather_fx_stage import author_weather_fx_sky, weather_state
@@ -299,17 +342,29 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         f"-> stage +Y up, -Z north"
     )
 
-    track_kwargs = {
-        k: v
-        for k, v in (
-            ("centre_range_m", args.centre_range_m),
-            ("half_width_m", args.half_width_m),
-            ("altitude_low_m", args.altitude_low_m),
-            ("altitude_high_m", args.altitude_high_m),
-        )
-        if v is not None
-    }
-    track = FigureEightTrack(**track_kwargs)
+    if args.track == "outbound":
+        track_kwargs = {
+            k: v
+            for k, v in (
+                ("near_m", args.near_m),
+                ("far_m", args.far_m),
+                ("hold_elevation_deg", args.elevation_deg),
+            )
+            if v is not None
+        }
+        track: Any = StraightOutTrack(**track_kwargs)
+    else:
+        track_kwargs = {
+            k: v
+            for k, v in (
+                ("centre_range_m", args.centre_range_m),
+                ("half_width_m", args.half_width_m),
+                ("altitude_low_m", args.altitude_low_m),
+                ("altitude_high_m", args.altitude_high_m),
+            )
+            if v is not None
+        }
+        track = FigureEightTrack(**track_kwargs)
     # The camera advances its clock *before* it hands back a frame, so frame i is at
     # (i + 1) * interval and the last one lands exactly on `--mission-s`. Dividing by
     # `frames - 1` instead overshoots by one interval, and the throttle schedule -- which refuses
@@ -519,15 +574,33 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         aspect = (heading - bearing + 180.0) % 360.0 - 180.0
         return position, float(track.range_m(phase)), aspect
 
-    phases = (np.arange(args.frames, dtype=np.float64) / args.frames) * args.laps
-    ranges = track.range_m(phases % 1.0)
+    # The lemniscate closes on itself, so its last frame must *not* repeat the first: dividing by
+    # `frames` leaves the clip one step short of the loop point, which is what makes it playable
+    # on repeat. An outbound run does not close, and stopping one step short of `far_m` would
+    # quietly make the range band in the summary a range band the clip never reached -- so it
+    # spans the endpoints inclusively instead.
+    phases = (
+        np.linspace(0.0, 1.0, max(args.frames, 2), dtype=np.float64)
+        if args.track == "outbound"
+        else (np.arange(args.frames, dtype=np.float64) / args.frames) * args.laps
+    )
+
+    # **The wrap belongs to the closed track only.** A lemniscate is periodic, so `--laps 2` has
+    # to fold back into [0, 1); an outbound run is not, and folding its final phase of exactly 1.0
+    # to 0.0 puts the *first* frame at the end of the clip -- the aircraft 80 m out, then abruptly
+    # back at 4 m filling the frame. It renders, it encodes, and it is wrong in the one frame a
+    # reader is most likely to freeze on.
+    def at(phase: Any) -> Any:
+        return phase if args.track == "outbound" else np.asarray(phase) % 1.0
+
+    ranges = track.range_m(at(phases))
     px_across = fpa.width * span_m / (2.0 * ranges * math.tan(0.5 * hfov_rad))
     print(
         f"camera: {fpa.width}x{fpa.height}, {math.degrees(hfov_rad):.1f} deg HFOV, on the ground "
         f"at {eye.round(2).tolist()}\n"
         f"track: range {ranges.min():.1f}..{ranges.max():.1f} m, "
-        f"elevation {track.elevation_deg(phases % 1.0).min():.1f}.."
-        f"{track.elevation_deg(phases % 1.0).max():.1f} deg, "
+        f"elevation {track.elevation_deg(at(phases)).min():.1f}.."
+        f"{track.elevation_deg(at(phases)).max():.1f} deg, "
         f"aircraft {px_across.min():.0f}..{px_across.max():.0f} px across"
     )
     place(0.0)
@@ -557,8 +630,39 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         strict_patch_coverage=False,
         strict_materials=True,
         strict_thermal_nodes=True,
+        # `AI.2`'s remainder, closed: the scene's mesh surfaces reach the frame. Until now the
+        # solve ran and its cells reached no pixel -- `IrCamera` took planar `SurfaceBinding`s
+        # only, so a quarter of a million solved cells were discarded and the render fell back to
+        # one temperature per prim. `MeshPointBridge` (WM.3) asks the prim's own triangles for the
+        # closest point to each pixel's world position, which is what an imported asset needs: a
+        # Phantom 4's shell is not a rectangle and cannot be made into one.
+        # `frame=ASSET_ROOT` is the mounting statement, and it belongs here rather than in the
+        # scene config. The archive's vertices are the asset's own world-space metres and the
+        # scene must keep calling that frame `world`: `scene_forcing` refuses a patch in a moving
+        # frame outright, because shadow in one needs a pose the thermal core does not carry. On
+        # *this* stage those same coordinates are the local frame of the Xform the aircraft is
+        # flown by, so the bridge maps each pixel's world position back through it before asking
+        # the triangles. Without it every query lands metres from the mesh and the 7 mm gate
+        # rejects all of them -- which is not an error, just a frame that silently does nothing.
+        mesh_fields=[
+            MeshBinding(path, field, frame=ASSET_ROOT) for path, field in scene.mesh_bindings()
+        ],
+        device=args.bridge_device,
     )
     cam.open(settle_frames=args.settle, rt_subframes=args.rt_subframes)
+
+    #: Peak pixels per mesh-bound prim over the whole run (AI.2), keyed by the prim's leaf name.
+    mesh_coverage: dict[str, int] = {}
+    #: The apparent-temperature spread *across* each mesh-bound prim, at the frame where that
+    #: prim covered the most pixels. This is `AI.2`'s acceptance and it has to be measured on the
+    #: rendered plane rather than on the solve: the solve has had a gradient since ADR 0132 and
+    #: the question was always whether any of it reached a pixel. Only pixels **wholly** on the
+    #: prim count -- a silhouette pixel is part sky, and at 4 m the sky is 47 K colder, so
+    #: including the rim would report the background as structure.
+    mesh_span: dict[str, dict[str, float]] = {}
+    bound = 0 if cam.mesh_pointwise is None else len(cam.mesh_pointwise.prim_paths)
+    cells = sum(f.patch.n_cells for _, f in scene.mesh_bindings())
+    print(f"mesh bridge: {bound} prim(s), {cells} cells, device {args.bridge_device}")
 
     # IG.13: every run-constant field bound once, so the loop body cannot quietly disagree with
     # itself frame to frame. `--plane-stride` thins what reaches disk without thinning the render,
@@ -587,7 +691,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     rows: list[dict[str, Any]] = []
     started = time.time()
     for index in range(args.frames):
-        phase = float(phases[index] % 1.0)
+        phase = float(at(phases[index]))
         position, slant, aspect = place(phase)
         # Move the mount, then tell the camera it moved: every ray direction, sky elevation and
         # view cosine is built from a cached pose, and a camera that slews without refreshing
@@ -604,6 +708,40 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # anti-aliasing happens by supersampling them and filtering radiance afterwards). Fold it
         # down with `any`, because a display pixel showing any aircraft at all is an aircraft
         # pixel -- averaging ids would invent a material that is not in the scene.
+        # `AI.2`: how many pixels actually took a cell of the mesh solve, per prim, at the
+        # frame where each prim was largest. The *last* frame would be the wrong record -- at
+        # the far end of an outbound run the whole aircraft is a handful of pixels, so a peak
+        # is what says the cells reached the picture at all.
+        if cam.mesh_pointwise is not None and cam.last_frame is not None:
+            bound = set(cam.mesh_pointwise.prim_paths)
+            resolved = labels_to_paths(cam.last_frame.labels)
+            ident_of = np.asarray(cam.last_frame.instance_id)
+            fold = ident_of.shape[0] // t_app.shape[0]
+            for path, taken in cam.mesh_pointwise.last_coverage.items():
+                name = path.rsplit("/", 1)[-1]
+                if int(taken) <= mesh_coverage.get(name, 0):
+                    continue
+                mesh_coverage[name] = int(taken)
+                ids_here = [i for i, q in resolved.items() if q == path and q in bound]
+                if not ids_here:
+                    continue
+                whole = np.isin(ident_of, np.asarray(ids_here, dtype=ident_of.dtype))
+                if fold > 1:
+                    whole = whole.reshape(t_app.shape[0], fold, t_app.shape[1], fold).all(
+                        axis=(1, 3)
+                    )
+                if int(whole.sum()) < 8:
+                    continue
+                values = t_app[whole]
+                mesh_span[name] = {
+                    "frame": float(index),
+                    "range_m": round(float(ranges[index]), 3),
+                    "interior_px": float(int(whole.sum())),
+                    "min_c": round(float(values.min()) - 273.15, 3),
+                    "max_c": round(float(values.max()) - 273.15, 3),
+                    "span_k": round(float(values.max() - values.min()), 3),
+                }
+
         last = cam.last_frame
         mat = None if last is None else getattr(last, "material_id", None)
         if mat is None:
@@ -679,33 +817,72 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     print(f"display span: {lo - 273.15:.1f} .. {hi - 273.15:.1f} C, white-hot grayscale")
     gray = palette_table("gray")
 
-    for index, plane in enumerate(planes):
-        row = rows[index]
-        eight = gray[quantise_display((plane - lo) / max(hi - lo, 1e-6))]
-        minutes, seconds = divmod(int(row["t_rel_s"]), 60)
-        readout = overlay_readout(
-            eight,
-            [
-                f"T+{minutes:02d}:{seconds:02d}   range {row['range_m']:5.1f} m   "
-                f"span {row['px_across']:5.1f} px   el {row['elevation_deg']:4.1f} deg",
-                f"aspect {row['aspect_deg']:+6.1f} deg   "
-                + "   ".join(f"{k} {v:5.1f}C" for k, v in sorted(row["node_c"].items())),
-                f"1 frame / {interval_s:.0f} s   LWIR apparent temperature, gray white-hot",
-            ],
-            {k: v + 273.15 for k, v in row["node_c"].items()},
-            (lo, hi),
-            bare=args.no_overlay,
-            palette=gray,
+    def write_display(kind: str, pair_kind: str, span_lo: float, span_hi: float, note: str) -> None:
+        """Write one display clip's stills from the planes already in hand.
+
+        `span_lo`/`span_hi` are the only thing that changes between calls: the radiometry is
+        identical and the 8-bit frames are not (ADR 0068 -- a display PNG has had the stretch,
+        the palette and a 256-level quantisation applied, none of which invert). `note` is the
+        readout's third line, which is where the frame says which stretch it is.
+        """
+        for index, plane in enumerate(planes):
+            row = rows[index]
+            eight = gray[quantise_display((plane - span_lo) / max(span_hi - span_lo, 1e-6))]
+            minutes, seconds = divmod(int(row["t_rel_s"]), 60)
+            readout = overlay_readout(
+                eight,
+                [
+                    f"T+{minutes:02d}:{seconds:02d}   range {row['range_m']:5.1f} m   "
+                    f"span {row['px_across']:5.1f} px   el {row['elevation_deg']:4.1f} deg",
+                    # The nodes are **not** repeated here. The legend below the frame already
+                    # draws every one of them with a bar and a value, and packing them into the
+                    # header too overflows 640 px as soon as a scene has four -- which
+                    # `phantom4_parts.yaml` does, so the line ran off the right edge reading
+                    # `esc 20.9C   m`. A readout that is cropped is worse than one that is short.
+                    f"aspect {row['aspect_deg']:+6.1f} deg   "
+                    f"{len(row['node_c'])} thermal nodes, per-pixel on the bound parts",
+                    note,
+                ],
+                {k: v + 273.15 for k, v in row["node_c"].items()},
+                (span_lo, span_hi),
+                bare=args.no_overlay,
+                palette=gray,
+            )
+            write_png(frames_dir / f"{kind}_{index:05d}.png", readout)
+            if rgbs[index] is not None:
+                write_png(frames_dir / f"rgb_{index:05d}.png", rgbs[index])
+                pair = np.concatenate([readout, np.asarray(rgbs[index])], axis=1)
+                write_png(frames_dir / f"{pair_kind}_{index:05d}.png", np.ascontiguousarray(pair))
+
+    write_display(
+        "ir",
+        "pair",
+        lo,
+        hi,
+        f"1 frame / {interval_s:.0f} s   LWIR apparent temperature, gray white-hot",
+    )
+
+    # The sky's own stretch. Taken over every frame rather than per frame, for the same reason the
+    # aircraft's is: a per-frame AGC would rescale from each histogram and cancel the cloud field
+    # drifting through the run.
+    sky_span: list[float] | None = None
+    if args.sky_clip:
+        whole = np.concatenate([plane.reshape(-1) for plane in planes])
+        sky_lo = float(np.percentile(whole, 1.0))
+        sky_hi = float(np.percentile(whole, 99.0))
+        sky_span = [sky_lo - 273.15, sky_hi - 273.15]
+        print(f"sky span: {sky_span[0]:.1f} .. {sky_span[1]:.1f} C, the aircraft saturates")
+        write_display(
+            "sky",
+            "skypair",
+            sky_lo,
+            sky_hi,
+            f"1 frame / {interval_s:.0f} s   the same LWIR frames, stretched to the sky",
         )
-        write_png(frames_dir / f"ir_{index:05d}.png", readout)
-        if rgbs[index] is not None:
-            write_png(frames_dir / f"rgb_{index:05d}.png", rgbs[index])
-            pair = np.concatenate([readout, np.asarray(rgbs[index])], axis=1)
-            write_png(frames_dir / f"pair_{index:05d}.png", np.ascontiguousarray(pair))
 
     videos: dict[str, str] = {}
     if ffmpeg_available():
-        for kind in ("ir", "rgb", "pair"):
+        for kind in ("ir", "rgb", "pair", "sky", "skypair"):
             if not any(frames_dir.glob(f"{kind}_*.png")):
                 continue
             path = out / f"{args.asset}_{kind}.mp4"
@@ -727,15 +904,27 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "band_hash": band_hash(sensor),
         "float_format": args.float_format,
         "plane_stride": args.plane_stride,
+        "sky_span_c": sky_span,
         "interval_s": interval_s,
         "seconds_per_frame": round(render_s / max(args.frames, 1), 2),
         "mount_rotation": [[float(v) for v in r] for r in mount],
         "track": {
-            "shape": "lemniscate of Bernoulli, one circuit per clip",
+            **(
+                {
+                    "shape": "straight out, geometric in range, constant elevation",
+                    "near_m": track.near_m,
+                    "far_m": track.far_m,
+                    "elevation_deg": track.hold_elevation_deg,
+                }
+                if isinstance(track, StraightOutTrack)
+                else {
+                    "shape": "lemniscate of Bernoulli, one circuit per clip",
+                    "centre_range_m": track.centre_range_m,
+                    "half_width_m": track.half_width_m,
+                    "altitude_m": [track.altitude_low_m, track.altitude_high_m],
+                }
+            ),
             "observer_m": list(track.observer_m),
-            "centre_range_m": track.centre_range_m,
-            "half_width_m": track.half_width_m,
-            "altitude_m": [track.altitude_low_m, track.altitude_high_m],
             "range_m": [float(ranges.min()), float(ranges.max())],
             "px_across": [float(px_across.min()), float(px_across.max())],
         },
@@ -743,9 +932,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "videos": videos,
         "rows": rows,
         "temperature_granularity": (
-            "per prim. The scene's 234,923 mesh cells are solved but IrCamera takes planar "
-            "SurfaceBindings only; wiring MeshPointBridge into the camera is AI.2's remainder."
+            f"per pixel on {len(mesh_coverage)} mesh-bound prims (AI.2): "
+            f"{sum(mesh_coverage.values())} pixels took a cell of the scene's own solve, and the "
+            f"widest gradient across one prim is "
+            f"{max((v['span_k'] for v in mesh_span.values()), default=0.0):.2f} K. "
+            "Unbound prims keep their per-prim node."
         ),
+        "mesh_coverage_px": mesh_coverage,
+        "mesh_span_across_prim": mesh_span,
         "weather_fx": (
             None
             if weather_sky is None

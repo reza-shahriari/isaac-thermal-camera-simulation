@@ -118,6 +118,7 @@ from irsim_isaac.pipeline.material_ids import (
     overlay_unmapped,
     unmapped_mask,
 )
+from irsim_isaac.pipeline.mesh_bridge import MeshBinding, MeshPointBridge
 from irsim_isaac.pipeline.motion_isaac import MotionTracker
 from irsim_isaac.pipeline.point_bridge import (
     PointwiseTemperature,
@@ -372,6 +373,7 @@ class IrCamera:
         rotor_mounts: Mapping[str, Sequence[RotorMount]] | None = None,
         illumination: SceneIllumination | None = None,
         surface_fields: Sequence[SurfaceBinding] = (),
+        mesh_fields: Sequence[MeshBinding] = (),
         heading_deg: float = 0.0,
         device: str = "cpu",
     ) -> None:
@@ -456,6 +458,18 @@ class IrCamera:
             if surface_fields
             else None
         )
+        # `AI.2`: the same idea for geometry a rectangle cannot cover. `MeshPointBridge` asks for
+        # the closest point on the prim's **own triangles** instead of projecting onto a plane
+        # (`WM.3`), which is what an imported asset needs -- a Phantom 4's shell is not a
+        # rectangle and never will be. It existed from `WM.3` and had no caller but its own tests,
+        # because reaching it required a renderer; this is that caller. Additive and ordered after
+        # the planar bridge for the same reason the planar one is ordered after the facet table:
+        # the more specific statement about a prim wins.
+        self.mesh_pointwise = (
+            MeshPointBridge(mesh_fields, known_paths=list(prim_to_target), device=device)
+            if mesh_fields
+            else None
+        )
         # How much scene time one capture costs. The sensor's own frame rate by default; an
         # override makes this a **time-lapse camera** -- one frame every N seconds -- which is the
         # honest way to film a process slower than the video that shows it. It is not a speed-up
@@ -514,7 +528,13 @@ class IrCamera:
         was bound and never consumed, which under ``strict_patch_coverage`` has already raised
         when its path was unknown to the frame and is otherwise a prim off screen.
         """
-        return {} if self.pointwise is None else dict(self.pointwise.last_coverage)
+        out: dict[str, int] = {}
+        if self.pointwise is not None:
+            out.update(self.pointwise.last_coverage)
+        if self.mesh_pointwise is not None:
+            for path, taken in self.mesh_pointwise.last_coverage.items():
+                out[path] = out.get(path, 0) + int(taken)
+        return out
 
     def open(self, *, settle_frames: int = 8, rt_subframes: int = 1) -> IrCamera:
         """Author the camera, create the render product, attach the annotators, settle.
@@ -698,6 +718,25 @@ class IrCamera:
                 strict=self.strict_patch_coverage,
                 world_from_local=self._world_from_local(),
             )
+        if self.mesh_pointwise is not None:
+            # Same clock and same positions as the planar bridge above, for the same reasons.
+            # Computed again rather than shared because a scene almost never has both, and a
+            # camera that has neither must not pay for the decode at all.
+            self.mesh_pointwise.advance_to(self.scene.t0_s + self._t_rel_s)
+            temperature = self.mesh_pointwise.apply(
+                temperature,
+                instance_id,
+                labels,
+                world_positions(
+                    aovs.position,
+                    frame=self.position_frame,
+                    camera_position=self._camera_position,
+                    camera_to_world=self._camera_to_world,
+                ),
+                self.scene.t0_s + self._t_rel_s,
+                strict=self.strict_patch_coverage,
+                world_from_local=self._world_from_local(),
+            )
         # `to_gbuffer` validates the M0.6 contract; the stages consume the plane dict.
         # An UNMAPPED prim has no emissivity, and `MaterialTable` refuses to invent one
         # (ADR 0047). In debug mode those pixels are handed to stage 1 as blackbody-equivalent --
@@ -818,9 +857,12 @@ class IrCamera:
         `point_bridge` inverts it and applies it through `irsim.optics.motion.transform_points`,
         which is where that convention lives.
         """
-        if self.pointwise is None:
-            return {}
-        frames = self.pointwise.local_frames
+        frames = tuple(
+            dict.fromkeys(
+                (() if self.pointwise is None else self.pointwise.local_frames)
+                + (() if self.mesh_pointwise is None else self.mesh_pointwise.local_frames)
+            )
+        )
         if not frames:
             return {}
         import omni.usd

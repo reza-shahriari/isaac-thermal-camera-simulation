@@ -113,9 +113,7 @@ def test_the_grid_carries_the_field_the_infrared_band_marches(tmp_path):
 
 @openvdb_only
 def test_a_clear_sky_writes_an_empty_grid_rather_than_failing(tmp_path):
-    d = generate_cloud_deck(
-        beta=2.8, cloud_fraction=0.0, seed=7, base_m=1200.0, optical_depth=20.0
-    )
+    d = generate_cloud_deck(beta=2.8, cloud_fraction=0.0, seed=7, base_m=1200.0, optical_depth=20.0)
     volume = write_openvdb(d, tmp_path / "clear.vdb", voxel_m=200.0)
     assert volume.active_voxels == 0
     assert volume.max_density_per_m == 0.0

@@ -539,14 +539,49 @@ other way — DJI puts red status LEDs on the front arms and green on the rear o
 behind the centre of mass is the tail. Three independent parts agreeing, then confirmed by eye in
 the visible frame.
 
-Two limits, stated rather than left to be found. **Temperature is per prim, not per cell**: the
-scene solves 234,923 mesh cells and `IrCamera` takes planar `SurfaceBinding`s only, so
-`MeshPointBridge` — the object that turns a world position into a cell on a real mesh — still has
-no render driving it. The motor stations are warmer than the shell because six *prims* carry the
-`motor` node, not because a gradient crosses one. That is `AI.2`'s remainder and the summary each
-run writes says so. And the **dome is baked once**, at mid-mission: the sun moves 7° across a
-28-minute clip, which is less than a lat-long texel would show, and re-baking it 120 times would
-cost more than the render.
+One limit stays: the **dome is baked once**, at mid-mission. The sun moves 7° across a 28-minute
+clip, which is less than a lat-long texel would show, and re-baking it 120 times would cost more
+than the render.
+
+**The solve reaches the pixels (`AI.2` closed).**
+
+```bash
+IRSIM_GPU=0 python.sh scripts/render_phantom4.py --track outbound \
+  --scene configs/scenes/phantom4_parts.yaml --asset phantom4_parts \
+  --weather fair_cumulus --weather-seed 7 --frames 120 --bridge-device cuda:0 --sky-clip
+```
+
+flies the same aircraft **straight out from 4 m to 80 m** at a held 16° of elevation — 183 px
+across down to 9 — and `IrCamera` now takes `mesh_fields=` beside its planar `SurfaceBinding`s, so
+`WM.3`'s `MeshPointBridge` asks each bound prim's own triangles for the closest point to every
+pixel. Measured over that clip: **4,756 pixels took a cell** of a 23,477-cell solve, and each
+propeller carries a gradient *across itself* — **1.33 to 2.28 K** against this camera's 50 mK
+NETD, which is 27 to 46 NETD of structure inside one part.
+
+It flies the **part-split** asset of `AI.5`, not the material groups the FBX ships with, so the
+readout carries **four** thermal nodes rather than three: `airframe`, `motor`, `esc` and
+`battery`, with 10, 4, 4 and 1 prims on them. Range is spaced geometrically, so the aircraft sheds
+the same fraction of its width every frame instead of collapsing in the first few and then
+crawling.
+
+Two things had to be true for any of it to work, and neither was. `MeshBinding.frame` names the
+Xform the asset is *mounted* by: the patch keeps calling the archive's coordinates `world`,
+because `scene_forcing` refuses a patch in a moving frame, and the first attempt — a `frame:` in
+the scene YAML — was correctly refused by exactly that check. Before it, every query landed
+outside the bridge's 7 mm gate and coverage was **zero with no error raised**. And
+`phantom4_parts.yaml` named `battery` as both a heat-source node and a §12.3 surface, which
+`AerialThermalBridge` refuses outright rather than resolving by precedence; the surface is now
+`battery_skin`, and until that rename the parts scene had never been rendered at all.
+
+**The sky is not the aircraft's stretch.** A grayscale ramp fitted to the aircraft's 16.6–34.7 °C
+clips the sky to black, and the infrared frame then looks empty beside a visible companion full of
+cumulus — which reads as a missing model rather than as a display choice. It is a display choice:
+in the same planes the clear sky is **245.9 K** and the cloud in front of it **286.1 K**, so
+weather-fx's 30 % cumulus is **40 K** of LWIR structure, marched by both bands from one
+`CloudField` (ADR 0076). `--sky-clip` writes the same frames a second time stretched to the whole
+scene, where the cloud is the subject and the aircraft is the part that saturates. Neither clip is
+an extra render and neither is more true than the other; what is true is the float32 plane both
+are quantised from.
 
 The clips are the look; the **frame** is the float32 planes beside them and their sidecar, written
 through the same `FrameWriter` every other driver uses, with the config and band hashes a frame has
@@ -764,8 +799,9 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   from the config**, not read from an imported asset's triangles, because the engine-free core may
   not import `pxr` (`scripts/probe_warp_prim.py` measured what ingest takes: triangulating quads,
   applying the local-to-world transform, and that an analytic gprim exposes no points at all).
-  **No driver wires `MeshPointBridge` into `IrCamera`**, so a rendered frame still shows curved
-  prims at one temperature and only the engine-free scripts see the field.
+  `AI.2` wired `MeshPointBridge` into `IrCamera`, so a rendered frame reads the field per pixel
+  on every prim a scene binds; a prim with no `MeshBinding` still renders at its node's single
+  temperature.
   On a mesh the sample is also piecewise constant and the normal is its face's, never a vertex's;
   smoothing across faces is still `WM.4`'s deferral, `k` is one isotropic number per material, and
   `film:`, `water:`, `layers:` and `back:` are refused on a mesh rather than silently ignored.
@@ -837,11 +873,11 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
 - **A third-party asset renders (AI.2).** `scripts/render_phantom4.py` films the prepared DJI
   Phantom 4 Pro in LWIR -- 41 prims, 2.49 M triangles, 41/41 materials resolved **inside Kit** --
   and `scripts/probe_isaac_asset.py` re-measures ADR 0128's CPU-side claims with Kit's own
-  OpenUSD. Two limits are real and stated: temperature is **per prim**, because `IrCamera` takes
-  planar `SurfaceBinding`s and `MeshPointBridge` has never been driven by a render (its only
-  driver runs on a synthetic G-buffer), so the scene's 234,923 solved cells do not reach a pixel
-  yet; and the camera must look **up** at the aircraft, since with no ground plane a downward ray
-  samples the sky model below the horizon and returns near-air temperature.
+  OpenUSD. Since `AI.2` the mesh solve reaches the pixels: `IrCamera` takes `mesh_fields=`, and
+  on the part-split asset **4,756 pixels took a cell** of a 23,477-cell solve across its 9 bound
+  prims. What a scene does not bind still renders at its node's one temperature, and the camera
+  must look **up** at the aircraft, since with no ground plane a downward ray samples the sky
+  model below the horizon and returns near-air temperature.
 - **Most of an imported mesh cannot carry a temperature, and now something says so** (`AI.3`,
   ADR 0137). `prep_asset.py` measures the prepared archive against two budgets. Affordability is
   gated at 1,300,000 faces and 200,000 per prim, from `GT.7`'s cost measurement. Usefulness is
@@ -866,14 +902,16 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   31,068 disconnected shells across 41 prims, one of which is "all the white plastic". That is
   acceptable because the ADR 0110 mesh field solves per cell rather than per prim, but it means no
   prim in such an asset is a *part*, so nothing can be bound to "the top shell" by name.
-- **A rendered imported asset is still one temperature per prim** (`AI.2`'s remainder). The
-  Phantom 4 scene solves **234,923 mesh cells** and they do not reach a pixel: `IrCamera` takes
-  planar `SurfaceBinding`s, and `MeshPointBridge` — which turns a world position into a cell on a
-  real mesh, measured to 0.13 µm by `WM.1` — has never been driven by a render, its only driver
-  being `quad_flight_mesh.py` on a synthetic G-buffer. So the motor stations read warmer than the
-  shell because six *prims* carry the `motor` node, not because a gradient crosses one. Every run
-  of `render_phantom4.py` writes that sentence into its own `summary.json` rather than leaving it
-  to be inferred from the picture.
+- **A rendered imported asset is per pixel only where a scene binds it** (`AI.2`). `IrCamera`
+  now takes `mesh_fields=`, so `MeshPointBridge` — which turns a world position into a cell on a
+  real mesh, measured to 0.13 µm by `WM.1` — reaches the picture at last. What reaches it is what
+  the scene lists: `phantom4_parts.yaml` binds **9 of the asset's 19 part prims** (the battery,
+  four motor mounts, four propellers), which is 23,477 cells and **4,756 pixels** at their
+  widest. The ten unbound prims — the shells and arms, the aircraft's whole silhouette — still
+  render at their node's single temperature, so most of what an eye sees in that clip is still
+  per prim. Binding them is a scene edit and a cell budget, not a code change. Every run of
+  `render_phantom4.py` writes the pixel count and the widest gradient into its own
+  `summary.json` rather than leaving either to be inferred from the picture.
 - **Synthesised weather is a diurnal model, not a forecast.** With `--weather`, the surface
   meteorology is one sinusoid, one afternoon lag and a dew-point floor, with wind, cover,
   visibility and precipitation held constant across the series because a single weather-fx state
@@ -884,11 +922,16 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   in cd/m2 and the dome's *intensity* carries an auto-exposure, because the sky moves six decades
   between noon and a moonless night and no fixed intensity survives that. Only the infrared
   outputs are in units; brightness in the companion frame is a display choice.
-- **The mount rotation is not yet carried by a mesh binding** (ADR 0133). An imported asset's
-  patches are authored in the archive's own frame and the render stage is the project's Y-up, with
-  one rotation between them. Nothing breaks today because no `MeshPointBridge` reaches the camera;
-  the day one does, that binding has to apply the same rotation or every closest-point query will
-  land on the wrong cell.
+- **The mount rotation is carried by the binding, not by the patch** (ADR 0133, `AI.2`). An
+  imported asset's patches are authored in the archive's own frame and the render stage is the
+  project's Y-up, with one rotation between them. The first `MeshPointBridge` render found this
+  the expensive way: every query missed the 7 mm closest-point gate and **not one pixel** took a
+  cell, with no error raised, because a query in the wrong frame is simply a query that finds
+  nothing. The fix is `MeshBinding.frame`, naming the Xform the asset is mounted by, because the
+  patch itself may not move — `scene_forcing` refuses a non-`world` patch frame, shadow in a
+  moving frame needing a pose the patch does not carry. Mounting is a rendering fact, so it lives
+  on the binding. A scene that mounts an asset and forgets the field still reads as coverage 0
+  rather than as an exception.
 - **The camera is not in the weather** (`SC.16`, physics-model §9.5). Nothing under
   `src/irsim/detector`, `isp` or `noise` reads wind, so a camera flown at 8.5 m/s drifts exactly
   as much as one sitting in still air. Published UAV measurement puts that at **−1.02 to

@@ -46,15 +46,17 @@ parser.add_argument("--seed", type=int, default=7)
 parser.add_argument("--gpu", default=None, help="GPU index; default is the project's A6000")
 parser.add_argument("--verbose", action="store_true", help="carb logging at info, for the loader")
 parser.add_argument(
-    "--rendermode", default="PathTracing",
+    "--rendermode",
+    default="PathTracing",
     help="`/rtx/rendermode`. Kit 110 silently ignores a mode it does not know (ADR 0014 found "
-         "this with RaytracedLighting), so rendering the same scene in two modes and finding the "
-         "frames byte-identical is how you learn the setting did nothing.",
+    "this with RaytracedLighting), so rendering the same scene in two modes and finding the "
+    "frames byte-identical is how you learn the setting did nothing.",
 )
 parser.add_argument(
-    "--cube", action="store_true",
+    "--cube",
+    action="store_true",
     help="a cube of constant density with the same volume material and no VDB at all -- which "
-         "separates 'the material does not exist on this build' from 'the grid is refused'",
+    "separates 'the material does not exist on this build' from 'the grid is refused'",
 )
 args = parser.parse_args()
 
@@ -177,8 +179,10 @@ def enable_volume_extensions():
             except Exception as exc:  # noqa: BLE001
                 out[name] = f"enable failed: {type(exc).__name__}: {exc}"
                 continue
-        out[name] = "already on" if was else (
-            "enabled" if manager.is_extension_enabled(name) else "refused"
+        out[name] = (
+            "already on"
+            if was
+            else ("enabled" if manager.is_extension_enabled(name) else "refused")
         )
     return out
 
@@ -226,9 +230,7 @@ def build_stage(volume_path, use_material: bool):
     if args.cube:
         cloud = _density_cube(stage)
     elif volume_path is not None:
-        cloud = author_cloud_volume(
-            stage, "/World/Cloud", volume_path, with_material=use_material
-        )
+        cloud = author_cloud_volume(stage, "/World/Cloud", volume_path, with_material=use_material)
 
     camera = UsdGeom.Camera.Define(stage, "/World/Camera")
     camera.CreateFocalLengthAttr(24.0)
@@ -445,8 +447,10 @@ def main() -> int:
 
     print("\n--- what the render said -------------------------------------------")
     print(f"backdrop in frame    : {report['backdrop_visible']:.1%}")
-    print(f"volume loaded at all : {loaded}   (LdrColor changed on "
-          f"{colour.get('fraction_changed')} of the frame)")
+    print(
+        f"volume loaded at all : {loaded}   (LdrColor changed on "
+        f"{colour.get('fraction_changed')} of the frame)"
+    )
     for name in AOVS:
         entry = report["aovs"][name] or {"status": "missing"}
         print(
@@ -474,8 +478,10 @@ def _save_png(array, path):
 
     h, w = a.shape[:2]
     raw = b"".join(b"\x00" + a[y].tobytes() for y in range(h))
+
     def chunk(tag, data):
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
+
     with open(path, "wb") as handle:
         handle.write(
             b"\x89PNG\r\n\x1a\n"

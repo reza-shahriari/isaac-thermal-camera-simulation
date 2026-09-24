@@ -6,6 +6,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A render reads the mesh solve per pixel, on an imported asset** (AI.2). `IrCamera` takes
+  `mesh_fields=`, so `MeshPointBridge` (WM.3) finally has a caller that renders, and
+  `MeshBinding.frame` names the Xform the asset is mounted by — the patch keeps the archive's own
+  coordinates, because `scene_forcing` refuses a patch in a moving frame. New `StraightOutTrack`
+  flies a target straight out with geometric range spacing at a held elevation, so the background
+  is the same at both ends and the contrast that survives is a statement about range. Measured on
+  `phantom4_parts.yaml` at 4→80 m: **4,756 pixels took a cell** of a 23,477-cell solve across 9
+  bound prims, each propeller holding **1.33–2.28 K** across itself against a 50 mK NETD.
+- `--sky-clip` on `scripts/render_phantom4.py` — the same planes written a second time, stretched
+  to the whole frame instead of to the aircraft. The aircraft's own 16.6–34.7 °C span clips the
+  sky to black, which makes an infrared frame look empty beside a visible companion full of
+  cumulus; in those same planes the clear sky is 245.9 K and the cloud 286.1 K, so the cloud both
+  bands march from one `CloudField` is **40 K** of LWIR structure. No extra render.
 - **The cloud deck is written with the OpenVDB that ships inside Isaac Sim** (AT.13, ADR 0140).
   `irsim_isaac.env.ensure_openvdb_on_path` makes `omni.volume`'s OpenVDB 12 and NanoVDB bindings
   importable outside Kit — preload the libraries they carry no RPATH for, add the directory to
@@ -19,6 +32,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and differences them, against a **noise floor measured by rendering the empty scene twice**.
 
 ### Fixed
+- `configs/scenes/phantom4_parts.yaml` named `battery` as both a heat-source node and a §12.3
+  thermal surface, which `AerialThermalBridge` refuses outright rather than resolving by
+  precedence; the surface is now `battery_skin`. Until this the parts scene had never rendered.
+- The `render_phantom4.py` readout packed every node's temperature into the header, which ran off
+  a 640 px frame as soon as a scene had four nodes (`esc 20.9C   m`). The legend under the frame
+  already draws every node, so the header now carries the count.
 - **No volume renders through a Replicator render product on this build, and it was never our
   grid** (AT.13, ADR 0140). A `UsdGeom.Cube` carrying `OmniVolumeDensity` with no VDB file of any
   kind is as invisible as the cloud is. In `PathTracing` the frames are *byte*-identical with and

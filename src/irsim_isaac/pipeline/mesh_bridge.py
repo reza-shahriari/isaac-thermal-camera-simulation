@@ -109,10 +109,24 @@ class MeshBinding:
 
     prim_path: str
     field: TriangleMeshField
+    #: The frame the field's vertices are in **on this stage**, if it is not the one the patch
+    #: itself names. `AI.2`: an imported asset is solved in its own archive coordinates, which the
+    #: patch calls ``"world"`` and the thermal core requires it to call ``"world"`` -- a patch in a
+    #: moving frame is refused outright (`scene_forcing`), because shadow in a moving frame needs
+    #: a pose the core does not carry. Mounting that asset on a stage is a *rendering* fact: the
+    #: driver puts it under an Xform and flies it, so those same coordinates become the local
+    #: frame of that prim. Saying so here keeps the statement where the knowledge is, and leaves
+    #: the scene config saying what is true for the solver.
+    frame: str | None = None
 
     def __post_init__(self) -> None:
         if not self.prim_path:
             raise ValueError("a binding needs a prim path")
+
+    @property
+    def query_frame(self) -> str:
+        """The frame world points are transformed into before they are queried."""
+        return self.field.patch.frame if self.frame is None else self.frame
 
 
 class MeshPointBridge:
@@ -133,9 +147,9 @@ class MeshPointBridge:
         self.device = device
         self.max_distance_m = float(max_distance_m)
         self.use_warp = bool(use_warp)
-        self._by_path: dict[str, list[TriangleMeshField]] = {}
+        self._by_path: dict[str, list[MeshBinding]] = {}
         for binding in self.bindings:
-            self._by_path.setdefault(binding.prim_path, []).append(binding.field)
+            self._by_path.setdefault(binding.prim_path, []).append(binding)
         #: Pixels each bound prim path took in the last :meth:`apply`, as `PT.19` records them.
         self.last_coverage: dict[str, int] = dict.fromkeys(self._by_path, 0)
         self.known_paths: frozenset[str] | None = (
@@ -161,19 +175,19 @@ class MeshPointBridge:
         return tuple(
             sorted(
                 {
-                    field.patch.frame
-                    for fields in self._by_path.values()
-                    for field in fields
-                    if field.patch.frame != "world"
+                    binding.query_frame
+                    for bindings in self._by_path.values()
+                    for binding in bindings
+                    if binding.query_frame != "world"
                 }
             )
         )
 
     def advance_to(self, t_s: float) -> None:
         """Push every bound field to ``t_s``. The only method that changes anything."""
-        for fields in self._by_path.values():
-            for field in fields:
-                field.advance_to(t_s)
+        for bindings in self._by_path.values():
+            for binding in bindings:
+                binding.field.advance_to(t_s)
 
     # -- the query -----------------------------------------------------------------------------
 
@@ -271,8 +285,8 @@ class MeshPointBridge:
         for ident, path in paths.items():
             if ident == BACKGROUND_INSTANCE_ID:
                 continue
-            fields = self._by_path.get(path)
-            if not fields:
+            bindings = self._by_path.get(path)
+            if not bindings:
                 continue
             mask = ids == ident
             if not mask.any():
@@ -281,8 +295,9 @@ class MeshPointBridge:
             best = np.full(selected.shape[0], np.inf)
             values = np.zeros(selected.shape[0], dtype=np.float32)
             filled = np.zeros(selected.shape[0], dtype=bool)
-            for field in fields:
-                query = _into_frame(field.patch.frame, selected, world_from_local)
+            for binding in bindings:
+                field = binding.field
+                query = _into_frame(binding.query_frame, selected, world_from_local)
                 face, bary, distance = self.locate(field, query)
                 cell = field.patch.cell_of(face, bary[:, 0], bary[:, 1])
                 sampled = np.asarray(field.temperature_at(t_s), dtype=np.float64)[cell]

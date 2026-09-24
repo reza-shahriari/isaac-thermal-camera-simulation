@@ -748,17 +748,19 @@ job. Several of these rows are not new features but *documented invariants that 
 ## AI — Asset ingestion
 
 `AI.1` shipped the half that is engine-free: a third-party model can now be converted, mapped and
-audited on the CPU (ADR 0128). `AI.2` is most of the way through the other half — the Phantom 4 is
-solvable geometry (ADR 0132) and it now flies on a stage in both bands (ADR 0133) — and what is
-left of it is one thing: the solved cells do not reach a pixel.
+audited on the CPU (ADR 0128). `AI.2` finished the other half — the Phantom 4 is solvable geometry
+(ADR 0132), it flies on a stage in both bands (ADR 0133), and since the `mesh_fields=` wiring the
+solved cells reach the pixels on every prim a scene binds. What is left is a scene question rather
+than a code one: `phantom4_parts.yaml` binds 9 of 19 part prims, so the shells that make up most
+of the silhouette still render at their node's one temperature.
 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | AI.1 | ✅ **done.** Per-asset material map (`configs/assets/`), a new precedence rung above the semantic class, and `scripts/prep_asset.py` — import, rescale, USD, prim dump, audit, all on the CPU via Blender's bundled `pxr`. | **Measured.** The committed Phantom 4 dump goes 20/41 → 41/41, and two *confident* global hits are corrected: the shell's areal heat capacity halves (4399 → 2205 J m⁻² K⁻¹) and the motor housings go ε 0.09 → 0.90. 16 cases; reverting the rung turns 5 red. | — | M | A |
-| AI.2 | ✅ **done.** `IrCamera` takes `mesh_fields=`, so `MeshPointBridge` (`WM.3`) finally has a caller that renders. `MeshBinding.frame` names the Xform the asset is *mounted* by — the scene must keep calling the archive's coordinates `world`, because the core refuses a patch in a moving frame. New `StraightOutTrack` flies it near to far. | **Measured, in-sim.** **24,214** pixels took a cell of the scene's own 234,923-cell solve across all 6 bound prims, and **every one carries a gradient across itself**: 3.83–10.60 K, against a 50 mK NETD. 4→80 m at 16°, 180→9 px. | AI.1 | L | A |
+| AI.2 | ✅ **done.** `IrCamera` takes `mesh_fields=`, so `MeshPointBridge` (`WM.3`) has a caller that renders. `MeshBinding.frame` names the Xform the asset is *mounted* by, the patch keeping the archive's own coordinates — the core refuses a patch in a moving frame. `StraightOutTrack` flies it near to far. | **Measured, in-sim.** **4,756** px took a cell of `AI.5`'s part-split asset (9 prims, 23,477 cells, 4 nodes), each propeller holding a gradient across itself: **1.33–2.28 K** on a 50 mK NETD. 4→80 m, 183→9 px, under cumulus worth 40 K of LWIR sky. | AI.1 | L | A |
 | AI.3 | ✅ **done.** `irsim.io.asset_budget` measures a prepared archive engine-free and `prep_asset.py` refuses over it: 1.3 M faces total (GT.7's reference), 200 k per prim, plus a *resolution floor* derived from conduction — `sqrt(alpha x 60 s)` = 1.11 mm at the library's slowest material. ADR 0137. | **Measured.** The Phantom 4 is 1,532,656 faces against that budget, and **77 %** of them are finer than the floor; one prim holds 100,926 faces over 2.7 cm2 — a 73 um cell. 19 tests. | AI.1, GT.7 | M | B |
 | AI.4 | **Exercise the `materialBind` subset path with a real asset.** `prep_asset.py` reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data — and it is the branch that stops a multi-material building mapping entirely to slot 0. | A committed fixture with subsets audits per subset, and a mesh carrying both a subset and a direct binding is reported rather than silently resolved from the binding. | AI.1 | S | B |
-| AI.5 | ✅ **done.** An imported asset is decomposed into **functional parts** by connected component, authored as data in the asset config, and regrouped so that one prim is one part. ADR 0138. | **Measured.** 41 material prims → 31,068 components → 19 parts at 100 % of 0.294 m2; the part-split USD keeps all 2,486,459 faces. Four nodes separate at T+600 s: airframe 26.4 C, battery 32.9 C, ESC 39.5 C, motor 46.0 C. 22 tests. **Left:** the clip — not rendered. | AI.1 | M | A |
+| AI.5 | ✅ **done.** An imported asset is decomposed into **functional parts** by connected component, authored as data in the asset config, and regrouped so that one prim is one part. ADR 0138. | **Measured.** 41 material prims → 31,068 components → 19 parts at 100 % of 0.294 m2; the part-split USD keeps all 2,486,459 faces. Four nodes separate at T+600 s: airframe 26.4 C, battery 32.9 C, ESC 39.5 C, motor 46.0 C. 22 tests. `AI.2` rendered it: the parts scene is what the outbound clip flies. | AI.1 | M | A |
 
 ---
 

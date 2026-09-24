@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from irsim_isaac.asset_flight import FigureEightTrack, world_frame_to_stage
+from irsim_isaac.asset_flight import FigureEightTrack, StraightOutTrack, world_frame_to_stage
 
 Z_UP_ENU = ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0))
 Y_UP_STAGE = ((0.0, 1.0, 0.0), (0.0, 0.0, -1.0))
@@ -109,3 +109,91 @@ def test_the_nose_follows_the_velocity_it_is_derived_from() -> None:
     horizontal[:, 1] = 0.0
     horizontal /= np.linalg.norm(horizontal, axis=-1, keepdims=True)
     assert np.allclose(nose, horizontal, atol=1e-6)
+
+
+# --- the outbound run (AI.2) -------------------------------------------------------------------
+
+
+def test_the_outbound_run_spans_exactly_the_range_band_it_was_given() -> None:
+    """Phase 0 is `near_m` and phase 1 is `far_m`, to the bit, with nothing overshooting between.
+
+    The range is the whole claim of this track -- a driver prints it, the summary records it and
+    the clip is read against it -- so it is the one thing that may not be approximately right.
+    """
+    track = StraightOutTrack(near_m=4.0, far_m=80.0)
+    phases = np.linspace(0.0, 1.0, 101)
+    ranges = track.range_m(phases)
+    assert float(ranges[0]) == pytest.approx(4.0, rel=1e-12)
+    assert float(ranges[-1]) == pytest.approx(80.0, rel=1e-12)
+    assert np.all(np.diff(ranges) > 0.0), "the aircraft must recede monotonically"
+    assert ranges.min() >= 4.0 and ranges.max() <= 80.0
+
+
+def test_the_target_shrinks_at_a_constant_rate_rather_than_in_a_rush() -> None:
+    """Equal steps in phase are equal *ratios* in range, so the aircraft loses the same fraction
+    of its width every frame.
+
+    Linear spacing would put half the clip beyond 42 m of an 4-80 m run, where the aircraft is
+    already under twenty pixels and nothing further happens; the interesting decade would be over
+    in the first few frames. Since width in pixels goes as 1/R, a constant range ratio is a
+    constant width ratio, which is what makes the collapse legible.
+    """
+    track = StraightOutTrack(near_m=4.0, far_m=80.0)
+    ranges = track.range_m(np.linspace(0.0, 1.0, 41))
+    ratios = ranges[1:] / ranges[:-1]
+    assert np.allclose(ratios, ratios[0], rtol=1e-12), "the spacing is not geometric"
+    # And the negative control: linear spacing would fail the line above outright.
+    linear = np.linspace(4.0, 80.0, 41)
+    assert not np.allclose(linear[1:] / linear[:-1], linear[1] / linear[0], rtol=1e-3)
+
+
+def test_the_elevation_is_held_so_the_background_stays_sky() -> None:
+    """The aircraft climbs to hold its elevation angle, measured from the position it returns.
+
+    A target receding at a fixed height sinks toward the horizon, and these scenes author no
+    terrain (ADR 0060): a ray leaving below the horizon samples the sky model at a negative
+    elevation and comes back near air temperature, so the target would collapse against a
+    *warming* background and the clip would be measuring the track instead of the range.
+    """
+    track = StraightOutTrack(near_m=4.0, far_m=80.0, hold_elevation_deg=16.0)
+    phases = np.linspace(0.0, 1.0, 51)
+    assert np.allclose(track.elevation_deg(phases), 16.0, atol=1e-9)
+    heights = track.position_m(phases)[:, 1]
+    assert np.all(np.diff(heights) > 0.0), "holding the angle means climbing"
+    # The control: a level run at the near altitude would be under two degrees at the far end.
+    level = np.degrees(np.arctan2(heights[0] - track.observer_m[1], 80.0))
+    assert level < 2.0
+
+
+def test_the_nose_points_where_the_aircraft_is_going_which_is_away() -> None:
+    """Yaw is zero -- the departure aspect -- and it agrees with the velocity it claims to follow.
+
+    Asserted against the velocity rather than against the constant, so that a sign error in
+    `position_m` cannot be confirmed by a `yaw_deg` that never looked at it.
+    """
+    track = StraightOutTrack()
+    phases = np.linspace(0.05, 0.95, 19)
+    velocity = track.velocity(phases)
+    from_velocity = np.degrees(np.arctan2(velocity[:, 0], -velocity[:, 2]))
+    assert np.allclose(track.yaw_deg(phases), 0.0, atol=1e-9)
+    assert np.allclose(from_velocity, 0.0, atol=1e-6), "the aircraft is not flying along -Z"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"near_m": 0.0},
+        {"near_m": 80.0, "far_m": 4.0},
+        {"hold_elevation_deg": 0.0},
+        {"hold_elevation_deg": 90.0},
+    ],
+)
+def test_a_track_that_would_film_the_wrong_thing_is_refused(kwargs: dict) -> None:
+    """Zero or inverted range, and an elevation on the horizon or straight up, all raise.
+
+    Each of these renders something -- that is the problem. A zero elevation puts the aircraft on
+    the horizon where the sky model is undefined, and an inverted range films an approach while
+    every label in the run says outbound.
+    """
+    with pytest.raises(ValueError):
+        StraightOutTrack(**kwargs)
