@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0026 — Detector/noise boundary: TVH in the detector, correlated terms in the noise stage, quantise last — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0026 — Detector/noise boundary: TVH in the detector, correlated terms in the noise stage, quantise last</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0026-detector-noise-boundary.md" target="_blank" rel="noopener">docs/decisions/0026-detector-noise-boundary.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Noise has physical sources in the detector (Poisson shot, Johnson/read) and structural sources in the readout (row/column striping, fixed pattern, frame bounce; §10.2). §13.4 SPG#4 emits <code>DN_ideal</code> and SPG#5 adds noise <em>after</em> quantisation, which contradicts §9.1 (electrons before the floor) and non-negotiable #3 (spec issue S10). Something must say which module generates what and in which unit.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>All noise in one stage after the detector, in DN</strong> — simple, but shot noise is a property of electron counts and its variance depends on the signal; adding it in DN after quantisation loses that and double-quantises.</li>
+<li><strong>Per-pixel temporal terms in the detector (its physical unit), correlated terms in the noise stage (signal units), quantise once at the end</strong> — each term where its physics lives, one ADC.</li>
+<li><strong>Everything in the detector</strong> — the readout structure (striping, drift, FFC) has no place in a pixel physics model.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2:</p>
+<ul>
+<li><code>DetectorFrame(signal_dn, dn, sigma_dn)</code> is the uniform detector output: the un-quantised signal in DN units <em>with the per-pixel temporal noise included</em>, its quantised DN, and the per-pixel σ_TVH in DN units.</li>
+<li><p><code>PhotonDetector.response</code>: N_e = η t_int Φ_q + N_dark + N_bg; Poisson(N_e) (PCG64 <code>SHOT</code> stream)</p>
+<ul>
+<li>Gaussian read (hashed <code>TVH</code> stream) in <strong>electron space</strong>, clipped at 0, then DN units, then the</li>
+</ul>
+<p>shared quantiser. Dark current is Arrhenius (§9.1) with band gaps in <code>constants.py</code> (InSb 0.23 eV, InGaAs 0.75 eV); a T_FPA below 30 K is refused as a Celsius slip.</p></li>
+<li><code>MicrobolometerDetector.response</code>: static transfer + the anchored Gaussian σ (pixel-power units, ADR 0025) in signal space via the DN-per-W gain (ADR 0019), then the quantiser. The τ_th IIR and T_FPA gain/offset coupling are M9.</li>
+<li>The <strong>noise stage</strong> (M4.9) takes <code>sigma_dn</code> and adds the six correlated components (V, H, VH, TV, TH, T) as σ_i = r_i · σ_TVH on the un-quantised signal, then quantises once. The detector's <code>dn</code> is therefore the "TVH-only" image; the pipeline's <code>dn16</code> is the noise stage's.</li>
+<li><strong>Quantise last, always.</strong> Nothing adds noise to a uint16.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Two-blackbody NETD on the detector alone reproduces the anchor at 300 K and the derivative ratio 0.576 at 373 K for the bolometer, and the shot-noise curve for the photon detector; the DN noise std is scene-independent for the bolometer while NETD in kelvin falls — the pair of facts that proves the noise is in signal space. The photon path's Poisson draw is sequential (ADR 0022) and the GPU will compare it statistically.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A counter-based Poisson is adopted (bit-exact GPU comparison of photon cameras), or bolometer noise gains a signal-dependent term (bias-heating, M9) that must move into the detector.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

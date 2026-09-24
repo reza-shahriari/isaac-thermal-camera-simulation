@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0065 — Night illumination: what the airglow level means, and a first-order moon — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0065 — Night illumination: what the airglow level means, and a first-order moon</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0065-night-illumination-airglow-and-moon.md" target="_blank" rel="noopener">docs/decisions/0065-night-illumination-airglow-and-moon.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#a-disagreement-recorded-rather-than-resolved-spec-issue-s38">A disagreement recorded rather than resolved (spec issue S38)</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§5.5 is the band-specific piece it says people forget: at night in SWIR the scene is lit by airglow, and "getting this right is what makes a SWIR channel behave like a real SWIR camera at night rather than like a dark visible camera". It gives the model as</p>
+<p>E_night(λ) = E_airglow(λ)·k_cloud + E_moon(λ, φ) + E_star(λ) + E_artificial</p>
+<p>with a configurable airglow level, "reported … roughly 3.5–39 nW/cm²", default ~10.</p>
+<p>Three things are undefined, and each of them is a factor of several:</p>
+<ol>
+<li><strong>What interval the nW/cm² is measured over.</strong> 10 nW/cm² in a 0.1 µm line and 10 nW/cm² over 2 µm are different skies (spec issue S30).</li>
+<li><strong>What <code>k_cloud</code> does at full overcast.</strong> §5.5 says cloud "attenuates it, but it does not have a directional shadow" — so overcast must not be black, and the schema's <code>k_cloud ∈ [0, 1]</code> multiplied in linearly would make it black at 1.</li>
+<li><strong>What "first-order moon" means.</strong> The spec gives no lunar level at all.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>1. The level is defined over the shape file's own support, and a band takes its fraction.</strong> <code>data/spectra/airglow_oh_meinel.csv</code> covers 0.6–2.6 µm; the configured level is the irradiance integrated over that, and <code>AirglowSpectrum.band_fraction</code> gives what a given R(λ) sees.</p>
+<p>The alternative — "the level is whatever the configured band sees" — is superficially the more literal reading of "in-band", and it is wrong the moment a second band exists: it would hand the LWIR camera the same 10 nW/cm² of OH emission at 10 µm, where there is none. The level would then be a property of the camera rather than of the sky.</p>
+<p>The fraction is not a detail. The modelled InGaAs camera sees <strong>61 %</strong> of the level (66 % for an ideal 0.9–1.7 µm top-hat); an ideal top-hat extended to 2.5 µm sees <strong>89 %</strong> — a <strong>third</strong> more light — because the strongest OH sequence (Δv = 1) sits at 1.4–2.0 µm and a 1.7 µm cut-off throws part of it away. That is a real reason extended-InGaAs parts exist, and it only exists in the model because the band heads are in the right places.</p>
+<p><strong>2. The shape is an OH-Meinel band model, generated and labelled as one.</strong> <code>scripts/generate_airglow_spectrum.py</code> places the Δv = 1..4 sequence heads (spectroscopy) and gives them 55/27/12/6 % of the OH emission (modelled), plus the O₂(a¹Δ) band at 1.27 µm and a flat 4 % continuum. Like the solar files (ADR 0064), it is committed, reproducible and replaceable by a measured near-infrared sky spectrum with no code change.</p>
+<p><strong>3. Cloud attenuates to a floor.</strong> <code>1 − k_cloud · cloud · (1 − CLOUD_FLOOR)</code> with <code>CLOUD_FLOOR = 0.10</code> — solid overcast under <code>k_cloud = 1</code> still returns a tenth. Cloud <strong>scatters</strong> airglow rather than absorbing it, and a night sky under thick cloud is dimmer, never black. The floor is ESTIMATED and is stated as a floor, not a measurement.</p>
+<p><strong>4. The lunar level is derived from magnitudes, not authored.</strong> m_sun = −26.74 and m_moon = −12.74 give a flux ratio of 10^(14/2.5) = 3.98e5 and E_full = <strong>3.42e-3 W m⁻²</strong>. The moon then borrows the <em>solar</em> spectral shape, so the lunar albedo cancels between the shape and the level and never has to be authored. Phase follows Lane &amp; Irvine, Δm(α) = 0.026|α| + 4e-9 α⁴, with α = arccos(2f − 1) from the schema's illuminated fraction.</p>
+<p>That phase law is violently non-linear and that is the point: a <strong>quarter moon is 0.091 of a full moon</strong>, not 0.5. A model that used the illuminated fraction directly would make every quarter-moon scene five times too bright, and would look entirely reasonable doing it.</p>
+<p><strong>5. Airglow has no shadow parameter, and the signature is the assertion.</strong> §5.5 says airglow "is not blocked in the same way as moonlight". <code>NightIllumination.incident_radiance</code> therefore takes no <code>shadow</code> and no sun direction at all — there is nothing to pass, so a scene cannot darken the night sky by geometry. The moon does take an elevation and sets.</p>
+<p><strong>6. Stars and artificial lighting are deferred</strong>, as §5.5's own equation allows. Starlight is roughly a tenth of airglow in this band and artificial lighting is a scene asset rather than an illumination model; neither changes a sky-target or maritime scene's ordering.</p>
+<h2 id="a-disagreement-recorded-rather-than-resolved-spec-issue-s38">A disagreement recorded rather than resolved (spec issue S38)<a class="anchor" href="#a-disagreement-recorded-rather-than-resolved-spec-issue-s38" aria-label="permalink">#</a></h2>
+<p>§5.5 asserts, citing [R7], that "at full moon, moonlight and airglow radiation densities are comparable". Built as above, they are not:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>quantity, 0.9–1.7 µm</th><th>value</th></tr></thead>
+<tbody>
+<tr><td>airglow at the 10 nW/cm² default</td><td>6.09e-5 W m⁻²</td></tr>
+<tr><td>full moon at zenith</td><td>8.46e-4 W m⁻²</td></tr>
+<tr><td><strong>full moon / airglow</strong></td><td><strong>13.9</strong> in energy units, <strong>12.6</strong> in photon units</td></tr>
+<tr><td>full moon / airglow at §5.5's <em>upper</em> level (39 nW/cm²)</td><td>3.2–3.6</td></tr>
+<tr><td><strong>quarter moon / airglow</strong></td><td><strong>1.26</strong> energy, <strong>1.15</strong> photons</td></tr>
+<tr><td>spectral-density ratio at the OH band peaks (1.27–1.87 µm)</td><td>2–5</td></tr>
+</tbody></table></div>
+<p>Three readings make the spec's claim nearly true — the upper end of its own airglow range, the <em>spectral density</em> at the OH peaks rather than the band integral, and a moon at a realistic elevation rather than at zenith. None of them is the plain band-integrated reading.</p>
+<p>Nothing here is tuned to meet it. Instead the test asserts what the models <strong>do</strong> reproduce — that airglow is about a quarter moon in SWIR, which is the rule of thumb SWIR night imaging is actually sold on — and pins the full-moon ratio to the measured 12.6 (photon units) so that a change to either model is noticed and the disagreement stays visible.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Two more generated, reproducible data files join E-490's and G-173's stand-ins. Every one of them says MODELLED in its first status line.</li>
+<li><code>SolarSpectrum</code> and <code>AirglowSpectrum</code> now share <code>SpectralTable</code>: one merged-grid band integral, one photon convention. Two sources integrating a band two slightly different ways is how they come to disagree about what a band is.</li>
+<li>The airglow's slow variation is three seeded sinusoids at 1800/5400/17000 s, not per-frame noise. Airglow drifts over tens of minutes; a random draw per frame would look like sensor noise, which the simulator already has plenty of.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A measured near-infrared sky spectrum is available (a Gemini or VLT sky model). Replace the CSV and record what moves — in particular the 61 % SWIR fraction and the 13.4 ratio above.</li>
+<li>A scene needs the lunar <strong>reddening</strong>. The moon's albedo roughly doubles between 0.5 µm and 1.6 µm, so borrowing the solar shape understates moonlight in SWIR by something like a factor of 1.5 — which happens to push the S38 disagreement the wrong way, and is the first thing to check when it is revisited.</li>
+<li>Artificial lighting matters, i.e. the first ground/urban night scene.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

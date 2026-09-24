@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0078 — Maritime targets as phase 1b, and the sea as an analytic background — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0078 — Maritime targets as phase 1b, and the sea as an analytic background</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0078-maritime-phase-and-analytic-sea.md" target="_blank" rel="noopener">docs/decisions/0078-maritime-phase-and-analytic-sea.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-14</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0003 split the work into phase 1 (sky targets) and phase 2 (ground / automotive). The aerial lane has now reached the bar it was aiming at: a scene YAML plus one command produces LWIR frames of a quadrotor mission or an aircraft low pass, with the companion visible frame, the shared weather and the cloud field. On 2026-09-14 the project owner set the next target — <strong>maritime objects</strong>, built "with the same idea" as the aerial ones — and placed it <em>before</em> ground and automotive.</p>
+<p>That ordering is not arbitrary from a physics standpoint. A sea-background target shares almost everything with a sky-background one: small targets at kilometre ranges, a slant atmospheric path, a background that is a smooth function of a single angle, and no ground thermal solver. What it adds is one thing the aerial work stopped short of — the half of the frame <em>below</em> the horizon, which today is the single scalar <code>T_ground</code> from the environment preset.</p>
+<p>A single scalar is badly wrong there, and wrong in the direction that matters. Water is a Fresnel reflector, and the viewing geometry is extreme. A camera 20 m above the surface sees the sea at 5 km at 0.23° depression, which is <strong>89.8° incidence</strong>; at 500 m it is 2.3°, still 87.7°. Water's band-effective emissivity at 80° is 0.70 and keeps falling. So nearly all visible sea is a mirror of the sky, not a 290 K blackbody, and its apparent temperature runs from roughly SST looking straight down to within a couple of kelvin of the sky at the horizon. A vessel warmer than the sky but cooler than the water therefore appears <strong>dark against near water and bright against far water</strong>, with a contrast null somewhere in between. Detection performance across range is dominated by where that null sits, and a constant-temperature sea cannot produce it at all.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Render the sea as displaced water geometry.</strong> A tessellated, wave-displaced plane with a water material, letting the renderer produce per-pixel normals. M10.1 established that the <code>normals</code> AOV is float32, full-resolution and world-space, so unlike the earlier M2.4 reading this is <em>not</em> blocked by AOV quality. It is blocked by sampling: at 3 km a Boson pixel spans 2.6 m and contains thousands of independent wave facets. One normal per pixel is not a coarse version of the right answer — it is a different quantity. Reproducing the correct pixel value would need the facet distribution resolved <em>and</em> supersampled, over a surface extending to a horizon 6–20 km away. Cost rises without bound and the answer stays biased.</li>
+</ol>
+<ol>
+<li><strong>Analytic sea profile, the way MS.2 does the sky.</strong> Apparent sea temperature as a function of depression angle: ε_B(θ) Lb(T_skin) + (1 − ε_B(θ)) ⟨L_sky⟩, with the reflected sky integrated over a Cox–Munk slope distribution driven by the shared weather's wind. The sub-pixel facet statistics are then handled in closed form, which is exactly the quantity the sensor integrates. Same shape as the existing sky path, same reason (ADR 0014/0060: a computed background also avoids the fp16 colour AOVs), and it costs one evaluation per pixel.</li>
+</ol>
+<ol>
+<li><strong>Hybrid: analytic beyond a crossover range, geometry in the near field.</strong> Correct in principle — close in, a pixel really is smaller than a wave. Rejected <em>for now</em> because nothing in the target application looks at water within tens of metres, and a seam between two models is a defect generator. The crossover is recorded here so it can be added without re-deciding the far field.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Maritime work is phase 1b</strong>, between ADR 0003's phase 1 and phase 2: sky → sea → ground. It gets its own milestone (<strong>MM</strong>) in the roadmap, and it promotes M7.3 and M7.5 out of phase 2, because a sea surface is the one background whose emissivity cannot be a scalar — §4.2 refuses Level C for water by name. M7.4 (branch-safe complex Fresnel) already landed early for this reason.</p>
+<p><strong>The sea is an analytic background</strong>, option 2. No water geometry in the maritime stage. The horizon is a computed elevation, and below it the background comes from a <code>SeaModel</code> evaluated per pixel, in the same place the <code>SkyModel</code> is evaluated above it.</p>
+<p>Deferred deliberately: <strong>wakes, whitecaps and foam</strong> (each is a distinct surface class with its own emissivity and temperature, and none is needed for the background to be right), and <strong>MWIR solar glint</strong>, which belongs to M11.7's specular lobe. MM.2's slope distribution is written as its own step precisely so glint reuses it instead of growing a second wave model.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Easy: a maritime scene costs the same per pixel as an aerial one, needs no new AOV, and runs in the engine-free core, so the whole sea model is testable with plain <code>pytest</code> — including the identity that matters (T_sky ≡ T_sea ⇒ T_app = T_sea to 1 mK at every angle and wind), which no amount of looking at a rendered frame would verify.</p>
+<p>Hard: anything that requires a <em>spatial</em> realisation of the surface. A wake, a glint path, a reflection of the target in the water beneath it, and any per-wave structure are all outside this model. The sea will be smooth in appearance, varying only with depression angle plus whatever statistical texture is added on top of the profile.</p>
+<p><strong>Error introduced.</strong> The reflected sky is integrated over the slope distribution but the surface is still treated as locally flat for <em>geometry</em>: no shadowing or multiple reflection between wave faces. Published treatments put the shadowing correction below a few percent of reflectance for incidence angles under about 85° and rising steeply beyond it — which is precisely the regime that dominates a low camera's view of distant sea. <strong>This error is not currently bounded for the near-horizon band</strong>, and MM.3's verification does not test it. That is a known gap, stated rather than hidden: the first comparison against public maritime imagery (MM.8) should be read with it in mind, and a Smith-type shadowing factor is the cheapest next fidelity step if the horizon band reads too warm.</p>
+<p>Neglecting salinity in the optical constants is bounded separately in ADR 0079.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A target must be seen at closer than ~50 m of water, where a pixel is smaller than a wave and option 3's near field becomes the honest model.</li>
+<li>MM.8 shows a systematic bias in the near-horizon band against public imagery — the shadowing term above is the first suspect.</li>
+<li>MWIR arrives (M11) and glint becomes a first-order signal rather than a deferred one.</li>
+<li>Wakes become a detection cue in their own right, which is a known maritime discriminator and would reopen option 1 for a bounded patch of surface behind a vessel.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

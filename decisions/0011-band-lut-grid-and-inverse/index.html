@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0011 — Band LUT: grid, range, clamp policy, float32 contract, inverse — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0011 — Band LUT: grid, range, clamp policy, float32 contract, inverse</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0011-band-lut-grid-and-inverse.md" target="_blank" rel="noopener">docs/decisions/0011-band-lut-grid-and-inverse.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Per-pixel band radiance ∫R B(T) dλ is far too expensive to integrate at runtime (§3.2 c); the spec recommends a precomputed table with linear interpolation (§3.2 b) and sketches the kernel that reads it (§13.5). The table's grid, range, precision and out-of-range behaviour are shared by the CPU reference, the Warp path and the SPG kernel, so they are fixed here once. The inverse (§3.3) — apparent temperature from radiance — is what a radiometric camera actually outputs, and its policy outside the table matters for cold sky and hot glint pixels (spec issue S14).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Grid</strong>: 0.05 K uniform (16001 entries, 64 kB per table) vs 0.1 K (8001) vs non-uniform in Lb. Linear interpolation error scales with the step squared; at 0.05 K it is ~0.03 mK, at 0.1 K ~0.1 mK — both far under 5 mK. 0.05 K is kept because the cost is four 64 kB tables and it leaves margin for the photon table's curvature. Non-uniform grids would break the one-line kernel index.</li>
+<li><strong>Range</strong>: 200–1000 K covers every scene surface the phase-1 and phase-2 targets contain; cold sky below 200 K and glint above 1000 K are handled by clamping <em>plus flagging</em>, not by widening (which would dilute the grid or double the tables).</li>
+<li><strong>Precision</strong>: float32 tables built in float64 and cast once (non-negotiable #2: never float16).</li>
+<li><strong>Inverse</strong>: searchsorted + linear inversion in the bin, vs. storing an inverse table in L (needs a non-uniform L grid), vs. Newton on the forward table. Searchsorted is exact for a piecewise-linear forward table — the round trip is then limited by float32 only.</li>
+</ul>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim.radiometry.lut.BandLUT</code>:</p>
+<ul>
+<li>Grid <code>LUT_T_MIN_K = 200</code>, <code>LUT_T_MAX_K = 1000</code>, <code>LUT_DT_K = 0.05</code>, <code>LUT_N = 16001</code>, defined once in <code>constants.py</code> beside the temperature encoding; integer indices land on integer-K temperatures.</li>
+<li>Four tables: <code>lb</code>, <code>lb_q</code>, <code>dlb_dt</code>, <code>dlb_q_dt</code> (§13.5 needs <code>lb</code>; §9.4 NETD needs the derivatives in the form matching the detector). Built by the Simpson oracle in float64, cast to float32 once.</li>
+<li><code>lookup()</code> implements the §13.5 kernel arithmetic <strong>in float32</strong>, including the clamp of the index to <code>N − 1.001</code>, so the CPU reference and the GPU agree to float32 rounding. Out-of-range temperatures are clamped; <code>out_of_range()</code> returns the mask so callers can flag such pixels.</li>
+<li>Measured against the oracle at off-grid temperatures: 0.03 mK worst case over 200–1000 K. The float32 path costs 0.086 mK versus float64 interpolation, dominated by the float32 index (<code>u ≈ 16000</code> has spacing 1e-3 of a step) and the float32 input near 1000 K — not by the tables. Budget is 5 mK.</li>
+<li>Inverse (M1.7): <code>apparent_temperature(L)</code> by <code>searchsorted</code> on the monotone table and linear inversion inside the bin, float32 in/out. Radiance below <code>Lb(T0)</code> or above <code>Lb(T1)</code> <strong>clamps</strong> to the range ends (an image must not contain NaN) and <code>radiance_out_of_range()</code> flags it; the sky model (MS.1) computes sky radiance by direct quadrature and never goes through the inverse.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Adding a band adds four 64 kB tables. Scenes with surfaces outside 200–1000 K read clamped radiance and are flagged rather than wrong-and-silent; if such surfaces become routine (exhaust plumes, fires) the range must be widened together with the encoding span (ADR 0006). The 0.086 mK float32 cost is accepted and is the reason the temperature encoding, not raw kelvin, feeds the kernel.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A target class needs T &gt; 1000 K or the sky path needs T &lt; 200 K through the LUT (widen range, revisit grid), or a Tier 2 NETD bench shows the LUT contributing more than 0.5 mK.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

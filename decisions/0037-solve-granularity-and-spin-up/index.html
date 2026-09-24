@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0037 — Solve granularity and the spin-up policy — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0037 — Solve granularity and the spin-up policy</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0037-solve-granularity-and-spin-up.md" target="_blank" rel="noopener">docs/decisions/0037-solve-granularity-and-spin-up.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decisions">Decisions</a></li>
+<li class="toc-2"><a href="#what-this-measured">What this measured</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§6.4 says to run the thermal solver "on a fixed thermal tick (say 1 Hz) and interpolate", and that a scene needs "a day or two" of spin-up. It does not say what a <em>solve</em> is a solve of — every triangle, every material, every distinct facet? — nor how long "a day or two" actually needs to be, nor what makes two spin-ups the same.</p>
+<p>The cost is not academic. A 48 h spin-up at 60 s is 2 880 steps; doing that per triangle of a street scene is the single most expensive thing this package can be asked to do, and almost all of it would be recomputing identical answers.</p>
+<h2 id="decisions">Decisions<a class="anchor" href="#decisions" aria-label="permalink">#</a></h2>
+<p><strong>1. A solve is per (material class × orientation bin × shadow state), not per facet.</strong> Two facets of the same material, facing within a bin of each other, with the same shadow history, have the same temperature — the balance has no other inputs. The facet solver runs over <code>(N,)</code> arrays so that N is the number of <em>distinct</em> solves, not the number of triangles, and the scene maps triangles onto them.</p>
+<p><strong>2. Spin-up is cached on the materials, the weather and t₀ — and on nothing else.</strong> The key is a SHA-256 over the facet properties' bytes, the weather hash, t₀, the span and the step. Not the scene, the camera, or the frame: two scenes made of the same materials under the same weather at the same hour have the same surface temperatures, and the cache exists to say so. A <strong>0.01 K</strong> perturbation of any property changes the key, because the properties are hashed as bytes rather than rounded into buckets — a bucketed key is a key that occasionally returns someone else's answer.</p>
+<p><strong>3. Spin-up ends where the scene begins.</strong> <code>spin_up(..., t0_s, hours)</code> integrates the <code>hours</code> <em>before</em> t₀ and returns the state at t₀ itself, rather than a state at some earlier time the caller then has to advance. The alternative invites two different callers to advance it by different amounts.</p>
+<p><strong>4. The default is 48 h, and it is not adequate for everything.</strong> Measured as the difference between a 48 h and a 96 h spin-up under the same synthetic diurnal weather:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>material</th><th>48 h vs 96 h</th></tr></thead>
+<tbody>
+<tr><td>thin steel (2 mm)</td><td><strong>&lt; 0.5 K</strong></td></tr>
+<tr><td>asphalt (5 cm effective)</td><td><strong>&lt; 0.5 K</strong></td></tr>
+<tr><td>concrete (10 cm)</td><td><strong>&lt; 1.0 K</strong> — reported, not asserted at 0.5 K</td></tr>
+</tbody></table></div>
+<p>Concrete at 202 kJ m⁻² K⁻¹ is still remembering the day before yesterday after two days, and that is a property of concrete rather than a deficiency of the spin-up. The policy is to use 48 h by default, report the residual for slow materials, and let a scenario that cares raise <code>hours</code>.</p>
+<p><strong>5. float64 inside, float32 only at the boundary.</strong> The balance subtracts terms around 400 W m⁻² to leave a residual of a few, and a diurnal run accumulates ~10⁵ steps of that. In float32 the subtraction alone loses four significant digits before the accumulation starts. <code>FacetSolver</code> refuses float16 outright and exposes <code>as_float32()</code> as the one place the state narrows (CLAUDE.md #2).</p>
+<h2 id="what-this-measured">What this measured<a class="anchor" href="#what-this-measured" aria-label="permalink">#</a></h2>
+<ul>
+<li>64 random facets over 6 h agree with 64 separate scalar runs to <strong>under 0.1 mK</strong> — the vectorised form is the scalar one in a different loop order, not an approximation of it.</li>
+<li>Shadowing one facet changes that facet by more than 1 K and its neighbours by <strong>exactly zero</strong>, which is the check that vectorising has not accidentally coupled anything.</li>
+<li>Starting a scene at the air temperature instead of spinning up is wrong by <strong>more than 5 K</strong> on a sunlit asphalt surface at 14:00 — and wrong in a way that decays over hours, i.e. across exactly the part of the diurnal cycle a thermal camera is most interesting in.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>The orientation binning is exercised by a real scene (M6.12). The bin width is a trade between cache hits and the error at the bin edges, and it should be chosen by measuring that error, not by taste.</li>
+<li>A scenario needs a material slower than concrete — a thick masonry wall, a body of water. Then 48 h is not the default any more and the spin-up cost stops being negligible.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

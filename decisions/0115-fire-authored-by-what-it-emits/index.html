@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0115 — Fire: authored by what it emits, and the air above it is not the weather&#x27;s — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0115 — Fire: authored by what it emits, and the air above it is not the weather&#x27;s</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0115-fire-authored-by-what-it-emits.md" target="_blank" rel="noopener">docs/decisions/0115-fire-authored-by-what-it-emits.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Adds the two terms a fire puts into §6.1's balance; the flame's <em>image</em> stays <a href="../0098-participating-media-and-the-phenomena-tier/">ADR 0098</a>'s slab, placed by <a href="../0114-the-exhaust-plume-as-a-chord-per-pixel/">ADR 0114</a>'s injector. <strong>Date:</strong> 2026-09-22 Roadmap: PH.7 (§6.1, §6.6)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>PH.4</code>–<code>PH.6</code> built what a camera sees of hot gas. A fire also <em>heats things</em>, and the two routes it takes to a surface — radiation from the flame, convection to the plume above it — are not in the model at all. §6.6 scripts vehicle heat sources as load-driven schedules; neither applies.</p>
+<p>Both have a plausible wrong answer that would produce numbers nobody could challenge from a single frame, which is what makes them worth an ADR rather than a docstring.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>A hot rectangle at a flame temperature, radiating <code>ε σ T⁴</code>.</strong> What <a href="../0088-spatial-heat-sources-and-sky-occlusion/">ADR 0088</a> already does for an engine bay, and it would need no new code at all. Rejected: a flame's temperature and emissivity are <strong>not separately knowable</strong>. 1200 K at ε = 1 is 118 kW/m², and so is 1500 K at ε = 0.41. Authoring a temperature therefore amounts to authoring an emissivity nobody measured, and the pair is under-determined in exactly the direction a scene author would guess wrong — upward, because a flame looks hot.</p>
+<p><strong>A view-factor model with the flame as a cylinder.</strong> More faithful geometry than a rectangle, and the configuration factors are published. Deferred rather than rejected: ADR 0088's parallel-plane closed form is already in the repository, already clamped by <a href="../0090-clamped-view-factors-for-nested-radiators/">ADR 0090</a>, and a rectangle standing beside a wall is the geometry most fire-protection separation calculations use. A cylinder changes <code>F</code>, not the term <code>F</code> multiplies.</p>
+<p><strong>Ambient air above the fire.</strong> The default if nothing is done, and wrong by hundreds of kelvin: a facet over a fire convects to the plume. Rejected on sight; recorded because it is what every scene did until now.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Radiation: a flame carries a surface emissive power, not a temperature.</strong> <code>RadiantRectangle.sep_w_m2</code> is the authored product, and <code>emitted_flux_w_m2</code> answers to one of the two — a rectangle that carries a SEP <strong>refuses</strong> a temperature rather than preferring one, because the two numbers disagree by design and silently picking would make which is used an implementation detail. Values are the literature's ranges and are marked ESTIMATED to them: <strong>135 kW/m²</strong> for the luminous unobscured flame (Mudan, Considine: 100–170) and <strong>40 kW/m²</strong> for the smoke-obscured upper region (30–50), which is most of a large pool fire's height and the reason a bigger fire is not proportionally worse to stand beside.</p>
+<p><strong>The absorbed flux uses two different coefficients, deliberately.</strong></p>
+<p>q_int = F · (α · SEP − ε · L_occluded)</p>
+<p><code>α</code> is the surface's absorptivity <strong>for the flame's spectrum</strong>, which peaks between 1 and 5 µm; <code>ε</code> is its own long-wave emissivity, and only the sky the flame blocks is weighted by it. They coincide only for a grey surface, and a painted one is not. Using one number for both is the easy mistake and it errs in the direction that matters: it under-predicts what the fire delivers. The occlusion term defaults to nothing, which is right for the common geometry — a flame stands <em>beside</em> a wall, not over it — and is available for when it is not.</p>
+<p><strong>Convection: Heskestad's centreline, held at the tip below the flame height.</strong></p>
+<p>ΔT₀ = 9.1 (T_∞ / (g c_p² ρ_∞²))^(1/3) · Q_c^(2/3) · (z − z₀)^(−5/3)</p>
+<p>with <code>Q_c</code> in kW, <code>z₀ = 0.083 Q^(2/5) − 1.02 D</code> and the mean flame height <code>L = 0.235 Q^(2/5) − 1.02 D</code>. The correlation describes the buoyant plume <em>above</em> the flame; inside the continuous flame there is no <code>z^(−5/3)</code> decay to describe, so below <code>L</code> the value is held at the tip's. That is not smoothing. It makes the profile continuous at the tip by construction, and the tip value then falls out <strong>independent of Q and D</strong> — the <code>Q_c^(2/3)</code> and <code>(L − z₀)^(−5/3)</code> dependences cancel exactly — at <strong>452.7 K</strong> above ambient, which is Heskestad's own statement of what the mean flame height means. Measured across a 0.3 m gas ring at 50 kW and a 6 m pool at 40 MW: the same number to a tenth of a kelvin. It is the cheapest transcription check the module has and it is in the suite.</p>
+<p><code>Q_c</code> is authored in <strong>kilowatts</strong> and a value above 100 MW is refused as watts — no pool fire reaches there, and a 1 MW room fire mistakenly given in watts arrives as 700 000, producing a plume a hundred times too strong that nothing downstream would question.</p>
+<p><strong>Off the axis, one estimated number.</strong> The excess falls as a Gaussian of half-width <code>0.13 (z − z₀)</code>, never narrower than the pool that feeds it. The velocity profile's spread is about 0.12 and the temperature profile is some 10 % wider (Heskestad, SFPE Handbook). This is the only fitted quantity in the module; it sets how fast the plume's heat falls away from the axis and never the centreline value the tests pin.</p>
+<p><strong>The flame a camera sees is solved from the flame a wall feels.</strong> <code>flame_plume</code> builds ADR 0098's soot slab on a cone standing on the pool, and its <strong>mixing length is solved, not authored</strong>, so the slab reaches exactly the centreline excess Heskestad gives at the tip. One model, two consumers, and a scene cannot set them apart. Soot only: no gas table is consulted, because a luminous flame's own emission <em>is</em> its soot.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy now:</strong> a wall beside a fire, a ceiling above one, and a flame in frame, from one <code>PoolFire</code>. <code>PH.8</code> takes the frame this produces into the ISP's gain state and AGC.</p>
+<p><strong>Measured, and worth carrying forward:</strong> soot is grey-ish and gas is not, as a ratio rather than a claim. Between 3–5 µm and 7.5–13.5 µm the soot band means differ by <strong>2.47</strong>, which is just the ratio of the bands' emission-weighted <code>⟨1/λ⟩</code>; hot CO₂ over the same pair differs by <strong>5.49</strong>, because its absorption is in lines and the lines are in one band. So a camera that cannot see an exhaust plume can still see a fire — and that is why <code>PH.7</code> needs no gas table where <code>PH.6</code> could not exist without one.</p>
+<p><strong>Error introduced, bounded where it can be:</strong> a rectangle rather than a cylinder for <code>F</code>; one Gaussian width, ESTIMATED; the SEP ranges are ranges, so a scene that cares should author its own; and Heskestad's correlation is for a free axisymmetric plume, so a fire against a wall or under a ceiling entrains differently than this says.</p>
+<p><strong>Deliberately not modelled:</strong> wind tilt and a plume that is not vertical; flame pulsation; radiation from the smoke layer as something distinct from the flame; and any feedback from the heated surface back to the fire. Each changes the geometry rather than these two terms. A fire is also not yet authorable in a scene file — <code>PH.7</code>'s acceptance is at cell level and that is where it is met; a <code>fire:</code> block is a schema step of its own.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A validation needs the flux on a surface close to a large fire, where the rectangle's <code>F</code> and the free-plume entrainment both stop describing the geometry; or a scene needs several fires, or one in wind, at which point the plume is no longer axisymmetric and the centreline is no longer where the correlation puts it.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

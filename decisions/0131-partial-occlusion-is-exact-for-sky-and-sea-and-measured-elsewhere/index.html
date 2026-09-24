@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0131 — Partial occlusion is exact for sky and sea, and measured elsewhere — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0131 — Partial occlusion is exact for sky and sea, and measured elsewhere</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0131-partial-occlusion-is-exact-for-sky-and-sea-and-measured-elsewhere.md" target="_blank" rel="noopener">docs/decisions/0131-partial-occlusion-is-exact-for-sky-and-sea-and-measured-elsewhere.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>OC.6</code> blurs each depth layer with its own kernel and composites back to front on the layer's blurred coverage. A defocused foreground silhouette therefore becomes semi-transparent — which is correct — and the background shows through it. But <em>what</em> shows through was never rendered: a single-layer G-buffer has one surface per pixel and no behind. This is the standard partial-occlusion problem of post-process depth of field, and the owner asked directly how to solve it or lower its impact.</p>
+<p>The project's own priority order decides how much it matters. A target against sky, and a target against open sea, are the first two lanes; ground clutter is third.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Ignore it.</strong> A plain <code>over</code> leaves a deficit wherever the alpha opened a gap no farther layer fills, and that deficit is a dark fringe along every out-of-focus silhouette.</li>
+<li><strong>Normalise by the accumulated alpha</strong> — fill the gap with the layers that <em>are</em> visible, in proportion to how much of each is. Free, and it makes a flat field survive exactly.</li>
+<li><strong>Analytic background.</strong> Where the thing behind is sky or sea, its radiance is a function of ray direction this pipeline already evaluates for the pixels where it is visible. Evaluating it for every pixel costs nothing more.</li>
+<li><strong>Extrapolate from the visible background</strong> (push-pull pyramid fill).</li>
+<li><strong>Render a second depth layer</strong> (depth peeling). Exact, and a second render pass per frame.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>2 as the floor, 3 wherever it applies, 4 as the fallback, 5 written up and not scheduled.</strong></p>
+<p><code>layered_defocus</code> normalises by default (2). Given a <code>background_t_k</code> G-buffer plane it uses that instead (3), and the plane is the backmost layer <strong>completed</strong> — what that layer shows where it is visible <em>and</em> what it would show where a nearer layer hides it — so it replaces the backmost layer rather than sitting behind it. <code>estimate_background</code> supplies (4) for scenes with no analytic backdrop.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Measured, in apparent temperature, against a two-layer reference</strong> at three depth ratios, on a scene with background structure hidden entirely behind the foreground:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>near / far</th><th>normalised (2)</th><th>push-pull (4)</th><th>analytic (3)</th></tr></thead>
+<tbody>
+<tr><td>3 m / 30 m</td><td>4.93 K</td><td>4.87 K</td><td><strong>0.0000 K</strong></td></tr>
+<tr><td>3 m / 200 m</td><td>5.06 K</td><td>5.03 K</td><td><strong>0.0000 K</strong></td></tr>
+<tr><td>8 m / 400 m</td><td>2.87 K</td><td>2.57 K</td><td><strong>0.0000 K</strong></td></tr>
+</tbody></table></div>
+<p>Three things follow, and the third is the uncomfortable one.</p>
+<p><strong>The aerial and maritime lanes are exact, not bounded.</strong> That is the whole reason this ADR ranks (3) above everything else: the lanes the owner ranked first are the lanes where the hard problem does not arise, and it costs no second render to make that true.</p>
+<p><strong>The error is local.</strong> Both approximations stay inside a band about the silhouette — under 5 % of their own peak outside it — so the bound is a bound on a band and not on a frame.</p>
+<p><strong>Push-pull buys 1–10 %, not an order of magnitude.</strong> An extrapolation from the visible background cannot recover structure that was never visible, and an earlier version of the measurement scored it a perfect 0.00 K only because the hidden feature also continued into the visible region. It is worth having because it is free and never worse, and it is not a solution. For ground clutter with real depth complexity the honest answer is (5), a second rendered depth layer, and the reason it is not scheduled is that it costs a render pass to serve the third lane. Revisit when a ground scene's detection metric is actually measured against a real one.</p>
+<p><strong>Two defects this measurement found in <code>OC.7</code> as first written</strong>, both invisible on an easier scene and both worth recording because they are the way this goes wrong quietly:</p>
+<ul>
+<li>The background seed was <strong>not blurred</strong>. The seed survives only in the hidden region, so a sharp seed put an unblurred background inside an otherwise blurred frame. Invisible wherever the hidden background is locally uniform, which is most test scenes. Worth 1.5 K here.</li>
+<li>The background was composited <strong>behind</strong> the backmost layer rather than replacing it, which counted that layer's visible part twice. Also worth about 1.5 K.</li>
+</ul>
+<p>Neither would have been caught by a scene whose hidden background looks like its visible one, which is the scene anybody writes first.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0033 — Convection: the §6.2 max(free, forced) form; scalar composition of wind and vehicle speed — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0033 — Convection: the §6.2 max(free, forced) form; scalar composition of wind and vehicle speed</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0033-convection-form-and-speed-composition.md" target="_blank" rel="noopener">docs/decisions/0033-convection-form-and-speed-composition.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The convection coefficient h is the largest single source of uncertainty in surface temperature prediction (§6.2, DIRSIG [R3]); it must be derived from conditions rather than authored per material, and for a vehicle it must include the vehicle's own speed (a parked and a moving car have different hood temperatures — first-order for automotive IR). A weather file gives wind <em>speed</em> only; the vehicle's heading and the wind direction are not both available in phase 1.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Authored h per material (MuSES-style) — pushes the largest uncertainty onto the user, and makes the vehicle-speed effect impossible.</li>
+<li><strong>§6.2 form: h = max(c |ΔT|^{1/3}, a + b v_rel^n)</strong> with a = 5, b = 4, n = 0.8, c = 1.5 (chosen). The forced branch is in the family of the Jürges/McAdams flat-plate correlation (5.7 + 3.8 v); the free branch is the turbulent natural-convection ΔT^{1/3} law. Two branches, four numbers.</li>
+<li>Full Nusselt–Reynolds correlations per geometry (plate, cylinder, orientation) — better in principle, but the geometry and flow regime of a car panel in traffic are not known well enough for the extra terms to be more than decoration.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, in <code>irsim.thermal.convection</code>, vectorised. Relative air speed is the <strong>scalar</strong> sum v_rel = |v_wind| + |v_vehicle|: without headings this is the upper bound (head-wind case) and is the conservative choice for cooling. Consequences of the numbers: h(0, calm) = 5.000, h(28 m/s) = 62.51 W m⁻² K⁻¹ (× 12.5 over parked), free convection overtakes calm forced at |ΔT| = (a/c)³ = 37.0 K and never matters once there is real wind.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Expect ±30 % on h and therefore a comparable error on the convective share of the balance; this is documented as the dominant thermal uncertainty, not hidden.</li>
+<li>Tail-wind driving is over-cooled by the scalar composition (a 10 m/s tail wind at 10 m/s vehicle speed is v_rel = 20 here, 0 in reality).</li>
+<li>Surface orientation (a roof vs a door) does not change h.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>Vehicle heading and wind direction are both available (vector composition), or when a scene needs orientation-dependent free convection (e.g. cold-sky roofs at night).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

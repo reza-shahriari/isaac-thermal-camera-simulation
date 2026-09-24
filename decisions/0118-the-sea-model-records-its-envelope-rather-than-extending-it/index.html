@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0118 — The sea model records its validity envelope rather than extending it — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head">
+  <h1>ADR 0118 — The sea model records its validity envelope rather than extending it</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0118-the-sea-model-records-its-envelope-rather-than-extending-it.md" target="_blank" rel="noopener">docs/decisions/0118-the-sea-model-records-its-envelope-rather-than-extending-it.md on GitHub</a>
+</div>
+
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Qualifies <a href="../0078-maritime-phase-and-analytic-sea/">ADR 0078</a> and <a href="../0079-sea-water-optical-constants-and-slope-model/">ADR 0079</a>: they chose the facet-integrated Fresnel sea and recorded what it approximates, without saying over what range of angles anyone has checked it against a sea. <strong>Date:</strong> 2026-09-22 Roadmap: SE.1 (§5.3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>irsim.atmosphere.sea.SeaModel</code> computes a band-effective emissivity for any view direction, from nadir to grazing, by integrating the Fresnel emissivity of water over a Cox-Munk slope distribution. That is a Masuda-class model, and it answers everywhere.</p>
+<p>Published in-situ angular radiometry does not. A CE 312 four-channel radiometer over buoy-instrumented sea, in the 8-14 µm interval, validates the model only to <strong>about 50° from nadir</strong>; beyond that, multiple reflections between facets of the roughened surface produce discrepancies and the Wu-Smith model is required for 8-13 µm. Emissivity falls roughly 2-3 % by a 55° view angle. (<code>docs/research/2026-09-15-field-survey.md</code>, medium confidence.)</p>
+<p>The gap between those two sentences is not academic for this project. A camera on a shore or a mast — the maritime deployment the lane is being built for — sees the sea at grazing incidence across essentially its whole frame. Measured on real Boson geometry:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>frame</th><th>view zenith</th><th>beyond 50°</th></tr></thead>
+<tbody>
+<tr><td>shore camera, 20 m, boresight −1°</td><td>76.6–89.9°</td><td><strong>1.0000</strong></td></tr>
+<tr><td>shore camera, 20 m, boresight −20°</td><td>57.6–82.6°</td><td><strong>1.0000</strong></td></tr>
+<tr><td>mast camera, 100 m, boresight −5°</td><td>72.7–89.8°</td><td><strong>1.0000</strong></td></tr>
+<tr><td>UAV, 2 km, boresight −60°</td><td>17.7–44.5°</td><td>0.0000</td></tr>
+<tr><td>UAV, 2 km, boresight −90°</td><td>0.0–19.3°</td><td>0.0000</td></tr>
+</tbody></table></div>
+<p>At a 20 m eye height the 50° limit is crossed at <strong>31 m of slant range</strong>. Everything past a boat length is extrapolation.</p>
+<p>The obvious reading of "the sea model is validated to 50°" is that this is a caveat to note. It is not: for the deployment in question it is the entire operating band, and the model was shipped without anything recording that.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Record the envelope; do not extend it, and do not gate on it.</strong></p>
+<p>A new module <code>irsim.atmosphere.sea_envelope</code> carries the limit, its source, and the geometry that converts a camera depression into the angle the limit is expressed in. <code>SeaModel</code> gains <code>view_zenith_rad</code>, <code>beyond_envelope</code> and <code>envelope_report</code>; <code>MaritimeScene</code> carries an <code>EnvelopeReport</code> in its metadata and recomputes it on demand; the maritime Tier 3 report prints the frame fraction beyond.</p>
+<p>Three sub-decisions, each of which could have gone the other way:</p>
+<p><strong>1. The envelope is indexed by view zenith at the surface, not by camera depression.</strong> These differ by the horizon dip, and <code>sin θ = (1 + h/R) cos δ</code> is used rather than <code>90° − δ</code> so that θ is <em>exactly</em> 90° at the geometric horizon for any camera height. The flat-earth form is short by 0.14° at 20 m and by 3.2° at 10 km, i.e. it errs precisely in the quantity the envelope is about.</p>
+<p>This axis is pinned by its own test because the wrong axis does not fail loudly — it fails <strong>backwards</strong>. Reading the same 50° against depression reports the shore frame as 0.000 beyond (fully validated, when none of it is) and the oblique airborne frame as 0.867 beyond (when all of it is inside). A wrong-axis implementation would certify the one deployment that is entirely extrapolated and warn about the one that is not.</p>
+<p><strong>2. The flag is a record, not a gate.</strong> <code>beyond_envelope</code> answers a question; nothing refuses to render. Refusing would disable the maritime lane outright, since it has almost no in-envelope pixels, and would trade a known and measured extrapolation for no capability at all. The model keeps answering past 50° and the answer is now labelled.</p>
+<p><strong>3. Wu-Smith is not implemented.</strong> The survey gives one sentence about it — that it is required for 8-13 µm past 50° — and no coefficients, no functional form, and no error bound. Implementing a named model from a one-line claim would produce something that looks like an improvement and whose agreement with reality is <em>less</em> knowable than the current model's, because the current model's disagreement is at least attributable to a stated missing mechanism. Closing this properly needs the Wu &amp; Smith paper and a digitised comparison; that is future work, not this step.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>A finding the roadmap row did not anticipate: the envelope has two axes, not one.</strong> The published 2-3 % drop at 55° is a measurement <em>of a sea</em>, so it carries that sea's roughness. Our facet-integrated drop at 55° is:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>wind</th><th>0</th><th>2</th><th>5</th><th>10</th><th>15 m/s</th></tr></thead>
+<tbody>
+<tr><td>drop at 55°</td><td>2.07 %</td><td>2.29 %</td><td>2.67 %</td><td>3.43 %</td><td>4.33 %</td></tr>
+</tbody></table></div>
+<p>It reproduces the published range for winds up to <strong>7.3 m/s</strong> and exceeds 3 % above that — at an angle the published range is supposed to cover. So a rough-sea frame at 45° is outside the published figure even though it is inside the published angle. <code>VALIDATED_WIND_M_S</code> carries this, and it is the only thing in the module that is measured here rather than cited.</p>
+<p><strong>This is the first external check on the angular emissivity.</strong> The 2.07 % calm-sea drop landing inside the published 2-3 % is the only comparison in the repo between this chain's angular behaviour and a measurement of the sea. Everything else about the sea model is self-consistency.</p>
+<p><strong>The isothermal identity is explicitly demoted for this purpose.</strong> It is the load-bearing test in <code>test_sea_surface.py</code> because it holds for <em>any</em> emissivity — which is exactly why it is blind to the question SE.1 asks. <code>test_the_isothermal_identity_cannot_see_the_envelope</code> demonstrates this rather than asserting it: replacing ε(θ) with a flat 0.5, wrong by up to 0.49, leaves the identity satisfied to the same 1 mK. Anyone tempted to treat the identity as evidence that the sea is right at grazing should read that test first.</p>
+<p><strong>What is now known and still unfixed.</strong> The maritime lane's Tier 3 findings — the 2.9 K near-horizon inversion, the cold trough a few degrees down, the 57 % overcast collapse — are all measured in a band with no published backing. They are not thereby wrong; they are unverified, and the report now says so on every run instead of leaving a reader to infer it. <code>SE.3</code> (ECOSTRESS SST) is the nearest thing to an external check the lane has planned, and it constrains the <em>temperature</em>, not the angular emissivity.</p>
+<p><strong>Not addressed here.</strong> Wave shadowing and inter-facet reflection remain unbounded (ADR 0078 already records this, and it is the same physics the 50° limit is about). The slope distribution stays isotropic. The envelope is recorded for LWIR only, because the published figure is an 8-14 µm one and the MWIR sea has not been looked for.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

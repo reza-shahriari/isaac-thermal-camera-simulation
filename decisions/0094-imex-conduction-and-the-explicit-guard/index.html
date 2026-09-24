@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0094 — Conduction between facets: an IMEX step, and the explicit bound finally enforced — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0094 — Conduction between facets: an IMEX step, and the explicit bound finally enforced</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0094-imex-conduction-and-the-explicit-guard.md" target="_blank" rel="noopener">docs/decisions/0094-imex-conduction-and-the-explicit-guard.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: TC.1 (§6.1, §6.4)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Every facet <code>FacetSolver</code> has ever stepped was an independent column. That is the root of two things the owner asked for on 2026-09-18 and the plan could not deliver: heat does not spread across one panel (a bonnet renders sharper than aluminium can be — PT.11's diffusion lengths are 270 mm for aluminium and 99 mm for steel over an engine's 750 s rise, against 71–150 mm cells), and heat does not move between parts at all (an engine cannot warm the bracket bolted to it — the <code>TC</code> lane). Both need a term that moves heat between facets, and both are blocked on the same integrator problem: conduction is stiff. ADR 0036 measured the two-node case at a factor of 400 past the scene tick; a 5 cm aluminium cell is ~9 s against a 60 s tick; a bolted joint at 10⁴ W m⁻² K⁻¹ is a tenth of a second.</p>
+<p>There was also a hole beside it: <code>FacetSolver</code> enforced no stability bound at all. <code>tick_s</code> up to 3600 s parsed, and a leaf at 630 J m⁻² K⁻¹ under 30 W m⁻² K⁻¹ of wind — bound ≈ 29 s — would have diverged quietly during a 60 s spin-up. Nothing in a shipped scene tripped it; the next material would have.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Explicit conduction, smaller tick.</strong> Two orders of magnitude more steps for a transient nobody images. The fixed-tick contract in <code>field.py</code> exists so the render rate does not set the physics; a conduction term that sets the tick is the same failure from the other side.</li>
+<li><strong>Fully implicit, including the T⁴ radiation term.</strong> Newton iterations every tick, and it changes the surface balance's integrator — ADR 0036 chose the midpoint rule over Euler on <em>bias</em> (explicit Euler inflates the diurnal swing that §6.3's crossover test measures), and an implicit scheme damps the same quantity. Nothing about the surface balance needs changing.</li>
+<li><strong>Crank–Nicolson on the conduction term.</strong> Second order, but only A-stable: a mode with dt/τ = 600 is multiplied by (1 − 300)/(1 + 300) ≈ −0.993 per tick. It does not blow up; it rings, for hours, at the tick frequency, with the sign flipping each step. On a rendered panel that is a checkerboard that looks like fixed-pattern noise.</li>
+<li><strong>IMEX: the surface balance explicit on the midpoint rule, conduction backward Euler.</strong> L-stable on the conduction term (the same mode is damped by 1/601 per tick and is gone after a few), the surface balance untouched, one linear solve per tick with a matrix that depends only on the tick size.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 4.</p>
+<ul>
+<li><code>irsim.thermal.conduction.ConductionOperator(conductance_w_k, area_m2)</code>: a symmetric sparse matrix of <strong>link</strong> conductances in W/K, zero diagonal, non-negative, plus the facet areas. The balance gains <code>Σ_j K_ij (T_j − T_i)</code> per facet, divided by <code>C_i A_i</code>. Links in W/K rather than W m⁻² K⁻¹ because that is what a joint (<code>h_c·A</code>), a contactor or a grid edge (<code>k δ w / d</code>) is; the areas make it conservative for <strong>unequal</strong> cells, and symmetry is checked at construction because an asymmetric matrix invents energy quietly.</li>
+<li><code>FacetSolver(..., conduction=)</code> steps <code>T* = Tⁿ + ½ dt F(Tⁿ)/C</code>, <code>rhs = Tⁿ + dt F(T*)/C</code>, then solves <code>(I + dt D⁻¹ L) Tⁿ⁺¹ = rhs</code> with <code>L = diag(K·1) − K</code>, <code>D = diag(C A)</code>. The matrix is factorised (<code>scipy.sparse.linalg.splu</code>) once per tick size and back-substituted each step. Without an operator the step is the midpoint rule it always was, <strong>bit for bit</strong> — tested with a zero operator as well as with none.</li>
+<li>The explicit bound <code>2C/(h + 4εσT³)</code> is checked on every step against the forcing's <em>actual</em> <code>h</code> and the state's own <code>T</code>, and raises naming the facet and the numbers. <code>guard=False</code> opts out for a caller that knows why (a steady-state search). Conduction never trips it: it is implicit.</li>
+<li><code>ThermalField</code> and <code>PlanarThermalField</code> take <code>conduction=</code> and pass it through unchanged.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy:</strong> PT.11's lateral Laplacian is a builder that returns an operator; TC.2's network is capacities plus links; TC.3's contactors are links between two fields' cells. None of them touches the integrator again. A 60 s tick stands over any conductance.</p>
+<p><strong>What it costs:</strong> first-order accuracy on the conduction term's <em>slow</em> modes. Measured: two cells with τ = 1 h at dt = 60 s land 0.7 % of the initial 10 K contrast from the closed form after two hours, and halving the tick halves the error. For a thermal camera that is far inside what the forcing's own uncertainty (§6.2's h) contributes, and it is measured, not assumed.</p>
+<p><strong>Error introduced:</strong> the splitting error of IMEX — the explicit half sees <code>Tⁿ</code>, not <code>Tⁿ⁺¹</code>, on the conduction-coupled part. It is the same O(dt) term as above and is bounded by the same test.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs a temperature-dependent conductance (a phase change, TC's exhaust line where k(T) matters), at which point the matrix changes per tick and the factorisation is per tick too — or a second-order-in-time conduction answer is needed for a validation, which would mean TR-BDF2 rather than Crank–Nicolson, for the L-stability reason above.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

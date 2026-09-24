@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0086 — An isotropic scattered-sunlight sky for the reflective bands — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0086 — An isotropic scattered-sunlight sky for the reflective bands</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0086-scattered-sunlight-sky.md" target="_blank" rel="noopener">docs/decisions/0086-scattered-sunlight-sky.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences--what-this-model-gets-wrong-deliberately">Consequences — what this model gets wrong, deliberately</a></li>
+<li class="toc-2"><a href="#alternatives-considered">Alternatives considered</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: M11.10 (§5.3, §5.4)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>SkyModel</code> (ADR 0044) is a <strong>thermal</strong> sky: the clear sky is the atmospheric column's own emission, <code>L_clear(θ) = L_path(∞, θ)</code>. That is exactly right for LWIR and essentially zero at 0.9 µm.</p>
+<p>M10.22 put the reflected-solar term on the render path, and the first NIR render made the consequence obvious: <strong>a brightly sunlit quadrotor on a black sky.</strong> That is backwards. In the near infrared the daytime sky is the brightest thing in the frame and an aircraft against it is usually a dark silhouette — which is the <em>whole</em> detection problem in this band, and the opposite of the LWIR one. The target was lit and nothing lit the sky.</p>
+<p>ADR 0071 already recorded that the layered atmosphere "carries no scattered sunlight". This is that gap, now load-bearing.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>The sky gains an isotropic scattered-sunlight radiance,</p>
+<pre><code>L_sky,scatter = f_B · DHI / π</code></pre>
+<p>where <code>DHI</code> is the diffuse horizontal irradiance already carried by the scene's one <code>WeatherSeries</code>, and <code>f_B</code> is the fraction of the diffuse spectrum inside the band, per watt.</p>
+<ol>
+<li><strong>Isotropy is chosen for the integral, not for convenience.</strong> For an isotropic sky, ∫ L cos θ dΩ over the hemisphere is exactly <code>L·π</code>, so this form puts back precisely the diffuse irradiance the weather file measured. It is the one angular distribution guaranteed correct in the integral, and the integral is the quantity that was measured. A test integrates the hemisphere numerically and checks it.</li>
+<li><strong>The diffuse spectrum is the solar spectrum weighted by λ⁻⁴.</strong> Rayleigh scattering is strongly wavelength-dependent, so skylight is much bluer than the beam that made it — which is decisive here, because it means a near-infrared band receives a far smaller share of DHI than of DNI. Only the <em>shape</em> is used: the in-band integral is divided by the broadband one, so any constant multiplying the Rayleigh law cancels and no calibration is implied.</li>
+<li><strong>The ground-level spectrum, not the top-of-atmosphere one.</strong> Skylight is made by scattering a beam that has already crossed the column, so the absorption bands the beam lost are missing from the sky too.</li>
+<li>It is added inside <code>clear_radiance</code>, so <strong>one place</strong> feeds both the sky background and the reflected environment term, and the tilt-integrated sky picks it up for free.</li>
+<li><code>skylight_for_sensor</code> returns <strong><code>None</code> for an emissive band</strong>, so every LWIR render stays bit-identical. Measured: against a clear-sky LWIR column of ~50 W m⁻² sr⁻¹ the scattered term is below 1e-5 W m⁻² sr⁻¹, eight orders down and two orders below float32's spacing there.</li>
+</ol>
+<h2 id="consequences--what-this-model-gets-wrong-deliberately">Consequences — what this model gets wrong, deliberately<a class="anchor" href="#consequences--what-this-model-gets-wrong-deliberately" aria-label="permalink">#</a></h2>
+<p>An isotropic sky is wrong in its <em>distribution</em> in two known ways:</p>
+<ul>
+<li><strong>The horizon is brighter than the zenith</strong> on a real clear sky, because the scattering path is longer. An isotropic model under-renders the horizon and over-renders the zenith.</li>
+<li><strong>The circumsolar aureole</strong> — forward Mie scattering within roughly 25° of the sun — can carry a large fraction of DHI on a hazy day and is entirely absent here. A target passing near the sun is therefore rendered against a sky that is too dim.</li>
+</ul>
+<p>Both are distribution errors under a correct total. A Preetham-style distribution (which <code>irsim_isaac.visible_sky</code> already implements for the <em>visible</em> dome) would fix the shape, but it is regressed on daylight and extending it to 1.7 µm would be using a fit outside its data — which this project has refused before (ADR 0064 on the solar spectra). The honest sequence is: correct integral now, measured distribution when there is something to measure it against.</p>
+<p><strong>Aerosol scattering is greyer than Rayleigh</strong> (Ångström exponents of 0.5–1.5 against 4), so a pure Rayleigh weighting <em>understates</em> a hazy sky's near-infrared share. The exponent is a parameter, so the sensitivity can be measured; the default is the clear-sky law.</p>
+<h2 id="alternatives-considered">Alternatives considered<a class="anchor" href="#alternatives-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Use the direct-beam spectrum's band share for DHI.</strong> Simpler and wrong in the direction that matters: it would give a NIR sky roughly as bright, relative to the beam, as a visible one, which is the error this band is least able to absorb.</li>
+<li><strong>Add the term to <code>Illumination</code> instead of to the sky.</strong> It would light the surfaces and leave the sky background black — half the bug.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

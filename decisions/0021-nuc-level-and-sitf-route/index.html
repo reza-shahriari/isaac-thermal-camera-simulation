@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0021 — NUC reference level, calibrated SITF route, and radiometric vs non-radiometric cameras — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0021 — NUC reference level, calibrated SITF route, and radiometric vs non-radiometric cameras</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0021-nuc-level-and-sitf-route.md" target="_blank" rel="noopener">docs/decisions/0021-nuc-level-and-sitf-route.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§11.1 forks the signal chain into a radiometric branch (calibrated apparent temperature) and the AGC branch. The calibration must say what "DN 0" and the gain mean, and which housing temperature the camera assumes when it inverts — that assumption is the physical origin of shutterless drift (ADR 0016). The spec also has no field declaring a camera non-radiometric (spec issue T14); <code>outputs.apparent_ temperature</code> is the only proxy.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Invert with the true instantaneous housing temperature</strong> — the simulator would hide the very drift it exists to reproduce.</li>
+<li><strong>Invert with the housing at its calibration temperature</strong> (the two-blackbody SITF of the ideal chain) — the camera's belief, not the truth; drift appears in T_app until an FFC re-references.</li>
+<li><strong>Empirical DN→T polynomial</strong> as real cameras ship — needs a fitted calibration nobody has.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, <code>irsim.isp.radiometric.RadiometricCalibration</code>:</p>
+<ul>
+<li>The calibrated transfer is built by <code>from_scene_range(sensor, lut, T_min, T_max, T_housing_cal)</code>: blackbodies at T_min and T_max through the ideal optics (housing at T_cal) set the DN gain so that range spans the ADC (bolometer gain per ADR 0019). <code>lb_housing_cal</code> is the NUC reference level: the self-emission the camera believes it sees. Pipeline default range 233.15–473.15 K (−40 to +200 °C, the Boson high-gain-like span); T_cal = the housing temperature at the pipeline's first frame.</li>
+<li><strong>Two routes, kept distinct.</strong> <code>apparent_t</code> in the pipeline outputs comes from the <strong>float32 signal</strong> (un-quantised), so the sub-mK round-trip claims are meaningful. <code>apparent_temperature_from_dn</code> applies the same calibration to the uint16 image (reconstructed at bin centre, +0.5 LSB) as a <em>validation</em> output whose error is bounded by half an LSB — at 300 K on the Boson span that is ~2 mK, at 250 K ~4 mK.</li>
+<li>T_app is always L_B⁻¹(L) through the band LUT; kinetic temperature never enters (§3.3).</li>
+<li><strong>Non-radiometric cameras</strong> are declared by <code>outputs.apparent_temperature: false</code> (and <code>radiance_linear: false</code>); the pipeline then emits no such key — never zeros. A dedicated flag is left to the spec owner (T14).</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>A housing drift of +1 K reads as +87 mK of scene temperature until FFC (ADR 0016), by construction. The DN gain is a scene-range choice, not a hardware constant (ADR 0019); changing the range changes every DN value but no T_app. Photon cameras use the same structure with <code>lb_q</code> and the photon transfer (M11.1).</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A radiometric Boson calibration (DN→T table) becomes available, or NUC (M9) introduces gain/offset maps — then the calibration gains per-pixel gain and offset and the reference level moves with FFC.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

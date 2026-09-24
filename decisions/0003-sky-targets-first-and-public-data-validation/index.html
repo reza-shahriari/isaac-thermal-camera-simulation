@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0003 — Sky targets first, validated against public data — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0003 — Sky targets first, validated against public data</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0003-sky-targets-first-and-public-data-validation.md" target="_blank" rel="noopener">docs/decisions/0003-sky-targets-first-and-public-data-validation.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The simulator's first application is detecting objects in the sky — drones, aircraft, birds — against a sky background, from a ground-based or vehicle-mounted LWIR camera. Ground scenes and the automotive use case in <code>docs/physics-model.md</code> remain the long-term target but come second.</p>
+<p>No IR camera is available to the team. One may be obtainable later, but planning around it would stall validation indefinitely. What <em>is</em> available, free, on the internet, is a large amount of real thermal video of exactly the target class: Anti-UAV410 (410 thermal videos, 438 K boxes; sensor undocumented, frames are the camera's display output), CST Anti-UAV (220 sequences, tiny targets, cloud clutter), the Halmstad drone-detection dataset (Svanström et al. 2021, CC0: 365 ten-second clips at 320×256 from a FLIR Breach PTQ-136 / Boson core at 60 fps, with birds and aircraft as confusers), LRDDv3 (air-to-air, ranges ≤ ~200 m with GPS truth), and the single-frame small-target sets IRSTD-1k / NUAA-SIRST / NUDT-SIRST (sensor unknown; usable for target size and contrast priors only).</p>
+<p>What these frames are must be recorded per set before any statistic is trusted. The Halmstad clips are the Boson's raw Y16 stream converted to 8 bits by the recorder and stored as mp4 — so they carry the core's noise, striping and FFC freezes but <strong>not</strong> its AGC, DDE or palette. Anti-UAV410 / CST frames are display output through an unknown ISP, stored lossy. Flat-sky regions in all of them are the equivalent of a laboratory blackbody for noise structure, within the limits of 8-bit quantisation and the codec.</p>
+<p>The physics consequences of the sky-first scope are not neutral. It removes the need for a ground thermal solver and a broad material library at first, but it makes the sky radiance model the <em>background</em> (elevation-dependent, per band, with clouds as the dominant clutter), pushes ranges to 0.5–5 km on slant paths — past the ~500 m validity the spec accepts for band-averaged Beer–Lambert (Appendix A #2) — and makes sub-pixel target rendering (MTF, sampling, aliasing, point-target radiometry) first-order rather than a late refinement. §5.3 of the spec already warns that a constant sky background "badly mismodels a system's ability to detect small aerial targets".</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Follow §16.4 literally (ground/automotive first), add sky targets later.</strong> Cleanest against the spec; but every early validation would be against ground phenomenology we cannot measure, and the first deliverable would be a camera nobody can point at a drone.</li>
+<li><strong>Sky targets first, validated against public anti-UAV video; ground phase second.</strong> Reorders the roadmap, adds a public-data evaluation harness early, adds clouds, slant-path atmosphere and point-target radiometry, defers the ground thermal solver and material breadth. Tier 2 benches remain self-consistency until a camera exists; Tier 4 and Tier 5 become possible now.</li>
+<li><strong>Buy or borrow a Boson and do the §15 lab benches first.</strong> Best evidence per hour once the hardware exists; not available.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2. Concretely:</p>
+<ul>
+<li><strong>Validation data:</strong> public datasets only, tracked under <code>data/validation/</code> with licence and provenance notes; no plan step may depend on owning hardware. If a camera later becomes available, the §15 lab benches are added as a bonus tier, not a prerequisite.</li>
+<li><strong>What is compared:</strong> on the simulator's 8-bit output after the <em>same signal path as the reference set</em> — the camera's AGC/DDE where the frames are display output, or a linear recorder conversion where they are Y16-derived — followed by the same codec, never on radiance. Measured on real frames and reproduced in sim: temporal and spatial noise (3-D decomposition, PSD, striping lines, with a codec/quantisation floor stated per set), between-FFC fixed-pattern growth, bad-pixel footprints, FFC freeze length (and interval, where sequences are long enough), AGC histogram signature and DDE overshoot (display-output sets only), scale-free sky brightness profile vs elevation, cloud clutter spectra, target size and signal-to-clutter ratio vs range (to ~200 m — beyond that the range regime is modelled, not validated), contrast polarity, edge spread and motion smear (edge asymmetry vs velocity).</li>
+<li><strong>Task-level evaluation is a deliverable:</strong> a detector train/evaluate harness with the synthetic→real, real→real, real+synthetic→real protocol and a one-feature-at-a-time ablation so that fidelity spending is steered by measured AP, not by taste.</li>
+<li><strong>Ordering:</strong> phase 1 (sky) = baseline, radiometry, evaluation harness, radiance kernel, noise, ISP, sky/clouds/slant-path/point targets, sensor dynamics, Isaac integration, Tier 4/5 on public data. Phase 2 (ground/automotive) = ground thermal solver, full material library, Fresnel angular models, second and third bands, ground phenomenology.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Makes easy: an honest sim-to-real number within the first release; evaluation code that outlives the scope change; noise/ISP realism getting the attention §15 says it deserves.</li>
+<li>Makes hard: absolute radiometric validation (public frames carry no temperature truth) — Tier 2 SITF and NETD remain self-consistency against ESTIMATED datasheet values until hardware exists. The error this introduces cannot be bounded from public data; it is stated in README limitations.</li>
+<li>Introduces new physics with its own unbounded approximations: a cloud-clutter model (no spec section exists; it will be authored and recorded in its own ADR), elevation/air-mass-dependent path radiance beyond the spec's 500 m guidance, and analytic point-target injection below ~0.1 px.</li>
+<li>The Isaac Sim interpreter (<code>/home/hunter/IsaacSim/_build/linux-x86_64/release/python.sh</code>, Python 3.12, NumPy 2.3) is the project interpreter for both halves of the repo; the Makefile gains a <code>PYTHON</code> variable.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A real IR camera becomes available (add the §15 lab benches; re-anchor NETD and 3-D ratios to measurements and replace every <code>ESTIMATED</code> field).</li>
+<li>The ground/automotive phase starts (re-instate §16.4 ordering for the deferred milestones).</li>
+<li>Tier 5 shows that a deferred fidelity item (e.g. Fresnel angular emissivity, cubemap reflections) moves detector AP by more than the noise/ISP items do.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

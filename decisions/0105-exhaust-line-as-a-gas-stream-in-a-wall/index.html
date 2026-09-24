@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0105 — The exhaust line as a quasi-1-D gas stream in a wall of network nodes — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0105 — The exhaust line as a quasi-1-D gas stream in a wall of network nodes</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0105-exhaust-line-as-a-gas-stream-in-a-wall.md" target="_blank" rel="noopener">docs/decisions/0105-exhaust-line-as-a-gas-stream-in-a-wall.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-21 Roadmap: TC.7 (§6.6, §6.4; spec issue S43)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§6.6 prescribes the manifold, the pipe and the tip as three schedules with their own ΔT_max and τ, and the car scenes drive one of them (<code>exhaust_pipe</code>, τ 360 s) to put a stripe on the road. A camera under a car sees what three schedules cannot make: a gradient along the line, hottest at the manifold, cold at every hanger, moving with load; and after key-off a shielded manifold and a catalyst shell that <em>warm</em> for a minute or two before they cool (MVFRI R04-13 measured post-stop exhaust skins peaking 60–120 s after the stop and falling from ~400 °C to below 260 °C in 3–12 min). TC.5 (ADR 0100) replaced the bay's schedule with a solved network; this does the same for the line, on the same network.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Keep §6.6's schedules, add a fourth for the catalyst.</strong> Cannot produce the gradient, the hangers, or the post-stop rise; the rise is the one signature every measurement has.</li>
+<li><strong>A 1-D wall conduction solve along the pipe with the gas as a boundary.</strong> Axial conduction in a 1.5 mm steel wall is ~0.01 W/K per segment against ~1 W/K of gas coupling: it does not set the profile, the gas does. Deferred as an addition (a link between neighbouring wall nodes), not a different model.</li>
+<li><strong>The gas as a quasi-1-D stream marched segment by segment, each segment's wall a network node.</strong> <code>ṁ c_p dT_g/dx = −h_i π D (T_g − T_w)</code> is exact over a segment with a uniform wall, <code>T_out − T_w = (T_in − T_w) e^{−NTU}</code>, and the heat it leaves, <code>ṁ c_p (T_in − T_out) = G_eff (T_in − T_w)</code> with <code>G_eff = ṁ c_p (1 − e^{−NTU})</code>, is a link the network already knows how to step: from the wall to a fixed node at the segment's inlet gas temperature, implicit in the wall and lagged one tick in the upstream gas. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, <code>irsim.thermal.exhaust_line</code>: <code>PipeSection</code>s in order (each <code>n_segments</code> wall nodes of <code>ρ c π D δ Δx</code>, outside convection forced while the car <em>moves</em> and natural when it stands -- underbody air is ram air, not fan air -- radiation to the floor pan and the road, hangers at ~1 W/K each), <code>GasFlow</code> (ṁ and inlet temperature linear in load between idle and rated, Dittus–Boelter for h_i), an optional inner mass per section (a monolith or a silencer's baffles: the gas touches it over its own area and the wall through the mat, plus the cones where the gas still meets the shell) and an optional heat shield (a thin node across an air gap by conduction and radiation; the camera sees the shield). <code>ExhaustLine</code> marches the gas on the walls as they stand, then steps the network; <code>ExhaustSolver</code> is the <code>TemperatureSolver</code> the scene's <code>targets</code> take as <code>solver: exhaust</code> with <code>section:</code> naming the reported skin; <code>stock_exhaust()</code> is a mid-size petrol car's line in 22 segments, ESTIMATED throughout.</p>
+<p>The flange to the head is a one-way boundary (the head's temperature is read; the engine does not feel the line), and from a scene it is not wired at all: the engine is a separate solver and targets cannot yet read each other. The runners' own cast section (~0.3 W/K each) rules that conductance, which is why a manifold can run red while the head sits at coolant temperature -- a 15 W/K gasket alone pinned the manifold at 185 °C.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Measured:</strong> the march reproduces <code>exp(−NTU x/L)</code> to 1e-6 over 24 segments; the gas leaves at the wall temperature as h_i → ∞ and the wall goes to the inlet gas as ṁ c_p → ∞ too (with a finite ṁ c_p it sits losses/ṁc_p · ΔT below, 15 K in the test); the network's energy residual is below 1e-6 of the gas heat and the gas heat equals ṁ c_p (T_in − T_tail) to 1e-9. At 60 % load moving: manifold wall 557 °C, downpipe 424, mid pipe 397, tailpipe 368 (section means), hung segments 40–50 K colder than their neighbours, 13.7 kW left in the line. After key-off from that run the manifold shield rises 287 → 347 °C peaking at +65 s and is below 260 °C at +380 s (5.3 min from its peak); the catalyst shell rises 268 → 278 °C peaking at +65 s. At idle in a car park nothing peaks after key-off (the outside air was already still).</p>
+<p><strong>Not reached:</strong> MVFRI's 400 °C shell. The stock converter's shell runs 270 °C at 60 % load and 370 °C at full load with no light-off exotherm and the gas on the shell only at the cones. The fall is therefore timed from the shell's own peak; the manifold shield carries the 3–12 min band. The ~100 °C clamp-probe spread MVFRI reports is the tolerance behind every band here.</p>
+<p><strong>What it changes downstream:</strong> the R2 car scenes keep §6.6's <code>exhaust_pipe</code> schedule. Switching them to <code>solver: exhaust</code> puts the idling mid pipe at ~236 °C where the schedule had ambient</p>
+<ul>
+<li>48 K, a +150 K change to the road stripe that the car-demo tests and the R2 numbers were</li>
+</ul>
+<p>measured on; that switch is its own step.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs the flange wired to the engine target (targets reading targets, or the line as nodes of the scene's own network), axial conduction in a thick manifold, the catalyst's light-off exotherm, or the plume (PH.6) reading <code>gas_out_k</code> at the tip -- the tip's gas temperature is already the line's last outlet.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

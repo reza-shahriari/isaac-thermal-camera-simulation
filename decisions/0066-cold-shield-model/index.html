@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0066 — The cold shield: a solid-angle model for §9.1&#x27;s formula-free knob — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0066 — The cold shield: a solid-angle model for §9.1&#x27;s formula-free knob</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0066-cold-shield-model.md" target="_blank" rel="noopener">docs/decisions/0066-cold-shield-model.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-this-measured">What this measured</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§9.1 asks for a parameter and gives no equation:</p>
+<blockquote>
+<p>A cooled system's cold stop limits the detector's view of warm surroundings. Effective f-number for background flux is set by the cold shield, not the lens: if they are mismatched ("cold shield inefficiency"), background flux rises and NETD degrades. Expose a <code>cold_shield_efficiency ∈ [0, 1]</code> parameter; it is a real trade-study knob.</p>
+</blockquote>
+<p><code>optics.cold_shield_efficiency</code> has been in the schema since M0.9 and nothing has ever read it — which is the failure mode ADR 0077 and ADR 0082 already document twice in this repository, so it is worth closing while a cooled camera is being added rather than after. Spec issue S31 also notes that the field lives under <code>optics:</code> while the physics is the detector's.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>A solid-angle model, with the efficiency as the ratio of the cones.</strong></p>
+<pre><code>Ω_lens  = π / (4F² + 1)                    the scene cone (non-negotiable #5)
+Ω_admit = min(π, Ω_lens / η_cs)            what the shield lets through
+Φ_bg    = A_d (Ω_admit − Ω_lens) L_B(T_surround)</code></pre>
+<p>η_cs is therefore exactly what §9.1 describes: the fraction of the admitted cone the lens actually fills. A perfect shield admits the lens cone and cold metal everywhere else — a shield at the detector's own temperature radiates nothing in band, which is the entire reason a dewar has one.</p>
+<p>Three properties are asserted rather than argued:</p>
+<ul>
+<li><strong>η_cs = 1 gives exactly 0.0</strong>, not 1e-17. A residue would put a spurious Poisson term into the noise budget of every well-shielded camera and of every uncooled one.</li>
+<li><strong>Ω_admit is capped at π</strong>, the <em>projected</em> hemisphere ∫cos θ dΩ, not 2π. A pixel on a plane cannot receive from behind itself however badly matched the shield is.</li>
+<li><strong>At η_cs = 0 an isothermal enclosure closes</strong>: scene through the lens plus background around it equals A_d·π·L_B(T) with τ = 1. A pixel inside a cavity at one temperature must read that cavity whatever the optics do, and this identity holds only because the cap is π.</li>
+</ul>
+<p><strong>τ_opt does not multiply it.</strong> The background reaches the pixel <em>without going through the lens</em> — that is what "outside the lens cone" means — so <code>background_power</code> has no transmittance argument at all, and the test asserts the signature rather than a value. This is also what distinguishes it from the optics' self-emission (§8.2, <code>irsim.optics.self_emission</code>), which is A_d Ω_lens (1 − τ) L_B(T_housing): the lens glowing <em>inside</em> the scene cone. The two add; neither contains the other, and folding one into the other would look right at η_cs = 1 and be wrong everywhere else.</p>
+<p><strong>The surround radiates at the housing temperature.</strong> <code>PipelineConfig.from_sensor</code> looks up L_q,B at <code>t_housing_cal_k</code>, the same node §8.2 uses. It is the warm structure between the cold stop and the lens, so the housing node is the closest thing the model has; a separate dewar-wall node would be a third thermal node for a second-order difference.</p>
+<p><strong>The cost is shot noise, not the offset.</strong> NUC removes offsets, so what a mismatched shield actually costs is the Poisson noise its DC level carries:</p>
+<p>NETD(η_cs) / NETD(1) = √((N_signal + N_bg) / N_signal)</p>
+<p><code>netd_degradation_factor</code> returns exactly that, and the test holds <code>predict_netd_k</code> to it to 1e-9 with σ_gaussian = 0 — isolating the shot term, which is the part the shield controls — then checks that NETD still rises monotonically with the camera's real 350 e⁻ read noise.</p>
+<p><strong>Where it lives.</strong> <code>irsim/detector/cold_shield.py</code>, because it is detector physics (S31). The <em>schema</em> field stays under <code>optics:</code> where §12.2 puts it: moving it would break every existing config for a filing-cabinet improvement, and the module docstring names the split.</p>
+<h2 id="what-this-measured">What this measured<a class="anchor" href="#what-this-measured" aria-label="permalink">#</a></h2>
+<p>The MWIR InSb example at F/2, 2 ms, 300 K scene, 8.5 Me⁻ well, N_signal = 2.49e6 e⁻ (29 % of well):</p>
+<div class='table-wrap'><table>
+<thead><tr><th>η_cs</th><th>N_bg (e⁻)</th><th>% of well</th><th>shot-limited NETD</th></tr></thead>
+<tbody>
+<tr><td>1.00</td><td>0</td><td>0 %</td><td>×1.000</td></tr>
+<tr><td>0.95</td><td>1.54e5</td><td>1.8 %</td><td>×1.030</td></tr>
+<tr><td><strong>0.90</strong></td><td><strong>3.26e5</strong></td><td><strong>3.8 %</strong></td><td><strong>×1.063</strong> (×1.060 with the real read noise)</td></tr>
+<tr><td>0.70</td><td>1.26e6</td><td>14.8 %</td><td>×1.226</td></tr>
+<tr><td>0.50</td><td>2.93e6</td><td>34.5 %</td><td>×1.475</td></tr>
+<tr><td>0.20</td><td>1.17e7</td><td><strong>138 %</strong></td><td>×2.389</td></tr>
+</tbody></table></div>
+<p>The last row is the trade study as a fact rather than a curve: at η_cs = 0.2 <strong>this camera saturates on its own dewar before it sees the scene</strong>. That is why cold-shield matching is a manufacturing specification and not a tuning parameter.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>configs/sensors/example_mwir_insb_640.yaml</code> is the first configured camera with η_cs &lt; 1 (0.90, ESTIMATED). Every uncooled camera in the repository has η_cs = 1.0, so the term is identically zero for them and <strong>no golden moves</strong>.</li>
+<li><code>NoiseBudget.background_electrons</code> and <code>PhotonDetector</code> already carried the term; only the formula was missing. <code>anchor_noise</code> now receives it, so the anchored σ_gaussian is solved <em>after</em> the background's shot noise is counted — which is the right order, and means a badly-matched shield can make a NETD target unattainable and say so.</li>
+<li>A third band is configured with no kernel change, which M11.1's guard re-checks automatically because it parametrises over the whole <code>configs/sensors/</code> directory.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A dewar-wall temperature is worth separating from the housing node — i.e. when a cooled camera is simulated through a warm-up transient rather than at a steady state.</li>
+<li>The shield's own emissivity matters. The model treats the shield as a perfect cold absorber; a real one at 80 K with ε &lt; 1 reflects some of the warm structure back, which raises the background slightly and is well inside the ESTIMATED η_cs itself.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

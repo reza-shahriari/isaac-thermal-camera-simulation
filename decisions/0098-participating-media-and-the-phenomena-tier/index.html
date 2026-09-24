@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0098 — Participating media: a per-band slab in radiance space, and the phenomena tier — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0098 — Participating media: a per-band slab in radiance space, and the phenomena tier</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0098-participating-media-and-the-phenomena-tier.md" target="_blank" rel="noopener">docs/decisions/0098-participating-media-and-the-phenomena-tier.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-ph5-2026-09-22--radcal-not-hitemp-and-the-coefficient-needs-a-second-axis">Addendum (PH.5, 2026-09-22) — RadCal, not HITEMP; and the coefficient needs a second axis</a></li>
+<li class="toc-3"><a href="#radis-over-hitemp-was-not-attempted-the-tables-are-radcals">RADIS over HITEMP was not attempted; the tables are RadCal&#x27;s</a></li>
+<li class="toc-3"><a href="#the-band-coefficient-depends-on-the-path-and-by-a-factor-of-sixty">The band coefficient depends on the path, and by a factor of sixty</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: PH.13, recording PH.4 (§2, §8.1, §8.3; spec issue S46)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>docs/physics-model.md §2 is a surface equation: emitted, reflected and path terms for an opaque facet. A flame, an exhaust plume, steam or any hot gas emits and absorbs <strong>along the ray</strong>, and until PH.4 nothing in the code could say so. The owner's 2026-09-18 requirement names fire and "something like these" beside water; §6.6's own plume row was deferred in revision 5 behind a trigger (an MWIR Tier 3 bench) that had already fired. A scene author who needed a flame would have painted it as a hot prim, and got a grey emitter that is wrong in every band.</p>
+<p>The survey's anchors set both the operator and its fidelity:</p>
+<ul>
+<li>FDS (NIST) renders flame radiation with a gray-gas radiative transfer equation whose absorption coefficient comes from RadCal, "because in real fires, soot is the dominant source and sink of thermal radiation and is not particularly sensitive to wavelength"; its eq. C.3, read per band, is <code>L_b = τ_b L_behind + (1 − τ_b) B_b(T_g)</code>.</li>
+<li>RadCal's stated accuracy against line-by-line models is about <strong>8 %</strong> for 20–200 cm paths at 800–1800 K. Nothing built on band coefficients can claim better.</li>
+<li>HITRAN is established at 296 K and "usually deficient" for hot gas; HITEMP-2010 is the line list for flame and plume work. Hot-gas coefficients therefore cannot be scaled from the ambient atmosphere model; they are a separate offline product.</li>
+<li>NIRATAM's ship-plume fits: MWIR transmission 65 % near the exit rising to 100 %, LWIR ≥ 0.90 — the same plume is a dominant MWIR feature and a few-K LWIR one. A camera-band simulator has to reproduce that split or it has no plume.</li>
+<li>DIRSIG and ThermoAnalytics both keep <strong>transport and radiometry apart</strong>: the plume's temperature and species field comes from a flow model (Blackadar puffs, CFD voxels) and the renderer only integrates emission and absorption through it. Neither simulates buoyancy inside the renderer.</li>
+</ul>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A grey emissivity knob on a hot prim.</strong> One number for all bands. It cannot produce the MWIR/LWIR split above (PH.4's test: a CO₂/H₂O slab reads more than 900 K apart between the two cameras; a grey ε reads within 150 K), so it renders the plume's most visible property away. Rejected for the image path.</li>
+<li><strong>Hottel / Leckner total emissivity charts</strong> <code>ε_g(T, pL)</code>. Integrated over all wavelengths, so again one number per gas, not one per band. Rejected for the image path; kept as the right tool for <strong>heating</strong> — the radiative flux a flame puts on a nearby surface is a total, and PH.7's surface emissive power is that quantity.</li>
+<li><strong>A Planck-mean absorption coefficient in the camera band.</strong> Correct for the total loss of an optically thin gas (the TNF workshop model) and wrong for a band camera, which weights by its own R(λ), not by the whole Planck curve. Rejected; the coefficient must be band-integrated against R(λ), which is why the tables are per band and bands stay data (AT.4).</li>
+<li><strong>An emissive dome or volume prim on the Isaac side</strong>, through the renderer's own emission. Every colour AOV on this build is fp16 and exposure-scaled (ADR 0014); a 1300 K source through it would lose the radiometry the whole project exists to keep. Rejected.</li>
+<li><strong>Per-band slab in radiance space, in the engine-free pipeline.</strong> FDS's operator per band, with band-mean coefficients: soot analytic from the Rayleigh form over the camera's own R(λ), gas species from offline HITEMP/RadCal tables, applied at the target's range and attenuated by the rest of the path like MS.6's point target. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 5, shipped as <code>irsim.pipeline.gas_slab</code> (PH.4):</p>
+<ul>
+<li>A slab is authored as <strong>(T_gas, L, p_CO₂, p_H₂O, f_soot)</strong> and never as an emissivity; the band emissivity <code>1 − τ_b</code> is an output that differs per band, which is the phenomenon.</li>
+<li><code>κ_b = κ_CO₂,b(T) p_CO₂ + κ_H₂O,b(T) p_H₂O + κ_soot,b(T)</code>, with the soot term <code>C0 f_v ⟨1/λ⟩_b</code> weighted by R(λ) B(λ, T_g) (<code>SOOT_RAYLEIGH_C0</code> = 7.0, Widmann 2003) and the gas terms from <code>SpeciesAbsorption</code> tables in 1/(m·atm) that refuse to extrapolate. A species with no table raises naming PH.5; no ambient coefficient is ever scaled up.</li>
+<li><code>B_b(T_g)</code> by quadrature, not the 200–1000 K LUT; T_gas guarded to 300–2500 K.</li>
+<li>At range: <code>ΔL = Σ_k w_k τ_k(R) (1 − τ_b)(B_b − L_behind,k)</code> per class, the point target's convention, so a plume and a point target on the same ray attenuate identically.</li>
+<li><strong>The phenomena tier.</strong> This feature claims the RadCal envelope, ~8 % in radiance, not the 10 mK the surface path claims. It exists so a fire scene <em>can be generated</em> and shows the right band behaviour; it is not a calibration path. Tests hold it to identities (limits, range, band split, sign), not to a radiometric tolerance it cannot meet.</li>
+<li><strong>Transport stays outside.</strong> The slab takes T_g, species and path length as inputs; where a plume's field comes from (an exhaust node, an authored cone, a puff model) is PH.6's and PH.7's business, and buoyancy is not simulated.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy now:</strong> PH.5 fills the tables; PH.6 places a slab per pixel over a plume cone with T and species from the exhaust node; PH.7 places a soot slab at 1150–1300 K over a fire and reuses <code>RadiantRectangle</code> with an authored surface emissive power for what the fire heats; PH.8 feeds a 1273 K patch into the ISP to test gain state and AGC.</p>
+<p><strong>Error introduced, bounded where it can be:</strong> a band-mean coefficient inside one exponential is exact in the optically thin and opaque limits and approximate between them — the true band transmittance is the R·B-weighted mean of <code>exp(−κ_λ L)</code>, which a narrow-band code evaluates and this does not. For soot (κ_λ ∝ 1/λ, smooth) the error is small; for the CO₂ 4.3 µm band head it is the band-model error RadCal's 8 % already includes. Recorded, not tuned away.</p>
+<p><strong>Deferred, deliberately:</strong> scattering (smoke and steam droplets, which is why LWIR sees through what MWIR does not); a temperature gradient along the ray; buoyancy and plume dynamics; flicker (a temporal model of the flame's radiance); a volume on the Isaac side. Each is a separate decision when a scene needs it, and none changes the operator above.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A validation needs the band transmittance of a structured band (CO₂ 4.3 µm) to better than RadCal's envelope, which means a narrow-band or correlated-k integration inside the pipeline rather than a band-mean κ; or scattering becomes the dominant term for a smoke scene, which is a two-stream or Monte Carlo addition the slab's interface (T, species, L) already accommodates.</p>
+<h2 id="addendum-ph5-2026-09-22--radcal-not-hitemp-and-the-coefficient-needs-a-second-axis">Addendum (PH.5, 2026-09-22) — RadCal, not HITEMP; and the coefficient needs a second axis<a class="anchor" href="#addendum-ph5-2026-09-22--radcal-not-hitemp-and-the-coefficient-needs-a-second-axis" aria-label="permalink">#</a></h2>
+<p>Two findings from filling the tables. The first was expected and is recorded for provenance; the second contradicts a sentence above and changes the interface.</p>
+<h3 id="radis-over-hitemp-was-not-attempted-the-tables-are-radcals">RADIS over HITEMP was not attempted; the tables are RadCal's<a class="anchor" href="#radis-over-hitemp-was-not-attempted-the-tables-are-radcals" aria-label="permalink">#</a></h3>
+<p>Open question 14 offered RADIS over HITEMP first, time-boxed, with RadCal's public-domain tables as the fallback. The fallback was taken without spending the time box: RADIS is not installed in the project interpreter, and installing it plus a multi-gigabyte registered HITEMP download into an interpreter shared with other people's running work is not a change to make unasked. RadCal needed neither — it is a single public-domain Fortran file in the FDS tree.</p>
+<p>What is checked in: <code>data/spectra/radcal/{h2o_sd,co2_sd15}.csv</code>, the two arrays RadCal tabulates, extracted from FDS <code>Source/rcal.f90</code> at a pinned commit by <code>scripts/fetch_radcal_tables.py</code>; and <code>scripts/radcal.py</code>, a transcription of RadCal's <code>CO2</code> and <code>H2O</code> routines restricted to the weak-line coefficient <code>SDWEAK</code>. The transcription reproduces both arrays <strong>bit-exactly at every grid node</strong> except the two rows RadCal itself evaluates a hundredth of a degree short of (<code>tests/unit/test_radcal_port.py</code>), which is the check that an index transcribed wrong would fail.</p>
+<p>Not ported: the Goody/Malkmus/Elsasser line-structure fits, Curtis–Godson averaging and the Doppler growth curve. Those turn the weak-line coefficient into a narrow-band transmittance, and the model above wants a coefficient, not a transmittance.</p>
+<p>What the swap costs: RadCal's own envelope rather than a line-by-line one, and — the part that bites — RadCal <strong>truncates</strong>. CO₂ above 5725 cm⁻¹ (1.75 µm) and H₂O above 9300 cm⁻¹ (1.08 µm) are <em>set</em> to zero. That is sound for fire heat transfer and unsound for a short-wave camera, where real overtone bands live. So a band is refused rather than zeroed: the generator records the R·B-weighted fraction of each band inside the model's support, and <code>gas_tables.py</code> refuses below 0.99. On the committed tables MWIR and LWIR are 1.00 and usable; <strong>SWIR is 0.78 for H₂O and 0.00 for CO₂, NIR 0.00 for both, and both are refused.</strong> A SWIR or NIR flame raises an error that names HITEMP. That is the one capability this fallback gives up, and it is worth stating plainly rather than shipping a flame that is invisible for a reason nobody can see.</p>
+<h3 id="the-band-coefficient-depends-on-the-path-and-by-a-factor-of-sixty">The band coefficient depends on the path, and by a factor of sixty<a class="anchor" href="#the-band-coefficient-depends-on-the-path-and-by-a-factor-of-sixty" aria-label="permalink">#</a></h3>
+<p>The ADR above says the band-mean-inside-one-exponential error "is the band-model error RadCal's 8 % already includes". Measuring it, that is wrong, and wrong in a way that would have produced a visibly absurd plume.</p>
+<p>The obvious band mean is the emission-weighted mean of κ(λ) — RadCal's Planck-mean coefficient restricted to the response. In a 3–5 µm camera essentially all of CO₂'s absorption sits in 4.2–4.45 µm, so that mean is <strong>200–360 1/(m·atm)</strong>, and putting it inside one exponential makes a 30 cm exhaust plume at 10 % CO₂ opaque (τ = 0.003) when the band's own transmittance is 0.82. It also <em>falls</em> with temperature — the line peaks drop as the population spreads — while the band's absorptance <em>rises</em>, because hot bands widen it. So it fails <code>PH.5</code>'s own acceptance check.</p>
+<p>What is stored instead is the coefficient that reproduces the band's transmittance at the path the ray takes:</p>
+<p>κ_b(T, X) = −ln ⟨exp(−κ_λ(T) X)⟩_RB / X,   X = p·L in atm·m</p>
+<p>This is the Planck mean in the optically thin limit and saturates like the real band when the core does. It is not a property of the gas alone, so <code>SpeciesAbsorption</code> gains a <strong>column-density axis</strong> and each species is read at its own <code>p·L</code>. Measured on the committed MWIR table, CO₂ runs from 35.8 to 0.61 1/(m·atm) between X = 0.005 and X = 0.5 atm·m: <strong>a single number would be wrong by sixty times across the path lengths one exhaust plume spans</strong>, which is why the axis is not optional. Outside the grid the two limits are used rather than refused — constant below it (optically thin), <code>τ*/X</code> above it (saturated). A one-dimensional table is still read, as a path-independent coefficient, which is what a synthetic test table wants.</p>
+<p>Species still add in optical depth, so <code>exp(−κ_b L)</code> is the product of the two species' band transmittances. The approximation there is that their lines do not overlap — true where it matters (CO₂'s 4.3 µm band is a window for H₂O), mildly optimistic where the LWIR rotation band meets CO₂'s 15 µm band.</p>
+<p>Measured, on the committed tables, for a 0.25 m 600 K plume at 10 % CO₂ / 12 % H₂O: τ(MWIR 3–5 µm) = <strong>0.830</strong>, τ(LWIR) = <strong>0.913</strong>, τ(3.80–4.05 µm through-flame) = <strong>1.000</strong>. The first two are inside <code>PH.6</code>'s stated bounds; the third is why <code>data/spectra/responses/insb_flame_window.csv</code> now exists, and it differs from the plain InSb camera by a response file and nothing else.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0058 — §11.1&#x27;s temporal filter, and what the wired chain deliberately omits — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0058 — §11.1&#x27;s temporal filter, and what the wired chain deliberately omits</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0058-isp-temporal-filter-and-what-the-chain-omits.md" target="_blank" rel="noopener">docs/decisions/0058-isp-temporal-filter-and-what-the-chain-omits.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#the-temporal-filter-is-the-identity-until-me5-says-otherwise">The temporal filter is the identity, until ME.5 says otherwise</a></li>
+<li class="toc-3"><a href="#the-chain-applies-the-nuc-residual-not-the-raw-polynomials">The chain applies the NUC residual, not the raw polynomials</a></li>
+<li class="toc-3"><a href="#the-budget-the-assembly-is-tested-against">The budget the assembly is tested against</a></li>
+<li class="toc-3"><a href="#chainnone-stays-the-default">chain=None stays the default</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.8 (<code>feat(pipeline): wire IIR, FPA node, housing, drift, defects, NUC residual, FFC into run_frame</code>)</li>
+<li>Spec: docs/physics-model.md §11.1, §11.2, §9.2</li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>M9.1–M9.7 each built one mechanism and tested it alone. Assembling them raises two questions that no individual step could answer, because both are about what the <em>combination</em> should contain.</p>
+<p><strong>First, §11.1 lists a stage it never defines.</strong> The ISP order reads</p>
+<p>raw DN → bad-pixel replace → NUC (2-pt gain/offset) → temporal filter → [radiometric linearisation → T_app] → AGC / DRC → …</p>
+<p>and nothing anywhere in the spec says what "temporal filter" does, what its coefficient is, or whether real cores have one at all.</p>
+<p><strong>Second, two mechanisms in the chain describe overlapping physics.</strong> M9.2 gives the detector raw <code>gain_of_t</code>/<code>offset_of_t</code> polynomials — the <em>uncorrected</em> FPA response, parts in 10³ per kelvin. M9.6 gives the NUC residual — what survives correction, parts in 10⁴. A chain that applied both, plus a two-point NUC between them, would be forming a large number and subtracting almost all of it back to arrive at something the residual already gives directly.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<h3 id="the-temporal-filter-is-the-identity-until-me5-says-otherwise">The temporal filter is the identity, until ME.5 says otherwise<a class="anchor" href="#the-temporal-filter-is-the-identity-until-me5-says-otherwise" aria-label="permalink">#</a></h3>
+<p><code>SensorChain._temporal_filter</code> returns its input. It is a named stage with a docstring rather than an absent one, so the gap is visible.</p>
+<p>Inventing a coefficient here would be worse than leaving it out. The stage sits directly on σ_TVH — the quantity NETD is <em>defined</em> from — so any low-pass would reduce measured NETD by √(α/(2−α)) while leaving σ_VH alone. That is a large, plausible-looking change, and nobody looking at the resulting imagery later could distinguish it from a detector-model error. The right evidence already has a home in the plan: <strong>ME.5's temporal PSD on flat sky</strong>, which shows directly whether a real core low-passes its output. If it does, this becomes an optional first-order stage with its coefficient <strong>ESTIMATED from the measured roll-off</strong> — and the test asserting the √(α/(2−α)) reduction, already written into M9.8's exit criteria, is what would gate it.</p>
+<h3 id="the-chain-applies-the-nuc-residual-not-the-raw-polynomials">The chain applies the NUC residual, not the raw polynomials<a class="anchor" href="#the-chain-applies-the-nuc-residual-not-the-raw-polynomials" aria-label="permalink">#</a></h3>
+<p>Only <code>NucResidual</code> runs. <code>gain_of_t</code> and <code>offset_of_t</code> stay available for an uncorrected-FPA bench and do not run in the pipeline. This is ADR 0053's split carried into the assembly: the residual is <em>defined</em> as the part that survives, so applying the raw response and then a correction for it would model one effect twice and lose precision doing so.</p>
+<h3 id="the-budget-the-assembly-is-tested-against">The budget the assembly is tested against<a class="anchor" href="#the-budget-the-assembly-is-tested-against" aria-label="permalink">#</a></h3>
+<p>On a uniform scene, the post-correction spatial noise must be</p>
+<p>σ_spatial = √(σ_V² + σ_H² + σ_VH²  +  σ_residual²)</p>
+<p>within 10 % — <strong>two mechanisms in quadrature, not four added up</strong>. The residual contributes two <em>terms</em> (§2's multiplicative <code>g_ij</code> and additive <code>o_ij</code>, comparable in size at a realistic ΔT_FPA) but is one mechanism with one parameter set, reset by one event.</p>
+<p>Three things had to be got right for that test to mean anything, and each was a real trap:</p>
+<ul>
+<li><strong>Subtract the flat-field reference.</strong> <code>vignetting_cos4</code> alone puts a 0.9 % cos⁴ falloff across the array — a larger spatial standard deviation than the entire noise budget. Measuring the raw std of a frame measures the lens. A real NUC measurement subtracts a flat field, and so does this.</li>
+<li><strong>Average frames.</strong> A single frame's spatial std also contains the temporal per-pixel noise, which in one frame is indistinguishable from fixed pattern.</li>
+<li><strong>Test at two drift rates.</strong> At the roadmap's 0.05 K/s the residual is nearly thirty times the 3-D spatial term, so the budget is dominated by one mechanism and a spurious third could hide inside it. A second rate is tuned to make the two equal, which is where the quadrature is actually under test: a linear sum would be 41 % high against a 10 % tolerance.</li>
+</ul>
+<h3 id="chainnone-stays-the-default"><code>chain=None</code> stays the default<a class="anchor" href="#chainnone-stays-the-default" aria-label="permalink">#</a></h3>
+<p>Attaching is explicit (<code>attach_sensor_chain</code>). <code>chain=None</code> is not "unwired", it is a meaningful configuration — the ideal camera every M9 mechanism is measured against, and the one the radiometric goldens describe. Those goldens exist to pin millikelvin-level physics, and a defect map or a drifting pattern would make their claims untestable. The assembled chain gets its <strong>own</strong> golden (<code>boson_sensor_chain_*</code>) instead, which regression-locks the wiring without diluting the radiometry.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The radiometric goldens are unchanged by this step. The roadmap anticipated updating them; that turned out to be the wrong trade, because a golden that contains both the radiometry and the defect map can no longer fail <em>informatively</em> for either.</li>
+<li><code>T_FPA</code> falls back to <code>T_housing</code> when no <code>fpa_temp_mode</code> is configured — which the committed Boson does not configure. That is right for a camera (the focal plane sits in the housing) but it means the residual inherits the housing's 900 s lag, which damps a 179 s drive to a tenth of the air's excursion. Tests that need the residual to have grown give the FPA its own, much shorter time constant, as a real focal plane has relative to its body.</li>
+<li>The chain measures its frame interval from successive <code>t_s</code> values rather than from the frame rate, so a bench stepping at an irregular cadence still gets the right drift.</li>
+<li>Defects are applied on the quantised plane and carried back onto the float signal only where they actually bit, so the un-quantised signal keeps full precision everywhere else and the radiometric branch retains its sub-LSB meaning.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>ME.5's temporal PSD on flat sky is measured — the trigger for the temporal filter, in either direction. Or when a camera is modelled with no two-point NUC at all, in which case the raw M9.2 polynomials become the right thing to apply and this ADR's second decision is reversed for that configuration rather than in general.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

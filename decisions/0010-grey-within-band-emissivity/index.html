@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0010 — Grey-within-band material properties via Planck-weighted averaging — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0010 — Grey-within-band material properties via Planck-weighted averaging</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0010-grey-within-band-emissivity.md" target="_blank" rel="noopener">docs/decisions/0010-grey-within-band-emissivity.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences--the-error-accepted">Consequences — the error accepted</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Materials have spectral ε(λ), ρ(λ), τ(λ); the simulator carries one scalar per band per material (<code>docs/physics-model.md</code> §12.3, Appendix A #3). Something must reduce the spectrum to the scalar, and how it does so decides (a) whether Kirchhoff closure survives the reduction and (b) how large the error is when the property slopes across the band.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Unweighted mean over the band edges</strong> — ignores both the response shape and the Planck spectrum; wrong by the full slope of the property.</li>
+<li><strong>Response-weighted mean</strong> ∫R s dλ / ∫R dλ — respects the camera, ignores that a 300 K scene fills the band unevenly (LWIR at 300 K peaks near 9.7 µm).</li>
+<li><strong>Planck-and-response-weighted mean at a reference temperature</strong> — ∫R s B(T_ref) dλ / ∫R B(T_ref) dλ, energy form for bolometers, photon form for photon FPAs. Exact for the radiance emitted at T_ref; linear in s, so closure survives.</li>
+<li><strong>Runtime spectral integration per pixel</strong> (§3.2 c) — exact, but it is hyperspectral rendering, not an imaging camera, and it multiplies the LUT by the material count.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, <code>irsim.radiometry.band_average.band_average(response, spectrum, t_ref_k=300, form)</code>:</p>
+<ul>
+<li>Weighting is R(λ)·B(λ, T_ref) with <code>form='energy'</code> (bolometers) or <code>form='photon'</code> (photon detectors); the same Simpson grid as the band-integration oracle.</li>
+<li><strong>T_ref = 300 K</strong> by default: the scene temperature the sensor is characterised at (NETD is quoted at 300 K, §9.4) and where most pixels sit.</li>
+<li>Spectra arrive as callables; <code>tabulated(λ, values)</code> builds one from a file table, holding the end values beyond the table (a material file that stops at 14 µm still has an ε at 14.2 µm, where R is already ~0).</li>
+<li>Because the operator is linear, pointwise ε + ρ + τ = 1 gives ⟨ε⟩ + ⟨ρ⟩ + ⟨τ⟩ = 1 to 1e-9 — tested, so non-negotiable #4 holds after reduction without any renormalisation step.</li>
+</ul>
+<h2 id="consequences--the-error-accepted">Consequences — the error accepted<a class="anchor" href="#consequences--the-error-accepted" aria-label="permalink">#</a></h2>
+<p>A property that slopes across the band averages differently at other temperatures. Measured with the Boson response for ε falling from 0.95 to 0.85 across 7–14 µm: ⟨ε⟩ changes by ~2e-3 between 300 K and 600 K (energy form), and the energy and photon forms differ by ~1e-3 at 300 K. For LWIR scene materials (ε slopes of ≲ 0.1 across the band) the resulting radiance error is below 0.3 % at any scene temperature, i.e. below ~0.2 K apparent — under the 2 K Tier 4 per-class target. Materials with strong spectral structure inside the band (reststrahlen bands of silicates in the 8–10 µm region, narrow-band paints) are <strong>not</strong> well represented; they are the L3 case (§3.2 c) and must be flagged in their material file.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>Tier 4 shows a per-class bias above 2 K that tracks scene temperature, or a target material with in-band spectral structure matters (e.g. quartz-rich soils in phase 2) — then either a second table at a hotter T_ref or per-material spectral integration (option 4) for that material only.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

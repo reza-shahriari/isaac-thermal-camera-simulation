@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0101 — The latent-heat term, and a water film the solver keeps per cell — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0101 — The latent-heat term, and a water film the solver keeps per cell</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0101-the-latent-term-and-a-wet-film-per-cell.md" target="_blank" rel="noopener">docs/decisions/0101-the-latent-term-and-a-wet-film-per-cell.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-20-ph2-the-film-in-the-scene-config">Addendum 2026-09-20 (PH.2): the film in the scene config</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: PH.1 (§6.1, §15 Tier 3; spec issue S45)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§6.1's balance has solar, longwave, emission, convection and an internal term, and no latent one. §15 Tier 3 asks that "wet asphalt reads colder than dry" emerge unscripted, which that balance cannot do; <code>sea_skin.py</code> says in its own docstring that at sea the latent flux is usually the largest of the turbulent terms and omits it; nothing consumes the weather's <code>precip_mm_h</code>. The owner's 2026-09-18 requirement names water beside fire. The survey's anchors: Hendel 2014's watered Paris pavements read 6–13 K colder than dry in sun (FLIR B400) and reconverge in 15–120 minutes as the film goes; COARE 3.6's Dalton number sits at 1.1–1.2e-3 in the 5–10 m/s range.</p>
+<p>The term depends on the surface's own temperature through <code>q_sat(T_s)</code>, like emission, so it cannot be a forcing term computed once per tick from the weather; and a film is a <strong>state</strong> beside the temperature — rain fills it, evaporation empties it, and a cell is wet exactly while it holds water.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A fixed cooling offset for "wet" surfaces.</strong> The shortcut every dataset renderer takes; independent of humidity, wind and time, so the drying spike the camera saw cannot happen.</li>
+<li><strong>Latent flux as a forcing term at the air temperature</strong> (<code>q_sat(T_a) − q_a</code>). Cheap and wrong in the way that matters: a wet surface in sun is warmer than the air and evaporates faster than this says; a surface below the dew point would evaporate instead of collecting dew.</li>
+<li><strong>The bulk-aerodynamic term in the balance, with a film state in the solver.</strong> <code>Q_L = L_v ρ_a (q_sat(T_s) − q_a) / (r_a + r_s)</code>, <code>r_a = 1/(C_E U)</code>, evaluated on the solver's own state at every stage of the step; the forcing carries what the weather knows (<code>q_a</code>, <code>g_e = ρ_a C_E U</code>, the rain rate); the solver keeps <code>film_kg_m2</code> per facet. Chosen.</li>
+<li><strong>Penman–Monteith with a full canopy model.</strong> The right tool for vegetation (PH.11) and far beyond what a road or a sea needs; <code>r_s</code> is kept as the hook it plugs into.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, <code>irsim.thermal.latent</code> and the fields it adds:</p>
+<ul>
+<li><code>SurfaceForcing</code> / <code>FacetForcing</code> gain <code>q_air_kg_kg</code>, <code>g_e_kg_m2_s</code>, <code>wet_fraction</code>, <code>r_s_s_m</code> and (<code>FacetForcing</code> only) <code>precip_kg_m2_s</code>. The balance subtracts <code>L_v E(T_s)</code> over the wet fraction; with no wetness declared and no film the expression is never evaluated, so a dry scene is <strong>bit-identical</strong> to before.</li>
+<li><code>FacetSolver(film_kg_m2=)</code> keeps a film per facet. In each step the film changes by <code>(P − E(T_half)) dt</code>, clamped at zero, with <code>E</code> at the midpoint temperature the balance used; a cell with water is wet (<code>wet = max(declared, film &gt; 0)</code>). <code>ThermalField</code> and <code>PlanarThermalField</code> pass the film through and expose it.</li>
+<li><code>SceneSurfaceForcing</code> and <code>CellForcing</code> supply <code>q_a</code>, <code>g_e</code> and the rain rate from the scene's one weather series on every call, so declaring a film (PH.2) is all a scene needs.</li>
+<li>Saturation uses the same Magnus/Bolton fit <code>irsim.atmosphere.humidity</code> uses, vectorised; <code>q = ε e / (p − (1 − ε) e)</code> at standard pressure. Constants with sources in <code>irsim.radiometry.constants</code>: <code>L_V_WATER_J_KG</code> (2.45 MJ/kg at 20 °C), <code>C_P_AIR_J_KGK</code>, <code>RHO_AIR_STD_KG_M3</code>, <code>P_STD_HPA</code>, <code>EPSILON_WATER_AIR</code>, <code>C_E_BULK</code> (1.15e-3, ESTIMATED as a constant where COARE has a function).</li>
+<li>The sea's cool skin now conducts the net longwave <strong>plus</strong> the latent flux from the bulk SST; the sea got colder, which is the correction the sea-skin module's own docstring asked for.</li>
+<li>Dew: over a wet cell the term goes negative when the air is wetter than the surface is warm, and the film grows. Dew onto a <em>dry</em> surface is not modelled (a dry cell evaluates no term).</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy now:</strong> PH.2 puts a 0.2 mm film on half a road patch from the scene config; PH.3's still water and PH.11's vegetation take <code>r_s</code>; snow (PH.10) is the same bookkeeping with the latent heat of fusion.</p>
+<p><strong>Error introduced:</strong> a constant Dalton number where COARE's varies with stability and gustiness (±15 %, the tolerance PH.1's test carries); the wind floor of 0.5 m/s standing in for free convection; the film as a sheet of uniform depth (no ponding, no runoff, no soil uptake); saturation at the surface assumed over the whole wet fraction.</p>
+<p><strong>Measured:</strong> a saturated surface with no radiation relaxes to the psychrometric wet bulb of (T_air, RH) within 0.1 K at RH 1.0, 0.7 and 0.4 and cools as RH falls; the flux is exactly zero for saturated air at the surface's temperature; a dry cell under moist weather is bit-identical to the plain balance over 200 ticks, with or without an empty film; the bulk flux at 5 m/s, 293 K, RH 0.7 is 75 W m⁻², within 15 % of COARE 3.6's 76; the film budget closes to 1e-6 against the solver's own evaporation; the sea skin runs colder with the term than without.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A validation needs COARE's stability dependence (replace <code>C_E_BULK</code> with a function of the bulk Richardson number), dew on dry surfaces is wanted for a night scene (the sign already works; it needs a film to land in), or a soil model needs the film to infiltrate.</p>
+<h2 id="addendum-2026-09-20-ph2-the-film-in-the-scene-config">Addendum 2026-09-20 (PH.2): the film in the scene config<a class="anchor" href="#addendum-2026-09-20-ph2-the-film-in-the-scene-config" aria-label="permalink">#</a></h2>
+<p><code>SurfaceSpec.film: {depth_mm, region_m}</code> puts a film on a patched surface at the scene start -- every cell, or the cells whose centres lie in <code>[u0, u1, v0, v1]</code> of the patch -- so half a road can be wet on one prim. The film is not spun up (the road has just been watered). <code>configs/scenes/wet_road_noon.yaml</code> is the reference: a 0.5 mm pass on the west half of a 12 m asphalt patch at 14:00 on a clear June day, a wall shading the south rows. Measured: the sunlit wet half runs up to 9.9 K colder than the dry half at ~27 min (Hendel 2014: 6–13 K), the shaded contrast peaks near 5 K later, the sunlit film is gone at ~28 min (0.2 mm would go in ten: this road is ~57 °C under 2.5 m/s, 1.3 mm/h) and the halves reconverge to under a quarter of the peak by three hours; <code>evaporated_kg_m2</code> closes the budget exactly.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0129 — Defocus is Hopkins, and defocus is achromatic — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0129 — Defocus is Hopkins, and defocus is achromatic</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0129-defocus-is-hopkins-and-it-is-achromatic.md" target="_blank" rel="noopener">docs/decisions/0129-defocus-is-hopkins-and-it-is-achromatic.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>docs/physics-model.md</code> §8.3 names <code>MTF_defocus</code> in the cascade and then declines to define it — "in practice fit a Gaussian … from a measured slant-edge, rather than deriving it". ADR 0059 took that advice and folded aberration and defocus into one Gaussian; <code>SC.4</code>/ADR 0117 then solved that Gaussian's σ from FLIR's published on-axis MTF at Nyquist, which is an <strong>in-focus</strong> figure. The net effect was that the one number in the repository that could have carried defocus was authored to mean its opposite, and no camera had a focus distance at all (<code>OC.1</code>).</p>
+<p><code>OC.2</code> has to choose the model that turns W020 into an OTF. The choice is not obvious, because the usual rule of thumb — "use the geometric disk once the blur is bigger than the Airy disc" — is a visible-wavelength habit, and λ is twenty times larger here.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Geometric disk (pillbox), OTF = 2J₁(πcξ)/(πcξ).</strong> One closed form, no quadrature. Valid only for W020 &gt; 2λ, i.e. a blur circle of 16Fλ. For a Boson at F/1.0 in LWIR that is <strong>168 µm — fourteen pixels</strong> — reached only inside 1.2 m. It is invalid across the entire range this project renders.</li>
+<li><strong>A fatter Gaussian.</strong> Free, and it is what §8.3 suggests. It is strictly positive and monotone, so it cannot express contrast reversal at all, and it is the model the repository already has.</li>
+<li><strong>Hopkins' defocus OTF</strong>, the quadrature <code>4/(πa)∫₀^√(1−s²) sin[a(√(1−y²)−s)] dy</code>, <code>a = 8π W020 s/λ</code>. One term covering diffraction <em>and</em> defocus.</li>
+<li><strong>Full wave-optics pupil</strong>, <code>P(ρ) = A(ρ)exp(i2πW020ρ²/λ)</code>, PSF = |ℱ{P}|². The general form, and the one that extends to Zernike aberrations and a real cold stop.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Hopkins (3), with (1) and (2) kept as selectable models for ablation.</strong> Option 4 is deferred until something needs an aberration that is not a fitted Gaussian.</p>
+<p>Hopkins reduces analytically — and numerically, to the 7.7e-9 Simpson floor — to <code>mtf_diffraction</code> at W020 = 0. It therefore <strong>replaces</strong> the cascade's diffraction factor rather than multiplying onto it, and ADR 0117's in-focus aberration Gaussian still multiplies on top, unchanged.</p>
+<p>Measured at Nyquist for a Boson 640 focused at infinity looking at 10 m (c = 19.6 µm, W020 = 0.23λ), all three as the bare lens OTF with no aberration term: in focus <strong>0.461</strong>, Hopkins <strong>0.356</strong>, Gaussian <strong>0.203</strong>, geometric disk <strong>0.173</strong>. The cheap models lose about half the contrast that is actually there.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The geometric rule of thumb is looser than it is usually quoted.</strong> The gap between Hopkins and the geometric disk peaks at 0.22 in the transition band, is still <strong>0.07</strong> at the W020 = 2λ threshold <code>geometric_regime_blur_um</code> encodes, and only falls under 0.02 by sixteen waves. The threshold is an asymptote marker, not a switchover point, and <code>test_defocus_otf.py</code> asserts the whole series so that nobody tightens it on the strength of the name.</p>
+<p><strong>Defocus is achromatic, which contradicts how <code>OC</code> was planned.</strong> Substituting <code>s = ξλF</code> into <code>a = 8π W020 s/λ</code> cancels the wavelength: <code>a = 8π W020 ξ F</code>. The blur circle <code>c = 8 F W020</code> has no λ in it either. So the defocus zeros sit at fixed spatial frequencies and band averaging cannot smear them — the single-λ ringing the lane was planned to avoid does not exist. What <em>is</em> chromatic is diffraction, whose cut-off runs 133 down to 74 cyc/mm across 7.5–13.5 µm. Measured at W020 = 2λ, the band-averaged OTF differs from the 10.5 µm one by under 0.3 % wherever the OTF still carries contrast, and reshapes only the far tail. <code>band_average_otf</code> is therefore kept, and kept honest: worth having for the cut-off, not the rescue it was billed as.</p>
+<p><strong>The band weight is R(λ), not R(λ)·L(λ,T).</strong> The physically exact broadband OTF weights each wavelength by the spectral radiance actually reaching the detector, which depends on the scene and would force the kernel to be rebuilt per frame. R(λ) alone is the convention every published MTF bench uses. Given the paragraph above — averaging moves the contrast-carrying part of the OTF by under 0.3 % — the error this approximation carries is smaller than that, so it is not worth a per-frame rebuild. Revisit if a scene ever puts a 1200 K flame and a 250 K sky in one frame and the tail structure turns out to matter.</p>
+<p><strong>SciPy is still not a dependency.</strong> NumPy has no Bessel functions, so <code>bessel_j1</code> is the integral representation <code>(1/π)∫₀^π cos(θ − x sinθ)dθ</code> evaluated by the same Simpson grid as Hopkins, exact to 1e-9 against published values, rather than a rational approximation with a validity band to get wrong.</p>
+<p><strong>Cost.</strong> Both quadratures are 2049-node Simpson over a vectorised grid. They are evaluated when a kernel is built, not per pixel, so the cost lands in <code>OC.3</code>'s kernel bank and not in the frame loop.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0102 — Lateral conduction between a patch&#x27;s cells, from the material&#x27;s own k and δ — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0102 — Lateral conduction between a patch&#x27;s cells, from the material&#x27;s own k and δ</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0102-lateral-conduction-between-cells.md" target="_blank" rel="noopener">docs/decisions/0102-lateral-conduction-between-cells.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: PT.11 (§6.1, §6.4; spec issue S41)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>A <code>PlanarThermalField</code>'s cells were independent §6.1 columns: heat spread across a panel only insofar as the forcing spread. Over §6.6's 750 s engine-bay rise a signal diffuses <code>√(k δ t / C)</code>: 270 mm in aluminium, 99 mm in steel, 16 mm in asphalt, against the 71–150 mm cells the scenes use — so a metal panel rendered sharper than aluminium can be (spec issue S41, and the owner's first requirement read the other way: one object, its parts <em>connected</em>). TC.1 supplied the term and the implicit step (ADR 0094: <code>tick_s: 60</code> is 6.6× past the explicit limit at 5 cm in aluminium); what remained was the operator and where its numbers come from.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A per-cell Laplacian with an authored diffusivity per surface.</strong> One more number a scene author types, beside the material that already carries <code>conductivity_w_mk</code> and <code>thickness_m</code> — the single-source rule ADR 0043 stated for emissivity, broken again.</li>
+<li><strong>ADI or an explicit sub-tick.</strong> ADI is exact for the rectangular grid but a second integrator; an explicit sub-tick at 6 s inside a 60 s tick is ten solves per tick of a term whose transient nobody images. ADR 0094 already made this choice.</li>
+<li><strong>A <code>ConductionOperator</code> builder from the material.</strong> <code>K = k δ · (shared side) / (gap)</code> per four-neighbour edge, in W/K — Fourier across a slab of thickness δ, the <code>k δ w / d</code> link <code>irsim.thermal.conduction</code>'s docstring names — built once per patch from the library material's <code>conductivity_w_mk</code> and <code>thickness_m</code>, and stepped by the IMEX scheme that already exists. <code>k δ = 0</code> returns <code>None</code>, the operator-free field bit for bit. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, <code>irsim.thermal.conduction.lateral_operator(patch, k, δ)</code>.</p>
+<ul>
+<li>Every patched surface in a scene gets the operator from its own material unless it says <code>lateral_conduction: false</code> (the per-material switch: it is the material that decides how much it matters, and the flag is for a comparison, not a default). The per-cell spin-up carries the operator too, so the starting state is the coupled one.</li>
+<li>The car demo's bonnet takes <code>conductivity_w_mk</code> and <code>thickness_m</code> (steel under paint, 45 W/mK and 1.2 mm, the <code>car_paint_black</code> substrate) until PT.6 reads them from the material.</li>
+<li>Diagonal edges are not linked: a five-point Laplacian is second-order on a rectangular grid and the nine-point stencil buys nothing a camera resolves.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Measured:</strong> a 20 K step on a 2 m strip of 5 mm aluminium cells spreads as the semi-infinite sheet's <code>erf(x / 2√(αt))</code> to within 0.6 % of the step at 60 s (1 s ticks; a test of the operator, not of the tick); the operator is <code>k δ dv / du</code> along u and <code>k δ du / dv</code> along v, exactly; <code>k → 0</code> is the operator-free field bit for bit; at 5 cm in aluminium the explicit limit is <code>du² C / (4 k δ)</code> = 6.4 s and a 60 s implicit tick obeys the maximum principle and conserves the mean where forward Euler on the same operator explodes; the scene builds asphalt's operator at <code>k δ</code> = 0.0375 W/K per edge from the library and the switch removes it; the steel bonnet's engine hot spot is 5 % smoother than the independent-column field with the same mean — one 70 mm cell of spreading, which is what 99 mm over 750 s buys.</p>
+<p><strong>What it costs:</strong> one sparse factorisation per tick size per patched surface (a 10 812-cell road: well under a second) and a back-substitution per tick and per spin-up step; the road's spin-up grows by a few seconds. The bit-identity tests of PT.17 and PT.18 hold only without the operator, which is what they now declare: with it, a lit cell beside a shaded one exchanges heat, millikelvins for asphalt, and that is the physics.</p>
+<p><strong>Error introduced:</strong> ADR 0094's first-order-in-dt on the slow modes; nothing from the operator itself on a rectangular grid. A patch in a moving frame conducts exactly as a fixed one — the operator lives in the patch's own (u, v).</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A mesh field (WM.2) needs an intrinsic-Delaunay-safe cotan Laplacian (WM.6); or a validation needs second-order time accuracy on the conduction transient (TR-BDF2, ADR 0094).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0013 — Estimated Boson VOx spectral response and its expected error — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0013 — Estimated Boson VOx spectral response and its expected error</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0013-estimated-boson-response.md" target="_blank" rel="noopener">docs/decisions/0013-estimated-boson-response.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences--the-error-accepted">Consequences — the error accepted</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The first configured band is LWIR on the FLIR Boson 640 (§16.1). No measured relative spectral response for the Boson's VOx core plus its germanium optics is publicly available, and no camera is on hand to measure one (ADR 0003). The LUT, NETD anchoring and every LWIR radiometric statement depend on R(λ), so the shape used must be stated as an estimate with a bounded expected error, not presented as data.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Exact top-hat 7.5–13.5 µm</strong> — the closed form; edges are unphysical (real curves roll off over ~0.5 µm) but Lb differs from a soft-edged curve by well under 1 %.</li>
+<li><strong>Raised-cosine edges of ±0.25 µm centred on 7.5 and 13.5 µm, flat between</strong> — smooth, integrates to exactly the top-hat width, keeps the 50 % points at the quoted band edges; still an estimate.</li>
+<li><strong>A digitised generic VOx + Ge curve from the literature</strong> — more structure (Ge AR-coat ripple, VOx absorber roll-off beyond 12 µm) but of unknown provenance for this core, and it would carry a false air of measurement.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, committed as <code>data/spectra/responses/boson_vox.csv</code> (M1.3) with <code>ESTIMATED</code> in its provenance header, 0.01 µm grid, zero outside 7.25–13.75 µm. The generated LUT (M1.10, <code>make luts</code>, band hash <code>f0446a1f…</code>) gives, at 300 K:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>quantity</th><th>value</th><th>check</th></tr></thead>
+<tbody>
+<tr><td>Lb(300 K)</td><td>55.4777 W m⁻² sr⁻¹</td><td>top-hat closed form 55.4916; −0.03 % (−15.8 mK equivalent)</td></tr>
+<tr><td>Lb(600 K)</td><td>692.32 W m⁻² sr⁻¹</td><td>top-hat 692.10; +0.03 % (+67.5 mK equivalent)</td></tr>
+<tr><td>λ_eff(300 K) = hc·Lb_q/Lb</td><td>10.44 µm</td><td>inside 9.5–11.5 µm</td></tr>
+<tr><td>dLb/dT(373)/dLb/dT(300)</td><td>1.737</td><td>[R9] anchor 1.736 (39 → 23 mK NETD)</td></tr>
+</tbody></table></div>
+<h2 id="consequences--the-error-accepted">Consequences — the error accepted<a class="anchor" href="#consequences--the-error-accepted" aria-label="permalink">#</a></h2>
+<p>Against a <em>measured</em> Boson curve, the in-band radiance is expected to differ by <strong>up to ~10 %</strong> (a real VOx absorber rolls off towards 14 µm and the Ge optics add a few percent of ripple); the apparent- temperature scale (§3.3) is affected far less because inversion uses the same table, but the contrast-to-NETD relation and the atmosphere weighting inherit the shape error. The band-averaged derivative ratio, which anchors NETD scaling, is insensitive to the edges (top-hat and cosine agree to 0.1 %). Every LWIR radiometric number in this repo carries this caveat until the curve is replaced.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A measured relative response for the Boson (or the Halmstad set's Boson 320, open question 3) becomes available: replace the CSV, keep the provenance history, rerun <code>make luts</code>, and re-run the Tier 2 benches; the stale-LUT check (ADR 0012) and the golden slice (M1.11) will flag every dependent result.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

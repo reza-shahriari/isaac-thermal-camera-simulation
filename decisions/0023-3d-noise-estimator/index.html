@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0023 — 3-D noise estimator, its tolerances, and the PSD diagnostics — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0023 — 3-D noise estimator, its tolerances, and the PSD diagnostics</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0023-3d-noise-estimator.md" target="_blank" rel="noopener">docs/decisions/0023-3d-noise-estimator.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-me2b-2026-09-14-the-codec-floor-the-flat-region-gate-and-the-temporal-shape">Addendum (ME.2b, 2026-09-14): the codec floor, the flat-region gate, and the temporal shape</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The NVESD 3-D decomposition (§10.2, [R28]) is both the way the synthesiser is verified (M4.3/M4.4), the Tier 2 bench (§15), the statistic the CPU-vs-GPU noise comparison uses (ADR 0022), and the statistic real anti-UAV video is reduced to (ME.5). The naive estimator — the standard deviation of a directional mean — overstates small components: the mean over N_t·N_h pixels of pure i.i.d. noise still has σ_TVH/√(N_t N_h) of spread, plus contributions of every higher-order component, so a 0.02 σ_TVH frame bounce cannot be read from a naive column of numbers. Real data adds a codec floor (that part is ME.2b).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Naive directional-mean standard deviations</strong> — biased upward by leakage; the small components (T, TV, TH, V) come out wrong by their own size.</li>
+<li><strong>Random-effects ANOVA mean squares with leakage subtraction</strong> — the unbiased estimator: each effect's expected mean square is its variance times its averaging count plus the higher-order mean squares; solve from TVH downward. Negative estimates from sampling noise are clipped to 0 but kept in <code>raw_variances</code>.</li>
+<li><strong>Spectral fitting of the striping lines</strong> — needs assumptions about spectra; kept as a <em>diagnostic</em> (PSD lines), not the estimator.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2 in <code>irsim.validation.noise.decompose_3d</code> — the sole home of the estimator (NOISE-04/12):</p>
+<ul>
+<li>σ²_TVH = MS_TVH; σ²_TV = (MS_TV − MS_TVH)/N_h; σ²_TH = (MS_TH − MS_TVH)/N_v; σ²_VH = (MS_VH − MS_TVH)/N_t; σ²_T = (MS_T − MS_TV − MS_TH + MS_TVH)/(N_v N_h), and cyclically for V and H.</li>
+<li>Input any float32-or-better or integer cube (uint16 promoted); float16 refused.</li>
+<li><strong>Tolerances are derived from the estimator's own sampling floor</strong>, <code>estimate_floors(shape, σ)</code>: std(σ̂²_Y) ≈ √(2/df_Y) · Σ_{X ⊇ Y} σ_X² / Π_{a ∈ X∖Y} N_a, and every assertion is 3× that. Two consequences the roadmap's flat "5 %" missed: a fixed row or column pattern of a 64-wide cube is a 64-sample quantity, so σ_H and σ_V are known only to ~9 % (1σ) from one such cube no matter how many frames; and a small term inherits the sampling noise of the larger mean squares subtracted from it (a pure TV cube leaks ~0.05 σ_TV into σ̂_T at 100 frames). On 200 frames of 64×64 with the Boson ratios: σ_TVH to 0.6 %, σ_VH to 3 %, σ_H/σ_V to ~27 % (3σ), T/TV/TH to ~0.01–0.03 σ_TVH absolute. Wider cubes tighten the fixed terms as 1/√N_axis; more frames tighten the temporal ones.</li>
+<li>The sum of the seven sums of squares equals the total sum of squares (orthogonal decomposition); tested to 1e-6 as the algebraic check of the operator set.</li>
+<li><code>spatial_psd</code>: frame-averaged, mean-removed 2-D periodogram normalised to Σ = variance, with the radial profile (10 bins to Nyquist) and the k_v = 0 / k_h = 0 lines where column/row noise sits; <code>temporal_psd</code>: one-sided, pixel-averaged, Σ = temporal variance; <code>compare_psd</code>: max ratio of radial profiles, the Tier 4(c) "within a factor of 2" statistic.</li>
+<li><strong>Convention note</strong> (spec issue S25): σ_TVH ("in NETD units") is the anchored temporal σ; σ_total is 1.06 × NETD for the Boson ratios. The estimator reports both.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Every 3-D claim in this repo carries the cube size it was measured on and its floor. Recovering a 0.02 σ_TVH frame bounce needs ≳ 200 frames; a 5 % σ_H needs ≳ 2000 columns or many independent cubes; on 10-s public clips at 30 Hz the temporal terms are feasible, on single frames they are not (ME.5 reports N and CI per statistic from these floors). Codec quantisation biases (8-bit video) are ME.2b's floor and are reported beside the estimate, never subtracted silently.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>Real-data decompositions show non-Gaussian striping (heavy tails) where a variance-based estimator misleads, or the GPU comparison needs per-component confidence intervals — then bootstrap CIs join the estimator.</p>
+<h2 id="addendum-me2b-2026-09-14-the-codec-floor-the-flat-region-gate-and-the-temporal-shape">Addendum (ME.2b, 2026-09-14): the codec floor, the flat-region gate, and the temporal shape<a class="anchor" href="#addendum-me2b-2026-09-14-the-codec-floor-the-flat-region-gate-and-the-temporal-shape" aria-label="permalink">#</a></h2>
+<p>The decision above stands unchanged. What ME.2b adds is the half this ADR deferred: <em>where</em> a statistic may be measured on somebody else's clip, and <em>how much of the answer is the storage path's</em>. The numbers below are measured, not quoted, all on <code>irsim.noise</code>'s own synthesiser so the truth is known exactly.</p>
+<p><strong>The floor is <code>step/sqrt(12)</code> = 0.289 codes at 8 bits, and the lattice step is measured.</strong> A recorder that mapped a Y16 stream onto a narrow 8-bit range leaves the codes on a coarser lattice, so <code>quantiser_step</code> reads it off the data (the largest step nearly every sample shares a residue with) rather than assuming one. Sheppard's correction — subtract <code>step^2/12</code> from the variance — recovers a known sigma to 0.5 % at 0.5 codes and to 3.5 % at 0.3 codes, and collapses below that (at 0.2 codes it under-reads by 50 %: the information is gone, not merely biased).</p>
+<p><strong>A component within <code>margin = 2</code> floors is reported as codec-limited, not measured</strong>, whether or not the correction happens to land. The consequence is blunt and is the point: on a clip at sigma_TVH = 1.5 codes — a plausible stretch for a Y16 stream in 8 bits — <em>every</em> other Boson component sits inside two floors, so the striping ratios this project cares about cannot be read off it at all. Four times noisier and sigma_H, sigma_VH and sigma_TVH come back. <code>flag_codec_limited</code> attaches the flag and the corrected value to each of the seven components, keeping this ADR's rule that a bias is reported beside the estimate and never silently subtracted.</p>
+<p><strong>Lossy coding removes noise; it does not usually make it blocky.</strong> Through x264 (full-range flags pinned so a CRF 0 round trip is bit-exact, otherwise the harness itself costs a code), a 320x256x60 cube of Boson-ratio noise at sigma_TVH = 1.5 codes loses 95 % of its temporal noise at <strong>CRF 18</strong> — a high-quality setting — and becomes a constant image at CRF 23; a 2000 kbit/s CBR stream keeps 75 %, 800 kbit/s keeps 57 %. Meanwhile the 8-pixel blocking z-score reaches only 3.4 at CRF 18 and nothing at all at 800 kbit/s. So blockiness is reported as an indicator and is <strong>not</strong> the test: the defensible statement about a lossy set is that its noise statistic is a <em>lower bound</em>, and ME.5/ME.6 must carry it as one. (Anti-UAV410 and CST are already excluded from <code>noise_3d</code> in the index for this reason; this quantifies what that exclusion is worth.)</p>
+<p><strong>The blocking null is built from gap positions, not pixels.</strong> A fixed column pattern makes some columns noisier than others in every frame alike, so a pixel-count error bar is far too tight and reads blocking where there is none (uncoded Boson-ratio cubes land at |z| ~ 3 that way, and at |z| &lt;= 2 on the per-gap null).</p>
+<p><strong>Flatness is judged against the window's own noise, never in DN.</strong> <code>robust_noise_scale</code> is the ruler: the MAD of the first differences <em>about their own median</em>, which cancels a linear gradient exactly, taking the smaller of the two axis estimates so that striping (which enters one axis only) does not inflate it. A window is then scored on the peak-to-peak of a fitted plane and on the standard deviation of the de-ramped residual after block averaging, with the white contribution removed in quadrature. Two consequences are deliberate: <strong>striped windows stay flat</strong> (a finder that rejected them would make column noise unmeasurable by construction), and <strong>a single-pixel target is caught only by the outlier rule</strong> — averaged into a 4x4 block it is a quarter of the block noise, so a variance-based finder waves it through. On a clip the judgement runs on the per-pixel temporal median, which deletes a moving target outright.</p>
+<p><strong>Temporal shape.</strong> A flat sky's temporal spectrum is flat unless something filtered it, so <code>temporal_shape</code> reports the low-over-high band ratio against a null built from the bins' own scatter, and fits the sampled one-pole response whose time constant in frames is exactly <code>tau/dt</code>. It recovers the 10 ms membrane at 60 Hz (0.6 frames) to 1 % from a 256-frame cube and separates white from a 0.3-frame filter at 28 sigma. Two details are load-bearing: <strong>DC and Nyquist are dropped</strong>, because <code>temporal_psd</code>'s one-sided convention leaves the Nyquist bin at half the weight of its neighbours and keeping it makes white noise read 2 % low-pass — five times the null; and the fit starts above <code>f_fit_min</code> so a drift does not become a time constant. That defence is partial and its cost is stated rather than hidden: a linear ramp of one noise sigma across the clip costs 1.4 % on tau and one of five sigma costs 28 %, while <code>drift_fraction</code> moves 0.14 → 0.23 → 0.75, so the report says "this clip drifted" instead of claiming a longer membrane.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

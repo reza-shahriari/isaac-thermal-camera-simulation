@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0104 — A per-cell sky view factor from a sub-sampled 145-patch dome, scaling diffuse solar and longwave alike — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0104 — A per-cell sky view factor from a sub-sampled 145-patch dome, scaling diffuse solar and longwave alike</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0104-per-cell-sky-view-factor.md" target="_blank" rel="noopener">docs/decisions/0104-per-cell-sky-view-factor.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-21 Roadmap: PT.21 (§5.4, §6.1; spec issue S44)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>PT.18 (ADR 0095) gave every cell of a world-frame patch its own direct beam through the scene's occluders. The diffuse solar and the longwave down still used the tilt's isotropic sky view <code>V_s = (1 + cos β)/2</code> on every cell: a cell at the foot of a wall or under an overhang lost the beam and nothing else, so it cooled to the sky all night as if the wall were not there. Measured street canyons say otherwise — a hot-dry-climate study found passages at SVF ≈ 0.2 swinging 1.97 °C where open walls swung 4.21 °C — and the nocturnal cooling of a surface goes with the sky it sees.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>One ray per Tregenza patch, visibility 0 or 1.</strong> The roadmap's literal reading. A patch that straddles a wall's edge is neither seen nor hidden; measured, this put the foot of an infinite wall at 0.536 where the analytic answer is 0.5, outside the row's 0.01.</li>
+<li><strong>Analytic view factors for rectangles.</strong> Exact for one rectangle against one cell; the sum over several occluders over-counts where they overlap in the cell's view, which is every building corner. Rejected for the same reason as PT.18's shadow: the ray test composes, formulas do not.</li>
+<li><strong>The 145 patches, each sub-sampled 3 × 4 in its own altitude–azimuth extent with the exact solid angle of each sub-cell,</strong> visibility from the same <code>cell_shadow</code> ray–rectangle test the beam uses, cosine-weighted and normalised to the <em>unobstructed</em> quadrature of the same dome so an open cell's factor is <code>V_s</code> to the bit. 1740 rays per cell, once (the occluders do not move). The azimuth offsets <code>(2m + 1)/8</code> of a patch never land on a cardinal direction for any band count, so an N–S or E–W wall never sees a ray lying exactly in its own plane, which the ray test must let pass. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, <code>irsim.thermal.skyview</code>. The scene computes the factor for every world-frame patch under occluders and hands it to <code>CellForcing</code>, which scales <strong>both</strong> the diffuse solar (<code>SVF · DHI</code>) and the longwave down (<code>longwave_down</code> with the cell's factor, the rest of the hemisphere at the air temperature, as the per-prim balance already does). <code>sky_view_longwave</code> exists only as the roadmap's negative control. A surface without a patch, or a patch without occluders, is unchanged, and a surface's own <code>shaded</code> flag now gates the beam under a supplied sky view the way it always did without one.</p>
+<p>The Perez split of the diffuse into dome, circumsolar and horizon bands (EnergyPlus's) is <strong>not</strong> implemented: the dome is isotropic here. Deferred rather than skipped — it changes a wall's diffuse by tens of W/m² near the sun and needs Perez's coefficient tables, which are a data question for the day the aerial or maritime lane asks for a sky radiance distribution.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Measured:</strong> open sky exactly 1.000 (and exactly <code>V_s</code> on a tilt); the foot of an infinite wall and the edge of an infinite overhang 0.5 within 0.01; the sub-rays tile each patch's solid angle exactly and sum to 2π. Two shaded asphalt cells at SVF 0.2 and 0.9 under the facet scene's weather: the enclosed cell swings 11.9 K against 14.9 K (ratio 1.25) and sits 3.2 K warmer at its night minimum; with the factor on solar only the two minima are within 0.05 K. On the R1 wall scene the concrete terminator drops from 10.3 K to 9.7 K and the render's from 7.4 K to 6.3 K, because the shaded half stands beside the neighbour and sees its roof instead of a slice of cold sky; the post-cap scene's never-shaded cells sit within 20 mK of the per-prim solve rather than on it.</p>
+<p><strong>Not reached:</strong> the roadmap's ratio near 2. With one air temperature for the whole scene a cell's swing cannot fall below the air's own 12 K, whatever its sky view; the passage in the study has its own cooler, stiller air. That is a microclimate the weather file does not carry, not a term this factor could supply — recorded as a deviation, the night-minimum sign kept as the criterion the control cannot pass.</p>
+<p><strong>What it costs:</strong> 1740 ray–rectangle passes per patch at build, about a second for the wall scene's 48 × 48 ground; nothing per tick. PT.18's "unshaded cells stay bit-identical to the prim" is now "cells with an unobstructed dome stay bit-identical": under any occluder every cell sees a little less sky, and the identity moved to where the dome is open.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene wants the Perez distribution (a wall's circumsolar diffuse), a moving occluder (PT.9: the factor is computed once), or the hidden hemisphere at a surface temperature rather than the air's (a canyon's walls at night) — the last is what the ratio-near-2 anchor actually measures.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

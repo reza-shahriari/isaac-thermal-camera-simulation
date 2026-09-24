@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0063 — The illumination switch is a runtime function of the regime, and emission is never culled — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0063 — The illumination switch is a runtime function of the regime, and emission is never culled</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0063-runtime-regime-switch-and-uncullable-emission.md" target="_blank" rel="noopener">docs/decisions/0063-runtime-regime-switch-and-uncullable-emission.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§5.2 describes the shading core as "one core, two illumination paths" and puts the choice behind a <strong>compile-time flag</strong>: a build for a thermal band evaluates ε·B(T), a build for a reflective band evaluates the reflected sun and night sources.</p>
+<p>That is incompatible with the property CLAUDE.md calls the main scalability requirement of this project — "bands are data, not code". M11.1 added a SWIR camera as a YAML file and a CSV, and <code>tests/unit/test_band_scalability.py</code> now refuses to let a band's <em>name</em> appear anywhere in <code>irsim/{radiometry,optics,detector,noise,isp,pipeline}</code>. A compile-time flag cannot be set by a configuration file that did not exist when the binary was built, and a runtime <code>if band == "swir"</code> is exactly the literal the guard exists to catch.</p>
+<p>There is a second, less obvious problem with the §5.2 framing. It describes the two paths as alternatives, which invites an implementation that evaluates self-emission <strong>only</strong> in an emissive or mixed band. <code>enabled_illumination_terms</code> in the band registry encourages the same reading: it returns <code>{solar, night}</code> for a reflective band, with no <code>self_emission</code> in the set.</p>
+<p>That reading is wrong, and wrong in a way that produces a plausible picture. "Reflective" is a statement about a <strong>300 K scene</strong>, not about the band. Measured on this repository's own tables (M11.1, and <code>tests/unit/test_illumination_bundle.py</code>): between 300 K and 900 K, SWIR self-emission rises by more than 10⁶ while LWIR rises by under 10². Against §5.5's 10 nW/cm² airglow, a ρ = 0.1 surface in 0.9–1.7 µm crosses over at <strong>330 K</strong> — below that the reflected airglow dominates by 15× at 300 K, above it the surface's own emission dominates by <strong>11 235×</strong> at 500 K. A jet exhaust, a flare, a brake disc or a muzzle flash is a <em>self-luminous</em> object in SWIR, at night, with no sun and no airglow at all. A simulator that culls ε·B(T) in a reflective band renders those as invisible, and nothing about the resulting frame looks broken.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>1. The gate is a runtime function of <code>sensor.band.regime</code> alone, applied in exactly one place.</strong> <code>Illumination.for_regime(regime, quantity, …)</code> consults <code>enabled_illumination_terms</code> at construction and drops the terms the regime does not enable. Every consumer downstream — the stage-1 kernel included — receives a bundle that has <em>already</em> been gated and never sees a regime or a band id.</p>
+<p><strong>2. A dropped term is absent, not zero.</strong> <code>for_regime</code> sets it to <code>None</code>, and an empty bundle's <code>total_incident()</code> is <code>None</code>, which makes stage 1 take its emission-only branch. So an LWIR frame rendered with a solar plane attached is <strong>bit-identical</strong> to one rendered without, rather than equal to within rounding. That distinction is the difference between a test that can fail and one that cannot.</p>
+<p><strong>3. Self-emission is unconditional.</strong> <code>ε L_B(T)</code> is evaluated in every band in every regime. The <code>self_emission</code> entry that <code>enabled_illumination_terms</code> returns is carried on the bundle for provenance and means nothing to the kernel. Two tests pin both sides of the 330 K crossover, in the <em>same</em> band, so the assertion is about temperature and not about SWIR.</p>
+<p><strong>4. Everything in the bundle is an incident band radiance, in one declared quantity.</strong> Three terms — <code>l_env</code> (the thermal environment, §5.3 a), <code>l_sun</code> (the direct beam as an <em>equivalent isotropic incident radiance</em>, E_B τ_sun cos θ_s S / π, §5.4) and <code>l_night</code> (isotropic night sources, §5.5). The kernel sums them and multiplies by ρ once. Dividing the solar irradiance by π here rather than carrying §5.4's combined <code>(ρ_B/π) E_B τ cos θ_s S</code> is what makes the Lambertian identity ρ = 1 → E_B/π an identity <strong>of the code</strong> rather than of the algebra, and it keeps ρ from being applied twice by a caller who did not read §5.4 closely.</p>
+<p><strong>5. The quantity is a checked tag, not a convention.</strong> The bundle carries <code>lb</code> or <code>lb_q</code> and the kernel refuses a mismatch. <code>lb</code> and <code>lb_q</code> differ by ~1e19 at infrared wavelengths; a solar spectrum integrated in W m⁻² and handed to a photon-unit kernel does not raise, does not produce NaN, and after AGC does not look wrong — it produces a scene that is uniformly, invisibly mis-scaled. This is the one error in the illumination path that no picture can reveal.</p>
+<p><strong>6. <code>l_env</code> is not gated.</strong> The thermal environment is what every surface in every band sees; in SWIR it is simply small. Gating it would be a second band switch wearing the regime's clothes.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Adding a band still touches only YAML, a CSV and <code>irsim.config.bands</code>. M11.1's static guard keeps that honest, and this ADR is the reason the guard can pass.</li>
+<li><code>band_radiance</code> grows an <code>illumination=</code> parameter that is <strong>mutually exclusive</strong> with the older <code>l_env=</code>, and raises if both are given. Two ways to say the same thing is how the two drift apart; the older spelling stays because it is the natural one for a direct kernel call in a test.</li>
+<li>A uniform (0-d) environment is now accepted and broadcast, because isotropic airglow over a whole frame is the common case and materialising a full-frame constant is waste. <strong>Only</strong> 0-d — general broadcasting would let a <code>(H, 1)</code> column through as if it were a plane, which is the misalignment the shape check exists to catch.</li>
+<li><code>l_sun</code> and <code>l_night</code> arrive as <em>optional planes</em>, exactly as <code>motion_px</code> and <code>radiance_behind</code> do, so a scene that has not asked for illumination costs nothing and renders identically. M11.3 and M11.4 write them.</li>
+<li>§5.2's compile-time framing is recorded in <code>docs/spec-issues.md</code> as diverged-from deliberately.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A band needs a term that is neither environment, sun nor night — a laser designator, a flare illuminating the scene rather than being the target, an active NIR emitter. The bundle takes a fourth incident term and the registry a fourth <code>IlluminationTerm</code>; nothing else changes.</li>
+<li>Profiling shows the per-term sum matters. It is three adds per pixel over planes that are usually two constants and one array; it will not.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0051 — Solar-path transmittance: a plane-parallel Bouguer stub now, the real path with M11 — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0051 — Solar-path transmittance: a plane-parallel Bouguer stub now, the real path with M11</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0051-solar-path-transmittance-deferred.md" target="_blank" rel="noopener">docs/decisions/0051-solar-path-transmittance-deferred.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-12</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§5.4's reflected-solar term needs the top-of-atmosphere irradiance attenuated along the <strong>solar</strong> path, τ_atm^sun(λ), which is a different path from the camera-to-target one the rest of the atmosphere model computes: it runs from the sun to the surface through the whole column, at the solar zenith angle, and it is spectrally weighted by the solar spectrum rather than by Planck at scene temperature. M11 implements that term. M8.8 needs <em>something</em> on the preset schema now, so that the aerial and environment presets carry a complete band-key set and so the ordering (clear passes more sun than haze passes more than fog) is pinned by a test before anything consumes it.</p>
+<p>Note also that the weather file already carries <strong>surface</strong> DNI and DHI (ADR 0032/0034), so this transmittance must never be used to attenuate the file's irradiance a second time. Its job is the <em>spectral shape and band weighting</em> of the reflected term.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Leave the field out until M11 — then M11 changes the preset schema for all seven files and every scene config hash at once, and nothing checks the preset table's ordering in the meantime.</li>
+<li>Compute τ_sun from the existing γ_B and a column height — wrong: γ_B is fitted to a <em>horizontal, near-surface</em> 200 m path (ADR 0048) and the column is neither at surface density nor at surface humidity. Extrapolating it vertically would be a fabricated number wearing the authority of a fitted one.</li>
+<li><strong>An explicit, clearly-labelled ESTIMATED zenith transmittance per band, with the plane-parallel Bouguer law for the angle</strong> (chosen).</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>AtmospherePreset.solar.zenith_transmittance</code> — one value per band, in (0, 1], authored per preset and marked ESTIMATED with its condition in the file. The angular dependence is Bouguer's law for a plane-parallel atmosphere:</p>
+<p>τ_sun(θ_zen) = τ_zenith ** (1 / cos θ_zen)     — airmass = sec θ_zen</p>
+<p><code>irsim.atmosphere.extinction.solar_transmittance</code> / <code>airmass</code> implement it. Zenith angles beyond <strong>85°</strong> are refused rather than extrapolated: sec θ diverges at the horizon and the plane-parallel form is already ~2 % off the refracted airmass by 80°. The atmosphere schema goes to <strong>version 2</strong> (ADR 0017's policy: an optional-shaped field with authored values, all seven presets updated).</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>τ_sun(60°) = τ_zenith²</code> exactly, which is the identity the test pins; the ordering clear &gt; haze &gt; light fog &gt; dense fog holds in every band, so a daytime scene cannot produce MWIR glint through dense fog.</li>
+<li>The values are ESTIMATED whole-column figures, not fitted: expect them to move when M11 arrives. Nothing consumes them yet, so moving them costs only the config hashes.</li>
+<li>The fog presets are the least defensible entries — fog is a shallow layer of finite depth, so its true solar transmittance depends on layer thickness, which the preset does not carry. Treated as "sun through the layer" and flagged in the file.</li>
+<li>Spherical geometry, refraction, and any wavelength dependence inside a band are out of scope.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>M11 implements the §5.4 reflected-solar term: replace the authored zenith values with a computed column (or a MODTRAN-class table), and take the opportunity to move past the plane-parallel airmass if low-sun scenes matter.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

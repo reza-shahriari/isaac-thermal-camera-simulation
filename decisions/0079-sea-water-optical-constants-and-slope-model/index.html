@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0079 — Sea-water optical constants and the Cox–Munk slope model — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0079 — Sea-water optical constants and the Cox–Munk slope model</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0079-sea-water-optical-constants-and-slope-model.md" target="_blank" rel="noopener">docs/decisions/0079-sea-water-optical-constants-and-slope-model.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-16 <strong>Status:</strong> Accepted Roadmap: M7.5, MM.1, MM.2, RP.4 (§4.2, §5.3, §7.4, §12.3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The maritime background (ADR 0078) needs two things the rest of the project does not: optical constants standing for <strong>sea</strong> water, and a statistical description of the <strong>surface slope</strong> inside a pixel. Both were decided and shipped with MM.1–MM.3; neither was recorded. Two source modules and one test file cite this ADR, and ADR 0078 explicitly defers its salinity bound to it — "Neglecting salinity in the optical constants is bounded separately in ADR 0079" — so until now that bound existed only as a forward reference. Supplying it is the substantive new content here; the rest is written from the code.</p>
+<p>The physical constraint is scale. At 3 km a Boson pixel spans 2.6 m and contains thousands of independent wave facets, so one surface normal per pixel is not a coarse version of the right answer — it is a different quantity. What the detector integrates is the <em>distribution</em> of facet orientations, which Cox &amp; Munk give in closed form from the wind alone. And because water is a Fresnel reflector viewed at brutal incidence — a camera 20 m up sees the sea at 5 km at 89.8° of incidence — the band-effective emissivity is doing most of the work in the answer, so which constants feed it matters more than it would for a ground scene.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>For the optical constants:</strong></p>
+<ol>
+<li><strong>Pure water, Segelstein (1981).</strong> Freely redistributable, covers 0.65–15.6 µm in one table, already needed for the non-maritime water material. Wrong substance by the salinity of the sea.</li>
+<li><strong>A salinity-corrected sea-water table.</strong> Right substance. No redistributable dataset covering the LWIR window was found, which is the same wall ADR 0041 hit for soda-lime glass and paint.</li>
+<li><strong>Fit an effective k to published sea emissivity measurements.</strong> Reproduces the number we are trying to predict, so it cannot then be used to check the model.</li>
+</ol>
+<p><strong>For the slope model:</strong></p>
+<ol>
+<li><strong>Cox &amp; Munk (1954) component regressions</strong> — separate upwind and crosswind slope variances.</li>
+<li><strong>Cox &amp; Munk's independently-fitted isotropic total</strong>, σ² = 3.0e-3 + 5.12e-3 U.</li>
+<li><strong>A wave spectrum integrated to slope variance</strong> (Pierson–Moskowitz or similar). More general, needs fetch and duration, and reduces to Cox–Munk for a fully developed sea anyway.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Optical constants: option 1, pure water, labelled as such.</strong> <code>data/nk/water.csv</code> carries Segelstein (1981) over 0.65–15.6 µm, retrieved from the Oregon Medical Laser Center mirror and otherwise unmodified, with the <code># source:</code> block the loader <em>requires</em> rather than merely prefers (ADR 0041). Sea water is rendered with pure-water constants, and the cost is bounded below.</p>
+<p>Three details of how they are used, each with a tempting wrong alternative:</p>
+<ul>
+<li><strong>n and k are interpolated separately and linearly</strong>, never a derived quantity. Interpolating ε or R instead would be interpolating a nonlinear function of the data, making the result depend on the table's sampling rather than on the material.</li>
+<li><strong>Extrapolation raises.</strong> A table that stops at 15.6 µm has nothing to say about 20 µm, and holding the last value there would put a fabricated number into a radiometric result. The single exception is inside a band average whose response support has already been checked to lie within the table, where end-holding can only touch a padding sample at which R is zero.</li>
+<li><strong>The band average goes through the one sanctioned route</strong> (<code>band_average</code>, ADR 0010), not Fresnel at a "representative" 10 µm. Over a Boson's window n runs 1.28 → 1.16 and k runs 0.033 → 0.35 — an order of magnitude in k — and the error from a single-wavelength shortcut grows with angle, which is exactly where a sea surface lives.</li>
+</ul>
+<p><strong>Slope model: option 1, the component regressions</strong>, <code>upwind σ² = 3.16e-3 U</code> and <code>crosswind σ² = 3.0e-3 + 1.92e-3 U</code> for a clean sea, with U the wind speed at 12.5 m.</p>
+<p><code>slope_variance</code> returns <strong>both components rather than one isotropic number</strong>, and deliberately does not return Cox &amp; Munk's published isotropic total. The two regressions were run separately on the same slicks data and do not agree: the components sum to 3.0e-3 + 5.08e-3 U against a published total of 3.0e-3 + 5.12e-3 U, a 0.8 % disagreement in variance and 0.4 % in RMS slope — far inside their own quoted scatter, but a real inconsistency in the source. Returning the components makes a caller that wants the published total say so explicitly rather than reach it by summing.</p>
+<p>Today's consumer takes the isotropic <strong>mean</strong> of the two. The anisotropy is deferred because using it needs the view-to-wind azimuth, which no scene currently carries. The tilt integral uses 15 Gauss-Hermite nodes, reaching past 4σ on a smooth integrand — convergence, not a compromise.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The salinity bound ADR 0078 promised.</strong> No sea-water table is checked in, so the substitution cannot be bounded by direct comparison. What <em>can</em> be measured, and is, is the sensitivity of the shipped result to the constants — the transfer function a future sea-water table would be plugged into. Perturbing the whole table by <strong>+1 %</strong> and recomputing ε_B(θ) through the project's own <code>band_directional_emissivity</code> over the Boson response gives:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>incidence</th><th>Δε_B for n ×1.01</th><th>Δε_B for k ×1.01</th></tr></thead>
+<tbody>
+<tr><td>0°</td><td>−7.5e-4</td><td>−1.0e-4</td></tr>
+<tr><td>45°</td><td>−9.4e-4</td><td>−1.4e-4</td></tr>
+<tr><td>70°</td><td>−2.4e-3</td><td>−4.9e-4</td></tr>
+<tr><td><strong>85°</strong></td><td><strong>−3.0e-3</strong></td><td>−5.6e-4</td></tr>
+<tr><td>89°</td><td>−9.4e-4</td><td>−1.7e-4</td></tr>
+</tbody></table></div>
+<p>Three things follow. <strong>ε_B is about five times more sensitive to n than to k</strong>, so a future sea-water table's value of n is what matters. <strong>The sensitivity peaks near 85°</strong>, which is precisely the near-horizon band a low camera spends most of its pixels on — the error is worst where the scene is. And the magnitude is small: against a 20 K sea-to-sky apparent contrast, a 1 % error in n costs <strong>60 mK at 85° and 15 mK at nadir</strong>, against a 50 mK NETD. So the bound is conditional but usable: <em>if</em> salinity moves the LWIR n of water by less than about 1 %, the substitution costs less than roughly one NETD at the worst angle and is invisible elsewhere. Establishing whether it does is what a checked-in sea-water table would settle; this ADR does not claim it.</p>
+<p><strong>What is not bounded</strong> and is stated rather than hidden: the clean-sea regression is used for all wind speeds, with no slick or whitecap correction, and ADR 0078 already records that wave shadowing is unbounded in the same near-horizon band where the constants matter most. Those two unbounded errors live in the same pixels and could partly cancel or could compound; nothing here says which.</p>
+<p><strong>What it makes easy.</strong> The whole maritime path is driven by wind speed off the shared <code>WeatherSeries</code>, so the picture and the radiometry cannot disagree about the weather (CLAUDE.md #6). Swapping in a sea-water table later is a data change: one file, same loader, same provenance rule, and the table above says immediately what it would move.</p>
+<p><strong>What it makes hard.</strong> Any sun-glint or direction-aware work needs the anisotropy, which needs a view-to-wind azimuth threaded through the scene — not a change local to this module.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A redistributable sea-water n/k table covering the LWIR window becomes available, or a Tier 4 comparison against public maritime imagery shows a systematic bias in the near-horizon band.</li>
+<li>Sun glint is implemented, or any result becomes sensitive to the up/crosswind ratio rather than to the isotropic mean.</li>
+<li>A scene needs wind speeds high enough for whitecaps to cover an appreciable fraction of the surface, where the clean-sea regression stops describing the sea.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

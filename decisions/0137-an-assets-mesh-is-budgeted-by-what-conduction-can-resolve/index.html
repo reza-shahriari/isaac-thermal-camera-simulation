@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0137 — An asset&#x27;s mesh is budgeted twice: by what we can afford, and by what conduction can resolve — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0137 — An asset&#x27;s mesh is budgeted twice: by what we can afford, and by what conduction can resolve</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0137-an-assets-mesh-is-budgeted-by-what-conduction-can-resolve.md" target="_blank" rel="noopener">docs/decisions/0137-an-assets-mesh-is-budgeted-by-what-conduction-can-resolve.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#the-physics-that-sets-the-second-budget">The physics that sets the second budget</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-24 Extends <a href="../0128-per-asset-material-mapping-and-the-blender-prep-path/">ADR 0128</a> (the asset pipeline) and <a href="../0132-the-thermal-mesh-is-not-the-render-mesh/">ADR 0132</a> (the thermal mesh is not the render mesh). Uses <code>GT.7</code>'s cost measurement. Roadmap: <code>AI.3</code>.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>An imported asset arrives with the triangle count a <em>renderer</em> wanted. The Phantom 4 of ADR 0128 is 2,486,459 triangles out of a 62 MB FBX, and 1,532,656 after the planar dissolve that <code>prep_asset.py --emit-mesh</code> already applies.</p>
+<p>Nothing counted them. A mesh field's cost is linear in cells, so an asset that will take an hour to solve looks exactly like one that will take a minute for the first thirty seconds — the first import too heavy to solve is discovered by waiting for it, which is both the slowest way to learn it and the one that wastes the most of somebody's afternoon.</p>
+<p>Counting alone would not have been enough, and this is the part that is easy to miss. A face budget answers <em>can we afford it</em>. It does not answer <em>is any of it doing anything</em>, and on real imported geometry the second answer is usually no. One Phantom 4 prim carries 100,926 faces over 2.7 cm²: a mean cell edge of 73 µm. A test that only counted triangles would pass a million faces on a postage stamp.</p>
+<h2 id="the-physics-that-sets-the-second-budget">The physics that sets the second budget<a class="anchor" href="#the-physics-that-sets-the-second-budget" aria-label="permalink">#</a></h2>
+<p>A cell holds one temperature. Two cells closer together than the distance heat diffuses laterally in one solver tick cannot hold <em>different</em> temperatures — conduction erases the difference inside the step. That distance is <code>sqrt(α Δt)</code>.</p>
+<p>Walking <code>configs/materials/</code> gives the range this project actually spans, at a 60 s tick:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>material</th><th>α (m²/s)</th><th><code>sqrt(α·60s)</code></th></tr></thead>
+<tbody>
+<tr><td><code>etics_render</code> (the slowest)</td><td>2.06 × 10⁻⁸</td><td><strong>1.11 mm</strong></td></tr>
+<tr><td><code>human_skin</code></td><td>1.01 × 10⁻⁷</td><td>2.5 mm</td></tr>
+<tr><td><code>rusted_steel</code></td><td>1.23 × 10⁻⁵</td><td>27 mm</td></tr>
+<tr><td><code>bare_aluminium</code> (the fastest)</td><td>8.44 × 10⁻⁵</td><td><strong>71 mm</strong></td></tr>
+</tbody></table></div>
+<p>So 1.11 mm is a floor for <em>any</em> material in the library, and on the painted aluminium the Phantom 4 is actually made of, the panel is one temperature across 71 mm — its 0.377 mm cells are over-resolved by a factor of nearly two hundred.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>A. A plain triangle cap.</strong> Cheapest, and it was what the roadmap row asked for. Rejected as the only measure: it passes the postage stamp, and it gives a person who hits the cap no information about which triangles to remove.</p>
+<p><strong>B. Derive a per-material cell size and decimate to it in the prep tool.</strong> The physically ideal answer, and too large a step: it needs the material bound before the mesh is emitted, a decimator that respects a target edge length rather than a dissolve angle, and a way to keep the areas within ADR 0128's own area-error gate. Left on the table; the report is what makes it worth doing.</p>
+<p><strong>C. Two budgets, one gated and one reported.</strong> Chosen.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong><code>irsim.io.asset_budget</code> is engine-free and reads the <code>.npz</code>.</strong> The archive already carries each prim's faces and its measured area, so the budget is about the mesh that will actually be solved rather than the one Blender imported, and it costs a file read.</li>
+</ol>
+<ol>
+<li><strong>Affordability is gated.</strong> <code>total_faces = 1,300,000</code> and <code>faces_per_prim = 200,000</code>. The first is Fraunhofer's reference scene, the figure <code>GT.7</code> sized this lane against (1,313,410 triangles, ten layers, five day-night cycles, 252 s). <code>prep_asset.py</code> returns non-zero when an asset exceeds either, and <code>--allow-over-budget</code> overrides it.</li>
+</ol>
+<ol>
+<li><strong>Usefulness is reported, not gated.</strong> A prim finer than <code>MIN_CELL_EDGE_M</code> is a waste, not an error, and the lever that fixes it — <code>--dissolve-deg</code> — belongs to the caller, who may have a reason (a render-side use of the same archive, a material not yet in the library). Refusing it would make the tool argue with someone who knows more than it does.</li>
+</ol>
+<ol>
+<li><strong>The floor is derived, not chosen.</strong> <code>MIN_CELL_EDGE_M = sqrt(SLOWEST_DIFFUSIVITY · 60 s)</code>, and a test walks the whole material library and fails if anything in it is slower. Adding an aerogel therefore breaks the test rather than silently lowering the resolution every asset is measured against.</li>
+</ol>
+<ol>
+<li><strong><code>too_fine</code> is defined as "carries wasted faces"</strong>, not by comparing the edge to the floor a second time. <code>affordable_faces</code> rounds up, so the two definitions differ by one triangle at the boundary, and a report that says "nothing is wasted" and "this prim is too fine" in the same breath is a report nobody trusts the rest of.</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The Phantom 4 is <strong>refused</strong> by default: 1,532,656 faces against 1,300,000, with <strong>77 %</strong> of its faces finer than the floor. That is the correct answer and it is actionable — a larger <code>--dissolve-deg</code> is the lever — but it means <code>prep_asset.py --asset phantom4</code> now exits 1 unless <code>--allow-over-budget</code> is passed. The already-generated archive is untouched.</li>
+<li>The budget is quoted at a 60 s tick, the coarsest the drivers in <code>scripts/</code> use. A driver stepping at 1 s has a floor of 0.14 mm and could justify finer geometry; nothing reads the actual tick yet, so the report is generous rather than wrong.</li>
+<li><strong>The whole face budget buys about 0.8 m² at the floor.</strong> So "finer than the floor" is not an invitation to refine anything: a vehicle or a building has to be solved considerably coarser than a millimetre, and the report is about geometry finer than even that.</li>
+<li>The areas come from the archive's manifest, which <code>load_asset_meshes</code> already cross-checks against the arrays, so a budget cannot be passed by an archive whose manifest lies about it.</li>
+<li>A per-material target edge length, and decimation to it, remains unbuilt (option B).</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

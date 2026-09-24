@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0136 — One weather state owns the sky and the surfaces, and a CSV is the escape hatch — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0136 — One weather state owns the sky and the surfaces, and a CSV is the escape hatch</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0136-one-state-owns-the-sky-and-the-surfaces.md" target="_blank" rel="noopener">docs/decisions/0136-one-state-owns-the-sky-and-the-surfaces.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-24 Completes the move begun in <code>edbf711</code> (the sky to <code>isaac-weather-fx</code>). Enforces CLAUDE.md non-negotiable #6. Extends <a href="../0032-weather-series-format-and-injection/">ADR 0032</a> (the weather series and how it is injected). Related: <a href="../0037-solve-granularity-and-spin-up/">ADR 0037</a> (the spin-up window) and <a href="../0130-a-cumulus-has-a-size-and-a-shape-and-both-bands-march-it/">ADR 0130</a> (one cloud, both bands). Roadmap: <code>AT.16</code>.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The sky moved to <code>isaac-weather-fx</code>: the sun, the moon, the turbidity and the cloud field that both bands march are drawn from one <code>WeatherState</code> there. The thermal solver did not move. It still read <code>SceneSpec.weather_file</code>, a measured 48-hour CSV from <code>data/weather/</code>.</p>
+<p>So <code>render_phantom4.py --weather broken_cumulus</code> produced a frame lit by weather-fx's cloudy June morning whose <strong>surfaces</strong> had been integrated through a different day out of a file — different air temperature, different humidity, different irradiance, quite possibly a different season. Both halves were internally consistent. Nothing in the pipeline can detect it, because neither half is wrong on its own; the image is simply of a scene that does not exist.</p>
+<p>That is precisely the failure CLAUDE.md #6 exists to prevent, and the mechanism it prescribes — <em>one <code>WeatherSeries</code>, injected into both</em> — was already in place and being satisfied by the letter. The single object reached every consumer. It just no longer described the sky the camera saw.</p>
+<p>A second problem sat behind it. The CSV is a <strong>measurement</strong>: one recorded day at one place. It is the right input for a validation run and the wrong input for a dataset, where the point is coverage of conditions. Generating that coverage meant writing CSVs, and a CSV that was generated rather than measured looks exactly like one that was measured.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>A. Keep the CSV authoritative and drive weather-fx from it.</strong> Read the file, and set the weather-fx state's temperature, dew point, cover and turbidity from the sample at the scene start. Preserves every existing scene unchanged. Rejected: it inverts the ownership the rest of the subsystem now has — weather-fx knows what a cloud base is, what a regime is, how rain and turbidity couple — and the CSV carries no cloud genus, no site, no lunar phase, so most of what a sky needs would still have to come from somewhere else. Two authorities again, in the other order.</p>
+<p><strong>B. Delete <code>weather_file</code> and make weather-fx the only source.</strong> Rejected outright: there is then no path for measured weather at all, and Tier 4 validation against public data is the project's only contact with reality.</p>
+<p><strong>C. weather-fx owns the physical weather; the CSV stays as an explicit escape hatch.</strong> Chosen.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>weather-fx synthesises the series.</strong> <code>weather_fx.core.meteorology.diurnal_series</code> turns one state into surface meteorology on a regular grid. The physics lives <em>there</em>, with its own tests, because that package owns what the air is doing.</li>
+</ol>
+<ol>
+<li><strong>This project wraps, and validates.</strong> <code>irsim.thermal.weather_fx_series.weather_series_from_state</code> does one thing: it puts the eight columns into a <code>WeatherSeries</code>. That is not ceremony — the <code>WeatherSeries</code> is where the ranges are checked, where the arrays become immutable float64, and where the content hash that keys every spin-up cache and golden comes from. A foreign array that entered the solver without passing through it would silently invalidate all of them.</li>
+</ol>
+<ol>
+<li><strong>The injection point is the one that already existed.</strong> The result is passed as <code>Scene.from_config(weather_override=...)</code>, the parameter written for sensitivity studies. No second path through the scene builder, and the one-weather guard is unchanged.</li>
+</ol>
+<ol>
+<li><strong><code>weather_file</code> stays, and stays the default for a scene config.</strong> A scene that names a file still gets that file. Only a driver that has drawn a weather-fx state synthesises, and <code>--weather-csv</code> turns even that off, keeping the measured file for the solve while weather-fx still draws the sky. Both halves of a validation run therefore remain reachable.</li>
+</ol>
+<ol>
+<li><strong>The state's clock is the anchor, and the scene's clock follows it.</strong> The synthesised air temperature passes through the state's own value at the state's own hour, with a day of history in front of it (ADR 0037's window). When <code>--weather-hour</code> moves the state, the scene's <code>start_utc</code> moves with it; otherwise the sky would be lit for one hour and the surfaces integrated to another.</li>
+</ol>
+<ol>
+<li><strong>The cloud fraction recorded is the one that was built, not the one that was asked for.</strong> A thresholded noise field covers what it covers. The driver passes <code>WeatherFxDeck.cover</code>, so the sky emissivity the solver uses is the cover the camera is actually looking at.</li>
+</ol>
+<ol>
+<li><strong>What is diurnal varies; what the state cannot justify varying is held constant and said so.</strong> Air temperature, humidity and irradiance vary. Wind, cover, visibility and precipitation are constant across the series, because a single state carries one of each and inventing a diurnal wind would be fabrication dressed as physics. The module docstring carries that table.</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A scene rendered with <code>--weather</code> now has one weather in both senses: the sun in the frame and the sun that warmed the paint are the same sun.</li>
+<li>A dataset can be generated from integers. <code>random_state(seed)</code> gives a regime-coherent day, and the same seed gives the same <code>content_hash</code>, so spin-up caches and goldens survive.</li>
+<li><strong>Synthetic weather is not measured weather</strong> and the distinction now has to be maintained by the person reading the output, not by the file format. A run's <code>summary.json</code> records the full weather-fx state, which is what makes a synthesised day reproducible and auditable; a reader who sees no <code>weather_fx</code> block is looking at a measured CSV.</li>
+<li>The diurnal model is crude on purpose: one sinusoid, one lag, a dew-point floor. It is not a boundary-layer model and will not reproduce a frontal passage, a sea breeze or a nocturnal jet. When a scene needs one of those, it needs a measured file.</li>
+<li>The swing, the turbidity-to-visibility curve and the regime weights are <strong>estimated</strong>. They are marked as such in weather-fx and are the first thing to replace when a real climatology for a site is available.</li>
+<li><code>Scene.from_file</code> gained a <code>weather_override</code> passthrough so a driver does not have to load the config itself just to reach the injection point.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

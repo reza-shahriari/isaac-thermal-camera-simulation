@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration catalogue — irsim</title>
+<meta name="description" content="Cameras, scenes, materials and atmospheres — the data the simulator is driven by.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../">Overview</a></li>
+<li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../physics/">Physics model</a></li>
+<li><a href="../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../roadmap/">Roadmap</a></li>
+<li><a href="../decisions/">Decision log</a></li>
+<li><a href="../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../validation/">Validation</a></li>
+<li><a href="../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../code/">Code map</a></li>
+<li class="here"><a href="./">Configuration catalogue</a></li>
+<li><a href="../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>Configuration catalogue</h1>
+  <p class="subtitle">Cameras, scenes, materials and atmospheres — the data the simulator is driven by.</p>
+  
+</div>
+
+<article class="prose">
+<p>Everything the simulator renders is named by one of these files. Bands are data rather than code: adding a camera is a new file here, not an edit to the radiance kernel.</p>
+<h2 id="sensors">configs/sensors</h2>
+<p>One camera each: band, optics, detector, noise and ISP (physics-model §12.2). 5 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/sensors/example_mwir_insb_640.yaml" target="_blank" rel="noopener">example_mwir_insb_640.yaml</a></td><td>Generic 640x512 cooled InSb MWIR camera (mixed regime).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/sensors/example_nir_si_1280.yaml" target="_blank" rel="noopener">example_nir_si_1280.yaml</a></td><td>Generic 1280x1024 silicon CMOS NIR camera (uncooled, reflective band).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/sensors/example_swir_ingaas_640.yaml" target="_blank" rel="noopener">example_swir_ingaas_640.yaml</a></td><td>Generic 640x512 InGaAs SWIR camera (uncooled, reflective band).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/sensors/flir_boson_640_lwir.yaml" target="_blank" rel="noopener">flir_boson_640_lwir.yaml</a></td><td>FLIR Boson 640 (LWIR, uncooled VOx microbolometer).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/sensors/halmstad_boson_320.yaml" target="_blank" rel="noopener">halmstad_boson_320.yaml</a></td><td>FLIR Breach PTQ-136 -- the camera behind the Halmstad reference set (roadmap M12.1).</td></tr>
+</tbody></table></div>
+<h2 id="scenes">configs/scenes</h2>
+<p>A scene is a config, not code: geometry, weather, mission and what the camera does. 18 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/aircraft_pass_clear_noon.yaml" target="_blank" rel="noopener">aircraft_pass_clear_noon.yaml</a></td><td>A light business jet flying a low pass in front of a ground sensor, clear midday.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/car_exhaust_plume.yaml" target="_blank" rel="noopener">car_exhaust_plume.yaml</a></td><td>A car pulling away, and the gas it leaves behind. Schema v15.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/car_ignition_clear_night.yaml" target="_blank" rel="noopener">car_ignition_clear_night.yaml</a></td><td>The SAME car and the same key, under a clear cold sky instead of thick overcast. Schema v9.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/car_ignition_overcast_night.yaml" target="_blank" rel="noopener">car_ignition_overcast_night.yaml</a></td><td>A car standing on asphalt, cold, that starts its engine. Schema: irsim.config.scene (v9).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/parked_car_cabin.yaml" target="_blank" rel="noopener">parked_car_cabin.yaml</a></td><td>The cabin reference scene: a parked car whose panels lose heat into the air behind them.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/phantom3_outbound_pointwise.yaml" target="_blank" rel="noopener">phantom3_outbound_pointwise.yaml</a></td><td>A **DJI Phantom 3** filmed from the ground as it flies out, under broken cumulus, with the</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/phantom4_pointwise.yaml" target="_blank" rel="noopener">phantom4_pointwise.yaml</a></td><td>A **DJI Phantom 4 Pro** hovering in clear midday air, solved point-wise on the triangles of a</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/quad_flight_clear_noon.yaml" target="_blank" rel="noopener">quad_flight_clear_noon.yaml</a></td><td>A heavy-lift quadrotor flying a 30-minute mission on a clear midday. Schema: irsim.config.scene</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/quad_flight_mesh.yaml" target="_blank" rel="noopener">quad_flight_mesh.yaml</a></td><td>The quadrotor&#x27;s arms as **tubes**, not flat patches: the same 30-minute mission, with the two</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/quad_flight_pointwise.yaml" target="_blank" rel="noopener">quad_flight_pointwise.yaml</a></td><td>The aerial scenario, regenerated point-wise: the same 30-minute quadrotor mission as</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/quad_outbound_pointwise.yaml" target="_blank" rel="noopener">quad_outbound_pointwise.yaml</a></td><td>The aerial scenario as a **rendered** scene: a ground camera films one quadrotor flying out from</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/sky_target_clear_day.yaml" target="_blank" rel="noopener">sky_target_clear_day.yaml</a></td><td>Phase-1 scene: a small aerial target against a clear mid-latitude summer sky.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/thermal_facet_scene.yaml" target="_blank" rel="noopener">thermal_facet_scene.yaml</a></td><td>The §6.13 facet scene: one weather, seven surfaces, nothing moving.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/vessel_departure_clear_day.yaml" target="_blank" rel="noopener">vessel_departure_clear_day.yaml</a></td><td>A vessel getting under way and steaming out to the horizon, filmed from a fixed shore mount.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/vessel_pointwise_clear_day.yaml" target="_blank" rel="noopener">vessel_pointwise_clear_day.yaml</a></td><td>The maritime scenario as a **point-wise** scene: one vessel, static in the stage, with its deck</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/vessel_transit_clear_day.yaml" target="_blank" rel="noopener">vessel_transit_clear_day.yaml</a></td><td>Vessels on open water, clear day. Schema: irsim.config.scene (v4).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/wall_half_in_sun.yaml" target="_blank" rel="noopener">wall_half_in_sun.yaml</a></td><td>The R1 reference scene: one building, its parts at different temperatures, from YAML alone.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/scenes/wet_road_noon.yaml" target="_blank" rel="noopener">wet_road_noon.yaml</a></td><td>One object, two states: a road watered on half its width, at 14:00 on a clear June day, with a</td></tr>
+</tbody></table></div>
+<h2 id="materials">configs/materials</h2>
+<p>Spectral material library. ε + ρ + τ = 1 holds in every band, to 1e-6. 22 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/abs_plastic_white.yaml" target="_blank" rel="noopener">abs_plastic_white.yaml</a></td><td>White ABS: the moulded shell of a consumer quadrotor. Section 16.2 (LWIR/MWIR/thermal); the</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/aircraft_aluminium_painted.yaml" target="_blank" rel="noopener">aircraft_aluminium_painted.yaml</a></td><td>Painted aircraft-aluminium skin -- fixed-wing fuselage and wing panels. Optically this is the</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/asphalt_dry.yaml" target="_blank" rel="noopener">asphalt_dry.yaml</a></td><td>Dry asphalt: rough, high-emissivity dielectric -- Level C is adequate (section 4.2).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/bare_aluminium.yaml" target="_blank" rel="noopener">bare_aluminium.yaml</a></td><td>Bare / polished aluminium: a mirror in the thermal IR (epsilon 0.09), shows the sky, not itself.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/car_paint_black.yaml" target="_blank" rel="noopener">car_paint_black.yaml</a></td><td>Black automotive paint on a thin steel panel -- the docs/physics-model.md section 12.3 example</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/car_paint_white.yaml" target="_blank" rel="noopener">car_paint_white.yaml</a></td><td>White automotive paint on a thin steel panel. Section 16.2 (LWIR/MWIR/thermal); the NIR/SWIR</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/carbon_fibre.yaml" target="_blank" rel="noopener">carbon_fibre.yaml</a></td><td>Bare / clear-coated carbon-fibre laminate -- arms, booms and frame plates of a racing or</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/concrete.yaml" target="_blank" rel="noopener">concrete.yaml</a></td><td>Concrete: road surface, kerbs, buildings. Section 16.2; NIR/SWIR ESTIMATED.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/cotton_clothing.yaml" target="_blank" rel="noopener">cotton_clothing.yaml</a></td><td>Cotton clothing: the surface most of a person actually presents to a camera.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/etics_render.yaml" target="_blank" rel="noopener">etics_render.yaml</a></td><td>A thin render on external insulation (ETICS / EIFS): 10 mm of mineral render over 100 mm of</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/glass_windshield.yaml" target="_blank" rel="noopener">glass_windshield.yaml</a></td><td>Windshield glass: opaque in LWIR (epsilon 0.88), transparent in SWIR/NIR (section 4.4).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/human_skin.yaml" target="_blank" rel="noopener">human_skin.yaml</a></td><td>Clothed-human proxy: skin (face, hands). Section 16.2; NIR/SWIR ESTIMATED (skin reflects</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/mapping.yaml" target="_blank" rel="noopener">mapping.yaml</a></td><td>Material-mapping rules for imported assets (irsim.materials.mapping, ADR 0047).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/painted_composite.yaml" target="_blank" rel="noopener">painted_composite.yaml</a></td><td>Painted plastic / composite airframe shell -- the body of a small quadcopter or a light-aircraft</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/propeller_rubber.yaml" target="_blank" rel="noopener">propeller_rubber.yaml</a></td><td>Rubber / filled-elastomer propeller and blade tip -- also landing skids and vibration mounts.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/rubber_tyre.yaml" target="_blank" rel="noopener">rubber_tyre.yaml</a></td><td>Tyre rubber: carbon-black filled, one of the darkest surfaces on a vehicle in every band.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/rusted_steel.yaml" target="_blank" rel="noopener">rusted_steel.yaml</a></td><td>Rusted steel: weathered structures, rail, old vehicles. Section 16.2; NIR/SWIR ESTIMATED.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/snow.yaml" target="_blank" rel="noopener">snow.yaml</a></td><td>Snow: the other material that separates the bands, in the opposite direction to vegetation.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/soil_dry.yaml" target="_blank" rel="noopener">soil_dry.yaml</a></td><td>Dry soil / bare earth. Section 16.2; NIR/SWIR ESTIMATED.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/soil_wet.yaml" target="_blank" rel="noopener">soil_wet.yaml</a></td><td>Wet soil. Section 16.2; NIR/SWIR ESTIMATED. Darker and far more thermally massive than dry</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/vegetation_leaf.yaml" target="_blank" rel="noopener">vegetation_leaf.yaml</a></td><td>Vegetation (leaf): the material that most obviously separates the bands.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/materials/water.yaml" target="_blank" rel="noopener">water.yaml</a></td><td>Liquid water: the maritime background, puddles, wet road. Section 16.2 for the scalars.</td></tr>
+</tbody></table></div>
+<h2 id="atmospheres">configs/atmospheres</h2>
+<p>Atmosphere presets — visibility, humidity, aerosol regime. 7 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/fog_dense_50m.yaml" target="_blank" rel="noopener">fog_dense_50m.yaml</a></td><td>Atmosphere preset &quot;fog_dense_50m&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/fog_light_200m.yaml" target="_blank" rel="noopener">fog_light_200m.yaml</a></td><td>Atmosphere preset &quot;fog_light_200m&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/haze.yaml" target="_blank" rel="noopener">haze.yaml</a></td><td>Atmosphere preset &quot;haze&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/midlat_summer_humid.yaml" target="_blank" rel="noopener">midlat_summer_humid.yaml</a></td><td>Atmosphere preset &quot;midlat_summer_humid&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/midlat_winter_dry.yaml" target="_blank" rel="noopener">midlat_winter_dry.yaml</a></td><td>Atmosphere preset &quot;midlat_winter_dry&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/tropical.yaml" target="_blank" rel="noopener">tropical.yaml</a></td><td>Atmosphere preset &quot;tropical&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/atmospheres/us_standard_clear.yaml" target="_blank" rel="noopener">us_standard_clear.yaml</a></td><td>Atmosphere preset &quot;us_standard_clear&quot; -- an atmosphere TYPE, not weather. T_air, RH and visibility</td></tr>
+</tbody></table></div>
+<h2 id="environments">configs/environments</h2>
+<p>Illumination and weather regimes a scene can name. 5 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/environments/clear_dry.yaml" target="_blank" rel="noopener">clear_dry.yaml</a></td><td>Environment preset: clear, dry sky (docs/physics-model.md section 5.3-5.5). Illumination-model</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/environments/humid.yaml" target="_blank" rel="noopener">humid.yaml</a></td><td>Environment preset: humid clear sky (section 5.3: depression drops with high humidity).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/environments/overcast.yaml" target="_blank" rel="noopener">overcast.yaml</a></td><td>Environment preset: thick overcast (section 5.3: T_sky -&gt; T_air, residual 5-10 K depression).</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/environments/scattered_cumulus.yaml" target="_blank" rel="noopener">scattered_cumulus.yaml</a></td><td>Environment preset: clear air with fair-weather cumulus (docs/physics-model.md section 5.3-5.5,</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/environments/sea_clear_day.yaml" target="_blank" rel="noopener">sea_clear_day.yaml</a></td><td>Environment preset: clear sky over open water (docs/physics-model.md section 5.3-5.5, ADR 0078).</td></tr>
+</tbody></table></div>
+<h2 id="thermal">configs/thermal</h2>
+<p>Thermal network and solver settings. 1 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/thermal/joints.yaml" target="_blank" rel="noopener">joints.yaml</a></td><td>Joint conductances a scene&#x27;s `links:` may name instead of typing a number (TC.4, ADR 0097).</td></tr>
+</tbody></table></div>
+<h2 id="assets">configs/assets</h2>
+<p>Per-asset material mapping for an imported mesh. 1 file(s).</p>
+<div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
+</tr></thead><tbody>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/configs/assets/phantom4.yaml" target="_blank" rel="noopener">phantom4.yaml</a></td><td>DJI Phantom 4 Pro, as the third-party FBX in `3d_models/` carries it (ADR 0128).</td></tr>
+</tbody></table></div>
+<h2 id="data">data/</h2>
+<p>Spectral response curves, optical constants, weather files and generated lookup tables. <code>$IRSIM_DATA_DIR</code> overrides the root. Generated artefacts (the band LUTs) are not in git — <code>make luts</code> rebuilds them from the configs and the curves, which is ADR 0012.</p>
+<div class='table-wrap'><table><thead><tr><th>kind</th><th>files</th></tr>
+</thead><tbody>
+<tr><td><code>.npy</code></td><td>34</td></tr>
+<tr><td><code>.csv</code></td><td>19</td></tr>
+<tr><td><code>.f32</code></td><td>16</td></tr>
+<tr><td><code>.json</code></td><td>14</td></tr>
+<tr><td><code>(none)</code></td><td>4</td></tr>
+<tr><td><code>.yaml</code></td><td>1</td></tr>
+<tr><td><code>.md</code></td><td>1</td></tr>
+<tr><td><code>.zip</code></td><td>1</td></tr>
+<tr><td><code>.usdc</code></td><td>1</td></tr>
+<tr><td><code>.npz</code></td><td>1</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../assets/site.js"></script>
+</body>
+</html>

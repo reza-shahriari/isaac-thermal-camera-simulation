@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0041 — Provenance and licences of checked-in optical data — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0041 — Provenance and licences of checked-in optical data</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0041-data-provenance-and-licences.md" target="_blank" rel="noopener">docs/decisions/0041-data-provenance-and-licences.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>This repository checks in numbers that came from somewhere else: complex refractive indices (<code>data/nk/</code>), spectral emissivity curves (<code>data/spectra/materials/</code>), detector response curves (<code>data/spectra/responses/</code>). Every radiometric result the simulator produces is a function of them, so a number whose origin is unknown makes every result downstream unfalsifiable — not wrong, <em>uncheckable</em>, which is worse, because there is no experiment that can find the error.</p>
+<p>Three separate risks travel together here and are easy to conflate:</p>
+<ol>
+<li><strong>Attribution.</strong> A reader who wants to check a value needs to know which published dataset it is, and to be able to go and read it.</li>
+<li><strong>Licensing.</strong> Data that may not be redistributed must not be committed, however convenient. Several widely-used optical-constant compilations (Palik's handbook is the obvious one) are copyrighted books, not public datasets.</li>
+<li><strong>Substitution.</strong> The number in the file may not be a measurement of the substance named on it. This project has three kinds already: <em>measured</em> (Segelstein water), <em>modelled</em> (the Drude aluminium of M7.5), and <em>proxy</em> — a measurement of a genuinely different material standing in for one whose constants are not freely available. A proxy that is not labelled reads exactly like a measurement.</li>
+</ol>
+<p>M7.5 forced the issue on all three at once by needing glass and paint, neither of which has freely available optical constants for the actual substance across 0.75–13.5 µm.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A licence/provenance manifest beside the data.</strong> One index file listing each dataset, its source and its licence. Rejected: it is a second thing to update, so it drifts, and the loader cannot enforce it per file without reading a file the data file does not mention.</li>
+<li><strong>Provenance in the data file, checked as lint.</strong> A CI rule that every <code>data/**.csv</code> has a <code># source:</code> line. Better, but lint is advisory — it runs on the repository, not on the file a user points <code>$IRSIM_DATA_DIR</code> at, which is precisely where an unsourced file arrives from.</li>
+<li><strong>Provenance in the data file, enforced by the loader.</strong> A table without a <code># source:</code> header fails to load. Chosen.</li>
+<li><strong>Fetch at run time from the upstream database instead of committing.</strong> Rejected: <code>make ci</code> has no network, and a radiometric result that depends on a live download is not reproducible. The fetch is a <em>script</em>, run deliberately, and its output is committed.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Provenance is data, not metadata, and the loader enforces it.</strong> <code>load_nk_table</code> refuses a table with no <code># source:</code> block (<code>irsim/materials/nk.py</code>). The block is free prose, carried on the loaded <code>NKTable</code>, so it reaches anyone holding the table rather than only someone reading the file.</p>
+<p><strong>Only redistributable data is committed.</strong> In practice that means public-domain or CC0 sources. The two M7.5 tables come from the RefractiveIndex.INFO database, which is CC0 1.0; Segelstein's water table is a public thesis dataset hosted by the Oregon Medical Laser Center. Palik and other copyrighted compilations are <em>not</em> checked in, even where they are the better data — where one is the right source, the alternative is a modelled table with the discrepancy recorded, as aluminium does.</p>
+<p><strong>Every file declares which of three kinds it is, in the source block itself:</strong></p>
+<div class='table-wrap'><table>
+<thead><tr><th>kind</th><th>meaning</th><th>in the tree</th></tr></thead>
+<tbody>
+<tr><td>measured</td><td>a published measurement of this substance</td><td><code>water.csv</code> (Segelstein 1981)</td></tr>
+<tr><td>MODELLED</td><td>a closed-form model, parameters stated</td><td><code>aluminium.csv</code> (Drude, M7.5)</td></tr>
+<tr><td>PROXY</td><td>a measurement of a <em>different</em> substance</td><td><code>glass.csv</code> (fused silica for soda-lime), <code>paint_proxy.csv</code> (PMMA for clearcoat)</td></tr>
+</tbody></table></div>
+<p>The kind goes <strong>inside</strong> the <code># source:</code> block, not in a separate comment. The loader ends the provenance it carries at the first blank comment line, so a note after one is invisible to every consumer — which is how the first draft of <code>glass.csv</code> shipped its PROXY label where nothing could see it. <code>test_a_proxy_table_declares_that_it_is_a_proxy</code> now asserts the label survives the load.</p>
+<p><strong>Regeneration is a script, and the script is the provenance.</strong> <code>scripts/fetch_nk_tables.py</code> (measured data, from URLs) and <code>scripts/generate_nk_tables.py</code> (modelled data, from parameters) write the header they document themselves, including the retrieval date and the URL. Neither runs in a test.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What this makes easy.</strong> Any value can be traced to a source without leaving the file it lives in. A proxy cannot quietly become a measurement in a reader's mind. Adding a dataset is a scripted, repeatable act rather than a paste.</p>
+<p><strong>What this makes hard, deliberately.</strong> Data cannot be dropped in. A new table needs a source, a licence check and a kind, and the loader will not take it otherwise.</p>
+<p><strong>The error this introduces.</strong> Proxy data carries a real, unbounded-in-general error in <em>absolute</em> terms: fused silica is not soda-lime, PMMA is not paint. The project contains that error by a convention established in M7.5 — the table supplies the angular <strong>shape</strong> and the material's authored per-band value supplies the <strong>magnitude</strong> (<code>directional_emissivity</code>). So the residual error is in how emissivity <em>falls with angle</em>, which is set by the interface and the band's n and k, and not in the emissivity itself. That is the bounded part; it is not zero, and for glass in the transparent bands there is a second approximation on top of it (below).</p>
+<p><strong>A known limit, stated rather than buried.</strong> Level A computes ε = 1 − R, which for a semi-transparent material is absorptance <em>plus</em> transmittance, not emissivity. For glass this is exact in LWIR, where τ = 0, and approximate in NIR and SWIR, where τ is 0.77 and 0.70: it neglects the lengthening of the internal path toward grazing, which raises true absorptance relative to 1 − R. The magnitude is unaffected (it comes from the authored value); what is approximate is the shape, in the two bands where ε is smallest. Improving it needs the §4.4 slab form, which is a different model, not a better table.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A required dataset exists only under a licence that forbids redistribution — then the choice is a modelled table plus the recorded discrepancy, or a documented fetch the user runs themselves. Do not commit it.</li>
+<li>A measured soda-lime glass or a measured pigmented-coating dataset covering 0.75–13.5 µm becomes freely available: swap the file, keep everything else. The loader and every consumer are unchanged by the swap, which is the point of the header being the only place the source is named.</li>
+<li>Tier 4 shows a per-class angular bias that tracks the proxy materials specifically — that would mean the shape-from-proxy assumption, not just the magnitude, needs the real substance.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

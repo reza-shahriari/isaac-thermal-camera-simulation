@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0088 — Spatial heat sources: a computed configuration factor, and the sky the body blocks — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0088 — Spatial heat sources: a computed configuration factor, and the sky the body blocks</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0088-spatial-heat-sources-and-sky-occlusion.md" target="_blank" rel="noopener">docs/decisions/0088-spatial-heat-sources-and-sky-occlusion.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-20-pt7-one-reflection-off-the-grey-body">Addendum 2026-09-20 (PT.7): one reflection off the grey body</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-22-wm4-the-sky-view-on-a-mesh-is-traced-not-assumed">Addendum 2026-09-22 (WM.4): the sky view on a mesh is traced, not assumed</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: MP.2 (§6.1, §6.6)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0087 gave a surface a grid of cells. Nothing yet makes their forcing differ, so a <code>PlanarThermalField</code> over a bonnet still solves to a flat answer — the machinery is spatial and the input is not.</p>
+<p>Two spatial sources are needed for a vehicle scene, and they turn out to be the same geometry problem: an <strong>engine bay</strong> radiating up onto the bonnet skin above it, and a <strong>warm underbody</strong> radiating down onto asphalt. Both are "a plane surface element exchanging radiation with a parallel rectangle".</p>
+<p>§6.6 supplies the source <em>temperatures</em> (<code>engine_bay</code>: +65 K, τ_rise 750 s) and says they are scripted, not predicted. It says nothing about how that heat is distributed across the panel above, because the spec never contemplated a panel with more than one temperature.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A Gaussian with a fitted width.</strong> One line, and it produces a picture that looks right. The width would be a free parameter fitted to nothing, and it would be the parameter controlling the single most visible feature of the frame.</li>
+<li><strong>A closed-form configuration factor to a parallel rectangle.</strong> Exact, standard (Howell C-11), has an independent check (brute-force quadrature of the defining integral), and needs only the block's dimensions and its distance below the panel — all of which the scene already knows.</li>
+<li><strong>Ray-traced form factors.</strong> More general, needed only when the geometry stops being two parallel rectangles, and considerably more machinery.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2. <code>irsim.thermal.spatial_sources.corner_view_factor</code> is the closed form, extended odd in each argument so the four-corner superposition gives an arbitrarily offset rectangle; <code>patch_view_factors</code> applies it to a <code>PlanarPatch</code>. One kernel serves both the bonnet and the asphalt. Non-parallel geometry <strong>raises</strong> rather than being evaluated with a formula that does not apply — the result would be a plausible number, which here is the worst kind of wrong.</p>
+<p>The constant is 1/(2π) and was <strong>verified against a brute-force quadrature</strong> of <code>c²/(π(x²+y²+c²)²)</code> rather than taken from memory. A view factor wrong by a factor of two gives a gradient of exactly the right shape and half the right size, which no image would reveal.</p>
+<p><strong>The second decision is the one that is easy to omit.</strong> <code>occluded_longwave_flux</code> returns</p>
+<p>F · ε_s · (ε_r σ T_r⁴ − L_down/V_s)</p>
+<p>— the <strong>net</strong> change, not the source term alone. A hot body standing over a surface both radiates onto it <em>and</em> removes the sky it was seeing. Keeping only the first term invents energy.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What this buys, beyond not being wrong:</strong> the occlusion term is <em>dominant</em> on a clear night. A 295 K underbody over asphalt under a 245 K sky adds about half of what the naive source-only term would claim, and under an overcast 288 K sky only about a tenth of it. That difference is the reason a parked car leaves a warm car-shaped patch on asphalt <strong>before its engine has ever run</strong> — a well-known feature of night parking-lot thermal imagery that a source-only model cannot produce at all, and it is now a consequence of the geometry rather than something anyone authored.</p>
+<p>It also settles a scene-design question: a demo meant to show <em>engine</em> heat must be shot under overcast, where the occlusion term nearly cancels. Under a clear sky the car-shaped patch would be there in the first frame and the engine would be a modest addition to it.</p>
+<p><strong>What stays hard.</strong> ε_s multiplies inside this function because <code>FacetSolver.net_flux</code> adds <code>q_internal</code> <strong>unweighted</strong> — it is an internal deposition, not an incident irradiance. That is a seam a caller can get wrong, and it is documented at the call site rather than defended by a type.</p>
+<p><strong>The error introduced.</strong> Three approximations, none bounded by measurement here: the exchange is single-bounce (no inter-reflection between the body and the surface, which for ε_s ≈ 0.95 asphalt and a cavity-like bay is a sub-percent term); both surfaces are isothermal over the rectangle, which the engine bay is not; and the geometry is a rectangle, so a body with wheels and a transmission tunnel is one box. All three are small against the fact that the alternative in use until now was <em>one temperature for the whole panel</em>.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs a non-parallel pair (a wall beside a radiator, a wheel arch), or Tier 4 shows a vehicle-vs-ground bias that survives the schedules — at which point option 3 is the next step.</p>
+<h2 id="addendum-2026-09-20-pt7-one-reflection-off-the-grey-body">Addendum 2026-09-20 (PT.7): one reflection off the grey body<a class="anchor" href="#addendum-2026-09-20-pt7-one-reflection-off-the-grey-body" aria-label="permalink">#</a></h2>
+<p>Spinning a field up with the car present made a residual of this kernel visible that a 30-minute run from a uniform start never reached: an <strong>ambient</strong> underbody of ε 0.88 over an ambient road under an overcast sky "cooled" the road beneath the engine bay by 2.1 K at equilibrium. The kernel gave the cell the body's emission <code>F ε_s ε_r σ T_r⁴</code> and took away the sky it blocks, but treated the cell's own emission toward the body as lost; a grey body reflects <code>1 − ε_r</code> of it back, and the cell re-absorbs <code>ε_s</code> of that. With the sky's effective emissivity near 1 and the body's at 0.88, the missing 12 % was a net loss, and a cold car became a net cooler of the road, which is not a thing.</p>
+<p><code>SurfaceForcing</code> / <code>FacetForcing</code> therefore carry an <code>emission_factor</code> (default 1): the fraction of a facet's own emission that leaves for good, <code>1 − Σ_r F_r (1 − ε_r) ε_s</code> under grey bodies. One reflection, not the series: for ε ≥ 0.85 on both sides the second bounce is under 2 % of the first. The road field takes it; the bonnet does <strong>not</strong>, on purpose -- its one emission term is its sky-facing top, and its underside's exchange with the bay is already the "bay at ambient" reference convention above. Measured after the change: the overcast scene's standing patch is +0.009 K (was −0.136 K mean, −2.1 K under the bay) and the engine's 30-minute growth is 1.81 K in both the uniform and the spun-up start.</p>
+<h2 id="addendum-2026-09-22-wm4-the-sky-view-on-a-mesh-is-traced-not-assumed">Addendum 2026-09-22 (WM.4): the sky view on a mesh is traced, not assumed<a class="anchor" href="#addendum-2026-09-22-wm4-the-sky-view-on-a-mesh-is-traced-not-assumed" aria-label="permalink">#</a></h2>
+<p>This ADR's "revisit when" asked for a non-parallel pair — a wheel arch, a wall beside a radiator. <code>WM.4</code> reaches it from the other side: a surface whose <em>cells do not share a normal</em>. Every mesh cell had the tilt's isotropic <code>V_s = (1 + n·up)/2</code> and the surface's one <code>shaded</code> flag, which is the <strong>unobstructed</strong> answer to both questions, and a tube running under an airframe is not unobstructed.</p>
+<p><code>irsim.thermal.mesh_geometry</code> traces both: <code>PT.21</code>'s Tregenza quadrature per cell, and <code>PT.22</code>'s disc rays for the beam, through the <code>Occluders</code> protocol so the scene's rectangles and the mesh's own triangles answer the same query. The verification worth recording:</p>
+<ul>
+<li><strong>A convex mesh traces to the analytic form bit for bit.</strong> A ray leaving a convex body into the outward hemisphere of the face it left cannot return, so the gated quadrature and the open one are the same additions in the same order and their ratio is exactly 1.0. Measured on a tube, an open tube, a sphere and a box. That equality is what licenses <code>cell_occluders</code> skipping the trace for a convex mesh alone in a scene — exactness, not a speed heuristic — and it is why every mesh shipped before this row keeps its numbers.</li>
+<li><strong>A mesh cell and a patch cell agree to the bit</strong> about the sky at the same point under the same wall, through two independent ray-rectangle implementations (<code>cell_shadow</code> and <code>RectangleOccluders</code>). They share the quadrature and nothing else.</li>
+<li>The analytic anchors hold: the foot of a 60 m wall reads <strong>0.5000</strong> and the edge of a wide overhang <strong>0.5042</strong>, against 0.5 exactly.</li>
+</ul>
+<p>What this changed in a shipped scene: <code>quad_flight_mesh.yaml</code> declares the body and pod rectangles that already shaded the <em>patched</em> arms of <code>quad_flight_pointwise.yaml</code>, and they now shade the meshed ones too — so the same airframe no longer casts a shadow in one scene and none in the other. The motor pod covers the outer 60 mm of each arm: those cells lose the whole midday beam and all but <strong>0.10</strong> of their sky against <strong>0.93</strong> along the open span, and the arm's crown-to-underside spread at noon falls from 26.6 K to <strong>22.1 K</strong> because part of the crown is no longer in the sun. The cheaper number is the more correct one.</p>
+<p>Still assumed: the dome is isotropic (ADR 0104's Perez deferral stands), there is no inter-reflection between a cell and whatever shades it, and normals are per face.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

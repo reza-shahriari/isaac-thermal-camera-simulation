@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0042 — Three angular-emissivity levels, declared per material — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0042 — Three angular-emissivity levels, declared per material</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0042-angular-emissivity-levels.md" target="_blank" rel="noopener">docs/decisions/0042-angular-emissivity-levels.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-16 <strong>Status:</strong> Accepted Roadmap: M7.6, RP.4 (§4.2, §13.3, §13.5)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>docs/physics-model.md</code> §4.2 offers three fidelity levels for the angular dependence of emissivity and does not say who chooses between them, nor how the chosen one reaches a kernel. Shipped code answered both questions, and four modules and five test files have cited this ADR for the answer since M7.6 without it existing. This record is written after the fact, from the code, and is therefore descriptive of what runs rather than a proposal.</p>
+<p>Two contradictions in the spec forced part of the answer and are listed in <code>docs/spec-issues.md</code> with this ADR named as their resolution:</p>
+<ul>
+<li><strong>S12.</strong> §4.1 defines ρ as the hemispherical directional reflectance, while §4.2 uses the <em>specular</em> Fresnel R as 1 − ε. Those are the same number only for an optically smooth interface, and §4.3 asks for roughness on some of the same materials.</li>
+<li><strong>S18.</strong> §13.5 hard-codes p = 4 behind a <code>float2</code> (ε₀, a) table; §4.2 says p is fitted per class over 4–6; §12.3's material schema has no (a, p) fields at all.</li>
+</ul>
+<p>The physical constraint underneath is that <strong>ε(θ) does not have one shape.</strong> For a dielectric it falls with angle; for a metal it <em>rises</em> — bare aluminium goes from 0.019 at normal to 0.030 at 70°. No single two-parameter falloff can cover both.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Fresnel everywhere (Level A only).</strong> Exact, and the only form that represents a metal. Costs a checked-in n/k table per material; the library has proxies for two substances and nothing at all for asphalt, soil, vegetation, skin or cotton, so this would mean fabricating optical constants for most of the library — precisely what ADR 0041's provenance rule exists to stop.</li>
+<li><strong>Empirical everywhere (Level B only).</strong> Two instructions in a shader. Cannot represent a rising ε(θ) at any a ≥ 0, so every metal silently becomes a flat dielectric.</li>
+<li><strong>Constant ε (Level C only).</strong> §4.2 permits it "only for rough, high-emissivity surfaces (ε &gt; 0.93) within ±50° of normal" and names vehicle bodies, glass and water as violating it.</li>
+<li><strong>A level declared by the material, dispatched at one entry point.</strong> More machinery, and the level becomes part of a material's authored data rather than a global fidelity knob.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Option 4.</strong> The level is a property of the <em>material</em>, declared in its YAML as <code>angular_model</code>, and <code>irsim.materials.directional.directional_emissivity</code> is the single entry point that dispatches on it. A caller asks for ε_B(θ) and does not choose the fidelity; the material already did.</p>
+<ul>
+<li><strong>Level A — Fresnel</strong> from a checked-in n/k table (<code>{type: fresnel, n_k_file: ...}</code>). The only level that can represent a metal. <strong>This is the answer to S12:</strong> the specular Fresnel R is used as 1 − ε <em>only</em> at Level A, i.e. only where the surface is optically smooth in the band in §4.3's sense (σ ≪ λ/8). Rough surfaces take Level B or C, and their reflection lobe is ADR 0067's business, not this one's.</li>
+<li><strong>Level B — empirical</strong> ε(θ) = ε₀[1 − a(1 − cos θ)^p], fitted once per class against Level A and baked (<code>irsim.materials.angular</code>).</li>
+<li><strong>Level C — constant</strong>, and <strong>refused below ε_B = 0.93 rather than warned about</strong>. The error it hides is large and one-sided: glass at 60° sits about 0.12 below its normal ε, so a constant ε renders the limb of every windscreen and every water surface too warm, everywhere, in a way that looks like a plausible scene rather than like a fault.</li>
+</ul>
+<p>Four further choices inside Level B, each of which had an appealing wrong alternative:</p>
+<ul>
+<li><strong>The table carries (ε₀, a, p) as three columns, not (ε₀, a) with p pinned at 4.</strong> This is the answer to S18. The authored library already uses p = 4 and p = 5, so pinning p would silently re-fit six materials at render time.</li>
+<li><strong>ε₀ is not fitted.</strong> It is ε(0), which Level A gives exactly and which every other consumer of the material already uses as its band value. Letting the fit move it would make the normal-incidence emissivity depend on how well the <em>angular</em> model happened to fit.</li>
+<li><strong>The fit refuses on shape before it refuses on error.</strong> A rising ε(θ) is a metal and Level B cannot represent it at any a ≥ 0, so fitting aluminium returns a = 0 and a flat curve with the wrong sign of slope. A residual bar does not catch this: aluminium's ε is so small that a completely wrong shape has an RMS residual of <strong>0.0034</strong>, comfortably inside the 0.02 bar. The monotonic direction is therefore checked first and on a <em>relative</em> scale (<code>RISE_FRACTION</code> = 0.02 of ε₀, with a 1e-4 floor), and a rising curve is rejected whatever its residual.</li>
+<li><strong>p is searched exhaustively over (4, 5, 6) rather than optimised.</strong> The model is linear in <code>a</code> given p, so each candidate is one least-squares solve and the best over the set is the exact global optimum. A gradient search on two parameters would be slower and could return a local one.</li>
+</ul>
+<p>The fit range stops at <strong>70°</strong>, §4.2's own bound. Beyond it Fresnel turns over towards ε → 0 at grazing, the two forms diverge quickly, and including that region would drag the fit away from the angles a camera spends its time looking at to buy accuracy where a pixel is a sliver.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What the library actually declares.</strong> Of 19 materials: <strong>3 at Level A</strong> (bare aluminium, water, glass windshield), <strong>16 at Level B</strong>, and <strong>none at Level C</strong>. The level the spec explicitly permits is used by nothing, because the ε &gt; 0.93 bound excludes every material in the library that would otherwise want it. That is worth knowing before anyone spends effort optimising the Level C path.</p>
+<p><strong>Glass is at Level A for a reason that will recur.</strong> <code>angular_model</code> is one setting for a whole material, and glass cannot be served by one empirical fit across four bands: the Si–O reststrahlen band drives n to 0.35 at 8.8 µm inside the LWIR window, so a per-band fit wants a = 1.43 there against 0.66–0.73 elsewhere, and an a &gt; 1 clips ε to zero at 85.1° — calling a windscreen edge a perfect mirror where Fresnel still has 0.37 of normal. Fresnel from a table is per-band by construction, so Level A sidesteps the whole problem. <strong>Any material whose ε(θ) shape differs materially between bands must go to Level A</strong>, not to a compromise fit.</p>
+<p><strong>The fit contradicts the spec's own quoted range, and the fit wins.</strong> §4.2 quotes a ≈ 0.15–0.35 for painted metals and plastics. Fitting the four painted materials against Level A on the M7.5 paint proxy gives a = 0.732–0.770 per band and 0.748 jointly, shipped as 0.75 — two to three times the quoted range. The fit is preferred because §4.2 also <em>instructs</em> the fit, and because §4.3 puts a clearcoat in the optically smooth regime in LWIR. The estimate it replaced (a = 0.25, p = 5) held ε at 0.97 of normal at 70° where Fresnel on a clearcoat gives 0.86. Raised as spec issue <strong>S40</strong>.</p>
+<p><strong>The error this introduces.</strong> Level B is accepted only when its RMS residual against Level A over 0–70° is ≤ 0.02, and nothing is claimed for a Level B material beyond 70°. A scene whose radiometry depends on grazing-incidence emissivity — a sea surface, a long ground plane running to the horizon — must use Level A, which is why water is Level A and why <code>irsim.atmosphere.sea</code> goes through the n/k path rather than the baked one (ADR 0079).</p>
+<p><strong>What it makes easy.</strong> Adding a material is authoring one <code>angular_model</code> line; no kernel branches on the level, because the baked table carries the same three columns whatever the material chose. <code>directional_emissivity</code> returns <strong>float32</strong>, matching the G-buffer's <code>normal_dot_view</code>, so the float32 discipline of non-negotiable #2 is not quietly widened in the middle of the stage-1 chain.</p>
+<p><strong>What it makes hard.</strong> A material cannot declare different levels per band — see glass above. And a caller who authors <code>empirical</code> for a metal gets a refusal rather than a plausible flat curve, which is correct but is a failure at <em>bake</em> time for something that looks like a data entry choice.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A metal needs Level B for shader cost. This requires either signed <code>a</code> (changing the model's meaning) or a fourth level, and the shape guard is what would have to be relaxed.</li>
+<li>A material needs a different level in different bands, i.e. the glass problem recurs for a substance with no usable n/k table.</li>
+<li>Tier 4 comparison against public imagery shows a systematic bias at the limb of Level B surfaces, which would indicate the 70° bound or the 0.02 residual bar is too loose.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

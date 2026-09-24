@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0005 — Stefan–Boltzmann identity tolerance and the fractional-exitance series — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0005 — Stefan–Boltzmann identity tolerance and the fractional-exitance series</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0005-stefan-boltzmann-tolerance.md" target="_blank" rel="noopener">docs/decisions/0005-stefan-boltzmann-tolerance.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>docs/physics-model.md</code> §15 asks for the Tier 1 identity ∫L dλ = σT⁴/π; the ir-sim-testing skill lists analytic identities at 1e-12 relative; the scaffold's test met it only at 2e-5 with a trapezoid on 0.1–1000 µm, limited by tail truncation and trapezoid error, with no ADR for the loosened number. Separately, <code>fractional_exitance</code> summed the exponential series only, which converges as 1/N³ in the Rayleigh–Jeans tail (x = C2/λT ≪ 1), so it could not reach double precision there — and it accepted metre-valued wavelengths silently.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Keep 2e-5 with a trapezoid</strong> — no code change; hides any error below 2e-5 and treats a numerical artefact as a physics tolerance.</li>
+<li><strong>Simpson quadrature on 0.1–200 µm plus the closed-form tail</strong> (σT⁴/π)(1 − F(200 µm)) from <code>fractional_exitance</code> — two independent routes (quadrature vs series) covering the whole spectrum; reaches 1e-6 easily. Requires the series to be accurate at small x.</li>
+<li><strong>Adaptive quadrature to 1e-12</strong> (scipy <code>quad</code> over the transformed variable) — reaches the skill's number but the oracle then depends on scipy's tolerances rather than on two independent derivations.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, with the tolerance set at <strong>1e-6 relative</strong> (the spec's number) rather than the skill's 1e-12. Measured closure is 3e-11 at 250, 300 and 800 K, so the margin is 4–5 orders; 1e-6 is chosen because it is the spec figure and because the remaining error is Simpson's, not physics — any physics error this test exists for (wrong C1L, dropped π, wrong σ) is a factor of 3 or more.</p>
+<p><code>fractional_exitance</code> now uses two expansions of the dimensionless Planck integral ∫ₓ^∞ t³/(eᵗ−1) dt: the exponential series for x ≥ 0.5 (with a geometric tail bound as the stopping rule) and π⁴/15 minus the Bernoulli/Taylor series of the complementary integral for x &lt; 0.5. The branches agree at the crossover to 1e-13 in a test. Both <code>fractional_exitance</code> and <code>band_radiance_tophat</code> validate units (micrometres and kelvin) like the spectral functions.</p>
+<p><strong>Correction to the roadmap's verification cell for M0.4.</strong> "F(5000 µm) = 1 to 1e-12" is not a valid test: F never reaches 1 at finite wavelength. At 300 K, 1 − F(1000 µm) = 5.6e-6 and 1 − F(5000 µm) = 4.5e-8, physically. The convergence test instead checks F(1000 µm, 6000 K) against the Rayleigh–Jeans limit (15/π⁴)(x³/3 − x⁴/8), residual 7e-10, to 1e-6 relative.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The Stefan–Boltzmann test is a genuine two-route identity and runs in 30 ms. <code>fractional_exitance</code> is double-precision accurate over the whole 0.1–1000 µm × 1–6000 K domain, so it can serve as the oracle for the band LUT (M1). No physical error is introduced.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A band integration oracle needs better than 1e-12 (unlikely), or the validated wavelength range grows beyond 1000 µm (the small-x branch already covers it; only <code>_validate</code> bounds would change).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

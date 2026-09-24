@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0116 — The gain state is a radiance ceiling, and it is also the transfer — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0116 — The gain state is a radiance ceiling, and it is also the transfer</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0116-the-gain-state-is-a-radiance-ceiling.md" target="_blank" rel="noopener">docs/decisions/0116-the-gain-state-is-a-radiance-ceiling.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Completes the fire lane on the camera side; the scene side is <a href="../0115-fire-authored-by-what-it-emits/">ADR 0115</a> and the flame's own radiance is <a href="../0098-participating-media-and-the-phenomena-tier/">ADR 0098</a>. <strong>Date:</strong> 2026-09-22 Roadmap: PH.8 (§9.2, §11.3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>A thermal camera does not have one dynamic range; it has a <strong>gain state</strong>. FLIR's Boson (Rev 340) publishes two — high gain holds a scene to about 140 °C, low gain to about 500 °C, both behind the same 16-bit converter — and switching between them is a decision about what the scene contains. Every camera in this repository has run, in effect, with no ceiling at all. That was fine until <code>PH.7</code> put fire in a scene, at which point what a microbolometer does with a 1000 °C object stops being radiometry and becomes a camera question with three parts: where the ceiling is, what units it is in, and what the rail does to everything else in frame.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>No ceiling: let the converter rail where it rails.</strong> The status quo. It gets the <em>existence</em> of a rail right and its <em>position</em> wrong by whatever the radiometric range happens to be, which is a constructor default nobody chose for this reason. Rejected: the position is the whole point — it is what distinguishes the two states of a real camera.</p>
+<p><strong>A ceiling on the scene temperature.</strong> The obvious implementation and the one this ADR exists to refuse. See below.</p>
+<p><strong>A ceiling on the signal in DN.</strong> Physically where a well saturates, and it would come free from <code>quantise</code>. Rejected as the <em>only</em> mechanism because the datasheet quotes the ceiling as a scene temperature; expressing it in DN would mean re-deriving it through the transfer at the point of use, and the two could then disagree. Taken <em>as well</em>, indirectly — see the second decision.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>The ceiling is a radiance, applied to the at-aperture plane, and never to a temperature.</strong></p>
+<p>For one blackbody pixel the two are the same operation: <code>L_B</code> is monotone, so clipping <code>T</code> at 500 °C and clipping <code>L</code> at <code>L_B(500 °C)</code> pick the same pixels. That is exactly why the mistake survives review — every test written against a blackbody passes either way. They part company the moment a pixel is a <em>scene</em>, because what arrives is <code>ε L_B(T) + (1 − ε) L_env</code> plus what the path adds, and that is not <code>L_B</code> of anything. Measured on the shipped Boson, a 1273 K surface under the low-gain ceiling:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>ε</th><th>radiance ceiling</th><th>temperature ceiling</th></tr></thead>
+<tbody>
+<tr><td>1.0</td><td>rails</td><td>rails</td></tr>
+<tr><td>0.6</td><td><strong>rails</strong></td><td><strong>does not rail</strong> — the frame reads merely hot</td></tr>
+<tr><td>0.4</td><td>663 K, unsaturated</td><td><strong>544 K</strong> — 119 K of error on a pixel that never reached the ceiling</td></tr>
+</tbody></table></div>
+<p>Both failures are silent. An image with a saturated flame in it looks like an image with a saturated flame in it, and 544 K where 663 K belongs is a plausible number on an object nobody has a second measurement of. The ε = 0.4 row is the worse of the two: a clip that should not have applied at all changed a pixel by more than a hundred kelvin.</p>
+<p><strong>The gain state is also the transfer.</strong> A Boson's two states share one converter and differ in how much scene they map onto it, so <code>gain_ceiling_k</code> becomes the top of the camera's radiometric range as well as the clip level. One number, so the clip and the rail cannot disagree: a clipped pixel lands exactly on the top code rather than somewhere arbitrary below it, and the 16-bit signal rails for the physical reason rather than by a second mechanism. Measured: a 400 °C object — chosen because it sits <em>between</em> the Boson's two ceilings — rails high gain at DN 65535 reading 413 K, and reads 668 K at DN 45 780 in low gain. Same scene, same camera, and the state decides whether the frame is usable.</p>
+<p><strong>The rail does not reach the measurement.</strong> The AGC is a display stretch and the radiometric branch inverts the ADC plane upstream of it (ADR 0031), so <code>apparent_t</code> is bit-identical across AGC modes. The rail is the only cap on a measurement, which is what gives FLAME 3's radiometric histogram its shape: an ambient mode and a tail piled <em>against</em> 500 °C rather than spread below it.</p>
+<p><strong>What the rail does reach is the picture, and the number is large.</strong> The same person against the same room, on the same camera:</p>
+<div class='table-wrap'><table>
+<thead><tr><th></th><th>no fire in frame</th><th>1273 K fire in frame</th></tr></thead>
+<tbody>
+<tr><td><code>agc_linear</code></td><td>252 DN of separation</td><td><strong>1.0 DN</strong></td></tr>
+<tr><td><code>agc_plateau</code></td><td>—</td><td><strong>90 DN</strong></td></tr>
+</tbody></table></div>
+<p>FLIR quote about 0.7 % of range, which is 1.8 DN; this reproduces it. The linear stretch is not a bad one — it is a perfectly good one being asked to span a thousand kelvin. Plateau equalisation spends its output range on occupied bins instead of on the empty gap between the room and the fire, which is the entire argument for the mode, and now it is a measurement rather than an assertion.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy now:</strong> a fire scene renders on a camera that behaves like a camera, and the AGC choice has a measured cost. <code>XD.5</code> can compare against FLAME 3's actual histogram when the dataset is in hand; until then <code>tests/unit/test_gain_state.py</code> pins the <em>shape</em> a low-gain radiometric camera produces from FLAME 3's published description, and says so rather than implying an agreement.</p>
+<p><strong>Error introduced:</strong> the clip is applied to the scene-radiance plane before the PSF, where a real core blurs and then saturates. The difference is confined to the optical skirt of a railed object — a railed flame does not bloom quite as far as it would on a real core. It is bounded by the PSF's own width, which for these optics is under a native pixel.</p>
+<p><strong>A schema field costs a golden regeneration, even at its default.</strong> <code>config_hash</code> covers the serialised sensor config, so adding <code>gain_ceiling_k</code> moved it on 23 stored sidecars although every one of them has the field as <code>null</code> and takes the same code path. The guard caught it and said so in the right words — "the inputs that produced the reference changed, so this is not a physics failure" — and the arrays were verified <strong>bit-identical</strong> before <code>make golden-update</code> ran, which is the only thing that makes a regeneration honest. Worth knowing before the next optional field.</p>
+<p><strong>Not done:</strong> no shipped sensor config declares a gain state. <code>gain_ceiling_k</code> defaults to <code>None</code>, which is the behaviour every camera in this repository had before, and adding one to <code>flir_boson_640_lwir.yaml</code> would move the radiometric range's top from 473 K to 413 K and rewrite every golden that camera has — to model a state no scene yet needs. It belongs with the first fire scene, alongside the <code>fire:</code> schema block ADR 0115 left for the same reason.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A camera in a scene switches gain state <em>during</em> a run, which is what a real core does when a fire enters frame — the transfer changes between frames and the NUC, the FFC and the temporal filter all have to be told. Or a photon FPA needs the same treatment, where the ceiling is the well in electrons rather than a scene temperature and the two do not map onto each other as cleanly.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

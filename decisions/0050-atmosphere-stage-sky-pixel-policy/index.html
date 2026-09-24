@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0050 — Stage 2: path radiance at a uniform T_air, sky pixels to the sky model, no scattered sunlight — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0050 — Stage 2: path radiance at a uniform T_air, sky pixels to the sky model, no scattered sunlight</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0050-atmosphere-stage-sky-pixel-policy.md" target="_blank" rel="noopener">docs/decisions/0050-atmosphere-stage-sky-pixel-policy.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Stage 2 of the pipeline (§13.4) applies the atmosphere per pixel: L' = τ(d) L + (1 − τ(d)) L_B(T_air). Three choices had to be made: what temperature the air radiates at along the ray, what happens to pixels that hit no geometry (the sky), and whether scattered sunlight along the path is modelled.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Uniform T_air along the ray.</strong> The path radiance uses the surface air temperature of the shared <code>WeatherSeries</code> at the frame time (<code>PipelineState.t_s</code>), for every pixel. This is exact for horizontal paths near the ground (the §7.2 regime, valid to ~500 m) and the L2 form the spec asks for. For slant paths to aerial targets the air cools with height and the path radiance is over-estimated; MS.1's layered model replaces the scalar γ, L_air pair with per-ray integrals without changing the kernel's shape.</li>
+<li><strong>Sky pixels pass through untouched.</strong> The G-buffer's <code>sky_mask</code> (agreed with the Isaac lane: the renderer reports +inf distance and id 0) marks them; their <code>temperature_k</code> is the apparent sky temperature T_sky(θ) filled by the sky model (MS.2), which by definition already includes the whole atmospheric column. Stage 1 treats them as blackbody-equivalent; stage 2 returns them bit-identical in both the Beer–Lambert and the constant-τ paths. There is no distance sentinel in the contract: <code>distance_m</code> is 0 under the mask so that a consumer ignoring the mask sees τ = 1.</li>
+<li><strong>No scattered sunlight.</strong> Daytime path radiance in MWIR/SWIR/NIR from sunlight scattered into the line of sight is not modelled (Appendix A #2). At 200 m it is negligible against thermal emission in LWIR and small in MWIR; at kilometres in haze it can be a few percent of a target's MWIR signal and dominates SWIR/NIR path radiance. This is the phase-1 limitation with the largest effect on daytime MWIR/SWIR sky-target contrast, and it is documented rather than approximated.</li>
+<li><strong>Where it runs.</strong> On the k× supersampled grid, after band radiance and before the PSF: the atmosphere is a property of each ray, the blur is a property of the optics. Both γ and L_B(T_air) are evaluated with the pipeline's own LUT so an isothermal scene stays isothermal to round-off (the invariance test) and the constant-τ L1 path keeps the path-radiance term.</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Known answer through the whole chain: 310 K blackbody, T_air 290 K, τ 0.8, 8–12 µm → T_app = 306.303 K (within 1 mK, bisection cross-check); isothermal G-buffers read T_air at 10 m and 5 km within 1 mK.</li>
+<li>The stage adds no per-frame state; time enters only through <code>PipelineState.t_s</code>.</li>
+<li>Error budget: uniform-T_air over-estimates slant-path radiance (order 1 K apparent at 5 km, 15° elevation, clear mid-latitude air; MS.1 quantifies it); no scattered sunlight (above).</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>MS.1 (layered slant-path atmosphere) lands — replace the scalar pair with per-ray τ and L_path — and when a daytime MWIR/SWIR sky-target scene needs scattered-sunlight path radiance (M11's solar-path work).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

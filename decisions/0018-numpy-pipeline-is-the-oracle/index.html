@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0018 — irsim.pipeline (NumPy) is the reference; Warp and SPG are fast paths — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0018 — irsim.pipeline (NumPy) is the reference; Warp and SPG are fast paths</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0018-numpy-pipeline-is-the-oracle.md" target="_blank" rel="noopener">docs/decisions/0018-numpy-pipeline-is-the-oracle.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Three implementations of the same stage chain will exist: the engine-free NumPy pipeline, the Warp path inside Isaac Sim (§13.6) and the SPG CUDA kernels (§13.5). CLAUDE.md calls <code>irsim_isaac/pipeline</code> the "Warp-based reference pipeline" while the skills make the NumPy path the oracle. One of them has to be the thing the others are tested against; nobody can eyeball a thermal image for correctness.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Warp is the reference</strong> — runs only with Isaac Sim and a GPU; the physics loop then needs the engine, which is exactly what non-negotiable #1 forbids.</li>
+<li><strong>NumPy is the reference; GPU paths are validated against it</strong> on synthetic G-buffers to float32 rounding (5 mK / 1e-4 relative, ir-sim-testing skill) — the reference runs in the default gate.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2. <code>src/irsim/pipeline/</code> is an engine-free package with:</p>
+<ul>
+<li><code>Stage</code>: a protocol <code>(planes, config, state) → planes</code> on the G-buffer dict contract, float32 in and out for anything carrying temperature or radiance;</li>
+<li><code>PipelineConfig</code> (sensor config, band LUT, material table, FPA params, supersample factor) and <code>PipelineState</code> (frame index, housing temperature, persistent buffers for IIR/drift/FFC);</li>
+<li>stage 1 <code>band_radiance_stage</code>: L = ε₀ · L_B(T) per material id, <strong>no π, no aperture, no cos⁴</strong> — radiance is a scene property; the optics stage converts it to pixel power.</li>
+</ul>
+<p><code>irsim_isaac/pipeline</code> is the Warp <em>fast path</em>; its docstring wording and the CLAUDE.md layout (proposed additions <code>src/irsim/pipeline/</code>, <code>src/irsim/validation/</code>, <code>src/irsim_eval/</code>, commit scope <code>pipeline</code>) are open question 12. Interfaces respect ADR 0014: ids never blend, temperature is per-facet, <code>sky_view_factor</code> is an input plane, supersampling is a G-buffer resolution choice and anti-aliasing happens by box-filtering radiance downstream.</p>
+<p>A minimal <code>irsim.materials.MaterialTable</code> (id → ε₀ per band, id 0 = UNMAPPED and refused) lands with this step; M7.18 extends it with the angular/reflectance/transmittance columns.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Every GPU kernel gets a test of the form "same synthetic G-buffer through NumPy and through the kernel, agree to 5 mK". The NumPy path is slow (seconds per frame at 4× supersample) and that is fine: it is the oracle, not the product.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A stage cannot be expressed in NumPy without the engine (e.g. path-traced reflections at L3) — then that stage's oracle is a different, still engine-free, reference.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

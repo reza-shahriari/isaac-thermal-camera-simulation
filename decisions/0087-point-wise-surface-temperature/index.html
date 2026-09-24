@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0087 — Point-wise surface temperature, parameterised by the position AOV — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0087 — Point-wise surface temperature, parameterised by the position AOV</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0087-point-wise-surface-temperature.md" target="_blank" rel="noopener">docs/decisions/0087-point-wise-surface-temperature.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-21-wm1-the-premise-of-a-real-limit-does-not-hold">Addendum, 2026-09-21 (WM.1): the premise of &quot;a real limit&quot; does not hold</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted; the <strong>curved-geometry limitation</strong> superseded by ADR 0110 (the planar patch itself is not superseded and is still what ships for near-planar surfaces) Roadmap: MP.1 (§6.1, §6.4, §13.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Every rendered frame this project has produced carries <strong>one temperature per prim</strong>. The bridge that feeds the G-buffer is a <code>dict[str, float]</code> keyed by prim path (<code>aerial_bridge.AerialThermalBridge.facet_temperatures</code>), gathered into the <code>temperature_k</code> plane by instance id. <code>ThermalField</code> has always been an N-facet solver, but every consumer has mapped one facet to one prim, so the N has been the number of <em>objects</em>, not the number of <em>points</em>.</p>
+<p>In LWIR the temperature field is the image, and this is the dominant modelling error in the pipeline for anything larger than a few pixels:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>situation</th><th>reality</th><th>what irsim rendered</th></tr></thead>
+<tbody>
+<tr><td>building wall, half in sun</td><td>10–20 K across one wall</td><td>one value</td></tr>
+<tr><td>bonnet over a running engine</td><td>~15 K from over the block to the wing</td><td>one value</td></tr>
+<tr><td>asphalt beside a warm car</td><td>1–3 K patch, falling with distance</td><td>one value for the whole road</td></tr>
+</tbody></table></div>
+<p>The user who commissioned this work named it as the defect that made a previous simulator unusable: "whole object is colored as same … if i have a big building, every pixel of that has a single color, no matter if some of it is under the sun and some other is under shadow."</p>
+<p>The constraint that shapes the fix is what the renderer can actually transport per pixel. ADR 0014 measured this build: an exact integer <strong>instance id</strong>, and <code>Camera3dPositionSD</code> / <code>PtWorldPos</code> as a <strong>float32 world position good to 3.4 mm</strong>. There is no UV AOV, no per-triangle id, and every colour AOV is fp16 — which is why temperature does not travel as a colour in the first place.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A UV atlas per prim, temperature as a texture.</strong> The standard offline-renderer answer, and the most general. Needs a UV AOV this build does not expose, an unwrap for every asset, and a texel-to-cell convention kept in sync with the mesh. Blocked on a renderer capability, so it would be a step that cannot be finished.</li>
+<li><strong>A per-triangle facet id in a custom AOV.</strong> Exact for arbitrary geometry. Needs either an SPG shader (M10.12, itself blocked) or an integer AOV nobody has found on this build.</li>
+<li><strong>A world-space voxel grid.</strong> Needs nothing new, but is wrong for surfaces: a voxel containing both faces of a panel, or both the road and the car sitting on it, has one temperature, which reintroduces the defect at a different scale.</li>
+<li><strong>Project the per-pixel world position onto planar patches.</strong> Needs nothing new, is exact for near-planar surfaces, and degrades to today's per-prim behaviour for everything else.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 4. <code>irsim.thermal.surface_field.PlanarPatch</code> is a rectangular grid of cells on a plane; its cells are ordinary §6.1 facets solved by the existing <code>FacetSolver</code>, and <code>PlanarThermalField</code> composes <code>ThermalField</code> so the fixed tick, the between-tick interpolation and the never-mutate-on-query rule are reused rather than restated. The spatial part is <strong>only the lookup</strong>: a point in space becomes a bilinear blend of cells. The balance is unchanged.</p>
+<p>Per-cell spatial variation enters through forcing that was already per-facet — <code>FacetForcing.q_internal_w_m2</code>, <code>q_solar_w_m2</code>, <code>h_w_m2_k</code>. No solver change was needed; the knobs existed and nothing had ever varied them across one surface.</p>
+<p>A patch claims a <strong>slab</strong>, not a rectangle: <code>thickness_m</code> is its half-width along the normal. Without this a road patch would claim a bonnet 0.9 m above it, since the bonnet projects into the same (u, v) rectangle — and the resulting frame would look entirely reasonable.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy:</strong> any near-planar surface — road, bonnet, roof, wall, deck, container top — gets a real temperature field for the cost of authoring a patch, with no renderer change, no asset change and no new dependency. The per-prim path is untouched, so every existing scene renders bit-identically.</p>
+<p><strong>Hard:</strong> curved and small geometry. A wheel, a tyre, an exhaust pipe or a mast is not near-planar and still takes one temperature per prim. This is a real limit, not a temporary one: raising it means option 1 or 2, and therefore means a renderer capability this build does not have.</p>
+<p><strong>The error introduced</strong> is the projection error: a surface that deviates from its patch plane by <code>d</code> is sampled at the cell its projection lands in, displaced along the surface by <code>d·tan(θ)</code> for a surface tilted θ from the plane. For a bonnet with 60 mm of crown over a 1.2 m patch and 0.15 m cells, the worst displacement is under a third of a cell, which the bilinear sample smooths further. For a surface tilted more than ~30° from its patch plane the displacement exceeds a cell and the surface should get its own patch instead. This is not checked automatically — <code>thickness_m</code> bounds how far out of plane a claimed point may be, which bounds the error, but the caller chooses it.</p>
+<p><strong>Cost.</strong> Cells are solved, not rendered, so the count is set by the thermal gradient and not by the pixel count: a 2.4 m bonnet at 0.15 m cells is 16×8 = 128 cells, and a 20 m × 20 m road at 0.25 m is 6 400. Both are far below the per-frame cost of the radiance kernels.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>An SPG shader lands (M10.12/M10.13a–e) and can carry an integer per-triangle attribute, or a build exposes a UV AOV — either makes option 1 or 2 reachable and this becomes the fallback for surfaces that do not merit an atlas.</p>
+<h2 id="addendum-2026-09-21-wm1-the-premise-of-a-real-limit-does-not-hold">Addendum, 2026-09-21 (WM.1): the premise of "a real limit" does not hold<a class="anchor" href="#addendum-2026-09-21-wm1-the-premise-of-a-real-limit-does-not-hold" aria-label="permalink">#</a></h2>
+<p>This ADR's Consequences call curved geometry "a real limit, not a temporary one: raising it means option 1 or 2, and therefore means a renderer capability this build does not have". <code>WM.1</code> measured a <strong>third</strong> route that needs nothing from the renderer, and it works.</p>
+<p>Options 1 and 2 both ask the <em>renderer</em> to transport the parameterisation — a UV AOV, or a per-triangle id. The third route derives it instead: the instance id says which prim a pixel hit, the position AOV says where in the world it hit, and a closest-point query against that prim's own mesh returns the triangle and its barycentric coordinates. <code>scripts/probe_warp_mesh.py</code> and <code>scripts/probe_warp_prim.py</code> measure it on this build (Warp 1.16.0, no Kit boot needed for the first):</p>
+<ul>
+<li><code>mesh_eval_position(face, u, v)</code> reproduces a point already on the surface to <strong>0.13 µm</strong> on a 0.4 m box and a 16 k-triangle sphere — against this ADR's own 3.4 mm position budget, a margin of more than four orders of magnitude. The residual is float32 round-off, and it scales with distance from the world origin (0.73 µm at 4.3 m), so a scene tens of kilometres across would need checking; at vehicle and building scale it is nowhere near the budget.</li>
+<li>Warp's <code>(u, v)</code> are the weights of <strong>v0 and v1</strong>, with <code>1 − u − v</code> on v2. The reading a person writes down first, <code>(1−u−v)·v0 + u·v1 + v·v2</code>, is wrong by <strong>0.56 m on a 0.4 m box</strong> — a silent error that samples an unrelated part of the surface.</li>
+<li>Under a full 3.4 mm of position error the recovered <em>face</em> changes on 1.9 % of queries on a 12-triangle box and 56 % on a 16 k-triangle sphere, but the sampled surface point moves only 2.68 mm on average and never more than 3.41 mm. The face is unstable between neighbours; the <strong>position</strong> is stable to the size of the input error, which is what a temperature lookup needs.</li>
+<li>A USD prim needs triangulating (<code>faceVertexCounts</code> of 4 for an asset authored as quads) and its local-to-world transform applying, and an analytic gprim such as <code>UsdGeom.Sphere</code> exposes no points to hand Warp at all.</li>
+</ul>
+<p>This ADR is <strong>not</strong> superseded here: the planar patch remains what ships, and the decision that replaces it is <code>WM.5</code>'s to write once <code>WM.3</code> has built the bridge. What changes now is the claim that the limit could not be raised on this build. It can.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0092 — The band-scalability guard denies by default, and the atmosphere keeps one carve-out — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0092 — The band-scalability guard denies by default, and the atmosphere keeps one carve-out</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0092-band-scalability-guard-and-the-atmosphere-carve-out.md" target="_blank" rel="noopener">docs/decisions/0092-band-scalability-guard-and-the-atmosphere-carve-out.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#why-bandclasses-was-not-fixed-in-this-step">Why BANDCLASSES was not fixed in this step</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-17</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>CLAUDE.md names "bands are data, not code" the main scalability requirement of the project: adding a band must be a YAML change, not a kernel change. <code>tests/unit/test_band_scalability.py</code> asserts it — an AST walk that flags any band name (in a string or an identifier) and any nominal band edge used as a wavelength.</p>
+<p>The guard scanned a <strong>positive list</strong> of six packages:</p>
+<pre><code class="language-python">CORE_PACKAGES = ("radiometry", "optics", "detector", "noise", "isp", "pipeline")</code></pre>
+<p>That shape has three defects, all measured before this change:</p>
+<ol>
+<li><strong>The exemption was an omission, not a decision.</strong> <code>atmosphere</code>, <code>materials</code>, <code>thermal</code>, <code>io</code>, <code>validation</code>, <code>config</code> and <code>scene.py</code> were unguarded because nobody had listed them. Four of them — <code>materials</code>, <code>io</code>, <code>thermal</code>, <code>validation</code> — and <code>scene.py</code> carried <strong>zero</strong> offences and had for their whole lives, so the carve-out that named <code>irsim.materials</code> rescued nothing. This is the same shape as the float16 carve-out <code>IG.8</code> removed.</li>
+<li><strong>The guard could switch itself off in silence.</strong> Each test re-globbed its own package directory, so a package renamed or moved in the tuple walked a path that does not exist, which yields no files, no offences, and a green test. The one coverage assertion counted the six packages' union against a floor of 30 files; the six hold 72, so dropping even the largest of them still passed.</li>
+<li><strong>The guard was blind to the fifth band the codebase already contains.</strong> Both halves tested membership in <code>BAND_IDS</code> = <code>("nir", "swir", "mwir", "lwir")</code>. But <code>visible</code> has a spectral-class table, a Planck weighting temperature, a mandatory key in all seven atmosphere presets, a wavelength range of its own (<code>VISIBLE_RANGE_UM</code>) and an <code>if band == "visible"</code> branch — and not one of those tripped a guard whose forbidden set stopped at four names. <code>AT.4</code>'s exit bar ("a fifth band added to a sensor YAML renders with no edit under <code>src/</code>") was therefore already falsified by a worked counter-example in the tree.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>The guard scans every module under <code>src/irsim</code> and carries the carve-out as a tested constant.</strong></p>
+<p><code>BAND_AWARE</code> maps a path to <code>(ceiling, why)</code>. The ceiling is a ratchet: it may fall freely, and it rises only by someone editing the table. Three tests keep it honest — every entry must name a file that exists, must still have at least one offence (a carve-out that rescues nothing is deleted), and must not have grown past its ceiling. A module is guarded the day it is created, not the day someone remembers to list it.</p>
+<p>The forbidden <strong>name</strong> set widens to <code>BAND_KEYS</code> = the four camera bands plus the anchor. The forbidden <strong>edge</strong> set deliberately does <em>not</em> widen to the anchor's <code>(0.4, 0.7)</code>: those are photopic definition points, and adding them buys one true positive against one false one — <code>irsim.radiometry.solar.TRUSTED_MIN_UM = 0.7</code> is the wavelength below which the 5778 K solar model departs from the real spectrum, a fact about the sun rather than a band limit, and exempting a clean radiometry module to catch it costs more coverage than it wins.</p>
+<p><strong>The registry gains the anchor band.</strong> <code>ANCHOR_BAND</code>, <code>ANCHOR_RANGE_UM</code>, <code>ANCHOR_REGIME</code>, <code>BAND_KEYS</code>, <code>regime_for()</code> and <code>nominal_range_for()</code> live in <code>irsim.config.bands</code>. The anchor is a <em>reference</em> key, not a camera band — no <code>BandId</code> names it, <code>band_id_for</code> cannot produce it (0.4–0.7 µm overlaps no nominal range by 50 %) and no sensor YAML may declare it — but the atmosphere needs it spelled, and spelled by hand it was five independent copies of one convention.</p>
+<p><strong>Two of the three couplings the roadmap row named are removed:</strong></p>
+<ul>
+<li><code>WEIGHT_T_REF_K</code>, a five-row dict keyed by band name, is replaced by <code>weight_reference_temperature(band)</code>, which asks the registry for the regime. All five shipped rows are reproduced exactly.</li>
+<li><code>ATMOSPHERE_BAND_KEYS</code> now derives: <code>frozenset(BAND_KEYS)</code>. <code>VISIBLE_RANGE_UM</code> and the <code>if band == "visible"</code> branch (with its <code>cast(BandId, band)</code>, which lied about the type) are gone.</li>
+</ul>
+<p><strong><code>BAND_CLASSES</code> keeps its carve-out</strong>, recorded here with its reason. The roadmap row explicitly permits this ("if the carve-out is kept, it is recorded with its reason").</p>
+<h2 id="why-bandclasses-was-not-fixed-in-this-step">Why <code>BAND_CLASSES</code> was not fixed in this step<a class="anchor" href="#why-bandclasses-was-not-fixed-in-this-step" aria-label="permalink">#</a></h2>
+<p>The table is spectroscopy — H₂O at 0.94/1.1/1.4/2.7/6.3 µm, CO₂ ν₃ at 4.3 µm, the rotational band past 13 µm — filed under camera names. Unifying it into one wavelength-ordered ladder is the right end state, and two things measured during this step say so:</p>
+<ul>
+<li><strong>The per-band multipliers are a gauge, not a physical disagreement.</strong> <code>exponential_sum</code> solves one scale factor per band so the horizontal 200 m transmittance matches the grey preset's. Multiplying every non-opaque multiplier in a band by 3 moves τ at 200 m / 1 / 5 / 20 km by at most <strong>3.2e-14</strong> in all four bands. So "LWIR window 0.3 vs SWIR window 0.5" carries no information; only ratios within a band do. The objection that a flat table cannot reproduce the fit does not survive measurement.</li>
+<li><strong>The band keying has already produced a physics defect.</strong> SWIR's table and NIR's table disagree about the same air. NIR resolves the 0.94 µm water band (<code>h2o_0p94</code>, 0.90–0.98 µm, ×10); SWIR's window swallows the same interval at ×0.5. Resolving it in favour of the feature moves <strong>16.9 %</strong> of the shipped InGaAs band's Planck-weighted response out of "clear window", and τ by −1.5 % at 1 km, <strong>−6.4 % at 5 km</strong> and +37.8 % at 20 km. The 200 m anchor is exact by construction, which is precisely why no existing test caught it. A second, smaller conflict sits at 0.70–0.80 µm (<code>visible</code> window 1.0 vs NIR window 0.5), and the union of the shipped intervals has holes at 1.80–2.00 µm and 6.00–7.00 µm that no band claims.</li>
+</ul>
+<p>That is a physics change with a golden update, an API change to the public <code>class_weights</code>, and migration of three test files. Folding it into a guard commit would have shipped a −6.4 % τ change under a refactor's message. It is <code>AT.10</code>, with the measurements above already taken.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A new module under <code>src/irsim</code> is band-guarded from creation. 140 of 146 modules are guarded today; six are exempt, each with a written reason and a ceiling.</li>
+<li>Five of the six carve-outs are a fact about the world (<code>config/environment.py</code>'s LWIR-only sky depression, <code>config/sensor.py</code>'s solar/thermal crossover) or a pydantic field name already written into YAML on disk (<code>aerosol_ratio_to_visible</code>, in seven presets). One — <code>atmosphere/layered.py</code> — is neither, and a test asserts that so it cannot quietly become permanent.</li>
+<li>A fifth band still does <strong>not</strong> render without an edit under <code>src/</code>: it needs a <code>BAND_CLASSES</code> entry. <code>AT.4</code>'s exit bar is met on its second clause (the carve-out is recorded and tested), not its first. <code>AT.10</code> owns the first.</li>
+<li><code>WEIGHT_T_REF_K</code>'s removal came within one line of a silent calibration change. The table weighted MWIR at 300 K while <code>DEFAULT_REGIME["mwir"]</code> is <code>"mixed"</code>, so the derivation a reader reaches for first — "emissive keeps 300 K, everything else is solar" — reproduces four rows and moves MWIR to 5800 K, rescaling every MWIR class share, its anchor solve, and τ_MWIR at every range but 200 m. The rule that reproduces all five turns on <em>reflective</em>. A test asserts the two rules still differ, so it cannot stop guarding the drift it was written for.</li>
+<li><code>SOLAR_WEIGHT_T_K = 5800.0</code> sits beside <code>irsim.radiometry.solar</code>'s 5778 K for the same sun. The 22 K disagreement moves the shipped SWIR and NIR class shares by 1.2e-3 relative (measured) — below this fit's own uncertainty, but it is two constants for one fact, and it is recorded rather than reconciled here.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p><code>AT.10</code> unifies <code>BAND_CLASSES</code> into a wavelength ladder — at which point <code>atmosphere/layered.py</code>'s ceiling should fall to its two Koschmieder identifiers, and the "only carve-out that is not physics or a schema key" test should be deleted rather than updated.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

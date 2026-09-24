@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0059 — MTF conventions: supersample box as MTF_det, band-representative λ, one Gaussian, motion MTF photon-only — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0059 — MTF conventions: supersample box as MTF_det, band-representative λ, one Gaussian, motion MTF photon-only</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0059-mtf-conventions.md" target="_blank" rel="noopener">docs/decisions/0059-mtf-conventions.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted; the motion-MTF clause superseded by ADR 0077 <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§8.3 lists six MTF factors and a worked case (12 µm, F/1, 10 µm: MTF_diff(ξ_N) ≈ 0.49, MTF_det(ξ_N) ≈ 0.64) but leaves open: which λ to use for diffraction in a 6 µm-wide band, whether MTF_aberr, MTF_defocus and MTF_elec are separate models (spec issue S22), how MTF_det relates to the supersample box filter of ADR 0020, and whether motion MTF applies to a bolometer whose smear is already the τ_th IIR (spec issue S20).</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim.optics.mtf</code>, <code>irsim.optics.psf</code>:</p>
+<ul>
+<li><strong>MTF_det is the supersample box filter.</strong> The pipeline never applies a detector PSF; the k× render followed by the k×k box mean <em>is</em> MTF_det with the aliasing (ADR 0020). <code>mtf_detector</code> exists for the analytic cascade and the bench only, and <code>mtf_system</code> multiplies it in only when asked.</li>
+<li><strong>Optical PSF = MTF_diff · MTF_gauss</strong>, synthesised at the supersampled pitch as the inverse FFT of the radially symmetric transfer, normalised to Σ = 1 (tiny FFT ringing clipped), applied by FFT convolution with edge replication before the box downsample.</li>
+<li><strong>Band-representative λ for diffraction</strong> = the R-weighted mean wavelength of the response (<code>SpectralResponse.mean_wavelength_um</code>, 10.44 µm for the Boson estimate), or <code>mtf.reference_wavelength_um</code> when set, else the band centre. The λ-dependence of the diffraction MTF across a 6 µm band is a second-order effect at ξ_N (≈ ±10 % of MTF_diff) and is accepted.</li>
+<li><strong>One Gaussian</strong> (<code>mtf.aberration_sigma_um</code>, fitted from a slant edge) stands for aberration and defocus; <strong>MTF_elec = 1</strong>.</li>
+<li><del><strong>Motion MTF is photon-detector only</strong> (sinc of the smear during t_int); bolometer smear is the inter-frame IIR of §9.2 (M9.1), never a second blur.</del> <strong>Superseded by ADR 0077</strong> (RP.5). The two are different mechanisms and a bolometer has both: the IIR is a <em>temporal</em> lag across frames, while a scene crossing the focal plane during an integration smears <em>within</em> the frame whatever the detector. ADR 0077 makes <code>smear_duty(None)</code> mean a bolometer and therefore 1, so <code>optics/stage.py</code> applies the full-frame smear this clause forbade. The clause conflated the thermal lag with the motion MTF; the rest of this ADR stands.</li>
+<li><code>np.sinc</code> is normalised: the argument is w·ξ. The double-π bug (0.198 instead of 0.637 at Nyquist) is pinned by a test.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>For the Boson at F/1, 10.5 µm, 12 µm pitch: MTF_diff(ξ_N) = 0.485, MTF_det(ξ_N) = 0.637, system 0.31 at Nyquist, measured by the slant-edge bench within 0.05. The PSF kernel at 4× is 33×33 samples and the FFT convolution of a 4× frame costs a few hundred ms in NumPy. The pipeline's exact-box tests run with <code>psf_enabled=False</code>.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>ME.3's edge-spread measurements from public video show a wider or asymmetric halo than diffraction + one Gaussian, or a photon-band camera with a documented electronic MTF is modelled.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

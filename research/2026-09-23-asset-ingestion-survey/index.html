@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset ingestion survey, 2026-09-23 — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>Asset ingestion survey, 2026-09-23</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/research/2026-09-23-asset-ingestion-survey.md" target="_blank" rel="noopener">docs/research/2026-09-23-asset-ingestion-survey.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#1-the-short-version">1. The short version</a></li>
+<li class="toc-2"><a href="#2-where-the-repository-stands">2. Where the repository stands</a></li>
+<li class="toc-3"><a href="#21-geometry-is-authored-never-imported">2.1 Geometry is authored, never imported</a></li>
+<li class="toc-3"><a href="#22-what-does-exist-and-is-good">2.2 What does exist, and is good</a></li>
+<li class="toc-2"><a href="#3-the-problem-stated-precisely">3. The problem, stated precisely</a></li>
+<li class="toc-2"><a href="#4-the-silent-failure-hazard--read-this-before-importing-anything">4. The silent-failure hazard — read this before importing anything</a></li>
+<li class="toc-2"><a href="#5-the-mechanism-that-already-exists">5. The mechanism that already exists</a></li>
+<li class="toc-2"><a href="#6-external-findings">6. External findings</a></li>
+<li class="toc-3"><a href="#61-fbx--usd-conversion-is-a-cpu-step">6.1 FBX → USD conversion is a CPU step</a></li>
+<li class="toc-3"><a href="#62-blender-round-trips-subsets-in-both-directions">6.2 Blender round-trips subsets in both directions</a></li>
+<li class="toc-3"><a href="#63-separate-by-material-is-scriptable-headlessly">6.3 Separate-by-material is scriptable headlessly</a></li>
+<li class="toc-3"><a href="#64-blender-fbx-import-fidelity">6.4 Blender FBX import fidelity</a></li>
+<li class="toc-3"><a href="#65-prior-art-how-other-ir-simulators-do-this">6.5 Prior art: how other IR simulators do this</a></li>
+<li class="toc-3"><a href="#66-nvidias-own-blender-path-and-its-availability">6.6 NVIDIA&#x27;s own Blender path, and its availability</a></li>
+<li class="toc-2"><a href="#7-unconfirmed--do-not-build-on-these">7. Unconfirmed — do not build on these</a></li>
+<li class="toc-2"><a href="#8-what-an-asset-does-not-contain">8. What an asset does not contain</a></li>
+<li class="toc-2"><a href="#9-candidate-pipeline">9. Candidate pipeline</a></li>
+<li class="toc-2"><a href="#10-the-open-forks">10. The open forks</a></li>
+<li class="toc-2"><a href="#sources">Sources</a></li></ul></nav>
+<article class="prose">
+<p><strong>What would it take to drop an arbitrary 3D model into a scene and have it render correctly in IR?</strong></p>
+<p>Produced by a repository audit plus a web survey, in response to the owner's question about importing FBX models whose parts are not separated — "the door, the windows and whole buildings is a single object but many different materials are there" — and their hypothesis that a DCC such as Blender is needed in the middle.</p>
+<p>This is a <strong>snapshot of what was readable on 2026-09-23</strong>, not a maintained document. Every external claim below is marked <strong>[C]</strong> (confirmed by reading the primary source) or <strong>[U]</strong> (not confirmed — do not build on it without checking). Check a source before relying on it; prefer the primary link.</p>
+<p>No roadmap row, ADR or code change is proposed here. This file is the evidence base for that discussion, not the decision.</p>
+<hr>
+<h2 id="1-the-short-version">1. The short version<a class="anchor" href="#1-the-short-version" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>There is no asset import in this project at all.</strong> Every piece of geometry in every scene is generated in Python. This is not a gap in the import path; there is no import path.</li>
+<li><strong>The material mapping layer (ADR 0047) is the right design and is not the blocker.</strong> It resolves per <em>prim</em>, which is one level coarser than a single-mesh multi-material asset needs.</li>
+<li><strong>A single-part building breaks three things, not one</strong> — material, temperature and thermal parameters — because all three are bound per prim.</li>
+<li><strong>A Blender-exported multi-material mesh fails silently, not loudly.</strong> It defeats the UNMAPPED sentinel that ADR 0047 exists to provide. This is the single most important finding here.</li>
+<li><strong>The mechanism that solves it already exists</strong>, built for a different reason (ADR 0110), and it needs nothing from the renderer.</li>
+<li><strong>Blender is genuinely useful in the middle, but not as a converter.</strong> Conversion is a CPU-only CLI step. Blender's job is repair and authoring.</li>
+</ol>
+<hr>
+<h2 id="2-where-the-repository-stands">2. Where the repository stands<a class="anchor" href="#2-where-the-repository-stands" aria-label="permalink">#</a></h2>
+<h3 id="21-geometry-is-authored-never-imported">2.1 Geometry is authored, never imported<a class="anchor" href="#21-geometry-is-authored-never-imported" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>evidence</th><th>file</th></tr></thead>
+<tbody>
+<tr><td>~18 <code>UsdGeom.Cube</code>/<code>Cylinder</code> prims built from DJI's published spec</td><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/phantom3.py" target="_blank" rel="noopener"><code>phantom3.py:129</code></a> <code>phantom3_parts()</code></td></tr>
+<tr><td>The only code that writes an airframe to a stage; sets <code>thermal:material</code> per prim</td><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/airframe.py" target="_blank" rel="noopener"><code>airframe.py:70,125</code></a> <code>author_parts()</code></td></tr>
+<tr><td><code>MeshSpec.shape</code> is a two-value <code>Literal</code> — <code>cylinder</code> or <code>sphere</code>, both generated</td><td><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/config/scene.py" target="_blank" rel="noopener"><code>scene.py:400</code></a></td></tr>
+</tbody></table></div>
+<p>No scene config in <code>configs/scenes/</code> (16 files) references a <code>.usd</code>, <code>.fbx</code>, <code>.obj</code> or <code>.gltf</code>. The scene schema (v15) has no asset-reference field. Nothing outside <code>scripts/audit_materials.py --stage</code> calls <code>open_stage</code> or <code>AddReference</code>.</p>
+<p>The gap is acknowledged in exactly one place, with no owner:</p>
+<blockquote>
+<p><strong>The shape is generated here, not read from USD.</strong> … Ingesting a real asset's triangles is the Isaac side's job — <code>probe_warp_prim.py</code> measured what it takes … <strong>and is the follow-on to this row.</strong> — <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/config/scene.py" target="_blank" rel="noopener"><code>scene.py:410-415</code></a></p>
+</blockquote>
+<p>That follow-on has <strong>no step id, no lane and no roadmap row</strong>. <code>probe_warp_prim.py:6-20</code> records the three concrete hazards it measured: quads need triangulating, points are in local space, and an analytic gprim exposes no <code>points</code> at all.</p>
+<h3 id="22-what-does-exist-and-is-good">2.2 What does exist, and is good<a class="anchor" href="#22-what-does-exist-and-is-good" aria-label="permalink">#</a></h3>
+<p>ADR 0047's mapping layer, shipped and wired into four render drivers:</p>
+<ul>
+<li><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/materials/mapping.py" target="_blank" rel="noopener"><code>mapping.py</code></a> — engine-free resolver, precedence <code>thermal:material</code> override → semantic class → ordered case-insensitive glob → <strong>loud miss</strong> (<code>UNMAPPED_MATERIAL_ID = 0</code>, recorded, never a silent default).</li>
+<li><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py</code></a> — the only place that opens a USD stage; produces engine-free <code>PrimRecord</code>s.</li>
+<li><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/scripts/audit_materials.py" target="_blank" rel="noopener"><code>audit_materials.py</code></a> — coverage report, 95 % CI gate, runs engine-free in milliseconds from a JSON dump.</li>
+<li><code>configs/materials/</code> — 21 materials, <code>mapping.yaml</code> with 17 semantic classes and 30 name globs.</li>
+<li>Magenta overlay for unmapped pixels, display-only.</li>
+</ul>
+<p>This is a good layer. Sections 3 and 4 are about the one assumption in it.</p>
+<hr>
+<h2 id="3-the-problem-stated-precisely">3. The problem, stated precisely<a class="anchor" href="#3-the-problem-stated-precisely" aria-label="permalink">#</a></h2>
+<p>The per-pixel chain today, verbatim from <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/material_ids.py" target="_blank" rel="noopener"><code>material_ids.py:9-13</code></a>:</p>
+<pre><code>instance id  --idToLabels--&gt;  prim path  --M7.17 resolver--&gt;  material id</code></pre>
+<p>One prim → one material. A single-part building breaks <strong>three</strong> bindings:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>#</th><th>what breaks</th><th>why</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><strong>Material</strong></td><td>Door, window and wall collapse to one emissivity. ε spans 0.05 (bare metal) to 0.93 (paint) across that boundary.</td></tr>
+<tr><td>2</td><td><strong>Temperature</strong></td><td>A thermal node binds to a prim, so the whole building becomes one temperature — precisely the per-object defect the project exists to fix.</td></tr>
+<tr><td>3</td><td><strong>Thermal parameters</strong></td><td>Glass is ~4 mm of τ&gt;0 dielectric; a rendered wall is ~300 mm of masonry with ~100× the areal heat capacity. <code>ρ·c_p·δ</code> is authored per <em>material</em>, so one prim cannot carry both.</td></tr>
+</tbody></table></div>
+<p><strong>[C]</strong> In USD, a multi-material mesh is represented as <code>UsdGeomSubset</code> children with <code>familyName="materialBind"</code>, <code>elementType=face</code>, <code>familyType=nonOverlapping</code>. This is what <code>UsdShadeMaterialBindingAPI::CreateMaterialBindSubset()</code> produces, and it is what the FBX/OBJ converters emit — one subset per source material. (<a href="https://openusd.org/release/api/class_usd_shade_material_binding_a_p_i.html" target="_blank" rel="noopener">OpenUSD API</a>)</p>
+<p><a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py:100</code></a> walks <code>UsdGeom.Gprim</code> and calls <code>ComputeBoundMaterial()</code> on the <strong>mesh</strong>. It never descends into subsets.</p>
+<hr>
+<h2 id="4-the-silent-failure-hazard--read-this-before-importing-anything">4. The silent-failure hazard — read this before importing anything<a class="anchor" href="#4-the-silent-failure-hazard--read-this-before-importing-anything" aria-label="permalink">#</a></h2>
+<p><strong>[C]</strong> Blender's USD exporter documents:</p>
+<blockquote>
+<p>"When a mesh has multiple materials assigned, a geometry subset is created for each material. <strong>The first material (if any) is always applied to the mesh itself as well</strong> (regardless of the existence of geometry subsets), because the Hydra viewport does not support materials on subsets. See USD issue #542." — <a href="https://docs.blender.org/manual/en/latest/files/import_export/usd.html" target="_blank" rel="noopener">Blender manual, Universal Scene Description</a></p>
+</blockquote>
+<p>Confirmed in the exporter source, <code>USDGenericMeshWriter::assign_materials()</code> in <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/io/usd/intern/usd_writer_mesh.cc" target="_blank" rel="noopener"><code>usd_writer_mesh.cc</code></a>: the mesh prim gets <code>MaterialBindingAPI</code> applied and bound to the first non-null slot, <em>in addition to</em> one <code>CreateMaterialBindSubset()</code> call per material.</p>
+<p><strong>Consequence for this project.</strong> A Blender-exported building does <em>not</em> arrive UNMAPPED and magenta. <code>ComputeBoundMaterial()</code> returns the first material slot, the resolver maps it confidently, coverage reads 100 %, and the entire building renders at one emissivity and one temperature. <strong>That is the exact failure mode ADR 0047 was written to prevent, arriving through a door ADR 0047 does not cover.</strong></p>
+<p>Any subset-aware ingestion must therefore include a guard: <em>a mesh that has <code>materialBind</code> subsets <strong>and</strong> a direct mesh-level binding must not resolve from the direct binding.</em></p>
+<p>Related exporter details, all read from the v5.2.0 source:</p>
+<ul>
+<li><strong>[C]</strong> Subsets are written only when <code>export_materials</code> is true and there are ≥ 2 non-empty slots.</li>
+<li><strong>[C]</strong> The subset prim name is the <strong>USD material prim's name</strong>, not the Blender slot index.</li>
+<li><strong>[C]</strong> <code>doubleSided</code> is taken from the first non-empty slot only, for the whole mesh.</li>
+<li><strong>[C]</strong> Subsets are <strong>not time-sampled</strong>, so they break if an animated mesh changes topology.</li>
+</ul>
+<hr>
+<h2 id="5-the-mechanism-that-already-exists">5. The mechanism that already exists<a class="anchor" href="#5-the-mechanism-that-already-exists" aria-label="permalink">#</a></h2>
+<p>ADR 0110 solved point-wise temperature on curved geometry by rejecting the premise that a surface parameterisation must be <em>transported</em> by the renderer. It is <strong>derived</strong> instead: the instance id says which prim a pixel hit, the float32 world-position AOV says where, and a closest-point query against that prim's own mesh returns <strong>the triangle index and barycentric coordinates</strong>.</p>
+<p>That is <a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim/thermal/mesh_field.py" target="_blank" rel="noopener"><code>closest_point_on_mesh</code></a> — shipped, engine-free, and already the oracle the Warp path is held to (<a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/mesh_bridge.py" target="_blank" rel="noopener"><code>mesh_bridge.py</code></a>).</p>
+<p>A triangle index is exactly what a <code>GeomSubset</code> indexes. Therefore:</p>
+<blockquote>
+<p><strong>If the mesh carried in <code>irsim</code> also carries a <code>face_material_id</code> array, the same closest-point query that already produces per-pixel temperature produces per-pixel material — on the CPU, with zero new renderer capability.</strong></p>
+</blockquote>
+<p>This reduces the multi-material single-mesh problem from "we need an AOV this build may not have" to "we need one more integer array alongside <code>faces</code>". <code>TriangleMeshField</code> already derives <code>cell_face</code>, <code>face_offsets</code>, <code>face_area_m2</code> and <code>face_normal</code>; a per-face material column is the same shape.</p>
+<p>It also opens the texture route — see §6.5.</p>
+<hr>
+<h2 id="6-external-findings">6. External findings<a class="anchor" href="#6-external-findings" aria-label="permalink">#</a></h2>
+<h3 id="61-fbx--usd-conversion-is-a-cpu-step">6.1 FBX → USD conversion is a CPU step<a class="anchor" href="#61-fbx--usd-conversion-is-a-cpu-step" aria-label="permalink">#</a></h3>
+<p><strong>[C]</strong> <code>usd-convert-asset</code> is a standalone C++ library with Python bindings and a console script; <strong>"No GPU requirement for core conversion"</strong>, and it does not need a running Kit application. Converts FBX/OBJ/glTF → USD/USDA/USDC/USDZ. <code>--preview-surface</code> emits <code>UsdPreviewSurface</code> instead of MDL; <code>--ignore-materials</code> strips materials. Windows 10 or Ubuntu 22.04, x86_64 or Linux aarch64; built from source with Premake, then installed as a wheel. (<a href="https://github.com/NVIDIA-Omniverse/usd-convert-asset" target="_blank" rel="noopener">repo</a>)</p>
+<p><strong>[C]</strong> The in-Kit <code>omni.kit.asset_converter</code> extension accepts <strong>only .fbx, .obj, .gltf</strong> (<a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/importer_exporter/formats.html" target="_blank" rel="noopener">Isaac Sim 6.0 formats</a>).</p>
+<p><strong>This matters for this project specifically:</strong> conversion does not touch the GPU, so it is compatible with the standing constraint that Isaac Sim and CUDA workloads are not to be started on this workstation.</p>
+<h3 id="62-blender-round-trips-subsets-in-both-directions">6.2 Blender round-trips subsets in both directions<a class="anchor" href="#62-blender-round-trips-subsets-in-both-directions" aria-label="permalink">#</a></h3>
+<p><strong>[C]</strong> Not just export. <code>USDMeshReader::assign_facesets_to_material_indices()</code> in <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/io/usd/intern/usd_reader_mesh.cc" target="_blank" rel="noopener"><code>usd_reader_mesh.cc</code></a> calls <code>UsdGeomSubset::GetAllGeomSubsets()</code> — deliberately broader than <code>GetMaterialBindSubsets()</code>, with a source comment noting that applications such as Houdini export subsets in other families — and writes a real per-face <code>material_index</code> attribute on <code>AttrDomain::Face</code>. Non-<code>face</code> <code>elementType</code> subsets are skipped with a warning.</p>
+<p><strong>[C]</strong> The historic crash on this path (Blender #125184, USD import crashing during material assignment to geometry subsets) was fixed 2024-08-24.</p>
+<p><strong>[C]</strong> USD I/O is <strong>not</strong> marked experimental in Blender and never was; the only thing under the manual's <em>Experimental</em> heading is the <strong>Instancing</strong> export option. Verified across the 2.93, 3.3, 3.6, 4.0, 4.2, 4.5, 5.0 and 5.2 manuals.</p>
+<p><strong>[C]</strong> Bundled OpenUSD versions: Blender 4.5 LTS → OpenUSD 25.02; Blender 5.2 LTS → OpenUSD 26.03.</p>
+<h3 id="63-separate-by-material-is-scriptable-headlessly">6.3 Separate-by-material is scriptable headlessly<a class="anchor" href="#63-separate-by-material-is-scriptable-headlessly" aria-label="permalink">#</a></h3>
+<p><strong>[C]</strong> <code>bpy.ops.mesh.separate(type='MATERIAL')</code>. Read from <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/editors/mesh/editmesh_tools.cc" target="_blank" rel="noopener"><code>editmesh_tools.cc</code></a>:</p>
+<ul>
+<li>It <strong>works in Object Mode</strong> — <code>edbm_separate_exec</code> has an explicit object-mode branch iterating <code>selected_editable_bases</code>; only <code>type='SELECTED'</code> is rejected there. A headless script needs no Edit Mode toggle. It also runs multi-object.</li>
+<li><strong>Custom normals are preserved.</strong> <code>mesh_separate_material()</code> brackets the operation with <code>BM_custom_loop_normals_to_vector_layer()</code> / <code>..._from_vector_layer()</code>. This contradicts the common claim that separate destroys custom normals — which matters here, because §8 lists normals as a silent-failure source.</li>
+<li><strong>Each result object ends with exactly one material slot</strong> (<code>BKE_id_material_clear()</code> then <code>BKE_id_material_resize(..., 1, true)</code>), so the mesh-level USD binding and the single subset agree — the §4 hazard disappears.</li>
+<li><strong>Cost:</strong> each separated object is a full object duplicate via <code>add_duplicate()</code>, carrying a copy of the entire modifier stack, constraints, parenting and custom properties. N materials → N objects each with a copy of the stack. Modifiers are <em>replicated</em>, not applied.</li>
+<li>If every face uses the same material, no new object is created.</li>
+</ul>
+<h3 id="64-blender-fbx-import-fidelity">6.4 Blender FBX import fidelity<a class="anchor" href="#64-blender-fbx-import-fidelity" aria-label="permalink">#</a></h3>
+<p><strong>[C]</strong> Blender 5.0 made the new <strong>C++ FBX importer</strong> (built on ufbx) the default: <code>bpy.ops.wm.fbx_import</code>; the Python <code>bpy.ops.import_scene.fbx</code> is legacy.</p>
+<ul>
+<li>Material names are preserved directly — <code>BKE_material_add(bmain, fmat.name.data)</code> in <code>fbx_import_material.cc</code>. Standard Blender ID caveats apply (63-byte limit, <code>.001</code> suffix on collision).</li>
+<li>Per-face material assignment is preserved — <code>import_face_material_indices()</code> in <code>fbx_import_mesh.cc</code> writes the <code>material_index</code> face attribute from <code>fmesh-&gt;face_material</code>.</li>
+<li><strong>5.0 added a "Material Name Collision" option</strong> with a <em>Reference Existing</em> mode, which reuses existing materials when names match. Relevant when importing many assets that share material names and <code>.001</code> suffixes would otherwise defeat the glob table.</li>
+<li>FBX <strong>export</strong> is still the Python add-on.</li>
+</ul>
+<p><strong>[U]</strong> How the C++ importer handles very old FBX 6.x ASCII files, and whether per-face assignment survives files using "AllSame" mapping mode with node-level overrides. No tracker entry found either way.</p>
+<h3 id="65-prior-art-how-other-ir-simulators-do-this">6.5 Prior art: how other IR simulators do this<a class="anchor" href="#65-prior-art-how-other-ir-simulators-do-this" aria-label="permalink">#</a></h3>
+<ul>
+<li><strong>DIRSIG</strong> — geometry authored as OBJ, then material properties assigned <strong>per facet</strong> using the <em>Bulldozer</em> tool; emissivity supplied via <code>EMISSIVITY_PROP</code> in <code>SURFACE_PROPERTIES</code> of the material file. (<a href="https://dirsig.cis.rit.edu/docs/lach.pdf" target="_blank" rel="noopener">RIT DIRSIG</a>)</li>
+<li><strong>OKTAL-SE SE-Workbench</strong> — assigns physical materials to geometry <strong>via textures</strong>, mapping physical attributes (EO <em>and</em> RF) onto the 3D mock-up from a library of physical data. (<a href="https://www.oktal-se.fr/materials/" target="_blank" rel="noopener">OKTAL-SE Materials</a>)</li>
+<li><strong>ThermoAnalytics MuSES</strong> — states its model requirement as <em>a 3D surface mesh, thermal material properties, wavelength-dependent optical surface properties, and active heat sources</em>. (<a href="https://www.thermoanalytics.com/product/muses/" target="_blank" rel="noopener">MuSES</a>)</li>
+</ul>
+<p>Two things follow. First, MuSES's list is the honest scope statement: <strong>three of those four are not in the asset file</strong>, which is §8's subject. Second, OKTAL-SE's texture route is directly reachable here — with a face index and barycentrics from §5 you can interpolate the mesh's own UVs and sample a material-ID texture, without any UV AOV. That matters because the painted-vs-bare-metal distinction that dominates LWIR appearance often lives inside one albedo texture rather than in separate material slots.</p>
+<h3 id="66-nvidias-own-blender-path-and-its-availability">6.6 NVIDIA's own Blender path, and its availability<a class="anchor" href="#66-nvidias-own-blender-path-and-its-availability" aria-label="permalink">#</a></h3>
+<p><strong>[C]</strong> The Omniverse Blender Connector is <strong>discontinued</strong>: NVIDIA stopped producing custom Blender alpha builds, and from Blender 4.5 the USD work is integrated into official Blender LTS releases. The old <code>NVIDIA-Omniverse/blender_omniverse_addons</code> repo returns HTTP 404. There is <strong>no MDL exporter for Blender any more</strong> — <code>UsdPreviewSurface</code> is the path, and Isaac Sim 6.0 supports it alongside MDL. (<a href="https://docs-prod.omniverse.nvidia.com/connect/latest/blender.html" target="_blank" rel="noopener">Omniverse Connect — Blender</a>)</p>
+<p><strong>[C]</strong> Its replacement is the <strong>SimReady Blender Add-on</strong>, release 2026.04.0 (published 2026-05-07), Apache-2.0, targeting <strong>Blender 5.1</strong>, prerequisites <strong>Windows 10/11 only — "Linux is coming soon"</strong>. (<a href="https://nvidia.github.io/simready-blender-add-on/" target="_blank" rel="noopener">docs</a> · <a href="https://github.com/NVIDIA/simready-blender-add-on" target="_blank" rel="noopener">repo</a>)</p>
+<p>Directly relevant: its <code>MATERIAL_PT_simready_nonvisual</code> panel is described as <em>"non-visual sensor attributes used by the NVIDIA RTX renderer to model how a material reads to non-visual sensors such as radar, lidar, or <strong>infrared (IR)</strong>"</em>, managing Base, Coating and Attributes — e.g. base = aluminum, coating = painted, attributes = emissive, visually-transparent, single-sided.</p>
+<p>That is conceptually the same job as this project's <code>thermal:material</code> attribute, from the vendor, and it is <strong>not runnable on this workstation's platform today</strong>. Worth tracking; not worth waiting for. Note also that its taxonomy (base + coating) matches the <code>thermal-materials</code> skill's Rule 2 — the metal question is paint, not alloy.</p>
+<p><strong>[C]</strong> The Omniverse Launcher was deprecated 2025-10-01, with connectors moved to the NGC Catalog.</p>
+<p><strong>[C]</strong> There is <strong>no official Blender→Isaac asset-prep guide</strong>. The Isaac Sim 6.0 documentation search index — 3,658 indexed sections — contains <strong>zero</strong> occurrences of "blender" (against 4,933 for "usd", 119 "mdl", 8 "fbx", 20 "onshape").</p>
+<p><strong>[C]</strong> NVIDIA staff guidance (forum, 2026-02-23) is that Blender armatures export as USD skeletal animation, which is not PhysX articulation, and recommends Blender for geometry only with articulation authored in URDF. For static and visual assets — this project's case — that restriction does not bite. (<a href="https://forums.developer.nvidia.com/t/blender-to-isaac-sim/361514" target="_blank" rel="noopener">thread</a>)</p>
+<hr>
+<h2 id="7-unconfirmed--do-not-build-on-these">7. Unconfirmed — do not build on these<a class="anchor" href="#7-unconfirmed--do-not-build-on-these" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th>claim</th><th>status</th></tr></thead>
+<tbody>
+<tr><td>A <code>perSubsetSegmentation</code> true/false mode on RTX semantic segmentation</td><td><strong>[U] Could not confirm.</strong> Reported by one research pass, but a direct fetch of the cited Isaac Sim 6.0 RTX Sensor Annotators page found no occurrence of the term, and a targeted search returned no authoritative hit.</td></tr>
+<tr><td>Camera annotators assign distinct instance ids to <code>GeomSubset</code> prims</td><td><strong>[U] Open.</strong> This is roadmap <code>IG.4</code>. Replicator's <code>instance_id_segmentation</code> is documented to go "down to the leaf prim"; whether a <code>GeomSubset</code> child counts as one is untested on this build.</td></tr>
+<tr><td>RTX <code>objId</code> / <code>StableIdMap</code> gives per-subset identity to the camera path</td><td><strong>[C] but not applicable.</strong> The docs do say <code>StableIdMap</code> "registers … per-<code>GeomSubset</code> entries when an instance has more than one subset", with the submesh index in the high 32 bits of a 128-bit object id — but this is the <strong>RTX lidar/radar</strong> path, gated on <code>--/rtx-transient/stableIds/enabled=true</code>, and is stated not to be available for standard camera annotators.</td></tr>
+</tbody></table></div>
+<p>What <em>is</em> confirmed about subsets in the Isaac toolchain: Replicator's API exposes helpers for fetching <code>UsdGeomSubset</code> prims, and the Scene Optimizer's mesh merge has a <code>considerMaterials</code> flag that "preserves per-material GeomSubset partitioning on the merged mesh". So subsets are understood by the toolchain; per-pixel camera identity for them is still the open question.</p>
+<p><strong>Settling <code>IG.4</code> requires the engine and must not be run opportunistically</strong> — it needs an explicit request from the owner, per the standing constraint on starting Isaac Sim or GPU work.</p>
+<hr>
+<h2 id="8-what-an-asset-does-not-contain">8. What an asset does not contain<a class="anchor" href="#8-what-an-asset-does-not-contain" aria-label="permalink">#</a></h2>
+<p>The material question is the visible half. These are the ones that produce plausible images and wrong physics.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>gap</th><th>consequence</th></tr></thead>
+<tbody>
+<tr><td><strong>Thickness</strong></td><td>An FBX is a zero-thickness shell. Areal heat capacity is <code>ρ·c_p·δ</code>. δ is in no asset file; today it comes from the <em>material</em>, which is why a window and a wall cannot share a prim (§3).</td></tr>
+<tr><td><strong>Interior vs exterior</strong></td><td>If interior geometry survives import, the solver puts sunlight and sky on the inside of walls.</td></tr>
+<tr><td><strong>Normals and winding</strong></td><td>§6.1 balances a facet. A flipped normal faces the ground instead of the sky; the sky view factor is wrong, silently, and the image still looks fine.</td></tr>
+<tr><td><strong>Scale and units</strong></td><td>The solver works in metres. Blender's USD export exposes <code>convert_scene_units</code> / <code>meters_per_unit</code>.</td></tr>
+<tr><td><strong>Heat sources</strong></td><td>An imported vehicle has no engine. The Phantom scene needed hand-authored motor and battery throttle schedules.</td></tr>
+<tr><td><strong>Occluders</strong></td><td><code>phantom3_outbound_pointwise.yaml</code> hand-lists 7 occluder rectangles duplicating prim faces by hand. Nothing derives these from geometry.</td></tr>
+<tr><td><strong>Instancing</strong></td><td><code>UsdGeomPointInstancer</code> and scenegraph instancing break <code>instance id → prim path</code>. Asset-store buildings use them for windows constantly.</td></tr>
+<tr><td><strong>Glass</strong></td><td>τ&gt;0 needs the second ray (ADR 0046). A window in an FBX is normally one zero-thickness quad — no pane thickness, no cavity, no interior.</td></tr>
+<tr><td><strong>Material name quality</strong></td><td>Asset-store materials arrive as <code>Material.001</code>, <code>lambert1</code>, <code>Default_OBJ</code>. The 30 globs in <code>mapping.yaml</code> will match none of them.</td></tr>
+<tr><td><strong>Semantic labels</strong></td><td>The semantic route reads Isaac labels; SimReady's taxonomy keys to WikiData Q-codes. Neither is present in a raw FBX.</td></tr>
+<tr><td><strong>Provenance and licence</strong></td><td>ADR 0041 governs data provenance. Imported assets need the same treatment.</td></tr>
+</tbody></table></div>
+<p><strong>Cost is not the obstacle.</strong> <code>GT.7</code> cites Fraunhofer running 1,313,410 triangles with a 10-layer stack through five day–night cycles in <strong>252 s</strong> on one i7-8700 in MATLAB. A building is affordable. The multiplier to watch is <code>TriangleMeshField</code>'s per-face cell subdivision, which is ours to choose.</p>
+<hr>
+<h2 id="9-candidate-pipeline">9. Candidate pipeline<a class="anchor" href="#9-candidate-pipeline" aria-label="permalink">#</a></h2>
+<p>Sequenced, not scheduled. Nothing here is a committed step.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>#</th><th>step</th><th>engine needed?</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><strong>Convert.</strong> <code>usd-convert-asset</code>, <code>--preview-surface</code>. FBX → USD.</td><td>No — CPU only</td></tr>
+<tr><td>2</td><td><strong>Audit first.</strong> Extend the prim dump to walk <code>UsdGeomSubset</code> children, one record per subset; run <code>audit_materials.py</code>. Add the §4 guard. Run this on a real asset <em>before</em> designing around it — the answer tells you how bad the naming is.</td><td>No</td></tr>
+<tr><td>3</td><td><strong>Blender: repair and author.</strong> Split by material <em>or</em> keep subsets; rename materials to hit the globs; write <code>thermal:material</code> as a custom property; fix scale, normals, interior geometry; decimate.</td><td>No</td></tr>
+<tr><td>4</td><td><strong>Mapping to face granularity.</strong> <code>PrimRecord</code> gains a subset path and face-index range; <code>Resolution</code> becomes per-subset. Precedence unchanged.</td><td>No</td></tr>
+<tr><td>5</td><td><strong>Read real triangles.</strong> The unowned follow-on at <code>scene.py:413</code>. Triangulate quads, apply local-to-world, handle analytic gprims.</td><td>Reading USD needs Kit; no render</td></tr>
+<tr><td>6</td><td><strong>Per-pixel material.</strong> Route A: <code>face_material_id</code> + closest-point query (§5) — works today. Route B: per-subset instance ids — needs <code>IG.4</code> settled.</td><td>A: no. B: yes</td></tr>
+<tr><td>7</td><td><strong>Thermal authoring.</strong> Thickness, interior/exterior, sky view factor, heat sources (§8). The real cost.</td><td>No</td></tr>
+<tr><td>8</td><td><strong>Validate.</strong> Coverage gate, plus a phenomenology check that the door, the windows and the wall actually differ.</td><td>Render</td></tr>
+</tbody></table></div>
+<p><code>thermal:material</code> is deliberately a plain USD attribute rather than an applied schema <em>"so that any DCC can write it without our schema installed"</em> (<a href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/src/irsim_isaac/pipeline/materials_usd.py" target="_blank" rel="noopener"><code>materials_usd.py:16-19</code></a>). That sentence was written for exactly this use case, and step 3 is where it pays off.</p>
+<hr>
+<h2 id="10-the-open-forks">10. The open forks<a class="anchor" href="#10-the-open-forks" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Split-by-material, or GeomSubsets end to end?</strong> Splitting ships an imported building with zero new code and removes the §4 hazard outright; its cost is object-count explosion and duplicated modifier stacks. Subsets are the cleaner long-term answer and cost steps 4–6.</li>
+<li><strong>Route A or Route B for per-pixel material?</strong> Route A needs no renderer capability and reuses machinery already held to an oracle. Route B is cheaper <em>if</em> <code>IG.4</code> comes back positive. Given how many of ADR 0014's measured negatives this build has produced, Route A is the safer default regardless of how <code>IG.4</code> resolves.</li>
+<li><strong>Does asset ingestion become a lane?</strong> It currently spans <code>PT</code>, <code>WM</code> and <code>IG</code> without belonging to any of them, and the one written acknowledgement of it names no owner.</li>
+</ol>
+<hr>
+<h2 id="sources">Sources<a class="anchor" href="#sources" aria-label="permalink">#</a></h2>
+<p><strong>Repository:</strong> <code>src/irsim/materials/mapping.py</code> · <code>src/irsim/config/scene.py</code> · <code>src/irsim/thermal/mesh_field.py</code> · <code>src/irsim_isaac/pipeline/materials_usd.py</code> · <code>src/irsim_isaac/pipeline/material_ids.py</code> · <code>src/irsim_isaac/pipeline/mesh_bridge.py</code> · <code>src/irsim_isaac/phantom3.py</code> · <code>src/irsim_isaac/airframe.py</code> · <code>scripts/audit_materials.py</code> · <code>scripts/probe_warp_prim.py</code> · <code>configs/materials/mapping.yaml</code> · <code>configs/scenes/phantom3_outbound_pointwise.yaml</code> · ADR 0014, 0040–0047, 0087, 0110, 0112 · <code>docs/roadmap.md</code> (<code>IG.4</code>, <code>GT.7</code>) · the <code>thermal-materials</code> skill</p>
+<p><strong>External:</strong> <a href="https://docs.blender.org/manual/en/latest/files/import_export/usd.html" target="_blank" rel="noopener">Blender USD manual</a> · <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/io/usd/intern/usd_writer_mesh.cc" target="_blank" rel="noopener">usd_writer_mesh.cc</a> · <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/io/usd/intern/usd_reader_mesh.cc" target="_blank" rel="noopener">usd_reader_mesh.cc</a> · <a href="https://projects.blender.org/blender/blender/src/tag/v5.2.0/source/blender/editors/mesh/editmesh_tools.cc" target="_blank" rel="noopener">editmesh_tools.cc</a> · <a href="https://docs.blender.org/api/current/bpy.ops.wm.html" target="_blank" rel="noopener">bpy.ops.wm</a> · <a href="https://docs.blender.org/api/current/bpy.ops.mesh.html" target="_blank" rel="noopener">bpy.ops.mesh</a> · <a href="https://docs.blender.org/manual/en/latest/modeling/meshes/editing/mesh/separate.html" target="_blank" rel="noopener">Separate manual</a> · <a href="https://developer.blender.org/docs/release_notes/" target="_blank" rel="noopener">Blender release notes</a> · <a href="https://openusd.org/release/api/class_usd_shade_material_binding_a_p_i.html" target="_blank" rel="noopener">UsdShadeMaterialBindingAPI</a> · <a href="https://github.com/NVIDIA-Omniverse/usd-convert-asset" target="_blank" rel="noopener">usd-convert-asset</a> · <a href="https://docs.omniverse.nvidia.com/extensions/latest/ext_asset-converter.html" target="_blank" rel="noopener">Omniverse Asset Converter</a> · <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/importer_exporter/formats.html" target="_blank" rel="noopener">Isaac Sim 6.0 formats</a> · <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/introduction/reference_architecture.html" target="_blank" rel="noopener">Isaac Sim 6.0 reference architecture</a> · <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/sensors/isaacsim_sensors_rtx_annotators.html" target="_blank" rel="noopener">RTX Sensor Annotators</a> · <a href="https://docs.omniverse.nvidia.com/py/replicator/1.11.16/source/extensions/omni.replicator.core/docs/annotators_details.html" target="_blank" rel="noopener">Replicator Standard Annotators</a> · <a href="https://docs-prod.omniverse.nvidia.com/connect/latest/blender.html" target="_blank" rel="noopener">Omniverse Connect — Blender</a> · <a href="https://nvidia.github.io/simready-blender-add-on/" target="_blank" rel="noopener">SimReady Blender Add-on</a> · <a href="https://github.com/NVIDIA/simready-blender-add-on" target="_blank" rel="noopener">SimReady Blender Add-on repo</a> · <a href="https://docs.omniverse.nvidia.com/simready/latest/overview/simready-spec.html" target="_blank" rel="noopener">SimReady specification</a> · <a href="https://forums.developer.nvidia.com/t/blender-to-isaac-sim/361514" target="_blank" rel="noopener">Blender to Isaac Sim forum thread</a> · <a href="https://forums.developer.nvidia.com/t/nvidia-omniverse-launcher-deprecation-on-oct-1st-what-you-need-to-know/321325" target="_blank" rel="noopener">Omniverse Launcher deprecation</a> · <a href="https://dirsig.cis.rit.edu/docs/lach.pdf" target="_blank" rel="noopener">DIRSIG scene modeling</a> · <a href="https://www.oktal-se.fr/materials/" target="_blank" rel="noopener">OKTAL-SE Materials</a> · <a href="https://www.thermoanalytics.com/product/muses/" target="_blank" rel="noopener">ThermoAnalytics MuSES</a></p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

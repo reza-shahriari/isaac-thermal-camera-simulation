@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Working agreement — irsim</title>
+<meta name="description" content="The non-negotiables, the repository layout and what counts as a finished step.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../">Overview</a></li>
+<li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../physics/">Physics model</a></li>
+<li><a href="../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../roadmap/">Roadmap</a></li>
+<li><a href="../decisions/">Decision log</a></li>
+<li><a href="../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../validation/">Validation</a></li>
+<li><a href="../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../code/">Code map</a></li>
+<li><a href="../configs/">Configuration catalogue</a></li>
+<li class="here"><a href="./">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>Working agreement</h1>
+  <p class="subtitle">The non-negotiables, the repository layout and what counts as a finished step.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#what-this-project-is">What this project is</a></li>
+<li class="toc-2"><a href="#non-negotiables">Non-negotiables</a></li>
+<li class="toc-3"><a href="#1-the-physics-core-is-engine-free">1. The physics core is engine-free</a></li>
+<li class="toc-3"><a href="#2-float32-or-better-everywhere-temperature-or-radiance-flows">2. float32 or better, everywhere temperature or radiance flows</a></li>
+<li class="toc-3"><a href="#3-noise-is-added-in-radiance-or-electron-space-never-in-kelvin">3. Noise is added in radiance or electron space, never in Kelvin</a></li>
+<li class="toc-3"><a href="#4-kirchhoff-closure-holds-for-every-material-in-every-band">4. Kirchhoff closure holds for every material in every band</a></li>
+<li class="toc-3"><a href="#5-the-aperture-factor-is-π4f²--1-not-π4f²">5. The aperture factor is π/(4F² + 1), not π/(4F²)</a></li>
+<li class="toc-3"><a href="#6-weather-feeds-the-thermal-solver-and-the-atmosphere-from-one-object">6. Weather feeds the thermal solver and the atmosphere from one object</a></li>
+<li class="toc-2"><a href="#repository-layout">Repository layout</a></li>
+<li class="toc-2"><a href="#commands">Commands</a></li>
+<li class="toc-2"><a href="#workflow-what-a-step-means">Workflow: what &quot;a step&quot; means</a></li>
+<li class="toc-3"><a href="#commit-format">Commit format</a></li>
+<li class="toc-3"><a href="#decisions">Decisions</a></li>
+<li class="toc-2"><a href="#skills">Skills</a></li>
+<li class="toc-2"><a href="#working-style-for-this-repo">Working style for this repo</a></li></ul></nav>
+<article class="prose">
+<p>Project guidance for Claude Code. Read this fully before the first edit in a session.</p>
+<hr>
+<h2 id="what-this-project-is">What this project is<a class="anchor" href="#what-this-project-is" aria-label="permalink">#</a></h2>
+<p>A physically-based multi-band infrared camera simulator. It renders what a real LWIR / MWIR / SWIR / NIR camera would see, with radiometry that closes in physical units, so the output can be used for sensor trade studies, perception development, and eventually deployment on an autonomous vehicle.</p>
+<p>Primary target: <strong>NVIDIA Isaac Sim 6.0</strong>. A port to Unreal Engine follows later, so the physics core must not depend on either engine.</p>
+<p>The full physics specification lives in <strong><code>docs/physics-model.md</code></strong>. It is the source of truth for every equation in this repo. When you implement something from it, cite the section number in the docstring (e.g. <code># docs/physics-model.md §3.2</code>). When you disagree with it, say so before coding — do not silently diverge.</p>
+<hr>
+<h2 id="non-negotiables">Non-negotiables<a class="anchor" href="#non-negotiables" aria-label="permalink">#</a></h2>
+<p>These are the mistakes that are expensive to discover late. They are not style preferences.</p>
+<h3 id="1-the-physics-core-is-engine-free">1. The physics core is engine-free<a class="anchor" href="#1-the-physics-core-is-engine-free" aria-label="permalink">#</a></h3>
+<p><code>src/irsim/</code> must never import <code>omni</code>, <code>pxr</code>, <code>isaacsim</code>, <code>warp</code>, <code>carb</code>, or any engine module, nor the glue package <code>irsim_isaac</code>, nor the ML/imaging stack (<code>torch</code>, <code>cv2</code>, <code>PIL</code>, …, which lives in <code>src/irsim_eval/</code>). It is pure Python + NumPy, importable and testable with plain <code>pytest</code> on any machine with no GPU and no Isaac Sim.</p>
+<p>All engine glue lives in <code>src/irsim_isaac/</code>. This is enforced by a test — see <code>tests/unit/test_layering.py</code>.</p>
+<p>Reason: the physics iteration loop must run in seconds. If verifying Planck's law requires launching a simulator, nobody will verify Planck's law. It also makes the Unreal port a rewrite of the glue only.</p>
+<h3 id="2-float32-or-better-everywhere-temperature-or-radiance-flows">2. float32 or better, everywhere temperature or radiance flows<a class="anchor" href="#2-float32-or-better-everywhere-temperature-or-radiance-flows" aria-label="permalink">#</a></h3>
+<p>At 300 K, float16 has a spacing of 0.25 K — five times coarser than a 50 mK NETD. A float16 buffer anywhere in the temperature or radiance path destroys the sensor's entire sensitivity, silently, while still producing an image that looks fine.</p>
+<p>Applies to: NumPy dtypes, Isaac Sim AOV formats, CUDA texture formats, and any file you write to disk. Assert dtype at every boundary. There is a test for the encode/decode round trip; keep it passing.</p>
+<h3 id="3-noise-is-added-in-radiance-or-electron-space-never-in-kelvin">3. Noise is added in radiance or electron space, never in Kelvin<a class="anchor" href="#3-noise-is-added-in-radiance-or-electron-space-never-in-kelvin" aria-label="permalink">#</a></h3>
+<p>The blackbody thermal derivative <code>∂L/∂T</code> rises with temperature, so a fixed Kelvin-space sigma is wrong everywhere except the one temperature it was tuned at. Convert to radiance, add noise, convert back.</p>
+<h3 id="4-kirchhoff-closure-holds-for-every-material-in-every-band">4. Kirchhoff closure holds for every material in every band<a class="anchor" href="#4-kirchhoff-closure-holds-for-every-material-in-every-band" aria-label="permalink">#</a></h3>
+<p><code>ε + ρ + τ = 1</code>, to 1e-6. Author one of the three and derive the others. Never author two independently. There is a test that walks the whole material library; keep it passing.</p>
+<h3 id="5-the-aperture-factor-is-π4f²--1-not-π4f²">5. The aperture factor is <code>π/(4F² + 1)</code>, not <code>π/(4F²)</code><a class="anchor" href="#5-the-aperture-factor-is-π4f²--1-not-π4f²" aria-label="permalink">#</a></h3>
+<p>At F/1.0 the difference is 20%. Defined once in <code>irsim.optics</code>, used nowhere else by hand.</p>
+<h3 id="6-weather-feeds-the-thermal-solver-and-the-atmosphere-from-one-object">6. Weather feeds the thermal solver and the atmosphere from one object<a class="anchor" href="#6-weather-feeds-the-thermal-solver-and-the-atmosphere-from-one-object" aria-label="permalink">#</a></h3>
+<p>Nothing in the code may let a scene run summer weather in the temperature model and winter weather in the atmosphere model. One <code>WeatherSeries</code>, injected into both.</p>
+<hr>
+<h2 id="repository-layout">Repository layout<a class="anchor" href="#repository-layout" aria-label="permalink">#</a></h2>
+<pre><code>src/irsim/              # engine-free physics core (pure Python + NumPy)
+  radiometry/           # Planck, band integration, LUTs, apparent temperature
+  materials/            # spectral material model, Kirchhoff, Fresnel, library + loader
+  thermal/              # energy balance solvers, weather, vehicle regimes
+  atmosphere/           # Beer-Lambert transmittance, path radiance
+  optics/               # aperture, MTF cascade, distortion, self-emission
+  detector/             # photon and bolometer models, NETD
+  noise/                # 3D noise model, FPN, bad pixels, NUC residual
+  isp/                  # NUC, AGC, DDE, palette
+  config/               # pydantic schemas for sensor / material / atmosphere YAML
+
+src/irsim_isaac/        # Isaac Sim glue — the ONLY place engine imports are allowed
+  pipeline/             # AOV setup, annotators, Warp-based reference pipeline
+  spg/                  # empty on purpose: the .cu / .cu.lua / .usda assets are blocked on one
+                         # capability question, written down in its README (DC.1)
+
+tests/
+  conftest.py           # synthetic G-buffer fixtures (ramp, uniform, two-material, grazing sphere,
+                         # supersampled step edge, moving edge) — the engine-free kernel test bed
+  unit/                 # fast, no GPU, no Isaac Sim. Must run in &lt; 30 s total.
+  integration/          # requires Isaac Sim. Marked @pytest.mark.isaac, skipped by default.
+  golden/               # regression fixtures (reference arrays + tolerances)
+
+configs/sensors/        # one YAML per camera (see docs/physics-model.md §12.2)
+configs/materials/      # material library
+configs/atmospheres/    # atmosphere presets
+configs/environments/   # illumination/weather-regime presets
+data/                   # spectral response curves, n/k tables, generated LUTs, weather files
+                         # ($IRSIM_DATA_DIR overrides the root)
+docs/physics-model.md   # THE physics specification
+docs/roadmap.md         # milestones, one-commit steps, risks, ADR backlog
+docs/spec-issues.md     # contradictions found in physics-model.md and the resolution the code assumes
+docs/decisions/         # ADRs — one file per significant decision
+docs/maps/              # frozen 2026-09-10 subsystem snapshots, not maintained — history, not
+                         # navigation; read the tree itself for the current shape
+scripts/                # LUT generation, validation reports, dataset export
+.github/workflows/      # CI: plain-CPython gate only, no GPU, no Isaac Sim (mirrors `make ci`)</code></pre>
+<hr>
+<h2 id="commands">Commands<a class="anchor" href="#commands" aria-label="permalink">#</a></h2>
+<pre><code class="language-bash">make install       # editable install + dev dependencies
+make test          # unit + golden tests (fast, no GPU) — this is the default gate
+make test-all      # includes integration tests (needs Isaac Sim)
+make lint          # ruff check + ruff format --check
+make fmt           # ruff format
+make typecheck     # mypy on src/irsim and src/irsim_isaac
+make check         # lint + typecheck + test  ← run this before every commit
+make ci            # reproduces the GitHub Actions job locally: plain CPython 3.10 venv + make check
+                    # (proves the engine-free core needs neither Isaac Sim nor CUDA)
+make luts          # regenerate band LUTs from configs + spectral response data
+make golden-update # regenerate golden reference arrays deliberately (never to silence a failure)</code></pre>
+<p>Every target honours <code>PYTHON=</code>. Locally this should point at the Isaac Sim interpreter (ADR 0002), e.g. <code>make check PYTHON=/path/to/IsaacSim/_build/linux-x86_64/release/python.sh</code> — the system Python and a bare conda base typically lack pytest/numpy/ruff/mypy. Any CPython ≥ 3.10 with <code>.[dev]</code> installed also works for everything under <code>src/irsim/</code> and <code>tests/unit/</code>; only <code>test-all</code> needs the Isaac interpreter.</p>
+<p><code>make check</code> must pass before any commit. No exceptions, no <code>--no-verify</code>.</p>
+<hr>
+<h2 id="workflow-what-a-step-means">Workflow: what "a step" means<a class="anchor" href="#workflow-what-a-step-means" aria-label="permalink">#</a></h2>
+<p>Work in small, complete steps. A step is done only when <strong>all five</strong> of these are true:</p>
+<ol>
+<li><strong>Code</strong> implements one coherent piece, with a docstring citing the physics-model section.</li>
+<li><strong>Tests</strong> exist and pass. New physics needs a test that would fail if the physics were wrong — not a test that merely calls the function. See the <code>ir-sim-testing</code> skill.</li>
+<li><strong><code>make check</code> is green.</strong></li>
+<li><strong><code>README.md</code> is updated</strong> — the status table, and anything the change makes untrue.</li>
+<li><strong><code>CHANGELOG.md</code> has an entry</strong> under <code>## [Unreleased]</code>.</li>
+</ol>
+<p>Then commit. One step, one commit.</p>
+<p>If a step is turning out bigger than expected, stop and split it rather than committing something half-tested. Say so in the conversation.</p>
+<p>The <code>ship-step</code> skill has the exact checklist and commit format. Use it every time you finish a step — do not reconstruct the process from memory.</p>
+<h3 id="commit-format">Commit format<a class="anchor" href="#commit-format" aria-label="permalink">#</a></h3>
+<p>Conventional Commits, with a scope from the module list:</p>
+<pre><code>feat(radiometry): add band-integrated Planck LUT with inverse lookup
+
+Implements docs/physics-model.md §3.2 (b) and §3.3. LUT covers 200-1000 K
+at 0.05 K spacing, float32. Inverse by binary search.
+
+Round-trip error &lt; 1 mK across the full range (tests/unit/test_planck.py).</code></pre>
+<p>Types: <code>feat</code>, <code>fix</code>, <code>test</code>, <code>docs</code>, <code>refactor</code>, <code>perf</code>, <code>chore</code>. Scopes: <code>radiometry</code>, <code>materials</code>, <code>thermal</code>, <code>atmosphere</code>, <code>optics</code>, <code>detector</code>, <code>noise</code>, <code>isp</code>, <code>config</code>, <code>isaac</code>, <code>spg</code>, <code>build</code>, <code>docs</code>.</p>
+<h3 id="decisions">Decisions<a class="anchor" href="#decisions" aria-label="permalink">#</a></h3>
+<p>When a choice has consequences that outlive the commit — a solver, an encoding, a fidelity level you deliberately skipped — write an ADR in <code>docs/decisions/NNNN-short-title.md</code> using the template in <code>docs/decisions/0001-record-architecture-decisions.md</code>. This project involves a lot of "we chose the cheaper approximation on purpose" and future-you needs the reasoning, not just the result.</p>
+<hr>
+<h2 id="skills">Skills<a class="anchor" href="#skills" aria-label="permalink">#</a></h2>
+<p>Consult these. They contain project-specific detail that is not in your training data, particularly around Isaac Sim 6.0, which is recent.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Skill</th><th>Use when</th></tr></thead>
+<tbody>
+<tr><td><code>ir-radiometry</code></td><td>Planck, band integration, LUTs, apparent temperature, any unit question</td></tr>
+<tr><td><code>thermal-materials</code></td><td>Material properties, emissivity, Fresnel, importing USD assets</td></tr>
+<tr><td><code>thermal-solver</code></td><td>Surface temperature, energy balance, weather, vehicle heat sources</td></tr>
+<tr><td><code>sensor-noise-chain</code></td><td>Detector models, NETD, 3D noise, NUC/FFC, AGC and the ISP</td></tr>
+<tr><td><code>isaac-sim-spg</code></td><td>Anything touching Isaac Sim, AOVs, SPG kernels, Warp</td></tr>
+<tr><td><code>ir-sim-testing</code></td><td>Writing tests, tolerances, golden data, validation tiers</td></tr>
+<tr><td><code>ship-step</code></td><td>Finishing any step — README, CHANGELOG, git</td></tr>
+</tbody></table></div>
+<hr>
+<h2 id="working-style-for-this-repo">Working style for this repo<a class="anchor" href="#working-style-for-this-repo" aria-label="permalink">#</a></h2>
+<p><strong>Physics before pixels.</strong> The order in <code>docs/physics-model.md</code> §16.4 is deliberate. Do not build the Isaac Sim integration before the radiometry core has passing unit tests. An image that looks thermal is easy; one that is correct is not, and you cannot tell them apart by looking.</p>
+<p><strong>Prefer a scalar reference implementation first.</strong> Write the clear NumPy version, test it, then optimise. Keep the reference implementation as the oracle the fast path is tested against.</p>
+<p><strong>Bands are data, not code.</strong> If adding SWIR requires editing the radiance kernel, the abstraction is wrong — stop and fix the abstraction. This is the main scalability requirement of the project.</p>
+<p><strong>Don't invent physical constants.</strong> They live in <code>irsim.radiometry.constants</code>. If you need one that isn't there, add it there with a source, not inline.</p>
+<p><strong>Flag uncertainty rather than guessing.</strong> Isaac Sim 6.0's SPG API is new and the public documentation is incomplete. If something is ambiguous, say so and propose a way to verify it, instead of writing code that assumes the ambiguity resolved in your favour.</p>
+<p><strong>Team context.</strong> Several people work on this. Write for a reader who was not in the conversation where the decision was made — hence the ADRs and the physics-model citations.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../assets/site.js"></script>
+</body>
+</html>

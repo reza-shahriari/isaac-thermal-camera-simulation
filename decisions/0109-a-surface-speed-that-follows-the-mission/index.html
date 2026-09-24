@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0109 — A patched surface&#x27;s speed follows the mission — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0109 — A patched surface&#x27;s speed follows the mission</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0109-a-surface-speed-that-follows-the-mission.md" target="_blank" rel="noopener">docs/decisions/0109-a-surface-speed-that-follows-the-mission.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-21 Roadmap: PT.9 (§6.1, §6.6; engine-free half)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>SurfaceSpec.vehicle_speed_m_s</code> is one number per surface, and it is what turns free convection into forced in <code>convection_coefficient</code>. That is right for a parked car and wrong for anything that flies: a quadrotor spends the first two minutes of its mission on the pad and the next twenty in the air, and the difference between those two convection regimes is <strong>15 K on a sunlit carbon deck</strong>. Regenerating the aerial scenario point-wise (the owner's own next step after phase P) was blocked on exactly that: with a constant speed the scene can show the deck hot for the whole mission or cool for the whole mission, and neither is the flight.</p>
+<p>ADR 0072's <code>airframe</code> solver sidestepped this by <em>asserting</em> the answer — the skin is at the air temperature — which is the flying case stated as a law. It is a good approximation in cruise and 30 K wrong on the pad, and nothing in the scene could tell the two apart.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A separate "on the ground" scene and an "in flight" scene.</strong> Two configs for one mission, and the transition — which is the interesting part — appears in neither.</li>
+<li><strong>Derive the speed from a target node</strong> (<code>speed_from: {target: motor}</code>). A target is a temperature, not a velocity; reading a speed out of one would be inferring the flight from its thermal consequence, backwards.</li>
+<li><strong>A speed schedule on the surface</strong>, <code>speed_s</code> against <code>speed_m_s</code>, the same shape as a target's <code>throttle_s</code>/<code>throttle</code> and <code>load_s</code>/<code>load</code>, linearly interpolated and held flat outside. The mission is already authored as what the pilot did; this is one more column of it. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>SurfaceSpec.speed_s</code> / <code>speed_m_s</code> (schema v13) and <code>SurfaceOrientation.speed_schedule</code>, whose <code>speed_at(t)</code> <code>SceneSurfaceForcing</code> calls once per evaluation in place of the constant. A surface declares <strong>one</strong> speed authority — the constant or the schedule — and both together is a load error, not a precedence rule. Held flat outside the schedule, so the spin-up before <code>t0</code> runs at the first entry, which for a platform sitting on its pad is exactly right.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Measured</strong>, on <code>configs/scenes/quad_flight_pointwise.yaml</code>: the deck sits 29.3 K over air on the pad, 13.8 K over it in the hard climb at 13 m/s, and 29.6 K over it again once landed. Freeze the schedule at the pad's 1 m/s and the climb never cools — the negative control that shows the collapse is the mission and not the sun moving. Every cell still holds its own equilibrium to under 1 mK against <code>steady_state_temperature</code> on its own flux.</p>
+<p><strong>What it does not do.</strong> Rotor downwash is not modelled: the 1 m/s on the pad is a stand-in for it and a real hover moves more air over a deck than that, so the pad excess above is an upper bound. The schedule drives <strong>convection only</strong> — a skin fast enough for aerodynamic heating needs the recovery temperature ADR 0075 derives, and a patched surface has no route to it yet, which is why the aircraft-pass scene stays per-prim. The powered parts of the quadrotor (motors, speed controllers, the pack) also stay per-prim: conducting their heat into the skin from a config still has no route, and that is the remainder of <code>PT.9</code> beside <code>WM.3</code>'s curved binding.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A patched surface needs the ram recovery temperature (ADR 0075 in the forcing rather than in a target), a speed that varies <em>across</em> a surface (a rotor disc), or the schedule to come from a flight trace rather than from the config.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

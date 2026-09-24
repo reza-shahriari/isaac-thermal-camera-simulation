@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0025 — NETD anchoring: σ_TVH = NETD at the reference f-number; only Gaussian terms scale — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0025 — NETD anchoring: σ_TVH = NETD at the reference f-number; only Gaussian terms scale</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0025-netd-anchoring.md" target="_blank" rel="noopener">docs/decisions/0025-netd-anchoring.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m116-2026-09-15--for-a-photon-fpa-the-electron-datasheet-is-primary">Addendum (M11.6, 2026-09-15) — for a photon FPA the electron datasheet is primary</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§9.4 and Appendix A #7: NETD is anchored to the datasheet, not predicted. Something must decide <em>which</em> noise terms absorb the anchor, at which f-number the datasheet figure applies, and what to do when the physics cannot reach the target. §10.2 quotes the 3-D ratios "in NETD units", i.e. relative to σ_TVH, and the datasheet NETD is measured at one lens while the simulator may run another.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Scale every noise term</strong> by a common factor — rescales Poisson shot noise, which is physics (variance = mean), not a free parameter; wrong statistics for photon cameras.</li>
+<li><strong>Scale only the scene-independent Gaussian term</strong> (read/Johnson/ROIC/1/f lumped) to make σ_total(300 K)/(∂S/∂T) equal the target; shot terms untouched; raise if shot alone exceeds the target.</li>
+<li><strong>Fit a per-temperature σ(T) to a NETD curve</strong> — no camera provides one.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, <code>irsim.detector.anchor.anchor_noise(sensor, lut, target, T_ref=300 K)</code>:</p>
+<ul>
+<li>σ_gaussian² = (NETD_target · ∂S/∂T(T_ref, F_ref))² − σ_shot²(T_ref); Poisson shot (signal + dark + background) is never rescaled; an unattainable target raises with the shot-limited NETD in the message.</li>
+<li><strong>σ_TVH = NETD</strong> convention: the anchored σ is the per-pixel temporal σ; the 3-D components take their σ_i = r_i · σ_TVH from the configured ratios (spec issue S25: σ_total is then 1.06 × NETD for the Boson ratios, which is the convention chosen — the datasheet NETD is a temporal figure).</li>
+<li><strong>F_ref = <code>noise.netd_ref_f_number</code></strong> (the lens the datasheet figure was measured with) or the configured f-number. The anchor is solved at F_ref; the camera runs at its configured F, which enters only through the transfer, so NETD(F/1.4)/NETD(F/1.0) = 1.768 (ADR 0024), never 1.96, and σ_signal does not change when the lens changes.</li>
+<li>Bolometer signal unit is pixel power (W); the DN gain of ADR 0019 converts σ to DN in the noise stage, so the anchor is gain-invariant. Photon signal unit is electrons.</li>
+<li>Bolometer first-principles floors (Johnson, temperature fluctuation at ENBW = 1/(4τ_th)) are computed and reported in the budget for information; with the typical VOx constants of ADR 0017 they are of the same order as the datasheet NETD, which is why the anchor — not the floors — sets the magnitude.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The noise <em>magnitude</em> matches the datasheet at 300 K and its <em>structure</em> (shot vs Gaussian, spectral and spatial) is physical. NETD at other temperatures follows the physics: for a bolometer, exactly the derivative ratio; for a photon camera, the shot-noise curve. Grade variants (40/50/60 mK) differ only in σ_gaussian, analytically.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A measured NETD-vs-scene-temperature curve or a 3-D noise measurement for the reference camera exists (then the ratios and the temporal/total convention can be fitted rather than assumed), or a cooled camera needs a background-limited term (ADR 0066).</p>
+<hr>
+<h2 id="addendum-m116-2026-09-15--for-a-photon-fpa-the-electron-datasheet-is-primary">Addendum (M11.6, 2026-09-15) — for a photon FPA the electron datasheet is primary<a class="anchor" href="#addendum-m116-2026-09-15--for-a-photon-fpa-the-electron-datasheet-is-primary" aria-label="permalink">#</a></h2>
+<p>The rule above makes NETD the calibration handle and solves for the Gaussian σ. That is right for a bolometer, whose datasheet quotes NETD and nothing else usable. M11.1's SWIR camera is where it breaks in the open.</p>
+<p>NETD is defined against a <strong>300 K blackbody</strong> (§9.4). A 300 K blackbody puts <strong>1.24 photoelectrons per pixel per 16 ms frame</strong> into 0.9–1.7 µm, against 120 e⁻ of read noise, so evaluating §9.4 honestly on that camera gives <strong>976 K</strong>. It is correct physics and a useless anchor: solving <code>σ_gaussian² = (NETD · ∂S/∂T)² − σ_shot²</code> against it scales the Gaussian term by about 2e4 and produces a camera whose noise is invented rather than described.</p>
+<p>What an InGaAs or InSb datasheet <em>does</em> quote is what the noise is made of — quantum efficiency, well capacity, integration time, read noise <strong>in electrons</strong>, dark current. So:</p>
+<ul>
+<li><strong>Photon FPA with <code>read_noise_e</code> authored → <code>irsim.noise.electron.electron_budget</code>.</strong> σ_gaussian <strong>is</strong> the configured read noise, used and not solved for; the Arrhenius block becomes a Poisson dark term; the cold shield (ADR 0066) a Poisson background term. NETD becomes the <strong>cross-check</strong>, not the anchor.</li>
+<li><strong>Bolometer, or a photon FPA with no <code>read_noise_e</code> → <code>anchor_noise</code>, unchanged.</strong></li>
+</ul>
+<p>Three rules survive intact, because none of them was ever about which handle is primary: Poisson terms are never rescaled; noise is added in electron space and never in kelvin (non-negotiable #3); and a configuration that cannot reach its own claim <strong>raises</strong>. That last check is skipped, with its reason named in the code, for a <strong>reflective</strong> band — where §9.4's 300 K definition is vacuous and the configured field is a placeholder by construction. This closes the loop M11.1 opened when it wrote 976 K into the SWIR file and said nothing may anchor to it.</p>
+<p>Measured (synthetic bench: σ of a uniform scene over ∂S/∂T, in electrons, 200 000 samples):</p>
+<div class='table-wrap'><table>
+<thead><tr><th>camera</th><th>at</th><th>bench NETD</th><th>predicted</th><th>error</th><th>shot-limited floor</th></tr></thead>
+<tbody>
+<tr><td>InGaAs SWIR</td><td>700 K</td><td>7.86 mK</td><td>7.87 mK</td><td><strong>0.16 %</strong></td><td>7.87 mK</td></tr>
+<tr><td>InSb MWIR</td><td>300 K</td><td>18.33 mK</td><td>18.36 mK</td><td><strong>0.16 %</strong></td><td>17.93 mK</td></tr>
+</tbody></table></div>
+<p>The InSb camera sits <strong>2.4 % above shot-limited</strong>, which is what a cooled MWIR core is sold on and a useful check that the read-noise and dark terms have not been overstated. The SWIR camera is measured at 700 K rather than 300 K because a NETD bench at 300 K in that band measures the read noise and nothing else — the scene contributes one photoelectron a frame.</p>
+<p>Dark current, as a number, is the reason InSb is cryocooled: <strong>200 e⁻ per frame</strong> for the uncooled InGaAs array against <strong>0.12 e⁻</strong> for the InSb at 77 K, and warming that InSb array to room temperature multiplies its dark count by more than 10⁶.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

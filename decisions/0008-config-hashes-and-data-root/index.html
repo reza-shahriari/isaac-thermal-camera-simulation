@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0008 — Config hash, band hash and the data root — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0008 — Config hash, band hash and the data root</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0008-config-hashes-and-data-root.md" target="_blank" rel="noopener">docs/decisions/0008-config-hashes-and-data-root.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>LUTs, goldens and pipeline outputs are all derived from a sensor config plus the data files it names. Reusing one with a config that has changed is the silent-staleness failure the ir-radiometry skill warns about ("generating a LUT from one config and using it with another"). The spectral-response path was stated four ways across the spec, the skill and the YAML (<code>responses/</code>, <code>spectra/</code>, <code>data/spectra/</code>), and the referenced file did not exist (spec issue T4).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Hash the YAML text</strong> — trivially sensitive to comments and key order, so every cosmetic edit invalidates every LUT; and it ignores the data files the config points at.</li>
+<li><strong>Hash the validated model's canonical JSON, with file paths replaced by file-content hashes</strong> — invariant to text cosmetics and to <code>60</code> vs <code>60.0</code>; moves for every physical leaf; moves when a referenced file's bytes change; independent of where the data root lives.</li>
+<li><strong>Hash only the fields a consumer says it depends on</strong> — precise, but every consumer must enumerate its dependencies correctly, and a forgotten field is exactly the bug this exists to stop.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, with two hashes (<code>irsim.config.loader</code>):</p>
+<ul>
+<li><code>config_hash</code> — SHA-256 of <code>json.dumps(model_dump(), sort_keys=True)</code> after replacing every field in <code>DATA_PATH_FIELDS</code> by <code>{"sha256": &lt;file bytes hash&gt;}</code>. Keys goldens and pipeline outputs.</li>
+<li><code>band_hash</code> — the same over <code>sensor.band</code> only. Keys LUTs, so the consumer/professional/industrial NETD grades of one detector (§16.1) share one table; a 1e-3 change in one response sample changes it.</li>
+<li>The test suite perturbs <strong>every numeric leaf</strong> of the Boson file by 1 % (downward at an upper bound) and flips every enumerated leaf; the hash must move each time. Only <code>ratios_3d.tvh</code>, pinned to 1.0 by the schema, is exempt.</li>
+<li><strong>Data root</strong> — <code>data_dir</code> argument, else <code>$IRSIM_DATA_DIR</code>, else <code>&lt;repo&gt;/data</code>. Data-file fields are relative to it; the loader stores the resolved absolute path on the model and raises <code>FileNotFoundError</code> naming the field, the raw value and the root when a file is missing.</li>
+<li><strong>Canonical layout</strong> — <code>data/spectra/responses/&lt;name&gt;.csv</code> for R(λ); later <code>data/materials/</code>, <code>data/solar/</code>, <code>data/nk/</code>. The Boson YAML now points at <code>spectra/responses/boson_vox.csv</code>; the spec block is corrected in M0.10; M1.3 authors the file. Until then the loader fails by name on the repo file — a test records that state and flips to "loads" when the file lands.</li>
+<li>Round trip: <code>dump_sensor_config</code> → <code>load_sensor_config</code> gives an equal model and equal hashes.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Any new file-referencing field must be added to <code>DATA_PATH_FIELDS</code> — one line — for both hashes to see it. Hashing reads the referenced files each time (64 kB-scale, negligible). No physical error.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>Material or atmosphere configs reference files (M7.2, M8) — extend <code>DATA_PATH_FIELDS</code> and decide whether a material hash joins <code>band_hash</code> in the LUT key.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

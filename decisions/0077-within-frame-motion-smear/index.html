@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0077 — Within-frame motion smear, spatially varying — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0077 — Within-frame motion smear, spatially varying</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0077-within-frame-motion-smear.md" target="_blank" rel="noopener">docs/decisions/0077-within-frame-motion-smear.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-14</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>irsim.optics.mtf.mtf_motion</code> — <code>|sinc(v t_int ξ)|</code> for linear image-plane motion during the integration — has been in the MTF cascade since M5. <strong>Nothing ever called it.</strong> A grep for its name outside its own definition and <code>__all__</code> returned the export list and nothing else, so every frame this simulator has produced was sharp regardless of how fast the scene crossed it.</p>
+<p>That is not a small omission for the scenes this project is built for. The aircraft stage (ADR</p>
+<ol>
+<li>sweeps the boresight at 34 °/s at closest approach and a Boson pixel is 0.049°, so the scene</li>
+</ol>
+<p>crosses <strong>eleven pixels in one frame period</strong>. Motion blur is also one of the most obvious signatures separating real thermal video of a moving target from synthetic video of one, which puts it squarely in the sim-to-real path this whole lane exists to serve.</p>
+<p>It is distinct from, and additional to, the bolometer's frame-to-frame lag. The membrane IIR (§9.2) carries a target's history across successive frames; this is the blur laid down <strong>within</strong> a single integration. Both are real and they compose.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>1. Frequency domain, folded into the PSF.</strong> The cascade is already built that way, and it is what <code>mtf_motion</code> is written for. It requires <em>one</em> velocity for the whole frame. That is exactly wrong for the scenes here: under a tracking mount the target is stationary on the focal plane while the sky sweeps past it, so a single kernel serves neither. Kept for the MTF bench, which measures a uniform-motion figure of merit; not usable for a render.</p>
+<p><strong>2. A spatially varying line average</strong> (chosen). Each pixel is averaged along <strong>its own</strong> motion vector, from −s/2 to +s/2 with s = |v|·duty. Costs one gather per tap and handles the tracked case correctly by construction.</p>
+<p><strong>3. Where it sits.</strong> After the PSF, before the box filter. Both are convolutions laid down during the integration and they commute, so the order between <em>them</em> is arbitrary; that both precede the box filter is not, because the box filter is the detector sampling the result.</p>
+<p><strong>4. Centred or trailing.</strong> Centred. A trailing segment displaces every moving feature by half its smear — a shift that looks like a timing error because it is one.</p>
+<p><strong>5. The duty, which is where the two detector families part.</strong> A microbolometer has no shutter and no integration window — <code>integration_time_ms</code> is <code>None</code> for one in the schema, deliberately — because it integrates continuously, so the scene smears over the <strong>whole frame period</strong>. A cooled photon detector integrates briefly inside the frame and is idle for the rest, so it smears over that fraction and comes out sharper. Reading a missing integration time as zero would have made every uncooled camera in the repository sharper than it is, which is the flattering direction and therefore the dangerous one. This is the mechanism behind §16's checklist line <em>"lateral motion smears LWIR, not cooled MWIR"</em>.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim.optics.smear.apply_motion_smear</code> is the spatially varying operator; <code>smear_duty</code> is the integration fraction, with <code>None</code> meaning a bolometer and therefore 1. <code>irsim.pipeline.optics</code> scales the G-buffer's <code>motion_px</code> by the duty and hands it to <code>apply_optics</code>, which applies it between the PSF and the box filter. <code>motion_px</code> stays optional in the G-buffer (M0.6), so a still scene takes the previous path exactly and every committed golden is unchanged.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>It agrees with the cascade term it implements</strong>, which is the only reason to trust it: measured against <code>|sinc(s f)|</code> over smears of 3–20 px and frequencies of 1/48–1/12 cyc/px, worst deviation <strong>0.015</strong>, mostly under 0.006. Two descriptions of one effect that disagreed would be worse than one, because a picture cannot tell you which is wrong.</p>
+<p><strong>The cross-check found a real error.</strong> Taps placed at the segment's <em>endpoints</em> look natural and are wrong: N taps spanning length s sit s/(N−1) apart, so the comb implements a boxcar of length s + s/(N−1). Measured MTF 0.7182 where sinc said 0.7842 — exactly the Dirichlet kernel of the longer smear. The operator was self-consistent and describing the wrong smear, which no amount of "does it look blurred" would have caught. The taps are now at sub-interval midpoints.</p>
+<p><strong>Cost.</strong> One bilinear gather per tap, with one tap per pixel of travel up to 65. On a 4× supersampled Boson frame with an 11 px native smear that is ~45 gathers of 5 M points. Scenes without a <code>motion_px</code> plane pay nothing, and motion below a quarter pixel returns the input untouched.</p>
+<p><strong>What it does not model.</strong> Rotation within the integration is approximated as translation at each pixel's own velocity — correct to first order, and the error grows with the rotation rate times the integration time. Occlusion is ignored: a smeared foreground edge blends with whatever the background <em>currently</em> is rather than with what was actually behind it during the sweep, which is the standard approximation for post-hoc motion blur and is visible only at high-contrast silhouettes. There is no sub-frame <em>scene</em> motion — the target moves, the world does not deform.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A Warp port of stage 3 lands — this is a gather-heavy operator and is the natural candidate.</li>
+<li>Rotation rates get high enough that the per-pixel-translation approximation shows, most likely on a spinning propeller rather than a slewing mount.</li>
+<li>Propellers are modelled: a blade at flight rpm sweeps its whole disc within one integration, so the annulus it smears into is this operator's job and the reason ADR 0074 left props out.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

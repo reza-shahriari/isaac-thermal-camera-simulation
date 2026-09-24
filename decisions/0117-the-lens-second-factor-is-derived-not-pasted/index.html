@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0117 — The optical PSF&#x27;s second factor: derived from the datasheet, not pasted — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0117 — The optical PSF&#x27;s second factor: derived from the datasheet, not pasted</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0117-the-lens-second-factor-is-derived-not-pasted.md" target="_blank" rel="noopener">docs/decisions/0117-the-lens-second-factor-is-derived-not-pasted.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Fills the gap <a href="../0059-mtf-conventions/">ADR 0059</a> left open: it fixed <em>where</em> the aberration Gaussian is applied and left <em>what it is</em> to the config, where it stayed zero on every camera. <strong>Date:</strong> 2026-09-22 Roadmap: SC.4 (§8.3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>MtfSpec.aberration_sigma_um</code> is documented as "the Gaussian fitted from a measured slant edge", defaults to 0.0, and no shipped sensor YAML carried an <code>mtf:</code> block. So every rendered camera in this repository was <strong>diffraction-limited</strong> — the best lens physics allows, and not a lens anyone sells. The Tier 2 MTF bench measured that camera and pinned its answer, so the defect had a passing test on top of it.</p>
+<p>A zero is not a neutral default here. It is a claim, and it is the strongest claim available.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>Leave it zero and say so.</strong> Defensible for a camera with no published figure, and taken for three of the five (below). Not defensible for the Boson, which is the camera the whole validation lane is built around and the one whose datasheet publishes the number.</p>
+<p><strong>Fit σ to a golden or to a plausible-looking edge.</strong> Rejected. The point of the parameter is that it carries external information; a value fitted to this repository's own output carries none, and would make the bench a tautology.</p>
+<p><strong>Paste the solved number into the YAML.</strong> What a hurry looks like, and where this nearly landed. Rejected because nobody could tell later whether 1.654 came from the datasheet or from a fit. See the decision.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>The number is solved, in code, from the published figure.</strong> <code>irsim.optics.mtf.aberration_sigma_for_mtf(target, ξ, λ, F)</code> inverts</p>
+<p>MTF_diff(ξ) · exp(−2π² σ² ξ²) = target</p>
+<p>and <code>tests/unit/test_lens_mtf.py</code> re-runs the solve against what the YAML carries, so the config and the datasheet cannot drift apart silently. For the Boson at ξ_N = 41.667 cyc/mm, λ = 10.5 µm, F/1.0 and FLIR's 42 % nominal on-axis figure: <strong>σ = 1.654 µm</strong>.</p>
+<p><strong>The detector footprint stays out of the solve.</strong> The datasheet figure is the lens; the box filter is the pipeline's (ADR 0059). Folding it in would count it twice and the result would still look like an image — just a softer one, with the system MTF at 0.17 instead of 0.27. That is a test, not a comment.</p>
+<p><strong>The check is on the lens factor, not the system.</strong> This is the part worth remembering. The roadmap's acceptance is the system MTF at 0.27 ± 0.03, and a <strong>diffraction-limited Boson gives 0.294 — inside that band</strong>. The band would have passed the broken camera. What separates them is the lens factor against the datasheet, 0.420 authored against 0.461 ideal: a 10 % error that the box filter dilutes to 9 % of a number with an 11 % tolerance on it. Acceptance bands inherited from a system measurement do not always constrain the component that is wrong.</p>
+<p><strong>Two cameras get the figure; three keep an ideal lens, on the record.</strong> Both Bosons share f/1.0, a 12 µm pitch and the same band, so the Nyquist frequency and the diffraction term are identical and only the field angle differs; the 9.03 mm variant's own figure was not found, so it takes the family nominal and is marked ESTIMATED in a way the 640 is not. The MWIR InSb, SWIR InGaAs and NIR silicon examples are generic parts with no named lens — cooled MWIR optics are specified diffraction-limited over their own field, and for the other two there is nothing to solve against. They are listed in <code>IDEAL_LENS</code> with their reasons and a test fails for any camera in neither branch, so the next one added has to decide rather than inherit a zero the way all five did.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The Boson's images changed, and in the shape an aberration should.</strong> Twelve golden arrays moved and seventeen did not, which is itself the check:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>golden</th><th>max</th><th>Δ</th><th></th><th>what it is</th></tr></thead>
+<tbody>
+<tr><td><code>boson_ramp_apparent_t</code></td><td><strong>7.8 mK</strong></td><td>a smooth gradient has almost no high-frequency content to lose</td></tr>
+<tr><td><code>boson_hot_patch_apparent_t</code></td><td><strong>3.97 K</strong> (rms 0.21 K)</td><td>hard edges, where a blur does its work</td></tr>
+<tr><td><code>boson_sitf_dn</code>, <code>boson_noise_cube</code></td><td><strong>bit-identical</strong></td><td>uniform fields; no PSF can change one</td></tr>
+<tr><td>MWIR / NIR / SWIR frames</td><td><strong>bit-identical</strong></td><td>only the Boson configs changed</td></tr>
+</tbody></table></div>
+<p>Edges move, flats do not, and cameras that were not touched did not move. Regenerated deliberately with <code>make golden-update</code> after that comparison, not to silence a failure.</p>
+<p><strong>The Tier 2 bench now measures the shipped camera</strong>, reading σ from the YAML rather than typing a 0.0 beside it, so the bench and the renderer cannot disagree about which camera they describe. Its Nyquist expectation moves from 0.31 to 0.27.</p>
+<p><strong>Still estimated:</strong> the figure is FLIR's <em>nominal on-axis</em> value, so the modelled lens is uniform across the field where a real one softens toward the corners. One Gaussian also stands for aberration and defocus together (ADR 0059) and cannot separate them.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A measured slant edge for one of these cameras arrives — <code>tests/unit/test_tier2_mtf.py</code> already has the comparison wired behind <code>measured_path("mtf", …)</code> and skips for want of the file. At that point σ stops being solved from a nominal figure and becomes what the docstring always said it was.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

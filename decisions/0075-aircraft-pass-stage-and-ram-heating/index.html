@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0075 — A fixed-wing pass stage, aerodynamic skin heating, and a mount that slews — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0075 — A fixed-wing pass stage, aerodynamic skin heating, and a mount that slews</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0075-aircraft-pass-stage-and-ram-heating.md" target="_blank" rel="noopener">docs/decisions/0075-aircraft-pass-stage-and-ram-heating.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-14</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0074 built a quadrotor stage whose variable is <em>throttle</em>: four motors a sixteenth of the span across, resolvable at close range, warming over half an hour. An aircraft is the opposite problem in every respect that matters, and running it through the same machinery would have produced a believable picture of the wrong physics.</p>
+<ul>
+<li>Its hot part is an exhaust nozzle a <strong>fortieth</strong> of the span across but hundreds of kelvin above ambient — a near-point source, bright because it is hot rather than because it is large.</li>
+<li>That nozzle is <strong>occluded from the front</strong> by its own nacelle, which is why a real aircraft's measured infrared signature varies by a large factor around the clock and why rear-aspect detection ranges are the ones quoted. Nothing about the <em>target</em> changes during a pass; the variable is <strong>aspect</strong>.</li>
+<li>Its skin is <strong>not at air temperature</strong>. <code>irsim.thermal.aerial.airframe_solver</code> says an unpowered skin sits at ambient, and justifies it by forced convection at flight speed — which is true at 20 m/s and false at 200. The stagnating boundary layer heats the skin to its recovery temperature, 10 K above ambient at M 0.43 and 34 K at M 0.8.</li>
+</ul>
+<p><code>docs/physics-model.md</code> has nothing to say about any of this. §6.6 is an automotive heat-source table, and the spec has no aircraft section at all; the whole aerial lane (ADR 0003, 0072, 0074) is an extension the project made deliberately. This ADR records another one.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>1. Where the airframe comes from.</strong> Same answer as ADR 0074 and for the same reasons — parametric primitives, so every part is separate by construction, dimensions are <em>stated</em> rather than measured off an imported bounding box, and there is no licence or unit-scale bug to carry. A downloaded mesh remains the right call when silhouette fidelity becomes the point; it is not yet. Rear-fuselage engines rather than under-wing pods, deliberately: both nozzles then sit on the centreline, so occlusion is a clean function of one aspect angle instead of a wing-shadowing problem.</p>
+<p><strong>2. The skin temperature.</strong></p>
+<p>a. Reuse <code>airframe</code> with a hand-tuned <code>offset_k</code>. Works, and throws away the reason for the offset: the number would be typed rather than derived, would not follow the airspeed, and would not follow the shared weather. b. <strong>A <code>ram_skin</code> node computing the adiabatic wall temperature</strong> (chosen): <code>T_r = T_air (1 + r (γ−1)/2 M²)</code> with <code>r = Pr^⅓ ≈ 0.892</code> for a turbulent boundary layer. The config names an <strong>airspeed</strong>; the Mach number is taken against the shared <code>WeatherSeries</code>'s own air temperature, so one true airspeed is correctly a different Mach number on a cold day. Standard boundary-layer result (e.g. White, <em>Viscous Fluid Flow</em>, ch. 7). c. A full skin energy balance with solar gain and radiation to the sky. More correct and much more machinery; for a cruising aircraft those terms are small against the ram term. Noted below as the bound this model does not carry.</p>
+<p>The two skin models are kept <strong>separate and non-interchangeable</strong> in the schema: <code>airframe</code> refuses an airspeed, because it <em>assumes</em> a slow one and silently ignoring a stated 200 m/s is exactly the failure this is meant to prevent.</p>
+<p><strong>3. The engine nodes.</strong> Prescribed constants. A jet at steady power has a steady nozzle, the pass lasts ten seconds, and saying so in the config is more honest than dressing a constant up as a schedule. Values are <strong>ESTIMATED</strong>: nacelle 340 K, nozzle 450 K.</p>
+<p><strong>4. How the camera follows the target.</strong></p>
+<p>a. Rotate the whole scene onto a fixed boresight — the cheap trick, and what was built first. It puts the target at the right range and aspect, and holds <strong>one sky</strong> behind an aircraft whose true elevation sweeps 17° → 37° → 17°. The sky is tens of kelvin colder at the top of that. A perfectly plausible frame of a camera that is not the one being simulated. b. <strong>Fly the aircraft on its true track and slew the mount onto it</strong> (chosen). Needs <code>IrCamera.refresh_pose()</code>, because the camera pose that every pixel's ray direction is built from is cached at <code>open()</code> — without a refresh the geometry AOVs follow the re-aimed prim while the elevations, the sky temperature and every view cosine stay at the opening aim. The aim is an azimuth/elevation construction rather than the minimal rotation between two vectors: the minimal rotation is shorter and rolls the horizon as it slews, which no two-axis pedestal does.</p>
+<p><strong>5. Real time or time-lapse.</strong> ADR 0074 filmed a <em>thermal</em> process, which is slow, so a time-lapse was the only honest framing. This process is <em>geometric</em> and fast: ten seconds captured at 30 Hz and played at 30 fps, with no speed-up to declare. Tracking is also what disposes of the motion blur objection — a stabilised line of sight holds the target still on the focal plane and smears the featureless sky behind it instead.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>irsim_isaac.airframe</code> — <code>Part</code> and <code>author_parts</code>, extracted from <code>quadrotor.py</code> so that the <code>thermal:material</code> override and the prim→node map have exactly one implementation. A second authoring path would be a second chance to leave a surface with no emissivity or no temperature.</li>
+<li><code>irsim_isaac.aircraft</code> — a parametric light business jet, 16 m span, rear-mounted engines.</li>
+<li><code>irsim_isaac.aircraft_pass</code> — the track, the look-at mount, and the stage.</li>
+<li><code>irsim.thermal.aerial</code> — <code>speed_of_sound_m_s</code>, <code>mach_number</code>, <code>recovery_temperature_k</code>, <code>ram_skin_solver</code>; <code>R_SPECIFIC_AIR</code>, <code>GAMMA_AIR</code>, <code>PRANDTL_AIR</code> added to <code>irsim.radiometry.constants</code> with sources, never inline.</li>
+<li><code>irsim.config.scene</code> <strong>v4</strong> — the <code>ram_skin</code> solver kind.</li>
+<li><code>IrCamera.refresh_pose()</code> and <code>configs/scenes/aircraft_pass_clear_noon.yaml</code>, <code>scripts/render_aircraft_pass.py</code>.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What it makes easy.</strong> Seeing the aspect dependence that dominates aircraft infrared detection: the same aircraft at the same range shows several times more nozzle from behind than from ahead, and its hottest pixel is tens of kelvin warmer. Measured off the instance-id plane, so it is a count and not an impression. The pass also sweeps range 2:1, which exercises the inverse-square fall-off and the atmospheric path against a target of known size and temperature at no extra cost.</p>
+<p><strong>A defect this work exposed.</strong> <code>PipelineConfig.from_sensor</code> defaults <code>flat_field_enabled=False</code>, and both flight scripts had simply not passed it — so the AGC companion videos carried the full 21 % cos⁴ vignetting that M9.12 exists to remove, stretched into dark corners by plateau equalisation. The radiometric branch was unaffected — it divides cos⁴ out analytically, and <code>tests/unit/test_flat_field.py</code> already asserted that <code>radiance</code>, <code>apparent_t</code> and <code>dn16</code> come out bit-identical either way while <code>display8</code> changes — so the main fixed-span videos were always correct and only the companion was wrong. Both scripts now enable it, with a <code>--no-flat-field</code> ablation. The lesson is narrower than "call the function": a default that is right for a library (the radiometric branch does not need a flat field) was wrong for every caller that also wanted a picture.</p>
+<p><strong>What is not modelled, and must not be read into a frame.</strong></p>
+<ul>
+<li><strong>No exhaust plume.</strong> The gas behind the nozzle radiates in CO₂ and H₂O bands, not as a grey surface, and it is not a surface the renderer can carry. For a rear aspect in MWIR the plume can rival the nozzle; in LWIR it matters less. §6.6 makes the same point about automotive exhaust.</li>
+<li><strong>ΔT is ESTIMATED.</strong> Nacelle 340 K and nozzle 450 K are plausible descent-power figures for a low-bypass turbofan; published nozzle-skin temperatures span roughly 400–700 K with bypass ratio and power setting. The <em>ordering</em> — nozzle &gt; nacelle &gt; skin &gt; air — is the defensible part.</li>
+<li><strong>The recovery temperature is the flat-plate one</strong>, applied to the whole skin. A real leading edge runs hotter still, an intake is a cavity that reads warmer than the skin, and neither solar gain nor radiation to a cold sky is in the node. For a cruising aircraft those are small against the ram term; for a slow one they are not, and <code>airframe</code> with an offset is then the honester model.</li>
+<li><strong>The nozzle material is a stand-in.</strong> A turbofan nozzle is oxidised Inconel or titanium and the library has no high-temperature alloy, so painted aluminium (ε = 0.90 LWIR) carries it. Close to a hot oxidised metal, and very far from the ε = 0.09 <em>bare</em> aluminium a careless mapping would pick, which would render an 800 K nozzle as barely warm.</li>
+<li><strong>No motion blur.</strong> Tracking makes this nearly moot for the target and irrelevant for a featureless sky, but a resolved background would smear and does not.</li>
+</ul>
+<p><strong>The display span is taken from the target, not the scene.</strong> ADR 0074 spanned ±50 K about ambient; with eight bits that spends half of 256 levels on sky-to-ambient — two flat regions — and leaves every part of the target in the rest. Measured on the quadrotor at full throttle, like for like over the airframe's own 1000 pixels: the old rule gave 76 display codes of spread between the 10th and 90th percentile, the new one gives 128, and the cool parts now start near black instead of mid-grey. The floor sits a quarter of the node spread <em>below</em> the coldest node rather than on it, because a node at the very bottom of the span is invisible and at the start of a flight every node is at ambient. The sky falls below the floor and clips to black: it is the region with least to see in and it was costing the target all of its contrast. <code>--span-c</code> restores a scene-context span.</p>
+<p>For the aircraft this helps and cannot fully succeed: skin and nozzle are 136 K apart, so a linear 8-bit span that reaches the nozzle leaves the skin dark (codes 47 / 84 / 236 for skin / nacelle / nozzle). That is the honest consequence of the physics rather than a display bug, and it is why a real operator re-spans rather than looking for one setting.</p>
+<p><strong>Error introduced:</strong> none in the existing chain. <code>ram_skin</code> is a new node kind, <code>refresh_pose</code> is a no-op unless the camera is moved, and the schema bump is breaking only for v3 configs — both in the repository are migrated in the same commit.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A band with a plume-dominated signature is wired up (MWIR) — the plume stops being optional.</li>
+<li>Public instrumented aircraft infrared imagery turns up — re-fit the nacelle and nozzle temperatures before anything else, and check the aspect ratio of the signature against it.</li>
+<li>A high-temperature alloy material is added — the nozzle should use it rather than paint.</li>
+<li>Anything flies above about M 1 — the recovery temperature is still right, but the skin then has a real radiation balance to solve rather than an equilibrium to read off.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

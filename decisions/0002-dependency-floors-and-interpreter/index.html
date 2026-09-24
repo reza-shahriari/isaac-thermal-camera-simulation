@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0002 — Dependency floors and the project interpreter — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0002 — Dependency floors and the project interpreter</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0002-dependency-floors-and-interpreter.md" target="_blank" rel="noopener">docs/decisions/0002-dependency-floors-and-interpreter.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-10--interpreter-matrix-m011">Addendum 2026-09-10 — interpreter matrix (M0.11)</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The scaffold declared <code>numpy&gt;=1.24</code> while its own tests call <code>np.trapezoid</code>, which exists only in NumPy ≥ 2.0; on NumPy 1.26 three physics tests error before any physics is exercised. No project interpreter had been chosen: the system Python 3.10 has no pytest, the miniconda base (3.13) has no NumPy. Isaac Sim 6.0 is built from source on the development machine and ships its own CPython.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Keep <code>numpy&gt;=1.24</code> and add a <code>trapz</code>/<code>trapezoid</code> compatibility shim in the tests.</li>
+<li>Raise the floor to <code>numpy&gt;=2.0</code>.</li>
+<li>Vendor a small integration helper and never call NumPy's directly.</li>
+</ol>
+<p>For the interpreter: a separate venv per half of the repo, or Isaac Sim's bundled Python for both.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>numpy&gt;=2.0</code>. Isaac Sim 6.0's bundled interpreter ships NumPy 2.3.1, so the floor costs nothing and removes a silent version dependency from the physics tests.</li>
+<li>The project interpreter is Isaac Sim's bundled Python, <code>/home/hunter/IsaacSim/_build/linux-x86_64/release/python.sh</code> (CPython 3.12.13, NumPy 2.3.1, SciPy 1.17, pydantic 2.11). It serves both the engine-free core and the <code>@pytest.mark.isaac</code> integration tests, so there is one environment to keep consistent. The Makefile gains a <code>PYTHON</code> variable so every target runs through <code>$(PYTHON) -m ...</code>; CI or a teammate without Isaac Sim can pass any CPython ≥ 3.10.</li>
+<li>ruff rule <code>N802</code> joins <code>N803</code>/<code>N806</code> in the ignore list: physics names such as <code>d_spectral_radiance_dT</code> follow the spec's notation on purpose.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>make check PYTHON=…/python.sh</code> is green on the scaffold as of this ADR (25 unit tests in 0.19 s).</li>
+<li><code>requires-python &gt;= 3.10</code> stays; code must avoid 3.11+ syntax even though the project interpreter is 3.12.</li>
+<li>Warp was not importable from <code>python.sh</code> in a first check; M2.1 of the roadmap verifies the GPU stack before any Warp kernel is written.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>Isaac Sim moves to a Python or NumPy major version the core does not support.</li>
+<li>The team wants a GPU-free CI job (then the <code>PYTHON</code> variable points at a plain venv there).</li>
+</ul>
+<h2 id="addendum-2026-09-10--interpreter-matrix-m011">Addendum 2026-09-10 — interpreter matrix (M0.11)<a class="anchor" href="#addendum-2026-09-10--interpreter-matrix-m011" aria-label="permalink">#</a></h2>
+<p>The engine-free claim is now checked on an interpreter that has no Isaac Sim: <code>.github/workflows/check.yml</code> runs <code>make check PYTHON=python</code> on plain CPython 3.10 (the <code>requires-python</code> floor) and 3.12 (what Isaac ships), with no GPU. <code>make ci</code> builds the same job locally in <code>.venv-ci</code> from <code>python3.10</code>. The Isaac interpreter remains the local default because it is the only one that can also run <code>tests/integration</code>. A deliberately introduced <code>import omni</code> under <code>src/irsim</code> fails the CI job through <code>tests/unit/test_layering.py</code>, which is the job's purpose.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

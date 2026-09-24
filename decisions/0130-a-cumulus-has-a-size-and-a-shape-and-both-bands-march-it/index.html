@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0130 — A cumulus has a size and a shape, and both bands march it — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0130 — A cumulus has a size and a shape, and both bands march it</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0130-a-cumulus-has-a-size-and-a-shape-and-both-bands-march-it.md" target="_blank" rel="noopener">docs/decisions/0130-a-cumulus-has-a-size-and-a-shape-and-both-bands-march-it.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-3"><a href="#what-this-does-not-fix">What this does not fix</a></li>
+<li class="toc-2"><a href="#alternatives-considered">Alternatives considered</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. The deck's depth map becomes a <strong>height ramp clipped by an inversion</strong> rather than a soft threshold; the field is <strong>band-limited</strong> at the smallest real cumulus; the deck <strong>tiles</strong> instead of ending at a footprint; and the visible dome <strong>marches</strong> the deck exactly as the infrared band does instead of sampling its column depth at the base. <strong>Date:</strong> 2026-09-23 Roadmap: AT.15 (§5.3 a)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0127 gave the cloud a top and the frame gained 19.7 K of structure it did not have. The owner, on the clip it produced: <em>"the rgb is much better now / the IR is awful now xD / seems to be some random points those are not in the rgb at all."</em></p>
+<p>The two halves of that are one defect seen from two sides, and the visible frame is what proved it: the RGB showed a handful of soft wisps over a mostly clear sky, and the LWIR frame of the <strong>same directions at the same instant</strong> was covered in bright vertical smears. A rendered pair cannot disagree like that about where a cloud is — ADR 0076 exists to forbid exactly this — so at least one of the two was not reading the deck the renderer was showing.</p>
+<p>Measured on the frame geometry of <code>phantom3_outbound_pointwise</code> (20° boresight, 31° × 25° field, so 7.4°–32.4° of elevation), against the deck ADR 0127 built:</p>
+<div class='table-wrap'><table>
+<thead><tr><th></th><th>dome (RGB)</th><th>marched (LWIR)</th></tr></thead>
+<tbody>
+<tr><td>cloud in frame</td><td>26 % of pixels</td><td>57 % of pixels</td></tr>
+<tr><td>what it reads</td><td>column depth <strong>at the base crossing</strong></td><td>optical depth <strong>along the ray</strong></td></tr>
+</tbody></table></div>
+<p>Three separate causes, each visible once the depth map itself was plotted rather than inferred:</p>
+<ol>
+<li><strong>The depth map was a mesa field.</strong> <code>deck_field</code> mapped the synthesised field through a smoothstep of width 0.45 σ, which is a <em>membership</em> function — right for AT.11's plane-parallel sheet, where the number means "how much of this column is cloud". Read as a <strong>top height</strong> it says every covered column is the deck's full 1.2 km, so the deck was flat-topped blocks with vertical walls. Straight up that is invisible: a vertical ray through a mesa and through a tower of the same column depth read the same number, which is why the AT.12 tests passed. At 20° it is the whole picture — an oblique ray runs <em>along</em> a 1.2 km wall for kilometres. Marched optical depth over the frame averaged <strong>7.07</strong> and reached <strong>27.8</strong>, which is opaque everywhere, which is the flat white AT.11 was written to remove.</li>
+<li><strong>The field had no smallest cloud.</strong> A <code>1/f^β</code> synthesis is scale-free, so a 25 m grid carries 25 m clouds. A cumulus field does not: its size distribution has a mode near half a kilometre and falls off sharply below, because a parcel that small entrains dry air faster than it can condense. Sub-cloud structure is not a cosmetic error <em>here</em> precisely because the two bands read the deck differently — a 25 m speck stays a speck on the dome and smears over the kilometres the ray spends in the deck. That is, literally, "some random points those are not in the rgb at all".</li>
+<li><strong>The deck had an edge.</strong> The footprint ran to <code>base / tan(10°)</code>, and below that a ray left it and read clear sky — a hard, straight, cold band across the bottom of every oblique frame, in exactly the direction where a real cumulus field puts its densest wall.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Depth is a ramp clipped by an inversion, not a switch.</strong> <code>depth = smoothstep(min(1, (field − threshold) / depth_scale))</code>, with <code>depth_scale</code> = 1.5 σ. A cumulus grows as far above its base as the thermal that made it can carry it, thermal strength in a field of them is distributed about a mean, and the capping inversion clips the strongest — which is why a fair-weather cumulus field has a common top with rounded shoulders below it. The smoothstep rounds both ends, so there is no cusp where a tower meets the inversion and no crease where it meets clear air. At the presets' 0.45 coverage the mean cloudy column comes out at half the deck and 12 % of them reach the cap: a 600 m mean depth under a 1.2 km lid.</p>
+<p>A side effect worth stating: the authored coverage is now <strong>exact</strong>. The ramp is zero at the threshold, so the covered set is the set above the quantile; the old smoothstep spread cloud half its softness past it.</p>
+<p><strong>The field is band-limited at <code>DEFAULT_SMALLEST_CLOUD_M</code> = 400 m</strong>, as a Gaussian roll-off at 400/4 m applied in the Fourier domain — where the field was synthesised, and which keeps it exactly periodic. The blurred field is renormalised to unit variance, because both the threshold and the ramp are expressed in σ and a blur removes variance.</p>
+<p><strong>The deck tiles.</strong> The depth map is an inverse FFT and therefore exactly periodic, so wrapping the lookup is seamless to the bit and there is no edge to reach. <code>min_elevation_deg</code> now sizes the <em>tile</em> — 12 km, against the 8 km the shallowest ray of a 25° frame reaches, so a frame sees at most one repeat.</p>
+<p><strong>The dome marches.</strong> <code>visible_sky.environment_map</code> calls <code>CloudDeck.march</code> on each texel and takes <code>α = 1 − exp(−τ)</code>, Beer's law on the authored (visible) optical depth, where the infrared band applies <code>CLOUD_OD_RATIO</code> to the same number first. One geometry, one integration, two bands. It is baked once per render, so the cost is a one-off where a frame is marched three hundred times.</p>
+<p><strong>And the cloud's brightness comes from the same optical depth</strong>, through the two-stream reflectance of a conservatively scattering layer, <code>R = (1−g)τ / (2μ₀ + (1−g)τ)</code> at <code>g</code> = 0.85. This was not in the plan; it became necessary the moment the dome marched, and the rendered frame is what showed it. <code>_cloud_base</code> returned one Lambertian radiance for every cloudy texel, which was defensible while <code>α</code> was the vertical column depth and mostly small — the <em>opacity</em> carried the gradation. Once <code>α = 1 − exp(−τ)</code> saturates over the body of a cloud, one radiance draws that body as a flat grey shape with a hard edge, and the first rendered pair showed exactly that: the infrared frame had a cumulus field and the visible frame had paper cut-outs of it. The reflectance is the reason a cloud <em>has</em> an inside — a thin edge returns almost nothing and is the sky behind it, a deep core returns nearly everything and is white. Measured over a marched frame it spans 0.3 to 0.9 where a constant spans nothing.</p>
+<p>Absorption is neglected, which is right in the visible and would not be in the near infrared.</p>
+<p><strong>And the dome's resolution had to go up with it.</strong> <code>DOME_HEIGHT</code> was 512 rows — a texel every 0.35°, chosen when the softest thing on the dome was the solar aureole. A marched cloud is not soft: its opacity crosses from clear to opaque within one texel, and a 640×512 frame magnifies each texel to seven pixels, which drew a visible staircase along every cloud edge in the companion frame. 1024 rows halves it to 3.6 pixels and carries real structure with it, at 27 s of bake and a 25 MB EXR — both once per render, and a clear dome pays neither, since the cost is the march.</p>
+<p><strong>The march is sized by path length, not by cells, and per ray rather than per frame.</strong> It is a midpoint rule over an integrand with a jump in it — the cloud's own boundary — so it converges at first order and the error is set by how precisely a step lands on that boundary, which is a distance in metres. <code>MARCH_STEP_M</code> is that distance; <code>adequate_steps</code> remains the array-wide answer a caller needs to size a cost, but the march itself gives each ray the count its own path needs, because the path is four times longer at 8° than at 33° and one number for the array marches the top of an oblique frame four times more finely than it can use.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Measured on the same frame geometry, after:</p>
+<ul>
+<li><strong>Largest 0.25 K bin: 6.4 % of the frame.</strong> It was 53.9 % before ADR 0126, 39.6 % after 0127.</li>
+<li><strong>In-cloud spread 28.8 K</strong> (p1–p99), against the 19.7 K of ADR 0127 and the 1.25 K of the sheet.</li>
+<li><strong>Emission level 15 m to 1065 m</strong> above the base (p1–p99).</li>
+<li><strong>The two bands draw cloud in the same pixels, by construction</strong> — the dome test asserts the dome's drawn set equals the set where the marched optical depth is non-zero, and separately asserts that the old sampled quantity is a <em>different</em> cloud, so a dome that agreed with it would be the bug.</li>
+<li><p><strong>The march's step size, not its stride, is where the frame's error lives.</strong> This was measured the wrong way round first, and the wrong answer shipped for an afternoon. Comparing a strided march against a denser march of <em>the same quadrature</em> makes interpolation look like the whole story — it was the only term that differed — and on that basis the camera was set to march at half the native pitch, which tripled the cost of a frame. Measured properly, against a converged reference, with the result interpolated back up and box-filtered to native as a frame actually is:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>step</th><th>stride 4 (native)</th><th>stride 2</th><th>cost, stride 4</th></tr></thead>
+<tbody>
+<tr><td>36 m</td><td>0.073</td><td>0.073</td><td>2.2 s</td></tr>
+<tr><td>18 m</td><td>0.039</td><td>0.040</td><td>4.5 s</td></tr>
+<tr><td>12 m</td><td>0.029</td><td>0.024</td><td>6.5 s</td></tr>
+</tbody></table></div>
+<p>(99th percentile of the band emissivity error; 0.029 is 1.3 K against the 44 K a cloud stands above a clear zenith.) The stride is worth almost nothing and costs five times; the step size is worth a factor of two and a half. <code>MARCH_STEP_M</code> = 12 m, <code>MAX_MARCH_STEPS</code> = 512, and the camera marches once per native pixel.</p></li>
+</ul>
+<ul>
+<li><strong>Each ray gets its own step count.</strong> <code>MARCH_STEP_M</code> is a spacing in metres, so the count is the path over it, and the path is four times longer at 8° than at 33°. One number for the array — which is what <code>adequate_steps</code> still returns, because a caller sizing a cost needs one — marches the top of an oblique frame four times more finely than it can use.</li>
+</ul>
+<h3 id="what-this-does-not-fix">What this does not fix<a class="anchor" href="#what-this-does-not-fix" aria-label="permalink">#</a></h3>
+<ul>
+<li><strong>A cloud is still a vertical extrusion.</strong> <code>density_at</code> is a function of the column depth and the height within it, so a cloud is a <em>dome standing on the base plane</em> — widest at the bottom, tapering upward. A real cumulus bulges above its base. A single compact column, marched, comes out as an elliptical skirt with a tower over it, which is recognisably a cloud and is not a cauliflower. Genuine 3-D shape needs the volume in the renderer: <strong>AT.13</strong>, then <strong>AT.14</strong>.</li>
+<li><strong>The cloud is lit as a slab, not as a body.</strong> The two-stream reflectance answers "how much of the light that reached this much cloud comes back", which is the right question for a layer and an approximation for a tower seen from the side. It carries no information about <em>where</em> the sun is relative to the cloud, so a cumulus has no bright side and no shadowed side — only a bright core and thin edges. The geometry that would fix it is the geometry AT.14 is about.</li>
+<li><strong>An attempted march optimisation is recorded here because it was wrong in an instructive way.</strong> Dropping a ray once its band optical depth passes 12 saves 20 % and cannot move the infrared answer, since everything past it is behind e^{-12}. It moves the <em>visible</em> one: the reflectance above is still climbing at τ = 24 (0.70) and does not approach white until several times that, so the truncation put a ceiling on how bright a deep cloud could be, in one band only. Measured, then removed. Per-ray step counts were kept, because those are exact.</li>
+<li><strong>Every base is at one altitude.</strong> Real cumulus bases vary by ±50–150 m across a field, and a perfectly flat base is a degenerate geometry for a near-horizontal ray, which skims it for kilometres. This is part of why the frame's lower third is a continuous wall.</li>
+<li><strong>No advection, no cloud shadow on the target, no cloud occluding the aircraft in LWIR.</strong> Unchanged from ADR 0127.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered<a class="anchor" href="#alternatives-considered" aria-label="permalink">#</a></h2>
+<p><strong>Leave the infrared band marching and the dome sampling.</strong> Rejected: it is the disagreement the owner reported, and ADR 0076 is explicit that the two bands may not place a cloud differently.</p>
+<p><strong>Make the infrared band sample the way the dome did</strong>, so the two agree cheaply. Rejected: the sampled quantity is a <em>vertical</em> thickness read for an <em>oblique</em> look. It is the wrong one, and adopting it would have thrown away the 19.7 K of structure AT.12 was built for.</p>
+<p><strong>Keep the mesa field and tame the smear by truncating the march.</strong> Rejected: there is no physical length at which to truncate a slant path, so the parameter would have been fitted to the picture.</p>
+<p><strong>Apply the band limit by synthesising the field on a coarser grid.</strong> Equivalent in effect, but it would decouple the depth map's grid from the voxel grid the visible band wants, and <code>density_at</code> is deliberately the one definition both bands read.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

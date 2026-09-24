@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0095 — The scene declares its world frame, and shadow has one authority — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0095 — The scene declares its world frame, and shadow has one authority</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0095-world-frame-and-one-shadow-authority.md" target="_blank" rel="noopener">docs/decisions/0095-world-frame-and-one-shadow-authority.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: PT.18 (§5.4, §6.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>PT.1 shipped a per-cell shadow (<code>cell_shadow</code>, exact ray–rectangle) and PT.17 a per-cell solve from the scene config, and between them nothing in a scene config could reach the shadow: <code>cell_shadow</code> had no caller outside its own tests, a patched surface under the sun took one <code>shaded</code> bool for all of its cells, and the car driver's two fields carried <strong>no solar term at all</strong> — a noon run would have rendered a sun-free bonnet. The point-wise scenes shipped so far are pre-dawn for exactly that reason.</p>
+<p>Closing the gap raised two questions the code had been avoiding.</p>
+<p><em>Which way is up?</em> Every sun vector in the package is ENU (M6.4's NOAA position, <code>solar_loading</code>), and every patch and occluder is authored in the scene's world frame. The car scenes are Y-up, because the stage they author is (<code>car_demo</code> sets <code>UsdGeom</code> up to +Y and <code>airframe.Part</code> assumes it); every ENU convention is Z-up. <code>cell_shadow</code>'s docstring says converting the sun into the patch's frame "is the caller's job and is deliberately not guessed at here", and no caller had the information to do it.</p>
+<p><em>Who decides a cell is shaded?</em> <code>SurfaceSpec.shaded</code> zeroes the beam for a whole surface; an occluder decides per cell. A scene carrying both would render whichever the code path happened to apply last, and the author meant one of them.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Assume ENU everywhere and rotate the car scenes' geometry.</strong> Every patch in the two car configs, <code>CarGeometry</code>, the radiators, the camera and the stage authoring are Y-up; the cost is the whole driver and it buys nothing a declaration does not.</li>
+<li><strong>Infer the frame from the stage's up axis at render time.</strong> The thermal core cannot see the stage (CLAUDE.md #1), and the spin-up needs the shadow long before a stage exists.</li>
+<li><strong>Declare the frame in the scene config</strong>, default ENU, and derive east so the triad is right-handed by construction. One block, read once, exact for the axis-aligned frames every shipped scene uses.</li>
+<li><strong>Per-surface occluder lists.</strong> A slab shades the wall <em>and</em> the ground under it; listing it twice is how the two drift apart.</li>
+<li><strong>Scene-level occluders that reach every world-frame patch</strong>, and a load-time refusal of a patched surface that also says <code>shaded: true</code> while occluders exist.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Options 3 and 5.</p>
+<ul>
+<li>Schema <strong>v8</strong>. <code>scene.world_frame: {up, north}</code> (<code>WorldFrameSpec</code>, default ENU, so every v4–v7 scene reads exactly as before) and <code>thermal.occluders:</code> (<code>OccluderSpec</code>: name, centre, two axes, half extents; <code>frame</code> must be <code>"world"</code> for now). Both are validated at load through the dataclasses they build.</li>
+<li><code>irsim.thermal.frames.WorldFrame</code>: <code>east = north × up</code>, <code>world_from_enu</code> with the three as columns, <code>to_world</code> / <code>to_enu</code>. The car scenes declare <code>up: +Y, north: −Z</code>, so east is +X and the car faces north.</li>
+<li><code>CellForcing</code> (PT.17's seam) gains <code>patch</code>, <code>occluders</code> and <code>frame</code>. With occluders it gates the beam per cell — <code>solar_loading</code> on the <strong>surface's</strong> normal and sky view and the <strong>cell's</strong> visibility — so an unshaded cell evaluates the per-prim expression on the per-prim operands and stays <strong>bit-identical</strong> to the prim, spin-up included (the per-cell field is spun up on its own forcing when occluders exist, because a cell under an overhang has been under it all morning). It refuses a patch in a moving frame, a surface whose patch plane disagrees with its tilt and azimuth, and a surface that is also <code>shaded: true</code>.</li>
+<li><code>ThermalSceneSpec</code> refuses <code>shaded: true</code> on a patched surface when the scene declares occluders: <em>two shadow authorities</em>. Without occluders the flag is what it always was.</li>
+<li><code>Scene.solar_terms(t)</code> is the one sun every solar term in a scene uses. <code>car_demo</code> builds its fields' <code>q_solar</code> from it, turned into the stage frame by the declared <code>world_frame</code>, gated by the car's own box faces (<code>CarGeometry.shadow_casters</code>, <code>shadow.box_faces</code>) plus the config's occluders; it refuses a scene whose frame is not Y-up.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What a scene can now show:</strong> a wall half in sun from YAML alone (measured 9.9 K across one concrete wall at 16:00 local, a diurnal transient rather than PT.1's fixed-beam equilibrium), and a car's shadow on the road beside it. PT.20's reference scene is a config, not code.</p>
+<p><strong>What it costs:</strong> a scene with occluders spins its patched surfaces up per cell instead of copying the per-prim state, which is the per-prim spin-up multiplied by the cell count (64 cells for a day: about a second). A scene without occluders is unchanged.</p>
+<p><strong>Limits, recorded not hidden:</strong> hard-edged shadow (no 0.53° penumbra, PT.22), no light bounced off the occluder, no per-cell sky view (the diffuse term and the longwave down are still the tilt's own, PT.21), no occluder in a moving frame (needs the frame's pose, PT.9 / WM), and no shadow on a per-prim surface — a surface without a patch keeps its <code>shaded</code> flag, and the scene does not warn that its occluders cannot reach it. Non-patched surfaces under occluders are the one quiet case left, and it is quiet because the flag is still an honest authority there.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>PT.21 gives cells their own sky view, at which point <code>q_longwave_down</code> leaves the broadcast by the same seam; or a moving occluder is needed (a wing over a fuselage), which means the thermal core taking a pose per frame name and <code>cell_shadow</code> being evaluated per tick in that pose.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

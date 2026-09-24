@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0064 — Solar spectral irradiance: modelled files, named after the model — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0064 — Solar spectral irradiance: modelled files, named after the model</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0064-modelled-solar-spectra.md" target="_blank" rel="noopener">docs/decisions/0064-modelled-solar-spectra.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-this-step-measured">What this step measured</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>M11.3 needs a solar spectrum to band-integrate: E_B = ∫ R(λ) E(λ) dλ, in both energy and photon form, for whatever band a sensor YAML configures. The roadmap named two files — <code>astm_e490_toa.csv</code> (the extraterrestrial standard) and a G-173 ground-level shape.</p>
+<p>Both are <strong>tabulated standards, not formulas</strong>. The authoring machine has no network. Writing a file of plausible digits and naming it <code>astm_e490_toa.csv</code> would put a fabricated table under a standard's name, where the next reader — and every provenance check in this repository — would take it as the real thing. That is worse than having no file.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Generate both spectra from stated models, and name the files after the models.</strong> <code>scripts/generate_solar_spectra.py</code> writes:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>file</th><th>model</th></tr></thead>
+<tbody>
+<tr><td><code>data/spectra/solar/toa_planck_5778k.csv</code></td><td>5778 K Planck exitance, normalised so ∫E dλ = 1361 W m⁻²</td></tr>
+<tr><td><code>data/spectra/solar/direct_normal_am1p5.csv</code></td><td>that × a clear-sky direct-beam band model at AM1.5, normalised to 900.1 W m⁻²</td></tr>
+</tbody></table></div>
+<p>Each file's header says, in its first line of status, that it is MODELLED and NOT the standard, and says how to swap the real table in: drop a two-column CSV in its place. <code>irsim.radiometry.solar</code> only integrates <code>(wavelength, irradiance)</code> tables, so nothing else in the repository changes.</p>
+<p><strong>The extraterrestrial shape is the effective-temperature model, and its error is anisotropic in a way that suits this simulator.</strong> A 5778 K Planck is within a few percent of the real spectrum above ~0.7 µm and badly wrong in the ultraviolet — it puts 12.0 % of the solar constant below 0.4 µm against a real ~8 %. Every band <code>irsim.config.bands</code> knows starts at 0.75 µm or above. So the limitation is made <strong>enforced rather than documented</strong>: <code>SolarSpectrum</code> refuses a spectral response reaching below <code>TRUSTED_MIN_UM = 0.70 µm</code>, naming E-490 as the fix. A visible band would have to supply real data; the infrared ones do not.</p>
+<p><strong>The ground-level shape is a named band model, and its integral is a calibration, not a result.</strong> Rayleigh scattering in Bird &amp; Riordan's (1984) analytic form; Ångström aerosol at the G-173 reference turbidity (AOD 0.084 at 500 nm, α = 1.14); the ozone Chappuis band; and the major water, O₂ and CO₂ bands as Gaussians in ln λ. Band <strong>centres</strong> are spectroscopy. Band <strong>strengths</strong> carry one common water multiplier, bisected so the AM1.5 integral is the 900.1 W m⁻² that defines G-173's direct-normal reference.</p>
+<p>Because that integral is fitted, it cannot be evidence for the file. The checks that <em>are</em> independent are on shape, and they were not constrained by the fit:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>measured</th><th>value</th><th>why it matters</th></tr></thead>
+<tbody>
+<tr><td>τ(1.38 µm)</td><td><strong>0.025</strong></td><td>the water band that makes SWIR cameras blind there</td></tr>
+<tr><td>τ(1.87 µm)</td><td><strong>0.008</strong></td><td>ditto</td></tr>
+<tr><td>τ(1.06 µm)</td><td>0.924</td><td>the SWIR imaging window stays open</td></tr>
+<tr><td>τ(1.55 µm)</td><td>0.944</td><td>ditto</td></tr>
+<tr><td>peak wavelength</td><td>0.502 µm</td><td>Wien for 5778 K, so the file is on the right wavelength unit</td></tr>
+</tbody></table></div>
+<p><strong>τ_sun for the direct beam uses Kasten–Young air mass, not ADR 0051's plane-parallel sec θ.</strong> <code>airmass</code> diverges at the horizon and refuses beyond 85°, which is right for the band-averaged slant path and wrong for the sun: 09:00 is not an error condition, and a camera watching a sunlit target does not stop working because the sun is 8° up. <code>airmass_kasten_young</code> is finite to the horizon (m = 37.9 at 90°). The band-averaged path is untouched, so nothing measured against ADR 0051 moves. One artefact is accepted and asserted: the empirical fit gives m(0°) = 0.99972 rather than 1, i.e. <strong>0.03 % in transmittance at zenith</strong>, far inside the ESTIMATED preset's own error.</p>
+<p><strong>The term enters stage 1 as an incident radiance, with ρ applied once.</strong> §5.4 writes the reflected result as <code>(ρ_B/π) E_B τ_sun cos θ_s S</code>. This module produces everything except ρ_B, as <code>l_sun = E_B τ_sun cos θ_s S / π</code>, so ADR 0063's bundle can add it to the environment and night terms and reflect the sum once. Three cases are <strong>exactly</strong> zero — sun below the horizon, surface facing away, full shadow — because a horizon that leaks 10⁻¹² of a 300 W m⁻² beam becomes a visible seam after AGC.</p>
+<h2 id="what-this-step-measured">What this step measured<a class="anchor" href="#what-this-step-measured" aria-label="permalink">#</a></h2>
+<ul>
+<li>The <strong>spectral crossover</strong> between reflected sunlight and self-emission, for a 300 K, ρ = 0.3 surface in full sun, is at <strong>4.14 µm</strong>. That is the fact behind §12.1's three regimes, and it is the least model-dependent number here — both sides are steep, so a few percent of solar-shape error moves it by tens of nanometres. At the band level: SWIR reflected/emitted = <strong>1.6e8</strong>, LWIR = <strong>0.0035</strong>.</li>
+<li>A disagreement worth recording. Band-integrating these two files gives a SWIR band transmittance of τ(AM1.5) = 0.701, hence <strong>0.789 at zenith</strong> — against the atmosphere presets' <code>solar.zenith_transmittance['swir'] = 0.88</code>. The presets' value is an ESTIMATED §7.2 table midpoint, and a broadband midpoint does not know that the <strong>1.38 µm water band sits inside 0.9–1.7 µm</strong>. Neither number is measured, so this is a flag, not a correction: a test holds the two within 20 % and asserts the sign, so a future change to either is noticed.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>shadow_mask</code> (S in [0, 1], <strong>1 = lit</strong>, the same polarity as <code>thermal.solar.solar_loading</code>) and <code>sun_cos_incidence</code> (n·ŝ) join the G-buffer's optional keys. Optional, so every fixture and adapter written before them is unchanged.</li>
+<li>The two CSVs are generated, committed and reproducible — rerun the script and diff — rather than hand-authored like <code>boson_vox.csv</code> was.</li>
+<li>The band-integrated solar path currently ignores in-band spectral <strong>redistribution</strong>: E_B is integrated at the top of the atmosphere and attenuated by one band-averaged τ_sun, so the fact that the 1.38 µm band removes a <em>slice</em> of the SWIR band rather than a fraction of all of it is not represented. Using the ground-level file as the integrand instead is a one-argument change (<code>spectrum_file=AM15_DIRECT_FILE</code>) and is the right answer whenever the sun is the dominant source; it is not the default because the preset's τ_sun would then be applied twice.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>The network is available, or the tables are otherwise obtained. Replace both CSVs, rerun the suite, and record in this ADR what moved — in particular the 4.14 µm crossover and the 0.789 SWIR zenith transmittance above, which are the two numbers this simulator will lean on.</li>
+<li>A visible band is configured. <code>TRUSTED_MIN_UM</code> will refuse it, correctly, and E-490 becomes a prerequisite rather than an improvement.</li>
+<li>The in-band redistribution above starts to matter — the first time a SWIR scene is compared against real imagery (M12).</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

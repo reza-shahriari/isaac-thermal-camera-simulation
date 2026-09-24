@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0038 — Vehicle thermal architecture: a cabin node, and heat sources that are scripted — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0038 — Vehicle thermal architecture: a cabin node, and heat sources that are scripted</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0038-vehicle-thermal-architecture.md" target="_blank" rel="noopener">docs/decisions/0038-vehicle-thermal-architecture.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decisions">Decisions</a></li>
+<li class="toc-2"><a href="#what-this-measured">What this measured</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§6.6 lists nine active heat sources with ΔT ranges and time constants, and says of them: <em>"These are scripted, not predicted, and they are where most of the useful signal lives."</em> It does not say what "scripted" means in code, nor what is behind a vehicle panel.</p>
+<h2 id="decisions">Decisions<a class="anchor" href="#decisions" aria-label="permalink">#</a></h2>
+<p><strong>1. Heat sources are schedules driven by a <code>VehicleState</code> trace, not a combustion model.</strong> Predicting an exhaust-tip temperature needs an engine map, a catalyst model and a flow solver, and the result would still be authored parameters wearing a physics costume. A first-order rise to §6.6's own ΔT_max with §6.6's own τ is honest about what it is. Every default in <code>VEHICLE_HEAT_SOURCES</code> is a midpoint of a §6.6 range and is ESTIMATED; the module says so once rather than nine times.</p>
+<p><strong>2. Two exceptions, where a closed form exists and scripting would throw it away.</strong></p>
+<ul>
+<li><strong>Brakes are an energy deposit.</strong> A braking event dumps <code>f·½m(v₁² − v₂²)</code> into the discs, so ΔT = E/(m_disc c_p) is arithmetic and only the <em>cool-down</em> is a time constant. Scripting a brake temperature directly would make it independent of how hard the car actually braked — the one thing a braking cue is supposed to carry. A 1600 kg car stopping from 30 m/s puts <strong>162 K</strong> into an 8 kg disc, and a stop from twice the speed puts in exactly four times as much.</li>
+<li><strong>Tyres follow speed, not time.</strong> §6.6's "+10 … +35 K, rises with speed" is a steady-state relation like ADR 0072's aerial sources: the contact patch reaches what its current speed implies. Defensible only where the speed varies slowly against the tyre's own 10–30 min constant, and the docstring says so.</li>
+</ul>
+<p><strong>3. The exponential step is exact, so a schedule does not depend on the trace's sample rate.</strong> <code>SourceHistory.step</code> uses <code>1 − e^{−dt/τ}</code> rather than a forward difference. A trace logged at 1 Hz and the same trace at 10 Hz agree to <strong>1e-9</strong>; with a forward difference they would not, and the engine-bay temperature in a scene would depend on how finely someone happened to log the drive.</p>
+<p><strong>4. A vehicle panel's back boundary is a cabin node, not ambient and not adiabatic.</strong> <code>CabinNode</code> is one lumped volume with three terms — solar gain <strong>through</strong> the glazing, conduction from every bounding panel, and infiltration — solved <strong>together</strong> with its panels rather than alternately. Stepping them alternately is stable at a 1 s tick and wrong at a 60 s one, in the direction that under-predicts the greenhouse, which is the effect the node exists to produce.</p>
+<p><strong>5. The cabin's capacity is the trim, not the air.</strong> 3 m³ of air is 3.6 kJ K⁻¹, which a sunbeam moves in seconds. The seats, dashboard and trim are what actually store the heat (25 kJ K⁻¹, ESTIMATED), and leaving them out gives a cabin that tracks the sun instantly and cools instantly too.</p>
+<p><strong>6. ⚠️ The glazing must appear in the panel list, and the constructor enforces it.</strong> Glass is both the cabin's solar <strong>inlet</strong> and one of its largest conduction <strong>paths</strong> — single glazing is about 5.8 W m⁻² K⁻¹, which for 2.6 m² is 15 W K⁻¹ against 2 W K⁻¹ of infiltration. A cabin given the inlet without the path reaches <strong>102 °C</strong> at noon instead of <strong>80 °C</strong>: not obviously wrong, just wrong, which is why it is a constructor error rather than a note.</p>
+<h2 id="what-this-measured">What this measured<a class="anchor" href="#what-this-measured" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th>quantity</th><th>value</th></tr></thead>
+<tbody>
+<tr><td>roof at noon, with cabin vs adiabatic back</td><td><strong>+4.8 K</strong> (§6.6 asks for &gt; 2 K)</td></tr>
+<tr><td>cabin air at noon, 850 W m⁻²</td><td><strong>80 °C</strong> (a sealed car really does reach 60–80 °C)</td></tr>
+<tr><td>glazing panel at noon</td><td>38 °C — α_sol 0.10, it transmits rather than absorbs</td></tr>
+<tr><td>cabin τ, panels pinned</td><td><strong>9.0 min</strong></td></tr>
+<tr><td>cabin τ, panels free</td><td><strong>12.0 min</strong> — 33 % slower, because a cooling cabin drags its panels down and they feed heat back</td></tr>
+<tr><td>cabin and roof on a clear night</td><td><strong>&gt; 2 K below ambient</strong> — why cars frost when the air does not</td></tr>
+<tr><td>coupled equilibrium vs <code>fsolve</code></td><td>&lt; 0.1 K, residual &lt; 1e-9</td></tr>
+<tr><td>energy across cabin + panels</td><td>closes to <strong>1e-6</strong></td></tr>
+</tbody></table></div>
+<p>The pinned-versus-free time constant is worth keeping: the lumped formula <code>C_cab/(Σ A/R + ṁ c_p)</code> is exact for the system it describes, and a scene quoting it is quoting a number 33 % shorter than the one it will observe.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A scene needs the exhaust <strong>plume</strong> rather than the pipe. §6.6 flags it as gas emission, not a surface, and band-selective (CO₂ at 4.3 µm) — which makes it a radiance-space injection like MS.6's point targets, not a temperature.</li>
+<li>The cabin needs to be more than one node — a dashboard that sees the sun directly is much hotter than the air behind the seats, and that difference is visible through a windscreen.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

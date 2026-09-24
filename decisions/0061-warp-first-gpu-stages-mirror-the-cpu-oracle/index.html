@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0061 — Warp first: GPU stages are twins of the CPU oracle; SPG only for proven stages — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0061 — Warp first: GPU stages are twins of the CPU oracle; SPG only for proven stages</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0061-warp-first-gpu-stages-mirror-the-cpu-oracle.md" target="_blank" rel="noopener">docs/decisions/0061-warp-first-gpu-stages-mirror-the-cpu-oracle.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-12</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0018 made the NumPy pipeline (<code>irsim.pipeline.run_frame</code>) the oracle every accelerated path is compared against. ADR 0014 measured the two GPU routes on the pinned build (Isaac Sim 6.1.0-rc.26, Kit 110.3.0): <code>omni.rtx.spg</code> 0.4.0 passes float32 through bit-exactly but holds <strong>no cross-frame state</strong>, rejects a whole Lua file on one forbidden token, crashes Kit on a large Lua literal, and takes its LUT only baked into the <code>.cu</code>; NVIDIA Warp 1.16.0 is the <code>omni.warp.core</code> Kit extension and imports <strong>only inside a running Kit application</strong>. <code>pyproject.toml</code> still carried a provisional <code>isaac = ["warp-lang&gt;=1.5"]</code> extra from before those measurements, contradicting ADR 0014's "no pip Warp". Roadmap M10.4 is the first GPU stage; the pattern it sets is the pattern for all six.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>SPG first</strong>, as §13.4/§13.5 sketch it — rejected for now: stages 4–5 need state SPG cannot hold, the Lua sandbox failures are silent or fatal, and a kernel that fails to load still emits a zero-filled buffer with status ok. Nothing in it is testable without a render product.</li>
+<li><strong>Warp inside Kit, each stage an op-for-op twin of the CPU oracle, one equivalence harness</strong> — chosen.</li>
+<li><strong>A standalone pip <code>warp-lang</code> so GPU tests could run without Kit</strong> — rejected: a second Warp on <code>sys.path</code> shadows the Kit one, so the harness would pass against a runtime the renderer never uses. Runnable-without-Kit is not on offer on this build.</li>
+<li>CuPy / Torch kernels — rejected: a third runtime, and the ML stack is barred from the core.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>One Warp twin per stage</strong>, in <code>irsim_isaac.pipeline.warp_stages</code>, registered in <code>EQUIVALENCE_STAGES</code> as <code>(CPU stage, GPU stage)</code>. The twin repeats the oracle's float32 arithmetic in the same order — for stage 1 that is <code>BandLUT.lookup</code> (float32 index, clamp to <code>n − KERNEL_CLAMP_MARGIN</code>, linear interpolation) and <code>ε·L_B + (1 − ε)·L_env</code> with ε = 1 under the sky mask. Anything the CPU raises on (UNMAPPED id 0, out-of-table ids, float16 temperature) is refused on the host before upload, because a kernel cannot raise.</li>
+<li><strong>One harness for every stage</strong>: <code>tests/integration/test_kernels_vs_reference.py</code> runs the pair on the synthetic G-buffers (ramp, sphere, two-material) on <code>cuda:0</code> <strong>and</strong> on Warp's <code>cpu</code> device (same source through the C++ backend: a compiler-independent second check) and demands ≤ 1e-4 relative and ≤ 5 mK through dL_B/dT (ir-sim-testing budget). Every later stage adds a registry row, not a new test file.</li>
+<li><strong>Measured on stage 1</strong> (<code>outputs/isaac_probe/warp_stage1_measure.json</code>): CUDA vs CPU oracle max 1.25 × 10⁻⁷ relative, 0.015 mK, 83 % of ramp pixels bit-identical, worst 2 ulp (fused multiply-add contraction); the Warp CPU device is bit-identical on every fixture; uniform fixtures are bit-identical on both. The 1e-4 budget therefore has three orders of magnitude of headroom, and a disagreement above ~1e-6 is a kernel bug, not tolerance.</li>
+<li><strong>Device tables are uploaded once</strong> (<code>DeviceTables</code>, keyed by the SHA-1 of the LUT column and the ε column plus device), so the LUT pointer is unchanged across frames (tested over 10 frames). The reflected-environment plane <code>l_env</code> stays a host computation (<code>environment_radiance</code>: a tilt LUT over V_s plus one ground radiance) uploaded per frame; it moves on-device when M10.9a's profile says so.</li>
+<li><strong>Dependencies and markers</strong>: the <code>isaac</code> extra is <strong>empty</strong> and documented — no <code>warp-lang</code> — resolving the contradiction with ADR 0014. Only the existing <code>gpu</code> marker is used; a separate <code>warp</code> marker was considered and dropped because every Warp path needs Kit anyway. <code>gpu</code> tests take the <code>simulation_app</code> fixture even when they do not render.</li>
+<li><strong>SPG stays optional</strong>: a stage gets an SPG triple only once its Warp twin passes the harness and it needs no cross-frame state (M10.12 stage 1, M10.13a/b); stages 4–5 stay in Warp (M10.13c/d deferred) and stage 6 keeps its temporal ISP state in Warp too.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Two implementations per stage to keep in step; the harness is the guard, and a pull request that adds a kernel without a registry row is incomplete by definition.</li>
+<li>Kernel modules cannot use <code>from __future__ import annotations</code> (Warp evaluates real annotations) and disable three mypy codes (<code>valid-type</code>, <code>no-untyped-def</code>, <code>untyped-decorator</code>) for the kernel signatures only.</li>
+<li>A GPU test session costs one Kit boot (14–35 s); the harness itself runs in well under a second. NumPy-in/NumPy-out stage calls cost 0.3–2.3 ms per frame at 64²–256², transfer- dominated; the on-device entry point (<code>launch_band_radiance</code>) is what the M10.9a chain uses.</li>
+<li>The error introduced by the GPU path is bounded by the measured 2 ulp (≈ 1 × 10⁻⁷ relative); it cannot be seen by any downstream stage.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>omni.rtx.spg</code> documents persistent buffers or feedback edges (SPG stages 4–5 come back).</li>
+<li>A CI GPU job without Kit is wanted: pin <code>warp-lang</code> <strong>exactly</strong> to the Kit version and add a test that, inside Kit, <code>warp.__file__</code> resolves under the Kit <code>extscache</code>.</li>
+<li>The per-frame <code>l_env</code> upload or the host validation shows in the M10.9a profile.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

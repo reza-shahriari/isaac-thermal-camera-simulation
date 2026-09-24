@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0132 — The thermal mesh is not the render mesh, area is what decimation must preserve, and self-occlusion is a decision — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0132 — The thermal mesh is not the render mesh, area is what decimation must preserve, and self-occlusion is a decision</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0132-the-thermal-mesh-is-not-the-render-mesh.md" target="_blank" rel="noopener">docs/decisions/0132-the-thermal-mesh-is-not-the-render-mesh.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered-and-what-they-measured">Options considered and what they measured</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23 Extends <a href="../0128-per-asset-material-mapping-and-the-blender-prep-path/">ADR 0128</a> (the asset pipeline) and <a href="../0110-the-temperature-field-on-the-mesh/">ADR 0110</a> (the field lives on the mesh). Roadmap: <code>AI.2</code>.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0128 gave an imported asset material identity. It did not make it solvable: <code>MeshSpec</code> still generated a cylinder or a sphere, and <code>config/scene.py:410-415</code> recorded reading a real asset's triangles as an unowned follow-on. This ADR records what that turned out to cost.</p>
+<p>The subject is a DJI Phantom 4 Pro FBX: 41 prims, 2,486,459 triangles, <strong>0.2938 m²</strong> of surface.</p>
+<p><strong>The asset is tessellated about a hundred times finer than the physics.</strong> Cells on that aircraft want to be millimetres; the asset's triangles are a fraction of one. The solver puts at least one cell on every face, so the tessellation sets the cost and it was chosen for silhouettes.</p>
+<h2 id="options-considered-and-what-they-measured">Options considered and what they measured<a class="anchor" href="#options-considered-and-what-they-measured" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Solve the asset at full resolution.</strong> 1.5–2.5 M cells. <code>GT.7</code> cites Fraunhofer running 1,313,410 triangles through five day–night cycles in 252 s, so this looked affordable; it is not, for the reason in <em>Decision 3</em> below.</li>
+<li><strong>Collapse (quadric) decimation</strong>, the usual answer. <strong>Rejected on measurement:</strong> at ratio 0.05 it removed <strong>37 %</strong> of the asset's surface area, and at 0.01, <strong>42 %</strong>. Area is not cosmetic here — it sets both the radiated power and the convective load — so a 37 % loss is a 37 % loss of emitted signal, silently, on geometry that still looks right. The cause is structural: this asset has <strong>31,068 disconnected shells</strong>, and a collapse budget spends itself destroying the small ones outright.</li>
+<li><strong>Planar dissolve</strong> — merge coplanar faces, never move a vertex (chosen). At 3° it removed <strong>38 %</strong> of the triangles for <strong>+0.056 %</strong> area. At 5° it removes half for +0.2 %, and at 15 % two thirds for +1.7 %.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>1. The archive is the <em>thermal</em> mesh, and it need not be the render mesh.</strong> ADR 0110's closest-point query locates a pixel on whatever mesh the field carries, so the renderer keeps the asset's full tessellation while the solver carries one sized to the physics. What bounds the divergence is the bridge's distance tolerance, not an equality. <code>scripts/prep_asset.py --emit-mesh</code> writes one <code>.npz</code> of world-space triangles per asset and <code>irsim.io.assets</code> reads it, so <code>src/irsim/</code> still imports no engine and a scene stays solvable with no renderer present.</p>
+<p><strong>2. Decimation is planar-only, and area is the gate.</strong> The prep tool refuses to write an archive whose area moved by more than a stated tolerance. The gate is <strong>area-weighted</strong>, not a bare relative error per prim: a relative gate is right for a prim that carries the signature and wrong for a 1.1e-5 m² decorative sliver, where 3 % is 4e-7 m² and cannot move any temperature. So the whole asset is gated on relative area, and a prim is gated individually only once it carries at least 0.1 % of the total. Everything below is reported, never silent. Zero-area triangles are dropped and counted — this asset has 126 — because a facet with no area has no normal and §6.1 balances a facet on its normal.</p>
+<p><strong>3. Self-occlusion is a decision a scene makes, not a default it inherits.</strong> Tracing a mesh against itself costs cells × faces, once for the sky view and <strong>again every tick</strong> for the solar disc. Measured: one imported prim of 3,320 cells against 3,215 faces spent <strong>248 s</strong> in <code>disc_visibility</code> over a single 6 h spin-up; the largest bound prim would be 41,127 × 41,103 = <strong>1.69 × 10⁹</strong> ray-triangle tests. The failure mode is not a slow scene, it is a scene that never finishes, which is why <code>GT.7</code>'s cost figure did not predict it — the cost is in <em>tracing</em>, not in stepping.</p>
+<p>So <code>MeshSpec.self_occluding</code> is a tri-state. <code>None</code> keeps "trace unless convex", exact and what every generated mesh uses. Above <code>MESH_SELF_OCCLUSION_BUDGET</code> (2 × 10⁶, calibrated on the 248 s measurement to about half a minute of tracing) a scene that left it <code>None</code> is <strong>refused</strong>, with a message naming both ways out. The switch reaches the beam as well as the sky view: routing it to only one leaves the scene just as unable to finish, which is how this was found.</p>
+<p><strong>4. What <code>self_occluding: false</code> costs, stated.</strong> Each cell takes the analytic <code>(1 + cos β)/2</code> sky view — the same unoccluded form the in-sim path already uses (ADR 0045). For an airframe in free air, whose only occluder is itself, that is defensible. It is not free: the gimbal under the nose genuinely sits in the body's shadow, and with the flag off it does not.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>configs/scenes/phantom4_pointwise.yaml</code> is the <strong>first scene in this project whose geometry was not authored in Python</strong>. Six prims, 234,923 cells, 0.1628 m² — 55 % of the aircraft's area for 11 % of its triangles — built in <strong>13.6 s</strong>.</li>
+<li>The result is the physics the lane exists for: black mouldings reach <strong>65.9 °C</strong> where the white shell tops out at <strong>33.8 °C</strong> (α 0.94 against 0.25), and every surface carries a <em>span</em> — 7.8 K on the propellers to 39.7 K on the mouldings — rather than one value per object.</li>
+<li>A scene still picks its prims by hand, because nothing yet budgets them. That is <code>AI.3</code>.</li>
+<li><code>material:</code> on a surface duplicates what <code>configs/assets/&lt;name&gt;.yaml</code> says for the same prim. Nothing joins them and they must agree; a follow-on should derive one from the other.</li>
+<li>Schema v16. The pin in <code>test_mesh_scene.py</code> that tied a v14 scene to <em>the newest</em> version was relaxed to the readable range, since an unrelated addition should not fail an old scene.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p><code>AI.3</code> lands a triangle budget — at which point tracing may become affordable and <code>self_occluding: false</code> stops being the default choice for an imported asset — or when a scene needs an imported prim that genuinely shades another, which no aerial scene does and every ground scene will.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

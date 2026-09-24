@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0055 — The bad-pixel cluster process, the type mix, and where defects are injected — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0055 — The bad-pixel cluster process, the type mix, and where defects are injected</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0055-bad-pixel-cluster-process-and-type-mix.md" target="_blank" rel="noopener">docs/decisions/0055-bad-pixel-cluster-process-and-type-mix.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#neymanscott-with-the-parent-count-set-from-the-target-fraction">Neyman–Scott, with the parent count set from the target fraction</a></li>
+<li class="toc-3"><a href="#the-four-classes-and-what-flickering-versus-blinking-means">The four classes, and what &quot;flickering&quot; versus &quot;blinking&quot; means</a></li>
+<li class="toc-3"><a href="#injection-is-on-the-raw-dn-plane">Injection is on the raw DN plane</a></li>
+<li class="toc-3"><a href="#testing-a-discrete-distribution">Testing a discrete distribution</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m95b-the-replacement-stencil">Addendum (M9.5b): the replacement stencil</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.5a (<code>feat(noise): bad-pixel map by a Poisson cluster process and defect injection</code>)</li>
+<li>Spec: docs/physics-model.md §10.4, §11.1</li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§10.4 is four lines long. It names four defect classes — dead, hot, flickering, blinking — gives a typical density of 0.05–0.5 % of pixels, and says they are "clustered slightly (use a Poisson cluster process, not uniform)". It does not say <em>which</em> cluster process, how the classes behave frame to frame, or where in the signal chain the defects enter. All three are ours.</p>
+<p>The clustering instruction is the one that carries weight downstream. §10.4's own closing point is that cameras replace bad pixels by neighbour interpolation and the replacement leaves "a detectable smoothed footprint" — and a 4-neighbour stencil (M9.5b) handles an isolated defect almost perfectly while a 2×2 or 3×3 cluster defeats it. A simulator that scatters defects uniformly therefore produces essentially no clusters at these densities and systematically <em>understates</em> the artefact a perception stack actually sees. Clustering is the point, not decoration.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<h3 id="neymanscott-with-the-parent-count-set-from-the-target-fraction">Neyman–Scott, with the parent count set from the target fraction<a class="anchor" href="#neymanscott-with-the-parent-count-set-from-the-target-fraction" aria-label="permalink">#</a></h3>
+<p>Parents land uniformly at random; each carries <code>1 + Poisson(λ)</code> offspring placed uniformly in a disc of radius <code>CLUSTER_RADIUS_PX = 2</code> pixels, with λ = <code>noise.bad_pixel_cluster_lambda</code>. The parent count is <code>round(fraction · rows · cols / (1 + λ))</code>, so the expected offspring total is the configured fraction.</p>
+<ul>
+<li><strong>Radius 2 px</strong> is chosen to make pairs, 2×2s and small 3×3s — the configurations that defeat a 4-neighbour stencil — while keeping a cluster a cluster rather than a diffuse sprinkle.</li>
+<li><strong><code>1 + Poisson(λ)</code></strong>, not <code>Poisson(λ)</code>, so a parent always produces at least one defect; a cluster process whose clusters can be empty just re-thins the parent process.</li>
+<li><strong>Uniform in the disc</strong> uses <code>r = R√u</code>, not <code>r = Ru</code>, or offspring pile up at the centre and the cluster is tighter than the radius advertises.</li>
+</ul>
+<p><strong>The realised count runs a few per cent under the target</strong> (1479 against 1573 at 1024² and 0.0015 — 6 %) because colliding offspring merge into one defect and offspring outside the array are dropped. This is deliberately <em>not</em> compensated for. Inflating the parent count to hit an exact total would change the cluster-size distribution, and the cluster-size distribution is the part that matters downstream; the total is the part that does not. The shortfall is bounded and is asserted by the tests rather than hidden.</p>
+<h3 id="the-four-classes-and-what-flickering-versus-blinking-means">The four classes, and what "flickering" versus "blinking" means<a class="anchor" href="#the-four-classes-and-what-flickering-versus-blinking-means" aria-label="permalink">#</a></h3>
+<p>§10.4 names both but distinguishes them only as "random telegraph noise" and "intermittent". The split adopted here:</p>
+<ul>
+<li><strong>Dead</strong> — stuck at the DN floor, every frame, forever. <strong>Hot</strong> — stuck at the ceiling likewise. Both are findable by a single calibration frame, which is why real cameras ship a factory map.</li>
+<li><strong>Flickering (RTS)</strong> — the pixel <em>still responds to the scene</em>; its offset hops between two levels. This is the class that survives a map built from one calibration frame, because a good fraction of the time it looks fine. Amplitude is <code>noise.bad_pixel_rts_amplitude_dn</code>.</li>
+<li><strong>Blinking</strong> — the same two-state chain, but in its bad state the pixel is stuck like a dead one rather than merely offset.</li>
+</ul>
+<p>Both stateful classes are driven by one two-state Markov chain, parameterised by its <strong>stationary occupancy</strong> (<code>bad_pixel_rts_occupancy</code>) and its <strong>mean dwell in the bad state</strong> (<code>bad_pixel_rts_dwell_frames</code>), from which the two switch probabilities follow by detailed balance. Parameterising it this way rather than by the raw probabilities means both dwell times are geometric by construction, which is the defining statistic of random telegraph noise and what separates it from a pixel that is simply noisy. The initial state is drawn from the stationary distribution, so a short clip is not biased by a burn-in.</p>
+<p>Classes are assigned to defects <strong>independently of their cluster</strong>: the mix describes a population, nothing in §10.4 says a cluster shares a failure mode, and a mixed-class cluster is the harder case for M9.5b.</p>
+<h3 id="injection-is-on-the-raw-dn-plane">Injection is on the raw DN plane<a class="anchor" href="#injection-is-on-the-raw-dn-plane" aria-label="permalink">#</a></h3>
+<p>§11.1's order is <code>raw DN → bad-pixel replace</code>, so defects enter immediately before that. A stuck pixel is physically stuck <em>before</em> the ADC, but the ADC is monotone and clipping, so stuck-low in signal space and DN 0 are the same observable. Working in DN makes "bit-identical across 100 frames" exact rather than approximate, and puts the defect and its repair on the same plane.</p>
+<h3 id="testing-a-discrete-distribution">Testing a discrete distribution<a class="anchor" href="#testing-a-discrete-distribution" aria-label="permalink">#</a></h3>
+<p>The roadmap asks for "geometric dwell (KS p &gt; 0.01)". The <em>analytic</em> KS p-value assumes a continuous distribution; applied to integer dwell times it reports p ≈ 1e-174 for a perfectly geometric sample, because the empirical CDF is a step function and the statistic picks up the step at x = 1 (of height p) rather than any misfit. The test therefore calibrates the null distribution by Monte Carlo over simulated geometric samples of the same size, which is valid for discrete data — and a memoryless-pixel control is run through the same estimator to show it still rejects.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>noise.bad_pixel_rts_{occupancy, dwell_frames, amplitude_dn}</code> are new (sensor schema v7) and all three are <strong>ESTIMATED</strong>: no published figures exist. ME.3's bad-pixel extractor is what should eventually set them from public imagery.</li>
+<li>Because occupancy and dwell jointly fix the switch probabilities, not every pair is a valid chain; an impossible pair raises rather than silently clamping.</li>
+<li>The Markov chain is advanced only over the stateful pixels. A 640×512 array with a few hundred defects would otherwise draw 327k uniforms per frame to move a few dozen bits.</li>
+<li>Like M9.4's drift, the defect state is <strong>sequential</strong>: frame N's state depends on every frame before it. The map itself is counter-based and reproducible from <code>sensor_seed</code> alone.</li>
+<li>Dead and hot pixels being pinned in DN means they survive the NUC unchanged, which is correct — a two-point correction cannot rescue an unresponsive pixel — and is what makes M9.5b necessary.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>ME.3 measures a real bad-pixel population and either the cluster-size distribution or the RTS occupancy and dwell fall outside what this process can produce; or a camera is modelled whose factory map is applied before the data leaves the core, in which case the <em>residual</em> (undetected, mostly flickering) population is what should be simulated rather than the full one.</p>
+<h2 id="addendum-m95b-the-replacement-stencil">Addendum (M9.5b): the replacement stencil<a class="anchor" href="#addendum-m95b-the-replacement-stencil" aria-label="permalink">#</a></h2>
+<p>The replacement is the <strong>mean of the valid 4-neighbours, iterated until clusters fill</strong> (<code>irsim.isp.replace_bad_pixels</code>). Three properties made it the choice over copy-one-neighbour and over an 8-neighbour mean, and all three are asserted:</p>
+<ul>
+<li><strong>Exact on a linear field, for an isolated defect.</strong> (left + right)/2 is the centre value, and so is (up + down)/2, so replacement introduces no radiometric bias on smooth scene content — which is most of a thermal image. <em>Inside a cluster it is not exact</em>: a pixel in a 2×2 sees only its two outer neighbours, never an opposing pair, so the mean is pulled toward the outside of the cluster. That bias is real, is kept, and is part of why a cluster is visible where a single defect is not — the concrete reason the cluster process above is not cosmetic.</li>
+<li><strong>σ²/4 on white noise.</strong> Copy-one-neighbour leaves σ² and an 8-neighbour mean gives σ²/8. The σ²/4 signature is something ME.3's ISP-behaviour extractor can look for in real footage, so choosing the stencil fixes a testable prediction rather than an arbitrary smoothing.</li>
+<li><strong>A suppressed local Laplacian</strong>, well under half that of untouched pixels. This <em>is</em> §10.4's "detectable smoothed footprint" — the artefact a perception stack actually sees, and the thing a simulator that injects defects without replacing them, or that injects none at all, both fail to present.</li>
+</ul>
+<p><strong>Passes are synchronous.</strong> Each pass fills every masked pixel with at least one valid neighbour, reading only values that were valid when the pass began — never values written during it. A 3×3's centre therefore needs two passes and an isolated defect one. Without this, a 2×2 would fill differently row-major than column-major and goldens would not reproduce; the test transposes the problem and requires the answer to transpose with it.</p>
+<p><strong>A partial fill is an error, not an output.</strong> If a masked region is still unfilled after <code>MAX_PASSES</code>, or has no valid neighbour on any side, the call raises. An unreplaced defect silently carrying a stuck floor or ceiling value into the NUC is worse than a loud failure, and at <code>CLUSTER_RADIUS_PX = 2</code> no region that large should exist.</p>
+<p>The mask is <strong>per frame</strong>: dead and hot always, blinking and flickering only while bad (<code>active_defect_mask</code>). This is the <em>ideal</em> mask — what a camera would replace if its map were perfect. A real core's factory map is static, and what it fails to contain is exactly why intermittent defects reach the image; that distinction belongs with the FFC controller in M9.7.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

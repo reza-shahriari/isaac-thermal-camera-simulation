@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0125 — A cloud is not a stencil, and a picture of a temperature needs its scale — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0125 — A cloud is not a stencil, and a picture of a temperature needs its scale</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0125-a-cloud-is-not-a-stencil-and-a-picture-of-a-temperature-needs-its-scale.md" target="_blank" rel="noopener">docs/decisions/0125-a-cloud-is-not-a-stencil-and-a-picture-of-a-temperature-needs-its-scale.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-3"><a href="#the-change-is-provably-confined-to-the-pixels-that-were-on-the-edge">The change is provably confined to the pixels that were on the edge</a></li>
+<li class="toc-3"><a href="#the-softness-is-estimated-and-says-so">The softness is estimated and says so</a></li>
+<li class="toc-3"><a href="#what-the-colour-bar-is-not-drawn-beside">What the colour bar is not drawn beside</a></li>
+<li class="toc-3"><a href="#two-spans-and-the-tight-one-is-anchored-on-the-cells">Two spans, and the tight one is anchored on the cells</a></li>
+<li class="toc-3"><a href="#from-below-the-deck-is-still-hidden">From below, the deck is still hidden</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Two fixes to what a rendered frame <em>shows</em>, both raised by looking at the output rather than by a test: the cloud rendered as flat blobs in both bands, and a close-up of an aircraft had no way to read a grey level back to a temperature. <strong>Date:</strong> 2026-09-23 Roadmap: PT.9 (§5.3 a, §11.3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0124 put cloud into a rendered scene for the first time. It looked wrong immediately, in both bands, and the reason was one line: <code>SkyFixedCloud.sample</code> returns a <strong>boolean</strong>. Every consumer took it as a stencil —</p>
+<ul>
+<li>the visible dome replaced each covered texel with one flat base value;</li>
+<li>the infrared background gave each covered ray the full cloud-base radiance.</li>
+</ul>
+<p>So every cloud was a region of exactly uniform brightness with a one-sample cliff around it. No thin edges, no internal structure, and in LWIR a step of tens of kelvin along every boundary — which is precisely the edge statistic a sky-target detector keys on, so the error was not cosmetic.</p>
+<p>Separately, a close-up of the aircraft showed parts at plainly different greys and gave a viewer no way to turn a grey back into a temperature. The burnt-in gauge says what each <em>named</em> part is; it says nothing about the mapping, so "that part is brighter" remained an observation about the display.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>A cloud has a depth, not a membership.</strong> <code>SkyFixedCloud.density</code> returns 0 to 1 along each ray: a smoothstep on the underlying 1/f^β field's excess over its own threshold, measured in standard deviations (the field is unit-variance by construction, so the softness parameter is directly in σ). The radiance blend becomes <code>ε_eff = (1 − τ_cloud) d</code>, with the authored <code>τ_cloud</code> now meaning the transmittance of cloud <strong>at full depth</strong>.</p>
+<p><code>density</code> crosses 0.5 exactly at the threshold, so <code>sample</code> and the authored coverage fraction still mean what they did — this changes how a cloud looks, not how much sky it covers. And <code>softness = 0</code> returns the hard mask exactly, so the old behaviour is a value of a parameter rather than a deleted branch.</p>
+<p><strong>A fixed-span frame carries the palette beside it.</strong> <code>irsim_eval.video.palette_scale</code> draws the colour bar from the <em>same lookup table the display branch indexed</em>, with Celsius ticks.</p>
+<p><strong>A close-up is a different measurement, and the driver says so.</strong> <code>--close-up</code> holds the aircraft filling the frame for the whole mission, so the only thing changing is temperature.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<h3 id="the-change-is-provably-confined-to-the-pixels-that-were-on-the-edge">The change is provably confined to the pixels that were on the edge<a class="anchor" href="#the-change-is-provably-confined-to-the-pixels-that-were-on-the-edge" aria-label="permalink">#</a></h3>
+<p><code>cloud_radiance</code> returns its two limits through <code>np.where</code> rather than through the blend, so a boolean mask gives <strong>bit-identical</strong> radiance to the hard-edged version at any <code>τ_cloud</code>. Every existing cloud result stands; what moved is the fringe, which did not exist before. Measured on the rendered dome: at 0.45 coverage the fringe is 9.2 % of the map against 19.6 % at full depth, and at 0.05 coverage it is 3.0 % against 2.4 % — <strong>thin cloud is more edge than core</strong>, which is why the stencil looked worst exactly where cloud was sparse.</p>
+<p>The mean-preservation property that makes the structured field compatible with every LUT and tilt integral is unaffected: it is a statement about the average over the sky, and a symmetric ramp about the threshold does not move it.</p>
+<h3 id="the-softness-is-estimated-and-says-so">The softness is estimated and says so<a class="anchor" href="#the-softness-is-estimated-and-says-so" aria-label="permalink">#</a></h3>
+<p>0.45 σ was chosen by looking at the result, not derived. This generator has always been a <strong>fixture for clutter statistics rather than cloud microphysics</strong> (ADR 0070), and nothing radiometric is claimed for the particular width. What can be claimed is that the previous value was wrong: zero makes every cloud edge a step discontinuity at the sampling resolution, and a real cumulus edge is not that.</p>
+<h3 id="what-the-colour-bar-is-not-drawn-beside">What the colour bar is not drawn beside<a class="anchor" href="#what-the-colour-bar-is-not-drawn-beside" aria-label="permalink">#</a></h3>
+<p>Under either §11.3 AGC mode the mapping is rebuilt from each frame's own histogram, so a bar drawn once would be wrong for every frame but one. The AGC video therefore gets no scale — and that difference between the two videos is the lesson rather than an omission, because it is exactly what separates a picture of contrast from a measurement.</p>
+<h3 id="two-spans-and-the-tight-one-is-anchored-on-the-cells">Two spans, and the tight one is anchored on the cells<a class="anchor" href="#two-spans-and-the-tight-one-is-anchored-on-the-cells" aria-label="permalink">#</a></h3>
+<p>The motors run forty kelvin above a skin whose whole structure is four, so one linear span cannot show both. The tight span is taken over the <strong>solved cells across the whole mission</strong>, half a kelvin either side — not over the nodes, which the motors would set, and not relative to air, because how far the skin sits from air is the measurement and a span defined from air would move whenever the weather did.</p>
+<h3 id="from-below-the-deck-is-still-hidden">From below, the deck is still hidden<a class="anchor" href="#from-below-the-deck-is-still-hidden" aria-label="permalink">#</a></h3>
+<p>A close-up from a camera looking up sees the belly, the skids, the gimbal, the arms and the motor bells — five parts at four distinct levels — and does <strong>not</strong> see the top shell, which is the hottest part of the airframe. That is the same geometry ADR 0123 recorded and it has not changed. Showing the deck to a ground camera needs either a view from above, whose background is ADR 0060's analytic ground rather than sky, or an aircraft authored at a flying attitude so that its patches, its occluders and its prims all pitch together. Neither is done here.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

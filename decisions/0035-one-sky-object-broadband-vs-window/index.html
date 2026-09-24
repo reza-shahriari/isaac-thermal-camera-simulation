@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0035 — One sky object serves both paths; broadband downwelling from a clear-sky emissivity relation, not the LWIR-window T_sky — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0035 — One sky object serves both paths; broadband downwelling from a clear-sky emissivity relation, not the LWIR-window T_sky</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0035-one-sky-object-broadband-vs-window.md" target="_blank" rel="noopener">docs/decisions/0035-one-sky-object-broadband-vs-window.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Two consumers need "the sky": the surface energy balance (§6.1) needs the <strong>broadband</strong> downwelling longwave irradiance Q_LW↓ (all wavelengths, what a pyrgeometer measures), and the image needs the <strong>in-band</strong> sky radiance L_sky,B(θ) (§5.3, the reflected term and the sky background). §5.3(a) gives a practical LWIR-window sky temperature, T_sky = T_air − ΔT_clear (1 − cloud) cos^q θ_zen with ΔT ≈ 55–70 K. That window value is <em>not</em> a broadband quantity: the 8–14 µm window is where the clear sky is most transparent and therefore coldest; outside the window (H₂O rotation band, CO₂ 15 µm) the sky radiates near T_air. Using the zenith window temperature as a broadband sky gives σ(288 − 60)⁴ = 153 W m⁻² against 260–295 W m⁻² from the emissivity relations at 288 K, a 100+ W m⁻² error that would over-cool every night-time surface by tens of kelvin.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Use the LWIR-window T_sky for the balance as well — simple, wrong by 100+ W m⁻² (above).</li>
+<li><strong>Clear-sky broadband emissivity relation</strong> (chosen): Brunt (1932) ε = 0.52 + 0.065 √e (e in hPa) as the default, Idso (1981) ε = 0.70 + 5.95e-5 e exp(1500/T) as an option; cloud blended linearly to ε = 1 (overcast radiates as a blackbody at T_air); Q_LW↓ = V_s ε_sky σT_air⁴ + (1 − V_s) σT_surround⁴.</li>
+<li>Integrate the layered atmosphere (MS.1) spectrally over all wavelengths — the right answer in phase 2, and it is how <code>SkyModel.broadband_downwelling()</code> (MS.2) may be upgraded; today the layered model exists per sensor band only.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2 in <code>irsim.thermal.longwave</code>, fed by the same <code>WeatherSample</code> (vapour pressure via M8.2's Magnus form) that the atmosphere uses, so both paths see one humidity. The MS.2 <code>SkyModel</code> will expose <code>broadband_downwelling()</code> by delegating here and <code>L_sky_B(θ)</code> from the layered atmosphere: one object, two physically different quantities, never one substituted for the other.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Clear dry sky at 288 K: 259 W m⁻² (Brunt) / 294 W m⁻² (Idso); overcast 390 W m⁻². The two relations differ by ~35 W m⁻² in dry air -- that spread is the model uncertainty (Brunt-type relations are ±20–30 W m⁻² against pyrgeometers without local calibration).</li>
+<li>The cloud blend assumes cloud base at T_air; a high cold cloud radiates less. Cloud <em>type</em> and base height are not in the weather file.</li>
+<li>The window T_sky of §5.3(a) remains available for the <em>image</em> fast path (MS.2), fitted rather than authored.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>MS.1's layered atmosphere is integrated over the full spectrum (then option 3 replaces the relation with a consistent one), or when pyrgeometer data for a target site allows calibrating the coefficients.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

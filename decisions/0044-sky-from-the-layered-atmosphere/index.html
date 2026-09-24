@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0044 — Sky radiance is the layered atmosphere&#x27;s column emission; the spec&#x27;s cos^q form is derived, not authored — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0044 — Sky radiance is the layered atmosphere&#x27;s column emission; the spec&#x27;s cos^q form is derived, not authored</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0044-sky-from-the-layered-atmosphere.md" target="_blank" rel="noopener">docs/decisions/0044-sky-from-the-layered-atmosphere.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§5.3(a) offers T_sky(θ_zen) = T_air − ΔT_clear (1 − cloud) cos^q θ_zen with ΔT ≈ 55–70 K and q ≈ 0.5–1.0 as the practical LWIR sky. For sky targets the sky <em>is</em> the background, and its shape versus elevation sets the detectability of a small target near the horizon. MS.1 provides the physical quantity directly: the column's own emission L_path(∞, θ), calibrated to R13 (−40 °C at 15° in LWIR, warmer in MWIR).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Author (ΔT, q) per environment preset and evaluate the power law — cheap, but the layered model shows the form is wrong in shape: the sky warms toward the horizon as a saturating column (emission ∝ 1 − e^{−τ_z / sin θ}), not as a power of cos θ_zen. Fitted over 5°–90° to the layered model the best power law has q ≈ 0.2–0.35 (outside the spec's 0.5–1.0) and a maximum error of several kelvin near 5–15° -- exactly where the sky background of a low-elevation target matters.</li>
+<li>Evaluate the layered model per pixel — correct, ~1 ms per quadrature: too slow for a 640×512 sky in the adapter.</li>
+<li><strong>A 1-D elevation LUT over the layered model</strong> (chosen): 181 points at 0.5°, linear interpolation, rebuilt per weather time; within 0.5 K of the direct evaluation for every preset over 5°–90°; plus a <strong>1-D tilt LUT</strong> for the cosine-weighted sky a tilted plane sees, with the azimuth integral in closed form so the tilt LUT is a single 1-D quadrature per tilt.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim.atmosphere.sky.SkyModel(atmosphere, environment, band, lut)</code>:</p>
+<ul>
+<li><code>radiance(θ)</code> / <code>apparent_temperature_k(θ)</code>: the elevation-LUT fast path; the adapter fills <code>temperature_k</code> under the sky mask with it.</li>
+<li><code>effective_radiance(β)</code> and <code>effective_radiance_from_sky_view(V_s)</code> (β from V_s = (1 + cos β)/2, the unoccluded relation) for the reflected term (M7.13).</li>
+<li>Cloud: L_sky = (1 − c) L_clear + c L_B(T_base) with T_base = T_air until MS.3 supplies the LCL base and the structured field; c = 1 gives L_B(T_air) at every angle and tilt (§5.3: overcast → T_sky → T_air, the "flat" cloudy-day image).</li>
+<li><code>broadband_downwelling()</code> delegates to M6.5 (ADR 0035): the in-band sky is never used as the broadband sky.</li>
+<li><code>fit_cos_q()</code> derives (ΔT, q) from the layered model and reports max/rms error; the environment preset's authored (ΔT, q) are validation ranges and an L1 option, never the model.</li>
+<li>The constructor takes the <code>LayeredAtmosphere</code> (which holds the one <code>WeatherSeries</code>) and exposes <code>.weather</code>; a scalar T_air or a path is refused (CLAUDE.md #6).</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The sky background and the reflected-term sky come from one object and one weather; MS.3 adds cloud structure on top without changing the interface.</li>
+<li>Cost: ~0.4 s to build both LUTs per band per weather time (181 column quadratures); cached.</li>
+<li>The horizon (θ &lt; 0.5°) is evaluated at 0.05° on a flat earth: the last degree above the horizon is the least trustworthy part of the model (no refraction, no earth curvature).</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>MS.3 lands (cloud base temperature and structure), when a per-pixel slant-path stage 2 needs the same LUT for the path radiance of <em>targets</em> (MS.8), or when refraction/curvature matter (&lt; 2°).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

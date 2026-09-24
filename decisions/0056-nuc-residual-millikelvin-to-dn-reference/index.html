@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0056 — The millikelvin → DN conversion reference for the NUC residual — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0056 — The millikelvin → DN conversion reference for the NUC residual</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0056-nuc-residual-millikelvin-to-dn-reference.md" target="_blank" rel="noopener">docs/decisions/0056-nuc-residual-millikelvin-to-dn-reference.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#the-consequence-this-buys">The consequence this buys</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.6 (<code>feat(noise): NUC residual — gain/offset drift with ΔT_FPA and growth between FFC</code>)</li>
+<li>Spec: docs/physics-model.md §11.2, §2 (g_ij, o_ij), §12.2 <code>nuc</code></li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>nuc.residual_offset_mk_per_k</code> is authored in <strong>millikelvin per kelvin</strong> — 45 mK/K for the Boson. That unit is right for the config: it is how datasheets and the literature quote residual non-uniformity, because millikelvin is what a user sees.</p>
+<p>It is the wrong unit to <em>apply</em> in. Non-negotiable #3 exists because the blackbody thermal derivative ∂L/∂T rises steeply with temperature, so a fixed kelvin-space error is only correct at the one temperature it was tuned at. Measured on the committed Boson chain, ∂DN/∂T is</p>
+<div class='table-wrap'><table>
+<thead><tr><th>T (K)</th><th>∂DN/∂T</th></tr></thead>
+<tbody>
+<tr><td>250</td><td>97.2</td></tr>
+<tr><td>300</td><td>178.0</td></tr>
+<tr><td>373</td><td>309.0</td></tr>
+<tr><td>450</td><td>439.6</td></tr>
+</tbody></table></div>
+<p>so the same physical residual is <strong>0.576×</strong> as large in apparent-temperature terms at 373 K as at 300 K. (That 0.576 is the same ratio ADR 0026 arrived at independently for the two-blackbody NETD bench — a useful cross-check that the two derivations are describing one chain.) A residual added in kelvin would be flat across that range, and every image would still look completely plausible.</p>
+<p>So the question is not <em>whether</em> to convert but <strong>where the conversion reference sits</strong>, and how many times it is applied.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Convert once, at construction, at 300 K.</strong></p>
+<p><code>NucResidual</code> takes <code>dn_per_k</code> = ∂DN/∂T evaluated at <code>RESIDUAL_REFERENCE_K = 300.0</code>, and from that moment the residual is a fixed number of DN. It is never reconverted, never re-evaluated at the scene temperature, and never applied in kelvin.</p>
+<ul>
+<li><strong>300 K</strong> because that is where §9.4 anchors NETD and where datasheet residual figures are quoted. The config's "45 mK/K" therefore means the same thing here as on the datasheet it was copied from, which is the only way an ESTIMATED value can later be replaced by a measured one without silently changing meaning.</li>
+<li><strong>Once</strong>, because the point of the conversion is to stop being in kelvin. Re-deriving the DN amount per frame from the current scene temperature would reintroduce exactly the flat-in-kelvin behaviour the conversion exists to prevent, while looking like extra rigour.</li>
+<li><strong>Supplied by the caller</strong>, not computed inside <code>irsim.noise</code>. <code>∂DN/∂T</code> comes from <code>irsim.isp.dn_per_kelvin</code>, which needs the radiometric calibration; taking it as a constructor argument keeps <code>irsim.noise</code> independent of <code>irsim.isp</code> and puts the "converted once" rule at the call site where a reader can see it rather than buried two layers down.</li>
+</ul>
+<p><code>dn_per_kelvin</code> is a central difference through the real forward chain (LUT → optics stage → detector transfer) rather than an analytic derivative, so it is the same object the Tier 2 SITF bench measures.</p>
+<h3 id="the-consequence-this-buys">The consequence this buys<a class="anchor" href="#the-consequence-this-buys" aria-label="permalink">#</a></h3>
+<p>Because the residual is a fixed DN, its apparent-temperature equivalent falls with scene temperature exactly as the derivative ratio says it should. <code>test_residual_not_kelvin_flat</code> asserts that the ratio of the apparent-temperature error at 373 K to that at 300 K equals (∂DN/∂T at 300)/(∂DN/∂T at 373) within 5 %, and that at the reference temperature the error is the configured 90 mK at ΔT_FPA = 2 K. A kelvin-space implementation passes the second and fails the first — which is why the second alone would not be enough.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The reference is a module constant, not a config field. Making it configurable would let two cameras interpret the same millikelvin figure differently, which defeats the purpose of using the datasheet's unit.</li>
+<li>A camera whose residual figure is quoted at some other temperature must have it restated at 300 K before it goes in the YAML. This is a documentation burden, not a modelling one, and it is preferable to carrying a per-camera reference temperature that nobody would keep consistent.</li>
+<li>Both <code>residual_gain_ppm_per_k</code> and <code>residual_offset_mk_per_k</code> for the Boson are <strong>ESTIMATED</strong>. ME.3's between-FFC growth measurement is what should set them.</li>
+<li>The gain residual needs no conversion at all: parts per million of the signal is already dimensionless and already multiplicative, so it is correct at every temperature by construction. Only the offset has this problem, which is exactly why it is the one §11.2 states in temperature units.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A camera is modelled whose published residual is specified at a materially different temperature and restating it at 300 K proves lossy; or the chain gains a non-linearity large enough that a single-point derivative misrepresents the transfer over the working range, in which case the conversion becomes a curve rather than a constant and this ADR is replaced rather than amended.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

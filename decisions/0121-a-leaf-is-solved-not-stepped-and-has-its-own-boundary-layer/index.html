@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0121 — A leaf is solved, not stepped, and has its own boundary layer — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0121 — A leaf is solved, not stepped, and has its own boundary layer</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0121-a-leaf-is-solved-not-stepped-and-has-its-own-boundary-layer.md" target="_blank" rel="noopener">docs/decisions/0121-a-leaf-is-solved-not-stepped-and-has-its-own-boundary-layer.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#1-solve-the-root-do-not-step-it">1. Solve the root, do not step it</a></li>
+<li class="toc-3"><a href="#2-a-leafs-boundary-layer-is-not-the-projects-bulk-one">2. A leaf&#x27;s boundary layer is not the project&#x27;s bulk one</a></li>
+<li class="toc-3"><a href="#3-the-oracle-is-written-in-different-units-on-purpose">3. The oracle is written in different units on purpose</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Uses the latent term <a href="../0101-the-latent-term-and-a-wet-film-per-cell/">ADR 0101</a> added and the stability guard <a href="../0094-imex-conduction-and-the-explicit-guard/">ADR 0094</a> introduced for <code>TC.1</code>; adds the first surface in this project whose boundary layer is <em>not</em> the bulk aerodynamic one. <strong>Date:</strong> 2026-09-22 Roadmap: PH.11 (§6.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>A leaf is the opposite of every other surface in the library. Its areal heat capacity is <strong>630 J m⁻² K⁻¹</strong> against 63 000 for a snowpack and 180 000 for asphalt, so it has no thermal memory; and it controls its own evaporation through a stomatal resistance that is a property of the plant, not of the weather.</p>
+<p>That is worth modelling because a well-watered canopy reads <strong>below</strong> air temperature on a hot dry afternoon and a stressed one reads well above it, under identical weather. Every crop water stress index ever flown rests on that difference.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Three decisions, and the second is the one that nearly went wrong.</p>
+<h3 id="1-solve-the-root-do-not-step-it">1. Solve the root, do not step it<a class="anchor" href="#1-solve-the-root-do-not-step-it" aria-label="permalink">#</a></h3>
+<p><code>leaf_steady_state_k</code> bisects <code>net_flux(T) = 0</code> rather than integrating. Measured: with the leaf's own boundary layer at 2 m/s, <code>h = 34.8 W m⁻² K⁻¹</code>, the time constant is <strong>15.4 s</strong> and the midpoint rule is stable only to <strong>30.8 s</strong>. A scene ticking at 60 s would oscillate and diverge. A snowpack's limit under the same forcing is 3089 s and asphalt's 8825 s, so the leaf is two orders of magnitude more restrictive than anything else here.</p>
+<p>A surface with a 15 s memory has nothing to remember across a minute-long tick, so its steady state <em>is</em> its answer — the same argument <code>TC.1</code> made for a conduction ladder whose fast mode sits below the tick. Bisection rather than Newton because the balance is monotone decreasing in T (emission, convection and evaporation all rise with it), so it cannot fail, and the derivative Newton would need is exactly what a future latent term would make ugly.</p>
+<h3 id="2-a-leafs-boundary-layer-is-not-the-projects-bulk-one">2. A leaf's boundary layer is not the project's bulk one<a class="anchor" href="#2-a-leafs-boundary-layer-is-not-the-projects-bulk-one" aria-label="permalink">#</a></h3>
+<p>This is the part that produced the wrong physics before it was caught. <code>bulk_conductance_kg_m2_s</code> describes a metres-deep surface layer over soil or sea and gives an aerodynamic resistance of <strong>435 s/m</strong> at 2 m/s. A 5 cm leaf in the same wind has <strong>33 s/m</strong> — thirteen times smaller, because the air only has to cross five centimetres.</p>
+<p>Built on the bulk value, a well-watered leaf could not transpire fast enough to go below air at all: it read <strong>+6.4 K</strong> at a 3.4 kPa deficit instead of −1.9 K. That is the wrong <em>sign</em> of the only effect PH.11 exists to produce, and it would have passed anything except a test that asked for the sign. <code>leaf_boundary_conductance_mol_m2_s</code> implements Campbell &amp; Norman's <code>g_Ha = 1.4 · 0.135 √(u/d)</code> instead, and <code>leaf_forcing</code> derives both <code>h</code> and <code>g_e</code> from that one conductance so the sensible and latent paths cannot describe different turbulence.</p>
+<h3 id="3-the-oracle-is-written-in-different-units-on-purpose">3. The oracle is written in different units on purpose<a class="anchor" href="#3-the-oracle-is-written-in-different-units-on-purpose" aria-label="permalink">#</a></h3>
+<p><code>leaf_temperature_cn</code> implements Campbell &amp; Norman's closed form (2nd ed., §14.5) in <strong>molar</strong> units — conductances in mol m⁻² s⁻¹, vapour as a mole fraction, γ = c_p/λ — while this project's balance is SI mass-based with <code>E = ρ_a Δq/(r_a + r_s)</code>. Neither is derived from the other, so agreement is evidence rather than algebra. The bridge is the two molar masses and nothing else.</p>
+<p>The molar constants are <strong>derived from this project's own SI constants rather than pasted from the book</strong>, which keeps the oracle tied to the balance it checks and costs a visible gap: <code>c_p,molar = 29.105</code> against their 29.3 (0.67 %, this project carries dry-air c_p = 1005 where they use a moist-air value) and <code>γ = 6.594e-4</code> against their 6.66e-4 (0.99 %). The test asserts the derived values and names the published ones, because a tolerance loosened until 29.105 counted as 29.3 would hide the only thing there worth knowing.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The four acceptance criteria, measured</strong> at 30 °C, 2 m/s, 800 W/m²:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>check</th><th>result</th></tr></thead>
+<tbody>
+<tr><td>closing the stomata → dry reference</td><td>+7.48 K, exactly, and monotone in r_s</td></tr>
+<tr><td>well-watered leaf at 3.18 kPa deficit</td><td><strong>−1.93 K</strong> (stressed: <strong>+7.00 K</strong>)</td></tr>
+<tr><td>Idso slope</td><td><strong>−1.84 °C/kPa</strong>, inside the published [−3.8, −1.1]</td></tr>
+<tr><td>Campbell &amp; Norman vs this balance</td><td><strong>0.10 K</strong> near air, <strong>0.37 K</strong> at 4.6 K departure</td></tr>
+</tbody></table></div>
+<p><strong>The fourth criterion holds to 0.1 K only near air temperature, and that is stated rather than quoted selectively.</strong> Two causes, separated by measurement. The ~0.1 K floor is the unit bridge: this project's specific humidity uses the exact <code>q = ε e/(p − (1−ε)e)</code> while the molar side's <code>Δq = (M_w/M_a) Δw</code> is the <code>q ≈ ε e/p</code> form, worth 1.6 % of the deficit at 30 °C. The growth with departure is Campbell &amp; Norman's own double linearisation — of the saturation curve <em>and</em> of σT⁴, both about air temperature — which is what a closed form buys its closed form with.</p>
+<p>Where both vanish (no net isothermal radiation, saturated air) the two agree to <strong>4e-10 K</strong>, the bisection tolerance. That degenerate case is the test that says the formulations are the same equation; the finite ones say how far their approximations drift.</p>
+<p><strong>The Idso band is an acceptance, not a fit.</strong> <code>IDSO_SLOPE_C_PER_KPA</code> records the published non-water-stressed baseline and the model is asked whether it lands inside. Nothing in the module was tuned to it — the slope falls out of the stomatal resistance, the boundary layer and the saturation curve, and a model tuned to the band would have proved nothing.</p>
+<p><strong>Not done, and each would change a number above.</strong> Stomatal resistance is a constant per regime, not a function of light, humidity or leaf water potential, so a modelled canopy cannot close its stomata as the day dries — <code>WELL_WATERED_R_S_S_M</code> and <code>STRESSED_R_S_S_M</code> are ESTIMATED brackets, not a species. There is no canopy: one leaf, one temperature, no sunlit/shaded separation and no radiation trapping between layers, which is what a real thermal image of a canopy is mostly made of. <code>LEAF_WIDTH_M</code> is a single ESTIMATED 5 cm. And no material carries a stomatal resistance and no scene declares vegetation, so like <code>PH.7</code>'s fire and <code>PH.10</code>'s snow this ships as physics with its tests and no scene-schema surface.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

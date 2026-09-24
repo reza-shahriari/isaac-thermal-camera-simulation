@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0138 — The project site is generated from the repository, and carries web-sized renders — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0138 — The project site is generated from the repository, and carries web-sized renders</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0138-the-project-site-is-generated-from-the-repository.md" target="_blank" rel="noopener">docs/decisions/0138-the-project-site-is-generated-from-the-repository.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-24</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The owner asked for a GitHub Pages site showing the whole project: the physics specification, the plan, the decision log, the validation reports, the code and — the part that cannot be read out of the repository — what the simulator actually produces.</p>
+<p>Three constraints shaped the answer.</p>
+<p><strong>The documents already exist and are the source of truth.</strong> <code>docs/physics-model.md</code> is 114 kB of specification with LaTeX in it, the roadmap is generated in part by <code>scripts/next_step.py</code>, the status table lives in <code>README.md</code> and there are 137 ADRs. A site that <em>copies</em> any of that starts lying the first time somebody edits the original, and this repository has several sessions editing it at once.</p>
+<p><strong>The renders are not in git and cannot be.</strong> <code>outputs/</code> is 8.3 GB. The clips the existing gallery referenced come to 609 MB on their own — the drone NIR clip is 97 MB at 163 Mbit/s, which is what you want for analysis and is absurd for a web page. GitHub Pages publishes about 1 GB with a 100 MB per-file limit, and the <code>.npy</code> planes beside those clips are of no use to a reader at all.</p>
+<p><strong>The project interpreter is Isaac Sim's bundled Python</strong> (ADR 0002), which has no Markdown library and no static-site generator, and <code>make check</code> must keep running on a plain CPython 3.10 with only <code>.[dev]</code> installed.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>GitHub's own Jekyll build, from <code>docs/</code>.</strong> No local tooling at all, and it renders Markdown well. But the build runs on GitHub, where <code>outputs/</code> does not exist, so the site could carry no imagery — and imagery is the half of the request the repository cannot otherwise answer. It also renders only what is in the branch, so the module map and the configuration catalogue would have to be written by hand and maintained.</li>
+<li><strong>MkDocs Material (or similar) plus a Pages action.</strong> Excellent output; adds a pip dependency that the project interpreter does not have, a <code>mkdocs.yml</code> that duplicates the document tree, and the same problem with <code>outputs/</code>.</li>
+<li><strong>A generator in this repository, publishing a built directory.</strong> Costs a Markdown renderer — about 350 lines, since the corpus is CommonMark plus GitHub tables plus LaTeX — and buys the ability to measure the repository at build time and to re-encode the renders on the machine that has them.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3. <code>scripts/build_site.py</code> builds a static site into the gitignored <code>_site/</code> from three sources: the documents (rendered, never copied), the tree itself (the module map, the configuration catalogue and every headline number are measured during the build), and the renders named by <code>site/gallery.yaml</code>.</p>
+<p>Specifics worth recording:</p>
+<ul>
+<li><strong>The gallery is a committed manifest over uncommitted media.</strong> <code>site/gallery.yaml</code> names the frames and clips worth showing and says what each one demonstrates; the files themselves come from <code>$IRSIM_OUTPUTS</code> (default <code>outputs/</code>). An entry the checkout cannot supply is listed on the page rather than dropped, so a reader can tell the difference between "not modelled" and "not rendered here". No <code>.npy</code> plane is ever published.</li>
+<li><strong>Everything is re-encoded.</strong> H.264 CRF 34 capped at 720 px, <code>+faststart</code>, no audio; stills to WebP. Measured on this checkout: 436.8 MB of source renders become 20.6 MB, and the whole site is 25 MB. The sensor grain survives, which matters — it is the model's output, not an artefact.</li>
+<li><strong>Maths is passed through, not rendered.</strong> <code>$…$</code> and <code>$$…$$</code> spans are extracted before any inline pass so that <code>\tau_{\text{opt}}</code> cannot be mangled into emphasis by its own underscores, and KaTeX typesets them in the browser.</li>
+<li><strong>Every URL is relative.</strong> Project pages are served from <code>/&lt;repo&gt;/</code>, where a root-absolute link 404s while working perfectly in a local preview. A test asserts no built page contains one.</li>
+<li><strong>Publication rewrites a <code>gh-pages</code> branch</strong> (<code>scripts/publish_site.sh</code>), one commit, no history: the site is an artefact, and keeping every encoded clip of every build would add tens of megabytes per publish to a repository whose main branch deliberately carries none of it.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Easy: the site cannot contradict the repository, because it stores nothing. Adding a document to <code>docs/</code> puts it on the site; shipping a module changes the module map; ticking a roadmap step moves the progress bars. A contributor with no renders can still build the whole site.</p>
+<p>Hard: the Markdown renderer is ours to maintain. It covers the constructs this corpus uses and refuses to pretend otherwise — <code>tests/unit/test_site_markdown.py</code> renders every Markdown file in the repository and fails if link syntax reaches a page as literal text, which is how an unsupported construct announces itself. Reference-style links, footnotes and setext headings are not supported.</p>
+<p>The site also publishes only what the machine that built it had rendered. A publish from a checkout with a stale <code>outputs/</code> shows stale clips, and nothing in the build can detect that.</p>
+<p>Not done here: no CI job builds or publishes the site. It would have to build without <code>outputs/</code>, which is the one thing the Jekyll option was rejected for.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A second person needs to publish, or the site needs to update on every push — at that point the document half could be built in CI and the media half published from a machine that has the renders, and the two merged; or when the corpus starts wanting a Markdown construct the renderer does not have, and adding it costs more than a dependency would.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:03 UTC from <code>fcc1d21</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

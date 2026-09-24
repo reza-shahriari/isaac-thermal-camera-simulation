@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0046 — Semi-transparent materials: τ scalar per band, closure on band-effective values, L_behind = L_env until a second ray exists — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0046 — Semi-transparent materials: τ scalar per band, closure on band-effective values, L_behind = L_env until a second ray exists</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0046-semi-transparent-second-ray.md" target="_blank" rel="noopener">docs/decisions/0046-semi-transparent-second-ray.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-12</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§4.4 is blunt about why this matters: glass is opaque in LWIR and transparent in SWIR, so a windshield shows <em>the windshield's own temperature</em> in one band and <em>the driver</em> in another. That is one of the headline capabilities of a multi-band simulator, and §4.4 warns that retrofitting transmission into a surface-only model is painful. Until now the pipeline carried the two-term form L = ε L_B + (1 − ε) L_env, where (1 − ε) silently stood for ρ + τ. That renders a windshield identically in both bands, plausibly, and wrongly.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Keep folding τ into (1 − ε). Cheapest, and it makes the band transition unrepresentable — the one thing §4.4 says to build in from the start.</li>
+<li>Spectral τ(λ) with a full second-ray path traced through the material. Correct, and far beyond what the renderer supplies in phase 1: there is no second-hit AOV yet.</li>
+<li><strong>Scalar τ per band, a single second ray, closure enforced per pixel on band-effective values</strong> (chosen).</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>L = ε L_B(T_s) + ρ L_env + τ L_behind</strong>, implemented in <code>irsim.materials.surface.surface_radiance</code> as the scalar oracle and used by stage 1.</li>
+<li><strong>τ is a scalar per band</strong>, authored in the material file; <strong>ρ is derived</strong> as 1 − ε − τ and never read back from the packed table, so the closure cannot drift from the authored values. <code>MaterialTable.properties_for</code> returns the triple and refuses a derived ρ below zero.</li>
+<li><strong>Closure is checked per pixel</strong>, not per material, to 1e-6. A closure check on the library alone would pass while a hand-built table used in a test or by the Isaac adapter violated it.</li>
+<li><strong>L_behind = L_env when no second-ray plane is supplied.</strong> The three-term form then collapses to exactly ε L_B + (1 − ε) L_env, so opaque scenes, every existing golden and the two-term behaviour of M7.13 are bit-identical. This is what makes the change safe to land before the renderer can supply the second hit.</li>
+<li><strong>The plane is <code>radiance_behind</code></strong>, which needs no change to the G-buffer contract: the contract already admits any plane whose name begins with <code>radiance</code> and treats it as precision-critical, so float16 is refused for free.</li>
+<li><strong>A second-ray plane with no environment model raises.</strong> Without <code>PipelineConfig.sky</code> there is no L_env, hence no ρ term, and quietly dropping the τ term would render a transparent material as opaque — the silent-plausible-wrong failure this project exists to avoid.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The committed windshield now behaves correctly across bands: dL/dL_behind is 0.0 in LWIR, 0.02 in MWIR, 0.70 in SWIR and 0.77 in NIR, from one material and one code path.</li>
+<li>Only one ray deep: what is behind the glass is itself rendered without anything behind <em>it</em>, so two stacked transparent surfaces are wrong. Scenes needing that want option 2.</li>
+<li>τ is band-grey, so a material with structure inside a band (a coating with a cut-on) is not represented; and there is no refraction, so the second ray is not bent.</li>
+<li><code>L_behind</code> is currently a fixture key. The Isaac adapter will fill it from a second-hit AOV (M10.x); until then only synthetic scenes exercise the τ &gt; 0 path.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>The renderer gains a second-hit AOV, or a scene needs stacked transparent surfaces, refraction, or spectral τ(λ) within a band.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

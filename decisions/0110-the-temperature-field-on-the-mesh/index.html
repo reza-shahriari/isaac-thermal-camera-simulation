@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0110 — The surface temperature field lives on the mesh — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0110 — The surface temperature field lives on the mesh</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0110-the-temperature-field-on-the-mesh.md" target="_blank" rel="noopener">docs/decisions/0110-the-temperature-field-on-the-mesh.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-22-wm4-the-sky-view-and-the-beam-are-traced">Addendum 2026-09-22 (WM.4): the sky view and the beam are traced</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Supersedes ADR 0087's curved-geometry limitation; ADR 0087's planar patch remains the shipped path for near-planar surfaces and is not superseded as a whole. <strong>Date:</strong> 2026-09-21 Roadmap: WM.1–WM.3, WM.5 (§6.1, §6.4, §13.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><a href="../0087-point-wise-surface-temperature/">ADR 0087</a> gave a surface a temperature <em>field</em> by projecting the per-pixel world position onto a rectangular patch. It was the right call and it is still what ships for a road, a bonnet, a roof or a deck. It also wrote off everything else:</p>
+<blockquote>
+<p><strong>Hard:</strong> curved and small geometry. A wheel, a tyre, an exhaust pipe or a mast is not near-planar and still takes one temperature per prim. This is a real limit, not a temporary one: raising it means option 1 or 2, and therefore means a renderer capability this build does not have.</p>
+</blockquote>
+<p>Options 1 and 2 were a <strong>UV atlas with temperature as a texture</strong> and a <strong>per-triangle id in a custom AOV</strong>. Both ask the <em>renderer</em> to transport a surface parameterisation, and ADR 0014 measured that this build transports exactly two things usefully: an exact integer instance id, and a float32 world position good to 3.4 mm. No UV AOV, no per-triangle id, every colour AOV fp16.</p>
+<p>The premise that made the limit permanent is that the parameterisation must be <em>transported</em>. It does not. It can be <strong>derived</strong>: the instance id says which prim a pixel hit, the position says where in the world it hit, and a closest-point query against that prim's own mesh returns the triangle and the barycentric coordinates. <code>WM.1</code> measured whether that works on this build, and it does — see the addendum on ADR 0087 for the numbers.</p>
+<p>This ADR records the parameterisation that resulted, its error budget, and the routes rejected.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A UV atlas as the solver domain.</strong> The standard offline-renderer answer. Rejected as the <em>solver</em> domain — not merely as unavailable. An atlas carries <strong>metric distortion</strong> (equal texel areas are unequal surface areas, so a uniform grid is a non-uniform set of facets and §6.1's areal heat capacity stops meaning what it says), <strong>seam severing</strong> (a lateral conduction operator has to reconnect what the unwrap cut, and a seam is where a thermal gradient looks like a crack), and a <strong>conservative-rasterisation tax</strong> (texels straddling a chart boundary need gutter padding or they interpolate against background). It also needs an unwrap authored and kept in sync for every asset. Still the right answer for a <em>texture</em>; the wrong one for a field that has to conserve energy.</li>
+<li><strong>A per-triangle id in a custom AOV.</strong> Exact, and blocked: it needs an SPG shader (<code>M10.12</code>, itself blocked) or an integer AOV nobody has found on this build.</li>
+<li><strong>Closest-point-method narrow bands.</strong> Solve the surface PDE on a narrow band of a background 3-D grid and extend off-surface by closest-point extension. Elegant and well-conditioned, and wrong here on resolution: the band must be finer than the <em>thinnest</em> feature, and a car panel is ~1 mm thick, so a vehicle-sized domain would need a grid nobody wants to carry for a quantity that lives on a 2-D surface.</li>
+<li><strong>Transient surfels.</strong> Scatter oriented disc samples and solve on them. Attractive for a renderer, unusable here: <code>PT.7</code> spins a field up over 48 hours and the answer depends on that memory, so the sample set has to be <em>stable</em> across frames. Surfels regenerated per frame cannot hold a thermal history, and stabilising them is the same problem as parameterising the mesh with extra steps.</li>
+<li><strong>Cells per face on the mesh itself, Ptex style, located by a closest-point query.</strong> No atlas, no unwrap, no seam, no renderer capability, and the parameterisation is the mesh's own.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 5.</p>
+<p><code>irsim.thermal.mesh_field.TriangleMeshPatch</code> cuts every face into <code>k²</code> congruent sub-triangles on the barycentric grid, at a <strong>per-face</strong> level so resolution follows the thermal gradient rather than the tessellation. <code>TriangleMeshField</code> composes <code>ThermalField</code> exactly as <code>PlanarThermalField</code> does, so the fixed tick, the between-tick interpolation and the never-mutate-on-query rule are reused rather than restated. The cells are ordinary §6.1 facets; the balance is unchanged.</p>
+<p><code>irsim_isaac.pipeline.mesh_bridge.MeshPointBridge</code> is the render-path half, and is <strong>additive</strong> in the same way the planar bridge is: it overwrites only the pixels of prims with a mesh field bound to them, so an unbound prim is bit-identical and attaching it to an existing scene is a no-op.</p>
+<p><strong>Warp is an accelerator, not the authority.</strong> <code>irsim.thermal.closest_point_on_mesh</code> is a brute-force NumPy test over every triangle. It is the oracle the Warp path is held to <em>and</em> the fallback when Warp is absent, so the bridge produces the same frame on a machine with no GPU, and the device defaults to Warp's CPU. This is the shape the project's CPU-before-GPU ordering asks for where a library is needed for a capability rather than for speed.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy.</strong> Any prim with a mesh gets a real temperature field for the cost of authoring a level, with no atlas, no asset change and no renderer change. A wheel, a tyre, an exhaust pipe or a mast stops being one number: measured, a pipe goes from 0.000 K across the prim to 34.1 K around its circumference. <code>PlanarPatch</code> is untouched and remains the cheaper, smoother answer for the surfaces it already covers.</p>
+<p><strong>The error budget.</strong></p>
+<ul>
+<li>The parameterisation itself costs <strong>0.13 µm</strong> — <code>mesh_eval_position(face, u, v)</code> against a point already on the surface, four orders inside ADR 0014's 3.4 mm position budget. It is float32 round-off and <strong>grows with distance from the world origin</strong> (0.73 µm at 4.3 m), so a scene tens of kilometres across needs its own check; at vehicle and building scale it is nowhere near the budget.</li>
+<li>Under a full 3.4 mm of position error the recovered <strong>face</strong> is unstable — it flips between neighbours on 1.9 % of queries on a 12-triangle box and 56 % on a 16 k-triangle sphere — while the sampled <strong>position</strong> moves only 2.68 mm on average and never past 3.41 mm. A temperature lookup needs the position, so the instability is harmless; anything keyed on the face id is not safe.</li>
+<li>A pixel whose closest point is further than <strong>7 mm</strong> away is refused rather than snapped. That is twice the position budget, because a mesh is itself a chord approximation of whatever it represents.</li>
+<li>The sample is <strong>piecewise constant within a cell</strong>, where the planar patch is bilinear, so cell size is the only control on staircasing.</li>
+</ul>
+<p><strong>Hard, and deliberately deferred.</strong></p>
+<ul>
+<li><strong>Smoothing across faces</strong> needs edge adjacency — which cell of the neighbouring face sits across this edge, in which orientation — and is <code>WM.6</code>'s, with the Laplacian.</li>
+<li><strong>Lateral conduction between cells.</strong> <code>PT.11</code>'s operator is built on a rectangular grid's four-neighbour edges. The mesh equivalent is a cotan Laplacian, and <code>WM.6</code> exists because a naive one gives negative edge weights wherever two opposite angles sum past π, breaking the discrete maximum principle: a cell escapes the range spanned by its neighbours and renders as a bright speck indistinguishable from a bad pixel.</li>
+<li><strong>Normals are per face, not per vertex.</strong> A smooth normal is a better <em>shading</em> normal and a worse <em>facet</em> normal, and §6.1 balances a facet.</li>
+<li><strong>No scene config can declare a mesh field.</strong> Every shipped scene still renders its curved prims at one temperature. Until a scene authors one, this ADR describes a capability the scenes do not yet use, and <code>README.md</code>'s limitations say so.</li>
+</ul>
+<p><strong>What this does not change.</strong> <code>PlanarPatch</code> and <code>PointwiseTemperature</code> are unmodified and every existing scene renders bit-identically. ADR 0087's slab rule, its cost argument (cells are set by the thermal gradient, not the pixel count) and its projection-error analysis all still stand for the planar path.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene config can author a mesh field and one does, which is what turns this from a capability into a picture; or <code>WM.4</code> lands and the per-face normal and piecewise-constant sample are replaced by the ray-traced, adjacency-aware forms, at which point the error budget above needs re-measuring.</p>
+<h2 id="addendum-2026-09-22-wm4-the-sky-view-and-the-beam-are-traced">Addendum 2026-09-22 (WM.4): the sky view and the beam are traced<a class="anchor" href="#addendum-2026-09-22-wm4-the-sky-view-and-the-beam-are-traced" aria-label="permalink">#</a></h2>
+<p>Two of the four deferrals above are closed. <code>irsim.thermal.mesh_geometry</code> gives every cell a ray-traced sky view factor and a ray-traced beam, against the scene's occluders and against the mesh's own triangles, and <code>configs/scenes/quad_flight_mesh.yaml</code> uses both -- so the "no scene config can declare a mesh field" deferral, closed by <code>WM.7</code>, is now a scene whose cells are shaded by geometry rather than by a flag. The measurements and the convexity argument are recorded as an addendum on <a href="../0088-spatial-heat-sources-and-sky-occlusion/">ADR 0088</a>, whose "revisit when" this row answers.</p>
+<p>What is still deferred here is unchanged: the sample is piecewise constant within a cell, normals are per face, and there is no lateral conduction between cells (<code>WM.6</code>).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

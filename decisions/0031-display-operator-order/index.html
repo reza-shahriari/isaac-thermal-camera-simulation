@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0031 — Display branch operator order: AGC → gamma → DDE → polarity → palette — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0031 — Display branch operator order: AGC → gamma → DDE → polarity → palette</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0031-display-operator-order.md" target="_blank" rel="noopener">docs/decisions/0031-display-operator-order.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§11.1 lists the display chain as AGC/DRC → gamma → polarity → palette and omits DDE; the sensor-noise-chain skill puts DDE after gamma; §13.4 puts it before (spec issue S23). Real cores are not documented at this level. The order changes the image (a high-pass boost before gamma is not the same as after), and it must be fixed for train/deploy matching (§15 Tier 5).</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim.isp.display.run_display_branch(dn16, isp, bit_depth)</code>:</p>
+<ol>
+<li><strong>AGC</strong> on the raw DN16: <code>linear</code> (percentile clip, ADR 0027), <code>plateau_equalization</code> (ADR 0028), or <code>none</code> = the exact shift DN16 &gt;&gt; (bits − 8);</li>
+<li><strong>gamma</strong> y^(1/γ) in float32;</li>
+<li><strong>DDE</strong> unsharp mask (ADR 0029) on the gamma-mapped image, clipped;</li>
+<li><strong>polarity</strong> (black-hot = 255 − DN8) and <strong>palette</strong> (ADR 0030) to RGBA8.</li>
+</ol>
+<p>Rationale: DDE acts on what is displayed (the tone-mapped image), so its halo amplitude is in display units and does not depend on the AGC mode; polarity is a table index and is last by construction. Every operator is a pure per-frame function; there is no temporal memory in the display branch today (AGC gain smoothing, if modelled later, becomes explicit <code>PipelineState</code>). The float32 rounding points R1–R4 are documented in the module so a GPU port can match them exactly. The isp block's config hash (plus bit depth) is returned with every frame.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The Boson estimate <code>plateau 0.012, gamma 1.0, dde_gain 0.35, gray, white_hot</code> defines the reference look. Because DDE follows gamma, the overshoot on a step is ±gain/6 of the <em>display</em> step.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>ME.3's DDE-overshoot and AGC-signature extraction from public video contradicts this order for the reference camera.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

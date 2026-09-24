@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0134 — A receding surface is one surface, not a stack of occluders — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0134 — A receding surface is one surface, not a stack of occluders</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0134-a-receding-surface-is-one-surface-not-a-stack-of-occluders.md" target="_blank" rel="noopener">docs/decisions/0134-a-receding-surface-is-one-surface-not-a-stack-of-occluders.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#addendum--fractional-membership-oc13-2026-09-23">Addendum — fractional membership (OC.13, 2026-09-23)</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>OC.6</code> (ADR 0129) splits a frame into depth layers, blurs each with its own kernel and its own coverage, and composites them back to front with the standard <code>over</code>:</p>
+<p>colour = premultiplied + colour * (1 - alpha)</p>
+<p>That is right between a foreground and the background behind it, and it is what every layered depth-of-field implementation does. <code>OC.6</code>'s tests measured it on a <strong>near slab against a far background</strong> — two flat planes with empty space between them — and it passed, correctly.</p>
+<p>Building <code>OC.12</code>'s cube-against-sky demo put a <em>continuously receding</em> surface in front of it for the first time: an isometric cube whose three faces recede 0.69 m from the near corner. The binning sliced the cube's own depth range into layers, and the render came back with <strong>dark diagonal seams ruled across the faces</strong>, one at each bin boundary.</p>
+<p>The seams are not a rendering curiosity. They are the <code>over</code> operator being asked a question it cannot answer. Two slices of one surface do not hide each other: at a pixel on the boundary between them the aperture bundle lands partly on one slice and partly on the other, so their contributions <strong>add</strong>. Composited with <code>over</code> the farther slice is multiplied by <code>1 - alpha_near</code> instead, and the deficit is exactly</p>
+<p>alpha (1 - alpha) (L_surface - L_behind)</p>
+<p>which peaks at a quarter of the surface-to-background contrast where two slices meet half and half, and is filled with whatever lies behind — the background. Hence a dark seam.</p>
+<p>Measured on the demo's 0.6 m cube at 3 m against a 250 K sky: <strong>8.6 K peak</strong>, with RMS over the cube's interior rising <strong>1.31 → 1.44 → 2.32 K</strong> as <code>max_layers</code> went 3 → 4 → 8. The default is 8.</p>
+<p>Two things make this worse than a cosmetic defect. First, <strong>the error grows with the layer cap</strong>, which inverts the only quality knob the stage has — the shipped default was its worst setting. Second, continuously receding surfaces are not a corner case: a ground plane, the sea, the flank of a vehicle and the receding face of any solid are all of them, so every lane past the aerial one meets this.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>Leave it and cap the layers at two.</strong> Removes the seam by removing the feature: a receding surface gets one kernel, which is <code>OC.5</code> again and the thing <code>OC.6</code> exists to improve on.</p>
+<p><strong>More layers, smaller seams.</strong> Wrong direction, measurably — the RMS above rises with the cap. One seam is as deep as eight; adding layers adds seams rather than shrinking them.</p>
+<p><strong>Blend whole-frame blurs by per-pixel circle of confusion.</strong> The classic games approach: blur the whole frame at N radii and interpolate by each pixel's own CoC. Continuous in depth, so no seams at all — but no occlusion either, and a defocused foreground failing to spread over its background is precisely the defect <code>OC.6</code> was built to fix. It trades this artefact for the previous one.</p>
+<p><strong>Composite <code>over</code> only where layers genuinely occlude. (chosen)</strong> Keep <code>over</code> between layers with empty space between them, and add between layers that abut.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>layered_defocus</code> composites <code>over</code> <strong>between layers separated by a depth gap</strong> and <strong>additively between layers that abut</strong>. <code>DepthLayer</code> carries the depth range each layer spans, and <code>separated</code> decides: two layers are separate objects when the gap between their spans is wider than either layer is itself deep.</p>
+<p>The comparison is against the layers' own extents rather than a distance in metres, so it carries from a 0.6 m cube to a 200 m ground plane with nothing to tune. A surface sliced into layers leaves gaps of one depth sample, which is small for any scene; two objects with a void between them leave a gap that is not.</p>
+<p>The span is the layer's own min and max range and deliberately <strong>not</strong> its bin edges. Bins are equal-width in W020 and W020 is V-shaped about the focus distance, so one bin can hold pixels from either side of focus, and sorting layers by range walks the bin indices up and back down again — two neighbours in the composite are routinely several bins apart. An earlier version of this fix tested bin-index adjacency and was wrong for exactly that reason.</p>
+<p>The <strong>background</strong> never gets the exemption. It is complete — it has coverage at every pixel, including behind the geometry (<code>OC.7</code>) — so everything geometric is genuinely in front of it, and it is composited under the accumulated geometry alpha.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The seam goes from 8.6 K to <strong>0.16 K peak</strong> on the demo cube, and the residual now <strong>falls</strong> with the layer cap instead of rising. On the regression scene in <code>tests/unit/test_continuous_depth.py</code>, against the <code>over</code> chain reimplemented there as the reference: peak <strong>12–25× better</strong>, and RMS 0.0125 → 0.0076 as the cap goes 3 → 8 where the reference runs 0.209 → 0.497.</p>
+<p><code>OC.7</code>'s exactness is untouched — the background path is bit-for-bit what it was, and its 1e-12 test still passes — and so are <code>OC.6</code>'s and <code>OC.8</code>'s measurements, because all three use scenes whose layers are genuinely separated.</p>
+<p><strong>What is left, and why it is left.</strong> The interior is not exact. Adjacent layers carry different kernels, so the geometry's blurred coverage <code>sum_i K_i * cover_i</code> ripples about <strong>±0.5 %</strong> across a hard bin boundary instead of staying at one, and where it dips the background fills the difference. That is 0.5 % of the surface-to-background contrast against the 25 % the <code>over</code> chain left, it is below NETD in RMS, and unlike the seam it shrinks as layers are added. Removing it needs <strong>fractional membership</strong> — a pixel belonging partly to two adjacent bins rather than wholly to one — which changes how layers are <em>built</em> rather than how they are composited, and is recorded as <code>OC.13</code> rather than taken here.</p>
+<p>The one regression this accepts: two genuinely separate objects that happen to land in abutting depth spans are read as one surface and composited additively. Their kernels then differ by an eighth of the frame's W020 range at most, so the two rules nearly agree, and the case is bounded by the same partial-occlusion argument ADR 0131 already records.</p>
+<p><code>depth_layers</code> now returns <code>DepthLayer</code> records rather than <code>(mask, distance)</code> tuples. The only callers were inside <code>irsim.optics.layered</code> and its tests.</p>
+<h2 id="addendum--fractional-membership-oc13-2026-09-23">Addendum — fractional membership (<code>OC.13</code>, 2026-09-23)<a class="anchor" href="#addendum--fractional-membership-oc13-2026-09-23" aria-label="permalink">#</a></h2>
+<p>The residual this ADR recorded as "what is left" has been removed, by the change it named.</p>
+<p><code>depth_layers</code> no longer assigns a pixel wholly to one W020 bin. A pixel sits somewhere between two bin centres and is split between them in proportion, so a surface receding smoothly crosses a bin boundary as a <strong>ramp</strong> rather than a step. <code>DepthLayer</code> gains a <code>weight</code> plane carrying the share; the weights of all the geometry layers sum to one on every geometry pixel, and <code>layered_defocus</code> blurs the weight rather than the mask.</p>
+<p>That is what the ripple needed. The blurred coverage <code>sum_b K_b * cover_b</code> failed to stay at one because adjacent bins carry different kernels and a <em>step</em> in <code>cover_b</code> is something two different kernels disagree about; with a ramp there is no step for them to disagree over. Measured on the <code>OC.11</code> regression scene: the ripple falls from <strong>±0.52 % to ±0.06 %</strong>, and the interior error with it — peak <strong>0.079 → 0.0023</strong> at three layers, RMS 0.0125 → 0.0004. On <code>OC.12</code>'s cube, in apparent temperature, the peak goes <strong>0.16 K → 0.041 K</strong> and the RMS <strong>0.023 K → 0.0055 K</strong>, which is a seventh of the Boson's 50 mK NETD. The whole lane from what <code>OC.6</code> shipped is 8.76 K → 0.070 K.</p>
+<p>The representative range of a layer is now a <strong>weighted</strong> median, which keeps <code>OC.5</code>'s reason for choosing a median at all — a layer straddling a depth edge should not drag the kernel — while letting a pixel count as the fraction of itself it really is.</p>
+<p><strong>A scene of flat slabs is unchanged, exactly.</strong> Where W020 takes only a few distinct values no pixel lies between two bin centres, every weight is 0 or 1, and the split degenerates to the hard partition. That is why <code>OC.6</code>, <code>OC.7</code> and <code>OC.8</code>'s measurements carry over untouched rather than needing to be re-taken, and there is a test that asserts the degeneracy rather than leaving it to be inferred from the others passing.</p>
+<p><strong>One assertion was retired rather than tightened.</strong> <code>OC.11</code> had made the error fall monotonically as layers were added, and that was worth asserting because the defect had made it <em>rise</em>. It no longer falls monotonically: at 4e-4 on a contrast of 7 the residual is second order, and which cap does best is decided by where the bin edges happen to land on a given ramp rather than by how many there are. The test now asserts that the error stays two orders below the reference at every cap and does not drift upward, which is what is actually true.</p>
+<p>The reference implementation in <code>tests/unit/test_continuous_depth.py</code> had to grow a copy of the <strong>old binning</strong> as well as the old composite. It had been borrowing <code>depth_layers</code>' masks, so the moment membership went fractional those masks overlapped, the reference stopped exhibiting the seam, and three tests passed for the wrong reason. A reference to a defect cannot share code with the thing it is a reference for.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

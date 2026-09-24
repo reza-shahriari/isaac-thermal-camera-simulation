@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0119 — The extrapolated emissivity fraction is reported, and decomposed — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0119 — The extrapolated emissivity fraction is reported, and decomposed</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0119-the-extrapolated-fraction-is-reported-and-decomposed.md" target="_blank" rel="noopener">docs/decisions/0119-the-extrapolated-fraction-is-reported-and-decomposed.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#two-corrections-to-the-roadmap-row">Two corrections to the roadmap row</a></li>
+<li class="toc-3"><a href="#sub-decisions">Sub-decisions</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Completes <a href="../0043-hemispherical-vs-directional-emissivity/">ADR 0043</a>, which decided that ε comes from the material's optical data and that <code>total_hemispherical_emissivity</code> should return how much of it rests on an extension of the nearest band — the returning was implemented and the reading never was. <strong>Date:</strong> 2026-09-22 Roadmap: AT.7 (§6.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>total_hemispherical_emissivity</code> integrates Planck's weight from 1 to 100 µm. The four nominal band ranges — NIR 0.75–1.0, SWIR 0.9–1.7, MWIR 3.0–5.0, LWIR 7.5–13.5 µm — cover a minority of that. Everything outside takes the nearest band's value, and the function returns the Planck weight that came from doing so as <code>extrapolated_fraction</code>.</p>
+<p>Every scene build called it and took <code>.value</code>. The fraction was computed and discarded at <code>scene.py:831</code> and <code>scene.py:1217</code>. So <strong>61 % of the weight that sets every surface temperature in this project was an assumption, correctly measured and then dropped on the floor</strong>, with no scene author able to see it and no report carrying it.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Report it, and <strong>decompose it</strong>, because the single number is not actionable.</p>
+<p><code>TotalHemispherical</code> gains <code>red_tail_fraction</code>, <code>interior_gap_fraction</code> and <code>blue_end_fraction</code>, integrated from the same mask on the same grid so they sum to the total by construction. <code>extrapolation_breakdown(temperature_k)</code> returns the same without a material. <code>Scene</code> gains <code>material_names()</code> and <code>emissivity_extrapolation()</code>, and <code>EPSILON_EVAL_K = 300.0</code> replaces the two inline copies of the evaluation temperature so the report and the build cannot disagree. <code>scripts/validate_thermal_diurnal.py</code> prints it directly under the absolute temperatures it quotes.</p>
+<h3 id="two-corrections-to-the-roadmap-row">Two corrections to the roadmap row<a class="anchor" href="#two-corrections-to-the-roadmap-row" aria-label="permalink">#</a></h3>
+<p><strong>1. The fraction does not vary across materials.</strong> AT.7 asks a scene to report "the worst fraction across its materials". There is no worst: it is <strong>bit-identical for all twenty shipped materials</strong> — 0.606695073 at 300 K for each — because it is a property of the band set and the Planck weight and of nothing the material does. Their emissivities span 0.113 (bare aluminium) to 0.943 (cotton) and the fraction does not move. A report that ranked materials would invent an ordering that does not exist and point a reader at the wrong fix.</p>
+<p>What does move it is <strong>temperature</strong>, so that is what the scene report is indexed by.</p>
+<p><strong>2. The total hides which assumption is being made, and it flips.</strong> The three shares:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>T</th><th>total</th><th>red tail (&gt;13.5 µm)</th><th>interior gaps</th><th>blue end</th></tr></thead>
+<tbody>
+<tr><td>250 K</td><td>0.687</td><td>0.641</td><td>0.046</td><td>0.000</td></tr>
+<tr><td>300 K</td><td>0.607</td><td><strong>0.508</strong></td><td>0.099</td><td>0.000</td></tr>
+<tr><td>400 K</td><td>0.529</td><td>0.318</td><td>0.209</td><td>0.002</td></tr>
+<tr><td>800 K</td><td>0.465</td><td>0.071</td><td><strong>0.394</strong></td><td>0.000</td></tr>
+<tr><td>1200 K</td><td>0.509</td><td>0.025</td><td><strong>0.483</strong></td><td>0.000</td></tr>
+</tbody></table></div>
+<p>At ambient it is four fifths <strong>red tail</strong>, which is the standard thermal-solver assumption and a defensible one: real dielectrics do stay high and flat beyond 13.5 µm. By 800 K it is five sixths <strong>interior gaps</strong> — the 1.7–3.0 µm and 5.0–7.5 µm holes — where "extend the nearest band" is a far weaker claim, because a real spectrum is bounded on both sides and can do anything in between, and reststrahlen features live exactly there.</p>
+<p>This is not academic any more. <code>PH.6</code> shipped 594 K exhaust plumes and <code>PH.7</code> shipped 1200 K flames, so the project now renders in the regime where the weaker assumption dominates.</p>
+<p><strong>The fraction is also not monotone in temperature.</strong> It falls to a minimum near 800 K and rises again — 0.509 at 1200 K — because a 1200 K Planck peak lands at 2.4 µm, squarely in the SWIR–MWIR gap. A reader who assumed "hotter is better covered" would stop checking exactly where it starts getting worse. A flame is <em>less</em> well covered than a 500 K manifold.</p>
+<h3 id="sub-decisions">Sub-decisions<a class="anchor" href="#sub-decisions" aria-label="permalink">#</a></h3>
+<p><strong>The evaluation temperature stays a single fixed point.</strong> ε_hemi is evaluated at 300 K for every surface regardless of what it reaches. Over a 30 K swing ε moves by 0.1 % (0.8531 → 0.8523 for painted aluminium), far below what the material data is worth, so re-evaluating per surface per tick would buy nothing real. It is now <code>EPSILON_EVAL_K</code> rather than two inline literals, and the report quotes it, so the number describes the ε actually in the solver rather than a hypothetical.</p>
+<p><strong>Nothing is corrected.</strong> This step makes the assumption visible; it does not narrow it. Closing the 5.0–7.5 µm gap needs material spectra out to 7.5 µm, which the library does not have — every NIR and SWIR value in it is already ESTIMATED (rule #4's own exposure note).</p>
+<p><strong>A scene that names no library material says so.</strong> <code>car_exhaust_plume.yaml</code> is one: its targets are exhaust-line solvers with their own thermal model. The summary reports "binds nothing here" rather than quoting a fraction "for each" of zero materials, which would read as though something had been checked.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Which reports carry it is now a registry, not a habit.</strong> <code>CARRIES_THE_FRACTION</code> and <code>EXEMPT_REPORTS</code> in <code>tests/unit/test_emissivity_extrapolation.py</code> classify every validation script, each exemption in writing, and a new one fails the test until it decides. The same discipline as <code>SC.4</code>'s <code>IDEAL_LENS</code>.</p>
+<p><strong>The Tier 4 acceptance report is exempt on a premise that is now pinned.</strong> AT.7 says "any Tier 4 report quoting an absolute apparent temperature carries it". <code>scripts/validation_report.py</code> quotes none: it works entirely in DN8 because ADR 0068 found no honest conversion from "2 K of apparent temperature" to "8 codes of histogram shift". A test asserts that <code>Tier4Targets</code> has no kelvin-valued field and that the script mentions no temperature conversion, so if a check ever starts reporting kelvin the exemption fails rather than silently going stale.</p>
+<p><strong><code>validate_sky_r13.py</code> is exempt for a different reason worth keeping straight.</strong> It does quote an absolute apparent temperature, but a sky one, produced by the atmosphere's column emission. There is no surface and no ε_hemi, so there is nothing to extrapolate.</p>
+<p><strong>What this does not fix.</strong> The 61 % is unchanged; it is merely visible. Anyone comparing a rendered absolute surface temperature against a measurement — <code>SE.3</code>'s ECOSTRESS check, any Tier 4 radiometric comparison — now has the number they need to judge whether a kelvin of disagreement is a solver error or the coverage of the material library.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

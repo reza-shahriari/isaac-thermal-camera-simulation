@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0016 — Optics self-emission model and what T_housing means — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0016 — Optics self-emission model and what T_housing means</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0016-optics-self-emission-and-housing-temperature.md" target="_blank" rel="noopener">docs/decisions/0016-optics-self-emission-and-housing-temperature.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m93-2026-09-12-the-housing-node-as-built">Addendum (M9.3, 2026-09-12): the housing node as built</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Warm optics add in-band power to every pixel (§8.2). In LWIR at room temperature this is about 8 % of the scene signal for a τ = 0.92 lens, and its drift with housing temperature is the physical origin of shutterless drift and the need for flat-field correction (§11.2). The spec offers both the general N-element sum and a single-lens simplification, and it uses "T_housing" without saying which body it is (the lens, the barrel, the FPA package, or the FPA itself).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Single-lens form</strong> Φ_self = A_d Ω_eff (1 − τ_opt) L_B(T_housing) — one parameter beyond the config; treats the whole train as one grey body at one temperature; ρ_lens = 0.</li>
+<li><strong>N-element stack</strong> with per-element τ, ρ, T and downstream attenuation — exact for a known train; needs data no datasheet provides (per-element temperatures, AR-coat reflectances).</li>
+<li><strong>Empirical drift</strong> (a random walk on the offset) — reproduces the symptom, not the physics, and cannot respond to a modelled housing temperature.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Both 1 and 2 are implemented in <code>irsim.optics.self_emission</code>; the <strong>single-lens form is what the pipeline uses</strong> (M3.9) with:</p>
+<ul>
+<li><strong>ρ_lens = 0</strong>: AR-coated germanium reflects ~1–2 % per surface in band; the reflected term would be the detector seeing its own cold reflection (narcissus), which is a separate optional effect, not part of the emission budget. So ε_lens = 1 − τ_opt exactly.</li>
+<li><strong>T_housing is a lumped body node</strong> for lens + barrel, distinct from the FPA temperature (T_FPA drives detector responsivity and dark current, not self-emission). Its evolution is set by <code>optics.housing_temp_mode</code> (§12.2): <code>fixed</code> (a config value), <code>ambient</code> (follows T_air), <code>coupled</code> (first-order lag on ambient plus self-heating, M9.3). This module takes L_B(T_housing) as an input and does not know the mode.</li>
+<li>Elements enforce Kirchhoff closure (ε = 1 − τ − ρ derived; τ + ρ &gt; 1 raises) and the stack applies downstream-only attenuation; the stack is the reference the single-lens form is tested against.</li>
+<li>Power is added in radiance/power space, never kelvin (non-negotiable #3).</li>
+</ul>
+<p>Known answer recorded: for τ = 0.92 at F/1, a +1 K housing step shifts apparent temperature by (1 − τ)/τ = 87 mK when the transfer assumes the calibration housing temperature. This is the per-kelvin drift the NUC/FFC model (M9) must remove.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The 8 % self-emission fraction is exact only if the train really is one grey body at T_housing; a warm rear element and a cool window average to something else. The error is bounded by the temperature spread across the train times (1 − τ) — a few mK per kelvin of spread — and is invisible after FFC. Narcissus and cold-shield terms are separate optional stages (O10, O11).</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A cooled MWIR camera is modelled (cold shield replaces most of the housing term, M3.4/ADR 0066), or a measured shutterless-drift figure for the Boson disagrees with 87 mK/K by more than 20 %.</p>
+<h2 id="addendum-m93-2026-09-12-the-housing-node-as-built">Addendum (M9.3, 2026-09-12): the housing node as built<a class="anchor" href="#addendum-m93-2026-09-12-the-housing-node-as-built" aria-label="permalink">#</a></h2>
+<p><code>irsim.optics.HousingTemperature</code> implements the three modes this ADR named. Two choices are worth recording because neither is forced by the physics:</p>
+<ul>
+<li><p><strong>The coupled node delegates to M6.6's <code>NewtonCoolingSolver</code></strong> rather than integrating itself. That solver already provides the exact exponential update, which is unconditionally stable and overshoot-free at any step size, and the housing is precisely the linear, radiation-free, solar-free case it was scoped for — it sits inside the camera body, not exchanging with the sky. A second lumped-node implementation would be two things to keep in agreement for no physical gain. The FPA node (ADR 0053) stays on its own RK2 integrator because it is independently parameterised and is not the same node; it is the deliberate exception, not a precedent.</p>
+<p>The one visible consequence is inherited: <code>NewtonCoolingSolver</code> evaluates the ambient at the step <em>midpoint</em>, so a housing whose τ is far below the tick relaxes onto the midpoint air temperature rather than the endpoint one — a half-tick lag, bounded by how far the air moves in half a step (at 600 s ticks under a 10 K diurnal swing, ~0.1 K). For any realistic housing τ this is far below the lag being modelled. It is pinned as a derived bound in <code>tests/unit/test_housing_temperature.py</code>, not hidden.</p></li>
+</ul>
+<ul>
+<li><strong><code>housing_temp_mode: coupled</code> now <em>requires</em> <code>housing_tau_s</code></strong> (sensor schema v6). A lumped node with no time constant cannot be integrated, and defaulting the lag would put a number nobody authored into the drift the whole M9 chain is built on. This mirrors the rule ADR 0053 set for <code>fpa_temp_mode: coupled</code>. The consequence is that <code>configs/sensors/flir_boson_640_lwir.yaml</code>, which declared <code>coupled</code> and authored neither parameter, now carries <code>housing_tau_s: 900 s</code> and <code>housing_self_heating_k: 4 K</code> — both <strong>ESTIMATED</strong>, with no published figure for either, and both candidates for the ME.3 between-FFC drift band to constrain.</li>
+</ul>
+<p>The node registers with the <code>Scene</code> through the <code>.weather</code> property, so non-negotiable #6 covers it with no new code in <code>irsim.scene</code>: a housing built on a different <code>WeatherSeries</code> than the atmosphere and the thermal solvers is refused at construction. That matters more here than it looks, because a wrong housing temperature produces a smooth radiometric pedestal rather than a recognisable artefact — nobody would catch it by looking at the image.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

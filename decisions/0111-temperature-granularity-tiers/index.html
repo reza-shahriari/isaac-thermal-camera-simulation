@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0111 — Temperature granularity tiers, and the rule for picking one — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0111 — Temperature granularity tiers, and the rule for picking one</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0111-temperature-granularity-tiers.md" target="_blank" rel="noopener">docs/decisions/0111-temperature-granularity-tiers.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#what-each-tier-costs">What each tier costs</a></li>
+<li class="toc-3"><a href="#the-rule-cells-finer-than-the-smoothing-length-resolve-nothing">The rule: cells finer than the smoothing length resolve nothing</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-22-wm6-the-arm-no-longer-breaks-rule-4">Addendum 2026-09-22 (WM.6): the arm no longer breaks rule 4</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Replaces ADR 0087's prose about where the boundary between tiers lies; ADR 0110 already superseded its "a real limit, not a temporary one". <strong>Date:</strong> 2026-09-22 Roadmap: PT.14 (§6.1, §12.3, §13.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>This repository has grown four ways to say how hot a surface is, none of them written down beside the others. A scene author picking between them has ADR 0087's paragraph about near-planar surfaces and nothing else, and CLAUDE.md requires an ADR for a deliberately chosen fidelity level.</p>
+<p>The production comparison is <a href="https://dirsig.cis.rit.edu/docs/new/temp_solvers.html" target="_blank" rel="noopener">DIRSIG</a>, which offers eight temperature solvers at <strong>four</strong> granularities: per material (THERM, Balfour, Null, Data-Driven — "all surfaces assigned this material would get assigned the corresponding temperature"), per object or solid (ODB/GLIST), per facet (a GDB file, or geometry and temperatures imported from <a href="https://dirsig.cis.rit.edu/docs/new/muses_plugin.html" target="_blank" rel="noopener">MuSES</a>, which solves internal and external temperature in full 3-D), and per pixel through a raster map driving a surface's temperature. irsim has no per-material tier and no imported 3-D solution; what it has is the middle of that range, solved rather than supplied.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Four tiers. A surface picks exactly one; the render path samples whichever it picked.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>tier</th><th>what carries a temperature</th><th>authored by</th><th>sampled per pixel by</th></tr></thead>
+<tbody>
+<tr><td><strong>T0 — per prim</strong></td><td>one facet per §12.3 surface</td><td>a <code>surfaces:</code> entry with no <code>patch:</code> or <code>mesh:</code></td><td>the instance-id table (<code>aerial_bridge</code>)</td></tr>
+<tr><td><strong>T1 — cells on a plane</strong></td><td><code>PlanarPatch</code>, <code>n_u × n_v</code> on a rectangle</td><td><code>patch:</code> (ADR 0087)</td><td><code>point_bridge</code>, <strong>bilinear</strong></td></tr>
+<tr><td><strong>T2 — cells on a mesh</strong></td><td><code>TriangleMeshPatch</code>, <code>k²</code> per face</td><td><code>mesh:</code> (ADR 0110)</td><td><code>mesh_bridge</code>, <strong>piecewise constant</strong></td></tr>
+<tr><td><strong>T3 — a lumped node</strong></td><td><code>irsim.thermal.network</code> nodes in J/K</td><td><code>nodes:</code> / <code>links:</code> (ADR 0096)</td><td>nothing; it drives a surface</td></tr>
+</tbody></table></div>
+<p>T3 is listed because it is easy to mistake for a tier and is not one: a node is a <em>mass</em>, not a surface, and it reaches a picture only by being a boundary on some T0/T1/T2 surface. There is no per-material tier and there will not be one — a material is shared by surfaces at different orientations under different shade, and giving them one temperature is the defect this project exists to remove.</p>
+<h3 id="what-each-tier-costs">What each tier costs<a class="anchor" href="#what-each-tier-costs" aria-label="permalink">#</a></h3>
+<p>Measured on the shipped scenes, Isaac's CPython, one core:</p>
+<ul>
+<li><strong>Per tick, cells are nearly free.</strong> <code>wall_half_in_sun.yaml</code> steps 288 cells in 0.95 ms and 2304 cells in 1.66 ms — 8× the cells for 1.75× the time. The fixed cost is the forcing (NOAA sun position, the weather sample, the longwave term), about 0.8 ms per field per tick; the marginal cost is ~0.4 µs per cell. A mesh is no dearer: <code>quad_flight_mesh.yaml</code>'s 336-cell arm costs 1.82 ms against its 144-cell deck's 1.78 ms.</li>
+<li><strong>Cells cost at build.</strong> Spin-up evaluates the forcing <code>spin_up_hours × 60</code> times, and a mesh is <strong>always</strong> spun up per cell (no two of its cells share a normal, so none of them shares a forcing history). <code>WM.4</code>'s traced sky view is 1740 rays per cell, once: 0.7 s for a 336-cell arm.</li>
+<li><strong>Cells cost memory only two ticks deep.</strong> ADR 0093's <code>keep_ticks = 2</code> holds the two bracketing ticks and nothing else, which is what took a day of the road patch from ~240 MB to 166 KB.</li>
+</ul>
+<p>So the cell count is not the thing to economise. What it buys, and what limits it, is physical.</p>
+<h3 id="the-rule-cells-finer-than-the-smoothing-length-resolve-nothing">The rule: cells finer than the smoothing length resolve nothing<a class="anchor" href="#the-rule-cells-finer-than-the-smoothing-length-resolve-nothing" aria-label="permalink">#</a></h3>
+<p>A thin sheet of conductivity <code>k</code> and thickness <code>δ</code> losing heat to its surroundings at an effective <code>h = h_conv + 4 ε σ T³</code> cannot hold a temperature feature smaller than</p>
+<p>L = √(k δ / h)</p>
+<p>and a sinusoidal gradient of wavelength <code>λ</code> survives at</p>
+<p>A / A₀ = 1 / (1 + (2πL/λ)²)</p>
+<p>which is the steady fin equation, not a rule of thumb. <code>L</code> from the committed material library at 300 K with <code>h_conv</code> = 10 W m⁻² K⁻¹:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>material</th><th>k (W m⁻¹ K⁻¹)</th><th>δ (m)</th><th><strong>L</strong></th></tr></thead>
+<tbody>
+<tr><td>vegetation leaf</td><td>0.30</td><td>0.0003</td><td><strong>2 mm</strong></td></tr>
+<tr><td>painted composite</td><td>0.25</td><td>0.0020</td><td><strong>6 mm</strong></td></tr>
+<tr><td>carbon fibre</td><td>0.80</td><td>0.0015</td><td><strong>9 mm</strong></td></tr>
+<tr><td>glass windshield</td><td>1.00</td><td>0.0050</td><td><strong>18 mm</strong></td></tr>
+<tr><td>dry asphalt</td><td>0.75</td><td>0.0500</td><td><strong>49 mm</strong></td></tr>
+<tr><td>concrete</td><td>1.40</td><td>0.1000</td><td><strong>95 mm</strong></td></tr>
+<tr><td>rusted steel</td><td>45.0</td><td>0.0040</td><td><strong>109 mm</strong></td></tr>
+<tr><td>painted aircraft aluminium</td><td>205</td><td>0.0016</td><td><strong>145 mm</strong></td></tr>
+</tbody></table></div>
+<p>Read the last row: an aircraft skin panel <strong>cannot</strong> carry a fine thermal pattern, whatever the forcing does, and a scene that renders one is wrong however many cells it used. Read the first: a leaf can carry almost anything. The rule that follows:</p>
+<ol>
+<li><strong>Choose T0</strong> when the forcing does not vary across the surface — no partial shade, one orientation, no hot part behind it — or when the surface subtends few enough pixels that a field would be sampled once anyway. A prim is not a <em>small</em> thing; it is a thing that is all one temperature.</li>
+<li><strong>Choose T1</strong> when the forcing varies and the surface is near-planar: a road, a roof, a bonnet, a deck, a wall. ADR 0087's projection is exact for these and the sample is bilinear, so it staircases only at the patch edge.</li>
+<li><strong>Choose T2</strong> when the surface is curved or folds over itself, so no one normal describes it: a tube, a wheel, a mast, an exhaust. <code>WM.4</code> traces its shadow and its sky view; the sample is piecewise constant, so the cell size is the only control on staircasing.</li>
+<li><strong>Set the cell size from <code>L</code> and the forcing</strong>, never from the pixel count. A cell much finer than <code>L</code> resolves a feature conduction erases; a cell much coarser than the forcing's own feature (a shadow edge, a hot part under the panel) averages away the thing the field exists for. Where the two disagree — a shadow edge is sharp and <code>L</code> is coarse — <code>L</code> wins, because the surface wins.</li>
+</ol>
+<p>The shipped scenes obey it: <code>wall_half_in_sun.yaml</code> puts 250 mm cells on concrete (<code>L</code> = 95 mm) and 500 mm on the ground, both coarser than <code>L</code>, and the terminator it reports is 10.3 K.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The arms in <code>quad_flight_mesh.yaml</code> are the exception, on purpose, and it is quantified.</strong> The tube is 30 mm across with 24 segments, so its circumferential cells are 3.9 mm against carbon fibre's <code>L</code> = 8.8 mm — finer than the rule allows. That is not an authoring mistake: <code>PT.11</code>'s lateral conduction is built on a rectangular grid's four-neighbour edges and does <strong>not</strong> run on a mesh (<code>WM.6</code>), so the cells there conduct nothing and the resolution costs only time. But it means the 22.1 K the scene reports between crown and underside is an <strong>upper bound</strong>. Solving the same ring with conduction — 720 cells, <code>kδT'' − hT + q = 0</code>, <code>q</code> the clipped cosine of a sunlit crown — gives a span <strong>26 % smaller</strong>, against the analytic <code>1/(1 + (2πL/λ)²)</code> = 0.744 for <code>λ</code> equal to the circumference. So <code>WM.6</code> is worth roughly a quarter of the headline number on this geometry, and the scene should be re-measured when it lands.</p>
+<p><strong>A tier is a property of the surface, not of the camera.</strong> Nothing selects a tier by range or by pixel footprint, and nothing degrades T1 to T0 when a target gets small. That is deliberate: the field is solved once per tick for the whole scene and sampled per pixel, so a distant target costs what a near one does, and a target that crosses from 400 px to 17 px during a film (the vessel departure) does not change its physics halfway through. The cost measurements above are what make that affordable.</p>
+<p><strong>No tier is chosen automatically.</strong> A surface with no <code>patch:</code> or <code>mesh:</code> gets T0 silently, which is the one place this ADR leaves a foot-gun: the difference between "this surface is uniform" and "nobody got round to it" is not in the config. <code>PT.19</code> closes half of it from the other side — a patch bound to a prim the stage does not know raises before the first frame, and every binding's pixel count is recorded — but a prim with no patch at all is still just a prim.</p>
+<p><strong>What would add a tier.</strong> A per-facet tier fed by an imported 3-D solution (DIRSIG's MuSES route) is the obvious next one and is not planned: it would mean carrying a foreign solver's transient output and trusting its boundary conditions, where every term in this repository is authored against <code>docs/physics-model.md</code>. A per-pixel <em>solved</em> tier is not a tier at all — the pixels of one cell share a forcing history, so solving them separately is the same answer at N times the cost, which is the cost argument ADR 0087 already made.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p><code>WM.6</code> gives a mesh lateral conduction, at which point rule 4 applies to T2 as it does to T1 and the arm scene's cell count should come down; or a scene needs a surface whose <code>L</code> is genuinely smaller than the geometry can express, which would be the first real argument for a finer tier.</p>
+<h2 id="addendum-2026-09-22-wm6-the-arm-no-longer-breaks-rule-4">Addendum 2026-09-22 (WM.6): the arm no longer breaks rule 4<a class="anchor" href="#addendum-2026-09-22-wm6-the-arm-no-longer-breaks-rule-4" aria-label="permalink">#</a></h2>
+<p>The consequence above — the meshed arms cut finer than carbon fibre's own <code>L</code>, and their 22.1 K crown-to-underside span an upper bound because nothing on a mesh conducted — is closed. <a href="../0112-lateral-conduction-on-a-mesh/">ADR 0112</a> gives a mesh the lateral term, and the scene measures <strong>15.4 K</strong>, which is the traced shadow and the conduction together.</p>
+<p>Two things in this ADR change with it. <strong>Rule 4 now applies to T2 as it does to T1</strong>: a mesh cut finer than <code>L</code> no longer inflates a gradient, it just costs time, so over-resolution moved from an error to a price. And a second authoring constraint joins <code>L</code> for a mesh — ADR 0112's aspect rule, that a tube's rings should be about 1.4 times its circumferential arc, because the two-point flux between cells is exact at that shape and carries only three quarters of the conductivity it should for long thin quads. <code>quad_flight_mesh.yaml</code> is re-cut from 24 × 6 to 16 × 36 for it.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

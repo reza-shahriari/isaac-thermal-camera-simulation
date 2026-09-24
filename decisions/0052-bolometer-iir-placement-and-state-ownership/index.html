@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0052 — Bolometer IIR: where the thermal lag is applied, and who owns the state — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0052 — Bolometer IIR: where the thermal lag is applied, and who owns the state</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0052-bolometer-iir-placement-and-state-ownership.md" target="_blank" rel="noopener">docs/decisions/0052-bolometer-iir-placement-and-state-ownership.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-considered">Alternatives considered</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.1 (<code>feat(detector): bolometer thermal time constant — stateful per-pixel IIR</code>)</li>
+<li>Spec: docs/physics-model.md §9.2; spec issue S8</li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§9.2 models the microbolometer membrane as a first-order thermal system, <code>C_th dΔT/dt = α_abs Φ(t) − G_th ΔT</code>, with <code>τ_th = C_th/G_th</code> of 8–12 ms for VOx. Sampled once per frame with the flux held constant across the frame, the exact solution is the exponential IIR</p>
+<p>S_n = S_{n−1} + (S_ideal_n − S_{n−1})(1 − e^{−Δt/τ_th}).</p>
+<p>Two things about it are decisions rather than transcriptions of the spec, and both are easy to get wrong in a way that still produces a plausible-looking image.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>1. The filter is applied to the ideal signal, before noise.</strong></p>
+<p>The membrane integrates <em>incident flux</em>. It does not integrate the ROIC's read noise, the FPA's fixed-pattern terms, or the 3-D noise components, all of which are injected downstream of the thermal integration in the real device. So the IIR sits between the ideal detector transfer (M3.7) and the detector's own noise addition (M4.8) — the same place the physics puts it.</p>
+<p>The alternative — filtering the detector's noisy output — is worse than merely unphysical. It would correlate σ_TVH across frames with correlation coefficient <code>1 − α</code>, cutting the per-frame temporal variance by roughly <code>α/(2 − α)</code>. At the reference 60 Hz / 10 ms that is a factor of 0.68 in variance, so the NETD anchor (M4.6) would silently stop delivering the datasheet NETD, and the error would be invisible in a single frame and only show up in a temporal statistic. Placing the filter before noise keeps the anchor meaningful and keeps M4.4's 3-D decomposition valid.</p>
+<p><strong>2. The per-pixel state is float32 and owned by the pipeline, not the detector.</strong></p>
+<p>The state array carries signal, so CLAUDE.md non-negotiable #2 applies: float32 or better, never float16. It lives in <code>PipelineState.buffers</code> (M9.8 wires it) rather than inside the detector object, for three reasons: detector instances stay immutable and safe to share between cameras; every cross-frame buffer in the project has exactly one owner and one reset path, which matters once drift (M9.4), NUC residual (M9.6) and FFC (M9.7) add their own; and a Warp port (M10.6) needs the state as an explicit device buffer anyway, so keeping it explicit here makes that a transport change rather than a redesign.</p>
+<p><code>BolometerLowPass</code> is therefore a small mutable holder that the pipeline drives, not a detector subclass.</p>
+<p><strong>3. The first frame adopts its input — the filter starts settled.</strong></p>
+<p>A camera already looking at the scene is in thermal equilibrium with it. Starting the state at zero would put a frame-long ramp at the head of every sequence, every golden fixture and every exported dataset. <code>reset()</code> restores the cold-start behaviour for anyone who wants to model power-on explicitly.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The photon path has no filter at all: cooled MWIR/SWIR detectors are memoryless on these timescales, which is the §15 T3 phenomenology check (LWIR smears, cooled MWIR does not).</li>
+<li><code>responsivity_rolloff(f, τ)</code> is the <em>continuous</em> response <code>1/sqrt(1 + (2πfτ)²)</code> — the datasheet quantity — not the sampled IIR's transfer function. They agree well below Nyquist. Temporal MTF work should use the former; frame propagation uses the latter.</li>
+<li>Spec issue S8 is resolved in the code's favour: §9.2's "smears over roughly 0.6 frames" is <code>τ_th/Δt</code>, not a smear extent (one frame of the IIR already reaches 81 %). The quantity worth quoting is the trailing exponential decay length of a moving edge, <code>v τ_th/Δt</code> pixels, which <code>trailing_decay_length_px</code> computes and <code>tests/unit/test_bolometer_lowpass.py</code> measures from a rendered trail. The spec wording should be corrected; this ADR records the interpretation the code uses in the meantime.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered<a class="anchor" href="#alternatives-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Filter after noise.</strong> Rejected: breaks the NETD anchor as quantified above.</li>
+<li><strong>State inside the detector object.</strong> Rejected: makes detectors mutable and stateful, scatters cross-frame state across two owners, and complicates the Warp port.</li>
+<li><strong>Convolutional smear from motion vectors.</strong> Rejected for the bolometer: §13.3 suggests motion vectors for "bolometer smear", but the smear is an inter-frame temporal effect, not an intra-frame spatial one. Motion vectors feed <code>MTF_motion</code> for photon detectors (ADR 0059, spec issue S20); the bolometer gets its smear from state, for free, and correctly for arbitrary motion including objects that stop.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

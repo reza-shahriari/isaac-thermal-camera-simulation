@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>irsim — irsim</title>
+<meta name="description" content="A physically-based multi-band infrared camera simulator for NVIDIA Isaac Sim.">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="./"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li class="here"><a href="./">Overview</a></li>
+<li><a href="gallery/">Demo gallery</a></li>
+<li><a href="status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="physics/">Physics model</a></li>
+<li><a href="spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="roadmap/">Roadmap</a></li>
+<li><a href="decisions/">Decision log</a></li>
+<li><a href="changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="validation/">Validation</a></li>
+<li><a href="research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="code/">Code map</a></li>
+<li><a href="configs/">Configuration catalogue</a></li>
+<li><a href="guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head">
+  <h1>irsim</h1>
+  <p class="subtitle">A physically-based multi-band infrared camera simulator for NVIDIA Isaac Sim.</p>
+  
+</div>
+
+<article class="prose">
+<div class="hero">
+<div class="hero-text">
+<p>irsim renders what a real LWIR, MWIR, SWIR or NIR camera would see, with radiometry that closes in physical units — so the frames are usable for sensor trade studies, perception development and sim-to-real work, not only for looking thermal.</p>
+<p class="hero-links"><a class="button" href="gallery/">See what it produces</a><a class="button ghost" href="physics/">Read the physics</a><a class="button ghost" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">Source</a></p>
+</div>
+<video class="hero-media" src="media/pointwise_flight/quad_pointwise_vs_objectwise.mp4" autoplay loop muted playsinline preload="metadata"></video>
+</div>
+<div class="chain"><span class="chip">temperature field</span><span class="arrow">→</span><span class="chip">surface radiance</span><span class="arrow">→</span><span class="chip">atmospheric path</span><span class="arrow">→</span><span class="chip">optics</span><span class="arrow">→</span><span class="chip">detector</span><span class="arrow">→</span><span class="chip">noise</span><span class="arrow">→</span><span class="chip">ISP</span><span class="arrow">→</span><span class="chip">pixels</span></div>
+<p class="chain-note">The signal order of <a href="physics/">the specification</a>. Every link is a recognised physical model whose units close; every approximation is a written decision rather than an accident.</p>
+<h2 id="what-is-different">What this one does differently</h2>
+<div class="tiles">
+<div class='tile'><h3>per-point temperature</h3><p>Every cell of a surface holds its own energy balance. One temperature per object is not a coarser thermal scene — it is a different one.</p></div>
+<div class='tile'><h3>bands are data</h3><p>LWIR, MWIR, SWIR and NIR come out of the same kernel. Adding a camera is a YAML file, not an edit to the radiance path.</p></div>
+<div class='tile'><h3>an engine-free core</h3><p><code>src/irsim/</code> imports no engine module, so the physics is testable in seconds on a laptop with no GPU. A test fails the build if that stops being true.</p></div>
+<div class='tile'><h3>approximations on the record</h3><p>137 decision records say which fidelity was taken on purpose, and what it would cost to raise it.</p></div>
+</div>
+<h2 id="by-the-numbers">The repository, counted at build time</h2>
+<div class="numbers">
+<div class='number'><b>232</b><span>modules in <code>src/</code></span></div>
+<div class='number'><b>2,896</b><span>test functions, none needing a GPU</span></div>
+<div class='number'><b>137</b><span>decision records</span></div>
+<div class='number'><b>59</b><span>configuration files</span></div>
+<div class='number'><b>73</b><span>specification sections cited by the code</span></div>
+<div class='number'><b>102/166</b><span>roadmap steps shipped</span></div>
+</div>
+<h2 id="where-it-is">Where the plan is</h2>
+<p>Phases run repair → point-wise physics → aerial → maritime → ground → cross-cutting; the order is the owner's, recorded in ADR 0003.</p>
+<div class="bars">
+<div class="bar"><span class="bar-label">phase 0</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">15/15</span></div>
+<div class="bar"><span class="bar-label">phase P</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">36/36</span></div>
+<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:92%"></span></span><span class="bar-value">24/26</span></div>
+<div class="bar"><span class="bar-label">phase B</span><span class="bar-track"><span class="bar-fill" style="width:55%"></span></span><span class="bar-value">6/11</span></div>
+<div class="bar"><span class="bar-label">phase C</span><span class="bar-track"><span class="bar-fill" style="width:57%"></span></span><span class="bar-value">8/14</span></div>
+<div class="bar"><span class="bar-label">phase X</span><span class="bar-track"><span class="bar-fill" style="width:20%"></span></span><span class="bar-value">13/64</span></div>
+</div>
+<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>IG.2</code> <span class='lane'>Isaac glue integrity</span> <strong>In-sim test for the point bridge and the car demo.</strong> 🟡 <strong>Mostly shipped:</strong> the tautology is gone — the oracles are the camera's three named world axes and an authored wall, and <code>position_frame_residuals</code> decodes with <code>world_positions</code> rat</li><li><code>AI.2</code> <span class='lane'>Asset ingestion</span> <strong>Put the Phantom 4 in a scene.</strong> 🟡 <strong>Mostly shipped:</strong> schema v16 binds a field to a prepared asset's prims (ADR 0132) and <code>render_phantom4.py</code> flies it in LWIR and colour, mounted by the rotation its own <code>world_frame:</code> implies (ADR 0133).</li><li><code>AI.4</code> <span class='lane'>Asset ingestion</span> <strong>Exercise the <code>materialBind</code> subset path with a real asset.</strong> <code>prep_asset.py</code> reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data</li><li><code>IG.16</code> <span class='lane'>Isaac glue integrity</span> <strong>Take the Warp ISP's host readbacks off the per-frame path.</strong> <code>replace_bad_pixels_warp</code> calls <code>counters.numpy()</code> <strong>inside its pass loop</strong> — a device sync per iteration to read two ints. <code>agc_lut_warp</code> pulls the whole 2^bit_depth histogram,</li><li><code>SE.2</code> <span class='lane'>Sea and maritime</span> <strong>Maritime and illumination in-sim tests.</strong> The maritime stage feeds water prims into <code>background_prim_paths</code> so their pixels join the sky mask and take the analytic sea profile; <code>illumination_isaac</code> fixed "every Isaac render was emission o</li></ol>
+<p><a href="roadmap/">The whole plan →</a></p>
+<h2 id="read-next">Read next</h2>
+<div class="cards">
+<a class="card" href="gallery/"><h3>What it produces</h3><p>Frames and clips, with what each one demonstrates.</p></a>
+<a class="card" href="physics/"><h3>Physics model</h3><p>The specification the code cites section by section.</p></a>
+<a class="card" href="status/"><h3>Status</h3><p>Subsystem by subsystem: what is implemented and what it is verified against.</p></a>
+<a class="card" href="validation/"><h3>Validation</h3><p>Measured against public imagery — including where it fails.</p></a>
+<a class="card" href="decisions/"><h3>Decision log</h3><p>Why each approximation was chosen.</p></a>
+<a class="card" href="code/"><h3>Code map</h3><p>Every module in the tree, measured at build time.</p></a>
+</div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="assets/site.js"></script>
+</body>
+</html>

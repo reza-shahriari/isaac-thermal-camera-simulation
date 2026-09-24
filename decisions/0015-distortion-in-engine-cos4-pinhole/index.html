@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0015 — Distortion is applied by the engine; the core uses undistorted pinhole geometry — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0015 — Distortion is applied by the engine; the core uses undistorted pinhole geometry</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0015-distortion-in-engine-cos4-pinhole.md" target="_blank" rel="noopener">docs/decisions/0015-distortion-in-engine-cos4-pinhole.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m109a-2026-09-12-the-forward-model-as-the-engines-oracle-and-f-theta-refused">Addendum (M10.9a, 2026-09-12): the forward model as the engine&#x27;s oracle, and f-theta refused</a></li>
+<li class="toc-2"><a href="#revisit-when-addendum">Revisit when (addendum)</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§8.4 lists distortion models (Brown–Conrady, Kannala–Brandt, f-theta) and §2 puts cos⁴θ natural vignetting in the master equation. Both depend on where a pixel looks. The renderer already owns the projection: Isaac Sim's camera can apply a lens model when rendering, and re-warping a rendered G-buffer in the core would resample ids and temperatures — which must not be interpolated (ADR 0014: ids never blend; temperature is per-facet).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Core warps the G-buffer</strong> by the configured model — a second projection implementation to keep consistent with the engine's, and it interpolates planes that must not be interpolated.</li>
+<li><strong>Engine renders with the lens model; core treats the image as the ideal pinhole</strong> for field angles and cos⁴ — one projection; the core stores the distortion schema for the engine and for reports.</li>
+<li><strong>Ignore distortion</strong> — wrong for the 32° Boson lens at the edges and for any fisheye variant.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2. <code>irsim.optics.vignetting</code> computes field angle θ = atan(r/f) and cos⁴θ = (f²/(f²+r²))² from <strong>undistorted</strong> pinhole geometry at sample centres (i + 0.5)/s, optionally supersampled, with an optional measured multiplicative map in (0, 1]. <code>optics.distortion</code> in the sensor config is schema the engine consumes; the core never applies it. cos⁴ is a rectilinear-lens result: the schema (M3.4) refuses <code>vignetting_cos4: true</code> with <code>kannala_brandt</code> or <code>ftheta</code>, whose irradiance fall-off must come from a measured map.</p>
+<p>Known answers for the Boson 640 / 14 mm: cos⁴ at the format corner 0.79240 and at the horizontal edge centre 0.86496; the corner <em>pixel centre</em> is half a pixel inside and reads 0.7930.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Field angles are exact for the pinhole and slightly off for the true lens at the field edge (Brown–Conrady with the estimated zero coefficients in the Boson YAML makes no difference today). The error in cos⁴ from ignoring a few percent of distortion at the edge is &lt; 1 % of a 21 % effect and is absorbed by flat-field correction in any case (§11.2). When the engine applies a fisheye model, the core's cos⁴ must be disabled — enforced by the schema.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A camera with strong distortion is modelled (fisheye automotive lenses in phase 2), or a measured vignetting map is available — then the map replaces cos⁴ rather than multiplying it.</p>
+<h2 id="addendum-m109a-2026-09-12-the-forward-model-as-the-engines-oracle-and-f-theta-refused">Addendum (M10.9a, 2026-09-12): the forward model as the engine's oracle, and f-theta refused<a class="anchor" href="#addendum-m109a-2026-09-12-the-forward-model-as-the-engines-oracle-and-f-theta-refused" aria-label="permalink">#</a></h2>
+<p>This ADR's decision stands unchanged — the renderer applies the lens, <code>irsim.optics.vignetting</code> keeps computing field angles from undistorted pinhole geometry, and nothing in the core warps a G-buffer. What M10.9a adds is the other direction: <code>irsim.optics.projection</code>, a <strong>forward</strong> model of the lens the engine is handed.</p>
+<p>The distinction matters and is easy to lose. Applying distortion in the core was rejected because it resamples ids and temperatures. Asking "where should a ray at this angle land under this <code>optics.distortion</code> block?" resamples nothing — it is a function from a direction to a pixel — and without it there is no way to tell whether the coefficients written into USD produced the lens that was configured. Writing coefficients into a schema and judging the result by looking at the picture is how a lens ends up a few percent wrong and stays that way; a barrel term is a smooth radial stretch, which is exactly the kind of error the eye accepts.</p>
+<p>Two conventions are pinned by the model rather than left implicit, because both are silent when wrong. USD camera space is +Y up, −Z forward; OpenCV — whose model the engine implements — is +Y down, +Z forward, so the flip happens in exactly one function. And the principal point is at the format corner <code>(W/2, H/2)</code> with pixel centres at <code>i + 0.5</code>, matching <code>field_radius_map_mm</code>; the two modules are tied together by a test rather than by a comment.</p>
+<p><strong>Which schema each config model maps to</strong> was measured on 6.1.0-rc.26, not assumed (the probe that measures it lands with the camera itself, M10.9a-ii): <code>brown_conrady</code> → <code>OmniLensDistortionOpenCvPinholeAPI</code>, whose twelve attributes are in OpenCV's own <code>[k1, k2, p1, p2, k3, k4, k5, k6, s1..s4]</code> order, so a five-term Brown–Conrady block maps <strong>positionally</strong> with no reordering; <code>kannala_brandt</code> → <code>OmniLensDistortionOpenCvFisheyeAPI</code> (<code>k1..k4</code> on θ).</p>
+<p><strong><code>ftheta</code> is refused rather than approximated.</strong> Its schema exposes <code>k0..k4</code> beside <code>nominalWidth</code>, <code>nominalHeight</code> and <code>opticalCenter</code>, and nothing this build exposes determines either whether the polynomial returns a radius in pixels of the nominal image or in normalised units, or whether <code>k0</code> is a constant term — under one reading a one-coefficient block is a lens, under the other it is a constant radius, which is not. Either guess renders a plausible fisheye that disagrees with the engine by tens of pixels at the field edge, which is precisely the failure this module exists to detect, so <code>project</code> and the USD writer both raise. No camera in <code>configs/sensors/</code> uses f-theta, so nothing is blocked. The experiment that settles it belongs to M10.9b's renderer audit: render a grid through an f-theta camera with one coefficient set and fit r(θ).</p>
+<h2 id="revisit-when-addendum">Revisit when (addendum)<a class="anchor" href="#revisit-when-addendum" aria-label="permalink">#</a></h2>
+<p>The f-theta convention is measured, or a camera config needs a lens family beyond the two verified here (<code>RadTanThinPrism</code> and <code>KannalaBrandtK3</code> schemas also exist on this build).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

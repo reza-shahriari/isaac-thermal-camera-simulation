@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0124 — A named aircraft, and a sky with cloud in it — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0124 — A named aircraft, and a sky with cloud in it</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0124-a-named-aircraft-and-a-sky-with-cloud-in-it.md" target="_blank" rel="noopener">docs/decisions/0124-a-named-aircraft-and-a-sky-with-cloud-in-it.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-3"><a href="#the-phantom-is-a-much-weaker-daylight-target-and-that-is-the-finding">The Phantom is a much weaker daylight target, and that is the finding</a></li>
+<li class="toc-3"><a href="#a-span-quoted-beside-a-layout-instead-of-derived-from-it">A span quoted beside a layout instead of derived from it</a></li>
+<li class="toc-3"><a href="#an-arms-patch-and-a-plates-patch-inset-in-opposite-directions">An arm&#x27;s patch and a plate&#x27;s patch inset in opposite directions</a></li>
+<li class="toc-3"><a href="#cloud-needs-a-grid-finer-than-the-survey-default">Cloud needs a grid finer than the survey default</a></li>
+<li class="toc-3"><a href="#not-modelled">Not modelled</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. First <em>real</em> airframe in this repository — an aircraft laid out from a manufacturer's published specification rather than invented to be convenient — and the first rendered scene whose sky carries structure in both bands. <strong>Date:</strong> 2026-09-23 Roadmap: PT.9 (§6.6, §15 T3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><a href="../0123-the-camera-moves-so-the-aircraft-can-keep-its-shadows/">ADR 0123</a> rendered a point-wise quadrotor against sky. Two things about that scene were the simulator's convenience rather than the world's:</p>
+<ol>
+<li><strong>The aircraft was invented.</strong> <code>POINTWISE_QUAD</code> is a plausible heavy-lift frame in carbon fibre, sized so that its parts resolve. Nobody flies it. "What does a drone look like in the infrared" has no answer until you say <em>which</em> drone, because the answer is dominated by two properties that vary enormously across the class: how big it is, and what its skin is made of.</li>
+<li><strong>The sky was empty.</strong> The weather fixture carries <code>cloud_fraction</code> 0.05, and <code>generate_sky_cloud</code> lays coverage over the whole hemisphere, so a 31 × 25° field on a 0.05 sky almost never contains a cloud. Every frame this project had produced against sky was a smooth gradient — the easiest background a sky-target detector will ever see.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>A DJI Phantom 3, from DJI's published specification.</strong> <code>irsim_isaac.phantom3</code> lays out the aircraft from the four numbers the manufacturer publishes — 350 mm diagonal, 9450 propellers (239 mm, 5.0 in pitch), 2312 motors, the battery in the rear of the shell — with the shell plan, body depth, gimbal and skids <strong>ESTIMATED from photographs scaled on that diagonal</strong> and labelled as such in the module. The alternative was importing a downloaded mesh, which needs asset-import machinery, a per-prim material mapping and a binding from the point-wise field onto an arbitrary asset's triangles (the follow-on to <code>WM.7</code>, unwritten) — and would have cost the per-point gradient in the meantime.</p>
+<p><strong>A new material, <code>abs_plastic_white</code>,</strong> because a Phantom is not made of carbon and the difference is the whole result. And <strong>a new weather fixture, <code>data/weather/scattered_cumulus_48h.csv</code></strong> at cloud 0.45 — SCT, 3–4 oktas — because the cloud machinery of ADR 0076 was complete and had no scene that exercised it.</p>
+<p><strong>Cloud is on by default in the outbound driver.</strong> One <code>SkyFixedCloud</code>, seeded from the scene's own weather, sampled per ray by the infrared background <em>and</em> baked into the visible dome, so the two bands cannot disagree about where the cloud is.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<h3 id="the-phantom-is-a-much-weaker-daylight-target-and-that-is-the-finding">The Phantom is a much weaker daylight target, and that is the finding<a class="anchor" href="#the-phantom-is-a-much-weaker-daylight-target-and-that-is-the-finding" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th></th><th>heavy-lift, carbon</th><th>Phantom 3, white ABS</th></tr></thead>
+<tbody>
+<tr><td>sunlit skin over air</td><td><strong>+24.4 K</strong></td><td><strong>+2.3 K</strong></td></tr>
+<tr><td>solar absorptivity</td><td>0.90</td><td><strong>0.25</strong></td></tr>
+<tr><td>motor-to-motor</td><td>840 mm</td><td><strong>350 mm</strong></td></tr>
+</tbody></table></div>
+<p>A white consumer drone absorbs <strong>under a third</strong> of the short-wave flux a composite one does, so its skin sits within a couple of kelvin of the air while a carbon deck runs twenty-five above it. Against a 50 mK NETD both are visible — 2.3 K is forty-six NETD — but the margin is an order of magnitude apart, and a detector tuned on one is not tuned on the other.</p>
+<p><strong>It is not a thermal-mass effect, and the test says so.</strong> At the same 1.5 mm the two skins carry 2205 and 2520 J m⁻² K⁻¹, 12 % apart. The first draft of this work asserted "half the heat, so twice as responsive" in three places; it was measured, it was wrong, and it was removed. A second cause invented for an effect that already has one is how a model becomes unfalsifiable. (The factor of two <em>is</em> real against painted steel, which is the comparison the material file makes.)</p>
+<p><strong>In LWIR the pigment does nothing.</strong> White ABS is ε = 0.95 and carbon ε = 0.90; both are near-blackbodies at 10 µm. The colour that makes one aircraft white changes how much sunlight it absorbed on the way to its temperature, and nothing about how it radiates once there. A thermal camera cannot see the paint; it sees the consequence of the paint.</p>
+<h3 id="a-span-quoted-beside-a-layout-instead-of-derived-from-it">A span quoted beside a layout instead of derived from it<a class="anchor" href="#a-span-quoted-beside-a-layout-instead-of-derived-from-it" aria-label="permalink">#</a></h3>
+<p><code>quad_outbound.SPAN_M</code> was authored as <code>2 × 0.42 × √2</code> — the X-quad form every multirotor spec sheet quotes. That frame is a <strong>plus</strong>: its arms run due N, E, S and W, so opposite motors are <code>2 × 0.42</code> apart and the constant overstated the aircraft by <strong>41 %</strong>. It survived a review, a test suite and a 300-frame render because nothing measured it; the burnt-in readout of that clip says "span 115.5 px" where the motors span 82. Both spans are now derived from the authored motor prims and a test measures them, which is a thing a constant cannot be wrong about.</p>
+<h3 id="an-arms-patch-and-a-plates-patch-inset-in-opposite-directions">An arm's patch and a plate's patch inset in opposite directions<a class="anchor" href="#an-arms-patch-and-a-plates-patch-inset-in-opposite-directions" aria-label="permalink">#</a></h3>
+<p>A plate wants its <strong>prim inside its patch</strong>; a solid arm wants its <strong>patch outside its prim</strong>. Seen from below, an arm presents its end caps and both side faces, none of which lie on the plane the grid is drawn on. Authoring the arms like the plates put <strong>1204 pixels</strong> outside every patch on the first Phantom render. <code>test_rendered_airframes.py</code> now samples every face of every patched prim, rotated by its own yaw, and asks the real <code>PlanarPatch.contains</code> — no formula restated, so the test can disagree with the scene file.</p>
+<h3 id="cloud-needs-a-grid-finer-than-the-survey-default">Cloud needs a grid finer than the survey default<a class="anchor" href="#cloud-needs-a-grid-finer-than-the-survey-default" aria-label="permalink">#</a></h3>
+<p><code>generate_sky_cloud</code> defaults to half a degree, which through this camera is <strong>ten pixels</strong>: the coverage mask reads as blocks, not cloud. The driver asks for six cells per degree — about three pixels, under the PSF — for 4.7 MB and a second.</p>
+<h3 id="not-modelled">Not modelled<a class="anchor" href="#not-modelled" aria-label="permalink">#</a></h3>
+<p>The cloud is a <strong>fixed</strong> field: it does not advect, so a long clip shows cloud that never moves while the camera slews past it. Cloud base height, thickness and the LWIR temperature profile are ADR 0076's single effective base; there is no cumulus vertical structure and no shadow cast by cloud onto the aircraft. The Phantom's ESCs are inside the shell and present no surface, so the scene declares no <code>esc</code> target — their heat would reach a camera by conducting into the skin, and that route from a config is still <code>PT.9</code>'s remainder.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

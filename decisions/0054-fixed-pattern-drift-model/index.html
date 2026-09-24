@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0054 — The fixed-pattern drift model, and which components drift — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0054 — The fixed-pattern drift model, and which components drift</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0054-fixed-pattern-drift-model.md" target="_blank" rel="noopener">docs/decisions/0054-fixed-pattern-drift-model.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#the-process-is-ornsteinuhlenbeck-advanced-by-its-exact-update">The process is Ornstein–Uhlenbeck, advanced by its exact update</a></li>
+<li class="toc-3"><a href="#all-three-fixed-terms-drift-v-h-and-vh">All three fixed terms drift: V, H and VH</a></li>
+<li class="toc-3"><a href="#the-global-term-does-not-drift-here-and-passing-it-is-an-error">The global term does not drift here, and passing it is an error</a></li>
+<li class="toc-3"><a href="#drift-is-the-one-sequential-stream-in-the-noise-chain">Drift is the one sequential stream in the noise chain</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.4 (<code>feat(noise): mean-reverting (OU) drift of fixed-pattern components</code>)</li>
+<li>Spec: docs/physics-model.md §10.3 ("pattern breathing"), §10.2, §8.2</li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§10.3 says the fixed-pattern noise of a real focal plane is not fixed: between corrections the pattern <em>breathes</em>. It does not say what stochastic process produces that, and it does not say which of the seven 3-D components take part. Both are ours to choose, and both choices are the kind that look harmless for a hundred frames and wrong after ten thousand.</p>
+<p>Two further mechanisms in the M9 chain also move the image slowly, and it is easy to end up with all three describing the same physical drift:</p>
+<ol>
+<li>The <strong>global offset</strong> rises and falls because the optics housing and the focal plane physically warm and cool (M3.3 self-emission on the housing node M9.3, and the FPA node M9.2).</li>
+<li>The <strong>NUC residual</strong> grows between FFC events because the correction was calibrated at one T_FPA and is being applied at another (M9.6, and ADR 0053 makes it the <em>only</em> ΔT_FPA-driven residual).</li>
+<li>Whatever this step adds.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<h3 id="the-process-is-ornsteinuhlenbeck-advanced-by-its-exact-update">The process is Ornstein–Uhlenbeck, advanced by its exact update<a class="anchor" href="#the-process-is-ornsteinuhlenbeck-advanced-by-its-exact-update" aria-label="permalink">#</a></h3>
+<p>x ← x e^{−dt/τ} + σ √(1 − e^{−2dt/τ}) ξ,     ξ ~ N(0, 1),     τ = <code>noise.fpn_drift_tau_s</code></p>
+<p><strong>Not a random walk.</strong> A random walk is the obvious way to make a pattern move, and its variance grows without bound. The configured 3-D ratios — σ_V, σ_H and σ_VH against σ_TVH — are the sensor's identity: they are what makes a frame look like it came from <em>this</em> camera. A random walk destroys them a little per frame, while every individual frame still looks like a plausible thermal image, so nothing in a visual check or a single-frame test would catch it. The OU form is stationary by construction: if Var(x) = σ² then</p>
+<p>Var(x′) = σ² e^{−2dt/τ} + σ² (1 − e^{−2dt/τ}) = σ²</p>
+<p>exactly, at any step size. The ratios hold for a ten-minute sequence and a ten-hour one alike.</p>
+<p><strong>Exact, not Euler–Maruyama.</strong> The decay and innovation terms above are the closed-form solution of the OU SDE over the interval. A first-order discretisation would give a <em>different stationary variance at coarse dt</em>, which is how the same camera modelled at 9 Hz and at 60 Hz would end up with measurably different FPN — a frame-rate-dependent sensor fingerprint, and a genuinely hard thing to diagnose later.</p>
+<h3 id="all-three-fixed-terms-drift-v-h-and-vh">All three fixed terms drift: V, H and VH<a class="anchor" href="#all-three-fixed-terms-drift-v-h-and-vh" aria-label="permalink">#</a></h3>
+<p>They share one physical cause — the per-row, per-column and per-pixel spread in how the detector and the ROIC respond to bias and to temperature. Two reasons not to restrict it to VH:</p>
+<ul>
+<li>Slowly breathing <strong>column stripes</strong> are among the most recognisable artefacts in real uncooled imagery. Breathing VH alone leaves the stripes frozen, which is visibly wrong in a way that matters for sim-to-real transfer, where low-level structure dominates (see the <code>sensor-noise-chain</code> skill).</li>
+<li>ME.3 measures fixed-pattern <em>growth</em> between FFC events as a whole-pattern figure and does not separate the three. A model that drifts only VH would have to be tuned to reproduce that figure with one component doing the work of three.</li>
+</ul>
+<p><code>FpnDrift.components</code> can restrict the set, for ablations (ME.8) and for isolating which component an artefact came from.</p>
+<h3 id="the-global-term-does-not-drift-here-and-passing-it-is-an-error">The global term does not drift here, and passing it is an error<a class="anchor" href="#the-global-term-does-not-drift-here-and-passing-it-is-an-error" aria-label="permalink">#</a></h3>
+<p><code>components=("t", …)</code> raises. The DC level is produced <em>physically</em> by the housing and FPA nodes; adding a stochastic global drift on top would count the same effect twice, and the result would look like a plausible drift rate rather than a bug. This is the same separation ADR 0053 drew between the detector's raw response and the NUC residual, applied one layer out.</p>
+<h3 id="drift-is-the-one-sequential-stream-in-the-noise-chain">Drift is the one sequential stream in the noise chain<a class="anchor" href="#drift-is-the-one-sequential-stream-in-the-noise-chain" aria-label="permalink">#</a></h3>
+<p>Every §10.2 per-frame term is drawn from the counter-based hash keyed by <code>(sensor_seed, frame_index)</code>, so any frame can be reproduced in isolation (ADR 0022). The OU state cannot be: it is the accumulation of every innovation before it. <code>drift_rng(sensor_seed)</code> therefore returns a sequential <code>np.random.Generator</code> on the reserved <code>VH_DRIFT</code> stream, and a sequence is reproducible from its start rather than from an arbitrary frame. This is also why M10.7 holds the Warp twin to <em>statistical</em> equivalence with this path rather than to bit-equality.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A frame in the middle of a drifting sequence cannot be rendered without replaying the sequence from its start. For golden fixtures and for M10.7 this means fixing the start, not the frame.</li>
+<li>Because the OU process is stationary, it contributes <strong>no growth</strong> between FFC events. All the between-FFC growth ME.3 measures must therefore come from M9.6's ΔT_FPA residual. If the measured growth cannot be reproduced by M9.6 alone, the right response is to revisit M9.6 — or this ADR deliberately — not to quietly make the drift non-stationary.</li>
+<li><code>noise.fpn_drift_tau_s</code> is currently 120 s for the Boson and is <strong>ESTIMATED</strong>: no published figure exists for it. ME.3's between-FFC measurements are what should eventually set it, together with the amplitude. Until then, a τ this short mostly affects how quickly a pattern decorrelates from a frozen reference, not the per-frame appearance.</li>
+<li><code>float('inf')</code> freezes the pattern bit-identically and consumes no draws. That is the ideal-sensor control case and the baseline every drift test is written against.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>ME.3 produces a measured between-FFC growth band and a decorrelation time from public imagery, and either the OU τ or the amplitude falls outside it; or a temporal PSD from real flat-sky footage shows the pattern drift has a 1/f^β shape rather than the OU Lorentzian, in which case the process — not the component set — is what changes.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

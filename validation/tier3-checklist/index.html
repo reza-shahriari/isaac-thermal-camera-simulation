@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier 3 thermal: the manual half — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head">
+  <h1>Tier 3 thermal: the manual half</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/validation/tier3-checklist.md" target="_blank" rel="noopener">docs/validation/tier3-checklist.md on GitHub</a>
+</div>
+
+<article class="prose">
+<p><code>tests/unit/test_tier3_thermal.py</code> asserts everything that can be asserted about the M6.13 facet scene. This is the list of things that cannot be, and that a person should look at in <code>scripts/validate_thermal_diurnal.py</code>'s plot before trusting a diurnal run.</p>
+<p>Run it with:</p>
+<p>python scripts/validate_thermal_diurnal.py --out outputs/thermal_diurnal.png</p>
+<h2 id="what-to-look-for">What to look for<a class="anchor" href="#what-to-look-for" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Shape, not just extrema.</strong> Every curve should rise smoothly from a pre-dawn minimum, peak after solar noon by an amount that grows with the surface's mass, and fall. A curve with a kink, a plateau, or a peak <em>before</em> solar noon is a solver or forcing bug, not a material.</li>
+<li><strong>The dawn convergence should be smooth.</strong> The automated test checks that the spread collapses to under 1.5 K; the plot shows whether it converges or whether the curves cross each other in a tangle, which would indicate the facets are not being driven by the same sky.</li>
+<li><strong>The shaded twin should track the sunlit one at night and separate at first light</strong>, with the separation starting at sunrise rather than before it. A separation that begins before the sun is up means diffuse radiation is being shadowed, which it should not be.</li>
+<li><strong>The air curve should sit inside the envelope by day and above the coldest surfaces at night.</strong> A surface never colder than the air on a clear night means the longwave term is not reaching the solver.</li>
+<li><strong>The moving hood should sit close to the air all day.</strong> Forced convection at 28 m/s pins a thin panel to ambient; if it does not, the convection coefficient is not seeing the vehicle speed.</li>
+<li><strong>Look at the second half of the plot for a discontinuity.</strong> The scene's spin-up wraps the weather file (M6.12), so a seam in the <em>forcing</em> is possible; the surfaces should not show one, because the spin-up ends before t₀ and the rendered day is real data throughout.</li>
+</ol>
+<h2 id="known-recorded-departures-from-the-roadmaps-criteria">Known, recorded departures from the roadmap's criteria<a class="anchor" href="#known-recorded-departures-from-the-roadmaps-criteria" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Swing is 47 K, not the quoted 15–40 K.</strong> These facets are single nodes with an adiabatic back, so the day's heat has nowhere to go but back out of the surface. M6.8's two-node solver with a finite R₂d and T_deep is what pulls this into the quoted band; the single-node figure is an upper bound. See <code>test_the_swing_exceeds_the_roadmaps_band_and_the_reason_is_the_back_boundary</code>.</li>
+<li><strong>The scene goes flat at dawn but not at dusk.</strong> §6.3 asks for both. The dawn collapse is dramatic — 12.7 K of spread to 0.88 K, a 93 % drop — and there is no dusk equivalent, because each pair of surfaces crosses at a different time spread over three hours and the ensemble never passes through a common point. A dusk collapse needs a facet set whose members share a solar absorptivity as well as differing in mass; this one deliberately does not, because its pairs exist to isolate other variables. Engineering the fixture to produce a dusk flat would be fitting it to its own acceptance test.</li>
+<li><strong>The site and the weather file must agree about where noon is</strong> (M6.12). Nothing enforces it. If a curve peaks at an implausible local hour, check that first.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

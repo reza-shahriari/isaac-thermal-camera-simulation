@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0009 — Spectral response files: peak-1 shape, QE applied once, edge precedence — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0009 — Spectral response files: peak-1 shape, QE applied once, edge precedence</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0009-spectral-response-and-qe-convention.md" target="_blank" rel="noopener">docs/decisions/0009-spectral-response-and-qe-convention.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Band radiance is ∫R(λ) B(λ, T) dλ (§3.2 b). Everything downstream — the LUT, NETD anchoring, the photon-count chain — scales with how R(λ) is normalised, and four conventions are in common use: peak-normalised shape, area-normalised shape, absolute QE(λ), and per-nanometre tables. A file in the wrong convention loads without error and produces a wrong radiance that no image will reveal. The repo also had no R(λ) file at all: the Boson YAML referenced one that did not exist.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Absolute QE(λ) in the file</strong> — physically complete, but bolometers have no QE, most vendors publish only relative curves, and the QE would then live in two places once a config also states it.</li>
+<li><strong>Area-normalised shape</strong> — convenient for "effective wavelength" maths; the peak carries no meaning and a top-hat's value depends on its width, so cross-checks against closed forms get confusing and a renormalisation step hides file errors.</li>
+<li><strong>Peak-normalised relative shape, QE separate</strong> — matches vendor data; the file is dimensionless and comparable across cameras; a top-hat file reproduces <code>band_radiance_tophat</code> exactly.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3 (<code>irsim.radiometry.spectral_response</code>, <code>irsim.radiometry.band</code>):</p>
+<ul>
+<li><strong>R(λ) is a peak-1 shape</strong>: max(R) = 1 ± 1e-6 asserted, never renormalised. Area-normalised and QE-scaled files are refused with a message that says where QE belongs.</li>
+<li><strong>QE is <code>fpa.quantum_efficiency</code></strong>, a scalar in the sensor config, applied exactly once in the photon-detector model (M3/M4). Bolometers have none; their responsivity is anchored by NETD (§9.4).</li>
+<li><strong>Units</strong>: wavelength strictly increasing in micrometres within 0.1–100 µm (7500–13500 is refused as nanometres); response in [0, 1]; no NaN; <code>#</code> lines are provenance and are kept on the object.</li>
+<li><strong>Zero outside support</strong>: <code>resampled(grid)</code> interpolates linearly and returns 0 beyond the file's first/last sample. Files should therefore extend to where R is genuinely ~0.</li>
+<li><strong>Config edges vs file</strong>: the CSV <em>is</em> the response. <code>band.lambda_min_um/max_um</code> are the nominal edges used for <code>band.id</code>, top-hat cross-checks and reporting. <code>Band.from_spec</code> requires the file's half-power points to sit within 0.5 µm of the configured edges, else the wrong file is attached.</li>
+<li><strong>Boson estimate</strong>: <code>data/spectra/responses/boson_vox.csv</code> is flat over 7.75–13.25 µm with raised-cosine edges of ±0.25 µm centred on 7.5 and 13.5 µm, 0.01 µm grid, marked ESTIMATED in its header. Its integral equals the 6 µm top-hat width exactly (symmetric edges), so <code>Lb(300 K)</code> will sit within a few percent of the top-hat closed form; the error against a measured curve is expected to be up to ~10 % and is recorded again when the LUT is generated (ADR 0013).</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Adding a camera means adding a CSV in this contract plus a YAML. The estimate's error is unbounded until a measured VOx curve is obtained; every radiometric statement about the Boson carries that caveat. No renormalisation means a vendor curve published in percent must be divided by its peak before committing — deliberately, by a person, with the provenance line saying so.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A measured Boson response becomes available (ADR 0013), or a photon-band camera needs a spectrally varying QE — then QE(λ) would become a second file, still separate from the shape.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

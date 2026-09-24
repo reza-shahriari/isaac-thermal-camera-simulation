@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0076 — Structured cloud in the rendered background, fixed to the sky — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0076 — Structured cloud in the rendered background, fixed to the sky</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0076-structured-cloud-in-the-rendered-background.md" target="_blank" rel="noopener">docs/decisions/0076-structured-cloud-in-the-rendered-background.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-14</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>For a sky-background sensor the dominant false alarm is not sensor noise. It is a cloud edge: a warm, high-contrast, target-sized feature with the <em>same polarity</em> as the thing being looked for, since both a drone and a cloud base read warmer than a cold clear zenith. A detector trained on synthetic imagery with a smooth sky has never seen the thing that will actually confuse it.</p>
+<p>MS.3 (ADR 0070) modelled this in M7 — a seeded 1/f^β field thresholded at the weather's own cloud fraction, with covered pixels reading <code>ε L_B(T_base) + τ L_clear</code>. It has been reachable only from the engine-free scene generator (<code>irsim.validation.aerial_scene</code>). Nothing that renders used it.</p>
+<p><strong>A correction to ADR 0073 first, because it is the reason this looked smaller than it is.</strong> That ADR recorded the infrared background as "the clear-sky profile only". That overstated the gap. <code>SkyModel.radiance</code> has always applied the <em>uniform</em> blend <code>(1 − cε) L_clear + cε L_base</code>, which is the <strong>expectation</strong> over the structured field — its own docstring says so. The mean cloud effect was in every rendered frame all along; what was missing was the structure. That distinction decides the whole design: this is not adding cloud, it is replacing a mean with a realisation, and the two must agree on average or every other consumer of the sky model silently disagrees with the rendered background.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>1. What frame the field lives in.</strong> Only one of three behaves.</p>
+<p>a. <strong>Regenerated per frame.</strong> Flickers: every frame is a different sky. Unusable. b. <strong>Fixed to the image plane</strong> — what <code>SkyModel.cloud_field(shape, seed)</code> returns, and what the engine-free generator uses, where the "camera" never moves. Stable frame to frame, and it <em>travels with the sensor</em>: a slewing mount carries its clouds along, so the background never changes and a tracked target never crosses a cloud edge. That removes exactly the clutter the field exists to provide. Fine where the camera is fixed; wrong for the aircraft stage, whose pedestal sweeps 50° of azimuth in ten seconds. c. <strong>Fixed to the sky</strong> (chosen). A 1/f^β field on an (elevation, azimuth) grid, sampled per ray. Stable <em>and</em> stationary in the world, so slewing sweeps the camera across it and a target crosses in front of it.</p>
+<p><strong>2. Sampling by elevation alone.</strong> Rejected, and worth recording because it is the cheap version: without azimuth the field can only be indexed by elevation, which bands the sky in horizontal stripes. That is worse than no cloud — it looks like a deliberate atmospheric layer. A caller with no azimuth therefore gets the uniform blend, which is merely less detailed rather than wrong.</p>
+<p><strong>3. On by default, or opt-in.</strong> Opt-in, via <code>cloud_seed</code>. Turning it on by default would have moved every committed background by a few kelvin with no commit saying so; without a seed the background is bit-identical to what it was.</p>
+<p><strong>4. Storing the mask, or the field.</strong> Store the <strong>field</strong> and threshold after interpolating (chosen). A grid cell is half a degree and a Boson pixel is 0.049, so sampling a stored boolean mask nearest-neighbour gives cloud edges that are ten-pixel rectangular steps. That is what the first render looked like, and it is not cosmetic: edge sharpness is precisely what a detector keys on, so a blocky edge trains on the wrong thing.</p>
+<p>Interpolating brings a bias worth recording. <code>generate_cloud_field</code> cuts the mask at the level covering exactly <em>c</em> of the grid <strong>cells</strong>; sampling between cells averages neighbours, pulling values toward the mean, so that same level covers about <strong>25 % less</strong> of a densely sampled sky. It does not improve with a finer grid -- measured flat from 0.5° to 0.083° per cell -- because a 1/f^β field is scale-invariant and bilinear averaging smooths it by the same relative amount at every scale. The threshold is therefore estimated on a 2× upsampling, which contains both the unsmoothed cell centres and the most-smoothed diagonal midpoints. That leaves a residual largest deep in the tail: <strong>8 % at c = 0.05, under 3 % by c = 0.2</strong>. Cloud fraction arrives from a weather file in oktas — eighths — so the residual is an order of magnitude inside the precision of the number being matched, and tightening it would be fitting to a figure that was never that sharp.</p>
+<p><strong>5. Grid geometry.</strong> Equirectangular in (elevation, azimuth), which stretches structure azimuthally toward the zenith — a row spans 360° at every elevation. For a sky-target sensor at low to moderate elevation the distortion is small. Generating on the sphere is the right fix and is not done here.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim.atmosphere.cloud.SkyFixedCloud</code> + <code>generate_sky_cloud</code> build the hemisphere field at half a degree. <code>AerialThermalBridge</code> takes <code>cloud_seed</code>, builds the field once from the shared <code>WeatherSeries</code>'s cloud fraction and the environment preset's β, and samples it per ray; <code>azimuth_from_rays</code> supplies the second coordinate and <code>IrCamera</code> passes it through.</p>
+<p>The field is built <strong>once and never regenerated</strong>: cloud fraction moves on the hour, not on the frame, and a field that changed with time would flicker. Wind advection — a rotation of the azimuth axis — is not modelled, because over the seconds a flypast lasts cloud drift is far below a pixel.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The mean is preserved, and that is the property that makes this an upgrade rather than a different model.</strong> Averaged over the whole sky the structured field returns the uniform blend it replaces, measured at ~0.2 % across seeds against a 1 % bound. <code>SkyModel.radiance</code> feeds the elevation LUT, the tilt integral and ADR 0045's reflected term; had the rendered background's mean drifted from it, the same sky would have been two different skies depending on which code path asked. The residual is not error but clumping: coverage correlates with elevation, and the clear radiance varies with it, so which elevations a realisation happens to cover moves the mean slightly.</p>
+<p><strong>Coverage is exact over the sky, not over a frame</strong> (to the tail residual above). A camera pointed at a gap sees no cloud and one pointed at a bank sees only cloud — measured, one elevation ring came out at 0.0195 against a whole-sky 0.0500. That is the behaviour that makes cloud a clutter source rather than a texture, and it means no single frame can be used to check the cloud fraction.</p>
+<p><strong>What is not modelled.</strong> No wind advection. No multi-layer cloud. No cloud <em>geometry</em>, so nothing is occluded by a cloud and a target always renders in front of one — for a target below the cloud base that is right, and for one above it is wrong. The base is a single temperature from the LCL of the shared weather (ADR 0070), so there is no vertical structure within a cloud and no edge softening; a real cloud edge has a transition region this does not.</p>
+<p><strong>The visible dome should follow.</strong> ADR 0073 left cloud off the dome specifically so the pair would not show a sky the infrared frame lacked. That reason is now gone, and the two will disagree until the dome samples the same field. This is the next step, not a defect of this one — but a frame pair rendered between the two commits shows cloud in infrared and none in visible.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>The visible dome gains the same field — then the pair agrees again, and the sampling should be shared rather than duplicated.</li>
+<li>A scene needs cloud near the zenith, where the equirectangular grid's azimuthal stretch stops being small.</li>
+<li>Tier 4 compares cloud spectra against public imagery (ME.4) — the β and the fraction are the first two things that comparison should re-fit, and the 1/f^β form itself is the third.</li>
+<li>Anything needs to fly <em>above</em> a cloud layer, which needs cloud geometry rather than a background field.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

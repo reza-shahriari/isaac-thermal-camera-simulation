@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0080 — Sea skin temperature: the cool skin, the diurnal warm layer, and T_bulk as an input — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0080 — Sea skin temperature: the cool skin, the diurnal warm layer, and T_bulk as an input</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0080-sea-skin-temperature.md" target="_blank" rel="noopener">docs/decisions/0080-sea-skin-temperature.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>A maritime scenario knows its <strong>bulk</strong> sea surface temperature. That is what a buoy reports, what a ship's intake thermometer reads, what a satellite SST product is calibrated to, and what the public datasets this project validates against publish. <code>configs/environments</code> authors it as <code>ground.bulk_sst_k</code> (MM.5).</p>
+<p>An infrared camera does not see it. It sees the top fraction of a millimetre, and that skin is not the bulk:</p>
+<ul>
+<li><strong>The cool skin is always there.</strong> Heat leaves the ocean by conduction through a sublayer that turbulence cannot penetrate, so a temperature gradient <em>must</em> exist to carry it. The skin sits 0.1–0.6 K below the water a millimetre beneath it whenever the surface is losing heat, which at sea is almost always.</li>
+<li><strong>The diurnal warm layer is sometimes there.</strong> On a sunny, calm day absorbed shortwave accumulates in a shallow surface layer faster than wind can mix it down, and the skin runs up to ~3 K <em>above</em> the bulk. It vanishes at night and is gone above about 6 m/s of wind.</li>
+</ul>
+<p>Neither is negligible at this project's scale. A 50 mK NETD sees 0.3 K as six noise-equivalent temperature differences, and the error is one-sided and covers the whole lower half of every maritime frame, so it does not average out the way noise does. Before MM.4, <code>SeaModel</code> took a constant <code>cool_skin_k</code> that defaulted to <strong>zero</strong> — so every maritime frame rendered so far has used the bulk SST as if it were the skin.</p>
+<p>The spec is silent here: <code>docs/physics-model.md</code> has no cool-skin section, because the maritime lane (MM) was added after it. This ADR therefore carries the physics, not just the decision.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Author the skin temperature beside the bulk.</strong> One more number in the environment preset. Rejected: it lets a scene hold a dead-calm skin offset under a 15 m/s wind, and the <em>same</em> wind is already driving the Cox–Munk slope statistics three lines away (MM.2). That is precisely the class of contradiction CLAUDE.md non-negotiable #6 exists to prevent.</li>
+<li><strong>Solve the upper-ocean thermal structure.</strong> A multi-layer diffusion model with a prognostic warm layer (Price–Weller–Pinkel, or the COARE warm-layer routine). Correct, and it is what an ocean model does. Rejected for now: it needs state, a spin-up and a mixing closure, and it would be the only stateful object in the background model. The cool skin is a <em>diagnostic</em> quantity — it responds to the instantaneous flux in seconds — so it does not need any of that.</li>
+<li><strong>Saunders' cool skin plus an empirical warm layer, both diagnostic.</strong> Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>T_skin = T_bulk − ΔT_cool(U, Q_net) + ΔT_warm(Q_sw, U)</code>, in <code>irsim/thermal/sea_skin.py</code>, with <code>T_bulk</code> staying an authored scenario input and the skin <strong>derived</strong>, never authored. The <code>cool_skin_k</code> constructor argument is gone: there is nowhere to type a contradicting value.</p>
+<p><strong>The cool skin is Saunders (1967).</strong> The sublayer thickness is <code>δ = λ ν / u*</code>, the deficit is Fourier's law across it, <code>ΔT = Q_net δ / k_w</code>, and the water-side friction velocity comes from the wind through the continuity of stress across the surface, <code>ρ_a C_D U² = ρ_w u*²</code>. With λ = 6 this gives δ ≈ 0.93 mm at 5 m/s, which is what the measurements show, and deficits of 0.11 K at 5 m/s and 0.23 K at 1 m/s under the ~79 W/m² of net longwave a clear night over a 290 K sea produces.</p>
+<p><strong>The low-wind divergence is bounded, and how it is bounded matters.</strong> Saunders' form sends δ → ∞ as u* → 0, because it describes a sublayer under a shear that is vanishing; what actually limits transport there is free convection, which it does not model. The thickness is capped at the top of the observed range (2 mm) through <code>δ_max tanh(δ_Saunders/δ_max)</code> rather than a <code>min</code>. The two agree to third order wherever the Saunders term is small, so the wind-stirred regime is untouched; what the smooth form buys is that the deficit stays <strong>strictly</strong> decreasing in wind instead of acquiring a flat shelf and a corner. Calm, clear nights are the conditions a long-range maritime scenario cares about most, so the behaviour there should be smooth and bounded rather than clipped.</p>
+<p><strong>The warm layer is empirical and labelled as such.</strong> <code>ΔT_warm = ΔT_max · min(1, Q_sw/Q_ref) · max(0, 1 − (U/U_c)²)</code> with ΔT_max = 3 K, Q_ref = 1000 W/m², U_c = 6 m/s. It carries the three properties the observations agree on — proportional to absorbed irradiance, zero at night, suppressed by wind above a threshold — and claims nothing else. It is not derived and does not pretend to be.</p>
+<p><strong>Under net warming the cool skin is zero, not negative.</strong> Conduction against an <em>outgoing</em> flux is what makes the skin cool, so the mechanism stops when the flux reverses. A surface genuinely warmer than the water beneath it is the warm layer, a different mechanism with a different depth scale; letting the deficit go negative would count it twice.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What this makes easy.</strong> A maritime scene's skin temperature now moves with its own weather, from the one <code>WeatherSeries</code> everything else reads. Turning the wind up thins the sublayer and roughens the surface together, because both read the same number.</p>
+<p><strong>The error this introduces, and its direction.</strong> <code>Q_net</code> is the net <em>longwave</em> the scene's sky model implies (M6.5). The real net heat loss also carries sensible and latent turbulent fluxes, and at sea the latent term is usually the largest of the three; a full-flux <code>Q_net</code> runs roughly <strong>twice</strong> the longwave-only value. The deficit is exactly linear in <code>Q_net</code> — asserted by a test — so this is a bounded omission and not an unknown one: <strong>the modelled cool skin is a lower bound, low by about a factor of two.</strong> The function takes <code>Q_net</code> as an argument precisely so a caller that has the turbulent fluxes can pass their sum with no other change.</p>
+<p>Three smaller approximations, in order of size:</p>
+<ul>
+<li>λ is held at its windy-limit value of 6. Fairall et al. (1996) make it a function of the surface buoyancy flux, rising under free convection; that is the principled version of the 2 mm cap above and the natural upgrade.</li>
+<li>The net longwave is evaluated at the <strong>bulk</strong> temperature, not the skin, which is circular by 0.2 K in the radiating temperature — 0.3 % in σT⁴, well under a millikelvin in the deficit. Named rather than iterated.</li>
+<li>The warm layer has no memory. The real one integrates the day's heating, peaks in mid-afternoon and decays for an hour or two after sunset; this form responds instantaneously and is exactly zero the moment the sun sets. A lagged form would be more faithful in the afternoon and would break "zero at night", which is the property a night-time maritime scene actually depends on.</li>
+</ul>
+<p><strong>A measured correction to MM.4's own acceptance criterion.</strong> The step asked for a sensitivity ordering: a 1 K error in <code>T_bulk</code> should move nadir apparent temperature by more than 0.9 K and a 0.2°-depression patch by less than 0.15 K. The ordering holds with room to spare — measured 0.98 K at nadir against 0.20 K at 0.2° — but <strong>the 0.15 K threshold is not reachable at any camera height</strong>, and the test records why instead of asserting it. Sensitivity near the horizon is set by slant <strong>range</strong>, not by the angle: a 20 m camera's 0.2° ray is 6.8 km out and reads 0.20 K; getting under 0.15 K needs about 13 km of path, and at the ~100 m height where 13 km corresponds to 0.5°, 0.2° is above the horizon and sees no water at all. The useful statement is the regime, not the number: <strong>SST accuracy matters looking down and stops mattering within a degree of the horizon</strong>, where emissivity collapse and atmospheric path have already replaced most of the signal.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A maritime scenario needs the turbulent fluxes — then <code>Q_net</code> becomes sensible + latent + net longwave and the deficit roughly doubles. Nothing else in this model changes.</li>
+<li>A scene needs the afternoon peak or the post-sunset decay of the warm layer: that is the prognostic Price–Weller–Pinkel form, and it brings state with it.</li>
+<li>Tier 4 comparison against public maritime imagery shows a systematic sea-temperature bias of the 0.1–0.5 K size — the cool skin is the first thing to check, since the model is knowingly a lower bound.</li>
+<li>Anyone reaches for a scene in genuinely dead calm (under ~0.14 m/s), where the tanh bound saturates in float64 and the deficit stops varying with wind at all.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

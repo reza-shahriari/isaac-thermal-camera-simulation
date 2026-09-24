@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0128 — Per-asset material mapping, and Blender as the CPU-side asset toolchain — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0128 — Per-asset material mapping, and Blender as the CPU-side asset toolchain</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0128-per-asset-material-mapping-and-the-blender-prep-path.md" target="_blank" rel="noopener">docs/decisions/0128-per-asset-material-mapping-and-the-blender-prep-path.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23 Extends <a href="../0047-material-mapping-defaults-and-coverage/">ADR 0047</a> (its "Revisit when" clause named this file). Evidence: <code>docs/research/2026-09-23-asset-ingestion-survey.md</code>.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Until now every piece of geometry in this project was generated in Python — <code>phantom3_parts()</code> authors eighteen boxes and cylinders and writes <code>thermal:material</code> on each as it goes. There was no import path for a third-party model, and the one written acknowledgement of that (<code>src/irsim/config/scene.py:410-415</code>, "the follow-on to this row") named no owner.</p>
+<p>A real asset was then measured: a 62 MB DJI Phantom 4 Pro FBX, 41 meshes, 21 materials, 2,486,459 triangles. Three facts about it forced this decision.</p>
+<p><strong>1. The global glob table maps it to 48.8 %, and two of the hits are wrong.</strong> Measured with <code>scripts/audit_materials.py</code>: 20 of 41 prims mapped, below ADR 0047's 95 % gate. Worse than the misses are two confident hits:</p>
+<ul>
+<li><p><code>*white*</code> → <code>car_paint_white</code> is paint on steel, 4399 J m⁻² K⁻¹. The shell is moulded ABS,</p>
+<ol>
+<li>Both are white dielectrics at ε ≈ 0.9, so no emissivity check catches the swap — what</li>
+</ol>
+<p>changes is the half that sets the temperature, and the global rule makes the skin <strong>twice as sluggish</strong> as it is.</p></li>
+<li><code>*metal*</code> → <code>bare_aluminium</code> puts <strong>ε = 0.09</strong> on the motor housings. At that emissivity the part is a mirror: 91 % of what the camera sees is reflected sky rather than the motor's own temperature. <code>irsim_isaac/phantom3.py:249</code> already records this exact trap for the same component on the previous airframe.</li>
+</ul>
+<p>A global pattern is a statement about <em>every</em> asset. Fixing either of these globally would change every car and building scene to suit one drone.</p>
+<p><strong>2. The asset is grouped by material, not by function.</strong> 31,068 disconnected shells across 41 prims; one prim is "all the white plastic", scattered over 987 islands. There is no "top shell" prim and no "leg" prim. Splitting by loose parts — the obvious automatic fix — yields 31,068 objects and is not a route.</p>
+<p><strong>3. Nothing in the file is in metres.</strong> The model's axis-aligned extent is 41.05 x 46.37 x 20.67 source units. Read as centimetres that is 207 mm tall against DJI's published 196 mm, and 410 x 464 mm across against the ~486 mm an X-quad's 350 mm diagonal and 239 mm propellers subtend on the axes; millimetres would make it 2 cm tall and metres 20 m. Centimetres, declared nowhere. Left unapplied the aircraft enters a stage 41 m wide and still renders a perfectly plausible thermal image.</p>
+<p><em>(Corrected after first publication: this paragraph originally read "60.21 units ... 589 mm tip-to-tip". That came from transforming <code>o.bound_box</code> -- a <strong>local</strong> AABB -- by a rotated parent chain and re-taking min/max, which inflates the box. The conclusion, <code>scale_to_metres: 0.01</code>, is unchanged and is confirmed independently by the height; the evidence for it was wrong.)</em></p>
+<p>Separately, the survey established that Blender ships a complete <code>pxr</code> — OpenUSD 26.03 on the 5.2 LTS build, verified here — so USD can be read and written on the CPU without Kit. That matters under the standing constraint that Isaac Sim and CUDA workloads are not started on this workstation, and because the inspect → map → audit loop is run dozens of times per asset and a 15–35 s Kit boot per iteration (ADR 0014) made it a loop nobody would run.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Widen the global globs until the asset passes.</strong> Cheapest, and it makes every other scene worse. <code>*copper*</code> → something-plausible is a statement about copper everywhere.</li>
+<li><strong>Author <code>thermal:material</code> on all 41 prims in the DCC.</strong> Works, and it is the per-object manual cost ADR 0047 exists to avoid — plus it lives in a <code>.blend</code> nobody can diff, and a newer version of the asset silently loses it.</li>
+<li><strong>A per-asset mapping file layered above the global rules</strong> (chosen). ADR 0047's own "Revisit when" clause predicted it: <em>"then a per-asset mapping file"</em>.</li>
+<li><strong>Split the asset by material into one prim per material.</strong> Still available and orthogonal; it fixes the multi-material-mesh case, not the naming case, and this asset does not need it.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Precedence gains one rung, directly below the prim override:</strong></p>
+<pre><code>thermal:material override  →  asset material map  →  semantic class  →  global glob  →  loud miss</code></pre>
+<ul>
+<li>The asset map sits <strong>above</strong> the semantic rung because it is authored after looking at this specific asset, which is a stronger claim than a generic class label.</li>
+<li>It matches the source material name <strong>exactly and case-insensitively, never as a glob</strong>. An asset map is authored knowledge; a partial hit there is a mistake, so <code>Copper_2</code> must miss rather than resolve as <code>Copper</code>.</li>
+<li>A miss stays loud. Adding this rung does not add a default.</li>
+<li><code>scale_to_metres</code> lives in the same file. It is metadata the prep tool applies, not something the resolver touches — it is recorded here because it is a fact about the asset that is otherwise known only to whoever ran the importer once.</li>
+<li>Files live in <code>configs/assets/&lt;name&gt;.yaml</code>, schema version 1, and every target is validated against the material library at load, exactly as the global rules are.</li>
+</ul>
+<p><strong>Blender is the CPU-side asset toolchain.</strong> <code>scripts/prep_asset.py</code> imports the source, applies the scale, exports USD with <code>UsdPreviewSurface</code>, walks the stage into engine-free prim records and audits them. It runs twice — as a driver under the project interpreter (which has pydantic and PyYAML) and as a worker inside Blender (which has <code>bpy</code> and <code>pxr</code>, and neither of the other two). Nothing in it boots Kit or touches CUDA.</p>
+<p><strong>The prep tool reads <code>materialBind</code> subsets, never the mesh-level binding when subsets exist.</strong> Blender binds the first material slot to the mesh <em>as well as</em> writing subsets — a documented workaround for Hydra not supporting materials on subsets. A reader that took the mesh binding would map a whole multi-material building to slot 0, silently, and report 100 % coverage. That is precisely the failure ADR 0047 exists to prevent, arriving through a door ADR 0047 did not cover. The tool reports any mesh where both are present.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The Phantom 4 goes <strong>48.8 % → 100 %</strong> coverage, and the two wrong hits become right ones: the shell's areal heat capacity halves to the moulding's real value, and the motor housings go from ε 0.09 to ε 0.90.</li>
+<li>Adding an asset is: run <code>prep_asset.py</code>, read the misses, write a YAML, re-run. No code.</li>
+<li>The per-asset file is the natural home for future asset truth (thickness overrides, interior masks, heat-source anchors). None of that is in it yet.</li>
+<li><strong>Four mappings in <code>configs/assets/phantom4.yaml</code> are <code>ESTIMATED</code> and flagged in place.</strong> The consequential one is <code>Copper</code> → <code>aircraft_aluminium_painted</code>: those prims sit at the motor stations and are the hottest surfaces on the aircraft. Bare copper is ε ≈ 0.03; enamelled winding under varnish is ≈ 0.85–0.90, and the coated value is used. If a motor ever needs to be right rather than plausible, that is the line to replace with a measurement.</li>
+<li>Generated artefacts (<code>data/assets/</code>) are gitignored — the exported <code>.usdc</code> is ~400 MB. The mapping and a 41-record prim dump fixture are in git; the source FBX is not.</li>
+<li><strong>This does not make the asset renderable.</strong> It supplies material identity and geometry. Per-cell temperature still comes from the mesh field (ADR 0110), which is what makes the material-grouped prim structure acceptable: the field solves per cell from each cell's own normal, sky view factor and solar incidence, so a prim spanning 987 scattered shells is not one temperature. Heat sources, thickness overrides and interior/exterior classification remain unauthored.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>An asset arrives whose meshes carry real <code>materialBind</code> subsets (the prep tool handles them; no committed asset exercises that path yet), or when per-asset files start carrying thermal rather than optical truth — at which point the schema needs a section, not more top-level keys.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

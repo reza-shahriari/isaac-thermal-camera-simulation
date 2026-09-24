@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0012 — LUT artefacts: generated, not committed; .npy + .f32 + sidecar — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0012 — LUT artefacts: generated, not committed; .npy + .f32 + sidecar</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0012-lut-artefact-policy.md" target="_blank" rel="noopener">docs/decisions/0012-lut-artefact-policy.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted (provisional on roadmap open question 6) <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Each band needs four 64 kB float32 tables (ADR 0011) consumed by NumPy, by Lua/SPG kernels and eventually by Unreal. The ir-radiometry skill said "committed"; <code>.gitignore</code> excluded <code>data/lut/</code>; open question 6 asked the team. A stale table — one built from a response file or band block that has since changed — is the failure mode that matters, and it is silent unless the artefact knows its inputs.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Commit the binaries.</strong> Clone-and-run works; but every regeneration is an unreviewable binary diff, tables built on different libm/NumPy versions differ in the last ulp (spurious diffs), and the build takes 0.6 s per band anyway.</li>
+<li><strong>Generate on demand (<code>make luts</code>), gitignored; sidecar with input hashes; loader refuses stale.</strong> Nothing binary in git; determinism is tested (two builds are bitwise equal on one machine); staleness is detected by content hash, not by trust; the committed regression is a small golden slice (M1.11) at 1 mK tolerance, which tolerates libm ulps.</li>
+<li><strong>Git LFS</strong> — infrastructure for 256 kB per band; not justified.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2, <code>irsim.radiometry.lut_files</code>:</p>
+<ul>
+<li>Bundle = <code>&lt;key&gt;_{lb,lb_q,dlb_dt,dlb_q_dt}.npy</code> (float32, asserted on save and on load; a hand-edited float16/float64 file is rejected), the same tables as raw little-endian <code>.f32</code> for Lua/SPG (<code>cuda.array</code>) and Unreal (<code>PF_R32_FLOAT</code>), and <code>&lt;key&gt;_lut.json</code>. <code>&lt;key&gt;</code> is the first 16 hex digits of the band hash (ADR 0008).</li>
+<li>Sidecar: schema version, sensor name, band block, full band hash, config hash, spectral-file SHA-256, grid (T0, T1, N, dt), dtype, file names, raw layout, NumPy and irsim versions.</li>
+<li><code>load_band_lut_for_config</code> recomputes the band hash and the spectral SHA-256 from the <em>current</em> config and data. A bundle for the current hash loads; a bundle for the same sensor with a different hash raises <code>StaleLUTError</code> naming whether the <strong>spectral file</strong> or the <strong>band block</strong> changed and the remedy (<code>make luts</code>); no bundle raises <code>FileNotFoundError</code> with the same remedy. Sensor configs that differ outside the band block (NETD grades) share one bundle.</li>
+<li><code>data/lut/</code> stays gitignored. Tests build LUTs in memory (session fixtures); the golden slice is the committed regression. CI does not need <code>make luts</code>.</li>
+<li>Regeneration must be deterministic: tested bitwise for two builds in one environment. Across environments the last-ulp differences are absorbed by the 1 mK golden tolerance, not by exact comparison.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>A fresh clone must run <code>make luts</code> (0.6 s per band) before a pipeline run; the error message says so. Open question 6 is answered provisionally here; if the team prefers committed binaries, only <code>.gitignore</code> and this ADR change — the sidecar and stale detection stay.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A band's build cost grows past seconds (finer grid, spectrally varying QE), or a consumer without a Python build step (Unreal) needs the tables shipped — then commit the <code>.f32</code> files only, via LFS.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

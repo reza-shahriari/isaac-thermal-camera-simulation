@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0091 — Which Boson datasheet numbers the configs take, and which of its two answers — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0091 — Which Boson datasheet numbers the configs take, and which of its two answers</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0091-boson-datasheet-figures-and-its-self-contradiction.md" target="_blank" rel="noopener">docs/decisions/0091-boson-datasheet-figures-and-its-self-contradiction.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#the-datasheet-contradicts-itself-about-the-ffc-defaults">The datasheet contradicts itself about the FFC defaults</a></li>
+<li class="toc-2"><a href="#the-three-temporal-noise-components-and-what-they-cannot-tell-us">The three temporal-noise components, and what they cannot tell us</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-17 <strong>Status:</strong> Accepted Roadmap: SC.3 (§9.4, §10.2, §16.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>configs/sensors/flir_boson_640_lwir.yaml</code> and <code>halmstad_boson_320.yaml</code> carried three values that disagree with FLIR's published figures for the part they claim to model:</p>
+<ul>
+<li><code>ffc_interval_s: 180</code>, which matches <strong>no</strong> published default;</li>
+<li><code>thermal_time_constant_ms: 10.0</code>, marked ESTIMATED against "typical VOx 8–12 ms", while the datasheet states the number outright;</li>
+<li><code>ratios_3d</code> with <code>th = tv = 0.05</code> and no provenance marker at all, in a file whose header says "Values marked ESTIMATED are literature/typical figures, not measurements".</li>
+</ul>
+<p>The source is [R24], <em>FLIR Boson® Thermal Imaging Core Product Datasheet</em>, Doc. # 102-2013-40 Release 340, March 2021 — free, public, and marked EAR99. No camera is needed to read it, which is why this step exists in a project with no camera.</p>
+<h2 id="the-datasheet-contradicts-itself-about-the-ffc-defaults">The datasheet contradicts itself about the FFC defaults<a class="anchor" href="#the-datasheet-contradicts-itself-about-the-ffc-defaults" aria-label="permalink">#</a></h2>
+<p>This is the part worth writing down, because the next person to check will find both numbers.</p>
+<p><strong>Section 5</strong>, the normative parameter description, says:</p>
+<blockquote>
+<p>FFC Period is specified in seconds (e.g., the factory-default value of 300 represents a 300 second (5 minute) maximum time between successive FFC events).</p>
+</blockquote>
+<blockquote>
+<p>FFC Temp Delta is specified in tenths of a Celsius degree (e.g., the factory-default value of 10 represents a 1 deg temp change between successive FFC events).</p>
+</blockquote>
+<p><strong>Table 8</strong>, "Partial List of Modes, Parameters, and Operations Controllable through the CCI", in the same document, gives <code>FFC Period</code> as <strong>1200 (20 minutes)</strong> and <code>FFC Delta Temp</code> as <strong>30 (3.0 Celsius degrees)</strong>.</p>
+<p>Three things decide it for us:</p>
+<ol>
+<li>Table 8 carries its own staleness warning immediately above it — "Note: Table 7 to be updated for Release 3.0 in a later revision" — and is described as a <em>partial</em> list, i.e. a reference convenience rather than the specification.</li>
+<li>Table 8's pair (1200 s, 3.0 °C) matches the <strong>2018</strong> <em>Boson FFC/NUC Control Application Doc</em> (rev 120, 21 Sep 2018), which states "FFC Temp Delta is at its factory-default value, 30 (3.0C)". Table 8 preserves an older release's defaults; Section 5 is the 2021 one.</li>
+<li>Section 5 is internally consistent across paragraphs in a way Table 8 is not: the FFC Start-up Period paragraph says an FFC occurs "every 1/3rd degree" when Temp Delta "is set to its factory-default value, which results in an FFC event every 1 degree when at steady-state" — which is true of 1.0 °C and false of 3.0 °C.</li>
+</ol>
+<p><strong>Decision: the configs take Section 5.</strong> <code>ffc_interval_s: 300</code>.</p>
+<h2 id="the-three-temporal-noise-components-and-what-they-cannot-tell-us">The three temporal-noise components, and what they cannot tell us<a class="anchor" href="#the-three-temporal-noise-components-and-what-they-cannot-tell-us" aria-label="permalink">#</a></h2>
+<p>Table 13, <em>Temporal NEDT in high-gain state</em>, is the closest thing FLIR publishes to a noise specification, and it is not a scalar NETD:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Camera grade</th><th>Random temporal noise (tvh)</th><th>Column noise (th)</th><th>Row noise (tv)</th></tr></thead>
+<tbody>
+<tr><td>Industrial</td><td>&lt; 40 mK</td><td>&lt; 14 mK</td><td>&lt; 14 mK</td></tr>
+<tr><td>Professional</td><td>&lt; 50 mK</td><td>&lt; 18 mK</td><td>&lt; 18 mK</td></tr>
+<tr><td>Consumer</td><td>&lt; 60 mK</td><td>&lt; 21 mK</td><td>&lt; 21 mK</td></tr>
+</tbody></table></div>
+<p>with the conditions stated beside it: "the lensless configuration with an f/1.0 aperture installed", "operating in the high-gain state at 20 °C, with the averager disabled, in free-running mode, imaging a 30 °C background", and "NEDT values with averager enabled are approximately 20% lower". With a lens the limits scale by (f/#)²/τ.</p>
+<p>Two consequences.</p>
+<p><strong>The <code>netd_mk_at_300k</code> field is σ_TVH, not a total.</strong> That is already the convention ADR 0025 chose ("the anchored σ is the per-pixel temporal σ; the 3-D components take their ratios from it"), and Table 13 confirms it was the right reading rather than a convenient one. The configs now say so where the number is authored.</p>
+<p><strong>The ratios are not derivable from the limits, and are left as ESTIMATED.</strong> Every grade gives th/tvh = tv/tvh = <strong>0.35</strong> (14/40, 18/50, 21/60), against the <strong>0.05</strong> both configs carry — so the committed cameras are modelled seven times more spatially uniform than FLIR guarantees. The temptation is to write 0.35 in and call it sourced. It would be wrong:</p>
+<ul>
+<li>Table 13 publishes <strong>acceptance-test limits</strong>, i.e. upper bounds. A camera that ships at 35 mK tvh and 5 mK th passes every line of it. The ratio of two upper bounds is not the ratio of two typical values, and nothing in the document says the two components sit at their limits together.</li>
+<li>The configured 0.05 is therefore <strong>compliant</strong> — at the professional grade's 50 mK it puts σ_th at 2.5 mK against an 18 mK limit — and compliance is all the datasheet can adjudicate.</li>
+<li>The project already has a better source for this specific question: ME.5's <em>measured</em> ratios off the Halmstad Boson 320 set (vh 2.64, v 0.58, h 0.16, t 0.38 against 0.30/0.08/0.15/0.02). Substituting those is <code>SC.2</code>, and open question 6 fixes which file gets which: datasheet limits asserted on the 640, field-measured ratios on the 320, never mixed in one <code>ratios_3d</code> block.</li>
+</ul>
+<p>So <code>SC.3</code> marks both blocks ESTIMATED with the limits and the conditions recorded beside them, and <code>tests/unit/test_boson_datasheet.py</code> asserts <strong>compliance with Table 13</strong> rather than equality with a ratio the table does not contain. The bench reproduces the stated conditions, and it is a real check: the same bench at the industrial grade's 14 mK limit fails if the ratio is raised past 0.35.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Every Boson <code>config_hash</code> moves, which is correct and is the mechanism working. Five golden fixtures were regenerated deliberately (<code>make golden-update</code>), not to silence a failure.</li>
+<li>The membrane is 20 % faster. τ/frame period falls from 0.60 to 0.48 at 60 Hz, so the first frame of a step now shows α = 0.8755 of it instead of 0.8111 — a <em>smaller</em> lag, i.e. this project had been modelling a slower detector than FLIR ships.</li>
+<li>The shutter fires every 300 s instead of every 180 s, so a 60 Hz sequence closes on frame 18000 rather than 10800, and the NUC residual has 1.67× as long to grow between events.</li>
+<li><code>MIN_INTERVAL_CLIP_S</code> moves 180 s → 300 s with it. Its docstring derives it from the camera's schedule — "a clip below this can only ever catch one event and an interval measured on it is an artefact" — so it is not an independent constant, and leaving it behind would have let a 250 s clip report an FFC interval it cannot possibly have measured.</li>
+<li>The 1.0 °C temperature trigger and the 90 s start-up period at one-third delta are <strong>not modelled</strong>. <code>NucSpec</code> has a time-based trigger only. This is a real gap — a camera warming up shutters far more often than every 300 s — and it is left open rather than approximated, because the FPA-temperature track that would drive it is the <code>housing_tau_s</code> model and nothing currently connects the two. Recorded as roadmap open question 12; <code>SC.11</code> is a different step and is not this.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

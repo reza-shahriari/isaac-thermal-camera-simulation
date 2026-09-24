@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0090 — Clamp summed view factors instead of partitioning nested radiators — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0090 — Clamp summed view factors instead of partitioning nested radiators</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0090-clamped-view-factors-for-nested-radiators.md" target="_blank" rel="noopener">docs/decisions/0090-clamped-view-factors-for-nested-radiators.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-16 <strong>Status:</strong> Accepted Roadmap: PT.3 (§6.1, §6.6)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0088 gave the road a computed configuration factor to a rectangular radiator instead of an authored Gaussian. <code>CarGeometry.ground_radiators()</code> supplies three: <code>underbody</code> (a broad, low-lying rectangle standing for the whole flat floor pan), <code>engine_bay</code> (a smaller, hotter rectangle for the bay's own floor), and <code>exhaust_pipe</code> (a narrow stripe) — authored that way "because the picture they make differs: a broad warm footprint from the underbody, a brighter pool under the engine, and a narrow stripe from the exhaust run."</p>
+<p><code>build_ground_field</code> calls <code>patch_view_factors</code> once per radiator and sums the resulting <code>occluded_longwave_flux</code> unconditionally. Each call is an exact two-body closed form (ADR 0088) and individually correct — but <code>engine_bay</code>'s 0.72 m × 0.80 m footprint and <code>exhaust_pipe</code>'s 0.11 m × 2.60 m stripe both lie <strong>entirely inside</strong> <code>underbody</code>'s 1.64 m × 3.85 m footprint. They are not three bodies filling disjoint solid angles; they are three different-fidelity descriptions of one floor pan. Summing their view factors double- (under the exhaust stripe, triple-) counts the solid angle they share, which a plane element's view factors to any set of surfaces cannot exceed 1 for (Howell). Measured peak Σ F ≈ 1.40 across 28 cells of the clear-night scene's patch, inflating the road's clear-night patch by up to ~40% — a number <code>test_a_clear_sky_puts_far_more_of_the_patch_on_ the_road_than_the_engine_does</code> was reporting as sky-occlusion physics.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Partition the geometry.</strong> Author <code>underbody</code> as the floor pan <em>minus</em> the engine-bay and exhaust footprints (an L-shaped or multiply-holed region), each rectangle then radiating only where its solid angle is actually its own. Physically exact, and the nesting here happens to be clean full containment rather than partial overlap, so it is geometrically tractable. But <code>view_factor_to_parallel_rectangle</code>'s closed form is for a full rectangle; a holed region needs either several more rectangle terms (superposing negative cutouts, the same trick already used for offset rectangles) or a different derivation, and re-authoring three carefully-dimensioned <code>RadiantRectangle</code>s to a fourth shape is easy to get subtly wrong. Scoped larger than this step.</li>
+<li><strong>Clamp the sum, scaling proportionally.</strong> Rescale each radiator's view factor at every cell by the same per-cell ratio wherever the sum exceeds 1, so the total is capped at the physical bound and the <em>relative</em> weight between radiators — the reason there are three rectangles rather than one — is preserved. Simple, and <code>occluded_longwave_flux</code> is linear in its <code>view_factors</code> argument, so the same scale factor caps the occlusion term along with the source term without touching that function.</li>
+<li><strong>Drop to a single <code>underbody</code> rectangle</strong>, absorbing the bay and exhaust into one authored emissivity/temperature. Removes the bug by removing the feature ADR 0088 added the three rectangles for — the pool and the stripe, which the docstring calls "the feature that says 'this car has been running' rather than 'this car is warm'."</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2. <code>irsim.thermal.spatial_sources.clamp_view_factor_sum</code> takes the raw per-radiator view factor arrays, and wherever their sum at a cell exceeds <code>1 + 1e-6</code> rescales all of them at that cell by <code>1 / sum</code>; cells where the sum is already ≤ 1 (almost everywhere — the overlap is local to the region under the engine bay) are untouched. <code>build_ground_field</code> computes all three raw view factors first, clamps them together, and only then loops to accumulate <code>occluded_longwave_flux</code>. It warns (<code>warnings.warn</code>, not a silent branch) whenever clamping changes anything, naming the peak sum and the affected cell count, because the trigger is a modelling gap and should stay visible rather than become routine.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What this buys.</strong> Σ view factors ≤ 1 + 1e-6 for every cell of both car scenes (<code>tests/unit/test_spatial_sources.py::test_clamp_view_factor_sum_*</code>, <code>tests/unit/test_car_demo.py::test_ground_radiator_view_factors_never_exceed_one</code>), closing the gap <code>test_a_clear_sky_puts_far_more_of_the_patch_on_the_road_than_the_engine_does</code> was silently absorbing into "sky occlusion physics." The visual character ADR 0088 wanted — broad footprint, brighter pool, narrow stripe — survives, because proportional scaling changes magnitude, not shape.</p>
+<p><strong>What stays hard.</strong> This is an approximation, not a re-derivation of the true partitioned geometry: proportional scaling has no way to know that, physically, a cell directly under the engine bay "belongs" more to <code>engine_bay</code>'s specific hot floor than to the generic <code>underbody</code> estimate at the same spot — it treats the overlap as shared evenly by ratio of the (uncapped) individual factors, which is a modelling choice, not a measurement. The error this introduces is bounded by construction (the sum is always ≤ 1) but its <em>distribution</em> between the three radiators at an overlapping cell is not independently verified against anything.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs the engine-bay pool and exhaust stripe to be quantitatively distinguishable from the underbody footprint at overlapping cells specifically — at which point option 1's partitioned geometry is the next step, and this ADR's clamp is superseded rather than extended.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

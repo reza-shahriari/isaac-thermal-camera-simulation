@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier 2 bench protocol — for when a camera arrives — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>Tier 2 bench protocol — for when a camera arrives</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/validation/tier2-bench-protocol.md" target="_blank" rel="noopener">docs/validation/tier2-bench-protocol.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#why-this-document-exists-before-the-camera-does">Why this document exists before the camera does</a></li>
+<li class="toc-2"><a href="#the-four-measurements">The four measurements</a></li>
+<li class="toc-3"><a href="#1-sitf--signal-transfer-function">1. SITF — signal transfer function</a></li>
+<li class="toc-3"><a href="#2-netd">2. NETD</a></li>
+<li class="toc-3"><a href="#3-three-dimensional-noise">3. Three-dimensional noise</a></li>
+<li class="toc-3"><a href="#4-mtf--slant-edge">4. MTF — slant edge</a></li>
+<li class="toc-2"><a href="#what-a-passing-bench-would-and-would-not-establish">What a passing bench would and would not establish</a></li>
+<li class="toc-2"><a href="#running-it">Running it</a></li></ul></nav>
+<article class="prose">
+<p>Roadmap M12.4 · docs/physics-model.md §15 Tier 2 · ADR 0003</p>
+<h2 id="why-this-document-exists-before-the-camera-does">Why this document exists before the camera does<a class="anchor" href="#why-this-document-exists-before-the-camera-does" aria-label="permalink">#</a></h2>
+<p>No infrared camera is available to this project. Every Tier 2 number the repository reports today is a <strong>self-consistency check</strong>: the simulated SITF is linear in <code>L_B</code> because the code makes it so, and the simulated NETD matches its own anchor because that is what an anchor is. None of it is evidence about a real camera, and the README's limitations say so.</p>
+<p>Writing the protocol now, rather than when hardware appears, is deliberate. Deciding a tolerance while looking at the first measurement is how a bench becomes a rubber stamp. Everything below — the file layout, the fitting rule, the pass criteria — is fixed in advance, and <code>irsim.validation.measured</code> implements it, so the day a camera arrives the benches already know how to read it.</p>
+<h2 id="the-four-measurements">The four measurements<a class="anchor" href="#the-four-measurements" aria-label="permalink">#</a></h2>
+<h3 id="1-sitf--signal-transfer-function">1. SITF — signal transfer function<a class="anchor" href="#1-sitf--signal-transfer-function" aria-label="permalink">#</a></h3>
+<p><strong>What.</strong> Mean DN against blackbody temperature, over the range the camera will be used in.</p>
+<p><strong>How.</strong> An extended blackbody filling the field, at a stand-off short enough that the atmospheric path is negligible (&lt; 0.5 m) or with the path measured and divided out. Ten setpoints from 253 K to 453 K is the shape the simulated bench uses (M3.12). At each setpoint: let the source settle to within 0.05 K, then average <strong>100 frames</strong> and read the mean over a centre ROI covering 25 % of the array — the ROI keeps <code>cos⁴</code> vignetting out of the number, which is a lens property and not a transfer property.</p>
+<p><strong>Record.</strong> <code>data/validation/sitf/&lt;camera&gt;.csv</code>, columns <code>T_blackbody_K, DN</code>.</p>
+<p><strong>Pass.</strong> Shape only, after fitting a gain and offset: residual rms &lt; <strong>1 % of the measured DN span</strong>. Absolute DN is a range choice (ADR 0019), so requiring it to match would be requiring the simulator to guess the bench's gain. What is being tested is that the <em>curvature</em> — which comes from Planck through the band, and from nothing else — is right.</p>
+<h3 id="2-netd">2. NETD<a class="anchor" href="#2-netd" aria-label="permalink">#</a></h3>
+<p><strong>What.</strong> Noise-equivalent temperature difference in millikelvin, at 300 K and at a second, higher setpoint.</p>
+<p><strong>How.</strong> Two blackbody setpoints 5–10 K apart. Take 100 frames at each; NETD = σ_temporal · ΔT / ΔDN, with σ_temporal the per-pixel temporal standard deviation averaged over the ROI. Take the second setpoint at <strong>373 K</strong> as well: a bolometer's NETD falls as the scene warms because ∂L/∂T rises, and a bench that measures one temperature cannot see that.</p>
+<p><strong>Record.</strong> <code>data/validation/netd/&lt;camera&gt;.csv</code>, columns <code>T_blackbody_K, NETD_mK</code>.</p>
+<p><strong>Pass.</strong> Absolute, <strong>no fit</strong>: within <strong>15 %</strong>, <em>and</em> the 373 K value below the 300 K value. A gain fit here would let the model be wrong by any factor and still pass, which is the one thing this measurement exists to rule out.</p>
+<h3 id="3-three-dimensional-noise">3. Three-dimensional noise<a class="anchor" href="#3-three-dimensional-noise" aria-label="permalink">#</a></h3>
+<p><strong>What.</strong> The NVESD seven — σ_T, σ_V, σ_H, σ_TV, σ_TH, σ_VH, σ_TVH — in DN.</p>
+<p><strong>How.</strong> A uniform blackbody at 300 K, <strong>200 frames</strong>, camera and source both thermally settled, no FFC during the capture (or the FFC frames removed — a shutter event inside the cube appears as an enormous σ_T). Decompose with <code>irsim.validation.noise.decompose_3d</code>, which is the same estimator the simulated bench uses, so the comparison is of cameras and not of estimators.</p>
+<p><strong>Record.</strong> <code>data/validation/noise3d/&lt;camera&gt;.csv</code>, columns <code>component, sigma_DN</code>, one row per component, component names lowercase (<code>tvh</code>, <code>vh</code>, <code>h</code>, …).</p>
+<p><strong>Pass.</strong> Shape only, after a gain fit — the DN scale is a range choice as above — with residual rms &lt; <strong>10 % of the σ_TVH value</strong>, <em>and</em> every component above its own sampling floor (<code>estimate_floors</code>). A component below its floor is reported as unmeasured, not as zero: ADR 0023's rule, and the same one ME.5 applied to the public data.</p>
+<h3 id="4-mtf--slant-edge">4. MTF — slant edge<a class="anchor" href="#4-mtf--slant-edge" aria-label="permalink">#</a></h3>
+<p><strong>What.</strong> Modulation transfer function against spatial frequency, to the detector Nyquist.</p>
+<p><strong>How.</strong> A knife edge against a warm background, tilted <strong>4°–6°</strong> from a column (not 45°: the projection is a sinc that is hardest to invert exactly there, and not 0°, which gives no sub-pixel sampling at all). Average 32 frames to suppress temporal noise, then <code>irsim.validation.mtf. slant_edge_mtf</code>.</p>
+<p><strong>Record.</strong> <code>data/validation/mtf/&lt;camera&gt;.csv</code>, columns <code>frequency_cyc_per_mm, MTF</code>.</p>
+<p><strong>Pass.</strong> Absolute, <strong>no fit</strong>: within <strong>0.05 in MTF</strong> at every frequency up to Nyquist. MTF is already a ratio normalised to 1 at DC, so there is no scale left to fit and a discrepancy is a discrepancy.</p>
+<h2 id="what-a-passing-bench-would-and-would-not-establish">What a passing bench would and would not establish<a class="anchor" href="#what-a-passing-bench-would-and-would-not-establish" aria-label="permalink">#</a></h2>
+<p>It would establish that the <strong>detector and optics chain</strong> is right: the transfer curvature, the noise magnitude and its spatial structure, the resolution. It would say nothing about the radiometry of a <em>scene</em> — emissivity, the atmosphere, the thermal solver — which is Tier 3 and Tier 4, and which needs a scene, not a blackbody.</p>
+<p>It would also not close ADR 0003. The sim-to-real question this project exists to answer is about imagery of targets against sky, and a laboratory blackbody has no sky in it.</p>
+<h2 id="running-it">Running it<a class="anchor" href="#running-it" aria-label="permalink">#</a></h2>
+<p>The comparisons are <strong>skip-if-absent</strong>: with no file under <code>data/validation/&lt;quantity&gt;/</code>, the Tier 2 tests run their self-consistency half and skip the comparison with a reason naming the path they looked for. Drop the CSV in and the comparison runs with no other change. <code>measured_path</code> is the one place the layout is written down, so a future bench cannot invent a second one.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

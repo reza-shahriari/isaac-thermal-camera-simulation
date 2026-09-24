@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0073 — A generated environment dome for the companion visible frame — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0073 — A generated environment dome for the companion visible frame</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0073-visible-companion-environment-dome.md" target="_blank" rel="noopener">docs/decisions/0073-visible-companion-environment-dome.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-14</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The phase-1 aerial stage (M10.19) deliberately has no sky geometry and no ground plane. ADR 0014 and ADR 0060 explain why: every colour AOV on this build is float16 and exposure-scaled, so pushing the sky through one quantises it to ~100 mK against a 50 mK NETD, and the error is worst at the horizon where the elevation gradient is steepest and where the targets of interest are. The infrared background is therefore <em>computed</em> from the MS.2 sky model at each pixel's own ray elevation, and the only geometry in the stage is the targets themselves.</p>
+<p>That is right for the infrared path and it made the <strong>companion visible frame</strong> (the registered RGB capture) useless. With an untextured grey dome light and a distant light pointing nowhere in particular, it rendered as a flat grey field with six grey squares in it. It showed no sky, no horizon, no sun, no time of day — nothing a reader could use to check where the camera was pointing or what scene the infrared frame was a picture of. The visible frame exists precisely to be the human-legible half of the pair, and it was not doing that job.</p>
+<p>There is also a second, sharper reason to fix it. The infrared frame <em>cannot</em> be eyeballed for correctness — that is the premise of this whole repository. The companion frame is the one place a reviewer can apply ordinary visual judgement, and only if it depicts the same scene: the same sun, at the same hour, through the same air.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>1. How the visible background is produced.</strong></p>
+<p>a. Import an HDRI sky photograph. Realistic for free, but it is <em>a</em> sky, not <em>this</em> scene's sky: its sun sits wherever the photographer stood, contradicting the NOAA sun the thermal solver is loading the targets with. It also needs a licensed asset the repository does not have and a network fetch CI cannot make. b. Add a real sky dome and ground plane as <strong>geometry</strong>. Reverses ADR 0014/0060 for the infrared path, which is the one thing this stage exists not to do. c. <strong>Generate a lat-long environment map from the scene's own state and bind it to a <code>UsdLux.DomeLight</code>, with a <code>UsdLux.DistantLight</code> for the solar disc</strong> (chosen). A light is not geometry: a ray that sees it still reports instance id 0 and an infinite <code>DistanceToCameraSD</code>, so the infrared background keeps coming from the sky model. Verified as bit equality, not as an argument — see <code>test_the_dome_does_not_touch_one_infrared_pixel</code>. d. Composite the sky into the RGB frame ourselves, from the same ray directions the infrared path uses. Exactly consistent by construction, but the geometry would be tone-mapped by RTX and the background by us, so the two halves of one picture would be exposed differently. Rejected for now; it becomes attractive if a linear HDR colour AOV ever works on this build.</p>
+<p><strong>2. What sky model.</strong></p>
+<p>a. <strong>Preetham, Shirley &amp; Smits (SIGGRAPH 1999), "A Practical Analytic Model for Daylight"</strong> (chosen). A Perez luminance distribution scaled to an absolute zenith luminance, with CIE xy chromaticity distributed by the same form. Its two inputs — solar zenith angle and turbidity — are both quantities this repository already has. Closed-form, no tables, no dependency. b. Hosek-Wilkie (2012). Better near the horizon and at high turbidity, which is where this scene actually looks; but it is a large coefficient dataset, and the extra fidelity buys nothing that is measured, since the visible frame is not a radiometric output. c. A hand-tuned gradient. Cheapest, and it would have had to be re-tuned for every hour of the day while never being tied to the scene at all.</p>
+<p><strong>3. Where turbidity comes from.</strong></p>
+<p>Turbidity is the ratio of <em>column</em> optical depths, <code>T = (tau_molecular + tau_aerosol) / tau_molecular</code>, and the shared <code>WeatherSeries</code> reports <em>visibility</em>, a ground-level extinction coefficient. Taking the ground-level ratio directly — <code>3.912 / (V gamma_Rayleigh)</code> — gives T = 14.2 for a clear 23 km day, which is a dense industrial haze and would render a clear June morning as a white sky. The two layers are therefore given their own scale heights (8 km molecular, 1.2 km continental aerosol) before the ratio is taken, which puts the same day at T = 2.98. The preset's visible <code>gamma0_per_m</code> of 1.2e-5 /m gives a column depth of 0.096 against the textbook Rayleigh 0.0973 at 550 nm, so the two really are the same quantity.</p>
+<p><strong>4. Exposure.</strong></p>
+<p>The sky's absolute luminance moves by two decades between dawn and noon and any fixed dome intensity blacks out one end of it. The texture keeps honest cd/m2 on disk and the dome light's <code>intensity</code> carries an <strong>auto-exposure</strong> on the median daylight sky. This is a display choice and is the reason the visible frame carries no absolute brightness information. The twilight fade is divided back out of the reference first, so a night scene still renders dark rather than being exposed up to look like noon.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>irsim_isaac.visible_sky</code> generates a float32 lat-long environment map — Preetham sky above the horizon, Lambertian terrain hazed into the horizon sky by Koschmieder's contrast transmittance below it — from the scene's NOAA sun position, the shared weather's visibility and irradiance, and the atmosphere preset's Rayleigh coefficient. <code>irsim_isaac.stage</code> writes it to an EXR, binds it to the stage's dome light, aims a distant light with a 0.53 degree cone along the same sun direction for the disc, and gives each target a <code>UsdPreviewSurface</code> so the companion frame shows a white airframe and a black carbon one rather than six identical grey squares.</p>
+<p>The map is authored in <strong>direction space</strong>: every texel is turned into a stage-space unit vector and the sky is evaluated there, so the texture layout is the renderer's business and the physics never has to know it.</p>
+<p><strong>Nothing here is in <code>src/irsim/</code>.</strong> It is not infrared physics, it implements no section of <code>docs/physics-model.md</code>, and no part of the sensor chain reads it. Only the <em>geometry</em> of the visible frame is a calibrated claim — it is box-filtered onto the infrared pixel grid, so the pair is registered by construction. Its photometry is a daylight-appearance model tone-mapped by the RTX path tracer and is not traceable to a radiometric unit.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The renderer's lat-long convention had to be measured, and is recorded as a measurement.</strong> On Isaac Sim 6.1.0 with <code>omni:rtx:domeLight:mode = infinite</code>, the RTX dome light samples the texture with its polar axis on the stage's <strong>+Z</strong> and its azimuth running from <strong>+X toward -Y</strong> — so on a Y-up stage the texture's poles sit on the horizon and its equator passes through the zenith. This is not the USD documented behaviour for a Y-up stage and the public documentation for this build does not settle it. The first implementation assumed elevation/azimuth and produced a companion frame filled entirely with ground, because the whole camera field fell inside one texture pole. <code>DOME_POLE_AXIS</code> records the measurement and <code>test_the_sun_renders_where_noaa_puts_it</code> re-measures it against the renderer rather than trusting the constant: with the camera pointed down the sun's own azimuth, the solar disc must land at <code>f_px tan(tilt - elevation)</code> below the frame centre.</p>
+<p><strong>Two absences are deliberate</strong>, so the pair does not lie to the reader:</p>
+<ul>
+<li><strong>No cloud on the dome.</strong> MS.3's structured cloud field is not wired into the infrared background, so painting cloud on the visible dome would show a sky the infrared frame does not have. <em>(Correction, ADR 0076: "the clear-sky profile only" overstated it. <code>SkyModel.radiance</code> has always applied the uniform blend (1 − cε) L_clear + cε L_base — the mean cloud effect was there all along; only the structure was missing. The structure is wired in as of ADR 0076, and the dome should follow.)</em></li>
+<li><strong>No solar disc in the texture.</strong> Preetham's distribution carries the aureole around the sun but not the disc itself; the disc is the distant light. The two therefore do not double-count.</li>
+</ul>
+<p><strong>What it makes easy.</strong> Looking at the RGB frame and immediately seeing where the camera points, where the horizon is, what hour it is and which side the sun is on — and therefore noticing when one of those is wrong. It also gives the targets real solar shading in the visible band, so a silhouetted drone looks silhouetted.</p>
+<p><strong>What it makes hard / what it does not do.</strong> The terrain is painted on a dome at infinity, so it has no parallax: a target at 120 m does not move against it, and nothing below the horizon casts or receives a shadow. The infrared frame still has no ground model at all below the horizon — one temperature, per ADR 0060 — so the visible and infrared halves disagree about how much structure the ground has. Adding real ground <em>geometry</em> would fix both and would reverse ADR 0060's background treatment for those pixels; that is a separate decision and is not taken here.</p>
+<p><strong>Error introduced: none, in the sense that matters.</strong> The infrared outputs are bit-identical with and without the dome, asserted at every render. The visible frame's own error is unbounded and unquantified, which is acceptable exactly because nothing measures it.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A linear, working HDR colour AOV appears on this build — then option 1(d) becomes strictly better than a dome light, and the exposure stops being a guess.</li>
+<li>The infrared background gains cloud (MS.3 into <code>aerial_bridge</code>) — then the dome should gain the same cloud field, from the same seed and the same cloud fraction.</li>
+<li>Ground geometry is added to the stage — then the terrain hemisphere of the dome becomes a backdrop for it rather than a stand-in, and its haze model has to agree with the atmosphere the infrared path applies to those same rays.</li>
+<li>A scene needs high turbidity or a sun within a few degrees of the horizon, where Preetham's fit is weakest — Hosek-Wilkie is the replacement.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

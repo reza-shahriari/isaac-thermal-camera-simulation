@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0045 — Reflection fidelity: the sky-view blend; V_s = occlusion·(1 + n·up)/2; L_ground = L_B(T_ground); the tilt LUT — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0045 — Reflection fidelity: the sky-view blend; V_s = occlusion·(1 + n·up)/2; L_ground = L_B(T_ground); the tilt LUT</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0045-reflected-environment-term.md" target="_blank" rel="noopener">docs/decisions/0045-reflected-environment-term.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§5.3 makes the case: in LWIR the reflected term is only (1 − ε) ≈ 0.05–0.2 of the signal, but the clear sky is 40–60 K colder than the air, so low-emissivity surfaces (paint at grazing angles, glass, bare metal) swing by tens of kelvin between clear and overcast. Three fidelity levels are offered: (a) the sky-view-factor blend, (b) a low-resolution irradiance cubemap, (c) path tracing in the radiance domain. The renderer hands the pipeline a per-pixel sky-view factor and nothing else about the environment.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li>Emission only (the M3 form) — the cold-roof and mirror-like-metal phenomena never appear.</li>
+<li><strong>§5.3(a): L_env = V_s L_sky,eff + (1 − V_s) L_ground</strong> (chosen for phase 1).</li>
+<li>§5.3(b)/(c) — needed for urban scenes with building/vehicle inter-reflections; phase 2.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li>Stage 1 becomes L = ε L_B(T_s) + (1 − ε) L_env with (1 − ε) = ρ + τ: a transmitting material passes the environment behind it (L_behind = L_env until a second ray exists, ADR 0046).</li>
+<li><strong>V_s source.</strong> The G-buffer's <code>sky_view_factor</code> is <code>occlusion · (1 + n·up)/2</code>: the exact cosine-weighted sky fraction of a plane of tilt β (1 facing up, 1/2 for a wall, 0 facing down) times an occlusion factor. Raw ambient occlusion alone is wrong for walls, which see half the sky unoccluded. <code>irsim.pipeline.environment.sky_view_factor</code> is the helper adapters and fixtures call; a seeded cosine-weighted Monte Carlo agrees with it to 1e-3.</li>
+<li><strong>L_sky,eff</strong> comes from the SkyModel's tilt LUT (ADR 0044) indexed through the unoccluded relation β = arccos(2 V_s − 1): occlusion reduces the weight of the sky but not the <em>shape</em> of the sky the plane sees -- an approximation accepted for phase 1 (an occluded wall sees the upper part of the sky, which is colder; the error is a fraction of the (1 − ε) term).</li>
+<li><strong>L_ground = L_B(T_ground)</strong> with T_ground from the environment preset's ground mode: <code>air</code> (the shared weather's T_air), <code>fixed</code> (authored), <code>solver</code> (M6.12's environment solver; refused until it exists). One temperature for the whole ground.</li>
+<li>The Scene builds the LayeredAtmosphere and one SkyModel per band on the same WeatherSeries when the scene config names an <code>environment_preset</code> (scene schema v2); the pipeline config refuses a sky model whose weather, band or radiance form differs from its own.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The isothermal enclosure identity holds to 1 mK for every emissivity and sky-view factor, the cold-roof drop under a clear sky is (1 − ε)(L_B(T_air) − L_sky,eff)/(∂L/∂T) to 0.05 K, and bare aluminium reads &gt; 10 K colder than paint -- the three phenomena the term exists for.</li>
+<li>Not modelled: inter-reflections between scene objects, a ground with structure, the reflected solar term (M11), specular sky reflections (the term is hemispherically averaged; the specular lobe of §4.3 arrives with the roughness model).</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>Urban scenes need §5.3(b)'s irradiance cubemap, or the renderer can supply a per-pixel horizon map so the occluded tilt LUT can be evaluated exactly.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

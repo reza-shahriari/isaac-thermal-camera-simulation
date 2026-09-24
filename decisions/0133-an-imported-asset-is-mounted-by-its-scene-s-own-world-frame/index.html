@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0133 — An imported asset is mounted by its scene&#x27;s own world frame, and it flies — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0133 — An imported asset is mounted by its scene&#x27;s own world frame, and it flies</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0133-an-imported-asset-is-mounted-by-its-scene-s-own-world-frame.md" target="_blank" rel="noopener">docs/decisions/0133-an-imported-asset-is-mounted-by-its-scene-s-own-world-frame.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23 Extends <a href="../0128-per-asset-material-mapping-and-the-blender-prep-path/">ADR 0128</a> (the asset pipeline) and <a href="../0073-visible-companion-environment-dome/">ADR 0073</a> (the companion visible frame). Roadmap: <code>AI.2</code>.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0128 ended on a principle: <em>the asset's frame is the stage's frame</em>. The prepared USD comes out of Blender Z-up at <code>metersPerUnit = 1</code>, so the first driver to film it authored a <strong>Z-up stage</strong> and transformed nothing. The reasoning was sound as far as it went — a second scale or a silent axis swap is exactly what that ADR exists to prevent — and the first still it produced was wrong anyway. The aircraft came back apparently pitched over, rolled about thirty degrees, with nothing in the physics to blame.</p>
+<p>The cause was not the mount. <code>look_at_quaternion</code> builds an azimuth/elevation mount around a <strong>world up vector</strong>, and its default is the stage convention <code>(0, 1, 0)</code>. Called on a Z-up stage it therefore levelled the camera against an axis that is horizontal, which rolls the horizon by whatever angle the geometry happens to give. Nothing raised: a rolled camera is a valid camera.</p>
+<p>That was not the only thing the Z-up stage broke, only the visible one. Every piece of environment machinery in this repository reads the stage's <strong>+Y as up and its -Z as north</strong>: <code>visible_sky.stage_direction</code>, <code>visible_sky.latlong_directions</code>, and the <code>DistantLight</code> aimed by <code>stage.author_environment</code>. A Z-up stage silently disagrees with all three, so the infrared frame would have been lit and backed by a sky in one frame while the companion visible frame showed another — and a registered pair that disagrees is worse than no pair, which is ADR 0073's own argument turned against it.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Keep the Z-up stage and teach the environment about up axes.</strong> Correct in principle, and it is a change to <code>visible_sky</code> and <code>stage</code> — a shared, well-tested module with several callers — for the benefit of one driver. Deferred, not rejected: if a second imported asset arrives with a third convention, this is the answer.</li>
+<li><strong>Write <code>rotateX 90</code> on the reference and move on.</strong> What almost every pipeline does, and the sign is a coin flip. A mirrored or backwards mount produces a completely convincing aircraft facing the wrong way, and the render is not a test that would catch it.</li>
+<li><strong>Derive the mount from the scene's own <code>world_frame:</code> block</strong> (chosen).</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>1. One rotation, computed from the scene config.</strong> <code>irsim_isaac.asset_flight.world_frame_to_stage</code> turns a scene's <code>world_frame: {up, north}</code> into the 3×3 that takes its world coordinates into stage axes, by construction satisfying <code>M·up = +Y</code>, <code>M·north = -Z</code>, <code>M·(north × up) = +X</code>. The Phantom 4 scene declares ENU, so it mounts with that rotation; a scene already authored in stage axes mounts with the identity, and pays nothing. East is derived rather than declared, exactly as <code>WorldFrameSpec</code> derives it, and the function refuses a degenerate or left-handed frame instead of guessing — a determinant of −1 there is a mirrored aircraft.</p>
+<p>This is not a weakening of ADR 0128. The prohibition there is on an <em>undeclared</em> transform: a second <code>scale_to_metres</code>, or an axis swap nobody wrote down. This rotation is declared, in the scene config, by the same block the thermal solver already reads.</p>
+<p><strong>2. The stage stays the renderer's Y-up.</strong> The environment, the sun, the sky model and the <code>look_at_quaternion</code> default all already agree on it. Bending one asset is cheaper and safer than bending four modules, and the asset is the thing whose convention is foreign.</p>
+<p><strong>3. The solver's frame stays the asset's.</strong> The scene's patches are authored in the archive's own Z-up coordinates. They are not bound to the camera in this driver — temperature is still per prim — so the mount moves the rendered aircraft and touches nothing the solve depends on. <strong>The day a <code>MeshPointBridge</code> does reach the camera, that binding must carry this rotation</strong>, or every closest-point query will land on the wrong cell. Recorded here because it will not be obvious then.</p>
+<p><strong>4. <code>FORWARD_AXIS_VECTOR</code> stays, and is now a fix without a user.</strong> <code>IrCamera.planes</code> passed its up axis to <code>azimuth_from_rays</code> without a matching forward, and the default <code>(0, 0, -1)</code> is <em>parallel</em> to Z-up — so a Z-up stage raised "forward must not be parallel to up" on its first frame. Fixed and tested when it was found, and the driver that provoked it is now Y-up. The fix is kept because the next Z-up caller should meet a working camera, not this bug again.</p>
+<p><strong>5. The aircraft flies a lemniscate, not an orbit.</strong> <code>FigureEightTrack</code>: one circuit in front of a ground observer, over the mission's full 28 minutes. An orbit at constant radius is easier and shows a target that translates but never turns — the aspect angle is ±90° for the whole pass. A figure of eight crosses its own track, so one circuit takes the line of sight through both broadsides and tail-on while the slant range swings 2.2:1 and the aircraft grows from 46 px to 104 px across. The defaults are chosen against the sensor, not for looks, and the one hard constraint is <strong>elevation</strong>: this scene authors no terrain, so an aircraft below the observer's horizon is backed by sky-model radiance at near-air temperature instead of cold sky. The track holds 10–53°, and there is a test that says so.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A scene config's <code>world_frame:</code> block is now load-bearing for rendering, not only for the thermal solve. A scene that declares it wrongly gets a wrongly mounted aircraft — but it already got wrongly shaded patches, so this adds a symptom rather than a failure mode.</li>
+<li>The infrared frame and the companion visible frame come out of one capture on one pixel grid, which makes the companion usable as a check on the infrared rather than as decoration. The nose direction of this asset was determined from the archive (the gimbal, its lens, and DJI's green rear LEDs) and <strong>confirmed in the companion frame</strong>; there is no other way to check it, because the asset's prims are all named <code>GeometryNode_&lt;n&gt;</code>.</li>
+<li>Option 1 remains open and is the right answer for a <em>second</em> imported convention. What this ADR buys is that the driver does not have to be rewritten when it lands: the rotation is already a named function with tests, and making it the identity is all that changes.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

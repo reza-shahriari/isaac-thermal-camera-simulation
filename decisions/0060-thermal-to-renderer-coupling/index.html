@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0060 — Thermal-to-renderer coupling: a float32 facet table on a 1 Hz tick, sky from the ray — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0060 — Thermal-to-renderer coupling: a float32 facet table on a 1 Hz tick, sky from the ray</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0060-thermal-to-renderer-coupling.md" target="_blank" rel="noopener">docs/decisions/0060-thermal-to-renderer-coupling.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-12</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§13.1 and the <code>isaac-sim-spg</code> skill both describe the thermal coupling as <em>the renderer carries the surface temperature</em>: encode <code>c = (T − 200)/800</code> into an emissive channel, decode it in the kernel. ADR 0014 measured that and rejected it — every colour AOV on this build is float16 and exposure-scaled, giving ≈ 100 mK at 300 K against a 50 mK NETD — and decided that the renderer transports <strong>instance ids and geometry</strong>, with temperature looked up from a float32 table.</p>
+<p>This ADR settles what that table actually is for phase 1 (M10.18, aerial targets): where its values come from, how often they are recomputed, and what happens to the pixels that are not geometry at all. The full ThermalField over a facet mesh is phase 2 (M10.3) and deliberately not decided here.</p>
+<p>Three questions had to be answered together, because a wrong answer to any one of them produces a plausible image rather than an error.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>1. What fills the table.</strong></p>
+<p>a. A per-frame call into the energy balance for every prim — correct and pointlessly expensive; surface temperature does not move measurably in 33 ms. b. <strong>The M6.6 solvers the M6.17 <code>Scene</code> already built, keyed by a per-prim → target-name map</strong> (chosen). The solvers are the tested thermal model, they already hold the one shared <code>WeatherSeries</code> (CLAUDE.md #6), and the map is scene data rather than code. c. USD attributes carrying temperature per prim — puts physics in the asset, where nothing validates it.</p>
+<p><strong>2. How often it ticks.</strong></p>
+<p>a. Once per frame — makes the result depend on the frame rate, which is a rendering setting. b. <strong>A fixed 1 Hz thermal tick with linear interpolation between the bracketing ticks</strong> (chosen). Decouples the physics from the frame rate and costs one solver step per second of simulated time regardless of how many frames are rendered. c. A tick per weather sample (minutes) — too coarse for an engine spooling up under a prescribed schedule, which is exactly the phase-1 target signature (MS.7).</p>
+<p><strong>3. What the non-geometry pixels get.</strong></p>
+<p>a. An emissive sky dome — reintroduces the fp16 colour path this whole design exists to avoid. b. One sky temperature for the frame — wrong by tens of kelvin across a 50° field, and the error is largest exactly where small targets are hardest to detect. c. <strong><code>T_sky(θ)</code> from MS.2 evaluated at each pixel's own ray elevation</strong> (chosen), with rays <em>below</em> the horizon taking the environment preset's ground temperature instead.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong><code>AerialThermalBridge(scene, prim_to_target, band=...)</code></strong> owns the coupling. It refuses a target name the scene does not define, and refuses a <code>SkyModel</code> holding a different <code>WeatherSeries</code> than the scene — CLAUDE.md #6 enforced at the engine boundary, not only inside <code>irsim</code>.</li>
+<li><strong>The table is float32, indexed by instance id</strong>, built from <code>idToLabels</code> (prim path per id) and the per-prim solver map. Temperature is therefore exact at facet granularity: 317.25 K authored reads back as 317.25 K, and two targets 50 mK apart stay 50 mK apart — the pair that float16 collapses onto one value.</li>
+<li><strong>A rendered prim with no thermal node raises.</strong> The non-strict fill is <strong>0 K</strong>, chosen to be obviously broken rather than plausible: if it ever reaches a radiance kernel the image is visibly wrong instead of quietly being an image of a different scene.</li>
+<li><strong>Thermal tick 1 Hz, linear interpolation at render time.</strong> The interpolation error is computed and reportable (<code>tick_error_k</code>), not assumed: for an exponential node it is bounded by <code>|ΔT|·h/(8·τ)</code>, which is ≈ 3 µK for τ = 900 s at h = 1 s — four orders of magnitude inside the 10 mK budget. The clock refuses to run backwards, because the solvers are stateful and a rewind would silently produce a different history than a forward run of the same scene.</li>
+<li><strong>Background pixels are split at the horizon.</strong> Elevation ≥ 0 takes <code>T_sky(θ)</code> (ADR 0044/MS.2); elevation &lt; 0 takes <code>T_ground</code> from the environment preset's ground mode — the same quantity ADR 0045's reflected term uses. The sky model is only defined on [0°, 90°] and raises outside it; extrapolating it downwards would report a 40–60 K cold sky where warm ground actually is, which <strong>inverts the contrast</strong> of anything silhouetted against it. For a downward-looking aerial camera that is most of the frame, so this is not an edge case.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Temperature is constant within a prim. A target needing sub-prim structure (a motor hotter than its arm) is modelled by splitting the mesh into prims, which is also how the thermal model already discretises it. Sub-facet gradients wait for M10.3.</li>
+<li>One ground temperature for everything below the horizon. Under an open sky — phase 1, ADR 0003 — that is all the environment preset claims anyway; a ground scene with structure needs M6.12's environment solver before this is better than a placeholder.</li>
+<li>The bridge holds no device memory. The float32 table is a small NumPy array that a Warp stage uploads; when the whole frame moves onto the device (M10.9a) only the upload changes.</li>
+<li>Replaying a frame needs a fresh <code>Scene</code>. That is a real constraint on a dataset generator that wants to re-render a timestamp, and it is stated loudly rather than papered over with a reset that would not restore solver state correctly.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A target needs sub-prim temperature structure, or a scene has enough prims that a per-prim map is unmaintainable — both point at M10.3's ThermalField and a temperature atlas.</li>
+<li>Ground scenes arrive (phase 2): the single <code>T_ground</code> below the horizon becomes the limiting approximation and wants M6.12's environment solver, or a real horizon/terrain hit.</li>
+<li>The thermal tick becomes visible in a phenomenology test — raise <code>tick_hz</code> and re-measure <code>tick_error_k</code> rather than changing the interpolation.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

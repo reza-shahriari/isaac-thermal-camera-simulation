@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0114 — The exhaust plume: a chord per pixel, and where its temperature comes from — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0114 — The exhaust plume: a chord per pixel, and where its temperature comes from</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0114-the-exhaust-plume-as-a-chord-per-pixel.md" target="_blank" rel="noopener">docs/decisions/0114-the-exhaust-plume-as-a-chord-per-pixel.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Applies <a href="../0098-participating-media-and-the-phenomena-tier/">ADR 0098</a>'s operator to a frame; takes its gas state from <a href="../0105-exhaust-line-as-a-gas-stream-in-a-wall/">ADR 0105</a>'s solved line and its coefficients from the tables <code>PH.5</code> generates. <strong>Date:</strong> 2026-09-22 Roadmap: PH.6 (§6.6, §8.1, §8.3, §13.4 stage 2)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0098 settled what hot gas does to one ray: <code>L = τ_b L_behind + (1 − τ_b) B_b(T_g)</code>, per band, with <code>τ_b = exp(−κ_b L)</code>. <code>PH.5</code> filled the coefficient tables. What was still missing was the step from one ray to a picture — and the several choices hiding inside it, each of which has a plausible wrong answer that would produce a frame nobody could tell was wrong.</p>
+<p>§6.6 deferred the exhaust plume "without a number". Its trigger — an MWIR Tier 3 bench — fired with <code>test_tier3_multiband.py</code>, and the owner asked for fire and hot gas on 2026-09-18.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>A hot prim with an authored emissivity.</strong> What a scene author reaches for, and what every engine makes easy. It cannot express the phenomenon: a CO₂/H₂O plume absorbs a fifth of a 3–5 µm band and almost none of a 7.5–13.5 µm one, and one ε cannot be two numbers. Measured here on the committed tables: τ = 0.866 against 0.979 for the same gas. Rejected, and kept as the negative control in <code>tests/unit/test_plume.py</code> so the test that passes is measuring the tables rather than the plumbing.</p>
+<p><strong>A volumetric pass in the renderer.</strong> Right, expensive, engine-bound, and outside the engine-free core by construction (CLAUDE.md #1). ADR 0098 already deferred it.</p>
+<p><strong>Ray-marching the cone per pixel with the gas state sampled along the ray.</strong> Tempting, because it would lift ADR 0098's "no temperature gradient along the ray" deferral. Rejected for now: it multiplies the cost by the sample count, and the deferral it lifts is not the one that matters — the gradient a camera <em>sees</em> is along the plume, which a chord per pixel already produces.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>A truncated cone in camera space, one analytic chord per pixel, one homogeneous slab on it.</strong></p>
+<ul>
+<li><strong>The composite is the blend, and it is exact.</strong> Write the plane's value as <code>L_plane = τ_atm(R_p) L_behind + (1 − τ_atm(R_p)) L_air</code>. Putting the slab in the way and rearranging gives <code>L = τ_p L_plane + (1 − τ_p) B_gas,at-sensor</code> <strong>provided</strong> <code>B_gas,at-sensor</code> is the gas radiance run through stage 2's own path at the plume's range. It is: the injector calls the same <code>apply_layered_gbuffer</code> / <code>apply_atmosphere</code> the plane went through. So nothing has to decide what is behind the plume, and the plume and the pixels under it cannot disagree about the atmosphere. The <em>excess</em> form MS.6's point targets use would need that decision and would subtract a sky column that is not there wherever the plume crosses the car.</li>
+</ul>
+<ul>
+<li><strong>Occlusion is the depth plane.</strong> Each chord is clipped to the <code>distance_m</code> the G-buffer already carries. One comparison per pixel, and it removes the class of bug where a plume paints over the bumper it passes behind.</li>
+</ul>
+<ul>
+<li><strong>The gradient is along the plume, not along the ray.</strong> ADR 0098's deferral stands: each pixel gets one homogeneous slab at the axial station of its own chord's midpoint. A frame therefore still shows a plume that cools with distance from the tip, which is the feature, while every ray keeps the operator <code>PH.4</code> verified.</li>
+</ul>
+<ul>
+<li><strong>Entrainment dilutes temperature and species by one factor.</strong> <code>φ = exp(−x / mixing_length)</code>, <code>T_g = T_air + φ (T_tip − T_air)</code>, <code>p_i = φ p_i,tip</code>. Both ride the same conserved scalar in a mixing jet, so one authored length sets how fast the plume cools <em>and</em> how fast it thins, and the two cannot be authored inconsistently.</li>
+</ul>
+<ul>
+<li><strong>The temperature is not authored at all.</strong> Schema v15's <code>plume:</code> block carries geometry and chemistry and may sit only on an <code>exhaust</code> target. Its temperature is <code>ExhaustSolver</code>'s own outlet <strong>gas</strong> at that instant — not <code>temperature()</code>, which is a <em>skin</em>. The two differ by about 50 K at load on the shipped line, and taking the skin would be the easy mistake. The air it mixes into is the scene's weather, for the reason CLAUDE.md #6 gives.</li>
+</ul>
+<ul>
+<li><strong>World in the scene, camera in the pipeline.</strong> <code>Scene.plumes_at</code> returns <code>WorldPlume</code>s in world coordinates; <code>WorldPlume.in_camera(rotation, eye)</code> produces the camera-space <code>ExhaustPlume</code> the injector wants. Nothing between the scene and the frame has to hold both frames at once, and the engine-free half is testable without a renderer.</li>
+</ul>
+<ul>
+<li><strong>A band the absorption model does not reach raises.</strong> <code>PipelineConfig</code> carries <code>gas_tables</code> and leaves them <code>None</code> for SWIR and NIR (<code>PH.5</code>); a plume carrying gas there is an error naming the missing table, not a transparent plume.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy now:</strong> a scene file authors one plume and two cameras disagree about it by construction. Measured on <code>configs/scenes/car_exhaust_plume.yaml</code> at twenty minutes of light cruise — tailpipe outlet gas 594 K, skin 542 K — the MWIR camera gains <strong>+72.7 K</strong> of peak apparent temperature and the LWIR bolometer <strong>+7.1 K</strong>, with τ = 0.866 and 0.979. <code>PH.7</code>'s fire reuses the same injector with a soot slab; <code>PH.9</code>'s steam adds droplet extinction to the same coefficient.</p>
+<p><strong>Error introduced, bounded where it can be:</strong> one slab per ray rather than an integral along it, so a chord that crosses a steep part of the plume reads its midpoint; the near-axial case, where the ray lies within the cone's own half-angle of its axis, can produce two chord segments and their lengths are added while the temperature is read at the longer one's midpoint; and the tail of the plume reaches below the tables' 300 K floor, where the coefficient is read at the floor while the radiance is computed at the true temperature — bounded by how little κ moves over the last few kelvin of an already optically thin column, and happening where the plume has nearly stopped absorbing.</p>
+<p><strong>Not done, and why:</strong> <code>PH.6</code>'s row says "on the car <strong>and the vessel</strong>", and only the car has one. A plume may sit only on an <code>exhaust</code> target, because that is the only solver that produces a gas temperature rather than a skin, and <code>stock_exhaust()</code> is a car's line — <code>vessel_departure_clear_day.yaml</code> drives its stack from a prescribed schedule. Giving the vessel a plume means either a marine stack in <code>exhaust_line.py</code> or a deliberate decision to let a <code>prescribed</code> target declare that its schedule <em>is</em> a gas temperature. The second is one line of schema and is exactly the inconsistency this ADR removed, so it is not taken quietly.</p>
+<p><strong>Deferred, deliberately:</strong> buoyancy and bend (the cone is straight, so a crosswind is not modelled); puffing and flicker; scattering by soot or droplets (<code>PH.9</code>); a plume that shadows itself; and the in-engine frame, which is <code>IG.2</code>'s.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A validation needs the plume's structure rather than its magnitude — a bent or buoyant plume, or one whose apparent temperature profile is compared against a measured one — which means sampling the gas state along the ray rather than at one station, and a plume geometry that is not a cone.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

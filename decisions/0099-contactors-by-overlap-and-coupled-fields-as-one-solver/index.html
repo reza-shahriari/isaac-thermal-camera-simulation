@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0099 — Contactors by overlap area, and coupled fields as one solver — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0099 — Contactors by overlap area, and coupled fields as one solver</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0099-contactors-by-overlap-and-coupled-fields-as-one-solver.md" target="_blank" rel="noopener">docs/decisions/0099-contactors-by-overlap-and-coupled-fields-as-one-solver.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: TC.3 (§6.1, §6.4; spec issues S41, S42)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>TC.1 gave one field a conduction term and TC.2 gave lumped parts a network. A vehicle is both: a bonnet skin (a field) bolted, clipped and gasketed to the body (a field or a node) under it, an underbody (a node's face) facing the road (a field). Two questions had to be settled before TC.5's engine could warm the metal around it through a scene config.</p>
+<p><em>How is a joint between two grids authored?</em> The literature reports a contact conductance <code>h_c</code> per unit area (Voller &amp; Tirovic 2007, ADR 0097's table). Two patches rarely share a cell size, an origin or an orientation — the car scenes' bonnet is 71 mm cells over a road of 300 mm cells — and the survey's warning is explicit: a conductance authored per <em>node</em> scales with the cell count, so refining one grid changes the joint.</p>
+<p><em>How are two coupled fields stepped?</em> A 5 mm skin cell on a 10⁴ W m⁻² K⁻¹ joint has a time constant under a second; the scene tick is 60 s. An exchange stepped explicitly between two separate fields blows up; a lagged exchange (each field seeing the other's last tick) rings at the tick frequency, which on a rendered panel is a checkerboard that looks like fixed-pattern noise (the Crank–Nicolson argument of ADR 0094, from the other side).</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Per-node links, nearest cell to nearest cell.</strong> Simple, and wrong under refinement: a plate half overhanging its base is credited with its whole area, and quartering its cells leaves that unchanged (TC.3's negative control).</li>
+<li><strong>Require aligned grids</strong> (same cell size, same origin) so cells pair one to one. It makes every scene's road grid a function of its bonnet grid, and a rotated part impossible.</li>
+<li><strong>Conductance by overlap area:</strong> <code>K_ij = h_c · A_ij</code> with <code>A_ij</code> from clipping cell <em>j</em>'s rectangle against cell <em>i</em>'s in the first patch's plane (Sutherland–Hodgman on a convex quadrilateral, candidates prefiltered by the regular grid). Exact to clipping precision for any offset, cell size or in-plane rotation; the total is <code>h_c · A_overlap</code> and is invariant to refinement by construction. Chosen.</li>
+<li><strong>Two fields exchanging heat as a forcing term</strong> (explicit or lagged). Rejected above.</li>
+<li><strong>One solver over the union of cells.</strong> The members' cells are concatenated into one <code>ThermalField</code> with a block <code>ConductionOperator</code> — each member's own lateral operator on the diagonal, the contactors off it — and stepped by ADR 0094's IMEX scheme, which already handles any conductance implicitly. Each member becomes a <code>PatchView</code> over its slice. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Options 3 and 5, shipped as <code>irsim.thermal.coupling</code> (TC.3):</p>
+<ul>
+<li><code>cell_overlap_areas(patch_a, patch_b, gap_tolerance_m)</code>: a sparse <code>(n_a, n_b)</code> matrix of shared areas; the patches must share a frame, be parallel, and lie within the tolerance along the normal (a bonnet 0.9 m above a road is not a joint and the call refuses). <code>contactor_conductances</code> multiplies by <code>h_c</code>.</li>
+<li><code>CoupledFields(members, contactors, t0_s, tick_s)</code>: one <code>ThermalField</code>, one forcing (the members' forcings concatenated cell for cell), one block operator. <code>fields[name]</code> is a <code>PatchView</code> with <code>patch</code>, <code>advance_to</code>, <code>temperature_at</code>, <code>sample_at</code> — the interface the point bridge consumes — and advancing any view advances the whole system. With no contactor the members are the separate fields <strong>bit for bit</strong>.</li>
+<li><code>RadiationExchange(rect, patch, surface_emissivity)</code>: ADR 0088's parallel-rectangle view factors read in both directions. The cells' term is <code>occluded_longwave_flux</code> (the body also blocks the sky); the body's loss to the patch is <code>ε_r σ T_r⁴ Σ_i A_i F_i</code>, which by reciprocity is <code>A_r F_r→patch ε_r σ T_r⁴</code>. <code>reverse_view_factor</code> evaluates <code>F_r→patch</code> by an independent quadrature from the body's side so reciprocity is checked between two discretisations, not one formula against itself.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy now:</strong> TC.5 charges an engine node for what its bay face radiates onto the bonnet and what its underbody radiates onto the road, with the same object serving both; TC.6 declares a bonnet-to-body contactor in the scene and the bonnet stops being a skin floating in air. PT.11's lateral Laplacian drops onto a member's diagonal block unchanged.</p>
+<p><strong>What it costs:</strong> a coupled system is one linear solve per tick over every member's cells, factorised once per tick size (ADR 0094); a road of 10 812 cells coupled to a bonnet of 437 is still a sparse system with a few thousand off-diagonal entries. Clipping is pure Python over candidate pairs: the car's road–bonnet overlap takes milliseconds.</p>
+<p><strong>Error introduced:</strong> none in the overlap (exact polygon clipping); the step's error is ADR 0094's first-order-in-dt on the slow modes. Radiation between a body and a field remains single-bounce, isothermal over the rectangle and parallel-only (ADR 0088's limits); the reverse quadrature agrees with reciprocity to 1 % on a 60 × 60 road under a 1.64 × 3.8 m underbody, the residual being the finite-cell discretisation of a differential-element formula on both sides.</p>
+<p><strong>Measured:</strong> a 1 m² plate on a 2 m base gives <code>h_c · 1.0</code> to 1e-9 at 0.25 m cells and the same at 0.0625 m; a 30°-rotated square overlaps exactly its own area; a half-overhanging plate is credited with 0.5 m² where a per-node total says 1.0 at either refinement; a 350 K plate on a 300 K base at h_c = 10⁴ (τ = 0.8 s) equalises under 60 s ticks with the stored energy conserved and the joules lost by the plate equal to those gained by the cells it touches; the power an underbody radiates onto the road equals the power the cells receive to 1e-6.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A joint between non-parallel surfaces is needed (a door skin on a sill), which is a line contact rather than an area and wants a different primitive; or the coupled system grows past what one <code>splu</code> per tick size is comfortable with, at which point the block structure is what a Schur complement per member would exploit.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

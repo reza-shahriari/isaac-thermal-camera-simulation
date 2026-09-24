@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0112 — Lateral conduction on a mesh: monotone over consistent — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0112 — Lateral conduction on a mesh: monotone over consistent</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0112-lateral-conduction-on-a-mesh.md" target="_blank" rel="noopener">docs/decisions/0112-lateral-conduction-on-a-mesh.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Extends ADR 0102 (<code>PT.11</code>) from a rectangular grid to a triangle mesh; supplies the term ADR 0111 measured the absence of. <strong>Date:</strong> 2026-09-22 Roadmap: WM.6 (§6.1, §6.4)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>PT.11</code> gave a planar patch's cells a conduction link to their four neighbours, on the grounds that a metal panel without one renders sharper than aluminium can be. A mesh had none, and <a href="../0111-temperature-granularity-tiers/">ADR 0111</a> measured what that costs: on the quadrotor's carbon arms the crown-to-underside span came out a quarter too strong, because a sheet of <code>k δ</code> losing heat at <code>h</code> cannot hold a feature finer than <code>L = √(kδ/h)</code> and nothing in the solve knew it.</p>
+<p>A rectangular grid makes this easy — the line joining two cell centres is perpendicular to the edge they share, which is exactly the condition a two-point flux needs. A triangulation does not.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>The circumcentric (dual-cotan) weight.</strong> Put the node at each triangle's circumcentre and the centre-to-centre line <em>is</em> perpendicular to the shared edge, so the scheme is consistent. Its weight is <code>G = 2 k δ / (cot θ_a + cot θ_b)</code> over the two angles opposite the shared edge — the dual of the cotan Laplacian. <strong>Negative whenever those angles sum past π</strong>, and inside one face the two sub-triangles across a sub-edge are congruent, so both angles are the parent's own and the weight is <code>k δ tan Θ</code>: negative for every <em>obtuse</em> face and singular for a right-angled one, where the circumcentre lies on the shared edge itself. A negative conductance breaks the discrete maximum principle — a cell leaves the range its neighbours and its forcing span, and renders as a bright speck indistinguishable from a bad pixel.</li>
+<li><strong>Intrinsic Delaunay flipping</strong>, which is what the roadmap row named: flip edges intrinsically until the triangulation is Delaunay, then option 1's weights are non-negative. Rejected here because the cells <em>are</em> the mesh's own sub-triangles — the Ptex grid the field lives on and the closest-point query resolves to (ADR 0110). Flipping changes which cells exist, so the solve would run on one triangulation and the render sample another.</li>
+<li><strong>Multi-point flux (MPFA) or a diamond scheme.</strong> Consistent on arbitrary meshes, and gives up the M-matrix property in a different way: the stencil is wider and the off-diagonals are not signed. It trades one monotonicity failure for a subtler one.</li>
+<li><strong>The centroid two-point flux</strong>: <code>G = k δ w / (d_a + d_b)</code> over the shared edge length <code>w</code> and the perpendicular distances from each centroid to it. Non-negative by construction, and the same formula ADR 0102 already uses.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 4. <strong>Monotone over consistent</strong>: a gradient that is 10 % too strong reads as weather, and a cell outside its neighbours' range reads as a broken sensor.</p>
+<p>Inside a face the weight has a closed form that does not depend on the level at all — a sub-edge parallel to the parent's side <code>E</code> carries</p>
+<p>G = (3/4) k δ |E|² / A_face</p>
+<p>because the barycentric cut is affine, so every sub-triangle is similar to its parent and <code>w/d</code> is scale-free. Refining a face therefore adds cells without changing how fast heat crosses it, which is what a discretisation of a continuum has to do. Across a shared mesh edge the boundary cells are matched by the length they actually overlap, as <code>TC.3</code>'s contactors match two patches whose grids do not line up, so faces of different levels may meet. The result is an ordinary <code>ConductionOperator</code>, so ADR 0094's backward Euler, its prefactorisation per tick size and its symmetry check are reused rather than restated.</p>
+<p><code>circumcentric_conductance</code> ships beside it, unused by the operator, so the tests can show what the shipped weight is chosen <em>over</em> rather than assert it: on an obtuse face it is negative, and <code>ConductionOperator</code> refuses to hold a negative conductance at all, so the cotan assembly fails at build rather than as a speck in a frame.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The two schemes agree exactly on an equilateral face.</strong> There the centroid <em>is</em> the circumcentre and both give <code>k δ tan 60° = √3 k δ</code>, at every level. That is the anchor: the shipped weight is an approximation of a specific thing, not of nothing in particular.</p>
+<p><strong>A three-neighbour centroid stencil cannot be both exact and isotropic unless the face is equilateral</strong>, and this is a theorem rather than an observation. Exactness for linear fields requires <code>Σ_s G_s Δx_s = 0</code> over the three neighbours; the three displacements sum to zero and span the plane, so that forces <code>G_0 = G_1 = G_2</code> — and equal weights on a skewed face give an anisotropic operator. The scheme keeps the isotropy. Measured residual under a linear field, as a fraction of scale: <strong>7 × 10⁻¹⁶ on an equilateral face</strong> (machine precision) and <strong>1.5–4.5 % on right, obtuse and skewed ones</strong>, and it does not fall with refinement, because it is the scheme's error and not the discretisation's.</p>
+<p><strong>What the tessellation costs, and the rule that follows.</strong> A tube's faces are the two halves of a <code>w × a</code> quad. Solving the steady fin problem on the mesh and backing out the effective <code>kδ</code> from the attenuation gives</p>
+<div class='table-wrap'><table>
+<thead><tr><th>ring / arc</th><th><code>kδ_eff / kδ</code></th></tr></thead>
+<tbody>
+<tr><td>0.8</td><td>1.21</td></tr>
+<tr><td>1.0</td><td>1.12</td></tr>
+<tr><td><strong>1.4</strong></td><td><strong>1.00</strong></td></tr>
+<tr><td>2.0</td><td>0.90</td></tr>
+<tr><td>3.0</td><td>0.82</td></tr>
+<tr><td>12.7</td><td>0.75</td></tr>
+</tbody></table></div>
+<p>So: <strong>cut a tube so its rings are about 1.4 times its circumferential arc.</strong> It is exact there and saturates at three quarters of the conductivity it should have for long thin quads — which would render a tube's gradient a quarter too strong, the very error this row exists to remove. <code>configs/scenes/quad_flight_mesh.yaml</code> shipped at 24 × 6, a <strong>12.7 : 1</strong> quad, and is re-cut to 16 × 36 (5.89 mm arc, 8.33 mm ring, <strong>1.41</strong>). A test reads the ratio off the config, because this is a thing a person editing YAML gets wrong.</p>
+<p><strong>Over-resolution stops being an error and becomes a cost.</strong> ADR 0111's rule — cells finer than <code>L</code> resolve structure conduction erases — was stated when nothing on a mesh conducted, so a mesh cut finer than <code>L</code> was <em>wrong</em>, not merely wasteful. With this operator the smoothing happens, and the same scene cut finer returns the same answer for more time. The arm's 5.89 mm arc against carbon fibre's <code>L</code> = 8.8 mm is now a deliberate over-resolution for the picture's sake.</p>
+<p><strong>Measured on the scene.</strong> <code>arm_n</code> on the pad at a 61° sun: crown 42.7 °C over an underside on 27.3 °C, <strong>15.4 K</strong> around the tube, against 26.6 K before <code>WM.4</code> traced the pod's shadow and 22.1 K before this operator. The fin equation predicts the last step: for carbon fibre round a 30 mm tube, <code>L</code> = 8.8 mm against a 94.2 mm circumference gives <code>1/(1 + (2πL/λ)²)</code> = <strong>0.744</strong>, and the operator reproduces that to <strong>1 %</strong> on a near-square cut.</p>
+<p><strong>Still assumed.</strong> One <code>k</code> per material, isotropic and temperature-independent — a CFRP tube conducts several times better along its fibres than across them, and the library carries one number. Conduction is in-plane only: <code>PT.12</code>'s through-thickness layers do not run on a mesh. Non-manifold edges (more than two faces at a seam) conduct nothing, because heat sharing between three sheets is not a two-point flux and guessing at it would be worse than leaving it out.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>An imported asset brings triangles nobody chose — at which point the aspect-ratio rule is no longer something the scene author controls, and either intrinsic Delaunay flipping on a <em>separate</em> solve triangulation (option 2, with a transfer to the render cells) or an MPFA scheme (option 3) becomes worth its complexity; or a material needs an anisotropic <code>k</code>, which neither the library nor the operator can express today.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

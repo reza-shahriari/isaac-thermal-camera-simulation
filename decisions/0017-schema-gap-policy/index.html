@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0017 — Schema-gap policy: fields the spec omits — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0017 — Schema-gap policy: fields the spec omits</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0017-schema-gap-policy.md" target="_blank" rel="noopener">docs/decisions/0017-schema-gap-policy.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#environment-presets-m711">Environment presets (M7.11)</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>docs/physics-model.md</code> §12.2 is the configuration contract, but the physics in §8–§11 needs parameters the block does not list: the housing temperature and its dynamics (§8.2, ADR 0016), the supersample factor (§8.3), the aberration Gaussian and the diffraction reference wavelength (§8.3), a measured vignetting map (§2), and later detector constants (§9). Each could be hard-coded, put in a side file, or added to the schema.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Hard-code defaults in code</strong> — invisible in the YAML that keys every LUT, golden and report; two cameras cannot differ.</li>
+<li><strong>Add required fields</strong> — every existing YAML breaks; the spec block and the files diverge.</li>
+<li><strong>Add optional fields with physically sensible defaults, validated like everything else, and bump <code>schema_version</code></strong> — files without the fields keep loading; the config hash captures the defaults because they are part of the validated model dump; the spec block is patched to list them.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3. Rules:</p>
+<ul>
+<li>A field the spec omits is added to the pydantic schema as <strong>optional with a default</strong>, with units in its name, bounds, and cross-field checks. It is listed in this ADR's table and proposed for §12.2.</li>
+<li><code>schema_version</code> is bumped for every additive change (now <strong>4</strong>: v2 optics fields, v3 detector constants, v4 noise fields); the loader accepts only the current version so a mismatch is loud. Files without <code>schema_version</code> take the current default.</li>
+<li>Defaults must be <em>conservative physics</em>, not convenient zeros, unless zero is the physical "feature absent" (aberration σ = 0, self-heating 0).</li>
+</ul>
+<div class='table-wrap'><table>
+<thead><tr><th>field</th><th>default</th><th>meaning / rule</th></tr></thead>
+<tbody>
+<tr><td><code>optics.housing_temp_k</code></td><td>none</td><td>required when <code>housing_temp_mode: fixed</code></td></tr>
+<tr><td><code>optics.housing_tau_s</code></td><td>none</td><td>first-order lag for <code>coupled</code> (M9.3)</td></tr>
+<tr><td><code>optics.housing_self_heating_k</code></td><td>0</td><td>steady offset above ambient for <code>coupled</code></td></tr>
+<tr><td><code>optics.vignetting_map</code></td><td>none</td><td>path to a measured multiplicative map; required source of fall-off for fisheye models</td></tr>
+<tr><td><code>optics.supersample_factor</code></td><td>4</td><td>render/box-filter factor, 1–8 (§8.3)</td></tr>
+<tr><td><code>optics.mtf.aberration_sigma_um</code></td><td>0</td><td>Gaussian fitted from a slant edge (§8.3)</td></tr>
+<tr><td><code>optics.mtf.reference_wavelength_um</code></td><td>band centre</td><td>λ for ξ_c = 1/(λF)</td></tr>
+<tr><td><code>optics.mtf.apply_motion_mtf</code></td><td>false</td><td>motion term for photon FPAs (ADR 0059)</td></tr>
+<tr><td><code>fpa.absorptance</code> (bolometer)</td><td>0.8</td><td>α_abs of the membrane (§9.2)</td></tr>
+<tr><td><code>fpa.g_th_w_per_k</code> (bolometer)</td><td>1e-7</td><td>thermal conductance G_th; C_th = τ_th·G_th</td></tr>
+<tr><td><code>fpa.bias_current_a</code>, <code>fpa.resistance_ohm</code> (bolometer)</td><td>50 µA, 100 kΩ</td><td>readout constants for R₀ = α β I R / G_th (§9.2), reported only</td></tr>
+<tr><td><code>fpa.read_noise_e</code> (photon)</td><td>none</td><td>σ_read; the noise stage (M4) requires it</td></tr>
+<tr><td><code>fpa.dark_current</code> (photon)</td><td>none</td><td><code>{i_ref_a_per_pixel, t_ref_k, band_gap_ev}</code> Arrhenius sub-model (§9.1)</td></tr>
+<tr><td><code>fpa.fpa_temp_k</code>, <code>fpa.fpa_tau_s</code>, <code>fpa.fpa_self_heating_k</code></td><td>none / none / 0</td><td>FPA thermal node, distinct from the optics housing node (§9.2)</td></tr>
+<tr><td><code>noise.netd_ref_f_number</code></td><td>none (= <code>optics.f_number</code>)</td><td>f-number the datasheet NETD applies at (ADR 0025)</td></tr>
+<tr><td><code>noise.bad_pixel_type_mix</code></td><td>dead 0.4 / hot 0.3 / flickering 0.2 / blinking 0.1</td><td>§10.4 defect classes, must sum to 1</td></tr>
+</tbody></table></div>
+<p>Derived read-only quantities added: <code>detector_active_area_m2</code> (= <code>pixel_area_m2</code>), <code>active_width_um</code> = √fill · pitch (the MTF_det box width, ADR 0020), <code>reference_wavelength_um</code>, <code>cutoff_cyc_per_mm</code>. Rule: <code>vignetting_cos4: true</code> with a non-rectilinear distortion model is refused (ADR 0015).</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Every config hash changes with a schema bump (new leaves in the dump); goldens keyed on config hashes must be regenerated at that point — none exist yet. §12.2 in the spec should be patched to list these fields (spec issue to be added to <code>docs/spec-issues.md</code> by the next docs step).</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>The spec owner adopts or rejects the proposed fields, or a field's default proves to matter for Tier 4 results (then it becomes required).</p>
+<h2 id="environment-presets-m711">Environment presets (M7.11)<a class="anchor" href="#environment-presets-m711" aria-label="permalink">#</a></h2>
+<p><code>irsim.config.environment</code> adds the illumination-model settings §12.2 never listed: the §5.3(a) sky depression ΔT_clear per band and exponent q, the ground mode, the solar glint model, and the §5.5 night terms (airglow level with the unit in the key -- <code>airglow_irradiance_nw_cm2</code> or <code>airglow_irradiance_w_m2</code>, exactly one -- shape file, cloud factor, moon). Ranges are validated against the spec per regime (clear: LWIR ΔT 55–70 K; humid 15–55; overcast 0–15; q 0.5–1.0; airglow 3.5–39 nW cm⁻²) and weather-like keys are refused (CLAUDE.md #6). Three presets live in <code>configs/environments/</code>: clear_dry, humid, overcast. The sky model (MS.2) reads ΔT_clear and q only as the fitted fast path (ADR 0044); the layered atmosphere supplies the physics.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

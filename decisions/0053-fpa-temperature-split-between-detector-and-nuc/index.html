@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0053 — Splitting the T_FPA effects between the detector and the NUC residual — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0053 — Splitting the T_FPA effects between the detector and the NUC residual</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0053-fpa-temperature-split-between-detector-and-nuc.md" target="_blank" rel="noopener">docs/decisions/0053-fpa-temperature-split-between-detector-and-nuc.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-considered">Alternatives considered</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.2 (<code>feat(detector): FPA temperature node and gain/offset(T_FPA) polynomials</code>)</li>
+<li>Spec: docs/physics-model.md §9.2 ("FPA temperature coupling"), §6.4, §11.2</li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>A TEC-less core's focal plane runs above ambient by its own dissipation and lags ambient by its own time constant. Bolometer responsivity and offset are functions of that temperature, so T_FPA is the physical origin of shutterless drift.</p>
+<p>The hazard is double-counting. Two separate places in the model want to depend on T_FPA:</p>
+<ol>
+<li>The detector's <strong>raw</strong> response — what the FPA would produce with no correction applied.</li>
+<li>The <strong>NUC residual</strong> (M9.6) — the non-uniformity that survives a two-point correction which was calibrated at one T_FPA and is being applied at another.</li>
+</ol>
+<p>The config already carries <code>nuc.residual_gain_ppm_per_k</code> and <code>nuc.residual_offset_mk_per_k</code>. If the detector's own gain/offset(T_FPA) were also applied to a corrected image, the same physical effect would be counted twice, and the error would look like a plausible drift rate rather than a bug.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>The two are separate quantities with separate parameters, and they live at separate points in the chain.</strong></p>
+<p><em>Detector (this step, M9.2).</em> <code>gain_of_t</code> and <code>offset_of_t</code> are the raw, uncorrected response. They are large — parts in 10³ per kelvin for gain, DN-scale per kelvin for offset — and represent an image that would be unusable without correction. They are parameterised by the new <code>fpa_gain_coeffs_per_k</code> and <code>fpa_offset_coeffs_dn_per_k</code>, applied in signal space before noise, at the same place the membrane IIR sits (ADR 0052).</p>
+<p><em>NUC residual (M9.6).</em> <code>nuc.residual_*</code> is what is left after the two-point correction, in ppm and mK per kelvin of ΔT_FPA. It is small by construction, because it models a failure of correction rather than the uncorrected response.</p>
+<p><strong>Normalisation is structural, not asserted.</strong> Both polynomials take coefficients in ascending powers of <code>(T_FPA − T_cal)</code> <strong>starting at order 1</strong>, so <code>gain(T_cal) == 1</code> and <code>offset(T_cal) == 0</code> exactly and cannot be authored otherwise. A schema that accepted a constant term would let someone write a gain of 0.98 at the calibration temperature, which is not a temperature effect at all — it is a units error wearing a polynomial's clothes.</p>
+<p><strong>One ambient source (CLAUDE.md #6).</strong> <code>FpaThermalModel</code> accepts the scene's shared <code>WeatherSeries</code> <em>or</em> an explicit ambient provider, never both and never neither. A camera whose focal plane warms on a different day from the one the atmosphere and the thermal solver see is precisely what that non-negotiable exists to prevent, and the constructor raises rather than picking a winner.</p>
+<p><strong>τ and ΔT_self are authored, not C, h and P.</strong> The node is <code>C dT/dt = P − h(T − T_amb)</code>, but only <code>τ = C/h</code> and <code>ΔT_self = P/h</code> are observable from outside the camera. Authoring three numbers to determine two invites them to disagree, and there is no measurement that would settle which of the three was wrong. The energy-balance form is still what the test checks against, by choosing a <code>C</code> and deriving <code>h</code> and <code>P</code> from it.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Sensor schema goes to <strong>version 5</strong>: <code>fpa_temp_mode</code>, <code>fpa_t_cal_k</code>, <code>fpa_gain_coeffs_per_k</code>, <code>fpa_offset_coeffs_dn_per_k</code>. <code>fpa_temp_mode</code> is <code>None</code> by default, so existing configs are unchanged and the node is opt-in until M9.8 wires it into the pipeline.</li>
+<li><code>fpa_temp_mode</code> reuses the housing node's three modes (ADR 0016) deliberately: <code>fixed</code> is a TEC-pinned core and shows no ambient drift at all, which is the control case in the test; <code>ambient</code> is the zero-τ degenerate case; <code>coupled</code> is the lumped node.</li>
+<li>Integration is RK2 (Heun) on the thermal tick, as the roadmap specifies, even though this particular ODE has the same exact exponential solution <code>NewtonCoolingSolver</code> uses. The reason to keep RK2 is that M9.3's housing source and later coupled nodes will not stay first-order and linear, and a single integrator across the node family is worth more than exactness on the one case that happens to be analytic today. The step is exact in the energy sense regardless — the Heun update satisfies <code>C ΔT = (P − h(T_stage − T_amb)) Δt</code> identically, which is what the test asserts to 1e-6.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered<a class="anchor" href="#alternatives-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>One set of T_FPA coefficients, with NUC subtracting most of it.</strong> Rejected: it makes the residual a difference of two large numbers, so the small quantity that actually matters for sim-to-real would carry the numerical error of the large ones.</li>
+<li><strong>Fold T_FPA drift entirely into the NUC residual and give the detector no temperature dependence.</strong> Rejected: it would make the uncorrected image wrong, so <code>nuc.mode: none</code> — a real configuration, and the honest way to model a non-radiometric core with no correction — would show no drift at all, which is the opposite of the truth.</li>
+<li><strong>Author C, h and P.</strong> Rejected as unidentifiable, above.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

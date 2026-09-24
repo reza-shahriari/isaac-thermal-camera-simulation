@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0067 — The reflection lobe: GGX, an explicit split, and a capped glint — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0067 — The reflection lobe: GGX, an explicit split, and a capped glint</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0067-specular-reflection-lobe.md" target="_blank" rel="noopener">docs/decisions/0067-specular-reflection-lobe.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decisions">Decisions</a></li>
+<li class="toc-3"><a href="#1-ggx-not-beckmann">1. GGX, not Beckmann</a></li>
+<li class="toc-3"><a href="#2-the-speculardiffuse-split-is-explicit--because-the-alternative-was-tried-and-measured">2. The specular/diffuse split is explicit — because the alternative was tried and measured</a></li>
+<li class="toc-3"><a href="#3-the-specular-quadrature-is-centred-on-the-mirror-direction-and-that-is-not-an-optimisation">3. The specular quadrature is centred on the mirror direction, and that is not an optimisation</a></li>
+<li class="toc-3"><a href="#4-the-sun-is-not-a-special-case-and-the-glint-is-capped">4. The sun is not a special case, and the glint is capped</a></li>
+<li class="toc-3"><a href="#5-the-incident-field-is-sky-and-ground-with-up-as-a-separate-argument">5. The incident field is sky and ground, with up as a separate argument</a></li>
+<li class="toc-2"><a href="#what-this-measured">What this measured</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§4.3 makes a strong qualitative claim and gives no model: an infrared reflection lobe is "generally <strong>narrower and stronger</strong>" than the same material's visible one, because roughness that scatters 0.5 µm light diffusely can be optically smooth at 10 µm. So painted bodywork and glass show near-mirror sky reflections in LWIR — which is why a car roof reads far below ambient on a clear night — while asphalt and concrete stay near-Lambertian. §5.4 gives solar glint as <code>L = R(θ_i) E_B τ / Ω_sun</code> and nothing about how it spreads.</p>
+<p><code>roughness_per_band</code> has been authored in every material YAML since M7.9 and, like <code>cold_shield_efficiency</code> before M11.5, nothing read it.</p>
+<h2 id="decisions">Decisions<a class="anchor" href="#decisions" aria-label="permalink">#</a></h2>
+<h3 id="1-ggx-not-beckmann">1. GGX, not Beckmann<a class="anchor" href="#1-ggx-not-beckmann" aria-label="permalink">#</a></h3>
+<p>Both are normalised microfacet distributions and both are defensible. GGX (Trowbridge–Reitz) is chosen for its power-law tails: a thermal reflection's <em>tail</em> is what puts a faint warm smear around a hot reflection instead of a hard-edged disc, and that smear is the part a detector trained on synthetic imagery will or will not have seen. Roughness maps to the NDF width as <strong>α = roughness²</strong> (the Disney/Burley convention), which is what makes the library's authored numbers behave the way their own comments intend: glass 0.03 → α = 9e-4, a near mirror; asphalt 0.80 → α = 0.64, essentially Lambertian. Using roughness directly as α would leave glass visibly blurred and compress every interesting material into the top of the range.</p>
+<h3 id="2-the-speculardiffuse-split-is-explicit--because-the-alternative-was-tried-and-measured">2. The specular/diffuse split is explicit — because the alternative was tried and measured<a class="anchor" href="#2-the-speculardiffuse-split-is-explicit--because-the-alternative-was-tried-and-measured" aria-label="permalink">#</a></h3>
+<p>The tidy version of this module carries one GGX kernel and lets roughness → 1 produce the diffuse answer, with no invented weight anywhere. It does not work, and the reason is worth recording: <strong>a microfacet lobe does not converge to Lambertian.</strong> At α = 1 GGX is uniform in the half-vector, and the resulting reflection kernel sits a <strong>total-variation distance of 0.30</strong> from the cosine hemisphere — reading a test sky 4.7 units warmer out of 280, 1.7 % — and it does not improve as α grows further. A test measures exactly this, so the decision stays visible rather than becoming folklore.</p>
+<p>So:</p>
+<p>K(ω_i) = w_s · K_GGX(ω_i) + (1 − w_s) · cos θ_i / π,   ∫K dω_i = 1,   w_s = (1 − roughness)² L_reflected = ρ · ∫ K(ω_i) L_incident(ω_i) dω_i</p>
+<p>Energy is conserved by construction — the reflected coefficient is <strong>exactly ρ for every roughness, to 1e-12</strong> — and both endpoints are exact rather than fitted: roughness 0 reads L_sky(mirror direction) to 1e-6, roughness 1 reads the M7.13 V_s blend to 1e-6.</p>
+<p>The <strong>(1 − r)²</strong> shape is a modelling choice. Its check is §4.3's own prose, reproduced from the library's authored values without being fitted to them:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>material</th><th>LWIR roughness</th><th>specular share</th></tr></thead>
+<tbody>
+<tr><td>glass windshield</td><td>0.03</td><td><strong>94 %</strong></td></tr>
+<tr><td>painted bodywork</td><td>0.12</td><td><strong>77 %</strong></td></tr>
+<tr><td>asphalt</td><td>0.70</td><td><strong>9 %</strong></td></tr>
+</tbody></table></div>
+<p>That is "painted bodywork and glass show near-mirror sky reflections in LWIR … asphalt and concrete stay near-Lambertian even in LWIR", as numbers. A linear weight would leave asphalt 30 % specular and visibly mirror-like, which §4.3 says it is not.</p>
+<h3 id="3-the-specular-quadrature-is-centred-on-the-mirror-direction-and-that-is-not-an-optimisation">3. The specular quadrature is centred on the mirror direction, and that is not an optimisation<a class="anchor" href="#3-the-specular-quadrature-is-centred-on-the-mirror-direction-and-that-is-not-an-optimisation" aria-label="permalink">#</a></h3>
+<p>The first version put both parts on one grid tied to the surface normal. At α = 1e-4 that grid cannot see a lobe 1° wide at all, and a glass windshield came out <strong>0.09 units short</strong> of the exact mirror answer — a bias, not noise, and in the direction that makes shiny surfaces look less shiny. The specular part is now quadratured in a cone about the mirror direction, sized to hold 99.99 % of the GGX half-angle distribution; the diffuse part keeps the normal-aligned cosine quadrature, where it is exact. Below-horizon directions get zero weight and the remainder is renormalised — the same G = 1 simplification as the kernel itself, applied consistently.</p>
+<h3 id="4-the-sun-is-not-a-special-case-and-the-glint-is-capped">4. The sun is not a special case, and the glint is capped<a class="anchor" href="#4-the-sun-is-not-a-special-case-and-the-glint-is-capped" aria-label="permalink">#</a></h3>
+<p>The sun arrives through the same kernel, as a small very bright patch of the incident field: <code>L_glint = ρ w_s · min(K(ŝ)·Ω_sun, 1) · E_B τ_sun / (Ω_sun cos θ_s)</code>, reducing to §5.4's form in the mirror limit.</p>
+<p>The <strong>cap is physics, not a guard</strong>. A microfacet NDF evaluated at its peak claims 1/(πα²) sr⁻¹, which for glass (α = 9e-4) is 4e5 — enough to render a glint four orders of magnitude brighter than the sun that caused it. <code>min(K·Ω_sun, 1)</code> says a mirror shows you the sun, not something brighter, and it is what makes the smooth end of the roughness range physical instead of divergent.</p>
+<h3 id="5-the-incident-field-is-sky-and-ground-with-up-as-a-separate-argument">5. The incident field is sky <strong>and ground</strong>, with <code>up</code> as a separate argument<a class="anchor" href="#5-the-incident-field-is-sky-and-ground-with-up-as-a-separate-argument" aria-label="permalink">#</a></h3>
+<p><code>incident_field</code> takes the <strong>world</strong> up axis, not the surface normal. A near-vertical windshield or a ship's flank reflects ground over half its lobe, and a model that sampled only the sky would render it far too cold. Passing the normal by mistake would give a vertical panel a sky in every direction; the argument exists to make that mistake explicit, and a test pins it.</p>
+<h2 id="what-this-measured">What this measured<a class="anchor" href="#what-this-measured" aria-label="permalink">#</a></h2>
+<p>MWIR glint, 60° sun, camera in the specular direction, ρ = 0.10, τ_sun = 0.82, against a 300 K scene (Lb = 2.04 W m⁻² sr⁻¹) — the §5.4 headline as a roughness sweep:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>roughness</th><th>glint / Lb(300 K)</th><th>apparent temperature</th></tr></thead>
+<tbody>
+<tr><td>0.03 (glass)</td><td><strong>1.4e4</strong></td><td>&gt; 1000 K (off the top of the LUT)</td></tr>
+<tr><td>0.12 (paint)</td><td>6.3e2</td><td>698 K</td></tr>
+<tr><td>0.30</td><td>5.6</td><td>357 K</td></tr>
+<tr><td>0.60</td><td>0.13</td><td>252 K — <em>below</em> ambient, i.e. invisible</td></tr>
+</tbody></table></div>
+<p>Glint is a smooth-surface phenomenon and it is gone by roughness 0.3. Off the specular direction it is below 1e-6 of the peak; at night, or with the sun below the horizon, it is <strong>exactly</strong> zero.</p>
+<p>In LWIR, a ρ = 0.9 flat mirror at 30° elevation under a clear US-Standard sky reads more than <strong>30 K below its own 300 K surface temperature</strong>, and matches <code>Lb⁻¹(ε Lb(T_s) + ρ Lb(T_sky(30°)))</code> to under 0.1 K. That is the car-roof effect, and it is the reason §4.3 exists.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>irsim/materials/lobe.py</code> is engine-free and is the <strong>oracle</strong>: ~2·40·64 direction evaluations per surface, which is not what a renderer would run. A cubemap probe or an importance-sampled estimator is; this is what those get checked against.</li>
+<li><code>irsim/pipeline/specular.py</code> binds it to the <code>SkyModel</code> and to M11.3's solar band irradiance. Neither is wired into <code>run_frame</code> yet: stage 1's reflected term is still the M7.13 V_s blend, which is exactly the roughness → 1 limit of this model, so nothing rendered so far changes. Wiring it per pixel is a later step and needs the per-pixel <strong>normal</strong>, which the G-buffer currently carries only as <code>normal_dot_view</code>.</li>
+<li>Fresnel R(θ_i) is <em>not</em> multiplied in: ρ from the material's Kirchhoff closure is the magnitude and the lobe is only the distribution. Using both would count the reflectance twice.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>Stage 1 wires the lobe per pixel. That needs a world-space normal in the G-buffer, and it is where the oracle's cost stops being acceptable.</li>
+<li>A measured BRDF exists for any material in the library. <code>(1 − r)²</code> is the first thing to refit.</li>
+<li>Shadowing/masking matters — i.e. at grazing view angles on rough surfaces, where G = 1 and renormalisation start to differ from Smith's G noticeably.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

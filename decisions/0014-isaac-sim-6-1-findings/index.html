@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0014 — Isaac Sim 6.1 findings: transport ids and geometry, not temperature — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0014 — Isaac Sim 6.1 findings: transport ids and geometry, not temperature</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0014-isaac-sim-6-1-findings.md" target="_blank" rel="noopener">docs/decisions/0014-isaac-sim-6-1-findings.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-3"><a href="#the-build-every-number-below-comes-from">The build every number below comes from</a></li>
+<li class="toc-2"><a href="#what-was-measured">What was measured</a></li>
+<li class="toc-3"><a href="#m22--the-gate-temperature-in-emission-fails-as-specified">M2.2 — the gate: temperature in emission (fails as specified)</a></li>
+<li class="toc-3"><a href="#what-does-transport-exactly">What does transport exactly</a></li>
+<li class="toc-3"><a href="#m23--spg-capabilities-rtxcameraauthorspgspgnode-one-render-product-per-graph">M2.3 — SPG capabilities (RtxCamera.authorspg(SPGNode(...)), one render product per graph)</a></li>
+<li class="toc-3"><a href="#things-that-cost-time-and-are-worth-knowing">Things that cost time and are worth knowing</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-12--geometry-aovs-on-a-lit-tilted-moving-scene-m101">Addendum 2026-09-12 — geometry AOVs on a lit, tilted, moving scene (M10.1)</a></li>
+<li class="toc-3"><a href="#decisions-that-follow">Decisions that follow</a></li>
+<li class="toc-3"><a href="#revisit-when-1">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-12--instance-ids-are-only-per-prim-on-instanceidsegmentation-m102">Addendum 2026-09-12 — instance ids are only per-prim on instanceidsegmentation (M10.2)</a></li>
+<li class="toc-3"><a href="#decisions-that-follow-1">Decisions that follow</a></li>
+<li class="toc-3"><a href="#revisit-when-2">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-12--warp-does-not-need-kit-the-equivalence-harness-is-a-seconds-long-check">Addendum 2026-09-12 — Warp does not need Kit; the equivalence harness is a seconds-long check</a></li>
+<li class="toc-3"><a href="#decisions-that-follow-2">Decisions that follow</a></li>
+<li class="toc-3"><a href="#revisit-when-3">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m1019-2026-09-12-camera3dpositionsd-is-in-camera-space-not-world-space">Addendum (M10.19, 2026-09-12): Camera3dPositionSD is in camera space, not world space</a></li>
+<li class="toc-2"><a href="#addendum-m24-close-out-2026-09-15-the-position-aov-is-camera-space-and-nothing-supplies-occlusion">Addendum (M2.4 close-out, 2026-09-15): the position AOV is camera space, and nothing supplies occlusion</a></li>
+<li class="toc-3"><a href="#the-position-aov-is-camera-space-it-always-was-on-every-scene-here">The position AOV is camera space. It always was, on every scene here.</a></li>
+<li class="toc-3"><a href="#nothing-on-this-build-supplies-ambient-occlusion">Nothing on this build supplies ambient occlusion</a></li>
+<li class="toc-3"><a href="#decisions-that-follow-3">Decisions that follow</a></li>
+<li class="toc-3"><a href="#revisit-when-4">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m109a-ii-2026-09-14-only-pathtracing-yields-a-lit-colour-aov">Addendum (M10.9a-ii, 2026-09-14): only PathTracing yields a lit colour AOV</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>docs/physics-model.md</code> §13.1/§13.3, the <code>isaac-sim-spg</code> skill and roadmap M2 assumed the renderer could carry an encoded surface temperature <code>c = (T − 200)/800</code> in an emissive colour AOV with a <strong>float32</strong> channel (<code>PtSelfIllumination</code>, or <code>HdrColor</code> at zero bounces), and that the RTX Sensor Processing Graph (<code>omni.rtx.spg</code>) could hold cross-frame state and read a LUT file. None of that had been checked on a real build. Roadmap M2 is the time-boxed gate spike that checks it before any pipeline code depends on it. This ADR records what was measured (<code>src/irsim_isaac/probe.py</code>, <code>src/irsim_isaac/spg_probe.py</code>, <code>scripts/probe_isaac_environment.py</code>, <code>scripts/probe_isaac_spg.py</code>; reports under the git-ignored <code>outputs/isaac_probe/</code>) and the design that follows.</p>
+<h3 id="the-build-every-number-below-comes-from">The build every number below comes from<a class="anchor" href="#the-build-every-number-below-comes-from" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>item</th><th>measured</th></tr></thead>
+<tbody>
+<tr><td>Isaac Sim</td><td><strong>6.1.0-rc.26</strong> (<code>isaacsim.core.version.get_version()</code>), source build at <code>/home/hunter/IsaacSim</code>; CLAUDE.md, README and §13 say "6.0" (spec-issues T16)</td></tr>
+<tr><td>Kit</td><td>110.3.0+feature.371399.00c488ae.gl; real-time render mode is named <code>RealTimePathTracing</code> (the setting value <code>RaytracedLighting</code> is silently ignored)</td></tr>
+<tr><td><code>omni.rtx.spg</code></td><td>0.4.0, present and enabled by default; docs and Lua stubs live in the extension folder (<code>docs/Overview.md</code>, <code>.luarc/cuda.lua</code>)</td></tr>
+<tr><td><code>isaacsim.sensors.experimental.rtx</code></td><td>1.9.0: <code>RtxCamera</code>, <code>CameraSensor</code>, <code>TiledCameraSensor</code>, <code>SPGNode</code>, <code>author_spg</code></td></tr>
+<tr><td>deprecated <code>isaacsim.sensors.camera</code> / <code>.rtx</code></td><td>present in <code>extsDeprecated/</code>, enabled, not imported by <code>irsim_isaac</code> (guarded by <code>test_environment.py</code>)</td></tr>
+<tr><td>Warp</td><td>1.16.0 from the <code>omni.warp.core</code> Kit extension; one CUDA device (RTX A6000 48 GB, driver 580.173.02). Recorded here as "importable only inside a running Kit"; <strong>corrected by the 2026-09-12 addendum below</strong> — the extension is a plain package and <code>has_warp()</code> is False only until <code>sys.path</code> includes it</td></tr>
+<tr><td>Replicator</td><td><code>omni.replicator.core</code> 1.13.36, <code>omni.syntheticdata</code> 0.6.17</td></tr>
+<tr><td>Kit boot</td><td>14–35 s headless; <code>SimulationApp.close()</code> ends in <code>os._exit</code>, so the pytest session fixture closes the app from an <code>atexit</code> handler after pytest has reported</td></tr>
+</tbody></table></div>
+<h2 id="what-was-measured">What was measured<a class="anchor" href="#what-was-measured" aria-label="permalink">#</a></h2>
+<h3 id="m22--the-gate-temperature-in-emission-fails-as-specified">M2.2 — the gate: temperature in emission (fails as specified)<a class="anchor" href="#m22--the-gate-temperature-in-emission-fails-as-specified" aria-label="permalink">#</a></h3>
+<p>Scene: 64 flat OmniPBR quads (UsdShade authoring: <code>Shader</code> with <code>OmniPBR.mdl</code>, <code>enable_emission</code>, <code>emissive_color = (c, c, c)</code> in raw colour space, <code>diffuse_color_constant = (id/255, 0, 0)</code>), a temperature ramp 200–1000 K including 300.000 / 300.050 / 300.100 K, camera at the origin looking −Z, no lights, 256², DLSS off (<code>/rtx/post/aa/op = 0</code>). Read back through Replicator annotators in real-time mode and in path tracing at 0 / 1 / 4 bounces, emissive intensity 1 and 40.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>AOV</th><th>dtype</th><th>resolution</th><th>result</th></tr></thead>
+<tbody>
+<tr><td><code>HdrColor</code></td><td><strong>float16</strong> ×4</td><td>256²</td><td>linear in colour × intensity with slope <strong>≈ 2.8 × 10⁻⁴</strong> (0.00028 at intensity 1, 0.0112 at 40): an exposure scale, not a unit gain; at intensity 1 the whole ramp sits in the fp16 subnormal/denormal range</td></tr>
+<tr><td><code>LdrColor</code></td><td>uint8 ×4</td><td>256²</td><td>auto-exposed (ramp reads 0 at intensity 1, 0–16 at 40)</td></tr>
+<tr><td><code>PtSelfIllumination</code>, <code>PtDirectIllumation</code>, <code>PtGlobalIllumination</code>, <code>PtBackground</code></td><td><strong>float16</strong> ×4</td><td>256²</td><td>8.8 × 10⁻⁴ floor with a ≈ 2.4 × 10⁻⁴ per unit-c signal on top at 4 bounces; constant at 0 bounces</td></tr>
+<tr><td><code>GroundTruthEmission</code>, <code>GroundTruthEmissionAndForegroundMask</code>, <code>GroundTruthDiffuseAlbedo</code>, <code>GroundTruthAmbientOcclusion</code></td><td>float32 (registered)</td><td>—</td><td><strong>no data returned</strong></td></tr>
+<tr><td><code>EmissionAndForegroundMask</code>, <code>DiffuseAlbedo</code>, <code>BumpNormal</code></td><td>fp16 / uint8 / float32</td><td><strong>128²</strong> even with DLSS off</td><td>not usable at full resolution</td></tr>
+<tr><td><code>AmbientOcclusion</code>, <code>SmoothNormal</code>, <code>Motion2d</code> (real-time)</td><td>—</td><td>—</td><td>no data on the unlit, static ramp scene</td></tr>
+</tbody></table></div>
+<p>fp16 has 11 significant bits: at c = 0.125 (300 K) its spacing is 1.2 × 10⁻⁴ → <strong>≈ 100 mK</strong>, ten times the 10 mK bound, and the measured scale factor puts the values far from where the pair codec of ADR 0006 was designed to run. A control quad with grey 0.5 read 6 × 10⁻⁸ at intensity 1. The materials authored through <code>CreateMdlMaterialPrimCommand</code> + <code>omni.usd.create_material_input</code> silently emitted nothing; only the UsdShade path works.</p>
+<h3 id="what-does-transport-exactly">What does transport exactly<a class="anchor" href="#what-does-transport-exactly" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>channel</th><th>dtype / shape</th><th>measured</th></tr></thead>
+<tbody>
+<tr><td><code>instance_segmentation</code>, <code>semantic_segmentation</code>, <code>instance_id_segmentation</code> (<code>colorize=False</code>)</td><td>uint32, 256²</td><td><strong>64 / 64 quad centres carry distinct non-background ids, every 5 × 5 centre window is a single id</strong> (no edge blending); <code>idToLabels</code> maps id → prim path or <code>{"class": label}</code>; 0 = background, 1 = unlabelled</td></tr>
+<tr><td><code>Camera3dPositionSD</code>, <code>PtWorldPos</code></td><td>float32 ×4, 256²</td><td>world position; mean error vs the authored quad centres (3.45, 3.37, 0.0) mm in (x, y, z), max 6.5 mm — one pixel at 2 m is 6.8 mm</td></tr>
+<tr><td><code>DistanceToCameraSD</code></td><td>float32, 256²</td><td><strong>Euclidean ray length</strong> (1.0 mm mean error), <code>inf</code> where nothing is hit</td></tr>
+<tr><td><code>DistanceToImagePlaneSD</code></td><td>float32, 256²</td><td><strong>z-depth</strong> (0.0 mm error); <code>PtZDepth</code> is float16 and reads 1.0</td></tr>
+<tr><td><code>PtWorldNormal</code></td><td>float32 ×4</td><td>(0, 0, 1) at 4 bounces, zeros at 0–1 bounces</td></tr>
+</tbody></table></div>
+<h3 id="m23--spg-capabilities-rtxcameraauthorspgspgnode-one-render-product-per-graph">M2.3 — SPG capabilities (<code>RtxCamera.author_spg(SPGNode(...))</code>, one render product per graph)<a class="anchor" href="#m23--spg-capabilities-rtxcameraauthorspgspgnode-one-render-product-per-graph" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>experiment</th><th>result</th></tr></thead>
+<tbody>
+<tr><td>(a) float32 pass-through</td><td><strong>bit-identical</strong>: <code>DistanceToCameraSD</code>, <code>DistanceToImagePlaneSD</code>, <code>Camera3dPositionSD</code> (<code>inf</code> pattern identical, max diff 0.0); <code>LdrColor</code> identical; <code>HdrColor</code> identical on the fp16 grid. Read through <code>register_annotator_from_aov(output_data_type=np.float32)</code>. Two nodes on one product work</td></tr>
+<tr><td>(b) cross-frame state</td><td><strong>none</strong>: a <code>cuda.static</code> buffer from <code>cuda.array</code> or <code>cuda.zeros</code> reads 1 every frame after an in-kernel <code>atomicAdd</code> (re-initialised per frame); <code>cuda.empty</code> is an output descriptor, not a kernel argument (<code>args[3] missing 'name' field</code>); wiring the node's output AOV back into its own input yields no output at all, silently. Lua file-scope variables <strong>do</strong> persist (the launch function runs once per rendered frame) and <code>rtx.frameId</code> exists, advancing 6–7 per <code>rep.orchestrator.step()</code></td></tr>
+<tr><td>(c) LUT delivery</td><td><code>io.</code> is a forbidden token: the sandbox validator rejects the <strong>whole file</strong> textually (<code>LuaSandbox: Lua source rejected - forbidden pattern 'io.' found</code>). A 16 001-entry Lua literal at file scope <strong>crashes the Kit process</strong> under the default <code>/rtx/spg/lua/instructionLimit = 1000</code> (<code>lua_error</code> inside <code>librtx.spg.fabric</code>), a 256-entry literal works, a Lua loop fails cleanly (<code>Lua script execution limit exceeded</code>); with the limit raised to 10⁷ (settable at runtime) both forms work and match NumPy exactly. A <strong><code>__device__ const float[16001]</code> baked into the <code>.cu</code></strong> (205 kB source) compiles under NVRTC in ≈ 1 s and matches NumPy exactly under default limits</td></tr>
+<tr><td>hazard</td><td>a kernel that fails to load (wrong symbol name: SPG resolves the CUDA function by the node's <code>sub_identifier</code>) still produces a <strong>zero-filled output with status ok</strong></td></tr>
+</tbody></table></div>
+<h3 id="things-that-cost-time-and-are-worth-knowing">Things that cost time and are worth knowing<a class="anchor" href="#things-that-cost-time-and-are-worth-knowing" aria-label="permalink">#</a></h3>
+<p><code>rep.create.render_product(path, (w, h))</code> and <code>CameraSensor(cam, resolution=(h, w))</code> give the same pixels; <code>CameraSensor</code> also applies <code>OmniRtxCameraExposureAPI_1</code> / <code>OmniRtxCameraAutoExposureAPI_1</code> to the camera — that schema is where the colour scale above lives. In one run a camera prim pre-authored with <code>UsdGeom.Camera.Define</code> and then wrapped by <code>RtxCamera</code> rendered all-<code>inf</code> depth; letting <code>RtxCamera(path)</code> create the prim and setting focal length / apertures / clipping afterwards worked in every later run (not root-caused). Prim names may not contain <code>.</code>. Path tracing with <code>maxBounces = 0</code> degenerates every <code>Pt*</code> AOV to a constant. <code>SimulationApp</code> parses its own command line with <code>parse_known_args</code>, so runner scripts may add arguments.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Temperature in emission through the fp16 colour path</strong> — ≈ 100 mK at best; fails CLAUDE.md #2 and the gate. Rejected.</li>
+<li><strong>fp16 coarse/fine pair (ADR 0006 fallback) through the exposure scale</strong> — possible in principle (the fp16 error after scaling is about half the coarse-bin spacing), but it depends on an undocumented per-camera exposure constant and every tonemap, colour-management or exposure setting change would break it silently — exactly the failure mode CLAUDE.md #2 warns about. Rejected; kept as the documented fallback only if a colour path is ever unavoidable.</li>
+<li><strong>A float32 emission AOV</strong> — <code>GroundTruthEmission*</code> return no data and there is no documented way to add a float32 renderer AOV from Python in this build. Rejected until it appears.</li>
+<li><strong>Transport ids and geometry, look the temperature up</strong> — the renderer emits exact integer instance/semantic ids and float32 position / distance at full resolution; the per-facet temperature lives in a float32 table on the Warp side, filled by the thermal bridge. No quantisation at all, and the material-id transport question (M2.4, R4) is answered by the same channel. <strong>Chosen.</strong></li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>The G-buffer's <code>temperature_k</code> plane is assembled in Warp from <code>instance_segmentation</code> and a float32 facet table</strong>, not decoded from a colour AOV. The <code>GBuffer</code> contract (M0.6) is unchanged; <code>encoded_t</code> becomes optional and is never produced by the Isaac adapter. <code>material_id</code> comes from the same id channel through the resolver (M10.2). Sky pixels are background id 0 and take their radiance from the per-pixel ray direction (<code>Camera3dPositionSD</code>) and the MS.2 sky model; no emissive dome is needed.</li>
+<li><strong>Geometry AOVs:</strong> <code>DistanceToCameraSD</code> for path length, <code>DistanceToImagePlaneSD</code> only where z-depth is wanted, <code>Camera3dPositionSD</code> for world position; all read at full resolution with <code>/rtx/post/aa/op = 0</code>. Normals, ambient occlusion and motion vectors are re-probed by M10.1 on a lit, moving, tilted-geometry scene (they returned nothing on the unlit static ramp).</li>
+<li><strong>SPG</strong> hosts stateless stages only. Stages 4–5 (bolometer IIR, drift, RTS) stay in Warp (M10.13c/d deferred; ADR 0061 records it). Band LUTs reach SPG kernels <strong>baked into the generated <code>.cu</code> as <code>__device__</code> arrays</strong> (M10.12); the Lua launch script stays small and the sandbox limits are never raised as a dependency. <code>FileCapture</code>-style tests compare values, never just presence, because of the zero-filled-on-failure hazard.</li>
+<li><strong>Version pin:</strong> the facts above hold for Isaac Sim 6.1.0-rc.26 / Kit 110.3.0 / <code>omni.rtx.spg</code> 0.4.0 / <code>isaacsim.sensors.experimental.rtx</code> 1.9.0 / Warp 1.16.0. No <code>warp-lang</code> extra is added to <code>pyproject.toml</code>: Warp is a Kit extension and a pip copy would shadow it.</li>
+<li><code>tests/integration/test_environment.py</code> and <code>test_isaac_transport.py</code> pin the build facts, the exact ids, the float32 geometry, the bit-exact SPG pass-through <strong>and the fp16 finding itself</strong>, so a build that changes any of them fails a test instead of silently changing the physics.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Temperature is exact at <strong>facet (prim / instance) granularity</strong> and constant within a facet. Sub-facet gradients (an engine bay hot spot on one mesh) are not represented until meshes are split per thermal facet or an id-per-face channel exists — a future ADR under M10.3. The error is bounded by the thermal model's own facet size, which is where the temperature is solved anyway.</li>
+<li>Ids do not blend, so object edges are hard at the id level; edge radiance must be anti-aliased by supersampling the id/geometry buffers and filtering <strong>radiance</strong>, never ids (M3 / M10 kernels).</li>
+<li>Position and distance carry one pixel of quantisation (≈ 3.4 mm at 2 m and 256²): negligible for path length (1.7 × 10⁻³ relative here, far less at range).</li>
+<li>The phase-1 thermal bridge (M10.18) writes a table, not USD emissive colours: cheaper per frame and no <code>Sdf.ChangeBlock</code> traffic.</li>
+<li>The Warp reference pipeline is the production path until <code>omni.rtx.spg</code> gains state; SPG stays an optimisation for stages 1–3.</li>
+<li>§13.1/§13.3 and the skill's AOV table are now wrong for this build (spec-issues T17); the spec owner rewrites them.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>test_colour_aovs_are_float16_in_this_build</code> fails — a float32 colour or custom AOV appeared.</li>
+<li><code>omni.rtx.spg</code> documents persistent buffers or feedback edges (then M10.13c/d come back).</li>
+<li>A target needs sub-facet temperature structure (id-per-face or a UV temperature texture).</li>
+<li>Isaac Sim moves off the 6.1 line; re-run <code>scripts/probe_isaac_environment.py</code> and <code>scripts/probe_isaac_spg.py</code> and diff the reports against this ADR.</li>
+</ul>
+<hr>
+<h2 id="addendum-2026-09-12--geometry-aovs-on-a-lit-tilted-moving-scene-m101">Addendum 2026-09-12 — geometry AOVs on a lit, tilted, moving scene (M10.1)<a class="anchor" href="#addendum-2026-09-12--geometry-aovs-on-a-lit-tilted-moving-scene-m101" aria-label="permalink">#</a></h2>
+<p>The decision above was measured on an unlit, static, front-parallel ramp with the camera at the world origin. On that scene the normals, ambient-occlusion and motion annotators returned nothing, and a world-space and a camera-space channel were numerically identical, so four questions were left open. <code>scripts/probe_isaac_geometry.py</code> answers them on the M10.1 scene (<code>src/irsim_isaac/geometry_probe.py</code>): lit by a distant light, a sphere and a 24° tilted quad, plates facing up / sideways / down, a translating bar, and the <strong>camera at (2, 1, 5)</strong> rather than the origin. Same build as above (6.1.0-rc.26 / Kit 110.3.0 / Replicator 1.13.36), 384² render product, <code>/rtx/post/aa/op = 0</code>.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>channel</th><th>annotator</th><th>dtype</th><th>shape</th><th>verdict</th></tr></thead>
+<tbody>
+<tr><td>distance</td><td><code>DistanceToCameraSD</code></td><td>float32</td><td>384²</td><td><strong>use.</strong> Euclidean ray length; <code>inf</code> where nothing is hit. <code>DistanceToImagePlaneSD</code> (z-depth) also delivers and must not be substituted</td></tr>
+<tr><td>position</td><td><code>Camera3dPositionSD</code></td><td>float32 ×4</td><td>384²</td><td><strong>use.</strong> <strong>Camera space</strong> (misses sit 1000 m down the ray). This row said <em>world</em> until M2.4 re-read it; the probe it cites reported <code>camera</code> even here, and the correction is the M2.4 addendum below. <code>PtWorldPos</code> delivers at 192² only</td></tr>
+<tr><td>normal</td><td><code>normals</code></td><td>float32 ×4</td><td>384²</td><td><strong>use.</strong> <strong>World space</strong> (see the pitch test below)</td></tr>
+<tr><td>normal</td><td><code>PtWorldNormal</code></td><td>float16 ×4</td><td><strong>192²</strong></td><td><strong>do not use.</strong> Attaches, returns data, and is <strong>all zero</strong></td></tr>
+<tr><td>normal</td><td><code>BumpNormal</code></td><td>float32 ×4</td><td>192²</td><td>unusable: half resolution, values up to ±3 × 10³⁸</td></tr>
+<tr><td>normal</td><td><code>SmoothNormal</code></td><td>—</td><td>—</td><td>no data; <code>NormalSD</code> / <code>PtSmoothNormal</code> are not registered</td></tr>
+<tr><td>occlusion</td><td><code>AmbientOcclusion</code></td><td>—</td><td>—</td><td><strong>no data</strong> on a lit scene either; no alternative name is registered</td></tr>
+<tr><td>motion</td><td><code>motion_vectors</code></td><td>float32 ×4</td><td>384²</td><td><strong>carries no motion.</strong> A constant ≈ 6 × 10⁻⁵ floor after displacements of 3 px <strong>and 180 px</strong></td></tr>
+<tr><td>motion</td><td><code>Motion2d</code></td><td>—</td><td>—</td><td>no data (<code>SdPostRenderVarToHost: invalid input resource</code>)</td></tr>
+<tr><td>instance / semantic</td><td><code>instance_segmentation</code>, <code>instance_id_segmentation</code>, <code>semantic_segmentation</code></td><td>uint32</td><td>384²</td><td><strong>use.</strong> 7 distinct ids for 6 targets plus background, as ADR 0014 found</td></tr>
+</tbody></table></div>
+<p><strong>The normals frame.</strong> With an axis-aligned camera a world-space and a camera-space normal are the same numbers, so the scene cannot distinguish them — and getting it wrong silently corrupts every angular emissivity and sky-view factor downstream. Pitching the camera 20° breaks the degeneracy: the up-facing plate's normal must stay exactly <code>(0, 1, 0)</code> in world space, where a camera-space normal would read <code>cos 20° = 0.940</code> on the up axis. Measured <code>max |n·up| &gt; 0.99</code> (<code>test_normals_are_world_space_not_camera_space</code>), so the AOV is world space.</p>
+<p><strong>Resolution is a trap, not a detail.</strong> Several AOVs come back at the renderer's internal resolution (192² for a 384² product) whether or not AA is off, and a plane at the wrong resolution misaddresses every pixel lookup without raising anything. <code>configure_renderer()</code> exists so no caller forgets <code>/rtx/post/aa/op = 0</code>, and <code>AovReader</code> rejects a required channel whose shape does not match the render product.</p>
+<h3 id="decisions-that-follow">Decisions that follow<a class="anchor" href="#decisions-that-follow" aria-label="permalink">#</a></h3>
+<ul>
+<li><strong>The adapter's annotator preference order is a measurement.</strong> <code>normals</code> before <code>PtWorldNormal</code>, <code>motion_vectors</code> before <code>Motion2d</code>. <code>irsim_isaac.pipeline.gbuffer_isaac.AOV_NAMES</code> is the single place it is written down, and <code>scripts/probe_isaac_geometry.py</code> regenerates the evidence.</li>
+<li><strong>A required channel that returns an all-zero buffer is a failure, not data.</strong> This is the same hazard the SPG lane already records (a kernel that fails to load still produces a zero-filled output with status ok). <code>PtWorldNormal</code> would otherwise have produced a G-buffer that passes the M0.6 schema and contains no surface orientation at all.</li>
+<li><strong><code>sky_view_factor</code> uses the unoccluded geometric form</strong> <code>V_s = (1 + n·up)/2</code>, because no ambient occlusion AOV delivers. This is exact for the open-sky aerial scenes of phase 1 (ADR 0003) and optimistic for a cluttered ground scene, where a wall in a street sees less sky than the formula says. Phase 2 needs either a working AO AOV or the §5.3(b) irradiance cubemap.</li>
+<li><strong><code>motion_px</code> is omitted from the Isaac G-buffer.</strong> It is optional in the M0.6 contract, so nothing downstream breaks today; what does not work today is motion MTF and bolometer smear <em>in-sim</em> (M10.11, M10.19), which need per-pixel image-plane velocity. The cheap fix, when those steps arrive, is to synthesise it analytically from the per-prim transforms and the camera pose rather than from an AOV — exact for rigid targets, and it removes a renderer dependency. That is a step, not a silent addition to M10.1; it is on the roadmap as M10.1b.</li>
+<li><strong>Temperature and material id are still not renderer-transported.</strong> Unchanged from the main decision: <code>to_gbuffer()</code> takes them as float32 facet-table lookups keyed by instance id.</li>
+</ul>
+<h3 id="revisit-when-1">Revisit when<a class="anchor" href="#revisit-when-1" aria-label="permalink">#</a></h3>
+<ul>
+<li><code>test_motion_aov_does_not_transport_motion_on_this_build</code> fails — the channel started working; determine its units and wire <code>motion_px</code> instead of synthesising it.</li>
+<li><code>AmbientOcclusion</code> returns data — then <code>V_s</code> picks up real occlusion for ground scenes. <code>test_no_ambient_occlusion_aov_delivers_on_this_build</code> is what notices (added in M2.4; until then this line was a hope, not a trigger).</li>
+<li><code>PtWorldNormal</code> stops being all-zero, or any of these AOVs changes resolution or dtype; the integration tests pin each of those facts and will fail first.</li>
+</ul>
+<hr>
+<h2 id="addendum-2026-09-12--instance-ids-are-only-per-prim-on-instanceidsegmentation-m102">Addendum 2026-09-12 — instance ids are only per-prim on <code>instance_id_segmentation</code> (M10.2)<a class="anchor" href="#addendum-2026-09-12--instance-ids-are-only-per-prim-on-instanceidsegmentation-m102" aria-label="permalink">#</a></h2>
+<p>The main decision above rests on "the renderer emits exact integer instance/semantic ids", measured as 64 distinct ids at 64 quad centres. That measurement is correct but its scene was special: the ramp's <code>label_quads()</code> applied a <code>class</code> semantic to <strong>every</strong> quad. On the M10.2 stage, where only one prim of five carries a semantic, the same annotator behaves very differently.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>annotator</th><th>ids present</th><th><code>idToLabels</code></th></tr></thead>
+<tbody>
+<tr><td><code>instance_segmentation</code></td><td><code>0, 1, 2</code></td><td><code>{0: BACKGROUND, 1: UNLABELLED, 2: /World/Targets/Road}</code></td></tr>
+<tr><td><code>semantic_segmentation</code></td><td><code>0, 1, 2</code></td><td><code>{0: {class: BACKGROUND}, 1: {class: UNLABELLED}, 2: {class: road}}</code></td></tr>
+<tr><td><strong><code>instance_id_segmentation</code></strong></td><td><code>0, 1, 2, 3, 4, 5</code></td><td><strong>one prim path per prim</strong>, semantics irrelevant</td></tr>
+</tbody></table></div>
+<p><code>instance_segmentation</code> gives a distinct id only to prims that carry a semantic label and collapses every unlabelled prim into a single <code>UNLABELLED</code> id. Four of the five test prims therefore shared one id, and the material transport built on it painted all four with the first material it resolved — a G-buffer that passes the M0.6 schema, renders a plausible image, and is made of the wrong substances. Nothing raised.</p>
+<h3 id="decisions-that-follow-1">Decisions that follow<a class="anchor" href="#decisions-that-follow-1" aria-label="permalink">#</a></h3>
+<ul>
+<li><strong><code>material_id</code> transport uses <code>instance_id_segmentation</code></strong>, with <code>instance_segmentation</code> kept only as a fallback. <code>AOV_NAMES</code> records the order and the reason.</li>
+<li><strong><code>colorize=False</code> is passed explicitly</strong> on both segmentation channels (<code>AOV_INIT_PARAMS</code>). The default happened to be False here; a colorized id is an RGBA palette entry that cannot be looked up, only guessed at, so it is not left to a default.</li>
+<li><strong>Requiring semantics for correct ids would have been the wrong fix.</strong> Semantics are for dataset labels and for the mapping's precedence rule 2 (ADR 0047); making radiometric correctness depend on an artist remembering to label a prim reintroduces exactly the silent-default failure the UNMAPPED sentinel exists to prevent.</li>
+<li><code>scripts/audit_materials.py</code> gains <code>--stage</code> (walk a USD asset directly) and <code>--dump-prims</code>. The USD path boots Kit because <code>pxr</code> is not importable outside a running Kit application, so the two-step flow — dump once inside Kit, audit the JSON anywhere — stays the fast path. Both paths were measured to agree on the five-prim stage: <code>miss=1, override=1, pattern=2, semantic=1</code>.</li>
+<li><code>omni.usd.get_context().open_stage()</code> returns a <strong>bare bool</strong> on this build, not the <code>(ok, error)</code> pair the older documentation shows; unpacking it raises <em>inside Kit</em>, which then reports exit status <strong>0</strong>. A script that boots Kit must therefore print its result before <code>SimulationApp.close()</code> (which ends in <code>os._exit</code>) and must not trust Kit to surface a Python failure as a non-zero exit.</li>
+</ul>
+<h3 id="revisit-when-2">Revisit when<a class="anchor" href="#revisit-when-2" aria-label="permalink">#</a></h3>
+<ul>
+<li><code>test_stage_walk_sees_every_binding_semantic_and_override</code> or the id-decode tests fail — the segmentation semantics changed.</li>
+<li>A build makes <code>instance_segmentation</code> per-prim regardless of labelling; the fallback order can then be simplified.</li>
+</ul>
+<h2 id="addendum-2026-09-12--warp-does-not-need-kit-the-equivalence-harness-is-a-seconds-long-check">Addendum 2026-09-12 — Warp does not need Kit; the equivalence harness is a seconds-long check<a class="anchor" href="#addendum-2026-09-12--warp-does-not-need-kit-the-equivalence-harness-is-a-seconds-long-check" aria-label="permalink">#</a></h2>
+<p>The build table above records Warp as "importable only inside a running Kit (<code>has_warp()</code> is False from plain <code>python.sh</code>)". The observation was right and the conclusion drawn from it was wrong. <code>has_warp()</code> was False because nothing had put the extension on <code>sys.path</code>, not because Warp needs a Kit runtime. The extension is an ordinary Python package:</p>
+<pre><code>$ISAAC_PATH/extscache/omni.warp.core-1.16.0+lx64/warp/__init__.py</code></pre>
+<p>Appending that directory to <code>sys.path</code> from a bare <code>python.sh</code> gives Warp 1.16.0 with <strong>both</strong> devices — <code>cpu</code> (x86_64) and <code>cuda:0</code> (RTX A6000, sm_86, CUDA 12.9 / driver 13.0) — and kernels compile and launch normally. Measured by running the whole M10.4 equivalence file this way:</p>
+<pre><code>$ $PYTHON -m pytest tests/integration/test_kernels_vs_reference.py -m gpu -q
+10 passed in 1.37s</code></pre>
+<p>against the ~35 s Kit boot the same file previously sat behind, for a kernel that agrees with its CPU oracle to 1.2e-7 relative on <code>cuda:0</code> and exactly on <code>cpu</code>.</p>
+<p>This matters out of proportion to its size. Every Warp stage (M10.4–M10.8) is defined by agreement with the NumPy oracle (ADR 0018), and a verification that costs a 35 s engine boot is one that gets run at the end of a step instead of during it. It also means a machine with a CUDA device and the Isaac <em>files</em> — no working Kit, no display — can run the GPU half of the test suite.</p>
+<h3 id="decisions-that-follow-2">Decisions that follow<a class="anchor" href="#decisions-that-follow-2" aria-label="permalink">#</a></h3>
+<ul>
+<li><strong><code>irsim_isaac.env.ensure_warp_on_path()</code></strong> locates the extension (<code>$ISAAC_PATH</code> or the <code>isaacsim</code> package's location, overridable with <code>$IRSIM_WARP_PATH</code>) and appends it to <code>sys.path</code>. It imports nothing, so it is safe on a machine with no Isaac Sim, and it is a no-op when <code>warp</code> already resolves — the "a pip copy would shadow the Kit one" concern in the main decision is unchanged, the cache directory is only ever a fallback. <code>has_warp()</code> calls it, so the probe answers for the Warp this package would actually import.</li>
+<li><strong><code>warp_stages._import_warp()</code> calls it before <code>import warp</code></strong>, so the Warp path works from any Isaac Sim interpreter without the caller arranging anything.</li>
+<li><strong><code>gpu</code>-marked integration tests are selected on Warp, not on Isaac Sim.</strong> They run a kernel and read the result; no Kit, no stage, no render product is involved. Tests that do need the engine keep the <code>has_isaac()</code> skip, and <code>simulation_app</code> still skips cleanly if one of them asks for a Kit that is not there.</li>
+<li><strong>No <code>warp-lang</code> dependency is added.</strong> The main decision's reasoning holds: the extension is the Warp that the production path runs on, and a pip copy could differ from it.</li>
+</ul>
+<h3 id="revisit-when-3">Revisit when<a class="anchor" href="#revisit-when-3" aria-label="permalink">#</a></h3>
+<ul>
+<li><code>test_this_isaac_build_really_does_carry_an_importable_warp</code> fails — the extension cache moved or the layout changed, and <code>warp_extension_path()</code> needs the new one.</li>
+<li>A build ships two <code>omni.warp.core-*</code> entries: the glob picks the lexicographically last, which orders <code>1.9.0</code> after <code>1.16.0</code>. Version-aware sorting is cheap to add and is only worth adding then.</li>
+<li>SPG gains cross-frame state (the main "revisit when"), which would move stages out of Warp and make this harness less central.</li>
+</ul>
+<h2 id="addendum-m1019-2026-09-12-camera3dpositionsd-is-in-camera-space-not-world-space">Addendum (M10.19, 2026-09-12): <code>Camera3dPositionSD</code> is in camera space, not world space<a class="anchor" href="#addendum-m1019-2026-09-12-camera3dpositionsd-is-in-camera-space-not-world-space" aria-label="permalink">#</a></h2>
+<p>This ADR recorded the position AOV as delivering <strong>world</strong> positions. That was true of every scene it was measured on and is false in general: all of those scenes put an unrotated camera at the origin, where camera space and world space are the same thing. Measured on 6.1.0-rc.26 with the camera tilted 8° about X, the AOV still reports the frame centre's ray as <code>(0, 0, −1)</code> — the camera-space direction. It is <code>Camera3dPositionSD</code>, and it means it.</p>
+<p>The consequence of reading it as world is not an error message. Every ray comes out rotated by the inverse of the camera's pose, so on a camera tilted up to look at the sky:</p>
+<ul>
+<li>the boresight reads 0° elevation instead of 8°, putting the horizon through the middle of the picture instead of near the bottom;</li>
+<li>the upper half of the sky is therefore below the model's horizon and gets painted with <code>T_ground</code> (ADR 0060's split), which is 30 K warmer than the sky belongs there;</li>
+<li><code>normal_dot_view</code>, <code>normal_dot_up</code> and the sky-view factor all tilt with it, because <code>geometry_planes</code> takes the same rays.</li>
+</ul>
+<p>The result is smooth, monotonic and entirely plausible. It was caught by asking where the horizon <em>should</em> be — <code>cy + f_px·tan(tilt)</code> has no free parameters — and finding it 164 rows away.</p>
+<p><code>IrCamera</code> therefore defaults to <code>position_frame="camera"</code> and passes the prim's own local-to-world rotation, which <code>ray_directions</code> already supported; the <code>PositionFrame</code> parameter existed precisely because this was an open question, and this is its answer. USD matrices are row-vector (<code>p_world = p_camera @ M</code>) while <code>ray_directions</code> applies <code>vec @ rot.T</code>, so what it wants is the <strong>transpose</strong> of the upper-left 3×3.</p>
+<p>Verified: with the fix, elevation crosses zero at native row 221.5 against a predicted 221.7, and the frame centre reads 7.979° for an 8° tilt (<code>tests/integration/test_aerial_demo_isaac.py</code>).</p>
+<p>Nothing else in the repo was wrong, because nothing else had rotated a camera: <code>test_gbuffer_isaac.py</code>, <code>test_material_ids_isaac.py</code> and <code>test_aerial_bridge_isaac.py</code> all use cameras at the origin looking down −Z, where both readings agree. That is exactly why it survived until a scene needed to look <em>up</em>.</p>
+<h2 id="addendum-m24-close-out-2026-09-15-the-position-aov-is-camera-space-and-nothing-supplies-occlusion">Addendum (M2.4 close-out, 2026-09-15): the position AOV is camera space, and nothing supplies occlusion<a class="anchor" href="#addendum-m24-close-out-2026-09-15-the-position-aov-is-camera-space-and-nothing-supplies-occlusion" aria-label="permalink">#</a></h2>
+<p>M2.4 — the AOV semantics probe — stayed open because the ramp scene of the main decision could not exercise normals, occlusion or motion. M10.1 measured all three on a lit, tilted, moving scene, so what was left was not a new experiment but two things this ADR had got wrong or left unenforced. Both are now measured and pinned; M2.4 is closed.</p>
+<h3 id="the-position-aov-is-camera-space-it-always-was-on-every-scene-here">The position AOV is camera space. It always was, on every scene here.<a class="anchor" href="#the-position-aov-is-camera-space-it-always-was-on-every-scene-here" aria-label="permalink">#</a></h3>
+<p>The addendum above records <code>Camera3dPositionSD</code> as <strong>world</strong> space. That is wrong, and not subtly: it is wrong by the camera's own offset from the origin. Worse, the probe it cites (<code>detect_position_frame</code>) reported <code>camera</code> on the very scene the table was written from — <code>err_camera = 0.013 m</code> against <code>err_world = 5.48 m</code>. The wrong value was written down beside a right measurement, and survived because <code>test_position_aov_frame_is_unambiguous</code> only asserts that <em>one</em> hypothesis fits, never which. M10.19 then re-derived the truth from the opposite direction (a horizon 164 rows out of place) without the two records being reconciled.</p>
+<p>That left the ADR asserting both readings in different sections, and a third possibility that neither had tested: the world point expressed in camera <strong>axes</strong>, with the translation left in. It matters because <code>ray_directions</code>' <code>frame="camera"</code> branch does not subtract the camera position — correct for true camera space, wrong by <code>|C|</code> for the rotated-world reading, on any camera that is both moved and turned. Every scene measured so far had an unrotated camera, or a camera at the origin, and each of those degeneracies hides exactly one of the three.</p>
+<p><code>position_frame_residuals</code> decides between all three at once. It scores each hypothesis against a world point the position AOV had no part in producing: <code>C + d · r</code>, where <code>d</code> is the independently-measured <code>DistanceToCameraSD</code> ray length and <code>r</code> is that pixel's pinhole direction. Measured on the M10.1 scene (camera at (2, 1, 5), 33–57 k geometry pixels at 384²):</p>
+<div class='table-wrap'><table>
+<thead><tr><th>camera pitch</th><th><code>world</code></th><th><code>camera</code></th><th><code>rotated_world</code></th><th>verdict</th></tr></thead>
+<tbody>
+<tr><td>0°</td><td>5.476 m</td><td><strong>0.0095 m</strong></td><td>5.476 m</td><td>camera</td></tr>
+<tr><td>−8°</td><td>5.309 m</td><td><strong>0.0093 m</strong></td><td>5.476 m</td><td>camera</td></tr>
+<tr><td>−20°</td><td>5.325 m</td><td><strong>0.0094 m</strong></td><td>5.476 m</td><td>camera</td></tr>
+</tbody></table></div>
+<p>The 9 mm residual is pixel quantisation at this focal length, the same order as the 3.4 mm the main decision measured. Both rejected readings are out by metres, and <code>camera</code> and <code>rotated_world</code> are separated by exactly <code>|C| = 5.48 m</code> — which is the arithmetic statement of why a camera at the origin can never settle this.</p>
+<p>The code was already right: <code>IrCamera</code> has passed <code>position_frame="camera"</code> since M10.19, and it is the only caller. What was wrong was the record, and a record is what the next person reads before writing the next adapter.</p>
+<h3 id="nothing-on-this-build-supplies-ambient-occlusion">Nothing on this build supplies ambient occlusion<a class="anchor" href="#nothing-on-this-build-supplies-ambient-occlusion" aria-label="permalink">#</a></h3>
+<p><code>sky_view_factor</code> multiplies the geometric <code>(1 + n·up)/2</code> by an occlusion factor the adapter fills with 1.0. The addendum above says why (no AO AOV delivers) and says to revisit when one does — but nothing would have noticed. All three candidate names were re-probed here and all three still return nothing (<code>SdPostRenderVarToHost: invalid input resource for renderVar AmbientOcclusion</code>), and that absence is now a test rather than a memory. An all-zero buffer returned with status ok does <strong>not</strong> count as delivering: that is this ADR's standing hazard, and an AO plane of zeros would drive every <code>V_s</code> to 0 and every reflected-sky term with it.</p>
+<p>So risk <strong>R3</strong> is not retired, it is <strong>bounded</strong>: unoccluded <code>V_s</code> is exact for the open-sky aerial and maritime scenes phase 1 targets, and optimistic by up to <code>V_s</code> itself in cluttered ground geometry. Closing it needs either an AO AOV this build does not have or the §5.3(b) irradiance cubemap, and that is a phase-2 step, not a hidden approximation.</p>
+<h3 id="decisions-that-follow-3">Decisions that follow<a class="anchor" href="#decisions-that-follow-3" aria-label="permalink">#</a></h3>
+<ul>
+<li><strong>A frame verdict without a margin is not evidence.</strong> <code>position_frame_residuals</code> returns the margin over the runner-up, and both the engine-free and in-sim tests assert it. The engine-free suite includes the degenerate case explicitly — camera at the origin, no rotation, all three residuals zero — so the failure mode that produced this correction is itself a test.</li>
+<li><strong>The oracle must not come from the channel under test.</strong> The world point is built from the distance AOV and the pinhole model, so "position agrees with itself" cannot pass for a measurement. <code>GeometryScene.pixel_of</code> assumes an unrotated camera, which is why the rays come from <code>pinhole_rays(resolution, focal_px, camera_to_world)</code> instead.</li>
+<li><strong>The USD→ray transpose is written down once.</strong> <code>gbuffer_isaac.camera_pose</code> is now the single place a camera prim's pose is read in <code>ray_directions</code>' convention; <code>IrCamera</code> calls it rather than repeating the transpose. Getting that transpose backwards rotates every ray by twice the camera tilt and raises nothing.</li>
+</ul>
+<h3 id="revisit-when-4">Revisit when<a class="anchor" href="#revisit-when-4" aria-label="permalink">#</a></h3>
+<ul>
+<li><code>test_position_aov_is_camera_space_not_world_or_rotated_world</code> fails, or its margin collapses — the AOV changed frame, or the scene stopped separating them.</li>
+<li><code>test_no_ambient_occlusion_aov_delivers_on_this_build</code> fails — an AO channel woke up; establish whether it is sky visibility or screen-space contact shading before wiring it into <code>V_s</code>, because the second is not the quantity §5.3(a) wants.</li>
+</ul>
+<h2 id="addendum-m109a-ii-2026-09-14-only-pathtracing-yields-a-lit-colour-aov">Addendum (M10.9a-ii, 2026-09-14): only <code>PathTracing</code> yields a lit colour AOV<a class="anchor" href="#addendum-m109a-ii-2026-09-14-only-pathtracing-yields-a-lit-colour-aov" aria-label="permalink">#</a></h2>
+<p>The companion visible capture (<code>IrCamera(capture_rgb=True)</code>) needed one more measurement, and it belongs beside this ADR's other colour-AOV findings because it is the same shape of surprise.</p>
+<p>Measured on 6.1.0-rc.26, with a lit cube six metres in front of the camera, a distant light and a dome light:</p>
+<div class='table-wrap'><table>
+<thead><tr><th><code>/rtx/rendermode</code></th><th><code>rgb</code> / <code>LdrColor</code></th><th><code>HdrColor</code></th><th><code>DiffuseAlbedo</code></th></tr></thead>
+<tbody>
+<tr><td><code>RealTimePathTracing</code> (the build default)</td><td>all zero</td><td>all NaN</td><td>delivers, half resolution</td></tr>
+<tr><td><code>RaytracedLighting</code></td><td>all zero</td><td>—</td><td>—</td></tr>
+<tr><td><code>PathTracing</code></td><td><strong>delivers</strong></td><td>—</td><td>—</td></tr>
+</tbody></table></div>
+<p>So the <em>lit</em> colour AOVs are silent in both of the modes a script gets by default, while the un-lit <code>DiffuseAlbedo</code> delivers — which is exactly the trap this ADR already records for <code>PtWorldNormal</code> and the ambient-occlusion channel: an annotator that attaches without complaint and returns a buffer full of zeros. Written to disk that is a black PNG, indistinguishable from a night scene, so <code>IrCamera</code> rejects an all-zero colour buffer and says why rather than saving it.</p>
+<p>Switching the mode is safe for the infrared path, and that was checked rather than assumed: under <code>PathTracing</code> every geometry AOV the IR chain depends on still delivers — <code>DistanceToCameraSD</code> (finite off the sky), <code>Camera3dPositionSD</code>, <code>normals</code> and <code>instance_id_segmentation</code> all populated. So the render mode is set only when <code>capture_rgb</code> is on, and no second render pass is needed.</p>
+<p><strong>What the companion RGB can and cannot show.</strong> The phase-1 demo stage has no sky dome and no ground plane on purpose (ADR 0060: the IR background is computed from the sky model, and emissive geometry would drag it back through a float16 colour AOV). In visible light that background does not exist, so the raw RGB is black with a few lit quads. Adding a <code>DomeLight</code> and a <code>DistantLight</code> gives the visible render something to show <strong>without touching the infrared frame at all</strong> -- a light is not a Gprim, so no ray hits it, <code>instance_id</code> stays 0 and <code>DistanceToCameraSD</code> stays infinite on those pixels. Verified: the IR apparent-temperature range is identical (250.60 K to 291.65 K) with the lights present and absent. The resulting RGB is a uniform grey field, because a plain dome light is a uniform emitter and this stage has no sky texture or terrain -- the pair is correct and registered, and its visible content is as rich as the stage is.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

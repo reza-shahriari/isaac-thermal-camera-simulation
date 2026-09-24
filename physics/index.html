@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Physics model — irsim</title>
+<meta name="description" content="The specification every equation in the code cites. It is the source of truth, not a summary.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../">Overview</a></li>
+<li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li class="here"><a href="./">Physics model</a></li>
+<li><a href="../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../roadmap/">Roadmap</a></li>
+<li><a href="../decisions/">Decision log</a></li>
+<li><a href="../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../validation/">Validation</a></li>
+<li><a href="../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../code/">Code map</a></li>
+<li><a href="../configs/">Configuration catalogue</a></li>
+<li><a href="../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>Physics model</h1>
+  <p class="subtitle">The specification every equation in the code cites. It is the source of truth, not a summary.</p>
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/physics-model.md" target="_blank" rel="noopener">docs/physics-model.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#table-of-contents">Table of contents</a></li>
+<li class="toc-2"><a href="#1-what-real-means-here-and-the-fidelity-ladder">1. What &quot;real&quot; means here, and the fidelity ladder</a></li>
+<li class="toc-2"><a href="#2-the-master-equation">2. The master equation</a></li>
+<li class="toc-2"><a href="#3-radiometry-core">3. Radiometry core</a></li>
+<li class="toc-3"><a href="#31-plancks-law">3.1 Planck&#x27;s law</a></li>
+<li class="toc-3"><a href="#32-band-integration--precompute-dont-evaluate-per-pixel">3.2 Band integration — precompute, don&#x27;t evaluate per pixel</a></li>
+<li class="toc-3"><a href="#33-inversion-apparent-temperature">3.3 Inversion: apparent temperature</a></li>
+<li class="toc-3"><a href="#34-thermal-derivative--needed-for-netd">3.4 Thermal derivative — needed for NETD</a></li>
+<li class="toc-2"><a href="#4-surface-model">4. Surface model</a></li>
+<li class="toc-3"><a href="#41-kirchhoffs-law">4.1 Kirchhoff&#x27;s law</a></li>
+<li class="toc-3"><a href="#42-angular-dependence--the-thing-that-makes-it-look-right">4.2 Angular dependence — the thing that makes it look right</a></li>
+<li class="toc-3"><a href="#43-specular-vs-diffuse-in-the-thermal-ir">4.3 Specular vs diffuse in the thermal IR</a></li>
+<li class="toc-3"><a href="#44-semi-transparent-materials">4.4 Semi-transparent materials</a></li>
+<li class="toc-2"><a href="#5-scene-radiance-the-thermal-rendering-equation">5. Scene radiance: the thermal rendering equation</a></li>
+<li class="toc-3"><a href="#51-the-general-form">5.1 The general form</a></li>
+<li class="toc-3"><a href="#52-the-two-regime-split">5.2 The two-regime split</a></li>
+<li class="toc-3"><a href="#53-downwelling-radiance-ldownarrow--do-not-skip-this">5.3 Downwelling radiance $L\downarrow$ — do not skip this</a></li>
+<li class="toc-3"><a href="#54-the-solar-term-mwirswirnir">5.4 The solar term (MWIR/SWIR/NIR)</a></li>
+<li class="toc-3"><a href="#55-night-illumination-for-swirnir">5.5 Night illumination for SWIR/NIR</a></li>
+<li class="toc-2"><a href="#6-temperature-field-where-the-signal-actually-comes-from">6. Temperature field: where the signal actually comes from</a></li>
+<li class="toc-3"><a href="#61-the-energy-balance">6.1 The energy balance</a></li>
+<li class="toc-3"><a href="#62-the-parameters-you-must-author">6.2 The parameters you must author</a></li>
+<li class="toc-3"><a href="#63-thermal-inertia--the-diurnal-fingerprint">6.3 Thermal inertia — the diurnal fingerprint</a></li>
+<li class="toc-3"><a href="#64-practical-solver-lumped-capacitance-with-a-substrate-node">6.4 Practical solver: lumped capacitance with a substrate node</a></li>
+<li class="toc-3"><a href="#65-where-newtons-law-of-cooling-fits">6.5 Where Newton&#x27;s law of cooling fits</a></li>
+<li class="toc-3"><a href="#66-active-heat-sources-for-automotive">6.6 Active heat sources for automotive</a></li>
+<li class="toc-2"><a href="#7-atmosphere">7. Atmosphere</a></li>
+<li class="toc-3"><a href="#71-model">7.1 Model</a></li>
+<li class="toc-3"><a href="#72-getting-gammalambda-without-modtran">7.2 Getting $\gamma(\lambda)$ without MODTRAN</a></li>
+<li class="toc-3"><a href="#73-humidity-dependence">7.3 Humidity dependence</a></li>
+<li class="toc-3"><a href="#74-what-you-can-safely-ignore">7.4 What you can safely ignore</a></li>
+<li class="toc-2"><a href="#8-optics">8. Optics</a></li>
+<li class="toc-3"><a href="#81-irradiance-at-the-focal-plane">8.1 Irradiance at the focal plane</a></li>
+<li class="toc-3"><a href="#82-self-emission--the-term-that-only-exists-in-the-ir">8.2 Self-emission — the term that only exists in the IR</a></li>
+<li class="toc-3"><a href="#83-mtf-cascade">8.3 MTF cascade</a></li>
+<li class="toc-3"><a href="#84-distortion">8.4 Distortion</a></li>
+<li class="toc-2"><a href="#9-detector">9. Detector</a></li>
+<li class="toc-3"><a href="#91-photon-detectors--cooled-mwirswir-and-nir">9.1 Photon detectors — cooled MWIR/SWIR, and NIR</a></li>
+<li class="toc-3"><a href="#92-microbolometers--uncooled-lwir">9.2 Microbolometers — uncooled LWIR</a></li>
+<li class="toc-3"><a href="#93-the-datasheet-facing-figures-of-merit">9.3 The datasheet-facing figures of merit</a></li>
+<li class="toc-3"><a href="#94-netd">9.4 NETD</a></li>
+<li class="toc-2"><a href="#10-noise">10. Noise</a></li>
+<li class="toc-3"><a href="#101-physical-sources">10.1 Physical sources</a></li>
+<li class="toc-3"><a href="#102-the-3d-noise-model--use-this-not-a-single-sigma">10.2 The 3D noise model — use this, not a single sigma</a></li>
+<li class="toc-3"><a href="#103-temporal-structure">10.3 Temporal structure</a></li>
+<li class="toc-3"><a href="#104-bad-pixels">10.4 Bad pixels</a></li>
+<li class="toc-2"><a href="#11-signal-chain">11. Signal chain</a></li>
+<li class="toc-3"><a href="#111-order-of-operations">11.1 Order of operations</a></li>
+<li class="toc-3"><a href="#112-two-point-nuc">11.2 Two-point NUC</a></li>
+<li class="toc-3"><a href="#113-agc--dynamic-range-compression">11.3 AGC / dynamic range compression</a></li>
+<li class="toc-3"><a href="#114-polarity-and-palette">11.4 Polarity and palette</a></li>
+<li class="toc-2"><a href="#12-band-specialisation-one-core-four-cameras">12. Band specialisation: one core, four cameras</a></li>
+<li class="toc-3"><a href="#121-what-changes-per-band">12.1 What changes per band</a></li>
+<li class="toc-3"><a href="#122-configuration-schema">12.2 Configuration schema</a></li>
+<li class="toc-3"><a href="#123-material-schema">12.3 Material schema</a></li>
+<li class="toc-2"><a href="#13-isaac-sim-60-implementation-mapping">13. Isaac Sim 6.0 implementation mapping</a></li>
+<li class="toc-3"><a href="#131-what-nvidia-officially-recommends">13.1 What NVIDIA officially recommends</a></li>
+<li class="toc-3"><a href="#132-how-spg-actually-works">13.2 How SPG actually works</a></li>
+<li class="toc-3"><a href="#133-the-aov-design--the-part-that-decides-whether-this-works">13.3 The AOV design — the part that decides whether this works</a></li>
+<li class="toc-3"><a href="#134-the-pipeline">13.4 The pipeline</a></li>
+<li class="toc-3"><a href="#135-kernel-sketch">13.5 Kernel sketch</a></li>
+<li class="toc-3"><a href="#136-the-pythonwarp-path--start-here">13.6 The Python/Warp path — start here</a></li>
+<li class="toc-3"><a href="#137-the-reflection-problem">13.7 The reflection problem</a></li>
+<li class="toc-3"><a href="#138-performance">13.8 Performance</a></li>
+<li class="toc-2"><a href="#14-unreal-engine-mapping">14. Unreal Engine mapping</a></li>
+<li class="toc-2"><a href="#15-validation-protocol">15. Validation protocol</a></li>
+<li class="toc-3"><a href="#tier-1--unit-tests-no-scene-no-renderer">Tier 1 — Unit tests (no scene, no renderer)</a></li>
+<li class="toc-3"><a href="#tier-2--radiometric-bench-synthetic-blackbody">Tier 2 — Radiometric bench (synthetic blackbody)</a></li>
+<li class="toc-3"><a href="#tier-3--phenomenology-does-it-behave-like-the-world">Tier 3 — Phenomenology (does it behave like the world?)</a></li>
+<li class="toc-3"><a href="#tier-4--comparison-against-real-data">Tier 4 — Comparison against real data</a></li>
+<li class="toc-3"><a href="#tier-5--task-level-does-it-transfer">Tier 5 — Task-level (does it transfer?)</a></li>
+<li class="toc-2"><a href="#16-reference-parameter-tables">16. Reference parameter tables</a></li>
+<li class="toc-3"><a href="#161-reference-camera--flir-boson-640-lwir">16.1 Reference camera — FLIR Boson 640 (LWIR)</a></li>
+<li class="toc-3"><a href="#162-material-properties-starting-values--replace-with-measurements">16.2 Material properties (starting values — replace with measurements)</a></li>
+<li class="toc-3"><a href="#163-physical-constants">16.3 Physical constants</a></li>
+<li class="toc-3"><a href="#164-suggested-build-order">16.4 Suggested build order</a></li>
+<li class="toc-2"><a href="#17-sources">17. Sources</a></li>
+<li class="toc-2"><a href="#appendix-a--where-this-model-can-legitimately-be-criticised">Appendix A — Where this model can legitimately be criticised</a></li></ul></nav>
+<article class="prose">
+<p><strong>Scope:</strong> the mathematics of a multi-band IR/thermal camera simulator (LWIR, MWIR, SWIR, NIR) built on a single shared core, targeted at NVIDIA Isaac Sim 6.0 and portable to Unreal Engine. This is a specification, not an implementation.</p>
+<p><strong>Research date:</strong> September 2026. Isaac Sim 6.0 GA and the <code>omni.rtx.spg</code> Sensor Processing Graph are the current implementation surface. Sources are listed in §17 and referenced inline as <code>[Rn]</code>.</p>
+<hr>
+<h2 id="table-of-contents">Table of contents<a class="anchor" href="#table-of-contents" aria-label="permalink">#</a></h2>
+<ol>
+<li><a href="#1-what-real-means">What "real" means here, and the fidelity ladder</a></li>
+<li><a href="#2-the-master-equation">The master equation</a></li>
+<li><a href="#3-radiometry-core">Radiometry core: Planck, band integration, inversion</a></li>
+<li><a href="#4-surface-model">Surface model: emissivity, Kirchhoff, Fresnel</a></li>
+<li><a href="#5-scene-radiance">Scene radiance: the thermal rendering equation</a></li>
+<li><a href="#6-temperature-field">Temperature field: where the signal actually comes from</a></li>
+<li><a href="#7-atmosphere">Atmosphere</a></li>
+<li><a href="#8-optics">Optics: irradiance, MTF, stray radiance</a></li>
+<li><a href="#9-detector">Detector: photon devices and bolometers</a></li>
+<li><a href="#10-noise">Noise: the 3D noise model and NETD</a></li>
+<li><a href="#11-signal-chain">Signal chain: NUC, AGC, palette</a></li>
+<li><a href="#12-band-specialisation">Band specialisation: one core, four cameras</a></li>
+<li><a href="#13-isaac-sim">Isaac Sim 6.0 implementation mapping</a></li>
+<li><a href="#14-unreal">Unreal Engine mapping</a></li>
+<li><a href="#15-validation">Validation protocol</a></li>
+<li><a href="#16-parameters">Reference parameter tables</a></li>
+<li><a href="#17-sources">Sources</a></li>
+</ol>
+<hr>
+<a id="1-what-real-means"></a>
+<h2 id="1-what-real-means-here-and-the-fidelity-ladder">1. What "real" means here, and the fidelity ladder<a class="anchor" href="#1-what-real-means-here-and-the-fidelity-ladder" aria-label="permalink">#</a></h2>
+<p>There is no single "IR camera equation." What exists is a <strong>chain of physical models</strong>, each of which can be swapped for a cheaper approximation. "Real" means every link is a recognised physical model whose units close, and every approximation is a deliberate, documented choice rather than an accident.</p>
+<p>The chain, in signal order:</p>
+<pre><code>temperature field  →  surface radiance  →  atmospheric path  →  optics
+      |                     |                    |                |
+ heat transfer       Planck + Kirchhoff     Beer-Lambert      f/# + MTF
+                                                                  |
+                                          detector  →  noise  →  ISP  →  pixels
+                                              |          |        |
+                                        QE / bolometer  3D noise  NUC + AGC</code></pre>
+<p>The honest fidelity ladder, so you can choose where to stop:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Level</th><th>Temperature</th><th>Reflection</th><th>Atmosphere</th><th>Detector</th><th>Good for</th></tr></thead>
+<tbody>
+<tr><td><strong>L0</strong></td><td>Painted textures</td><td>none</td><td>none</td><td>Gaussian noise</td><td>Looks thermal. Worthless for engineering.</td></tr>
+<tr><td><strong>L1</strong></td><td>Static per-material T</td><td>ambient constant</td><td>constant τ</td><td>NETD + FPN</td><td>Smoke tests, UI development</td></tr>
+<tr><td><strong>L2</strong></td><td>Lumped-capacitance ODE</td><td>Kirchhoff + sky-view factor</td><td>band-averaged Beer-Lambert</td><td>full FPA chain + 3D noise</td><td><strong>Target here.</strong> Detection/tracking dev, sensor trades</td></tr>
+<tr><td><strong>L3</strong></td><td>1D slab energy balance (THERM-class)</td><td>path-traced in T-domain</td><td>band model (MODTRAN LUT)</td><td>+ MTF cascade, bolometer dynamics</td><td>Range prediction, sim2real training data</td></tr>
+<tr><td><strong>L4</strong></td><td>3D FEM (MuSES-class), internal heat</td><td>full spectral BRDF, polarimetric</td><td>line-by-line</td><td>measured SITF</td><td>Signature prediction, countermeasures</td></tr>
+</tbody></table></div>
+<p>DIRSIG (RIT) and MuSES (ThermoAnalytics) are the reference L3/L4 systems. MuSES calculates internal and external temperatures in full 3D, accounting for internally generated heat and internal circulation, using a finite-volume method to solve the energy balance for conduction, convection and radiation [R4][R5]. You are not going to reproduce that inside Isaac Sim, and you don't need to. <strong>L2 with a clean upgrade path to L3 is the right target</strong>, and it is already above what real-time engine plugins typically deliver.</p>
+<p>One structural decision drives everything: <strong>separate the temperature problem from the radiance problem.</strong> They have different timescales (thermal: seconds to hours; radiometric: per frame) and different solvers. Every serious system does this — in DIRSIG the temperature solver is an explicitly pluggable subsystem that the radiometric core consumes [R3].</p>
+<hr>
+<a id="2-the-master-equation"></a>
+<h2 id="2-the-master-equation">2. The master equation<a class="anchor" href="#2-the-master-equation" aria-label="permalink">#</a></h2>
+<p>Everything in this document serves one equation. The digital number at pixel $(i,j)$:</p>
+<div class="math-block">$$
+\mathrm{DN}_{ij} = \mathcal{Q}\Big[\, g_{ij}\,\mathcal{S}\big(\Phi_{ij}\big) + o_{ij} + n_{ij} \Big]
+$$</div>
+<p>where $\Phi_{ij}$ is the in-band power (or photon rate) collected by that pixel:</p>
+<div class="math-block">$$
+\Phi_{ij} = \frac{\pi A_d \tau_{\text{opt}}}{4F^2+1}\cos^4\theta_{ij}
+\int_{\lambda_1}^{\lambda_2} R(\lambda)\,\big[\mathrm{MTF} \ast L_{\text{sensor}}\big](\lambda,i,j)\, d\lambda
+\;+\; \Phi_{\text{self}}
+$$</div>
+<p>and the sensor-reaching spectral radiance decomposes into three terms:</p>
+<div class="math-block">$$
+L_{\text{sensor}}(\lambda) =
+\underbrace{\tau_{\text{atm}}(\lambda,d)\,\varepsilon(\lambda,\theta)\,B(\lambda,T_s)}_{\text{self-emission}}
++\underbrace{\tau_{\text{atm}}(\lambda,d)\big(1-\varepsilon(\lambda,\theta)\big)L_{\downarrow}(\lambda)}_{\text{reflected}}
++\underbrace{\big(1-\tau_{\text{atm}}(\lambda,d)\big)B(\lambda,T_{\text{air}})}_{\text{path radiance}}
+$$</div>
+<p>This three-term form is the standard thermal-IR radiative transfer model, with distance-dependent transmittance $\tau(\lambda;d) = [\tau_{1\mathrm{m}}(\lambda)]^{d}$ [R11]. The same structure appears in MODTRAN-compatible formulations, where $\tau$ is the surface-to-sensor transmission, $B(T)$ the Planck function of surface temperature, $\rho$ the directional-hemispherical reflectance, and $U$ the atmospheric path radiance [R12].</p>
+<p><strong>Symbols</strong></p>
+<div class='table-wrap'><table>
+<thead><tr><th>Symbol</th><th>Meaning</th><th>Units</th></tr></thead>
+<tbody>
+<tr><td>$B(\lambda,T)$</td><td>Planck spectral radiance</td><td>W·m⁻²·sr⁻¹·µm⁻¹</td></tr>
+<tr><td>$\varepsilon(\lambda,\theta)$</td><td>directional spectral emissivity</td><td>–</td></tr>
+<tr><td>$L_\downarrow(\lambda)$</td><td>downwelling radiance onto the surface</td><td>W·m⁻²·sr⁻¹·µm⁻¹</td></tr>
+<tr><td>$\tau_{\text{atm}}(\lambda,d)$</td><td>atmospheric transmittance over path $d$</td><td>–</td></tr>
+<tr><td>$\tau_{\text{opt}}$</td><td>optics transmittance</td><td>–</td></tr>
+<tr><td>$R(\lambda)$</td><td>normalised spectral response (QE × filter × window)</td><td>–</td></tr>
+<tr><td>$F$</td><td>working f-number</td><td>–</td></tr>
+<tr><td>$A_d$</td><td>detector active area</td><td>m²</td></tr>
+<tr><td>$\theta_{ij}$</td><td>field angle of pixel $(i,j)$</td><td>rad</td></tr>
+<tr><td>$\Phi_{\text{self}}$</td><td>self-emission of optics/housing reaching the pixel</td><td>W</td></tr>
+<tr><td>$g_{ij}, o_{ij}$</td><td>per-pixel gain and offset (post-NUC residual)</td><td>–</td></tr>
+<tr><td>$\mathcal{S}$</td><td>detector transfer (photoelectrons or bolometer response)</td><td>–</td></tr>
+<tr><td>$\mathcal{Q}$</td><td>quantisation</td><td>–</td></tr>
+</tbody></table></div>
+<p>The $\cos^4\theta$ term is natural vignetting; real IR optics add mechanical vignetting on top, and that is normally measured rather than derived.</p>
+<blockquote>
+<p><strong>Convention warning.</strong> Some references write the aperture factor as $1/(4F^2)$, others as $1/(4F^2{+}1)$. The <code>+1</code> form is exact for a Lambertian extended source through a circular aperture ($E = \pi L \sin^2\theta_{\max}$); the other is the paraxial limit. At $F/1.0$ — routine for uncooled LWIR — the difference is 20%. <strong>Use <code>+1</code>.</strong> This is the most common radiometric bug in home-grown IR simulators.</p>
+</blockquote>
+<hr>
+<a id="3-radiometry-core"></a>
+<h2 id="3-radiometry-core">3. Radiometry core<a class="anchor" href="#3-radiometry-core" aria-label="permalink">#</a></h2>
+<h3 id="31-plancks-law">3.1 Planck's law<a class="anchor" href="#31-plancks-law" aria-label="permalink">#</a></h3>
+<p>Spectral radiance of a blackbody per unit wavelength:</p>
+<div class="math-block">$$
+B(\lambda,T) = \frac{c_{1L}}{\lambda^5\left(e^{c_2/\lambda T}-1\right)}
+$$</div>
+<p>with, in practical units ($\lambda$ in µm, $B$ in W·m⁻²·sr⁻¹·µm⁻¹):</p>
+<div class="math-block">$$
+c_{1L} = 2hc^2 = 1.19104297\times10^{8}\ \text{W·µm}^4\text{m}^{-2}\text{sr}^{-1},
+\qquad
+c_2 = \frac{hc}{k_B} = 1.4387769\times10^{4}\ \text{µm·K}
+$$</div>
+<p><strong>Photon form</strong> — mandatory for photon detectors (MWIR/SWIR/NIR), because quantum efficiency is a per-photon quantity:</p>
+<div class="math-block">$$
+B_q(\lambda,T) = \frac{c_{1q}}{\lambda^4\left(e^{c_2/\lambda T}-1\right)},
+\qquad c_{1q} = 2c = 5.995849\times10^{26}\ \text{ph·s}^{-1}\text{µm}^{3}\text{m}^{-2}\text{sr}^{-1}
+$$</div>
+<p>Unit test worth writing: at $\lambda=10$ µm, $T=300$ K, $B = 9.925$ W·m⁻²·sr⁻¹·µm⁻¹ and $B_q = 4.996\times10^{20}$ ph·s⁻¹·m⁻²·sr⁻¹·µm⁻¹, and $B_q \cdot hc/\lambda = B$ to machine precision.</p>
+<p>Total exitance: $M=\sigma T^4$, $\sigma = 5.670374\times10^{-8}$ W·m⁻²·K⁻⁴; Lambertian radiance $L=\sigma T^4/\pi$. Peak: $\lambda_{\max}T = 2897.77$ µm·K — a 300 K scene peaks at 9.66 µm (LWIR), a 500 K exhaust at 5.8 µm, a 1000 K flare at 2.9 µm (MWIR). Band choice is a targeting decision, not a preference.</p>
+<h3 id="32-band-integration--precompute-dont-evaluate-per-pixel">3.2 Band integration — precompute, don't evaluate per pixel<a class="anchor" href="#32-band-integration--precompute-dont-evaluate-per-pixel" aria-label="permalink">#</a></h3>
+<p>You need $L_B(T) = \int_{\lambda_1}^{\lambda_2} R(\lambda) B(\lambda,T)\,d\lambda$.</p>
+<p><strong>(a) Closed-form fractional exitance.</strong> With $x = c_2/(\lambda T)$, the fraction of total blackbody exitance below $\lambda$:</p>
+<div class="math-block">$$
+F_{0\to\lambda T} = \frac{15}{\pi^4}\sum_{n=1}^{\infty}\frac{e^{-nx}}{n}\left(x^3+\frac{3x^2}{n}+\frac{6x}{n^2}+\frac{6}{n^3}\right)
+$$</div>
+<p>Converges to double precision in 3–8 terms for $x&gt;2$ (all realistic scene temperatures in LWIR/MWIR). Then</p>
+<div class="math-block">$$
+L_B(T) = \frac{\sigma T^4}{\pi}\Big[F_{0\to\lambda_2 T}-F_{0\to\lambda_1 T}\Big]
+$$</div>
+<p>Use when $R(\lambda)$ is approximately a top-hat. Good to ~1% for most uncooled LWIR cores.</p>
+<p><strong>(b) Precomputed LUT — recommended.</strong> Tabulate $L_B(T)$ on a uniform grid $T\in[200,1000]$ K at 0.05–0.1 K spacing, per band, with the true $R(\lambda)$ folded in by numerical quadrature (Simpson on a 0.01 µm grid is ample). float32, ~16k entries, 64 kB per band. Linear interpolation in $T$ is smooth well below NETD.</p>
+<p><em>(Your existing Unreal LUT approach is the right call and carries over unchanged.)</em></p>
+<p><strong>(c) Runtime quadrature.</strong> Only needed if $\varepsilon(\lambda)$ has real spectral structure that varies per pixel — i.e. hyperspectral work. Not needed for an imaging camera.</p>
+<blockquote>
+<p><strong>Precision trap.</strong> If temperature or band radiance passes through a <strong>float16</strong> render target, you lose. At $T\approx300$ K, fp16 spacing is $2^{8}\cdot2^{-10} = 0.25$ K — five times coarser than a 50 mK NETD. Encode as <code>(T − T_ref)/T_span</code> in float32, or use a float32 AOV. This is the most common failure mode in engine-based thermal cameras.</p>
+</blockquote>
+<h3 id="33-inversion-apparent-temperature">3.3 Inversion: apparent temperature<a class="anchor" href="#33-inversion-apparent-temperature" aria-label="permalink">#</a></h3>
+<p>A radiometric camera does not output temperature; it outputs <em>apparent</em> (radiometric, brightness) temperature:</p>
+<div class="math-block">$$
+T_{\text{app}} = L_B^{-1}\big(L_{\text{measured}}\big)
+$$</div>
+<p>$L_B$ is monotonic, so invert by binary search on the same LUT, or store the inverse. The gap between $T_{\text{app}}$ and true kinetic $T_s$ <em>is</em> the emissivity + reflection + atmosphere error, and <strong>reproducing that gap is the entire point of a physical simulator.</strong> A simulator that hands back ground-truth temperature has not simulated a camera.</p>
+<h3 id="34-thermal-derivative--needed-for-netd">3.4 Thermal derivative — needed for NETD<a class="anchor" href="#34-thermal-derivative--needed-for-netd" aria-label="permalink">#</a></h3>
+<div class="math-block">$$
+\frac{\partial B}{\partial T}(\lambda,T)=B(\lambda,T)\cdot\frac{c_2}{\lambda T^2}\cdot\frac{e^{x}}{e^{x}-1},\qquad x=\frac{c_2}{\lambda T}
+$$</div>
+<p>In-band: $\left(\partial L/\partial T\right)_B=\int R(\lambda)\,\partial B/\partial T\,d\lambda$ — tabulate alongside $L_B(T)$.</p>
+<p>This derivative is why <strong>NETD is not a constant</strong>. The blackbody thermal derivative rises with temperature, so the same detector noise in volts corresponds to a smaller temperature error on a hot target; one measured uncooled core went from ≈39 mK NETD at ambient to ≈23 mK against a 100 °C blackbody [R9]. If your simulator applies a flat NETD in Kelvin across the scene it is wrong in a way that matters for hot-object detection.</p>
+<blockquote>
+<p><strong>Rule:</strong> add noise in radiance or electron space, then convert. Never add Kelvin-space Gaussian noise to a temperature buffer.</p>
+</blockquote>
+<hr>
+<a id="4-surface-model"></a>
+<h2 id="4-surface-model">4. Surface model<a class="anchor" href="#4-surface-model" aria-label="permalink">#</a></h2>
+<h3 id="41-kirchhoffs-law">4.1 Kirchhoff's law<a class="anchor" href="#41-kirchhoffs-law" aria-label="permalink">#</a></h3>
+<p>For an opaque surface in local thermodynamic equilibrium:</p>
+<div class="math-block">$$
+\varepsilon(\lambda,\theta,\phi)=\alpha(\lambda,\theta,\phi)=1-\rho(\lambda,\theta,\phi)
+$$</div>
+<p>where $\rho$ is the <strong>directional-hemispherical reflectance</strong> (DHR). This is the bridge between the renderer's material system and radiometry, and it is what lets a thermal camera see reflections at all.</p>
+<p>DIRSIG states the operational form directly: the model computes the complementary reflectance or emissivity from the other, so users never supply both; when a BRDF model is used, directional-hemispherical emissivity is derived as <code>DHE = 1 − DHR</code>, with DHR obtained by hemispherically integrating the BRDF at the given view geometry [R3].</p>
+<p><strong>Implication for material authoring:</strong> author <strong>one</strong> spectral optical property per band and derive the other. Authoring both is how simulators end up violating energy conservation.</p>
+<h3 id="42-angular-dependence--the-thing-that-makes-it-look-right">4.2 Angular dependence — the thing that makes it look right<a class="anchor" href="#42-angular-dependence--the-thing-that-makes-it-look-right" aria-label="permalink">#</a></h3>
+<p>Emissivity falls off toward grazing incidence for dielectrics, which is why a smooth curved object shows a cooler-looking rim in LWIR at uniform temperature. A January 2026 validation study makes the point sharply: the imaginary part of the complex refractive index governs absorption and, through Kirchhoff's law, the angular emissivity responsible for radiometric falloff toward a sphere's edges — a purely real refractive index does not reproduce it [R1].</p>
+<p><strong>Level A — Fresnel from complex refractive index (physical).</strong> With $\tilde n(\lambda)=n(\lambda)+ik(\lambda)$ and $Z=\tilde n^2-\sin^2\theta_i$:</p>
+<div class="math-block">$$
+\sqrt{Z}=A+jB,\qquad
+A=\sqrt{\frac{|Z|+\Re(Z)}{2}},\qquad
+B=\operatorname{sgn}\big(\Im(Z)\big)\sqrt{\frac{|Z|-\Re(Z)}{2}}
+$$</div>
+<div class="math-block">$$
+r_\perp=\frac{\cos\theta_i-(A+jB)}{\cos\theta_i+(A+jB)},\qquad
+r_\parallel=\frac{(A+jB)-\tilde n^2\cos\theta_i}{(A+jB)+\tilde n^2\cos\theta_i}
+$$</div>
+<div class="math-block">$$
+R_\perp=r_\perp r_\perp^{*},\quad R_\parallel=r_\parallel r_\parallel^{*},\quad
+R=\tfrac12\big(R_\perp+R_\parallel\big),\quad \varepsilon(\lambda,\theta)=1-R(\lambda,\theta)
+$$</div>
+<p>The $A/B$ reparameterisation is not cosmetic. Naïve complex square roots carry a branch ambiguity: both branches satisfy the Helmholtz equation, but passivity requires the transmitted field to decay with depth, i.e. $\Im(k_z)&gt;0$. Choosing wrong produces reflectance discontinuities across wavelength, instabilities near grazing incidence, and reflectances exceeding unity. The $A/B$ form selects the admissible branch automatically [R1]. In the IR this matters because $k$ is large for many materials. Complex indices are available from curated databases (refractiveindex.info); the paper validates against water at 10 µm ($n=1.218$, $k=0.0508$) and against bismuth.</p>
+<p>Note also a counter-intuitive consequence the same work confirms: in strongly absorbing media there is <strong>no sharp total internal reflection</strong> — reflectance stays below 1 at every incidence angle [R1].</p>
+<p><strong>Level B — Empirical angular falloff (cheap, adequate for L2).</strong></p>
+<div class="math-block">$$
+\varepsilon(\theta)=\varepsilon_0\Big[1-a\big(1-\cos\theta\big)^{p}\Big]
+$$</div>
+<p>$a\approx0.15$–$0.35$, $p\approx4$–$6$ for painted metals and plastics; nearly flat ($a\to0$) for rough dielectrics like asphalt and vegetation. Fit $(a,p)$ once per material class against Level A and bake it. Two instructions in a shader.</p>
+<p><strong>Level C — Constant $\varepsilon$.</strong> Acceptable only for rough, high-emissivity surfaces ($\varepsilon&gt;0.93$) within ±50° of normal. Vehicle bodies, glass and water all violate this.</p>
+<h3 id="43-specular-vs-diffuse-in-the-thermal-ir">4.3 Specular vs diffuse in the thermal IR<a class="anchor" href="#43-specular-vs-diffuse-in-the-thermal-ir" aria-label="permalink">#</a></h3>
+<p>An IR reflection lobe is generally <strong>narrower and stronger</strong> than the same material's visible lobe: roughness that scatters 0.5 µm light diffusely can be optically smooth at 10 µm (when $\sigma \ll \lambda/8$). Consequences:</p>
+<ul>
+<li>Painted bodywork and glass show near-mirror sky reflections in LWIR. Roofs and hoods read very cold on a clear night because they reflect a very cold sky.</li>
+<li>Asphalt and concrete stay near-Lambertian even in LWIR.</li>
+<li><strong>Do not reuse visible-band roughness values.</strong> Roughness must be a per-band material parameter. This strongly affects what an automotive perception stack sees.</li>
+</ul>
+<h3 id="44-semi-transparent-materials">4.4 Semi-transparent materials<a class="anchor" href="#44-semi-transparent-materials" aria-label="permalink">#</a></h3>
+<p>Glass is opaque in LWIR ($\varepsilon\approx0.85$–0.92) but <strong>transparent in SWIR and NIR</strong>. A windshield in LWIR shows the windshield's own temperature; in SWIR it shows the driver. Encode as a per-band triple $(\varepsilon,\rho,\tau)$ with $\varepsilon+\rho+\tau=1$, handling $\tau&gt;0$ as a second ray in the SWIR/NIR path. Make sure the material schema can express this from day one — retrofitting it is painful, and it is one of the headline capabilities of multi-band simulation.</p>
+<hr>
+<a id="5-scene-radiance"></a>
+<h2 id="5-scene-radiance-the-thermal-rendering-equation">5. Scene radiance: the thermal rendering equation<a class="anchor" href="#5-scene-radiance-the-thermal-rendering-equation" aria-label="permalink">#</a></h2>
+<h3 id="51-the-general-form">5.1 The general form<a class="anchor" href="#51-the-general-form" aria-label="permalink">#</a></h3>
+<p>The radiance leaving a surface point $\mathbf{x}$ toward direction $\omega_o$:</p>
+<div class="math-block">$$
+L_o(\mathbf{x},\omega_o,\lambda)=
+\underbrace{\varepsilon(\lambda,\omega_o)B(\lambda,T_s(\mathbf{x}))}_{\text{emitted}}
++\underbrace{\int_{\Omega} f_r(\mathbf{x},\omega_i,\omega_o,\lambda)\,L_i(\mathbf{x},\omega_i,\lambda)\cos\theta_i\,d\omega_i}_{\text{reflected}}
+$$</div>
+<p>This is the ordinary rendering equation with an emission term that is <strong>physically derived from temperature</strong> rather than authored. That is the whole trick. Everything a path tracer already knows how to do — visibility, BRDF sampling, multiple bounces — remains valid; you have only changed what the light sources are.</p>
+<p>Comprehensive IR signature simulators build exactly this. Their radiometric models account for spectral emissivity, spatial radiance distribution, specular reflection, reflected direct sunlight, reflected ambient light and atmospheric degradation, with all components combined in a spectral representation so that band-integrated radiance images can be produced for an arbitrary number of user-defined bandpasses [R2]. That last clause is the architecture you want: <strong>one spectral scene, many band outputs.</strong></p>
+<h3 id="52-the-two-regime-split">5.2 The two-regime split<a class="anchor" href="#52-the-two-regime-split" aria-label="permalink">#</a></h3>
+<p>The single most important architectural fact about multi-band IR:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Band</th><th>λ (µm)</th><th>Dominant source at 300 K</th><th>Illumination needed</th></tr></thead>
+<tbody>
+<tr><td>NIR</td><td>0.75–1.0</td><td>reflected</td><td>sun / moon / airglow / headlights</td></tr>
+<tr><td>SWIR</td><td>1.0–1.7 (ext. 2.5)</td><td>reflected</td><td>sun / <strong>airglow</strong> / lasers</td></tr>
+<tr><td>MWIR</td><td>3.0–5.0</td><td><strong>both</strong></td><td>sun (glint) <strong>and</strong> self-emission</td></tr>
+<tr><td>LWIR</td><td>8.0–12.0 (7.5–13.5)</td><td>self-emitted</td><td>none (scene <em>is</em> the source)</td></tr>
+</tbody></table></div>
+<p>The crossover — where solar-reflected and self-emitted radiance from a 300 K surface are comparable — sits near <strong>3.5–4.5 µm</strong> in daylight, moving with albedo and sun angle. MWIR straddles it, which is why MWIR is the hardest band to model and the one where day/night behaviour flips most dramatically.</p>
+<p>Implementation consequence: <strong>one shading core, two illumination paths.</strong> Both are always present in the code; per band, one is typically negligible and can be culled by a compile-time flag.</p>
+<h3 id="53-downwelling-radiance-ldownarrow--do-not-skip-this">5.3 Downwelling radiance $L_\downarrow$ — do not skip this<a class="anchor" href="#53-downwelling-radiance-ldownarrow--do-not-skip-this" aria-label="permalink">#</a></h3>
+<p>In LWIR, the reflected term is only $(1-\varepsilon)\approx0.05$–$0.2$ of the signal, but the sky is <em>extremely</em> cold, so it produces large apparent-temperature swings on low-emissivity surfaces. Modelling a constant ambient sky is a well-documented error: a clear dry sky reaches about <strong>−40 °C at 15° elevation in LWIR, while the same sky reads above +10 °C in MWIR</strong> [R13]. That difference between bands is real, not a modelling artefact, and it means a constant sky background badly mismodels a system's ability to detect small aerial targets.</p>
+<p>Three implementations, cheapest first:</p>
+<p><strong>(a) Sky-view-factor blend (L2).</strong> Precompute per-pixel sky visibility $V_s\in[0,1]$ from the surface normal and local occlusion (an AO-style term, or a cosine-weighted hemisphere factor):</p>
+<div class="math-block">$$
+L_\downarrow \approx V_s\,L_{\text{sky}}(\theta_{\text{zen}}) + (1-V_s)\,L_{\text{ground}}
+$$</div>
+<p>with $L_{\text{sky}}$ from an elevation-parameterised effective sky temperature:</p>
+<div class="math-block">$$
+T_{\text{sky}}(\theta_{\text{zen}}) = T_{\text{air}} - \Delta T_{\text{clear}}\cdot\big(1-\text{cloud}\big)\cdot\cos^{q}(\theta_{\text{zen}})
+$$</div>
+<p>Practical LWIR values: $\Delta T_{\text{clear}}\approx 55$–$70$ K at zenith for a dry clear sky, dropping toward 5–10 K under thick overcast or high humidity; $q\approx0.5$–$1.0$. Under overcast, $T_{\text{sky}}\to T_{\text{air}}$ and the reflected term nearly vanishes — which is exactly why thermal images look "flat" on cloudy days. That behaviour falling out of your model for free is a good sanity check.</p>
+<p><strong>(b) Low-resolution irradiance cubemap (L2.5).</strong> Render a 32×32×6 cubemap of scene band-radiance (including sky) from a few probe positions, prefilter into an irradiance map. This gets you building/vehicle self-heating reflections without full path tracing. Cheap, and it is what makes urban thermal scenes stop looking synthetic.</p>
+<p><strong>(c) Path-trace in the radiance domain (L3).</strong> Let the renderer do it, with materials whose emission is $\varepsilon B(T)$ and whose BRDF is the IR BRDF. Correct, and expensive.</p>
+<h3 id="54-the-solar-term-mwirswirnir">5.4 The solar term (MWIR/SWIR/NIR)<a class="anchor" href="#54-the-solar-term-mwirswirnir" aria-label="permalink">#</a></h3>
+<div class="math-block">$$
+L_{\text{sun}} = \frac{\rho(\omega_s,\omega_o)}{\pi}\,E_{\text{sun}}(\lambda)\,\tau_{\text{atm}}^{\text{sun}}(\lambda)\cos\theta_s\,S(\mathbf{x})
+$$</div>
+<p>$S$ is the shadow term, $E_{\text{sun}}$ is top-of-atmosphere spectral irradiance attenuated along the solar path. In MWIR, <strong>solar glint off water, glass and painted metal saturates detectors</strong> and is a first-order phenomenon, not a detail. Model it with the specular lobe, not a Lambertian albedo.</p>
+<h3 id="55-night-illumination-for-swirnir">5.5 Night illumination for SWIR/NIR<a class="anchor" href="#55-night-illumination-for-swirnir" aria-label="permalink">#</a></h3>
+<p>This is the band-specific piece people forget. At night in SWIR the scene is lit by <strong>airglow (nightglow)</strong> — chemiluminescence in the upper atmosphere, largely OH emission. Its spectrum peaks between roughly 1 and 1.8 µm, right in the InGaAs response band; at full moon, moonlight and airglow radiation densities are comparable, and on moonless nights SWIR illumination exceeds visible illumination by about an order of magnitude [R7][R8]. Reported airglow irradiance values span roughly 3.5–39 nW/cm², with substantial spatial, temporal and seasonal variability [R10].</p>
+<p>For simulation, model night SWIR illumination as:</p>
+<div class="math-block">$$
+E_{\text{night}}(\lambda) = E_{\text{airglow}}(\lambda)\cdot k_{\text{cloud}} + E_{\text{moon}}(\lambda,\phi_{\text{moon}}) + E_{\text{star}}(\lambda) + E_{\text{artificial}}
+$$</div>
+<p>Treat $E_{\text{airglow}}$ as a spectrally shaped hemisphere source with a configurable level (default ~10 nW/cm², range 3.5–39) and a slow temporal variation. Note that airglow is <strong>not</strong> blocked in the same way as moonlight — cloud attenuates it, but it does not have a directional shadow.</p>
+<p>Getting this right is what makes a SWIR channel behave like a real SWIR camera at night rather than like a dark visible camera.</p>
+<hr>
+<a id="6-temperature-field"></a>
+<h2 id="6-temperature-field-where-the-signal-actually-comes-from">6. Temperature field: where the signal actually comes from<a class="anchor" href="#6-temperature-field-where-the-signal-actually-comes-from" aria-label="permalink">#</a></h2>
+<p>In LWIR, <strong>your image is your temperature field.</strong> No amount of radiometric sophistication rescues a bad $T_s$. This section deserves more of your effort than any other.</p>
+<h3 id="61-the-energy-balance">6.1 The energy balance<a class="anchor" href="#61-the-energy-balance" aria-label="permalink">#</a></h3>
+<p>For a surface element with area-normalised heat capacity $C = \rho c_p \delta$ (J·m⁻²·K⁻¹) over an effective thickness $\delta$:</p>
+<div class="math-block">$$
+C\frac{dT_s}{dt} =
+\underbrace{\alpha_{\text{sol}}\,Q_{\text{sol}}}_{\text{absorbed solar}}
++\underbrace{\varepsilon Q_{\text{LW}\downarrow}}_{\text{absorbed sky/env}}
+-\underbrace{\varepsilon\sigma T_s^4}_{\text{emitted}}
+-\underbrace{h\,(T_s-T_{\text{air}})}_{\text{convection}}
+-\underbrace{k\frac{\partial T}{\partial z}\Big|_{z=0}}_{\text{conduction}}
++\underbrace{q_{\text{int}}}_{\text{internal}}
+$$</div>
+<p>with $\alpha_{\text{sol}}$ the solar <em>absorptivity</em> (absorbed solar is $\alpha_{\text{sol}}Q_{\text{sol}}$; an earlier draft wrote it as a complement with a stray exponent — spec issue S2). This is the same balance DIRSIG's THERM solver implements: a 1-D slab model taking conduction, convection and radiation into account to estimate surface temperature, driven by material thermodynamic properties plus weather data [R3][R6].</p>
+<p>The identical structure appears in urban-scale surface energy balance work as a transient equation coupling radiative fluxes with thermal storage and convection [R14], and in planetary thermophysical models where the boundary condition is $(1-A_B)\big((1-S)\psi F_{\text{SUN}} + F_{\text{SCAT}}\big) + (1-A_{TH})F_{\text{RAD}} + k(dT/dx)_{x=0} - \varepsilon\sigma T^4_{x=0}=0$ [R15]. It's the same physics with different labels; the shadow flag $S$ and illumination-cosine term $\psi$ are worth copying directly.</p>
+<h3 id="62-the-parameters-you-must-author">6.2 The parameters you must author<a class="anchor" href="#62-the-parameters-you-must-author" aria-label="permalink">#</a></h3>
+<p>DIRSIG's parameter set is the minimal complete one [R3]:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Symbol</th><th>Property</th><th>Units</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>$h$</td><td>convection heat transfer coefficient</td><td>W·m⁻²·K⁻¹</td><td><strong>Largest single source of uncertainty</strong></td></tr>
+<tr><td>$k$</td><td>thermal conductivity</td><td>W·m⁻¹·K⁻¹</td><td></td></tr>
+<tr><td>$\varepsilon$</td><td>thermal emissivity</td><td>–</td><td>spectral; drives both heat balance and radiance</td></tr>
+<tr><td>$\alpha_{\text{sol}}$</td><td>solar absorptivity</td><td>–</td><td></td></tr>
+<tr><td>$c_p$</td><td>specific heat</td><td>J·kg⁻¹·K⁻¹</td><td></td></tr>
+<tr><td>$\rho$</td><td>mass density</td><td>kg·m⁻³</td><td></td></tr>
+</tbody></table></div>
+<p>On $h$, DIRSIG is explicit that it is difficult to parameterise because it depends on surface roughness, fluid viscosity, vertical temperature stability and humidity, and it tends to be the largest source of uncertainty in temperature prediction; MuSES lets users set it explicitly while THERM computes it at runtime from conditions such as wind speed [R3]. Follow THERM: derive it.</p>
+<p>A serviceable forced/free-convection parameterisation for exterior surfaces:</p>
+<div class="math-block">$$
+h = \max\Big(h_{\text{free}},\; a + b\,v_{\text{wind}}^{\,n}\Big),
+\qquad h_{\text{free}} = c\,\big|T_s-T_{\text{air}}\big|^{1/3}
+$$</div>
+<p>with $a\approx 5$, $b\approx 4$, $n\approx 0.8$ (SI, wind in m/s), $c\approx1.5$. For a moving vehicle, $v_{\text{wind}}$ must include vehicle speed — a car at 100 km/h has a completely different hood temperature from the same car parked. <strong>This is a first-order effect for automotive IR and it is trivial to add.</strong></p>
+<h3 id="63-thermal-inertia--the-diurnal-fingerprint">6.3 Thermal inertia — the diurnal fingerprint<a class="anchor" href="#63-thermal-inertia--the-diurnal-fingerprint" aria-label="permalink">#</a></h3>
+<p>Define thermal inertia $P=\sqrt{k\rho c_p}$ (J·m⁻²·K⁻¹·s⁻¹ᐟ²). It controls how strongly a surface swings over a day:</p>
+<ul>
+<li><strong>Low $P$</strong> (dry sand, foliage, thin painted metal): fast, large swings. Hot by day, cold by night.</li>
+<li><strong>High $P$</strong> (water, concrete, wet soil, engine blocks): sluggish, damped. Cooler by day, warmer at night.</li>
+</ul>
+<p><strong>Thermal crossover</strong> — the times near dawn and dusk when different materials pass through equal apparent temperature and contrast collapses — is a direct consequence, and is one of the most operationally important phenomena in thermal imaging. If your simulator does not reproduce a contrast collapse near sunrise/sunset, your temperature model is not running. Make "does the scene go flat at 0600 and 1900?" an acceptance test.</p>
+<h3 id="64-practical-solver-lumped-capacitance-with-a-substrate-node">6.4 Practical solver: lumped capacitance with a substrate node<a class="anchor" href="#64-practical-solver-lumped-capacitance-with-a-substrate-node" aria-label="permalink">#</a></h3>
+<p>Full 1-D diffusion is overkill for L2. Use two nodes — surface and substrate — which captures both the fast surface response and the slow diurnal storage:</p>
+<div class="math-block">$$
+C_1\frac{dT_1}{dt}=\alpha_{\text{sol}}Q_{\text{sol}}+\varepsilon Q_{\text{LW}\downarrow}-\varepsilon\sigma T_1^4-h(T_1-T_{\text{air}})-\frac{T_1-T_2}{R_{12}}+q_{\text{int}}
+$$</div>
+<div class="math-block">$$
+C_2\frac{dT_2}{dt}=\frac{T_1-T_2}{R_{12}}-\frac{T_2-T_{\text{deep}}}{R_{2d}}
+$$</div>
+<p>with $R_{12}=\delta_1/(2k)+\delta_2/(2k)$. Integrate with explicit RK2 at a 1–60 s step; the stability limit is $\Delta t &lt; 2C_1/(h+4\varepsilon\sigma T^3+1/R_{12})$, which for thin painted metal ($C_1\sim 5$ kJ·m⁻²·K⁻¹) lands around 60–200 s. <strong>Decouple this from the render loop entirely</strong> — run it on a fixed thermal tick (say 1 Hz) and interpolate.</p>
+<p><strong>Spin-up matters.</strong> THERM initialises the slab to air temperature some hours before the desired prediction time and integrates forward [R6]. Do the same: run 24–48 h of weather history before $t=0$, or your night scenes will be wrong. This is cheap (a few thousand steps per material class) and it is the difference between a plausible scene and a correct one.</p>
+<h3 id="65-where-newtons-law-of-cooling-fits">6.5 Where Newton's law of cooling fits<a class="anchor" href="#65-where-newtons-law-of-cooling-fits" aria-label="permalink">#</a></h3>
+<p>$\dot T = -\kappa(T-T_\infty)$ is the linearised, radiation-free, solar-free special case of §6.1. It is exactly right for:</p>
+<ul>
+<li>short-horizon relaxation of an object with no solar input (a body in shade, a machine after shutdown),</li>
+<li>objects whose temperature you are <em>scripting</em> rather than predicting.</li>
+</ul>
+<p>It is wrong for anything under solar load or exchanging with a cold sky, because it has no $T^4$ term and no $Q_{\text{sol}}$. <strong>Keep it as the "scripted actor" solver and add the full balance as the "environment" solver.</strong> That two-solver split is exactly how DIRSIG organises things (data-driven vs predictive) [R3][R6], and it is what your Unreal Blueprint component should become: one of several pluggable solvers behind a common interface, rather than the only one.</p>
+<h3 id="66-active-heat-sources-for-automotive">6.6 Active heat sources for automotive<a class="anchor" href="#66-active-heat-sources-for-automotive" aria-label="permalink">#</a></h3>
+<p>These are scripted, not predicted, and they are where most of the useful signal lives:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Source</th><th>Typical ΔT over ambient</th><th>Time constant</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Engine bay / grille</td><td>+40 … +90 K</td><td>5–20 min warm-up</td><td>Strong function of load; visible through grille</td></tr>
+<tr><td>Exhaust pipe / tip</td><td>+80 … +250 K</td><td>2–10 min</td><td>Near MWIR peak; saturates LWIR AGC</td></tr>
+<tr><td>Exhaust plume</td><td>+20 … +150 K</td><td>seconds</td><td>Gas emission, not surface — band-selective (CO₂ 4.3 µm)</td></tr>
+<tr><td>Tyres (contact patch)</td><td>+10 … +35 K</td><td>10–30 min</td><td>Rises with speed and cornering; <strong>strong ID cue</strong></td></tr>
+<tr><td>Brake discs</td><td>+50 … +400 K</td><td>30 s heat, 5 min cool</td><td>Best transient cue for braking events</td></tr>
+<tr><td>Catalytic converter</td><td>+100 … +300 K</td><td>3–10 min</td><td>Underbody, visible from behind</td></tr>
+<tr><td>Human body (clothed skin)</td><td>+8 … +15 K</td><td>slow</td><td>Effective $\varepsilon\approx0.98$; face is warmest</td></tr>
+<tr><td>Recently parked vehicle</td><td>+5 … +25 K</td><td>20–60 min decay</td><td>Newton cooling is exactly right here</td></tr>
+<tr><td>Road under a departed vehicle</td><td>−3 … −8 K</td><td>5–20 min</td><td>Shadow "ghost"; realistic scenes need it</td></tr>
+</tbody></table></div>
+<p>That last row is worth implementing. Thermal shadows and residual heat traces are a signature phenomenon of the band and they routinely confuse detectors trained only on synthetic data that lacks them.</p>
+<hr>
+<a id="7-atmosphere"></a>
+<h2 id="7-atmosphere">7. Atmosphere<a class="anchor" href="#7-atmosphere" aria-label="permalink">#</a></h2>
+<h3 id="71-model">7.1 Model<a class="anchor" href="#71-model" aria-label="permalink">#</a></h3>
+<div class="math-block">$$
+\tau_{\text{atm}}(\lambda,d)=\big[\tau_{1\mathrm{m}}(\lambda)\big]^{d}
+=\exp\big(-\gamma(\lambda)\,d\big),\qquad \gamma = \gamma_{\text{mol}}+\gamma_{\text{aer}}
+$$</div>
+<p>and path radiance from the emitting atmosphere itself:</p>
+<div class="math-block">$$
+L_{\text{path}}(\lambda,d)=\big(1-\tau_{\text{atm}}(\lambda,d)\big)B(\lambda,T_{\text{air}})
+$$</div>
+<p>This is the standard Beer-Lambert treatment with a unit-path transmittance describing distance-dependent attenuation, and it is the basis of the three-term observed-radiance model given in §2 [R11]. Path radiance arises from thermal emission of the atmosphere along the line of sight and varies with elevation angle for a ground-based sensor [R13].</p>
+<h3 id="72-getting-gammalambda-without-modtran">7.2 Getting $\gamma(\lambda)$ without MODTRAN<a class="anchor" href="#72-getting-gammalambda-without-modtran" aria-label="permalink">#</a></h3>
+<p>MODTRAN is the standard band-model radiative transfer code and the reference for transmittance and background radiance from 0.2 µm outward, retaining LOWTRAN's model atmospheres, aerosol models, clouds and rain attenuation while improving spectral resolution to 2 cm⁻¹ [R16]. If you have access, precompute with it.</p>
+<p>If you don't, use this practical procedure:</p>
+<ol>
+<li>Choose 4–6 representative atmospheres (US Standard, mid-latitude summer/winter, tropical, plus a fog/rain case).</li>
+<li>For each, obtain band-averaged transmittance vs. range from published curves. MODTRAN runs for EO/IR analysis of ground-level horizontal paths are typically parameterised exactly this way — e.g. a 2 km horizontal path, 1976 US Standard atmosphere, rural aerosols, 16 km visibility [R17].</li>
+<li>Fit $\gamma_B$ per band per atmosphere. Store a small table indexed by (band, atmosphere, humidity, visibility).</li>
+</ol>
+<p><strong>Automotive-relevant magnitudes</strong> (0–300 m horizontal, ground level):</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Condition</th><th>LWIR $\tau$ @200 m</th><th>MWIR $\tau$ @200 m</th><th>SWIR $\tau$ @200 m</th><th>Visible $\tau$ @200 m</th></tr></thead>
+<tbody>
+<tr><td>Clear, dry</td><td>0.90–0.96</td><td>0.92–0.97</td><td>0.93–0.98</td><td>0.95–0.98</td></tr>
+<tr><td>Humid (30 °C, 80% RH)</td><td>0.72–0.85</td><td>0.85–0.93</td><td>0.88–0.95</td><td>0.93–0.97</td></tr>
+<tr><td>Haze (5 km vis)</td><td>0.85–0.92</td><td>0.82–0.90</td><td>0.70–0.85</td><td>0.45–0.65</td></tr>
+<tr><td>Light fog (200 m vis)</td><td>0.35–0.60</td><td>0.25–0.50</td><td>0.10–0.30</td><td>0.02–0.10</td></tr>
+<tr><td>Dense fog (50 m vis)</td><td>0.02–0.10</td><td>0.01–0.06</td><td>~0</td><td>~0</td></tr>
+</tbody></table></div>
+<p>Two things to take from this table:</p>
+<ul>
+<li>Over automotive ranges in clear air, atmospheric attenuation is a <strong>second-order</strong> effect. Do not over-engineer it.</li>
+<li>In fog and haze it is the <strong>dominant</strong> effect, and it is exactly where LWIR's advantage over visible comes from — which is the entire commercial argument for thermal cameras on cars. Getting the <em>relative</em> band behaviour right matters far more than getting absolute $\tau$ right to 1%.</li>
+</ul>
+<p>Note that LWIR is not universally best: the table shows SWIR beating LWIR in humid clear air (water vapour continuum absorption hits 8–12 µm hard), and LWIR beating everything in fog. A simulator that reproduces this crossover is doing real work.</p>
+<h3 id="73-humidity-dependence">7.3 Humidity dependence<a class="anchor" href="#73-humidity-dependence" aria-label="permalink">#</a></h3>
+<p>Water vapour dominates LWIR attenuation. A usable engineering form:</p>
+<div class="math-block">$$
+\gamma_{\text{LWIR}} \approx \gamma_0 + \beta \cdot w,\qquad w = \text{precipitable water (g·m}^{-3})
+$$</div>
+<p>with $w$ from temperature and relative humidity via the Magnus formula:</p>
+<div class="math-block">$$
+e_s(T) = 6.112\exp\!\left(\frac{17.67\,T_C}{T_C+243.5}\right)\ \text{hPa},\qquad
+w = 216.7\,\frac{\mathrm{RH}\cdot e_s}{T_K}
+$$</div>
+<p>Fit $\gamma_0,\beta$ per band against your MODTRAN table or published curves.</p>
+<h3 id="74-what-you-can-safely-ignore">7.4 What you can safely ignore<a class="anchor" href="#74-what-you-can-safely-ignore" aria-label="permalink">#</a></h3>
+<p>For ground-vehicle simulation under ~500 m: multiple scattering, adjacency effects, spherical refraction, and spectral fine structure within a band. These matter for airborne and satellite work — they are why MODTRAN's correlated-k treatment exists for LWIR flux calculations [R18] — and not for you. Document that you have dropped them.</p>
+<hr>
+<a id="8-optics"></a>
+<h2 id="8-optics">8. Optics<a class="anchor" href="#8-optics" aria-label="permalink">#</a></h2>
+<h3 id="81-irradiance-at-the-focal-plane">8.1 Irradiance at the focal plane<a class="anchor" href="#81-irradiance-at-the-focal-plane" aria-label="permalink">#</a></h3>
+<p>For an extended Lambertian source of in-band radiance $L_B$:</p>
+<div class="math-block">$$
+E_{\text{FPA}} = \frac{\pi L_B \tau_{\text{opt}}}{4F^2+1}\cos^4\theta
+$$</div>
+<p>and the power on one pixel is $\Phi = E_{\text{FPA}}A_d$. In photon terms, replace $L_B$ with $L_{q,B}$ and $\Phi$ becomes a photon rate.</p>
+<p>The working f-number $F = f/D$ dominates sensitivity: NETD scales as $F^2$. This is why uncooled LWIR lenses are $F/1.0$–$F/1.4$ and expensive (germanium), and why a "faster lens" is the cheapest sensitivity upgrade available. Make $F$ a first-class config parameter so trade studies are one line of YAML.</p>
+<h3 id="82-self-emission--the-term-that-only-exists-in-the-ir">8.2 Self-emission — the term that only exists in the IR<a class="anchor" href="#82-self-emission--the-term-that-only-exists-in-the-ir" aria-label="permalink">#</a></h3>
+<p>Your own optics glow. In LWIR at room temperature this is <strong>not</strong> negligible, and in a cooled MWIR system the cold shield exists precisely to suppress it. A worked example from a calibration patent decomposes in-band radiance at the detector into: lens emission, window emission times lens transmission, mirror emission times window and lens transmission, window emission times mirror reflectance times transmissions, and so on — each surface contributing $\varepsilon_i B(\lambda,T_i)$ attenuated by every element downstream [R19].</p>
+<p>Generalised, for a stack of $N$ elements between scene and detector:</p>
+<div class="math-block">$$
+L_{\text{self}} = \sum_{i=1}^{N}\varepsilon_i B(\lambda,T_i)\prod_{j&gt;i}\tau_j
+$$</div>
+<p>Practical simplification for a single-lens uncooled core:</p>
+<div class="math-block">$$
+\Phi_{\text{self}} \approx A_d\,\Omega_{\text{eff}}\,\big(1-\tau_{\text{opt}}\big)\,L_B\!\left(T_{\text{housing}}\right)
+$$</div>
+<p>with $\Omega_{\text{eff}} = \pi/(4F^2+1)$. Because $T_{\text{housing}}$ drifts, this term is the physical origin of <strong>shutterless drift</strong> and the reason cameras need periodic flat-field correction (§11.2). Model it and you get NUC behaviour for free; skip it and you have to fake NUC drift with an arbitrary random walk.</p>
+<p>Related effect worth modelling if you care about realism: <strong>narcissus</strong> — the detector seeing its own cold reflection in the optics, producing a soft dark blob near image centre that shifts with focus and temperature. A radially symmetric multiplicative field with a slowly drifting amplitude reproduces it convincingly.</p>
+<h3 id="83-mtf-cascade">8.3 MTF cascade<a class="anchor" href="#83-mtf-cascade" aria-label="permalink">#</a></h3>
+<p>System MTF is the product of independent contributions:</p>
+<div class="math-block">$$
+\mathrm{MTF}_{\text{sys}}(\xi)=\mathrm{MTF}_{\text{diff}}\cdot\mathrm{MTF}_{\text{aberr}}\cdot\mathrm{MTF}_{\text{det}}\cdot\mathrm{MTF}_{\text{motion}}\cdot\mathrm{MTF}_{\text{defocus}}\cdot\mathrm{MTF}_{\text{elec}}
+$$</div>
+<p><strong>Diffraction</strong> (circular aperture, incoherent):</p>
+<div class="math-block">$$
+\mathrm{MTF}_{\text{diff}}(\xi)=\frac{2}{\pi}\left[\arccos\!\left(\frac{\xi}{\xi_c}\right)-\frac{\xi}{\xi_c}\sqrt{1-\left(\frac{\xi}{\xi_c}\right)^2}\right],
+\qquad \xi_c=\frac{1}{\lambda F}
+$$</div>
+<p><strong>Detector footprint</strong> (square pixel of width $w$):</p>
+<div class="math-block">$$
+\mathrm{MTF}_{\text{det}}(\xi)=\left|\operatorname{sinc}(\pi w \xi)\right| = \left|\frac{\sin(\pi w\xi)}{\pi w\xi}\right|
+$$</div>
+<p>with first zero at $\xi = 1/w$. This term is always present in any imaging system with detectors, whether or not it is the limiting one [R20].</p>
+<p><strong>Motion smear</strong> over integration time $t_{\text{int}}$ with image-plane velocity $v$: $\mathrm{MTF}_{\text{motion}}(\xi)=|\operatorname{sinc}(\pi v t_{\text{int}}\xi)|$.</p>
+<p><strong>Aberration / defocus:</strong> in practice fit a Gaussian, $\exp(-2\pi^2\sigma^2\xi^2)$, from a measured slant-edge, rather than deriving it.</p>
+<p><strong>Nyquist and aliasing.</strong> The pixel pitch $p$ sets $\xi_N = 1/(2p)$; content above it aliases [R21]. Worked case for a 12 µm-pitch LWIR core at $F/1.0$, $\lambda=10$ µm:</p>
+<ul>
+<li>$\xi_c = 1/(\lambda F) = 100$ cyc/mm</li>
+<li>$\xi_N = 1/(2\times0.012) = 41.7$ cyc/mm</li>
+<li>$\mathrm{MTF}_{\text{diff}}(\xi_N) \approx 0.49$, $\mathrm{MTF}_{\text{det}}(\xi_N) \approx 0.64$</li>
+</ul>
+<p>So the system is <strong>detector-limited but not diffraction-free</strong>, and it aliases. If you render at native resolution and apply a blur, you get the blur but not the aliasing, and aliasing is precisely what corrupts small-target detection at range — the case you care about for automotive. <strong>Render at 3–4× and downsample with a box filter matching the pixel footprint.</strong> That single choice buys you correct aliasing, correct detector MTF, and correct sub-pixel target behaviour with no extra model.</p>
+<p>Cascade models for sampled IR systems exist precisely to handle this — they yield both the aliasing band and the averaged modulation response for a general sampling subsystem [R22].</p>
+<h3 id="84-distortion">8.4 Distortion<a class="anchor" href="#84-distortion" aria-label="permalink">#</a></h3>
+<p>Standard camera-model territory: Brown-Conrady for moderate FOV, Kannala-Brandt or an f-theta polynomial for wide IR lenses. Isaac Sim's camera stack already supports OpenCV pinhole/fisheye, f-theta and Kannala-Brandt models [R23], so use the engine's distortion rather than reimplementing it.</p>
+<hr>
+<a id="9-detector"></a>
+<h2 id="9-detector">9. Detector<a class="anchor" href="#9-detector" aria-label="permalink">#</a></h2>
+<p>Two physically different device classes, two model paths, one interface.</p>
+<h3 id="91-photon-detectors--cooled-mwirswir-and-nir">9.1 Photon detectors — cooled MWIR/SWIR, and NIR<a class="anchor" href="#91-photon-detectors--cooled-mwirswir-and-nir" aria-label="permalink">#</a></h3>
+<p>Signal in photoelectrons per frame:</p>
+<div class="math-block">$$
+N_e = \eta\,A_d\,t_{\text{int}}\,\frac{\pi\,\tau_{\text{opt}}}{4F^2+1}\int R(\lambda)\,L_{q,\text{sensor}}(\lambda)\,d\lambda \;+\; i_{\text{dark}}t_{\text{int}}/q
+$$</div>
+<p>with $\eta$ the quantum efficiency (folded into $R(\lambda)$ if you prefer). Then:</p>
+<div class="math-block">$$
+\mathrm{DN} = \min\!\left(\mathrm{DN}_{\max},\ \left\lfloor \frac{N_e + n_e}{N_{\text{well}}}\cdot 2^{N_{\text{bits}}} \right\rfloor\right)
+$$</div>
+<p>Key parameters: $\eta$, $N_{\text{well}}$ (well capacity), $i_{\text{dark}}(T_{\text{FPA}})$, read noise $\sigma_{\text{read}}$, $t_{\text{int}}$, $N_{\text{bits}}$.</p>
+<p>Dark current follows an Arrhenius law, $i_{\text{dark}} \propto T^{3/2}e^{-E_g/2k_BT}$ — this is why MWIR sensors are cryocooled to 77–150 K. Model the cooldown transient if you want realistic startup behaviour.</p>
+<p><strong>Cold shield efficiency.</strong> A cooled system's cold stop limits the detector's view of warm surroundings. Effective f-number for background flux is set by the cold shield, not the lens: if they are mismatched ("cold shield inefficiency"), background flux rises and NETD degrades. Expose a <code>cold_shield_efficiency ∈ [0,1]</code> parameter; it is a real trade-study knob.</p>
+<h3 id="92-microbolometers--uncooled-lwir">9.2 Microbolometers — uncooled LWIR<a class="anchor" href="#92-microbolometers--uncooled-lwir" aria-label="permalink">#</a></h3>
+<p>Different physics: absorbed radiation heats a thermally isolated membrane, changing its resistance. The FLIR Boson, a good reference core, uses a two-dimensional array of vanadium-oxide microbolometers at 12 µm pitch, where the temperature of each microbolometer varies in response to incident flux and the temperature change causes a proportional change in the detector's resistance [R24].</p>
+<p>Membrane thermal balance:</p>
+<div class="math-block">$$
+C_{\text{th}}\frac{d\Delta T}{dt} = \alpha_{\text{abs}}\Phi(t) - G_{\text{th}}\,\Delta T
+$$</div>
+<p>giving a first-order response with <strong>thermal time constant</strong> $\tau_{\text{th}} = C_{\text{th}}/G_{\text{th}}$ and frequency response</p>
+<div class="math-block">$$
+\mathcal{R}(f) = \frac{\mathcal{R}_0}{\sqrt{1+(2\pi f \tau_{\text{th}})^2}},
+\qquad \mathcal{R}_0 = \frac{\alpha_{\text{abs}}\,\beta\,I_{\text{bias}}\,R_0}{G_{\text{th}}}
+$$</div>
+<p>where $\beta = (1/R)(dR/dT)$ is the TCR, ≈ −2%/K for VOx. Typical $\tau_{\text{th}} = 8$–12 ms.</p>
+<p><strong>This produces real motion smear.</strong> At 60 Hz with $\tau_{\text{th}}=10$ ms, a moving object smears over roughly 0.6 frames. For a vehicle-mounted camera at speed, edges trail visibly. Implement it as a per-pixel exponential IIR across frames:</p>
+<div class="math-block">$$
+S_n = S_{n-1} + \big(S^{\text{ideal}}_n - S_{n-1}\big)\big(1-e^{-\Delta t/\tau_{\text{th}}}\big)
+$$</div>
+<p>Two lines of code, and it is one of the strongest "this is a real uncooled camera" cues you can add. Most simulators omit it.</p>
+<p><strong>FPA temperature coupling.</strong> Bolometer response depends on the FPA's own temperature. In a TEC-less core this drifts with ambient and self-heating, which is the source of shutterless-camera drift. NETD depends not only on intrinsic material properties and ROIC design but also on operational parameters including integration time, bias conditions and frame rate, which influence responsivity, noise spectral density, thermal time constant effects and saturation behaviour — and FPA temperature can itself be treated as an optimisation parameter [R25].</p>
+<p>Model as: $\text{gain}(T_{\text{FPA}}), \text{offset}(T_{\text{FPA}})$ as low-order polynomials, with $T_{\text{FPA}}$ driven by its own lumped thermal model from ambient plus power dissipation.</p>
+<h3 id="93-the-datasheet-facing-figures-of-merit">9.3 The datasheet-facing figures of merit<a class="anchor" href="#93-the-datasheet-facing-figures-of-merit" aria-label="permalink">#</a></h3>
+<p><strong>Responsivity</strong> $\mathcal{R} = V_{\text{out}}/\Phi$ [V/W]. <strong>NEP</strong> $= V_n/\mathcal{R}$ [W] — the power giving SNR = 1. <strong>Specific detectivity</strong></p>
+<div class="math-block">$$
+D^* = \frac{\sqrt{A_d \Delta f}}{\mathrm{NEP}}\quad[\text{cm·Hz}^{1/2}\text{·W}^{-1}]
+$$</div>
+<h3 id="94-netd">9.4 NETD<a class="anchor" href="#94-netd" aria-label="permalink">#</a></h3>
+<p>The two forms you will meet:</p>
+<p><strong>Thermal-detector / datasheet form.</strong> For an idealised system with no absorption in the medium or optics:</p>
+<div class="math-block">$$
+\mathrm{NETD} = \frac{4F^2 V_n}{\mathcal{R}\,A_d\,L'} = \frac{4F^2}{A_d L'}\,\mathrm{NEP}
+$$</div>
+<p>where $A_d$ is the effective absorbing area, $V_n$ the total noise voltage in the system bandwidth, $\mathcal{R}$ responsivity, $F$ focal ratio, and $L'$ the change in power per unit area radiated by the object within the spectral band [R26]. NETD is defined as the object temperature change that makes the output SNR change by unity.</p>
+<p><strong>Photon-count form (recommended for implementation, unambiguous):</strong></p>
+<div class="math-block">$$
+\mathrm{NETD} = \frac{\sigma_{N,\text{total}}}{\partial N_e/\partial T},
+\qquad
+\frac{\partial N_e}{\partial T} = \eta A_d t_{\text{int}}\frac{\pi\tau_{\text{opt}}}{4F^2+1}\left(\frac{\partial L_q}{\partial T}\right)_B
+$$</div>
+<p>with $\sigma_{N,\text{total}}^2 = N_e + \sigma_{\text{dark}}^2 + \sigma_{\text{read}}^2 + \sigma_{1/f}^2$.</p>
+<p><strong>Use NETD as a calibration handle, not as a noise generator.</strong> The workflow is:</p>
+<ol>
+<li>Build the full physical chain with your best parameter estimates.</li>
+<li>Compute predicted NETD at a 300 K reference.</li>
+<li>Scale the noise terms so predicted NETD matches the datasheet number.</li>
+<li>Now the <em>spatial and spectral</em> structure of the noise is physical, and its <em>magnitude</em> matches the real device.</li>
+</ol>
+<p>This is what makes a simulator both physical and matched to a specific camera. Note that NETD derivations differ in whether target and atmosphere temperatures are treated as independent; a modified systematic approach that decouples them applies across a wider range of target temperatures and atmospheric conditions [R27]. If you compare against published NETD numbers, check which convention was used.</p>
+<hr>
+<a id="10-noise"></a>
+<h2 id="10-noise">10. Noise<a class="anchor" href="#10-noise" aria-label="permalink">#</a></h2>
+<h3 id="101-physical-sources">10.1 Physical sources<a class="anchor" href="#101-physical-sources" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>Source</th><th>Statistics</th><th>Scales as</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Photon shot</td><td>Poisson</td><td>$\sqrt{N_e}$</td><td>all bands (dominant in MWIR/SWIR by day)</td></tr>
+<tr><td>Dark shot</td><td>Poisson</td><td>$\sqrt{i_d t_{\text{int}}/q}$</td><td>cooled devices, hot FPAs</td></tr>
+<tr><td>Johnson/thermal</td><td>Gaussian</td><td>$\sqrt{4k_BT R\Delta f}$</td><td>bolometers (dominant)</td></tr>
+<tr><td>Temperature fluctuation</td><td>Gaussian</td><td>$\sqrt{4k_BT^2G_{\text{th}}\Delta f}$</td><td>bolometers — the physical floor</td></tr>
+<tr><td>Read / ROIC</td><td>Gaussian</td><td>constant</td><td>all</td></tr>
+<tr><td>1/f</td><td>pink</td><td>$\propto 1/f$</td><td>bolometers, ROIC</td></tr>
+<tr><td>FPN (gain + offset)</td><td>fixed spatial</td><td>scene-dependent</td><td>all — <strong>dominant after NUC decay</strong></td></tr>
+</tbody></table></div>
+<h3 id="102-the-3d-noise-model--use-this-not-a-single-sigma">10.2 The 3D noise model — use this, not a single sigma<a class="anchor" href="#102-the-3d-noise-model--use-this-not-a-single-sigma" aria-label="permalink">#</a></h3>
+<p>The NVESD three-dimensional noise decomposition splits total noise into components along temporal ($t$), vertical ($v$) and horizontal ($h$) directions. In the standard nomenclature: $\sigma_{TVH}$ is random spatio-temporal noise from detector temporal noise; $\sigma_{VH}$ is random spatial (bi-directional fixed-pattern) noise from pixel processing, detector-to-detector non-uniformity and 1/f; $\sigma_V$ is fixed row noise (line-to-line non-uniformity); $\sigma_H$ is fixed column noise from scan effects and detector-to-detector non-uniformity [R28].</p>
+<p>Full set and how to synthesise each:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Component</th><th>Physical meaning</th><th>Synthesis</th></tr></thead>
+<tbody>
+<tr><td>$\sigma_{TVH}$</td><td>random spatio-temporal (pixel temporal noise)</td><td>i.i.d. Gaussian per pixel per frame</td></tr>
+<tr><td>$\sigma_{VH}$</td><td>fixed 2-D pattern (pixel non-uniformity, 1/f)</td><td>one fixed 2-D Gaussian field, slowly drifting</td></tr>
+<tr><td>$\sigma_V$</td><td>fixed row noise</td><td>one Gaussian value per row, fixed</td></tr>
+<tr><td>$\sigma_H$</td><td>fixed column noise</td><td>one Gaussian value per column, fixed</td></tr>
+<tr><td>$\sigma_{TV}$</td><td>temporal row noise (ROIC line noise)</td><td>new Gaussian per row per frame</td></tr>
+<tr><td>$\sigma_{TH}$</td><td>temporal column noise</td><td>new Gaussian per column per frame</td></tr>
+<tr><td>$\sigma_T$</td><td>frame-to-frame bounce</td><td>one Gaussian per frame (global)</td></tr>
+</tbody></table></div>
+<div class="math-block">$$
+\sigma_{\text{total}}^2=\sigma_T^2+\sigma_V^2+\sigma_H^2+\sigma_{TV}^2+\sigma_{TH}^2+\sigma_{VH}^2+\sigma_{TVH}^2
+$$</div>
+<p>This decomposition is directly implementable, and it is what real EO/IR test equipment reports, so <strong>you can parameterise it from measurements of the actual camera you intend to model.</strong> Programs of record combine signal intensity transfer function (SITF), 3-D noise, IFOV and MTF measurements into a measured-system component usable directly in the Night Vision Integrated Performance Model [R29].</p>
+<p>Practical starting ratios for an uncooled LWIR core after NUC: $\sigma_{TVH}:\sigma_{VH}:\sigma_H:\sigma_V \approx 1.0 : 0.3 : 0.15 : 0.08$, all in NETD units. For a cooled MWIR core, $\sigma_{VH}$ is smaller and $\sigma_{TVH}$ dominates.</p>
+<p>Directional noise (row/column striping) is exactly what makes thermal imagery look <em>thermal</em>, and it is what most detection networks latch onto. Getting it wrong is the biggest single contributor to sim-to-real gap in IR perception — larger than radiometric error.</p>
+<h3 id="103-temporal-structure">10.3 Temporal structure<a class="anchor" href="#103-temporal-structure" aria-label="permalink">#</a></h3>
+<p>Real IR noise is not white in time. Temporal stripe noise arises when the ADC is affected by electronic thermal noise, introducing fluctuating stripe structures along the temporal dimension; it is commonly modelled as a 1-D Gaussian distributed along one image axis [R30]. Implement the fixed-pattern terms with a slow random walk (correlation time of seconds to minutes) rather than freezing them: that produces the characteristic "pattern breathing" between NUC events.</p>
+<h3 id="104-bad-pixels">10.4 Bad pixels<a class="anchor" href="#104-bad-pixels" aria-label="permalink">#</a></h3>
+<p>Every real FPA has them. Model:</p>
+<ul>
+<li><strong>Dead</strong> (stuck low), <strong>hot</strong> (stuck high), <strong>flickering</strong> (random telegraph noise), <strong>blinking</strong> (intermittent).</li>
+<li>Typical: 0.05–0.5% of pixels, clustered slightly (use a Poisson cluster process, not uniform).</li>
+<li>Cameras replace them with neighbour interpolation, which leaves a <strong>detectable smoothed footprint</strong>. Simulate the defect <em>and</em> the replacement — the replacement artefact is what a detector actually sees.</li>
+</ul>
+<hr>
+<a id="11-signal-chain"></a>
+<h2 id="11-signal-chain">11. Signal chain<a class="anchor" href="#11-signal-chain" aria-label="permalink">#</a></h2>
+<p>Everything after the ADC. This stage is where most of the <em>visual</em> character of a thermal image is created, and it is the part most simulators get wrong by skipping.</p>
+<h3 id="111-order-of-operations">11.1 Order of operations<a class="anchor" href="#111-order-of-operations" aria-label="permalink">#</a></h3>
+<pre><code>raw DN → bad-pixel replace → NUC (2-pt gain/offset) → temporal filter
+       → [radiometric linearisation → T_app]  (radiometric mode)
+       → AGC / DRC → gamma → polarity → palette → 8-bit output</code></pre>
+<p>Note the fork: a <strong>radiometric</strong> camera exposes the linear branch (calibrated $T_{\text{app}}$ per pixel); a <strong>non-radiometric</strong> core exposes only the AGC branch. Emit both — perception stacks usually consume the 8-bit AGC image, while your validation needs the linear one.</p>
+<h3 id="112-two-point-nuc">11.2 Two-point NUC<a class="anchor" href="#112-two-point-nuc" aria-label="permalink">#</a></h3>
+<div class="math-block">$$
+\mathrm{DN}^{\text{corr}}_{ij} = G_{ij}\big(\mathrm{DN}_{ij}-O_{ij}\big),\qquad
+G_{ij}=\frac{\overline{\mathrm{DN}^{H}}-\overline{\mathrm{DN}^{L}}}{\mathrm{DN}^{H}_{ij}-\mathrm{DN}^{L}_{ij}},\quad
+O_{ij}=\mathrm{DN}^{L}_{ij}
+$$</div>
+<p>calibrated against two blackbody temperatures. This is the standard two-point technique, and NETD and correctability are the two parameters used to characterise an FPA against a blackbody radiator [R31].</p>
+<p><strong>Model the residual, not the ideal.</strong> Simulate:</p>
+<ul>
+<li>coefficients calibrated at $T_{\text{FPA}}^{\text{cal}}$, applied at current $T_{\text{FPA}}$ → drift $\propto (T_{\text{FPA}}-T^{\text{cal}}_{\text{FPA}})$;</li>
+<li>residual non-uniformity growing between shutter events (flat-field correction, FFC);</li>
+<li>the FFC event itself: a shutter closes, the image freezes for 0.5–1 s, then the pattern resets.</li>
+</ul>
+<p>That freeze is a real behavioural artefact that a perception stack must survive. Simulating it is worth more than another decimal place of radiometry. Some cameras avoid it: shutterless approaches process consecutive scene and internal-shutter images to stabilise response [R32], and scene-based methods estimate fixed-pattern noise from pixel-sized translations of the FPA, requiring neither shutter nor elaborate calibration and being invariant to noise magnitude and robust to unknown camera and inter-scene movement [R33]. If you model a shutterless core, use a slow-drift + scene-based-correction residual instead of periodic freezes.</p>
+<h3 id="113-agc--dynamic-range-compression">11.3 AGC / dynamic range compression<a class="anchor" href="#113-agc--dynamic-range-compression" aria-label="permalink">#</a></h3>
+<p>A 14–16 bit radiometric image must become 8 bits. The mapping choice changes the image drastically and <strong>is part of the sensor model</strong>, not a display detail.</p>
+<p><strong>Linear AGC with percentile clipping:</strong></p>
+<div class="math-block">$$
+y = \mathrm{clip}\!\left(\frac{x - x_{p_{\text{lo}}}}{x_{p_{\text{hi}}} - x_{p_{\text{lo}}}},0,1\right)^{1/\gamma}
+$$</div>
+<p>with $p_{\text{lo}},p_{\text{hi}}$ typically 0.5% / 99.5%.</p>
+<p><strong>Plateau equalisation (what most thermal cores actually use):</strong> histogram equalisation with the per-bin count clipped at a plateau value $P$ before integrating the CDF. Low $P$ → approaches linear; high $P$ → full HE. This is the algorithm behind the characteristic thermal "look."</p>
+<p><strong>Why it matters for automotive:</strong> a hot exhaust entering frame collapses contrast on everything else, because AGC is global. That failure mode is real, is a genuine hazard for perception, and only appears in simulation if you model AGC. Add ROI-weighted and locally-adaptive variants as options.</p>
+<p><strong>Digital detail enhancement (DDE):</strong> high-pass boost added back over the compressed image. Model as unsharp mask with a configurable gain — it is why real thermal images look "crunchy."</p>
+<h3 id="114-polarity-and-palette">11.4 Polarity and palette<a class="anchor" href="#114-polarity-and-palette" aria-label="permalink">#</a></h3>
+<p>White-hot / black-hot inversion, plus colour LUTs (Ironbow, Rainbow, Lava, Arctic). Trivial, but expose them: many downstream models are sensitive to palette, and mismatched palette between training and deployment is a classic silent failure.</p>
+<hr>
+<a id="12-band-specialisation"></a>
+<h2 id="12-band-specialisation-one-core-four-cameras">12. Band specialisation: one core, four cameras<a class="anchor" href="#12-band-specialisation-one-core-four-cameras" aria-label="permalink">#</a></h2>
+<p>This is the scalability answer. <strong>Nothing in §2–§11 is band-specific.</strong> A band is a data file.</p>
+<h3 id="121-what-changes-per-band">12.1 What changes per band<a class="anchor" href="#121-what-changes-per-band" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>Aspect</th><th>NIR</th><th>SWIR</th><th>MWIR</th><th>LWIR</th></tr></thead>
+<tbody>
+<tr><td>Range (µm)</td><td>0.75–1.0</td><td>0.9–1.7</td><td>3.0–5.0</td><td>7.5–13.5</td></tr>
+<tr><td>Detector</td><td>Si CMOS</td><td>InGaAs</td><td>InSb / MCT / T2SL</td><td>VOx / a-Si bolometer</td></tr>
+<tr><td>Cooling</td><td>none</td><td>TEC</td><td>77–150 K</td><td>none</td></tr>
+<tr><td>Detector model</td><td>photon</td><td>photon</td><td>photon</td><td><strong>bolometer</strong></td></tr>
+<tr><td>Self-emission</td><td>negligible</td><td>negligible</td><td><strong>significant</strong></td><td>dominant</td></tr>
+<tr><td>Illumination needed</td><td>yes</td><td>yes</td><td>partial</td><td><strong>no</strong></td></tr>
+<tr><td>Night source</td><td>moon, IR LED</td><td><strong>airglow</strong></td><td>self-emission</td><td>self-emission</td></tr>
+<tr><td>Typical $F$</td><td>1.4–2.8</td><td>1.4–4</td><td>2–4</td><td><strong>1.0–1.4</strong></td></tr>
+<tr><td>Typical pitch</td><td>3–5 µm</td><td>10–15 µm</td><td>10–15 µm</td><td>12–17 µm</td></tr>
+<tr><td>Glass</td><td>transparent</td><td>transparent</td><td>opaque-ish</td><td>opaque</td></tr>
+<tr><td>Water</td><td>absorbing (dark)</td><td>strongly absorbing</td><td>reflective</td><td>ε≈0.96, emissive</td></tr>
+<tr><td>Vegetation</td><td><strong>very bright</strong> (red edge)</td><td>bright</td><td>moderate</td><td>ε≈0.97</td></tr>
+<tr><td>Solar glint</td><td>strong</td><td>strong</td><td><strong>strong</strong></td><td>negligible</td></tr>
+<tr><td>Atmospheric limiter</td><td>scattering</td><td>water vapour</td><td>CO₂ 4.2–4.4 µm</td><td>water continuum</td></tr>
+<tr><td>Fog penetration</td><td>poor</td><td>poor</td><td>fair</td><td><strong>best</strong></td></tr>
+<tr><td>Dominant noise</td><td>shot</td><td>shot</td><td>shot</td><td>Johnson + FPN</td></tr>
+</tbody></table></div>
+<h3 id="122-configuration-schema">12.2 Configuration schema<a class="anchor" href="#122-configuration-schema" aria-label="permalink">#</a></h3>
+<p>A band is fully described by a file like this. Everything above is either derived from it or shared.</p>
+<pre><code class="language-yaml">sensor:
+  name: "flir_boson_640_lwir"
+  band:
+    lambda_min_um: 7.5
+    lambda_max_um: 13.5
+    spectral_response: "spectra/responses/boson_vox.csv"   # λ (µm), R(λ) peak-normalised; relative to data/
+    regime: emissive                                # emissive | reflective | mixed
+
+  optics:
+    f_number: 1.0
+    focal_length_mm: 14.0
+    transmittance: 0.92
+    housing_temp_mode: coupled                      # fixed | ambient | coupled
+    cold_shield_efficiency: 1.0                     # cooled systems only
+    distortion:
+      model: brown_conrady                          # or kannala_brandt / ftheta
+      coeffs: [-0.28, 0.09, 0.0, 0.0, 0.0]
+    vignetting_cos4: true
+
+  fpa:
+    type: bolometer                                 # bolometer | photon
+    width: 640
+    height: 512
+    pitch_um: 12.0
+    fill_factor: 0.90
+    frame_rate_hz: 60
+    bit_depth: 16
+    # bolometer
+    thermal_time_constant_ms: 10.0
+    tcr_per_k: -0.021
+    # photon (unused when type == bolometer)
+    quantum_efficiency: null
+    well_capacity_e: null
+    integration_time_ms: null
+    dark_current_model: null
+
+  noise:
+    netd_mk_at_300k: 50.0                           # anchor: scales everything
+    ratios_3d:                                      # relative to sigma_TVH
+      tvh: 1.00
+      vh:  0.30
+      h:   0.15
+      v:   0.08
+      tv:  0.05
+      th:  0.05
+      t:   0.02
+    fpn_drift_tau_s: 120.0
+    bad_pixel_fraction: 0.0015
+    bad_pixel_cluster_lambda: 1.6
+
+  nuc:
+    mode: shuttered                                 # shuttered | shutterless | ideal
+    ffc_interval_s: 180
+    ffc_freeze_ms: 700
+    residual_gain_ppm_per_k: 900
+    residual_offset_mk_per_k: 45
+
+  isp:
+    agc: plateau_equalization                       # linear | plateau_equalization | none
+    plateau: 0.012
+    clip_percentiles: [0.005, 0.995]
+    gamma: 1.0
+    dde_gain: 0.35
+    polarity: white_hot
+    palette: gray                                   # gray | ironbow | rainbow | lava
+
+  outputs:
+    radiance_linear: true                           # float32, W/m2/sr
+    apparent_temperature: true                       # float32, K
+    dn_16: true
+    display_8: true</code></pre>
+<p>To add SWIR: copy the file, change <code>regime: reflective</code>, <code>type: photon</code>, load an InGaAs $R(\lambda)$, enable the night-illumination model, and enable glass transmission in the material resolver. No core code changes. <strong>That is the test of whether your architecture is actually scalable</strong> — if adding a band requires touching the radiance kernel, the architecture is wrong.</p>
+<h3 id="123-material-schema">12.3 Material schema<a class="anchor" href="#123-material-schema" aria-label="permalink">#</a></h3>
+<p>Materials must be <strong>per-band spectral</strong>, not per-band scalar, if you ever want MWIR right:</p>
+<pre><code class="language-yaml">materials:
+  car_paint_black:
+    thermal:
+      density_kg_m3: 7800          # substrate-dominated
+      specific_heat_j_kgk: 470
+      conductivity_w_mk: 45
+      thickness_m: 0.0012
+      solar_absorptivity: 0.94
+    optical:
+      spectral_emissivity: "spectra/car_paint_black.csv"   # λ, ε(λ) 0.3–15 µm
+      roughness_per_band:  { nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12 }
+      angular_model: { type: fresnel, n_k_file: "nk/acrylic_paint.csv" }
+      transmittance_per_band: { nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0 }</code></pre>
+<p>Note <code>roughness_per_band</code> decreasing with wavelength — that is §4.3 made concrete, and it is the parameter that makes vehicles reflect the sky correctly in LWIR.</p>
+<hr>
+<a id="13-isaac-sim"></a>
+<h2 id="13-isaac-sim-60-implementation-mapping">13. Isaac Sim 6.0 implementation mapping<a class="anchor" href="#13-isaac-sim-60-implementation-mapping" aria-label="permalink">#</a></h2>
+<h3 id="131-what-nvidia-officially-recommends">13.1 What NVIDIA officially recommends<a class="anchor" href="#131-what-nvidia-officially-recommends" aria-label="permalink">#</a></h3>
+<p>As of Isaac Sim 6.0 GA there is still no built-in IR camera. On the open feature request (<code>isaac-sim/IsaacSim</code> Discussion #298), the maintainer's recommended approach is [R34]:</p>
+<ol>
+<li><strong>Encode temperature as emission</strong> — assign an OmniPBR material per surface with emission enabled, using the emissive colour channel to carry the object's temperature value.</li>
+<li><strong>Capture the thermal signal</strong> — use the <code>PtSelfIllumination</code> AOV to capture only the self-illumination component, giving a clean per-pixel temperature readout without contamination from reflected or bounced light. Alternatively render <code>HdrColor</code> with max bounces set to 0 to suppress global illumination.</li>
+<li><strong>Implement the sensor model in SPG</strong> — feed the AOV into a Sensor Processing Graph implementing NETD noise, spectral response curves, vignetting, and other LWIR/MWIR sensor behaviour.</li>
+</ol>
+<p>The framework is <code>omni.rtx.spg</code>, which enables running custom GPU code as post-processing passes on RTX render outputs (AOVs), with all computation staying on the GPU and no CPU-side data transfer in the processing pipeline [R35].</p>
+<p><strong>Two honest caveats on this advice:</strong></p>
+<ul>
+<li>The discussion describes chaining SPG stages "using Python or Warp kernels" [R34]; the actual SPG documentation describes <strong>CUDA kernels + Lua launch scripts + USD shader definitions</strong>, compiled at runtime with NVRTC [R35]. If you were confused trying to follow the discussion, that is why. §13.4 gives an alternative Python/Warp path that does work.</li>
+<li>Step 1 is only a <em>temperature transport</em> trick, and it is a lossy one. Emission channels are colour channels — you must handle precision and the fact that the renderer's emission is not physically your radiance (§13.3).</li>
+</ul>
+<h3 id="132-how-spg-actually-works">13.2 How SPG actually works<a class="anchor" href="#132-how-spg-actually-works" aria-label="permalink">#</a></h3>
+<p>Every SPG shader is three files [R35]:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>File</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><code>.cu</code></td><td>CUDA kernel — the GPU transform, an <code>extern "C" __global__</code> function</td></tr>
+<tr><td><code>.cu.lua</code></td><td>Lua launch script — validates inputs, allocates outputs, returns launch config; called every frame</td></tr>
+<tr><td><code>.usda</code></td><td>USD shader definition — declares inputs/outputs, references the CUDA source</td></tr>
+</tbody></table></div>
+<p>Wiring: <code>RenderVar.omni:rtx:aov</code> → <code>Shader.inputs:X</code> → <code>Shader.outputs:Y</code> → <code>RenderVar.omni:rtx:aov.connect</code>. Shaders chain directly output-to-input with no intermediate RenderVar. Execution order comes from the dependency graph, not from <code>orderedVars</code> order. Kit must run with <code>--enable omni.rtx.spg</code>.</p>
+<p>Three things in the API are directly useful to you:</p>
+<ul>
+<li><strong><code>cuda.static(fn, ...)</code></strong> caches a computation and reuses it unless its arguments change. This is exactly how you upload your Planck LUT once instead of per frame — the docs show precisely this pattern for a Gaussian kernel [R35].</li>
+<li><strong><code>rtx.frameId</code></strong> global — use it to seed temporal noise so frames are reproducible.</li>
+<li><strong><code>cuda.image(w,h,dtype)</code></strong> for image outputs, <strong><code>cuda.empty(shape,dtype)</code></strong> for LUTs and statistics buffers.</li>
+</ul>
+<p>Known limitations to design around [R35]: only local <code>.cu</code>/<code>.cu.lua</code>/<code>.usda</code> files; SPG shader nodes must not be nested under a Material prim; standard-library nodes handle 2D textures only, with integer texture formats (<code>SINT</code>/<code>UINT</code>) and buffer-backed resources unsupported. Also, <code>display_render_var</code> only works for RGBA unorm textures — for float AOVs, capture to disk with <code>FileCapture</code> instead of expecting them in the viewport.</p>
+<h3 id="133-the-aov-design--the-part-that-decides-whether-this-works">13.3 The AOV design — the part that decides whether this works<a class="anchor" href="#133-the-aov-design--the-part-that-decides-whether-this-works" aria-label="permalink">#</a></h3>
+<p>Do <strong>not</strong> try to make the renderer produce IR radiance. Make it produce a <strong>G-buffer of physical quantities</strong> and do all radiometry in SPG. Concretely:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>AOV</th><th>Carries</th><th>Format</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><code>PtSelfIllumination</code> (or custom)</td><td>encoded surface temperature</td><td><strong>float32</strong></td><td>see encoding below</td></tr>
+<tr><td><code>DiffuseAlbedo</code> or material-ID</td><td>emissivity lookup key</td><td>uint8/float</td><td>index into a material table</td></tr>
+<tr><td><code>Normal</code></td><td>surface normal (world or view)</td><td>float16 ok</td><td>for $\varepsilon(\theta)$ and sky-view factor</td></tr>
+<tr><td><code>DistanceToCamera</code></td><td>path length $d$</td><td>float32</td><td>atmospheric attenuation</td></tr>
+<tr><td><code>AmbientOcclusion</code> (or custom)</td><td>sky-view factor $V_s$</td><td>float16 ok</td><td>reflected-sky term</td></tr>
+<tr><td><code>MotionVectors</code></td><td>image-plane velocity</td><td>float16 ok</td><td>motion MTF, bolometer smear</td></tr>
+<tr><td><code>SemanticSegmentation</code></td><td>ground truth</td><td>uint</td><td>training labels</td></tr>
+</tbody></table></div>
+<p><strong>Temperature encoding — get this right or nothing else matters.</strong> Emissive colour channels are commonly fp16 or unorm. At 300 K, fp16 spacing is 0.25 K, five times coarser than a 50 mK NETD; an 8-bit unorm channel over 200–400 K gives 0.78 K per code. Either destroys the sensor entirely. Encode instead:</p>
+<div class="math-block">$$
+c = \frac{T - T_{\text{ref}}}{T_{\text{span}}},\qquad T_{\text{ref}}=200\ \mathrm{K},\ T_{\text{span}}=800\ \mathrm{K}
+$$</div>
+<p>into a <strong>float32</strong> AOV, or split across RGB channels of a fp16 target (coarse in R, fine in G) if float32 is unavailable. Verify empirically: render a ramp of known temperatures, decode, and check round-trip error is &lt; 10 mK. <strong>Do this before writing any other code.</strong></p>
+<h3 id="134-the-pipeline">13.4 The pipeline<a class="anchor" href="#134-the-pipeline" aria-label="permalink">#</a></h3>
+<pre><code>                 RTX renderer
+                      │
+     ┌────────────────┼────────────────┬──────────────┬───────────────┐
+  T_encoded      materialID         Normal      DistToCam      SkyView
+     │                │                │             │             │
+     └────────────────┴───────┬────────┴─────────────┴─────────────┘
+                              ▼
+              ┌──────────────────────────────────┐
+   band LUTs  │  SPG#1  band_radiance.cu         │   ε(θ) from Fresnel/empirical
+   (cuda.     │  L = ε(θ)·B_LUT(T)               │   L_env from sky model + V_s
+    static)   │      + (1-ε(θ))·L_env            │
+              └──────────────┬───────────────────┘
+                             ▼
+              ┌──────────────────────────────────┐
+              │  SPG#2  atmosphere.cu            │   τ = exp(-γ·d)
+              │  L' = τ·L + (1-τ)·B(T_air)       │
+              └──────────────┬───────────────────┘
+                             ▼
+              ┌──────────────────────────────────┐
+              │  SPG#3  optics.cu                │   π·τ_opt/(4F²+1), cos⁴θ,
+              │  Φ = f(L'), + self-emission      │   + Φ_self(T_housing)
+              └──────────────┬───────────────────┘
+                             ▼
+              ┌──────────────────────────────────┐
+              │  SPG#4  detector.cu              │   bolometer IIR (τ_th) or
+              │  DN_ideal = S(Φ)                 │   photon → e⁻ → well → ADC
+              └──────────────┬───────────────────┘
+                             ▼
+              ┌──────────────────────────────────┐
+              │  SPG#5  noise.cu                 │   3D noise: TVH,VH,V,H,TV,TH,T
+              │  + NUC residual + bad pixels     │   seeded by rtx.frameId
+              └──────────────┬───────────────────┘
+                             ▼
+              ┌──────────────────────────────────┐
+              │  SPG#6  isp.cu                   │   AGC/plateau EQ, DDE,
+              │  → DN16 (linear) + DISP8         │   gamma, polarity, palette
+              └──────────────┬───────────────────┘
+                             ▼
+                    IrRadiance / IrApparentT / IrDN16 / IrDisplay8  → ROS 2</code></pre>
+<p>Six kernels, each independently testable. MTF and downsampling happen either as SPG#0 (supersample-then-box-filter) or by rendering at 3–4× resolution and letting SPG#3 do the box filter — the latter is simpler and gives correct aliasing (§8.3).</p>
+<h3 id="135-kernel-sketch">13.5 Kernel sketch<a class="anchor" href="#135-kernel-sketch" aria-label="permalink">#</a></h3>
+<pre><code class="language-cuda">// band_radiance.cu — SPG stage 1
+extern "C" __global__ void band_radiance(
+    int width, int height,
+    float T_ref, float T_span,
+    float L_sky, float L_ground,          // band radiances, W/m^2/sr
+    cudaTextureObject_t  encT,            // float32: (T - T_ref)/T_span
+    cudaTextureObject_t  matId,           // material index
+    cudaTextureObject_t  normalTex,       // world normal + view dir dot in .w
+    cudaTextureObject_t  skyView,         // V_s in [0,1]
+    const float*  __restrict__ planckLUT, // L_B(T), N entries over [T0,T1]
+    int    lutN, float lutT0, float lutT1,
+    const float2* __restrict__ matEps,    // per material: (eps0, angular a)
+    cudaSurfaceObject_t  outRadiance)
+{
+    int x = blockIdx.x*blockDim.x + threadIdx.x;
+    int y = blockIdx.y*blockDim.y + threadIdx.y;
+    if (x &gt;= width || y &gt;= height) return;
+
+    float T = tex2D&lt;float&gt;(encT, x, y) * T_span + T_ref;
+
+    // Planck band radiance by LUT with linear interpolation
+    float u  = (T - lutT0) / (lutT1 - lutT0) * (lutN - 1);
+    u = fminf(fmaxf(u, 0.f), lutN - 1.001f);
+    int   i0 = (int)u;  float fr = u - i0;
+    float B  = planckLUT[i0] * (1.f - fr) + planckLUT[i0 + 1] * fr;
+
+    // directional emissivity, empirical model (level B)
+    int   m        = (int)tex2D&lt;float&gt;(matId, x, y);
+    float2 ep      = matEps[m];                 // (eps0, a)
+    float  cosTh   = fabsf(tex2D&lt;float4&gt;(normalTex, x, y).w);
+    float  omc     = 1.f - cosTh;
+    float  eps     = ep.x * (1.f - ep.y * omc*omc*omc*omc);   // p = 4
+
+    // reflected environment via sky-view factor
+    float Vs   = tex2D&lt;float&gt;(skyView, x, y);
+    float Lenv = Vs * L_sky + (1.f - Vs) * L_ground;
+
+    float L = eps * B + (1.f - eps) * Lenv;
+    surf2Dwrite&lt;float&gt;(L, outRadiance, x * sizeof(float), y);
+}</code></pre>
+<p>with the launch script uploading the LUT once:</p>
+<pre><code class="language-lua">function band_radiance(inputs, outputs)
+    local h = inputs["EncodedT"].shape[1]
+    local w = inputs["EncodedT"].shape[2]
+    outputs["Radiance"] = cuda.image(w, h, cuda.float)
+
+    -- LUT built once, reused unless the band changes
+    local lut = cuda.static(function(t0, t1, n) 
+        local t = {}
+        for i = 0, n-1 do t[#t+1] = planck_band(t0 + (t1-t0)*i/(n-1)) end
+        return cuda.array(t, cuda.float)
+    end, inputs["lutT0"].value, inputs["lutT1"].value, inputs["lutN"].value)
+
+    return cuda.kernel({
+        args = { cuda.int(w), cuda.int(h),
+                 cuda.float(inputs["T_ref"]), cuda.float(inputs["T_span"]),
+                 cuda.float(inputs["L_sky"]), cuda.float(inputs["L_ground"]),
+                 cuda.TextureObject(inputs["EncodedT"]),
+                 cuda.TextureObject(inputs["MatId"]),
+                 cuda.TextureObject(inputs["Normal"]),
+                 cuda.TextureObject(inputs["SkyView"]),
+                 lut,
+                 cuda.int(inputs["lutN"].value),
+                 cuda.float(inputs["lutT0"]), cuda.float(inputs["lutT1"]),
+                 cuda.array(inputs["MatEps"]),
+                 cuda.SurfaceObject(outputs["Radiance"]) },
+        block = {32, 32},
+        grid  = {math.ceil(w/32), math.ceil(h/32)},
+    })
+end</code></pre>
+<p><em>(<code>planck_band</code> here stands for your band integral — in practice generate the LUT offline and load it as a binary asset rather than computing it in Lua.)</em></p>
+<h3 id="136-the-pythonwarp-path--start-here">13.6 The Python/Warp path — start here<a class="anchor" href="#136-the-pythonwarp-path--start-here" aria-label="permalink">#</a></h3>
+<p>If SPG's CUDA+Lua+USD triple is more friction than you want for a first prototype, there is a simpler route that gets you the same physics:</p>
+<ol>
+<li>Create the camera with <code>isaacsim.sensors.experimental.rtx</code> — <code>RtxCamera</code> for authoring, <code>CameraSensor</code> for runtime, which attaches Replicator annotators and provides <code>get_data()</code> returning numpy or <strong>warp arrays</strong> [R36].</li>
+<li>Attach annotators for the AOVs in §13.3.</li>
+<li>Run stages 1–6 as <strong>Warp kernels</strong> on the returned warp arrays (they are already on the GPU — no round trip if you keep everything in warp).</li>
+<li>Publish over ROS 2.</li>
+</ol>
+<p>Trade-off: one extra buffer hop and Python-side per-frame dispatch, versus in-pipeline execution. For a 640×512 sensor this costs well under a millisecond. <strong>Prototype here, port hot stages to SPG once the physics is verified.</strong> Verifying physics inside a runtime-compiled CUDA kernel wired through USD is not where you want to spend your debugging budget.</p>
+<h3 id="137-the-reflection-problem">13.7 The reflection problem<a class="anchor" href="#137-the-reflection-problem" aria-label="permalink">#</a></h3>
+<p>This is the real limitation of the emission-encoding approach and you should know it up front. <code>PtSelfIllumination</code> deliberately gives you a temperature buffer <em>without</em> bounced light — which is what you want for a clean $T$ readout, and which also means you get <strong>no reflections at all</strong>. But §4 and §5.3 established that reflections are a large part of what LWIR actually looks like, especially on vehicles and glass.</p>
+<p>Options, cheapest first:</p>
+<ol>
+<li><strong>Sky-view factor only</strong> (§5.3a). Ambient occlusion AOV as $V_s$, blend sky and ground radiance. No specular reflections, but gets the broad behaviour and the cold-roof effect. <strong>Start here.</strong></li>
+<li><strong>Low-res T-cubemap.</strong> Render a second, small render product (e.g. 64×64 per face) of the encoded-T field from a probe near the camera; convert to band radiance and use it as a reflection probe in SPG. Adds specular sky/building reflections. Good value.</li>
+<li><strong>Second render product with bounces enabled</strong>, where emission is proportional to band radiance rather than temperature. Physically the most correct available, requires care to keep the two encodings from mixing, and costs a full extra render.</li>
+<li><strong>Warp-based ray cast</strong> against the T-field for mirror directions on flagged specular materials only. Surgical and cheap if only a few materials need it.</li>
+</ol>
+<h3 id="138-performance">13.8 Performance<a class="anchor" href="#138-performance" aria-label="permalink">#</a></h3>
+<p>The SPG kernels are trivial — six element-wise passes over 640×512 is microseconds. Your cost is the renderer: supersampling 4× means 2560×2048, and a second render product for reflections doubles it again. Budget accordingly, and use <code>TiledCameraSensor</code> if you need many cameras for data generation [R36].</p>
+<hr>
+<a id="14-unreal"></a>
+<h2 id="14-unreal-engine-mapping">14. Unreal Engine mapping<a class="anchor" href="#14-unreal-engine-mapping" aria-label="permalink">#</a></h2>
+<p>The model transfers directly; only the plumbing changes.</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Component</th><th>Isaac Sim</th><th>Unreal Engine</th></tr></thead>
+<tbody>
+<tr><td>Temperature transport</td><td>encoded-T AOV</td><td>custom G-buffer / Custom Data channel, or a Scene Capture with a T-only material</td></tr>
+<tr><td>Band radiance</td><td>SPG CUDA kernel</td><td>post-process material with LUT texture (float32 <code>PF_R32_FLOAT</code>)</td></tr>
+<tr><td>Emissivity table</td><td><code>cuda.array</code></td><td>material parameter collection / texture atlas</td></tr>
+<tr><td>Sky-view factor</td><td>AO AOV</td><td>DFAO or a baked sky-visibility channel</td></tr>
+<tr><td>Atmosphere</td><td>SPG stage</td><td>post-process using SceneDepth</td></tr>
+<tr><td>Noise + NUC</td><td>SPG stage</td><td>post-process with a noise texture + persistent render target</td></tr>
+<tr><td>Bolometer time constant</td><td>frame IIR in SPG</td><td>persistent RT ping-pong in post-process</td></tr>
+<tr><td>Thermal solver</td><td>Python tick</td><td>Blueprint/C++ actor component on a fixed tick</td></tr>
+</tbody></table></div>
+<p>Where your existing Unreal build already matches this document:</p>
+<ul>
+<li><strong>LUT-based Planck</strong> — correct, keep it. Just confirm the LUT texture format is float32, not fp16 (§3.2).</li>
+<li><strong>Kirchhoff for environment reflection</strong> — correct in principle. Upgrade path: add the angular term (§4.2 Level B is two instructions) and per-band roughness (§4.3).</li>
+<li><strong>AGC windowing, palette, noise, polarity in a post-process pass</strong> — correct architecture; §10.2 and §11 tell you what to put inside it. Replacing a single-sigma noise term with the 3D decomposition is the highest-value change you can make.</li>
+<li><strong>Newton's law of cooling in a Blueprint component</strong> — right solver, wrong scope. Keep it for scripted actors, add the §6.1 energy balance as a second solver behind the same interface (§6.5).</li>
+</ul>
+<p>The one thing that does <strong>not</strong> transfer: Unreal's post-process stack works in fp16 by default. Force float32 render targets for the temperature and radiance buffers or you will silently lose the sensor's entire dynamic sensitivity.</p>
+<hr>
+<a id="15-validation"></a>
+<h2 id="15-validation-protocol">15. Validation protocol<a class="anchor" href="#15-validation-protocol" aria-label="permalink">#</a></h2>
+<p>A simulator you haven't validated is a renderer with physics-flavoured variable names. Five tiers, in order.</p>
+<h3 id="tier-1--unit-tests-no-scene-no-renderer">Tier 1 — Unit tests (no scene, no renderer)<a class="anchor" href="#tier-1--unit-tests-no-scene-no-renderer" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>Test</th><th>Pass criterion</th></tr></thead>
+<tbody>
+<tr><td>Planck vs. photon form</td><td>$B_q\cdot hc/\lambda = B$ to 1e-12 relative</td></tr>
+<tr><td>Band integral vs. Stefan-Boltzmann</td><td>$\int_0^\infty B\,d\lambda = \sigma T^4/\pi$ to 1e-6</td></tr>
+<tr><td>LUT vs. direct quadrature</td><td>max error &lt; 5 mK equivalent over 200–1000 K</td></tr>
+<tr><td>$L_B^{-1}(L_B(T)) = T$</td><td>&lt; 1 mK round trip</td></tr>
+<tr><td>$\partial L/\partial T$ vs. finite difference</td><td>&lt; 1e-5 relative</td></tr>
+<tr><td>Kirchhoff closure</td><td>$\varepsilon+\rho+\tau = 1$ for every material, every band</td></tr>
+<tr><td>Energy balance equilibrium</td><td>steady-state $T_s$ analytic vs. numeric, &lt; 0.1 K</td></tr>
+<tr><td>Temperature encode/decode round trip</td><td>&lt; 10 mK</td></tr>
+</tbody></table></div>
+<h3 id="tier-2--radiometric-bench-synthetic-blackbody">Tier 2 — Radiometric bench (synthetic blackbody)<a class="anchor" href="#tier-2--radiometric-bench-synthetic-blackbody" aria-label="permalink">#</a></h3>
+<p>Reproduce standard lab characterisation <em>inside the simulator</em>, then against the real camera:</p>
+<ul>
+<li><strong>SITF</strong> (signal intensity transfer function): image simulated blackbodies at 10 temperatures spanning the range; DN vs. $T$ must be smooth and match the real camera's measured curve. SITF, 3D noise, IFOV and MTF together form the measured-system description used in NV-IPM [R29].</li>
+<li><strong>NETD</strong>: image two blackbodies differing by a few K; $\mathrm{NETD}=\Delta T\cdot\sigma_{\text{noise}}/\Delta \mathrm{DN}$. Must match datasheet within 10%. Check that it <strong>falls</strong> with scene temperature (§3.4) — if it's flat, your noise is in the wrong domain.</li>
+<li><strong>3D noise</strong>: image a uniform blackbody for 100+ frames, decompose into $\sigma_{TVH},\sigma_{VH},\sigma_V,\sigma_H$ [R28]. Compare component-by-component with the real camera.</li>
+<li><strong>MTF</strong>: slant-edge target. A practical setup for a real reference measurement: a Boson-class core viewing an aluminium sheet at ~5.5° tilt in front of a hotplate at 100 °C, with a cardboard enclosure to block stray flux and prevent the camera's own signature reflecting back [R37]. Reproduce the same geometry in sim.</li>
+</ul>
+<h3 id="tier-3--phenomenology-does-it-behave-like-the-world">Tier 3 — Phenomenology (does it behave like the world?)<a class="anchor" href="#tier-3--phenomenology-does-it-behave-like-the-world" aria-label="permalink">#</a></h3>
+<p>Qualitative but decisive. Each of these should emerge without being scripted:</p>
+<ul>
+<li>[ ] Diurnal cycle runs; thermal crossover (contrast collapse) appears near dawn and dusk</li>
+<li>[ ] Overcast sky flattens the image; clear night sky darkens vehicle roofs and glass</li>
+<li>[ ] Wet asphalt reads colder than dry; shaded ground reads colder than sunlit</li>
+<li>[ ] A departed vehicle leaves a warm tyre trace and a cool body shadow</li>
+<li>[ ] Fog kills visible and SWIR before LWIR</li>
+<li>[ ] Humid clear air degrades LWIR more than SWIR</li>
+<li>[ ] MWIR shows solar glint at midday and looks like LWIR at night</li>
+<li>[ ] SWIR at night is usable from airglow alone, without any modelled light source</li>
+<li>[ ] A hot exhaust entering frame collapses global AGC contrast</li>
+<li>[ ] FFC event freezes the image and resets the fixed pattern</li>
+<li>[ ] Fast lateral motion smears edges in LWIR (bolometer $\tau_{\text{th}}$) but not in cooled MWIR</li>
+</ul>
+<h3 id="tier-4--comparison-against-real-data">Tier 4 — Comparison against real data<a class="anchor" href="#tier-4--comparison-against-real-data" aria-label="permalink">#</a></h3>
+<p>Public reference points, both suggested by practitioners on the Isaac Sim feature request [R34]:</p>
+<ul>
+<li><strong>FLIR ADK</strong> (Boson 640-based, designed for automotive) — used in the <em>Novel Sensors for Autonomous Driving</em> dataset (Carmichael et al., 2024).</li>
+<li><strong>FLIR Hadron 640</strong> — deployed on small UAS.</li>
+</ul>
+<p>Method: recreate a dataset scene's geometry, materials, weather and time-of-day, render, and compare (a) <strong>apparent-temperature histograms</strong> by semantic class — the shape and separation matter more than absolute offsets; (b) <strong>radiometric contrast</strong> between labelled object classes and their local background; (c) <strong>noise power spectral density</strong> of a flat region — the single most diagnostic comparison, because it exposes wrong 3D-noise ratios instantly; (d) <strong>edge spread function</strong> on real edges.</p>
+<p>Acceptance targets for L2: apparent-temperature bias &lt; 2 K per class, contrast ratio within 25%, noise PSD shape matching within a factor of 2 across spatial frequency.</p>
+<h3 id="tier-5--task-level-does-it-transfer">Tier 5 — Task-level (does it transfer?)<a class="anchor" href="#tier-5--task-level-does-it-transfer" aria-label="permalink">#</a></h3>
+<p>Train a detector on synthetic only, evaluate on real. Then train real-only and evaluate on synthetic. Measure both gaps.</p>
+<p>Three cautions worth stating plainly, because they cost people months:</p>
+<ol>
+<li><strong>Low-level statistics dominate transfer, not radiometry.</strong> Networks overfit to noise structure, NUC residual pattern and AGC behaviour far more than to being 3 K off on a car door. If Tier 4(c) fails, no amount of Tier 2 accuracy saves you.</li>
+<li><strong>AGC must match at train and test time.</strong> Same algorithm, same plateau, same palette. A model trained on linear-AGC synthetic data and deployed on plateau-EQ real data will underperform for reasons that look like a physics problem and are not.</li>
+<li><strong>Mixed training beats synthetic-only</strong> in essentially every published result. Plan for synthetic as augmentation and rare-case coverage — night, fog, occluded pedestrians, thermal crossover — rather than as a replacement.</li>
+</ol>
+<hr>
+<a id="16-parameters"></a>
+<h2 id="16-reference-parameter-tables">16. Reference parameter tables<a class="anchor" href="#16-reference-parameter-tables" aria-label="permalink">#</a></h2>
+<h3 id="161-reference-camera--flir-boson-640-lwir">16.1 Reference camera — FLIR Boson 640 (LWIR)<a class="anchor" href="#161-reference-camera--flir-boson-640-lwir" aria-label="permalink">#</a></h3>
+<p>A good default target: it is the sensor in the FLIR ADK automotive module and appears in public robotics datasets [R34].</p>
+<div class='table-wrap'><table>
+<thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead>
+<tbody>
+<tr><td>Detector</td><td>VOx uncooled microbolometer</td><td>[R24]</td></tr>
+<tr><td>Resolution</td><td>640×512 (also 320×256)</td><td>[R24]</td></tr>
+<tr><td>Pitch</td><td>12 µm</td><td>[R24]</td></tr>
+<tr><td>NETD</td><td>&lt;60 mK (consumer) / &lt;50 mK (professional) / &lt;40 mK (industrial)</td><td>[R38]</td></tr>
+<tr><td>Spectral band</td><td>~7.5–13.5 µm</td><td>typical for VOx cores</td></tr>
+<tr><td>Frame rate</td><td>60 Hz (9 Hz export variant)</td><td>[R38]</td></tr>
+<tr><td>Example lens</td><td>14 mm, 32° HFOV</td><td>[R38]</td></tr>
+<tr><td>Operating temperature</td><td>−40 °C to +80 °C</td><td>[R38]</td></tr>
+<tr><td>Thermal time constant</td><td>~8–12 ms</td><td>typical VOx</td></tr>
+<tr><td>TCR</td><td>≈ −2 %/K</td><td>typical VOx</td></tr>
+</tbody></table></div>
+<p>Note the NETD grading: the <em>same</em> detector is binned into three products. Model NETD as a config value, not a constant, and you can simulate all three by editing one line.</p>
+<h3 id="162-material-properties-starting-values--replace-with-measurements">16.2 Material properties (starting values — replace with measurements)<a class="anchor" href="#162-material-properties-starting-values--replace-with-measurements" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>Material</th><th>$\varepsilon_{\text{LWIR}}$</th><th>$\varepsilon_{\text{MWIR}}$</th><th>$\alpha_{\text{sol}}$</th><th>$\rho$ (kg/m³)</th><th>$c_p$ (J/kg·K)</th><th>$k$ (W/m·K)</th></tr></thead>
+<tbody>
+<tr><td>Asphalt (dry)</td><td>0.94</td><td>0.92</td><td>0.90</td><td>2200</td><td>920</td><td>0.75</td></tr>
+<tr><td>Concrete</td><td>0.92</td><td>0.90</td><td>0.65</td><td>2300</td><td>880</td><td>1.4</td></tr>
+<tr><td>Car paint (black)</td><td>0.90</td><td>0.88</td><td>0.94</td><td>7800</td><td>470</td><td>45</td></tr>
+<tr><td>Car paint (white)</td><td>0.90</td><td>0.88</td><td>0.28</td><td>7800</td><td>470</td><td>45</td></tr>
+<tr><td>Bare aluminium</td><td>0.09</td><td>0.06</td><td>0.15</td><td>2700</td><td>900</td><td>205</td></tr>
+<tr><td>Rusted steel</td><td>0.85</td><td>0.82</td><td>0.80</td><td>7800</td><td>470</td><td>45</td></tr>
+<tr><td>Glass (windshield)</td><td>0.88</td><td>0.85</td><td>0.10</td><td>2500</td><td>840</td><td>1.0</td></tr>
+<tr><td>Rubber (tyre)</td><td>0.95</td><td>0.94</td><td>0.94</td><td>1100</td><td>2000</td><td>0.16</td></tr>
+<tr><td>Human skin</td><td>0.98</td><td>0.97</td><td>0.65</td><td>1050</td><td>3500</td><td>0.37</td></tr>
+<tr><td>Cotton clothing</td><td>0.95</td><td>0.93</td><td>0.70</td><td>300</td><td>1300</td><td>0.06</td></tr>
+<tr><td>Vegetation (leaf)</td><td>0.97</td><td>0.96</td><td>0.50</td><td>700</td><td>3000</td><td>0.30</td></tr>
+<tr><td>Soil (dry)</td><td>0.92</td><td>0.90</td><td>0.75</td><td>1500</td><td>800</td><td>0.30</td></tr>
+<tr><td>Soil (wet)</td><td>0.96</td><td>0.95</td><td>0.85</td><td>2000</td><td>1500</td><td>1.5</td></tr>
+<tr><td>Water</td><td>0.96</td><td>0.98</td><td>0.93</td><td>1000</td><td>4180</td><td>0.60</td></tr>
+<tr><td>Snow</td><td>0.99</td><td>0.98</td><td>0.15</td><td>300</td><td>2100</td><td>0.20</td></tr>
+</tbody></table></div>
+<p>Glass and bare metal are the two rows most likely to break naïve simulators — glass because of the band transition (§4.4), aluminium because $\varepsilon=0.09$ means it is a mirror, not a surface.</p>
+<h3 id="163-physical-constants">16.3 Physical constants<a class="anchor" href="#163-physical-constants" aria-label="permalink">#</a></h3>
+<div class='table-wrap'><table>
+<thead><tr><th>Constant</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>$h$</td><td>6.626 070 15 × 10⁻³⁴ J·s</td></tr>
+<tr><td>$c$</td><td>2.997 924 58 × 10⁸ m/s</td></tr>
+<tr><td>$k_B$</td><td>1.380 649 × 10⁻²³ J/K</td></tr>
+<tr><td>$\sigma$</td><td>5.670 374 419 × 10⁻⁸ W·m⁻²·K⁻⁴</td></tr>
+<tr><td>$c_{1L}=2hc^2$</td><td>1.191 042 97 × 10⁸ W·µm⁴·m⁻²·sr⁻¹</td></tr>
+<tr><td>$c_{1q}=2c$</td><td>5.995 849 × 10²⁶ ph·s⁻¹·µm³·m⁻²·sr⁻¹</td></tr>
+<tr><td>$c_2=hc/k_B$</td><td>1.438 776 9 × 10⁴ µm·K</td></tr>
+<tr><td>Wien</td><td>$\lambda_{\max}T=2897.77$ µm·K</td></tr>
+<tr><td>$q$</td><td>1.602 176 634 × 10⁻¹⁹ C</td></tr>
+</tbody></table></div>
+<h3 id="164-suggested-build-order">16.4 Suggested build order<a class="anchor" href="#164-suggested-build-order" aria-label="permalink">#</a></h3>
+<ol>
+<li>Planck LUT + band integral + inversion, with Tier 1 unit tests. <em>(No renderer.)</em></li>
+<li>Temperature encode/decode round trip through an Isaac Sim AOV. Verify &lt; 10 mK. <strong>Stop and fix if this fails.</strong></li>
+<li>Constant-$\varepsilon$, no-reflection, no-atmosphere radiance kernel → 16-bit linear output. Simulate a blackbody; verify SITF.</li>
+<li>Detector + 3D noise + NETD calibration. Tier 2 tests.</li>
+<li>AGC + palette + display output. First image that looks like a thermal camera.</li>
+<li>Energy-balance thermal solver with weather and 24 h spin-up. Tier 3 diurnal tests.</li>
+<li>Angular emissivity + sky-view-factor reflections. Tier 3 reflection tests.</li>
+<li>Atmosphere. Tier 3 weather tests.</li>
+<li>Bolometer time constant, NUC/FFC, bad pixels.</li>
+<li>Second band (MWIR is the hardest — do SWIR first to prove the reflective path).</li>
+<li>Tier 4 comparison against real data.</li>
+</ol>
+<p>Steps 1–5 give a defensible LWIR camera. Steps 6–9 are what separate it from a post-process filter. Step 10 validates the architecture.</p>
+<hr>
+<a id="17-sources"></a>
+<h2 id="17-sources">17. Sources<a class="anchor" href="#17-sources" aria-label="permalink">#</a></h2>
+<p><strong>Rendering, radiometry, materials</strong></p>
+<ul>
+<li>[R1] ter Heerdt, Keustermans, De Boi, Vanlanduit, <em>A Unified Complex-Fresnel Model for Physically Based Long-Wave Infrared Imaging and Simulation</em>, J. Imaging 12(1):33, Jan 2026. <a href="https://doi.org/10.3390/jimaging12010033" target="_blank" rel="noopener">https://doi.org/10.3390/jimaging12010033</a> — complex-IOR Fresnel with branch-safe $A/B$ reformulation; Kirchhoff emissivity; LWIR validation against a heated K9 sphere. <strong>Most directly useful single paper for your material model.</strong></li>
+<li>[R2] Willers et al., <em>Signature Modelling and Radiometric Rendering Equations in Infrared Scene Simulation Systems</em>, SPIE. <a href="https://www.researchgate.net/publication/253464716" target="_blank" rel="noopener">https://www.researchgate.net/publication/253464716</a> — compares OSSIM/OSMOSIS and DIRSIG rendering equations; the "one spectral scene, many bandpasses" architecture.</li>
+<li>[R20] SPIE Optipedia, <em>Detector Footprint Modulation Transfer Function</em>. <a href="https://spie.org/publications/spie-publication-resources/optipedia-free-optics-information/tt52_21_detector_footprint_mtf" target="_blank" rel="noopener">https://spie.org/publications/spie-publication-resources/optipedia-free-optics-information/tt52_21_detector_footprint_mtf</a></li>
+</ul>
+<p><strong>DIRSIG / thermal modelling</strong></p>
+<ul>
+<li>[R3] RIT DIRSIG, <em>Thermal Modality Handbook</em>. <a href="https://dirsig.cis.rit.edu/docs/new/thermal.html" target="_blank" rel="noopener">https://dirsig.cis.rit.edu/docs/new/thermal.html</a> — heat transfer basics, thermodynamic property set, DHE = 1 − DHR, temperature model options.</li>
+<li>[R6] RIT DIRSIG, <em>Temperature Solvers</em>. <a href="https://dirsig.cis.rit.edu/docs/new/temp_solvers.html" target="_blank" rel="noopener">https://dirsig.cis.rit.edu/docs/new/temp_solvers.html</a> — THERM 1-D slab formulation and spin-up.</li>
+<li>[R4] ThermoAnalytics, <em>Dynamic EO/IR Satellite Signature Prediction with High-Fidelity Thermal Simulation</em>. <a href="https://blog.thermoanalytics.com/blog/dynamic-electro-optical/infrared-satellite-signature-prediction-with-high-fidelity-thermal-simulation" target="_blank" rel="noopener">https://blog.thermoanalytics.com/blog/dynamic-electro-optical/infrared-satellite-signature-prediction-with-high-fidelity-thermal-simulation</a></li>
+<li>[R5] DeMars et al., <em>High-Fidelity Simulation of Dynamic Thermal Satellite Signatures with MuSES</em>, AMOS 2023. <a href="https://amostech.com/TechnicalPapers/2023/Poster/Demars.pdf" target="_blank" rel="noopener">https://amostech.com/TechnicalPapers/2023/Poster/Demars.pdf</a></li>
+<li>[R14] <em>Agentic AI-Enabled Framework for Thermal Comfort and Building Energy Assessment</em>, arXiv. <a href="https://arxiv.org/pdf/2604.21787" target="_blank" rel="noopener">https://arxiv.org/pdf/2604.21787</a> — transient surface energy balance form.</li>
+<li>[R15] <em>Directional Characteristics of Thermal-Infrared Beaming from Atmosphereless Planetary Surfaces</em>, arXiv. <a href="https://arxiv.org/pdf/1211.1844" target="_blank" rel="noopener">https://arxiv.org/pdf/1211.1844</a> — facet energy balance with shadow and illumination-cosine terms.</li>
+</ul>
+<p><strong>Atmosphere</strong></p>
+<ul>
+<li>[R11] <em>Absorption-Feature-Guided Distance-Decoupled Estimation for LWIR Hyperspectral Passive Ranging</em>, arXiv. <a href="https://arxiv.org/pdf/2606.31824" target="_blank" rel="noopener">https://arxiv.org/pdf/2606.31824</a> — the three-term radiance model and $\tau(\lambda;d)=[\tau_{1\mathrm{m}}]^d$.</li>
+<li>[R12] Spectral Sciences, <em>Modeling and Analysis of LWIR Signature Variability</em>. <a href="https://www.spectral.com/wp-content/uploads/2019/08/Modeling_and_Analysis.pdf" target="_blank" rel="noopener">https://www.spectral.com/wp-content/uploads/2019/08/Modeling_and_Analysis.pdf</a></li>
+<li>[R13] <em>Refining Atmosphere Profiles for Aerial Target Detection Models</em>, Sensors 21:7067. <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8588161/" target="_blank" rel="noopener">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8588161/</a> — sky apparent temperature vs. elevation, LWIR vs. MWIR.</li>
+<li>[R16] MODTRAN model description (US patent 5,315,513). <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/5315513" target="_blank" rel="noopener">https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/5315513</a></li>
+<li>[R17] <em>Effects of climate change on EO/IR propagation using CMIP6</em>, PubMed 40281099. <a href="https://pubmed.ncbi.nlm.nih.gov/40281099/" target="_blank" rel="noopener">https://pubmed.ncbi.nlm.nih.gov/40281099/</a> — representative MODTRAN run configuration for ground-level horizontal paths.</li>
+<li>[R18] Berk et al., <em>MODTRAN4 Radiative Transfer Modeling for Atmospheric Correction</em>. <a href="https://www.spectral.com/wp-content/uploads/2017/04/MODTRAN4_Radiative_Transfer.pdf" target="_blank" rel="noopener">https://www.spectral.com/wp-content/uploads/2017/04/MODTRAN4_Radiative_Transfer.pdf</a></li>
+</ul>
+<p><strong>Night illumination (SWIR/NIR)</strong></p>
+<ul>
+<li>[R7] <em>The Night Glows Brighter in the Near-IR</em>, Photonics Spectra, 2012. <a href="https://www.photonics.com/Article.aspx?AID=50540" target="_blank" rel="noopener">https://www.photonics.com/Article.aspx?AID=50540</a> — airglow spectrum peaks 1–1.8 µm; comparable to moonlight.</li>
+<li>[R8] <em>Shortwave infrared for night vision applications: illumination levels and sensor performance</em>, SPIE 9641. <a href="https://www.spiedigitallibrary.org/conference-proceedings-of-spie/9641/1/10.1117/12.2193738.short" target="_blank" rel="noopener">https://www.spiedigitallibrary.org/conference-proceedings-of-spie/9641/1/10.1117/12.2193738.short</a></li>
+<li>[R10] <em>Passive SWIR airglow illuminated imaging compared with NIR-visible</em>, ResearchGate 253463654 — reported airglow irradiance range 3.5–39 nW/cm².</li>
+</ul>
+<p><strong>Detector, noise, performance</strong></p>
+<ul>
+<li>[R9] Optris, <em>NETD – Thermal Sensitivity</em>. <a href="https://optris.com/us/knowledge-library/thermal-sensitivity/" target="_blank" rel="noopener">https://optris.com/us/knowledge-library/thermal-sensitivity/</a> — NETD vs. scene temperature, measured.</li>
+<li>[R21] Optris, <em>Modulation Transfer Function in Infrared Imaging</em>. <a href="https://optris.com/lexicon/modulation-transfer-function-mtf/" target="_blank" rel="noopener">https://optris.com/lexicon/modulation-transfer-function-mtf/</a></li>
+<li>[R22] Cascade MTF model for sampled IR imaging systems — see Science.gov IR imaging topic index. <a href="https://www.science.gov/topicpages/i/ir+imaging+system.html" target="_blank" rel="noopener">https://www.science.gov/topicpages/i/ir+imaging+system.html</a></li>
+<li>[R25] <em>Methodological enhancement of NETD optimization through active FPA temperature control</em>, SPIE 14036, 2026. <a href="https://doi.org/10.1117/12.3094960" target="_blank" rel="noopener">https://doi.org/10.1117/12.3094960</a></li>
+<li>[R26] Thermopile IR sensor patent (US 6,335,478) — the $\mathrm{NETD}=4F^2V_n/(\mathcal{R}A_dL')$ form. <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/6335478" target="_blank" rel="noopener">https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/6335478</a></li>
+<li>[R27] <em>A modified and systematic approach to NETD derivation for infrared focal plane arrays</em>, Infrared Physics 30(1):71, 1990. <a href="https://www.sciencedirect.com/science/article/abs/pii/002008919090043U" target="_blank" rel="noopener">https://www.sciencedirect.com/science/article/abs/pii/002008919090043U</a></li>
+<li>[R28] 3-D noise nomenclature ($\sigma_{TVH},\sigma_{VH},\sigma_V,\sigma_H$) as used in scene-based NUC (US 10,621,702). <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10621702" target="_blank" rel="noopener">https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10621702</a></li>
+<li>[R29] <em>Infrared Imaging Systems: Design, Analysis, Modeling and Testing XXIX</em>, SPIE 10625 — SITF + 3D noise + IFOV + MTF feeding NV-IPM. <a href="https://spie.org/Publications/Proceedings/Volume/10625" target="_blank" rel="noopener">https://spie.org/Publications/Proceedings/Volume/10625</a></li>
+<li>[R30] <em>Exploring Video Denoising in Thermal Infrared Imaging: Physics-Inspired Noise Generator</em>, ResearchGate 380032672 — temporal stripe noise modelling.</li>
+<li>[R31] <em>Infrared Focal Plane Array Characterization by Means of a Blackbody Radiator</em>, ResearchGate 220843421 — NETD and correctability via two-point calibration.</li>
+<li>[R32] Pust, <em>Radiometric calibration of infrared imagers using an internal shutter as an equivalent external blackbody</em>.</li>
+<li>[R33] Ness, Oved, Kakon (RAFAEL), <em>Derivative Based Focal Plane Array Nonuniformity Correction</em>, arXiv. <a href="https://arxiv.org/pdf/1702.06118" target="_blank" rel="noopener">https://arxiv.org/pdf/1702.06118</a></li>
+<li>[R19] Low-radiance IR airborne calibration reference (US 9,234,796) — worked optics self-emission decomposition. <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9234796" target="_blank" rel="noopener">https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9234796</a></li>
+<li>[R37] <em>Resonant Anti-Reflection Metasurface for Infrared Transmission Optics</em>, arXiv 2306.05405 — practical Boson slant-edge MTF setup. <a href="https://arxiv.org/pdf/2306.05405" target="_blank" rel="noopener">https://arxiv.org/pdf/2306.05405</a></li>
+</ul>
+<p><strong>Isaac Sim</strong></p>
+<ul>
+<li>[R34] <em>Infrared Camera Support</em>, isaac-sim/IsaacSim Discussion #298. <a href="https://github.com/isaac-sim/IsaacSim/discussions/298" target="_blank" rel="noopener">https://github.com/isaac-sim/IsaacSim/discussions/298</a> — NVIDIA's recommended SPG approach; FLIR ADK / Hadron as reference hardware.</li>
+<li>[R35] NVIDIA, <em>RTX Sensor Processing Graphs [omni.rtx.spg]</em>. <a href="https://docs.omniverse.nvidia.com/kit/docs/omni.rtx.spg/latest/Overview.html" target="_blank" rel="noopener">https://docs.omniverse.nvidia.com/kit/docs/omni.rtx.spg/latest/Overview.html</a> — CUDA/Lua/USD structure, <code>cuda.static</code>, stdlib nodes, limitations.</li>
+<li>[R36] NVIDIA, <em>isaacsim.sensors.experimental.rtx</em> and <em>Camera Sensors</em>. <a href="https://docs.isaacsim.omniverse.nvidia.com/latest/sensors/isaacsim_sensors_camera.html" target="_blank" rel="noopener">https://docs.isaacsim.omniverse.nvidia.com/latest/sensors/isaacsim_sensors_camera.html</a></li>
+<li>[R23] NVIDIA, camera distortion models (OpenCV pinhole/fisheye, f-theta, Kannala-Brandt). <a href="https://docs.isaacsim.omniverse.nvidia.com/latest/assets/usd_assets_camera_depth_sensors.html" target="_blank" rel="noopener">https://docs.isaacsim.omniverse.nvidia.com/latest/assets/usd_assets_camera_depth_sensors.html</a></li>
+</ul>
+<p><strong>Hardware reference</strong></p>
+<ul>
+<li>[R24] FLIR, <em>Boson Thermal Imaging Core</em> datasheet. <a href="https://groupgets-files.s3.amazonaws.com/boson/documents/Boson%20datasheet,%20102-2013-40,%20Rev%20340.pdf" target="_blank" rel="noopener">https://groupgets-files.s3.amazonaws.com/boson/documents/Boson%20datasheet,%20102-2013-40,%20Rev%20340.pdf</a></li>
+<li>[R38] Teledyne FLIR Boson 640 product listings (NETD grades, lens options, frame rates). <a href="https://www.oemcameras.com/products/20640a032-htm" target="_blank" rel="noopener">https://www.oemcameras.com/products/20640a032-htm</a></li>
+</ul>
+<p><strong>Related open work</strong></p>
+<ul>
+<li>TCIsaacSim (reza-shahriari) — the thermal-camera Isaac Sim repo you found; same author who opened Discussion #298. Useful as a starting scaffold; note that it predates Isaac Sim 6.0's SPG framework.</li>
+</ul>
+<hr>
+<h2 id="appendix-a--where-this-model-can-legitimately-be-criticised">Appendix A — Where this model can legitimately be criticised<a class="anchor" href="#appendix-a--where-this-model-can-legitimately-be-criticised" aria-label="permalink">#</a></h2>
+<p>State these limitations up front in any documentation you write. It is what separates an engineering model from a demo.</p>
+<ol>
+<li><strong>No 3-D conduction.</strong> The two-node lumped model cannot represent lateral heat flow, internal components, or objects whose interior differs strongly from their skin. An engine bay is scripted, not solved. MuSES-class fidelity is out of scope [R4][R5].</li>
+<li><strong>Band-averaged atmosphere.</strong> Beer-Lambert with band-averaged $\gamma$ ignores spectral fine structure, and is wrong near band edges and for long slant paths. Acceptable under ~500 m; not acceptable for airborne work [R18].</li>
+<li><strong>Emissivity is grey within a band.</strong> Real $\varepsilon(\lambda)$ has structure — quartz reststrahlen, vegetation features. Fine for broadband imaging, wrong for anything spectral.</li>
+<li><strong>Reflection is approximate</strong> unless you implement §13.7 option 3. Sky-view-factor blending gets the mean right and the specular structure wrong.</li>
+<li><strong>No polarisation.</strong> Thermal emission is partially polarised at grazing angles and this is a real discriminant. Out of scope here; DIRSIG supports it if you need it.</li>
+<li><strong>No turbulence.</strong> Scintillation and image dancing over long hot paths are unmodelled. Irrelevant under 500 m, significant beyond ~2 km.</li>
+<li><strong>NETD is anchored, not predicted.</strong> §9.4 calibrates noise magnitude to a datasheet number rather than deriving it from first principles. That is a deliberate and defensible choice — but it means the model cannot predict the NETD of a detector that doesn't exist yet.</li>
+<li><strong>Weather is prescribed, not simulated.</strong> Wind, humidity and cloud come from a data file. There is no coupling back from the scene to the atmosphere.</li>
+</ol>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="./">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0083 — Ablation switches are config, and schema_version is not in the config hash — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0083 — Ablation switches are config, and schema_version is not in the config hash</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0083-ablation-switches-are-config.md" target="_blank" rel="noopener">docs/decisions/0083-ablation-switches-are-config.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-considered">Alternatives considered</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: ME.8 (§15 Tier 5 caution 1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§15's first caution about a Tier 5 sim-to-real study is that a gap has to be <em>attributed</em>: run the same scenario with one mechanism off, and see whether the gap moves. That requires ablation variants, and it requires being able to tell two variants apart a year later.</p>
+<p>Every ablation this project needs already existed. Four of them existed as <strong>keyword arguments</strong>:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>mechanism</th><th>where it lived</th></tr></thead>
+<tbody>
+<tr><td>detector + 3-D noise</td><td><code>PipelineConfig.from_sensor(noise_enabled=...)</code></td></tr>
+<tr><td>optical PSF</td><td><code>PipelineConfig.from_sensor(psf_enabled=...)</code></td></tr>
+<tr><td>dead/hot pixels</td><td><code>attach_sensor_chain(defects_enabled=...)</code></td></tr>
+<tr><td>NUC residual</td><td><code>attach_sensor_chain(residual_enabled=...)</code></td></tr>
+</tbody></table></div>
+<p>A keyword argument is invisible to <code>config_hash</code>. Two ablation variants therefore produced <em>identical</em> hashes, so a stored result could not say which one produced it — and a golden or a reference-statistics table keyed on the hash would silently describe the wrong camera. This is the same shape of defect as ADR 0077 and ADR 0082: a mechanism exists, is tested, and the configuration layer cannot reach it.</p>
+<p>The other ablations §15 names were <em>already</em> explicit, hashed config:</p>
+<ul>
+<li><strong>AGC</strong> — <code>isp.agc: linear</code> (or <code>none</code>).</li>
+<li><strong>FFC</strong> — <code>nuc.mode: ideal</code>, a core that never shutters.</li>
+<li><strong>Clouds</strong> — cloud <em>fraction</em> is weather (<code>WeatherSeries.cloud_fraction</code>), never authored, so a cloud-free run is a weather file; <code>environment.clouds.tau</code> sets what a cloud is.</li>
+</ul>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li>A <code>fidelity:</code> block in the sensor config carries exactly the four switches that had no config home: <code>noise</code>, <code>optical_psf</code>, <code>bad_pixels</code>, <code>nuc_residual</code>. All default <code>true</code>.</li>
+<li>The four keyword arguments default to <code>None</code>, meaning <em>read the config</em>. An explicit bool still overrides, as a bench affordance; a run whose provenance matters sets the config, because only the config reaches the hash.</li>
+<li>The AGC, the FFC and the clouds are <strong>not</strong> duplicated into <code>fidelity:</code>. A second way to set them would raise the question of which copy wins, and the answer would have to be arbitrary.</li>
+<li>A <code>fidelity:</code> block equal to the all-<code>true</code> default is <strong>dropped from the canonical dump</strong>, so full fidelity written out longhand hashes the same as full fidelity left unwritten. The hash tracks the ablation, not the notation.</li>
+<li><code>schema_version</code> is <strong>excluded from the config hash</strong>. It describes the document format, not the sensor: a v8 file and a v9 file that describe the same camera are the same input and must produce the same reference.</li>
+<li>The sensor schema gains a readable <strong>range</strong> (<code>MIN_SCHEMA_VERSION = 8</code>, <code>SCHEMA_VERSION = 9</code>), as the scene schema already has. v9 added <code>fidelity:</code> as an optional block with a full-fidelity default, so every v8 document is a valid v9 document describing exactly the camera it described before; refusing one would be refusing it for a change that cannot affect it.</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The risk in decision 5</strong> is a future version that changes what an existing field <em>means</em> without changing any field. Two such documents would hash the same while describing different cameras. The guard is decision 6's floor: when a version genuinely stops being readable, <code>MIN_SCHEMA_VERSION</code> rises and the old document is <strong>refused outright</strong> rather than quietly hashing like a new one. That makes the floor load-bearing, not bookkeeping, and it must be raised whenever meaning changes.</p>
+<p><strong>Evidence that this moved no physics.</strong> The version bump changed every sensor's config hash, so every golden went <code>STALE</code>. Regenerating them rewrote twelve <code>.json</code> sidecars and left <strong>every <code>.npy</code> array byte-identical</strong> — which is the check that the change is provenance metadata and nothing else. (<code>make golden-update</code> is for deliberate changes; this is what "deliberate" looks like.)</p>
+<p><strong>What M12.3 gets.</strong> Sixteen combinations of four switches produce sixteen distinct config hashes, so an ablation table can be stored keyed on the hash of the configuration that produced each row.</p>
+<h2 id="alternatives-considered">Alternatives considered<a class="anchor" href="#alternatives-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Keep <code>schema_version</code> in the hash.</strong> Honest in a narrow sense — it is part of the document — but it makes every additive, backwards-compatible schema change invalidate every golden, which trains people to run <code>make golden-update</code> without reading the diff. That is a worse failure mode than the one decision 5 risks, and decision 6 bounds that risk.</li>
+<li><strong>Duplicate the AGC and FFC into <code>fidelity:</code>.</strong> Rejected under decision 3.</li>
+<li><strong>Drop the keyword arguments entirely.</strong> Cleanest in principle, but the benches legitimately want to isolate one mechanism without authoring a file, and <code>defects_enabled</code>'s docstring already said so. Decision 2 keeps that and names it as an override.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

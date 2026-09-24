@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0123 — The camera moves so the aircraft can keep its shadows — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0123 — The camera moves so the aircraft can keep its shadows</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0123-the-camera-moves-so-the-aircraft-can-keep-its-shadows.md" target="_blank" rel="noopener">docs/decisions/0123-the-camera-moves-so-the-aircraft-can-keep-its-shadows.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-3"><a href="#this-is-what-keeps-the-shadows-and-the-shadows-are-the-whole-signature">This is what keeps the shadows, and the shadows are the whole signature</a></li>
+<li class="toc-3"><a href="#the-boresight-is-checked-against-the-sensor-and-the-render-is-refused-if-it-fails">The boresight is checked against the sensor, and the render is refused if it fails</a></li>
+<li class="toc-3"><a href="#every-patched-prim-is-2-mm-smaller-than-its-patch-and-that-was-measured">Every patched prim is 2 mm smaller than its patch, and that was measured</a></li>
+<li class="toc-3"><a href="#two-fixed-spans-because-the-interesting-surfaces-are-not-on-one-scale">Two fixed spans, because the interesting surfaces are not on one scale</a></li>
+<li class="toc-3"><a href="#what-a-ground-camera-cannot-see-and-the-frame-says-so">What a ground camera cannot see, and the frame says so</a></li>
+<li class="toc-3"><a href="#the-motion-plane-is-not-requested">The motion plane is not requested</a></li>
+<li class="toc-3"><a href="#not-done-here">Not done here</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. First rendered point-wise aerial scene: a scene config plus one command produces float32 frames whose target carries a gradient across a single prim, against sky, at a range that changes. <strong>Date:</strong> 2026-09-22 Roadmap: PT.9 (the in-engine half), IG.2 (§6.6, §15 T3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>PT.9</code> shipped the point-wise aerial airframe engine-free: <code>quad_flight_pointwise.yaml</code> solves a deck, a belly and two arms per cell, and <code>scripts/quad_flight_pointwise.py</code> draws them over a synthetic G-buffer. Nothing rendered it. Two things stood between that scene and a frame, and neither was in the physics:</p>
+<ol>
+<li><strong>The prims did not exist.</strong> The patches bind to <code>/World/Quad/deck</code>, <code>/belly</code>, <code>/arm_n</code>, <code>/arm_e</code>; the Isaac quadrotor (<code>irsim_isaac.quadrotor</code>) authors <code>body</code>, <code>battery</code>, <code>arm_0..3</code>, <code>motor_0..3</code>, <code>esc_0..3</code>, on a different airframe, in a different frame. A patch that misses its prim does not fail — <code>PointwiseTemperature</code> leaves those pixels at the per-prim fallback, and part of an airframe renders as a field and part as a flat value.</li>
+<li><strong>The scene is ENU and the stage is Y-up.</strong> The pad-frame coordinates in that file are not coordinates of anything on a Kit stage.</li>
+</ol>
+<p>And one thing was in the physics: <strong><code>quad_flight</code>'s camera is fixed and its aircraft flies</strong>, which is the one arrangement a point-wise target cannot use.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>A second scene, <code>quad_outbound_pointwise.yaml</code>, authored in the stage frame</strong>, with <code>world_frame: {up: [0,1,0], north: [0,0,-1]}</code> so the sun is still placed from the site and the clock. That is <code>car_ignition_clear_night.yaml</code>'s own choice, and it is what lets every patch coordinate be a coordinate of a prim. The ENU scene beside it is left exactly as it is: it is the engine-free oracle, and moving it would move the numbers <code>PT.9</code> was measured against. The port is checked by measurement, not by inspection — deck − belly is <strong>29.3 K</strong> in both.</p>
+<p><strong>A stage of its own, <code>irsim_isaac.quad_outbound</code></strong>, authoring the aircraft the scene describes: a 0.84 m frame with deck and belly as separate thin plates, four arms, four bells, four speed controllers and a pack. <code>test_quad_outbound.py</code> walks every patch cell and every occluder face against the authored prims, so the two files cannot drift apart silently.</p>
+<p><strong>The camera moves along an outbound track and the aircraft does not move at all.</strong></p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<h3 id="this-is-what-keeps-the-shadows-and-the-shadows-are-the-whole-signature">This is what keeps the shadows, and the shadows are the whole signature<a class="anchor" href="#this-is-what-keeps-the-shadows-and-the-shadows-are-the-whole-signature" aria-label="permalink">#</a></h3>
+<p><code>OccluderSpec</code> refuses any frame but <code>world</code>, because a shadow cast in a moving frame needs that frame's pose and the thermal core does not carry one. An aircraft that flies must therefore express its patches in its own prim's frame (ADR 0087/PT.5 support exactly that) — and loses every occluder in doing so. What it loses here is <strong>27 K across one arm</strong>: the deck's own shadow on the inner half, and each pod's shadow on the outer. That gradient is the point-wise signature of this target, so it is the thing that must not be given up.</p>
+<p>Relative motion is all a camera can see. Flying the camera instead gives the same picture — the target shrinks as 1/R, the slant path in front of it grows — and costs nothing, because the thermal solve was always going to treat the aircraft's attitude as fixed. In <code>quad_flight</code> the render tilts an airframe the solver believes is level; here the render and the solver agree.</p>
+<p>The camera's stage <code>y</code> goes well below zero at long range. There is no ground plane, so only relative geometry exists, and nothing in the pipeline reads a stage coordinate as an altitude — the sky, the atmosphere and every view cosine are built from each ray's own direction (ADR 0060).</p>
+<h3 id="the-boresight-is-checked-against-the-sensor-and-the-render-is-refused-if-it-fails">The boresight is checked against the sensor, and the render is refused if it fails<a class="anchor" href="#the-boresight-is-checked-against-the-sensor-and-the-render-is-refused-if-it-fails" aria-label="permalink">#</a></h3>
+<p>The aim sits 20° above the horizontal, against a 24.8° vertical field: 7.6° of margin. A longer lens narrows that field and a shorter one widens it, so the driver computes the field from the sensor config and <strong>refuses to render</strong> rather than putting ADR 0060's analytic <code>T_ground</code> across the bottom of a sky-target frame. A horizon that is not a horizon is worse than no picture.</p>
+<h3 id="every-patched-prim-is-2-mm-smaller-than-its-patch-and-that-was-measured">Every patched prim is 2 mm smaller than its patch, and that was measured<a class="anchor" href="#every-patched-prim-is-2-mm-smaller-than-its-patch-and-that-was-measured" aria-label="permalink">#</a></h3>
+<p>The first render of this scene raised on <strong>150 deck pixels</strong>: a prim exactly the size of its patch loses its edge, because the sampled surface position lands a float's width outside the rectangle. The inset also stops the plates z-fighting against the body, which in the companion visible frame is indistinguishable from a fault in the infrared one. 2 mm is a fifth of a pixel at the near end of the track. <code>test_every_patched_prim_is_strictly_inside_its_patch</code> pins it.</p>
+<h3 id="two-fixed-spans-because-the-interesting-surfaces-are-not-on-one-scale">Two fixed spans, because the interesting surfaces are not on one scale<a class="anchor" href="#two-fixed-spans-because-the-interesting-surfaces-are-not-on-one-scale" aria-label="permalink">#</a></h3>
+<p>The motors reach tens of kelvin over air while the skin sits within a few; no single linear span shows both, which is why <code>render_car_ignition</code> already carries two. The tight span is anchored on the <strong>air temperature</strong>: seen from below — which is the only way a ground camera can see a drone against sky — a quadrotor's largest surface is its belly, and the belly is within a kelvin or two of the air. The camera's own AGC output is filmed beside both.</p>
+<h3 id="what-a-ground-camera-cannot-see-and-the-frame-says-so">What a ground camera cannot see, and the frame says so<a class="anchor" href="#what-a-ground-camera-cannot-see-and-the-frame-says-so" aria-label="permalink">#</a></h3>
+<p>The deck's 29 K excess over air is on the <strong>far side of the aircraft</strong> from a camera looking up at it. That is not a limitation of the model; it is the answer to the question. An anti-UAV sensor reads a belly near ambient with four hot bells on it, not a hot deck, and a scene that showed the deck to a ground camera would be flattering rather than correct. The deck is in the float planes and in the readout at every frame, so the number is available even where the picture is not.</p>
+<h3 id="the-motion-plane-is-not-requested">The motion plane is not requested<a class="anchor" href="#the-motion-plane-is-not-requested" aria-label="permalink">#</a></h3>
+<p><code>IG.6</code>'s <code>motion_px</code> reads prim transforms. The aircraft is static and the camera slews, so the tracker would report zero motion for a target that is crossing the frame. A zero smear asserted from the wrong premise is worse than no smear declared, so the channel is left unattached (<code>IG.5</code> makes that refusal explicit rather than a default).</p>
+<h3 id="not-done-here">Not done here<a class="anchor" href="#not-done-here" aria-label="permalink">#</a></h3>
+<p>The aircraft's attitude is fixed, so there is no pitch into the acceleration as in <code>quad_flight</code>. The powered parts stay per-prim nodes: conducting their heat into the skin from a config still has no route, which is <code>PT.9</code>'s remainder and <code>TC</code>'s subject. The arms are flat strips, not tubes — <code>WM.7</code>'s mesh field is the curved answer and <code>quad_flight_mesh.yaml</code> already carries it.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

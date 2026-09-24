@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0085 — The Tier 4 acceptance checks, and what a gap score can and cannot say — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0085 — The Tier 4 acceptance checks, and what a gap score can and cannot say</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0085-tier4-acceptance-and-the-gap-score.md" target="_blank" rel="noopener">docs/decisions/0085-tier4-acceptance-and-the-gap-score.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#two-targets-moved-by-measurement">Two targets moved, by measurement</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#addendum-2026-09-15--two-things-the-first-real-runs-taught">Addendum, 2026-09-15 — two things the first real runs taught</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: ME.6 (§15 T4/T5) Extends: ADR 0068</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0068 replaced §15's radiometric Tier 4 targets with display-domain ones, because the public sky-target data is 8-bit, post-AGC and codec-compressed and there is nothing radiometric to compare against. It proposed the targets; ME.6 implements the comparison and had to measure them.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><code>irsim.validation.compare</code> holds the four frame statistics — histogram EMD in codes, contrast ratio, PSD shape ratio, ESF width — plus <code>Tier4Report</code>, in which <strong><code>untestable</code> is a verdict</strong>. A check whose inputs are missing is printed with the reason, never omitted: on this project's data most of Tier 4 is untestable, and a report that hid that would be the most misleading thing it could produce. <code>passed</code> ignores untestable checks; the report lists every one.</li>
+<li>§15's "apparent temperature within 2 K" is reported as <code>untestable</code> in <strong>every</strong> run, with the reason, until a radiometric capture exists.</li>
+<li><code>irsim_eval.discriminator</code> is a <strong>linear probe on interpretable statistics</strong>, not a CNN, fitted in NumPy with no torch and no scikit-learn. Its AUC is a <em>lower bound</em> on the gap and it names the feature that separated the two sets. An AUC near 0.5 means these statistics do not separate them; it does not mean a detector cannot, which is ME.7's question.</li>
+<li>The probe is <strong>cross-validated</strong>. Ten free parameters fitted and scored on the same eighty patches will report a gap that is not there.</li>
+</ol>
+<h2 id="two-targets-moved-by-measurement">Two targets moved, by measurement<a class="anchor" href="#two-targets-moved-by-measurement" aria-label="permalink">#</a></h2>
+<p><strong>The PSD-shape target: 2.0 → 1.5.</strong> ADR 0068 proposed "PSD shape within ×2". Measured over three seeds on a smooth scene with per-pixel noise:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>noise mismatch</th><th>max normalised radial-PSD ratio</th></tr></thead>
+<tbody>
+<tr><td>×1 (matched)</td><td>1.05 – 1.08</td></tr>
+<tr><td>×2</td><td>1.30 – 1.36</td></tr>
+<tr><td>×3</td><td>1.77 – 1.93</td></tr>
+<tr><td>×5</td><td>3.15 – 3.35</td></tr>
+</tbody></table></div>
+<p>A ×2 threshold passes a simulator whose noise is <strong>three times wrong</strong>. 1.5 separates matched from ×3 with a 1.6× margin on both sides, and openly misses a ×2 error — which is the honest statement of this statistic's sensitivity rather than a threshold tuned to a wish.</p>
+<p><strong>A fraction-of-peak spectral floor is the wrong shape of filter.</strong> ADR 0068's floor was meant to exclude bins the codec owns. Keyed off the reference spectrum's peak, it excludes the bins that carry <em>noise</em> instead: a scene with low-frequency structure has a steeply falling spectrum, so "carries little power" and "is high-frequency" are the same bins. Measured: a 1 %-of-peak floor took a ×3 noise mismatch from <strong>1.90 to 1.06</strong> — it removed the entire signal the statistic exists to detect. The floor now defaults to zero, and a real codec floor should be supplied as a fraction computed from an absolute power level.</p>
+<p><strong>The control's target: "AUC 0.5 ± 0.03" → within two null standard errors.</strong> The AUC has its own sampling spread, √((n₁+n₂+1)/(12 n₁ n₂)), which at 96 patches per class is already <strong>0.042</strong>. A synthetic-versus-itself control that lands at 0.54 is one sigma from chance, and a report calling that a failure would be measuring its own sample size. <code>DiscriminatorResult.indistinguishable</code> applies <code>|auc − 0.5| &lt; 2σ_null</code>, which scales with n instead of assuming one.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The acceptance report (<code>scripts/validation_report.py</code>) exits non-zero on any failed check and has a <code>--self-test</code> mode that runs synthetic-versus-itself. <strong>That control is the gate on the gate:</strong> if it does not pass, the thresholds are wrong and nothing the report says about a real comparison is worth reading. It is what the unit test drives, so the thresholds cannot drift without a failure.</p>
+<p>On the reference set two of the five checks are untestable for reasons ME.5 recorded — the annotation boxes are MATLAB MCOS objects with no Python reader, which costs the contrast-ratio and ESF checks — so a real Tier 4 run there exercises the histogram, the spectrum and the gap score.</p>
+<h2 id="addendum-2026-09-15--two-things-the-first-real-runs-taught">Addendum, 2026-09-15 — two things the first real runs taught<a class="anchor" href="#addendum-2026-09-15--two-things-the-first-real-runs-taught" aria-label="permalink">#</a></h2>
+<p><strong>A codec-flattened patch has no spectrum, and that is a feature.</strong> <code>clutter_slope</code> refuses a patch whose radial power spectrum is empty in most bins, which crashed the discriminator the first time it met real Halmstad frames. The refusal is a measurement, not an error — ME.5 found 306 of 365 published clips in that state — so it became a feature of its own, <code>spectrum_degenerate</code>. Dropping such patches would have removed precisely the property that distinguishes the real set; substituting a plausible slope would have been inventing data.</p>
+<p><strong>The null standard error assumes independent patches, and patches from the same frames are not.</strong> The fidelity ablation's control compares two disjoint samples of the <em>same</em> frames, so it must read an AUC of 0.5. At two scenarios it read <strong>0.40</strong> — five null standard errors below chance on sets that are identical by construction — and at five scenarios it reads 0.495. The effective sample size is nearer the number of <em>scenarios</em> than the number of patches, so <code>null_sigma</code> is a <strong>lower bound</strong> on the spread whenever patches share frames, and independence is bought with more scenarios and never with more patches per frame.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

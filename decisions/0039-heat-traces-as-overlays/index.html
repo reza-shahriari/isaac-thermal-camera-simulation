@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0039 — Heat traces are overlays, not conserved quantities — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0039 — Heat traces are overlays, not conserved quantities</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0039-heat-traces-as-overlays.md" target="_blank" rel="noopener">docs/decisions/0039-heat-traces-as-overlays.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-this-measured">What this measured</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§6.6's last row is the road under a departed vehicle: −3 … −8 K, decaying over 5–20 minutes. The spec singles it out — <em>"That last row is worth implementing. Thermal shadows and residual heat traces are a signature phenomenon of the band and they routinely confuse detectors trained only on synthetic data that lacks them."</em></p>
+<p>There are two ways to produce one. Either the ground solver knows a car was parked there — it carries a shadow mask, a contact history and a per-cell state — or a trace is painted on afterwards as a ΔT with its own decay.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>Traces are overlays.</strong> A <code>Footprint</code> is a mask, an amplitude, a deposit time and a time constant; <code>HeatTraceLayer.apply</code> adds Σ ΔT_i(t) to whatever the thermal field says. The heat comes from nowhere and goes nowhere.</p>
+<p>The cost is real and is stated rather than hidden: a scene with many overlapping traces is adding energy no balance accounts for. That is acceptable because the alternative is worse — making traces conserved requires the ground solver to carry exactly the per-cell occupancy history that an overlay exists to avoid, and it would make a trace's amplitude depend on the ground's own solve granularity (ADR 0037), which is a cache key, not a physical quantity.</p>
+<p>Amplitudes are therefore <strong>per-trace and bounded by §6.6's own ranges</strong>, not derived.</p>
+<p><strong>Superposition is linear and exact, and a cell no footprint touches comes back bit-identical.</strong> That matters more than it sounds: a layer that blended or clamped would make an untouched road pixel depend on whether a car drove past somewhere else in the frame — a coupling that is impossible to notice and impossible to debug.</p>
+<p><strong>Rasterisation is by distance to the segment, not by walking it.</strong> A trajectory sampled at 1 Hz and the same trajectory at 100 Hz stripe <strong>exactly the same cells</strong>. Walking the line would make a tyre trace depend on the logging rate of the drive that produced it.</p>
+<p><strong>A tyre trace is two footprints, not one.</strong> A single wide stripe is a skid; two parallel stripes at a known gauge are a vehicle, and a detector that has only ever seen the first will not learn the second.</p>
+<h2 id="what-this-measured">What this measured<a class="anchor" href="#what-this-measured" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th>quantity</th><th>value</th></tr></thead>
+<tbody>
+<tr><td>tyre stripe amplitude / τ</td><td>+6.0 K / 7 min (§6.6: +3 … +10 K, 5–20 min)</td></tr>
+<tr><td>body shadow amplitude / τ</td><td>−5.5 K / 12 min (§6.6: −3 … −8 K, 5–20 min)</td></tr>
+<tr><td>stripes at 20 min</td><td><strong>&lt; 0.5 K</strong> — gone</td></tr>
+<tr><td>shadow at 20 min</td><td><strong>1.0 K</strong> — still there</td></tr>
+<tr><td>shadow at 60 min</td><td>&lt; 0.2 K</td></tr>
+<tr><td>superposition linearity</td><td>1e-12</td></tr>
+<tr><td>untouched cells</td><td>bit-identical</td></tr>
+</tbody></table></div>
+<p>⚠️ The 20-minute pair is the point rather than a discrepancy. §6.6 gives a 5–20 min <em>range</em>, and a trace at the long end of it is still visible when someone looks — which is precisely why it "routinely confuses detectors". Asserting both below 0.5 K at 20 minutes would have meant choosing τ for the convenience of the test.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A scene needs the trace to interact with what is above it — a puddle that evaporates faster in a tyre track, a shadow that changes the ground's own solar absorption. Then the overlay stops being separable and the ground solver has to carry the state after all.</li>
+<li>Traces start to dominate a frame's energy budget, i.e. a dense urban scene with many vehicles. The non-conservation is bounded per trace but not per scene.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

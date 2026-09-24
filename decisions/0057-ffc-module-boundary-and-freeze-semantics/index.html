@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0057 — Where the FFC controller lives, and what the freeze does — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0057 — Where the FFC controller lives, and what the freeze does</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0057-ffc-module-boundary-and-freeze-semantics.md" target="_blank" rel="noopener">docs/decisions/0057-ffc-module-boundary-and-freeze-semantics.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#the-controller-is-isp-and-it-owns-δtfpa">The controller is ISP, and it owns ΔTFPA</a></li>
+<li class="toc-3"><a href="#the-freeze-holds-the-last-good-frame-it-does-not-blank">The freeze holds the last good frame; it does not blank</a></li>
+<li class="toc-3"><a href="#shutterless-is-a-first-order-lag-not-an-unbounded-drift">shutterless is a first-order lag, not an unbounded drift</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li>Date: 2026-09-12</li>
+<li>Step: M9.7 (<code>feat(isp): FFC controller — schedule, freeze, reset; shutterless and ideal modes</code>)</li>
+<li>Spec: docs/physics-model.md §11.2, §12.2 <code>nuc</code>, §15 Tier 3</li>
+</ul>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Three questions had to be settled before the flat-field correction could be written, and the spec answers none of them:</p>
+<ol>
+<li><strong>Does the controller belong in <code>irsim.noise</code> or <code>irsim.isp</code>?</strong> It resets noise objects, but it is triggered by a schedule and it modifies the emitted image.</li>
+<li><strong>What does the freeze actually emit?</strong> §11.2 says "the image freezes for 0.5–1 s" without saying what a frozen frame contains.</li>
+<li><strong>What does <code>shutterless</code> mean quantitatively?</strong> §11.2 says only "a slow-drift + scene-based-correction residual instead of periodic freezes".</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<h3 id="the-controller-is-isp-and-it-owns-δtfpa">The controller is ISP, and it owns ΔT_FPA<a class="anchor" href="#the-controller-is-isp-and-it-owns-δtfpa" aria-label="permalink">#</a></h3>
+<p><code>irsim.isp.ffc.FfcController</code>. An FFC is a <strong>camera behaviour</strong> — a mechanism closes, a schedule fires, the output stream changes — not a noise source. <code>irsim.noise</code> generates fields; <code>irsim.isp</code> decides what the camera does with them and what it emits. Putting the controller in <code>noise</code> would have made that package responsible for the output stream.</p>
+<p>The consequence that matters more than the package name: <strong>the controller owns ΔT_eff</strong>, the temperature offset M9.6's residual is evaluated at. The three modes differ almost entirely in that one quantity, so putting it anywhere else would have scattered the definition of "mode" across three files. <code>NucResidual</code> stays a pure function of the ΔT it is handed.</p>
+<p>Objects the shutter recalibrates attach through a one-method <code>Resettable</code> protocol (<code>reset(frame_index)</code>): M9.6's <code>NucResidual</code>, M9.4's <code>DriftingPattern</code>, and anything M9.8 adds. The controller does not import them and does not know what they are.</p>
+<p><code>frame_index</code> is passed to <code>reset</code> and deliberately <strong>ignored</strong> by both current implementations: epochs are counted by FFC, not by frame, so a sequence replayed at a different frame rate gets the same sequence of patterns.</p>
+<h3 id="the-freeze-holds-the-last-good-frame-it-does-not-blank">The freeze holds the last good frame; it does not blank<a class="anchor" href="#the-freeze-holds-the-last-good-frame-it-does-not-blank" aria-label="permalink">#</a></h3>
+<p>A closed shutter means the FPA is looking at the shutter blade. A camera that emitted <em>those</em> frames would show a flat field, and a perception stack would watch the scene vanish and reappear — conspicuous, and not what real cores do. They hold the last good frame, and that is what makes the artefact worth simulating: for 0.7 s the image is <strong>stale</strong> rather than obviously wrong, so anything tracking through it sees motion stop dead and then jump. A tracker that survives a blank may still fail on a hold.</p>
+<p><code>freeze_frames = round(freeze_s · fps)</code> — <strong>round, not ceil</strong>. 60 Hz × 0.7 s is exactly 42; 9 Hz × 0.7 s is 6.3 and becomes 6. A freeze is a physical duration being sampled by the frame clock, and at 9 Hz the partial frame at the end is more likely to complete than not. Ceil would systematically lengthen every freeze at low frame rates, which is where the artefact is most visible.</p>
+<p>Frame 0 never fires: the camera was calibrated when it was switched on, and firing at 0 would put a freeze at the opening of every sequence, golden fixtures included.</p>
+<h3 id="shutterless-is-a-first-order-lag-not-an-unbounded-drift"><code>shutterless</code> is a first-order lag, not an unbounded drift<a class="anchor" href="#shutterless-is-a-first-order-lag-not-an-unbounded-drift" aria-label="permalink">#</a></h3>
+<p>A shutterless core runs a scene-based correction: it estimates the fixed pattern from pixel-sized translations of the focal plane and subtracts it continuously [R32, R33]. The residual therefore settles where the estimator's convergence balances the drift, rather than tracking ΔT_FPA without limit. The simplest model with that property, and the one adopted here, is</p>
+<p>dΔT_eff/dt = dΔT/dt − ΔT_eff/τ,      τ = <code>nuc.shutterless_tau_s</code></p>
+<p>integrated exactly over each step. Under a constant drift rate <em>r</em> it approaches <em>r·τ</em> instead of growing. At τ = 120 s and 0.05 K/s the residual at 540 s is 1.15× its 180 s value, against 3× for an uncorrected core — comfortably inside the roadmap's ≤ 1.5× bar, and the test asserts both the bound and the saturation value so that "bounded" is not satisfied by merely being slow.</p>
+<p><code>ideal</code> is ΔT_eff ≡ 0: no residual, no freeze, no reset. The control case every other mode is measured against.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>nuc.shutterless_tau_s</code> is new (sensor schema v8), defaults to 120 s, and is <strong>ESTIMATED</strong> — no published convergence time for a scene-based correction was available. It is unused outside <code>mode: shutterless</code>, so no existing config changes behaviour.</li>
+<li>Because the controller owns ΔT_eff, a caller that computes the residual without going through it gets whatever ΔT it invents. M9.8 wires the single path; until then that coupling is a convention, not an enforcement.</li>
+<li>The first frame of a sequence cannot be held (there is nothing yet to hold), so an FFC landing there passes the live frame through rather than inventing one. In practice <code>fires_on</code> excludes frame 0, so this only arises in a bench that drives the controller directly.</li>
+<li>A held frame is copied, not aliased. A caller that reuses its input buffer — which the pipeline does — would otherwise see the held frame change underneath it.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>ME.3's ISP-behaviour extractor measures a real FFC interval, freeze duration or between-FFC growth that this schedule cannot reproduce; or a shutterless core's measured residual turns out to grow with a shape other than a first-order lag (a 1/f-like slow component would need a different model, not a different τ).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

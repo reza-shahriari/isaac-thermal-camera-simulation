@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0072 — Aerial material library (four materials) and prescribed target heat schedules — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0072 — Aerial material library (four materials) and prescribed target heat schedules</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0072-aerial-material-library-and-target-heat-schedules.md" target="_blank" rel="noopener">docs/decisions/0072-aerial-material-library-and-target-heat-schedules.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-3"><a href="#materials--four-authored-as-scalar-per-band-emissivity">Materials — four, authored as scalar per-band emissivity</a></li>
+<li class="toc-3"><a href="#heat-sources--prescribed-nodes-δt--u²">Heat sources — prescribed nodes, ΔT ∝ u²</a></li>
+<li class="toc-3"><a href="#target-contrast-against-the-sky">Target contrast against the sky</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted (MS.7) <strong>Date:</strong> 2026-09-12</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The first target application is objects in the sky — drones, light aircraft, birds against a sky background — and until now the material library held only ground-scene surfaces (asphalt, car paint, glass, skin). Nothing in it is an airframe, and nothing in the repo says how hot a motor runs. Two things were needed and they have different evidence bases, which is the whole reason this ADR exists:</p>
+<ul>
+<li><strong>Optical properties of airframe surfaces.</strong> Well constrained. An airframe is paint, epoxy, or rubber, and §16.2 already carries the rows those reduce to; the LWIR emissivity of a polyurethane topcoat is not controversial.</li>
+<li><strong>Internal heat sources.</strong> Badly constrained. No public dataset of instrumented multirotor motor, ESC or battery temperatures was found. The magnitudes are estimates.</li>
+</ul>
+<p>A ground surface gets its temperature from an energy balance: solar loading, convection, longwave exchange, storage in a slab. Applying that to an aircraft in flight would be theatre. Forced convection at flight speed pins an unpowered skin to within a degree or two of the air it is moving through, there is no ground contact and no diurnal storage, and everything a thermal camera actually keys on is internal dissipation set by throttle. The solver machinery would run, produce numbers, and none of them would mean anything.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Full energy balance per airframe panel</strong> (M6.x slab solver with a flight-speed convection coefficient). Physically the most complete, but the convective term dominates so heavily that the answer is <code>T_air</code> plus solver noise, and the parameters that would make it interesting (internal conduction paths from motor to arm, boundary-layer heating) are not authored anywhere. Expensive, and its extra fidelity is not observable.</li>
+<li><strong>A fixed ΔT per part, authored per scenario.</strong> Cheapest. Cannot express a throttle change, so it cannot produce the one aerial phenomenon that is unambiguous — a motor heating up on climb.</li>
+<li><strong>Prescribed nodes driven by a throttle law</strong> (chosen).</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<h3 id="materials--four-authored-as-scalar-per-band-emissivity">Materials — four, authored as scalar per-band emissivity<a class="anchor" href="#materials--four-authored-as-scalar-per-band-emissivity" aria-label="permalink">#</a></h3>
+<p><code>configs/materials/</code>: <code>painted_composite</code>, <code>carbon_fibre</code>, <code>aircraft_aluminium_painted</code>, <code>propeller_rubber</code>. All <code>source: literature</code>, all opaque (τ = 0 in every band), all with the M7.2 scalar <code>emissivity_per_band</code> fallback rather than a spectral file — for a paint or an elastomer the band-effective value is what the literature reports, and inventing a spectral curve to average back down to it would fabricate structure. ρ is derived, never authored (CLAUDE.md #4).</p>
+<p>LWIR/MWIR values come from the §16.2 paint and rubber rows, because the topcoat is what the camera sees: <code>aircraft_aluminium_painted</code> is radiatively a paint (ε_LWIR = 0.90) sitting on a 205 W/m/K substrate, and pairs with the existing <code>bare_aluminium</code> (ε_LWIR = 0.09) as the same metal with the paint removed. NIR/SWIR values are <strong>ESTIMATED</strong> and tied to each material's solar absorptivity so the reflective and short-wave paths cannot disagree about how dark a surface is.</p>
+<h3 id="heat-sources--prescribed-nodes-δt--u²">Heat sources — prescribed nodes, ΔT ∝ u²<a class="anchor" href="#heat-sources--prescribed-nodes-δt--u²" aria-label="permalink">#</a></h3>
+<p><code>irsim.thermal.aerial</code>. Each node follows</p>
+<p>T_node(t) = T_air(t) + ΔT_max · u(t)^n,      n = 2</p>
+<p>with u the throttle fraction and <code>T_air</code> from the scene's shared <code>WeatherSeries</code> (CLAUDE.md #6 — injected, never loaded in this module). n = 2 is the ohmic reading: winding and MOSFET loss go as I²R with current roughly proportional to throttle, so at a fixed convective conductance the steady rise above ambient goes as u².</p>
+<div class='table-wrap'><table>
+<thead><tr><th>node</th><th>ΔT_max</th><th>basis</th></tr></thead>
+<tbody>
+<tr><td>motor</td><td>45 K</td><td><strong>ESTIMATED</strong></td></tr>
+<tr><td>esc</td><td>30 K</td><td><strong>ESTIMATED</strong></td></tr>
+<tr><td>battery</td><td>15 K</td><td><strong>ESTIMATED</strong></td></tr>
+<tr><td>airframe</td><td>0 K (offset configurable)</td><td>forced convection pins the skin to <code>T_air</code></td></tr>
+</tbody></table></div>
+<p>The <strong>ordering</strong> (windings hottest, MOSFETs below, pack coolest because it is a large mass spread over many cells) is the defensible part and is what a test asserts. The magnitudes are the first thing a Tier 4 fit against public aerial IR imagery should replace.</p>
+<p>The schedule is not a typed table. <code>refine_nodes</code> bisects the node grid until piecewise-linear interpolation reproduces the analytic law to a stated tolerance (default 1 mK), so a <code>PrescribedSolver</code> built this way is a <em>discretisation of a model with a bound</em>, not a list of numbers someone chose. For the u² law the segment midpoint is the worst point, so the bisection criterion is exact rather than sampled.</p>
+<h3 id="target-contrast-against-the-sky">Target contrast against the sky<a class="anchor" href="#target-contrast-against-the-sky" aria-label="permalink">#</a></h3>
+<p><code>irsim.validation.aerial</code> closes the loop with MS.1/MS.2:</p>
+<p>C(θ) = τ(R, θ)[ε L_B(T_t) + (1 − ε) L_env] + L_path(R, θ) − L_sky(θ)</p>
+<p><code>zero_contrast_elevation</code> finds where it vanishes, returning <code>None</code> when there is no crossing — the ordinary answer for a hot target, and a case callers must handle rather than treat as failure. L_env reuses <code>irsim.pipeline.environment.environment_radiance</code>, so the helper and the pipeline cannot disagree about the reflected term.</p>
+<p>Measured for the specified case (T_air = 300 K, ε = 0.9, V_s = 1, R = 1 km, <code>us_standard_clear</code>, 7.5–13.5 µm top-hat):</p>
+<div class='table-wrap'><table>
+<thead><tr><th>ε</th><th>0.80</th><th>0.90</th><th>0.95</th><th>1.00</th></tr></thead>
+<tbody>
+<tr><td>zero-contrast elevation</td><td>1.97°</td><td>1.26°</td><td>0.78°</td><td>none</td></tr>
+</tbody></table></div>
+<div class='table-wrap'><table>
+<thead><tr><th>range</th><th>200 m</th><th>1 km</th><th>5 km</th></tr></thead>
+<tbody>
+<tr><td>zero-contrast elevation (ε = 0.9)</td><td>1.39°</td><td>1.26°</td><td>1.06°</td></tr>
+</tbody></table></div>
+<p>At zenith the same drone is +64 K of apparent-temperature contrast; at 0.5° it is −2.5 K.</p>
+<p><strong>The ε = 1 column is the load-bearing result.</strong> A blackbody target at air temperature never inverts. The inversion is therefore not a path-radiance artefact and not a numerical accident: it is the reflected term (1 − ε)(L_env − L_B(T_air)) going negative because the target's own face is mirroring a cold sky into a camera that is looking at a warm horizon. A simulator that got the reflected term wrong would show no crossing, or a crossing at ε = 1, and the test would catch it.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Four aerial materials pass the CLAUDE.md #4 library walk in all four bands, including after float32 packing by M7.18. MS.8 can build the aerial fixture on their names.</li>
+<li>An aerial target is a set of prescribed nodes, so it drops into the existing <code>Scene</code> and solver plumbing with no new solver type, and Isaac-side work needs no aerial-specific thermal path.</li>
+<li><strong>The ΔT magnitudes are unvalidated.</strong> Any absolute claim about motor signature strength is only as good as the estimates in the table above. Relative claims (a climbing drone is hotter than a hovering one; motor hotter than pack) are robust because they follow from the law's shape.</li>
+<li><strong>L_env is evaluated with the ground-level sky model.</strong> A target at altitude sees slightly less atmosphere above it than a surface does, and its belly sees ground at a slant range rather than underfoot. Neither is modelled, so the belly case (V_s → 0) carries an unquantified bias — the bias is toward too much reflected ground, since the real path attenuates it. V_s = 1 is the honest configuration and is what the horizon test uses. The warm-belly/cold-top ordering is asserted as an ordering only, never as a magnitude.</li>
+<li>Elevation is the flat-earth geometric ray angle inherited from MS.1; below ~0.5° the layered model's own geometry is the larger error, which is why the root bracket starts there.</li>
+<li>No solar term. A sunlit drone in MWIR or SWIR needs M11's solar scatter; <code>carbon_fibre</code> carries α_sol = 0.90 so it is ready to be the material that shows it when that lands.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>Public instrumented aerial IR data (or a permitted flight with a borrowed camera) allows the ΔT magnitudes to be fitted rather than estimated — the ordering should survive, the numbers should not be assumed to.</li>
+<li>M11 lands solar scatter, at which point the reflective-band NIR/SWIR estimates start to matter radiometrically instead of only bookkeeping.</li>
+<li>A target-altitude sky model exists, at which point the belly (V_s → 0) case becomes quantifiable and the caveat above can be replaced with a bound.</li>
+<li>M7.9 extends the library walk to fifteen materials; these four should need no change.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

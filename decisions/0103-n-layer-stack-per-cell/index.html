@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0103 — An N-layer stack through every cell, as members of one coupled solve — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0103 — An N-layer stack through every cell, as members of one coupled solve</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0103-n-layer-stack-per-cell.md" target="_blank" rel="noopener">docs/decisions/0103-n-layer-stack-per-cell.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: PT.12 (§6.4)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>A field's cell was one node: the whole slab at one temperature with an adiabatic back. §6.4 gives the two-node model for exactly the case that breaks this — a fast surface on a slow substrate — and ADR 0036 built it (<code>two_node.py</code>), but no field used it; every patched surface in every scene was a single lump, so 0.3 m of asphalt held its surface up all night on the whole slab's heat. Production tools do not lump: MuSES evaluates properties per thermal node through the element thickness, Fraunhofer's models stored 2 + N temperatures per triangle and used ten layers.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Extend <code>LumpedTwoNodeSolver</code> to N nodes per cell and give fields a second solver.</strong> A second integrator beside <code>FacetSolver</code>, with its own tick contract, guard and history ring, and an explicit step whose bound §6.4 evaluated wrongly by a factor of 400 (spec issue S39).</li>
+<li><strong>A per-cell semi-analytic substrate</strong> (a response function for the diurnal wave). Exact for a homogeneous half-space under a sinusoid, and nothing else: no layers, no deep boundary, no coupling to the parts a network hangs off the surface.</li>
+<li><strong>Layers as members of <code>CoupledFields</code>.</strong> Each layer is a member with the same grid: layer 0 carries the surface balance and the material's ε and α, the layers below ε = α = 0 and no convection (the bottom one a linear exchange with a deep node when one is declared), and consecutive layers are joined by a contactor whose <code>h_c = 1/R_{i,i+1}</code> with <code>R = δ_i/(2k_i) + δ_{i+1}/(2k_{i+1})</code> — §6.4's centre-to-centre resistance, reused from <code>two_node.contact_resistance</code>. One implicit solve per tick (ADR 0094), the surface layer a <code>PatchView</code> the bridge binds, the layers below bookkeeping that never reaches a pixel. Chosen.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, <code>irsim.thermal.layers.LayerStack</code> and <code>layered_field</code>, and <code>layers: N</code> on a patched surface in the scene schema (default 1: the single node the field always was; N cuts the material's thickness into N equal slices with an adiabatic back). Lateral conduction runs in every layer with that layer's own <code>k δ</code>; the whole stack is spun up on its own forcing and operator so the base carries the days before, which is the point of having one. A film on a layered surface is refused for now (the film lives on the single-node solver).</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Measured:</strong> a two-layer stack with a deep boundary reproduces <code>LumpedTwoNodeSolver</code> to under 1 mK on both nodes over 6 h of diurnal forcing at a 2 s tick (1.7 mK at 10 s: the IMEX side is first order in dt); the contact conductances are <code>k/δ</code> for equal slices exactly; a 1 mm steel skin peaks with the beam and a six-layer 0.3 m asphalt surface more than an hour later; the single-node 0.3 m asphalt is warmer than the six-layer one by more than 2 K at 04:00, with the stack's base warmer than its surface at night; <code>layers: 6</code> on a scene's road builds a six-member solve whose surface view answers the bridge's interface, and <code>layers: 1</code> is the field it always was.</p>
+<p><strong>What it costs:</strong> N times the cells in one sparse implicit system, and N times the spin-up work; the two-node explicit bound is gone (the vertical link is implicit), so any layer thickness is admissible and the accuracy question is the tick's alone (first order, ADR 0094).</p>
+<p><strong>Error introduced:</strong> the stack's first-order-in-dt on the vertical transient — bounded by the two-node comparison at the tick a test chooses, and by the roadmap's own night-curve criterion for the shipped 60 s tick. Layers of one material are equal slices; a real pavement's graded base would want <code>LayerStack(layers=(...))</code> with its own thicknesses, which the API takes and the schema does not yet spell.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs a non-uniform stack from the config (a wearing course over a base over soil), or a film on a layered surface (PH.2 on a layered road), or a deep boundary from the weather (the soil temperature a day down), each a schema addition on this module.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

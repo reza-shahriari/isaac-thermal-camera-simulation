@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0043 — Which ε the §16.2 scalars mean, and which one the solver gets — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0043 — Which ε the §16.2 scalars mean, and which one the solver gets</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0043-hemispherical-vs-directional-emissivity.md" target="_blank" rel="noopener">docs/decisions/0043-hemispherical-vs-directional-emissivity.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-this-measured">What this measured</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-15</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§16.2 tabulates an emissivity per material and does not say which emissivity. There are three different numbers hiding behind that one column, and they differ by more than the table's own precision:</p>
+<ul>
+<li><strong>ε(0)</strong> — normal incidence. What a camera reads looking straight down at a surface.</li>
+<li><strong>ε_B(θ)</strong> — directional, band-effective. What a camera reads at an angle, and what stage 1 needs per pixel (M7.7).</li>
+<li><strong>ε_hemi</strong> — hemispherical, <code>2∫₀¹ ε(µ) µ dµ</code>. What an energy balance needs, because a surface radiates into the whole sky and not along one ray (§6.1).</li>
+</ul>
+<p>For water in the Boson band those are <strong>0.990</strong>, a curve collapsing to 0.70 by 80°, and <strong>0.951</strong>. Handing a solver the first of them overstates its radiative cooling by about 4 %.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>1. The §16.2 scalars are read as ε(0), normal incidence at the band's reference temperature.</strong> That is what a datasheet and a handbook table almost always mean, and it is the one of the three that a material file can carry without also carrying an angular model.</p>
+<p><strong>2. The thermal solver gets ε_hemi and cannot reach the directional value.</strong> <code>total_hemispherical_emissivity(material, T)</code> is the entry point, and M6.7's <code>ThermalProperties</code> populates its emissivity from it — never from <code>optical.emissivity_per_band</code> directly, and never from anything authored under <code>thermal:</code> at all.</p>
+<p><strong>3. The integral is written in µ = cos θ.</strong> The substitution turns <code>cos θ sin θ dθ</code> into <code>µ dµ</code>, so the integrand has no trigonometry in it and Gauss–Legendre converges on something polynomial-like rather than oscillatory. Measured: 8, 16 and 64 nodes agree to better than <strong>1e-6</strong> on every material tested, so the default 32 is far past convergence rather than a guess.</p>
+<p><strong>4. The sign is not assumed.</strong> ε_hemi is <strong>below</strong> ε(0) for a dielectric and <strong>above</strong> it for a metal — aluminium's is 1.29× its normal value, because its ε rises with angle. A model that clamped ε_hemi ≤ ε(0) would be right for every dielectric in the library and wrong for every metal, and would stay wrong quietly.</p>
+<p><strong>5. The total form reports how much of itself is an assumption.</strong> At 300 K, <strong>61 %</strong> of Planck's weight lies outside every configured band — nearly all of it beyond 13.5 µm — and is filled by extending the nearest band's value outwards. That is the standard assumption for a thermal solver and is probably close to right for a dielectric, but <code>TotalHemispherical.extrapolated_fraction</code> returns it, because a solver that cannot see how much of its ε rests on an assumption cannot report its own uncertainty.</p>
+<p><strong>6. A band carrying negligible Planck weight is skipped, not queried.</strong> At 300 K, NIR and SWIR hold about 1e-9 of the exitance between them. Asking a material for its angular model there asks a question whose answer cannot move the balance — and it can <em>fail</em>, because §4.2's Level C bound is a statement about thermal-band roughness and a material may legally violate it in a band the solver will never integrate. The threshold is 1e-4 of the weight.</p>
+<h2 id="what-this-measured">What this measured<a class="anchor" href="#what-this-measured" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th>quantity</th><th>value</th></tr></thead>
+<tbody>
+<tr><td>water (R1 n/k at 10 µm): ε(0)</td><td>0.9898</td></tr>
+<tr><td>water: <strong>ε_hemi</strong></td><td><strong>0.9511</strong></td></tr>
+<tr><td>aluminium (n 25, k 68): ε_hemi / ε(0)</td><td><strong>1.29</strong></td></tr>
+<tr><td>GL 8 vs 64 nodes</td><td>agree to &lt; 1e-6</td></tr>
+<tr><td>Planck weight outside all bands at 300 K</td><td><strong>61 %</strong></td></tr>
+</tbody></table></div>
+<p><strong>The roadmap's "&gt; 0.3 K equilibrium difference" is unreachable, and that is a property of the balance.</strong> ΔT between ε = 0.990 and ε = 0.951 vanishes at both convective limits — with h → 0 the radiative equilibrium is <code>T = ε_sky^{1/4} T_air</code>, independent of ε, and with h → ∞ the surface is pinned to the air — so it has a maximum in between. Measured: <strong>0.230 K at h ≈ 4 W m⁻² K⁻¹</strong>. The test finds that maximum over h rather than asserting a single point, which is a stronger statement and one that survives a change of h. 0.23 K is small; it is also in the same direction for every water pixel of every maritime scene at every hour, which is the argument for rule 2.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>M6.7's <code>ThermalProperties</code> takes its ε from <code>total_hemispherical_emissivity</code>, which makes the material's angular model a <em>hard dependency</em> of the thermal solver — a material with no valid angular model cannot be given to it, which is the intended friction.</li>
+<li>Enforcing §4.2's Level C bound (M7.7) means <code>bare_aluminium</code> and <code>asphalt_dry</code> currently raise. Aluminium needs a Level A n/k table (M7.5); asphalt needs Level B with a ≈ 0, which is what §4.2 itself prescribes for rough dielectrics.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A material library entry carries a measured total hemispherical emissivity. Then the extension beyond 13.5 µm can be checked rather than assumed, and <code>extrapolated_fraction</code> becomes a reported error bar instead of a warning.</li>
+<li>The far-infrared matters for its own sake — a cryogenic scene, where Planck's peak moves out past 20 µm and the extrapolated fraction approaches 1.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

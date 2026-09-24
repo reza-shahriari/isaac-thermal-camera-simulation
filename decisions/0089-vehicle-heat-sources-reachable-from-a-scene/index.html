@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0089 — §6.6&#x27;s vehicle heat sources need their own solver kind, not the aerial one — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0089 — §6.6&#x27;s vehicle heat sources need their own solver kind, not the aerial one</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0089-vehicle-heat-sources-reachable-from-a-scene.md" target="_blank" rel="noopener">docs/decisions/0089-vehicle-heat-sources-reachable-from-a-scene.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: MP.4a (§6.6)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>irsim.thermal.vehicle</code> has held §6.6's ground-vehicle table since M6.14 — <code>engine_bay</code> (+65 K, τ_rise 750 s, τ_cool 1800 s), the exhaust chain, brake discs, tyres — together with <code>SourceHistory</code>, which integrates the first-order rise and cool by an exact exponential step. None of it has ever been reachable from a scene config. Every vehicle in this repository is either an aerial node or a typed-out <code>prescribed</code> schedule.</p>
+<p>Building MP.4's ignition demo made that concrete. The scene needs an engine bay that is at ambient in frame 0 and warms over the following ten minutes, which is the whole subject of the film.</p>
+<p>The two obvious ways to author it are both wrong:</p>
+<ol>
+<li><strong><code>solver: heat_source</code>.</strong> This is ADR 0072's <em>aerial</em> node, and its law is a <strong>steady-state relation with no time constant at all</strong> — the schema's own docstring says so. Its temperature follows the throttle instantaneously, so an engine bay authored through it shows its full 65 K in the first frame after ignition. It also validates <code>source</code> against <code>AERIAL_HEAT_SOURCES</code>, so <code>engine_bay</code> is not even a legal name there.</li>
+<li><strong><code>solver: prescribed</code> with the curve written out.</strong> This is what the maritime scene had to do for its funnel, and its own comment calls it a wart. It moves a number the model already knows into a YAML file, where it stops tracking the model and becomes a number somebody typed. The demo would then be showing an author's arithmetic, not §6.6.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>A sixth solver kind, <code>vehicle_source</code> (scene schema <strong>v6</strong>): <code>source</code> names a row of <code>VEHICLE_HEAT_SOURCES</code> and <code>load_s</code> → <code>load</code> is the duty fraction over time.</p>
+<p><code>VehicleSourceSolver</code> is deliberately <strong>only an adapter</strong>. The law and the exact-exponential step stay in <code>SourceHistory</code>, which already had them; duplicating the integration to give it a <code>TemperatureSolver</code> interface would have created a second copy of §6.6 that could drift from the first. In particular the choice between <code>τ_rise</code> and <code>τ_cool</code> stays in <code>SourceHistory</code>, where it is made by <strong>direction</strong> rather than by whether the key is turned — a source whose load has just dropped is cooling toward a lower target even while the engine runs, which is the physically meaningful reading.</p>
+<p>It is also the first solver that <strong>cannot be pre-derived into a <code>PrescribedSolver</code></strong>, which is what <code>build_target</code> does for every aerial node. A node with a time constant depends on its own history: the same load profile started from a cold engine and from one that parked ten minutes ago gives different curves, and <code>delta_t0_k</code> is how a scene says which.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Easy:</strong> a scene can now film a vehicle starting, idling, being switched off and cooling, with §6.6's own numbers and no schedule to maintain. <code>delta_t0_k</code> additionally makes the far more common daylight subject — a car that parked a few minutes ago and is forgetting its engine — a one-parameter change rather than a different model.</p>
+<p><strong>What it does not fix.</strong> These rows are all <code>ESTIMATED</code> midpoints of §6.6's quoted ranges and nothing here makes them measurements. A <code>vehicle_source</code> node produces §6.6's curve exactly; whether §6.6's curve is a real engine bay is a Tier 4 question against public data, unchanged by this ADR.</p>
+<p><strong>Tyres and brakes are reachable but should usually not be used through this kind.</strong> §6.6 gives the tyre as a <em>speed</em> relation and the brake disc as an <em>energy deposit</em>, and <code>vehicle.py</code> implements both properly. Driving them from a duty fraction instead is a coarser statement, and for a stationary vehicle the honest answer is that neither warms at all: tyre heating is flexing work and brake heating is kinetic energy, so a car idling in a car park has cold wheels however long it idles. The MP.4 demo says so in its readout rather than staging a rise nobody computed.</p>
+<p><strong>Schema cost.</strong> <code>SCENE_SCHEMA_VERSION</code> goes to 6 and the five committed demo configs are bumped with it; <code>MIN_SCENE_SCHEMA_VERSION</code> stays at 4, so every older file still loads.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs a driving vehicle, at which point the tyre and brake models want to be driven from a <code>VehicleState</code> trace (speed, braking) rather than from a duty fraction — the trace type already exists and <code>SourceHistory.step</code> already takes one.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

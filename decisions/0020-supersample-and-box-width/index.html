@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0020 — Supersample factor, box width and the optics stage order — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0020 — Supersample factor, box width and the optics stage order</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0020-supersample-and-box-width.md" target="_blank" rel="noopener">docs/decisions/0020-supersample-and-box-width.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§8.3 says: render at 3–4× and downsample with a box matching the pixel footprint, which yields the detector MTF, aliasing and sub-pixel target behaviour with no extra model. Two details are open in the spec: whether the box is the pixel <em>pitch</em> or the <em>active width</em> √fill · pitch (spec issue S21 — §8.3's worked MTF_det(ξ_N) ≈ 0.64 assumes w = pitch; the 0.90 fill factor would give 0.669), and in which order the optics terms apply.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Box = pitch, fill factor only in A_d</strong> — the detector integrates over its full footprint in the image plane for MTF purposes (the inactive border is small and the sample spacing is the pitch); reproduces §8.3's 0.64; one integer factor, exact block mean.</li>
+<li><strong>Box = active width</strong> — a fractional-width sub-box needs edge weights; 4 % more MTF at Nyquist; no measurement to prefer it.</li>
+<li><strong>Blur-then-decimate</strong> (Gaussian at native, then pick samples) — loses the aliasing that corrupts small targets; explicitly what §8.3 warns against.</li>
+</ul>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Box width = pitch; fill factor scales A_d</strong> (ADR 0017's <code>active_width_um</code> remains the number for any future analytic MTF_det). <code>box_downsample</code> is an exact k×k block <em>mean</em> (units unchanged).</li>
+<li><strong>Supersample factor k = 4 by default</strong> (<code>optics.supersample_factor</code>, 1–8). On a discrete k× grid the box transfer is the Dirichlet kernel sin(πξ)/(k sin(πξ/k)), 2.6 % above |sinc| at Nyquist for k = 4; tests check the exact form and the sinc limit at k = 32.</li>
+<li><strong>Order</strong> in <code>apply_optics</code>: (1) optical PSF at the supersampled pitch [identity until MS], (2) box downsample, (3) × π τ_opt/(4F² + 1) · cos⁴ · A_d, (4) + Φ_self. Vignetting after the downsample (cos⁴ varies by &lt; 1e-4 across a pixel, tested in M3.2). <code>invert_optics</code> undoes (3)–(4) including cos⁴, so the radiometric branch recovers scene radiance at every pixel.</li>
+<li>The G-buffer arrives already supersampled from the engine (ADR 0014: ids never blend; radiance is what gets box-filtered), so stage 1 runs at k× and stage 3 returns to native.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>A k× render costs k² the pixels; the NumPy oracle at 4× on 640×512 is 5.2 Mpx per stage, seconds per frame. Sub-pixel targets (MS.6) see exactly the box/aliasing physics of §8.3. The 2.6 % Dirichlet vs sinc difference at k = 4 is the accepted discretisation error of the detector MTF.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A measured slant-edge MTF for the Boson disagrees with the sinc(pitch) model by more than the aberration Gaussian can absorb, or sub-pixel target work needs k &gt; 4.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0120 — Snow is capped at freezing, and the surplus melts isothermally — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head">
+  <h1>ADR 0120 — Snow is capped at freezing, and the surplus melts isothermally</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0120-snow-is-capped-at-freezing-and-the-surplus-melts.md" target="_blank" rel="noopener">docs/decisions/0120-snow-is-capped-at-freezing-and-the-surplus-melts.md on GitHub</a>
+</div>
+
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Adds a phase change to the §6.1 balance that <a href="../0036-two-node-integrator-and-parameters/">ADR 0036</a> chose RK2 for; the cap is applied <em>instead of</em> the RK2 step in the melting regime rather than after it, for the reason measured below. <strong>Date:</strong> 2026-09-22 Roadmap: PH.10 (§6.1)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Every surface in this project answers <code>C dT/dt = net_flux</code>. Snow does not. Under 200 W/m² of net gain any other material climbs tens of kelvin above air by mid-afternoon; a melting snowfield stays at <strong>exactly 273.15 K</strong> for as long as there is snow, and the gain goes into fusion.</p>
+<p>Without the cap a spring snowfield renders as a hot patch. That is not a small radiometric error — it is the opposite sign of what a thermal camera sees, and it would be the most visible thing in any winter scene.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Cap the surface at 273.15 K and route the surplus into melt at L_f = 334 kJ/kg, in <code>irsim.thermal.snow.melt_capped_step</code>, with two regimes.</p>
+<p><strong>A cell already at the cap melts isothermally, and its flux is read at the melt point.</strong> This is the sub-decision worth recording, because the obvious implementation is to step with RK2 and clamp afterwards, and it is wrong in a way that passes review.</p>
+<p>RK2 evaluates the balance at a midpoint half a step <em>above</em> the cap. That temperature does not exist — the surface is melting and isothermal — and both emission and convection are larger there, so the surplus comes out too small. Measured on a 63 kJ/m²K snowpack with a 60 s step: the naive form under-reports the melt by between 0.1 % and 1 %, <strong>every step, always in the same direction</strong>. Reading the flux at 273.15 K instead gives exactly <code>Q Δt / L_f</code>, and the test asserts the correct answer against that closed form rather than against a remembered number.</p>
+<p><strong>A cell below the cap that a step carries through it splits its step.</strong> Its surplus enthalpy <code>C (T_stepped − T_melt)</code> becomes melt and the temperature lands on the cap, so energy is conserved exactly across the transition. Discarding the overshoot instead would lose energy at every thaw, twice a day in a scene that crosses freezing twice a day.</p>
+<p><strong>A finite pack hands back what it cannot melt.</strong> With <code>available_kg_m2</code> given, melt is limited to the snow present and the leftover energy warms the surface — bare ground is free to rise. Without it the pack is unlimited, which is the right default for a scene showing a snowfield and the wrong one for a patch about to disappear. Omitting the limit entirely would have let the last micron of snow pin a surface at freezing forever, which is exactly the artefact a melt cap exists to avoid.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The two phenomenology numbers.</strong> +200 W/m² holds the cell at 273.15 K bit-exactly and sheds <strong>2.1557 mm of water equivalent per hour</strong>, which is <code>200 × 3600 / 334000</code> and not a fit.</p>
+<p>The night-time behaviour needs <strong>no special case at all</strong> and is the better evidence that the emissivity chain is right. With snow's ε_hemi of 0.9874 (the library's 0.99 LWIR band value pulled down by its own angular fall-off, which is what the row asked for), eight hours of night gives:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>sky</th><th>wind</th><th>T_s − T_air</th></tr></thead>
+<tbody>
+<tr><td>clear</td><td>0.5 m/s</td><td><strong>−12.73 K</strong></td></tr>
+<tr><td>clear</td><td>4 m/s</td><td>−4.75 K</td></tr>
+<tr><td>overcast</td><td>0.5 m/s</td><td><strong>+0.00 K</strong></td></tr>
+</tbody></table></div>
+<p>The overcast figure is <em>identically</em> zero, not merely small: a fully overcast sky radiates as a blackbody at air temperature, so absorbed and emitted longwave cancel at <code>T_s = T_air</code> and there is no imbalance left for wind or heat capacity to act on. Wind matters only in the clear case, which is what the breezy row shows.</p>
+<p><strong>The Tier 4 bar is recorded, not run.</strong> <code>ALPINE_TIER4_MAE_K = (0.7, 1.3)</code> carries the alpine ESSD 16 (2024) series' acceptance band for snow-surface temperature. The series is <strong>not fetched</strong> and no check in this repo evaluates against it. It is stored now for the same reason SE.1 stored the sea's published envelope: so that when a comparison is written the bar is the published instrument's rather than one invented at the time to fit whatever the model produces.</p>
+<p><strong>No scene declares snow.</strong> There is no <code>snow:</code> block in the scene schema and no shipped scene uses the melt cap, exactly as <code>PH.7</code> shipped fire with no <code>fire:</code> block. <code>melt_capped_step</code> has the same shape as <code>rk2_step</code>, so the seam for a solver to swap it in exists; wiring it would mean a schema version bump and touching every scene YAML, which is a step of its own and not this one.</p>
+<p><strong>What is not modelled, in order of how much it would matter.</strong> (1) No cold content through the pack depth — one surface, one temperature, so a deep pack responds as fast as a thin one. (2) No liquid water retained and refrozen, which is why <code>melt_rate_kg_m2_s</code> reports zero rather than a negative rate for a cooling surface: there is no store to refreeze, and a negative melt would create snow. (3) No densification and no albedo ageing — the material's 0.15 solar absorptivity is fresh snow and does not decay toward the 0.4–0.5 of old melting snow, so a modelled spring snowfield absorbs too little sun and under-melts. (4) Sublimation only insofar as a caller supplies a latent term through the existing <code>wet_fraction</code> path, which is a liquid-water formulation and uses L_v, not L_s.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

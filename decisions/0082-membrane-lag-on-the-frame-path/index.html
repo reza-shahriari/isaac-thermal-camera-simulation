@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0082 — The bolometer membrane lag, actually on the frame path — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0082 — The bolometer membrane lag, actually on the frame path</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0082-membrane-lag-on-the-frame-path.md" target="_blank" rel="noopener">docs/decisions/0082-membrane-lag-on-the-frame-path.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-14</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>M9.1 built <code>BolometerLowPass</code> — §9.2's per-pixel membrane IIR, the thing that gives an uncooled LWIR camera its characteristic trail behind a moving target — and left the wiring to M9.8. ADR 0052 settled where its state lives and that it must run <em>before</em> noise. <code>irsim.pipeline.detector</code> drives it. M9.8's roadmap title is <strong>"wire IIR, FPA node, housing, drift, defects, NUC residual, FFC into run_frame"</strong>, and <code>irsim.pipeline.sensor_chain</code>'s own module docstring lists the division of labour as <em>"stages 3–5 happen in <code>run_frame</code>: optics, <strong>detector + membrane IIR</strong>, 3-D noise, ADC"</em>.</p>
+<p>None of that was true. <code>run_frame</code>'s stage 4 is <code>_detector_signal</code>, which reaches the detector through</p>
+<p>Detector.response(flux, frame_index, sensor_seed) -&gt; DetectorFrame Detector.noiseless_signal_dn(flux) -&gt; signal</p>
+<p>— a protocol with <strong>no <code>dt</code> and no state</strong>, so it could not have carried a lag whatever it intended. <code>irsim.detector.bolometer</code> says as much in its own header: <em>"Dynamic behaviour (the τ_th IIR across frames, §9.2) is M9.1; this module is the static transfer."</em> The only caller of <code>detector_stage</code>, and so the only thing that ever ran the IIR, was the Warp equivalence harness and its unit tests.</p>
+<p>So every frame <em>sequence</em> this simulator has produced — the quadrotor flight, the aircraft pass, the maritime demo, every golden — came from a bolometer with a thermal time constant of <strong>zero</strong>. A moving target left no trail. §15 Tier 3's "lateral motion smears LWIR, not cooled MWIR" was true only in the within-frame half ADR 0077 supplied; the across-frame half, which is the half a viewer actually recognises, was missing.</p>
+<p>This is ADR 0077's failure mode a second time — a mechanism built, unit-tested and never called — with one difference that made it harder to see: <strong>the documentation asserted it was wired.</strong> A grep for <code>BolometerLowPass</code> finds a module that drives it and a roadmap row that claims to have connected it, and both readings are wrong.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<p><strong>1. Where the lag goes.</strong></p>
+<p>a. Inside <code>MicrobolometerDetector.response</code>. Would need the detector to own per-frame state, which ADR 0052 explicitly placed in <code>PipelineState.buffers</code> so that one object owns it and a reset clears it. b. In the M9 chain's "temporal filter" slot. Wrong physics: §11.1's temporal filter is an <em>image-processing</em> stage and is deliberately the identity (ADR 0058). The membrane is the detector's own response, §9.2, and belongs in stage 4. c. <strong>In <code>_detector_signal</code>, between the static transfer and the noise</strong> (chosen). This is where ADR 0052 says it goes and where <code>detector_stage</code> already had it, so the two CPU paths and the Warp twin now describe one thing.</p>
+<p><strong>2. Getting the noise after the lag.</strong></p>
+<p><code>response()</code> bundles the static transfer with the per-pixel noise, so there was no seam to insert at. <code>MicrobolometerDetector.frame_from_signal(signal_dn, …)</code> opens one, and <code>response</code> is now that composed with the transfer, so they cannot drift apart.</p>
+<p><strong>The seam is the bolometer's alone and is not on the <code>Detector</code> protocol.</strong> A photon detector's noise is Poisson in electron space (CLAUDE.md #3); there is no signal-DN point at which noise could correctly be added, and it has no membrane to insert anyway. Giving the protocol a method only one implementer can honour would have invited exactly the wrong generalisation later.</p>
+<p><strong>3. What interval drives it.</strong></p>
+<p>a. The configured frame rate, <code>1/frame_rate_hz</code>. Correct for a real-time camera and <strong>wrong for a time-lapse</strong>: ADR 0074 films the quadrotor at one frame per six seconds of scene time, a 10 ms membrane settles completely across that, and driving it at 1/60 s instead leaves <code>e^(−dt/τ)</code> = <strong>19 %</strong> of a scene six seconds old in the picture. That ghost is a flattering error — it smooths precisely the change being filmed. b. <strong>Elapsed scene time when the caller advances its clock, the frame rate otherwise</strong> (chosen, <code>lag_interval_s</code>). <code>IrCamera</code> sets <code>state.t_s</code> before every <code>run_frame</code>, so both the time-lapse and the real-time stages get their true interval; a caller that never advances <code>t_s</code> — most unit tests, every single-frame use — falls back, and for them the two answers coincide.</p>
+<p><strong>This is a <code>run_frame</code> policy, not a property of the membrane</strong>, and <code>bolometer_lag</code>'s default stays the configured interval. <code>detector_stage</code> is the CPU oracle the Warp twin is compared against, and the twin takes <code>alpha_for(fpa.frame_dt_s, …)</code> at kernel-launch time; making the shared primitive depend on <code>state.t_s</code> would have made the two disagree for any caller that advanced its clock. The policy is applied by the one function that owns the caller's clock.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><code>run_frame</code>'s stage 4 lags a bolometer's signal before any noise is added, over the elapsed scene interval, with the state in <code>PipelineState.buffers</code>. A photon detector takes the flux straight.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Held to the closed form, not to "there is now a tail".</strong> The step response is <code>1 − e^(−k·dt/τ)</code> to 1e-6 in signal space, the first frame is α = 0.811124 of the step, and successive residuals fall by exactly <code>e^(−dt/τ)</code> = 0.188876. A cooled photon detector settles in one frame, which is the other half of the Tier 3 line.</p>
+<p><strong>The tolerance on the tail is derived rather than chosen.</strong> The signal plane is float32 and each residual is a difference of numbers near 10 120 DN, so by the fourth term the residual is ~2 DN and carries three significant figures: a flat <code>rel=1e-4</code> passes on the first two ratios and fails on the fourth for no physical reason. The test scales its tolerance by float32's own precision on each residual, and the first term — measured 1.1e-5 — stays tight.</p>
+<p><strong>No golden moved.</strong> <code>BolometerLowPass</code> adopts its first input, because a core staring at a scene is already in equilibrium with it, so every single-frame reference is bit-identical. One test changed: <code>test_through_run_frame_a_transparent_pixel_follows_what_is_behind_it</code> shared one <code>PipelineState</code> across two frames and so read the second 81 % of the way through its settle — measured 65.50 against the 80.75 it asserts, which is exactly α. It is a steady-state radiometric identity and now takes a state per frame.</p>
+<p><strong>What the rendered scenes do now.</strong> The quadrotor time-lapse is unchanged: six seconds settles the membrane completely, which is the right answer and the reason option 3(b) exists. The aircraft pass runs real time at 30 Hz, where α = 0.964, so it gains a 3.6 % tail — small, and the first trail this repository has ever rendered.</p>
+<p><strong>What is still not modelled.</strong> The membrane is linear and single-pole; a real bolometer's τ varies with substrate temperature and bias, and §9.2 does not model that either. The lag is applied to the whole frame with one τ, so a defective pixel with a different time constant is not represented.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>ME.5's temporal PSD on flat sky says the §11.1 temporal filter is <em>not</em> the identity — then there are two temporal mechanisms on one path and ADR 0058's placement argument has to be redone with both.</li>
+<li>A scene needs a cold start rather than a settled one, at which point "the first frame adopts its input" becomes a choice a config makes rather than a constant.</li>
+<li>A detector arrives whose noise is neither Gaussian in DN nor Poisson in electrons, and the seam in option 2 stops being expressible.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0007 — Sensor configuration schema — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0007 — Sensor configuration schema</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0007-config-schema.md" target="_blank" rel="noopener">docs/decisions/0007-config-schema.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#band-registry-and-explicit-bandid-m09">Band registry and explicit band.id (M0.9)</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p><code>docs/physics-model.md</code> §12 makes "a band is a data file" the project's scalability claim: adding SWIR must touch YAML and a response CSV, never the radiance kernel. That only holds if the file has a typed, validated contract that every stage reads from, so nobody re-parses a dictionary or invents a default. The scaffold shipped <code>configs/sensors/flir_boson_640_lwir.yaml</code> with no schema behind it.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Plain dictionaries with ad-hoc checks</strong> in each consumer — zero dependencies; typos default silently, units are folklore, constraints get re-implemented inconsistently.</li>
+<li><strong>Dataclasses + hand-written validation</strong> — typed, no new dependency; every constraint and the discriminated FPA union are manual and easy to leave incomplete.</li>
+<li><strong>pydantic v2 models</strong> — already a dependency; <code>extra='forbid'</code>, <code>frozen=True</code>, <code>Field</code> bounds, <code>Literal</code> enums and discriminated unions cover §12.2 with little code; JSON-schema export for free.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3, in <code>irsim.config.sensor</code>:</p>
+<ul>
+<li>Every model is <code>extra='forbid'</code> and frozen: <code>f_stop</code> fails, and a loaded config cannot be mutated behind a LUT or a golden that was keyed on it.</li>
+<li>Units are in field names (<code>pitch_um</code>, <code>netd_mk_at_300k</code>); every <code>a | b | c</code> comment of §12.2 is a <code>Literal</code>. Palettes accept both the §11.4 and §12.2 sets (spec issue S27).</li>
+<li><code>fpa.type</code> is a discriminated union: <code>BolometerFpa</code> requires <code>thermal_time_constant_ms</code>/<code>tcr_per_k</code> and accepts photon fields only as <code>null</code> (the §12.2 example writes them that way); <code>PhotonFpa</code> the reverse, and its integration time must fit the frame period.</li>
+<li>Physical cross-field checks: band edges within the radiometry bounds in micrometres; regime vs wavelength (<code>emissive</code> needs λ_max ≥ 2.5 µm, <code>reflective</code> needs λ_min ≤ 3 µm, per §12.1); <code>ratios_3d.tvh == 1.0</code> exactly; ordered clip percentiles; bounded transmittance, cold-shield efficiency, fill factor, bit depth 8–16, bad-pixel fraction ≤ 1 %.</li>
+<li>Derived read-only properties: <code>pixel_area_m2</code>, <code>nyquist_cyc_per_mm</code>, <code>hfov_deg</code>, <code>frame_period_s</code>, <code>dn_max</code>. <strong>No aperture-factor property</strong> — π/(4F² + 1) is defined once in <code>irsim.optics</code> (non-negotiable #5); a test scans the config package's code for any such expression.</li>
+<li><code>schema_version</code> (top level, default 1) is checked, so a future breaking change fails loudly.</li>
+<li><code>types-PyYAML</code> joins the dev extras so <code>mypy --strict</code> accepts the YAML loader (M0.8).</li>
+</ul>
+<h2 id="band-registry-and-explicit-bandid-m09">Band registry and explicit <code>band.id</code> (M0.9)<a class="anchor" href="#band-registry-and-explicit-bandid-m09" aria-label="permalink">#</a></h2>
+<p><code>irsim.config.bands</code> is the only place that knows the four canonical bands, as data: the §12.1 ranges (taken as canonical where §5.2 differs slightly), default regime and default detector model. <code>band.id</code> in a config is <strong>optional</strong>: absent, it is derived by maximal fractional overlap with the nominal ranges (at least 50 % of the configured width, else the config is rejected — a fifth band is a registry change, which is the intended friction); present, it must agree with the derivation. Kernels never receive a band id: <code>enabled_illumination_terms(regime)</code> turns §5.2's "one shading core, two illumination paths" into a runtime switch on <code>regime</code> (<code>emissive</code> → self-emission, <code>reflective</code> → solar and night sources, <code>mixed</code> → all three), replacing the compile-time flag §5.2 mentions (spec issue S17).</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>The Boson file loads exactly (every §16.1 value asserted). The derived HFOV for 14 mm / 640 × 12 µm is 30.7°, not the datasheet's 32°; the test records the discrepancy (open question 7). No physical error is introduced; the schema only refuses inputs the physics could not use.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A camera needs a field §12.2 lacks (non-radiometric flag, ADR 0021; cold-shield formula, ADR 0066) — bump <code>schema_version</code> when a change is not backward compatible.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0084 — The illumination bundle on the Isaac render path — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>0084 — The illumination bundle on the Isaac render path</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0084-illumination-on-the-render-path.md" target="_blank" rel="noopener">docs/decisions/0084-illumination-on-the-render-path.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-considered">Alternatives considered</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: M10.22 (§5.2, §5.4, §5.5)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>M11.2 built the illumination bundle, M11.3 the reflected-solar term and M11.4 the night sky. <code>run_frame</code> reads them out of the plane dict as <code>l_sun</code> and <code>l_night</code>, <code>Illumination.for_regime</code> gates them by band, and all three are unit-tested.</p>
+<p><strong>Nothing in <code>irsim_isaac</code> ever wrote those planes.</strong> Every Isaac render this project has produced was emission only. For LWIR that is right to within 0.35 %. For the reflective bands it is not an approximation at all:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>band</th><th>sunlit / emission-only, dry asphalt at 300 K, 61° sun</th></tr></thead>
+<tbody>
+<tr><td>NIR</td><td>1.1e15</td></tr>
+<tr><td>SWIR</td><td>3.6e7</td></tr>
+<tr><td>MWIR</td><td>1.17</td></tr>
+<tr><td>LWIR</td><td>no bundle — the regime enables no source term</td></tr>
+</tbody></table></div>
+<p>A NIR frame rendered without this is black. This is the same defect ADR 0077 and ADR 0082 record, for the third time: a mechanism exists, is tested, and the layer above cannot reach it. It only became visible when a fourth band was configured and the renders were asked for in it.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><code>irsim_isaac.pipeline.illumination_isaac</code> builds a frame's <code>l_sun</code> and <code>l_night</code> planes from the scene's own site, clock, weather and atmosphere preset, and <code>IrCamera</code> adds them to the plane dict beside the G-buffer — <em>outside</em> the M0.6 contract, as <code>radiance_behind</code> already is, because they are stage-1 inputs and not geometry.</li>
+<li><strong>One sun.</strong> The direction is the same expression <code>irsim_isaac.stage.add_sky_dome</code> aims the USD <code>DistantLight</code> along, so the radiometry and the shadows in the companion visible frame cannot disagree about where the light comes from. Computed separately, the two would drift and nobody would notice until they were overlaid.</li>
+<li><code>SceneIllumination.for_camera</code> returns <strong><code>None</code></strong> for a band whose regime enables no source term, and <code>IrCamera</code> <em>refuses</em> a bundle attached to an emissive band. An LWIR render therefore takes exactly the code path it took before and is bit-identical, rather than merely close.</li>
+<li>The night term is built only when the scene names an environment preset. §5.5's airglow level varies by two orders of magnitude between sites and nights, so a default would be a number nobody chose.</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>Cast shadows are not modelled.</strong> <code>shadow</code> is 1 everywhere, so the only shadowing is <em>self</em>-shadowing through max(0, n·s): a surface turned away from the sun gets nothing, a surface facing it gets all of it, and a surface standing in another object's shadow is lit anyway.</p>
+<ul>
+<li>For the aerial scenes this is <strong>exact</strong> — there is nothing above a drone to shadow it.</li>
+<li>For a vessel it is optimistic on the shaded side of the superstructure.</li>
+<li>For a ground scene with buildings it would be wrong, and the reflective bands are where it would show most.</li>
+</ul>
+<p>Getting it right needs an occlusion query along the sun direction, and the renderer on this build delivers no working occlusion AOV (ADR 0014 addendum). The honest interim is to say so in the module, in the README's limitations and here, rather than to render a plausible shadow nobody computed. The G-buffer contract already carries an optional <code>shadow_mask</code> for when one exists.</p>
+<p><strong>The atmosphere is consulted for the solar slant path</strong>, via <code>solar_transmittance(preset, band, zenith)</code>, so a low sun is dimmer than the cosine alone predicts. That is asserted rather than assumed: the test compares a 8° sun against the cosine-only prediction and requires it to be less.</p>
+<h2 id="alternatives-considered">Alternatives considered<a class="anchor" href="#alternatives-considered" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>Derive a shadow mask from the rendered RGB.</strong> The companion visible frame does have ray-traced shadows in it. Reading a shadow mask off a tone-mapped, exposure-scaled colour image would make the infrared radiometry depend on the visible pass's exposure heuristic, which is exactly the coupling ADR 0073 keeps the two frames free of.</li>
+<li><strong>Put <code>l_sun</code> in the G-buffer contract.</strong> It is not geometry, and the contract is what the renderer must deliver. Widening it would tell every future adapter to produce a radiance.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

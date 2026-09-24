@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0006 — Temperature encoding for the render G-buffer — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0006 — Temperature encoding for the render G-buffer</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0006-temperature-encoding.md" target="_blank" rel="noopener">docs/decisions/0006-temperature-encoding.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted; the G-buffer transport it was written for superseded by ADR 0014 <strong>Date:</strong> 2026-09-10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The renderer must carry surface temperature from the scene to the radiometry kernel through an AOV. Emissive channels are commonly fp16 or unorm. At 300 K, fp16 spacing is 0.25 K, five times a 50 mK NETD; an 8-bit unorm over 200–1000 K is 3.1 K per code. Either destroys the sensor silently while the image still looks thermal (<code>docs/physics-model.md</code> §3.2 precision trap, §13.3; CLAUDE.md #2). The CPU reference path, the Warp/SPG kernels and the Isaac adapter all need the <em>same</em> encoding, or the encoder and decoder drift apart.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Raw kelvin in a float32 AOV</strong> — simplest; works only if every stage really is float32, and a silent fp16 downgrade anywhere costs 0.25 K with no error raised.</li>
+<li><strong><code>c = (T − 200)/800</code> in a float32 AOV</strong> (the spec's recommendation) — c ∈ [0, 1] so any clamp or tone-mapping stage that assumes unit range passes it through; the constants live in one place; float32 round trip is at the representation floor.</li>
+<li><strong>Coarse/fine fp16 pair</strong> — the spec's fallback for engines with no float32 target; two channels, more shader work, and the pair must be split and recombined in exactly one way.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 2 as the contract, with option 3 implemented as the documented fallback.</p>
+<ul>
+<li><code>T_ENCODE_REF_K = 200</code>, <code>T_ENCODE_SPAN_K = 800</code> and the LUT grid (<code>LUT_T_MIN_K/MAX_K/DT_K/N</code> = 200/1000/0.05/16001) are defined once in <code>irsim.radiometry.constants</code> and imported everywhere.</li>
+<li><code>irsim.radiometry.encoding.encode_temperature</code> / <code>decode_temperature</code> compute in float64 and cast once to float32. Both <strong>refuse float16 and integer (unorm) inputs</strong> with a message that cites the non-negotiable; float64 is accepted.</li>
+<li><code>encode_temperature_fp16_pair</code> splits <code>c</code> into <code>coarse = floor(256c)/256</code> (exact in fp16) and <code>fine = 256c − floor(256c)</code> (fp16, 2^-11 relative → 1.5 mK), clamped to [200, 1000] K.</li>
+<li>Verified: float32 round trip 0.054 mK over 200–1000 K at 0.01 K steps (floor set by float32 representation of T near 1000 K); fp16-pair round trip &lt; 10 mK. <strong>Negative controls:</strong> raw kelvin through fp16 → 125 mK at 300 K; encoded <code>c</code> through fp16 → ≥ 40 mK at 300 K and ≥ 150 mK over 800–1000 K. These controls are what make the 10 mK test meaningful: if either ever passes the bound, the test has lost its sensitivity.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Every engine adapter has to produce <code>c</code>, not kelvin, and the AOV must be float32 (the in-engine round trip of §13.3 is roadmap M2.2, <code>tests/integration/test_temperature_encoding.py</code>). The encoding introduces no physical error: 0.05 mK is three orders below the tightest NETD modelled. Temperatures outside 200–1000 K have <code>c</code> outside [0, 1]; the float32 path passes them through, the fp16-pair path clamps them — the LUT (ADR 0011) decides the clamp policy for radiance.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A scene needs temperatures outside 200–1000 K (exhaust plumes, fires) — widen the span and the LUT together; or Isaac Sim 6.0 turns out to offer only fp16 custom AOVs (M2.1), in which case the pair codec becomes the primary path and its 1.5 mK floor is the new budget.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0127 — A cloud with a top, marched for one band and voxelised for the other — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0127 — A cloud with a top, marched for one band and voxelised for the other</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0127-a-cloud-with-a-top-marched-for-one-band-and-voxelised-for-the-other.md" target="_blank" rel="noopener">docs/decisions/0127-a-cloud-with-a-top-marched-for-one-band-and-voxelised-for-the-other.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-rejected">Alternatives rejected</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Cloud becomes a <strong>deck</strong> — a horizontal map of column depth at the lifting condensation level, each column given a top and an analytic vertical profile. The infrared band ray-marches it; the visible band renders the same function as a NanoVDB volume in the stage. <strong>Date:</strong> 2026-09-23 Roadmap: AT.12 (§5.3 a)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0126 gave a cloud a real optical depth and a real distance, and the rendered frame was still a flat level: the cloud <strong>core</strong> spanned 1.25 K across a 640×512 frame. That is not a bug in ADR 0126, it is what a plane-parallel sheet <em>is</em>. Every ray that enters an infinite sheet stays in it, so an optically thick column reads its base temperature and nothing else.</p>
+<p>Looking straight up that is correct, and it is worth saying why: a cumulus base is flat because it is the lifting condensation level, one height for the whole air mass. Looking at <strong>20 degrees</strong>, which is where every clip in this lane aims, it is wrong. A real cumulus field is a field of towers; the camera sees their flanks, their tops and the gaps between them, and a ray climbing 1.2 km at that elevation travels <strong>3.3 km horizontally</strong>, crossing several of them.</p>
+<p>Separately, the visible companion's cloud was painted into the environment-dome texture (ADR 0073/0076). A dome light sits at infinity, so that cloud had no distance, no thickness and no inside: a camera could not move relative to it, and the owner's request was explicitly for cloud that is <em>not just a visual effect</em>.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>One deck, two bands.</strong> <code>irsim.atmosphere.cloud_deck.CloudDeck</code> holds a square horizontal map of column depth <code>d ∈ [0, 1]</code> at the LCL, a geometric thickness, and the authored visible optical depth. <code>CloudDeck.density_at</code> is the single definition of the cloud's shape; the infrared march integrates it along rays and the voxeliser samples it on a grid, so the volume the path tracer renders is the field the radiometry integrates rather than a second cloud that resembles it.</p>
+<p><strong>The vertical profile is a normalised parabola,</strong> <code>w(u) = 6u(1 − u)</code> on <code>u = h/H</code>, with <code>H = thickness × d</code>. Its integral over the column is exactly <code>H</code>, so a <strong>vertical ray accumulates exactly <code>optical_depth × d</code></strong> — which is ADR 0126's model, to the bit. The third dimension is therefore provably a generalisation: looking up, nothing moved. (Real cumulus liquid water rises along a near-adiabat from the base and falls at the top, so a symmetric parabola is a stand-in; the one anchored quantity, the column optical depth, is independent of the shape by construction.)</p>
+<p><strong>The field is synthesised on the deck, in metres.</strong> The first version projected the hemispherical <code>SkyFixedCloud</code> down onto the deck and extruded each column. That is wrong and the preview frame said so immediately: an angular field's features subtend a fixed number of <em>degrees</em>, so the projection makes columns a few hundred metres wide and then extrudes each 1.2 km straight up — a field of tall thin fins, along which an oblique ray runs for kilometres instead of crossing a cloud. The frame came out as vertical streaks.</p>
+<p><strong><code>beta</code> is read as a transect slope, not a radial one.</strong> <code>generate_cloud_field</code> applies the authored <code>beta</code> as the <em>radial</em> exponent of a 2-D power spectrum, and on a 2-D field the variance per octave goes as <code>f^(2−β)</code> — so <code>beta: 1.8</code> puts more variance at the smallest scale the grid has than at the largest. Measured on the deck's own grid: the autocorrelation length at β = 1.8 is <strong>125 m</strong>, which is texture, not a cumulus; at β = 2.8 it is <strong>1250 m</strong>, which is one. Published cloud slopes near −5/3 are <strong>transect</strong> slopes, one less than the radial exponent of an isotropic field, so the deck synthesises at <code>beta + 1</code>.</p>
+<p><strong>Not changed here:</strong> the hemispherical <code>SkyFixedCloud</code> still applies <code>beta</code> radially. Changing it would move the cloud in every scene shipped since MS.3, and the question is about the preset's authored number rather than about this module. It is recorded in <code>docs/spec-issues.md</code>.</p>
+<p><strong>The step count is derived, not authored.</strong> An oblique ray crosses the depth map horizontally, so a fixed 48 steps put its samples 68 m apart across a 25 m grid, and the undersampling drew horizontal bands along every cloud edge — visible at a glance in the preview. <code>adequate_steps</code> sizes the march from <code>max(thickness/tan θ, thickness)</code> at two samples per cell, clamped to [32, 256]. 256 is where the banding stopped being visible, at 4.2 s per 640×512 frame against 0.6 s at 48.</p>
+<p><strong>The volume does not load on this build, and that is recorded rather than worked around.</strong> Isaac Sim 6.1's RTX renderer routes VDB assets through its IndeX plugin, and that plugin refuses the grid. Two causes were found and fixed and a third was not:</p>
+<ol>
+<li>Warp 1.16 stamps NanoVDB <strong>32.8</strong> into the grid header; the plugin accepts <strong>32.7</strong> and said so in the log. <code>INDEX_NANOVDB_VERSION</code> re-stamps it, and the log's version line then reports 32.7 on both sides.</li>
+<li><code>warp.Volume.save_to_nvdb</code> leaves <code>voxelCount</code>, <code>nodeCount</code> and <code>tileCount</code> at <strong>zero</strong> in the file metadata — it fills only what it needs to read its own files back. <code>_fill_file_metadata</code> copies them out of the grid's own <code>TreeData</code>. A consumer sizing its storage from those fields would otherwise get nothing, which matches the reported "failed to generate VDB subset grid storage".</li>
+<li>It still fails. Whatever remains is inside the plugin.</li>
+</ol>
+<p>So <code>--cloud-volume</code> is <strong>off by default</strong> and <code>--cloud-deck</code> is the flag that works: the visible dome bakes the deck's own column depth where each ray crosses the base — the deck seen as a sheet, which puts the cloud in the right <em>places</em> at a cost the dome can afford, and keeps ADR 0076's rule that the two bands cannot disagree. The volume code is kept, because both fixes are correct, because the failure is loud (the companion frame comes back with no cloud in it), and because a written <code>.nvdb</code> is the artefact <code>AT.13</code>'s AOV probe needs.</p>
+<p><strong>NanoVDB, not OpenVDB.</strong> There is no OpenVDB writer in this environment — no <code>pyopenvdb</code> on any interpreter here — but Isaac Sim ships <code>omni.warp.core</code>, and <code>warp.Volume</code> round-trips a dense NumPy array to <code>.nvdb</code>, which Omniverse documents as loadable beside <code>.vdb</code>. Warp's allocator leaves the grid name empty and a <code>UsdVol.Volume</code> field relationship binds by name, so the name is written into the grid header before the file is saved and the now-stale checksum is set to NanoVDB's own "not computed" sentinel. Verified by round-trip: a 244×25×244 grid at 50 m comes back from <code>Volume.load_from_nvdb</code> as <code>GridInfo(name='density', type_str='float', translation=…)</code> with the right voxel size and world bounding box.</p>
+<p><strong>The grid carries visible extinction per metre</strong>, which is what <code>density_at</code> returns, so the material's density multiplier is 1 and the optical depth a renderer integrates is the one the environment preset authored. The dome's cloud is switched <strong>off</strong> when the volume carries it, or the frame would show both, in the same places, which reads as haze rather than as a mistake.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Measured on the Phantom clip's own frame geometry, same scene, same seed, sheet against deck:</p>
+<div class='table-wrap'><table>
+<thead><tr><th></th><th>sheet (ADR 0126)</th><th>deck (this)</th></tr></thead>
+<tbody>
+<tr><td>apparent T across the cloud (p1–p99)</td><td>1.25 K</td><td><strong>19.7 K</strong></td></tr>
+<tr><td>emission height above base</td><td>0 m, always</td><td><strong>12 – 834 m</strong></td></tr>
+<tr><td>largest single histogram bin</td><td>55.4 % of the frame</td><td><strong>39.6 %</strong></td></tr>
+<tr><td>cost per 640×512 frame</td><td>~0</td><td>0.6 s at 48 steps, 4.2 s at 256</td></tr>
+<tr><td>cost per <strong>rendered</strong> frame, 300-frame clip</td><td>7 s</td><td>11 s</td></tr>
+</tbody></table></div>
+<p>The cloud now has an inside: a ray entering a tower low leaves it through the far flank, and the level it emits from is where it ran out of cloud, not where it started.</p>
+<p><strong>Known limits, stated rather than discovered later.</strong></p>
+<ul>
+<li><strong>The emission is linearised.</strong> The march reports one <code>e^{−τ}</code>-weighted mean height and the radiance is evaluated there, which ignores Planck's curvature across the column. Measured against a per-step Planck integration: <strong>64 mK at the worst pixel, 46 mK at the 99th percentile</strong> — about one NETD on roughly one cloudy pixel in a hundred, landing on rays that graze a tower top. Fixing it means a band lookup inside the march, ~0.25 s per frame with a precomputed height/radiance table. Recorded, not done.</li>
+<li><strong>The deck has an edge.</strong> Its footprint stops at <code>base / tan(10°)</code>; a ray below that leaves it and reads clear sky. Wrong in the same direction as the horizon itself, which is why these drivers keep the horizon out of frame.</li>
+<li><strong>No advection, no shadowing on the aircraft, no cloud–cloud shadowing.</strong> The deck is static over a clip, and the volume is lit by the path tracer but casts nothing onto the target in the infrared path, which reads geometry from AOVs.</li>
+<li><strong>The volume does not load at all on this build</strong> (see the Decision), so the visible band's cloud is the dome baking the deck as a sheet rather than participating geometry a camera can enter. The infrared half is unaffected: it marches the deck directly.</li>
+<li><strong>Whether the volume reaches the AOVs at all is untested</strong> — the infrared band is computed from AOVs and a volume is not a surface, so cloud in front of the aircraft does not occlude it in LWIR. That is <code>AT.13</code> (the probe) and <code>AT.14</code> (the fix).</li>
+</ul>
+<h2 id="alternatives-rejected">Alternatives rejected<a class="anchor" href="#alternatives-rejected" aria-label="permalink">#</a></h2>
+<p><strong>Keep the plane-parallel sheet and add structure some other way.</strong> There is no other way that is honest: within a plane-parallel model an optically thick core <em>is</em> flat, and manufacturing variation inside it would be drawing texture, not physics.</p>
+<p><strong>Ray-march inside the renderer instead (AT.14 now).</strong> The right long-term answer, and it is blocked on a question nobody here has measured — whether Replicator exposes a volume to any AOV on this build. <code>AT.13</code> is that probe, one cube and a dump. Shipping the engine-free march first also leaves an oracle the in-engine path can be checked against, which is this project's usual shape.</p>
+<p><strong>Marching every supersampled ray.</strong> The camera's AOVs are rendered at four times native so that <em>geometry</em> edges antialias, which is sixteen times the rays — and measured, that took the render from 7 s to <strong>107 s</strong> a frame. The cloud behind the geometry has no edges at that scale, so the march runs once per native pixel and is interpolated back (<code>resample_bilinear</code>), at 11 s a frame. The cost of that approximation is measured against an unfiltered full march on a patch at the real supersampled pitch: <strong>median 0.05 K, 99th percentile under 1 K</strong> on a field spanning 20 K, with the worst pixels on cloud edges where the box filter over the same sixteen samples would have smoothed anyway.</p>
+<p><strong>A finer depth map instead of more march steps.</strong> Backwards: the banding came from sampling the map too coarsely <em>along the ray</em>, so a finer map makes it worse for the same step count.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

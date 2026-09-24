@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0022 — RNG scheme and the CPU/GPU reproducibility contract — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0022 — RNG scheme and the CPU/GPU reproducibility contract</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0022-rng-scheme.md" target="_blank" rel="noopener">docs/decisions/0022-rng-scheme.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-m107a-2026-09-12-the-device-noise-stage">Addendum (M10.7a, 2026-09-12): the device noise stage</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-11</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Every noise term (temporal, striping, fixed pattern, drift, bad pixels, shot) needs random numbers. Runs must be replayable exactly, frames must be generatable out of order and in parallel, two sensors in one scene must not share noise, and the Warp/SPG fast path must be comparable to the NumPy oracle. NumPy's default generators (PCG64, MT19937) cannot be reproduced inside a Warp kernel, and Warp's own hash does not match NumPy, so a sequential generator forces the GPU comparison to be statistical only. The renderer's <code>rtx.frameId</code> was measured advancing 6–7 per orchestrator step (M2 spike), so it is not a sensor frame count.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>One global sequential generator</strong> — replay needs every earlier frame; parallel rendering changes results; sensors interleave.</li>
+<li><strong><code>SeedSequence(sensor, frame, stream)</code> → PCG64 per draw site</strong> — replayable per frame, but still sequential within a frame (traversal-dependent) and not reproducible on the GPU.</li>
+<li><strong>Counter-based per-element hash</strong>: value = f(sensor_seed, frame_index, stream, element_index) via a 64-bit mixer, uniform from the top 24 bits, normal by Box–Muller in float32 — order-free, any pixel regenerable alone, and the <em>same integer mixer</em> is a few lines of Warp.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3 for every Gaussian term; option 2 only where no cheap counter-based form exists (<code>irsim.noise.seeding</code>):</p>
+<ul>
+<li><code>stream_key(sensor_seed, frame_index, stream)</code>: splitmix64 finaliser chained over the triple. <code>hash_u64(key, index, lane)</code> = mix64(key + ((index &lt;&lt; 2) | lane) · φ), <code>hash_uniform</code> = (top 24 bits + 1) · 2⁻²⁴ ∈ (0, 1] (exact in float32), <code>hash_normal</code> = Box–Muller on lanes 0/1 in float32, <code>field_normal(key, shape)</code> with element index = flat C-order index.</li>
+<li><strong><code>frame_index</code> is the sensor's own counter</strong> (<code>PipelineState.frame_index</code>), never <code>rtx.frameId</code>.</li>
+<li><code>NoiseStream</code> values are part of the contract (TVH 1, TV 2, TH 3, T 4, fixed 10–12, drift 20–22, bad-pixel map 30, RTS 31, shot 40, dark 41) — append, never renumber. A test pins hash properties.</li>
+<li><code>noise_rng</code> / <code>sensor_rng</code> (PCG64 from <code>SeedSequence</code>) remain for <strong>Poisson</strong> shot/dark draws and the bad-pixel map; those are statistically equivalent on the GPU, not bit-identical.</li>
+<li><strong>CPU/GPU contract:</strong> the Warp stage re-implements the integer mixer and the uniform exactly; the equivalence test asserts bit equality on the uniforms and a few-ulp tolerance on the normals (<code>log</code>/<code>cos</code> differ in the last ulp between libms). Noise-free stages are compared exactly as before.</li>
+<li>No global state: <code>np.random.seed</code> / legacy <code>np.random.*</code> are never used by the core.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Memoryless components (T, TV, TH, TVH) are exactly replayable per frame and per pixel. Components with memory (fixed-pattern drift, bolometer IIR, FFC) depend on history; <code>PipelineState</code> carries that state and tests check sequential replay. Box–Muller costs a <code>log</code> and a <code>cos</code> per element — negligible against the Simpson-free pipeline. Photon shot noise stays sequential PCG64 Poisson on the CPU; the GPU will use its own Poisson (or a Gaussian approximation above ~1000 e⁻), compared statistically.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A counter-based Poisson (e.g. inversion from the hashed uniform for small means, Gaussian above a threshold) is needed for bit-exact photon-band comparison, or the stream list needs a new entry.</p>
+<h2 id="addendum-m107a-2026-09-12-the-device-noise-stage">Addendum (M10.7a, 2026-09-12): the device noise stage<a class="anchor" href="#addendum-m107a-2026-09-12-the-device-noise-stage" aria-label="permalink">#</a></h2>
+<p>Stage 5 is the first stage that cannot be held to bit-equality with the CPU oracle, which is what this ADR anticipated. Warp's generator is not NumPy's, so the two paths draw different numbers from the same seed by construction. Four decisions made the statistical comparison mean something.</p>
+<p><strong>Counters follow <code>frame · H · W + pixel</code>, with a per-stream offset.</strong> <code>wp.rand_init</code> is seeded from <code>frame_index · 1000003 + sensor_seed</code>, plus a small distinct constant per component (7 for T, 13 for TV, 29 for TH, none for TVH), and indexed by the pixel, row, column or zero as that component requires. Without the per-stream offsets the frame term and the row term would be drawn from the same state and correlate, which is the kind of fault that shows up only in a 3-D decomposition.</p>
+<p><strong>The device fixed pattern is seeded from the CPU's own realisation, not redrawn.</strong> On first use the V, H and VH buffers are uploaded from <code>NoiseStage.unit_fixed</code>. Had the device drawn its own, "statistically equivalent" would have compared two <em>different cameras</em> — a much weaker statement than it sounds, and one that would pass even if the device pattern had the wrong spatial structure. With the same realisation on both sides, what is being measured is the two generators.</p>
+<p><strong>The NUC residual's ξ fields are uploaded too, so that stage stays bit-comparable</strong> (to 2e-6 relative, i.e. float32 rounding). The residual is reset by an <em>FFC event</em>, not by a frame, so redrawing it on device would mean a second copy of the epoch counter to keep in step across a shutter. Uploading is both cheaper and safer, and it means the one part of the chain with an exact CPU answer keeps one.</p>
+<p><strong>The stage boundary differs between the paths, and the composition does not.</strong> On the CPU the per-pixel TVH term belongs to the <em>detector</em> (stage 4) and <code>NoiseStage</code> adds only the six correlated terms; the Warp detector stage is the ideal transfer alone, so the device stage 5 supplies all seven. Comparing <code>NoiseStage.apply</code> directly against the device kernel therefore compares a six-term image with a seven-term one — which is a real trap rather than a theoretical one: it produces a PSD ratio of about ten and looks exactly like a broken kernel. The oracle is the detector and the stage <em>together</em>, which is what each path actually produces for a frame.</p>
+<p>Stage 5 is deliberately <strong>not</strong> registered in <code>EQUIVALENCE_STAGES</code>. That harness asserts bit-level agreement, and a stage that cannot achieve it would have to loosen the harness for everyone else. Its equivalence lives in <code>tests/integration/test_warp_noise_stage.py</code>, measured with <code>irsim.validation</code>'s own <code>decompose_3d</code>, <code>spatial_psd</code> and <code>compare_psd</code> — the same statistics the CPU path is validated with, rather than a second set invented for the comparison.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0097 — The thermal network in the scene schema, and a joint table with provenance — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/TCIsaacSim" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head">
+  <h1>ADR 0097 — The thermal network in the scene schema, and a joint table with provenance</h1>
+  
+  <a class="source" href="https://github.com/reza-shahriari/TCIsaacSim/blob/main/docs/decisions/0097-thermal-network-in-the-scene-schema-and-the-joint-table.md" target="_blank" rel="noopener">docs/decisions/0097-thermal-network-in-the-scene-schema-and-the-joint-table.md on GitHub</a>
+</div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-20 Roadmap: TC.4 (§6.4; spec issue S42)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>TC.2 shipped <code>irsim.thermal.network</code> (ADR 0096), and it could be built only in Python. The owner's bar for a lane is "a scene config plus one command", so the parts, the joints between them and the heat they receive have to be declarable in the scene file — and the joint conductances have to come from somewhere a reader can check. The survey found the numbers in three places with three units: Voller &amp; Tirovic's per-area contact conductances for bolted ferrous joints (12 kW m⁻² K⁻¹ new, 7 corroded, 59 with paste), an engineering default of 1 kW m⁻² K⁻¹ for a dry bolted interface, and Hasselström &amp; Nilsson's ~1 W/K per small bolt. A scene author who types any of them by hand types the exponent wrong sooner or later — and a joint at 1e-3 W m⁻² K⁻¹ renders as a plausibly cold bracket, not as an error.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A <code>network:</code> block of its own beside <code>thermal:</code>.</strong> The network shares the weather, the tick and the surfaces' names with the thermal block (a contactor in TC.3 joins a node to a patched surface), so a second block would duplicate <code>tick_s</code> and split the one place a reader looks.</li>
+<li><strong>Typed link kinds</strong> (<code>kind: contact | convection | radiation | ...</code>) with a per-kind parameter set. Correct but verbose, and the literature does not think in kinds: it reports a conductance per area or a conductance per fastener.</li>
+<li><strong>One <code>LinkSpec</code> that takes exactly one of the forms the literature reports</strong>, validated as such: a total <code>g_w_k</code>; <code>joint</code> (a table name) with <code>area_m2</code>; an inline <code>h_c_w_m2_k</code> with <code>area_m2</code>; <code>fastener</code> (a table name) with <code>count</code>; <code>h_w_m2_k</code> with <code>area_m2</code> for convection to a fluid node; or <code>radiation</code>. The joint and fastener names resolve against <code>configs/thermal/joints.yaml</code>.</li>
+<li><strong>Joint values inline only, no table.</strong> Every scene would restate Voller's 12 000 with no source beside it, and the range check would be the only defence.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Options 3 and a table. Scene schema <strong>v9</strong>: <code>thermal.nodes:</code>, <code>thermal.links:</code> and <code>thermal.sources:</code>, all optional, so every v4–v8 scene reads exactly as before.</p>
+<ul>
+<li><code>NodeSpec</code> is exactly one of <code>capacity_j_k</code>, <code>mass_kg</code> + <code>specific_heat_j_kgk</code>, <code>fixed</code> (kelvin, or <code>"ambient"</code> for the scene's one weather series) or <code>link_node</code> (<code>a</code>, <code>b</code>, <code>g_w_k</code>, plus its own <code>capacity_j_k</code>). <code>initial_k</code> is optional and defaults to the weather's air at the scene start; a fixed node has none.</li>
+<li><code>LinkSpec</code> takes exactly one form (above). An inline <code>h_c_w_m2_k</code> is range-checked exactly as the table is.</li>
+<li><code>SourceSpec</code> is a constant <code>power_w</code> or a piecewise-linear schedule <code>times_s</code> → <code>power_w</code>, held at its ends, the same shape as <code>load_s</code> → <code>load</code> on a <code>vehicle_source</code>.</li>
+<li>Names must resolve at load; a source on a fixed node is refused at load ("goes nowhere").</li>
+<li><code>configs/thermal/joints.yaml</code> (<code>irsim.config.joints</code>, schema 1): <code>joints</code> (h_c) and <code>fasteners</code> (G), each entry with <code>status: MEASURED | ESTIMATED</code> and a <code>source</code> of at least ten characters. The loader refuses h_c outside <strong>1e2–1e6 W m⁻² K⁻¹</strong> and G outside 1e-3–1e3 W/K. The small-bolt fastener is ESTIMATED on purpose: the measurement was in vacuum on aluminium.</li>
+<li><code>Scene.network</code> is built by <code>build_network</code>; <code>Scene.advance_targets</code> steps it beside the targets and reports its nodes; <code>Scene.node_temperature_k</code> reads one. The network carries the weather so the one-weather guard (CLAUDE.md #6) sees it.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>What follows:</strong> TC.5's engine is a <code>nodes:</code> entry with a <code>sources:</code> schedule and a coolant fixed node; TC.6 migrates the car scenes' <code>vehicle_source</code> targets to nodes and links; TC.3's contactor is one more link form (a node to a patched surface). PT.14's granularity tiers now have three declarable kinds in one block: a surface, a patch, a node.</p>
+<p><strong>What it costs:</strong> a scene author must know the table's names (an unknown one fails at build, naming the table's entries); the schedule form is linear between knots, so a step needs two knots 0.1 s apart, as <code>load_s</code> already does.</p>
+<p><strong>Measured:</strong> the table's five joints and one fastener load with provenance; h_c of 1e-3, 50 and 2e6 are refused by the table loader and 1e-3 by the scene schema; a bracket through 25 cm² of <code>bolted_ferrous_new</code> against <code>dry_default</code> on a 400 °C block, from the scene config alone, settles at rises whose ratio matches the two-resistor closed form G/(G + hA) to 1e-6; every link form and node kind builds to the conductance it declares; a v9 network beside a v7 surface leaves the surface's solve bit-identical.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>TC.3 adds the contactor form (a link whose end is a patched surface), or a scene needs a temperature-dependent joint (Voller's h_c rises with temperature), which is a callable conductance the network already accepts and the schema does not yet spell.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-24 06:23 UTC from <code>e9db5cd</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>
