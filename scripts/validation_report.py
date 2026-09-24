@@ -24,11 +24,12 @@ import argparse
 import json
 import pathlib
 import sys
+from dataclasses import asdict
 from typing import Any
 
 import numpy as np
 
-from irsim.validation.compare import Tier4Report, Tier4Targets, compare_frames
+from irsim.validation.compare import Tier4Report, Tier4Targets, compare_clips
 from irsim_eval.discriminator import gap_score
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -62,27 +63,38 @@ ATTRIBUTION: dict[str, str] = {
 }
 
 
-def _load_sequences(directory: pathlib.Path, limit: int | None) -> list[np.ndarray]:
-    """Frames from the ME.1 canonical layout -- one or many sequences under ``directory``.
+def _load_sequences(directory: pathlib.Path, limit: int | None) -> list[list[np.ndarray]]:
+    """Frames from the ME.1 canonical layout, **grouped by clip** -- one list per sequence.
 
     This is what `generate_matched_scenario.py` writes, so a synthetic set needs no conversion
     step between being rendered and being compared, and nothing can go wrong in one.
+
+    The grouping is the whole point of EV.1: a clip is the unit a statistic may be measured on,
+    and flattening the sequences into one list is what let the report median a composite image
+    that neither set contains. ``limit`` counts frames across the set, as it always did.
     """
     from irsim_eval.data import read_sequence
 
     roots = sorted(d for d in directory.iterdir() if (d / "sequence.json").is_file())
     if (directory / "sequence.json").is_file() and not roots:
         roots = [directory]
-    frames: list[np.ndarray] = []
+    clips: list[list[np.ndarray]] = []
+    seen = 0
     for root in roots:
+        clip: list[np.ndarray] = []
         for frame in read_sequence(root):
-            frames.append(np.asarray(frame.image))
-            if limit is not None and len(frames) >= limit:
-                return frames
-    return frames
+            clip.append(np.asarray(frame.image))
+            seen += 1
+            if limit is not None and seen >= limit:
+                break
+        if clip:
+            clips.append(clip)
+        if limit is not None and seen >= limit:
+            break
+    return clips
 
 
-def _load_dataset_clips(name: str, limit: int, max_frames: int) -> list[np.ndarray]:
+def _load_dataset_clips(name: str, limit: int, max_frames: int) -> list[list[np.ndarray]]:
     """Decode real clips straight out of the indexed archive -- no conversion step on disk.
 
     Reads exactly what ME.5 measured: the luma plane, at the rate the container states (never the
@@ -99,7 +111,7 @@ def _load_dataset_clips(name: str, limit: int, max_frames: int) -> list[np.ndarr
         raise SystemExit(
             f"no archive for {name}; fetch it with scripts/fetch_validation_data.py --set {name}"
         )
-    frames: list[np.ndarray] = []
+    clips: list[list[np.ndarray]] = []
     with zipfile.ZipFile(archives[0]) as zf:
         members = sorted(
             n for n in zf.namelist() if "/Video_IR/" in n and n.lower().endswith(".mp4")
@@ -108,11 +120,17 @@ def _load_dataset_clips(name: str, limit: int, max_frames: int) -> list[np.ndarr
             scratch = pathlib.Path(tmp) / "clip.mp4"
             for member in members:
                 scratch.write_bytes(zf.read(member))
-                frames.extend(decode_gray8(scratch, max_frames=max_frames))
-    return frames
+                clips.append(list(decode_gray8(scratch, max_frames=max_frames)))
+    return clips
 
 
-def _load_frames(directory: pathlib.Path, limit: int | None) -> list[np.ndarray]:
+def _load_frames(directory: pathlib.Path, limit: int | None) -> list[list[np.ndarray]]:
+    """Clips from a directory. A bare directory of frames is **one** clip, and says so.
+
+    That is not a workaround: a folder of loose frames carries no clip boundaries, so the honest
+    reading is that it is a single clip, and the report then says "1 clip pair" rather than
+    implying a distribution it does not have.
+    """
     if (directory / "sequence.json").is_file() or any(
         (d / "sequence.json").is_file() for d in directory.iterdir() if d.is_dir()
     ):
@@ -136,7 +154,7 @@ def _load_frames(directory: pathlib.Path, limit: int | None) -> list[np.ndarray]
         if array.dtype != np.uint8:
             raise SystemExit(f"{path.name}: Tier 4 is measured on 8-bit frames, got {array.dtype}")
         frames.append(array)
-    return frames
+    return [frames]
 
 
 def _patches(frames: list[np.ndarray], size: int, per_frame: int, seed: int) -> list[np.ndarray]:
@@ -168,8 +186,8 @@ def _mosaic(frames: list[np.ndarray]) -> np.ndarray:
 
 
 def _self_test_frames(
-    seed: int = 20260915, n: int = 24
-) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    seed: int = 20260915, n: int = 24, clips: int = 3
+) -> tuple[list[list[np.ndarray]], list[list[np.ndarray]]]:
     """Two halves of one distribution: the control every acceptance report needs.
 
     If the report cannot pass this, its thresholds are wrong and nothing it says about a real
@@ -183,28 +201,43 @@ def _self_test_frames(
             smooth += np.roll(np.roll(base, dy, 0), dx, 1)
     smooth /= smooth.std()
     scene = 110.0 + 12.0 * smooth
-    frames = [
-        np.clip(scene + rng.normal(0.0, 3.0, scene.shape), 0, 255).astype(np.uint8)
-        for _ in range(2 * n)
+    # Several clips a side, since EV.1 made the clip the unit: a control with one clip each would
+    # exercise neither the pairing nor the within-set spread, which is most of what there is to
+    # get wrong. Every clip is drawn from the same distribution, so the control's own answer is
+    # still "these two sets are the same".
+    made = [
+        [
+            np.clip(scene + rng.normal(0.0, 3.0, scene.shape), 0, 255).astype(np.uint8)
+            for _ in range(n)
+        ]
+        for _ in range(2 * clips)
     ]
-    return frames[:n], frames[n:]
+    return made[:clips], made[clips:]
 
 
 def _run(
-    real: list[np.ndarray],
-    synthetic: list[np.ndarray],
+    real: list[list[np.ndarray]],
+    synthetic: list[list[np.ndarray]],
     *,
     patch: int,
     per_frame: int,
     seed: int,
     targets: Tier4Targets,
 ) -> Tier4Report:
+    """Compare two sets of clips. The whole-frame checks are per clip pair, never pooled (EV.1)."""
+    flat_real = [f for clip in real for f in clip]
+    flat_synthetic = [f for clip in synthetic for f in clip]
     result = gap_score(
-        _patches(real, patch, per_frame, seed),
-        _patches(synthetic, patch, per_frame, seed + 1),
+        _patches(flat_real, patch, per_frame, seed),
+        _patches(flat_synthetic, patch, per_frame, seed + 1),
         seed=seed,
     )
-    report = compare_frames(_mosaic(real), _mosaic(synthetic), targets=targets, auc=result.auc)
+    report = compare_clips(
+        [_mosaic(clip) for clip in real],
+        [_mosaic(clip) for clip in synthetic],
+        targets=targets,
+        auc=result.auc,
+    )
     for check in report.checks:
         if check.name == "discriminator AUC":
             report.checks[report.checks.index(check)] = type(check)(
@@ -300,6 +333,10 @@ def main(argv: list[str] | None = None) -> int:
             "label": label,
             "checks": [c.as_dict() for c in report.checks],
             "attribution": {c.name: ATTRIBUTION.get(c.name) for c in report.failed},
+            # The per-clip-pair distribution behind each whole-frame check (EV.1). The verdict is
+            # the median; this is what a reader who wants a stricter rule needs, and it cannot be
+            # recovered from the note's prose.
+            "paired": {k: asdict(v) for k, v in report.paired.items()},
             "passed": report.passed,
         }
         (args.out / "tier4-acceptance.json").write_text(

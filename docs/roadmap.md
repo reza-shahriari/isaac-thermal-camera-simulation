@@ -175,7 +175,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.2` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 65 open steps
+#### Then, in order — 64 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -189,13 +189,13 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 8 | **`AT.9`** | AT | C | M | — | ready |
 | 9 | **`PT.16`** | PT | C | M | — | ready |
 | 10 | **`XD.10`** | XD | C | L | — | ready |
-| 11 | **`EV.1`** | EV | X | M | 5 | ready |
-| 12 | **`IG.3`** | IG | X | S | 3 | ready |
-| 13 | **`EV.5`** | EV | X | M | 3 | `EV.1` |
-| 14 | **`SC.5`** | SC | X | M | 3 | ready |
-| 15 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 11 | **`IG.3`** | IG | X | S | 3 | ready |
+| 12 | **`EV.5`** | EV | X | M | 3 | ready |
+| 13 | **`SC.5`** | SC | X | M | 3 | ready |
+| 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
 
-…and 50 more — `python scripts/next_step.py --queue 40`.
+…and 49 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -275,7 +275,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `SC.1`–`SC.4`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.14`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`, `XD.12`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `GT.3`–`GT.6`, `GT.8`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -664,7 +664,7 @@ requirement into an external, cited number, and it can return a negative.
 
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
-| EV.1 | **Stop pooling the mosaic across clips.** `validation_report.py:100-112` flattens every clip's frames into one list and `_mosaic` medians the whole stack, so the histogram EMD (24.69) and PSD shape ratio (5.70) are computed on a composite image neither set contains. | Measured: per-clip synthetic mosaic means are 63.2 / 58.3 / 67.1 / 93.3 / 113.1 / 102.0 against a pooled 77.5 — the per-clip mean spans **55 codes** against an 8-code EMD target. After: each check carries a per-clip distribution and a stated aggregation. | — | M | X |
+| EV.1 | ✅ **done — pooling could invert a verdict, not just blur one.** Loaders keep clip boundaries; `compare_clips` runs each whole-frame check on every (real, synthetic) mosaic pair, aggregating by **median** — stated in the note, carried as data in the JSON. | At the row's own 55-code spread the pooled composite reads **2.39 codes, a PASS**, while **0 of 36** pairs meet the 8-code target (median 17.4). Each set is also compared with **itself**: synthetic clips differ by 30 codes, so the target was unreachable. One clip a side reduces to `compare_frames` exactly. 6 cases. | — | M | X |
 | EV.2 | **Gate the real side.** `sorted(...)[:limit]` takes the first six clips alphabetically with none of the three gates the project built — `classify_clip`, flat-region, codec floor. | Measured on the same archive: 81 of 365 clips are moving (every per-pixel temporal statistic invalid on them), 306 of 365 have a robust noise scale at or below one code, and only 28 support a noise table at all. That is exactly the condition under which `noise_scale` separates the sets for reasons unrelated to the simulator. | — | M | X |
 | EV.3 | **Make the synthetic side admissible.** `find_flat_regions` returns `[]` for every rendered clip, so the synthetic side cannot be measured by the route the real side was measured by, in either direction. | Measured on `matched_000`: the best window has structure_ratio 1.50 against a 0.25 limit; a raw 64×64 sky window reads σ_TVH **0.329 codes** against the real set's 7.272 — about **20× too quiet**, the opposite sign to the report's headline. The gap is then stated as a number rather than as a refusal. | EV.2 | M | X |
 | EV.4 | **Permutation null for the discriminator.** The analytic `null_sigma` assumes independent patches; patches are drawn four per frame from 60 frames of 6 clips. | The report says the sets are separated "38 null standard errors from chance". At the clip level the null σ is ~0.17 and the run sits ~2.4 σ out — a **~16× overstatement**, with the caveat living in the code and not in the report. A permutation null (repeated refits on shuffled labels) absorbs the dependence and needs no new dependency. | — | M | X |
@@ -751,7 +751,7 @@ left of it is one thing: the solved cells do not reach a pixel.
 | AI.2 | **Put the Phantom 4 in a scene.** 🟡 **Mostly shipped:** schema v16 binds a field to a prepared asset's prims (ADR 0132) and `render_phantom4.py` flies it in LWIR and colour, mounted by the rotation its own `world_frame:` implies (ADR 0133). **Left:** 234,923 solved cells reach no pixel — `MeshPointBridge` has never been driven by a render. | Green: 41/41 prims mapped, motor prims peak 19.6 K over the shell. **Red:** a bridge bound to an imported prim, carrying the mount rotation, showing a gradient *across* one prim. | AI.1 | L | A |
 | AI.3 | ✅ **done.** `irsim.io.asset_budget` measures a prepared archive engine-free and `prep_asset.py` refuses over it: 1.3 M faces total (GT.7's reference), 200 k per prim, plus a *resolution floor* derived from conduction — `sqrt(alpha x 60 s)` = 1.11 mm at the library's slowest material. ADR 0137. | **Measured.** The Phantom 4 is 1,532,656 faces against that budget, and **77 %** of them are finer than the floor; one prim holds 100,926 faces over 2.7 cm2 — a 73 um cell. 19 tests. | AI.1, GT.7 | M | B |
 | AI.4 | **Exercise the `materialBind` subset path with a real asset.** `prep_asset.py` reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data — and it is the branch that stops a multi-material building mapping entirely to slot 0. | A committed fixture with subsets audits per subset, and a mesh carrying both a subset and a direct binding is reported rather than silently resolved from the binding. | AI.1 | S | B |
-| AI.5 | ✅ **done.** An imported asset is decomposed into **functional parts** by connected component, with the parts authored as data in the asset config (`irsim.io.asset_parts`, `prep_asset.py --emit-components`). ADR 0138. | **Measured.** The Phantom 4's 41 material-grouped prims split into 31,068 components and resolve to 19 parts at 100 % of 0.294 m2: four propellers (spread 4.4 %), four motors (spread **0.0 %**), four mounts, and a **battery** — 0.00570 m2, 401 faces, 88 x 83 x 28 mm — which the scene had declared as a heat source and bound to no geometry at all. 19 tests. | AI.1 | M | A |
+| AI.5 | ✅ **done.** An imported asset is decomposed into **functional parts** by connected component, with the parts authored as data in the asset config (`irsim.io.asset_parts`, `prep_asset.py --emit-components`). ADR 0138. | **Measured.** The Phantom 4's 41 material-grouped prims split into 31,068 components and resolve to 19 parts at 100 % of 0.294 m2: four propellers (spread 4.4 %), four motors (spread **0.0 %**), four mounts, and a **battery** — 0.00570 m2, 401 faces, 88 x 83 x 28 mm — which the scene declared a heat source and bound to no geometry at all. 19 tests. | AI.1 | M | A |
 
 ---
 

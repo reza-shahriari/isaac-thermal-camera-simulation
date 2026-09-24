@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **The Tier 4 acceptance report stopped pooling clips into a composite image neither set
+  contains** (`EV.1`). `validation_report.py` flattened every clip's frames into one list and took
+  the temporal median of the whole stack, so the histogram EMD and the PSD shape ratio were
+  measured on a picture nobody photographed. On this project's own matched clips the per-clip
+  mosaic means were 63.2, 58.3, 67.1, 93.3, 113.1 and 102.0 codes — a **55-code span** against an
+  8-code target — so the pooled number was reporting the synthetic set's clip-to-clip variation
+  and calling it a sim-real gap.
+  **Pooling could invert a verdict, not merely blur one**, which is worse than the row assumed.
+  Reproduced at that same spread: the pooled composite reads **2.39 codes, a comfortable PASS**,
+  while **none of the 36 clip pairs** meets the 8-code target (median 17.4, 10–90 % 10.8–35). The
+  median of a stack spanning 55 codes sits in a middle neither set occupies, and it looked like
+  agreement.
+  Loaders now keep clip boundaries and `irsim.validation.compare.compare_clips` measures each
+  whole-frame check on **every (real, synthetic) mosaic pair**. The aggregation is stated rather
+  than implied: the reported value is the **median** over pairs — these statistics are distances,
+  bounded below by zero and skewed, and one anomalous clip should not carry a verdict — with the
+  10–90 % span, the fraction of pairs meeting the target and the per-clip distribution itself
+  carried in the JSON, so a reader who wants a stricter rule need not re-run anything.
+  Each set is also now compared **with itself**, over its own clip pairs, because that is what
+  says whether a between-set number means anything: the synthetic set differs from itself by 30
+  codes, so the 8-code target was never reachable against it, and that is a statement about the
+  data rather than about the simulator. A single clip a side reports no within-set spread at all
+  rather than a spread of zero, which would claim a perfectly uniform set. With one clip on each
+  side the whole thing reduces to `compare_frames` bit for bit.
+
 ### Added
 - **MassMIND indexed — the maritime lane's first anchor, and its bit depth is not what the row
   said** (`XD.3`). The first public LWIR maritime set: 2,916 Boston Harbor images, FLIR ADK,

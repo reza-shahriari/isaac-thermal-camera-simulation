@@ -40,6 +40,9 @@ __all__ = [
     "psd_shape_ratio",
     "esf_width_px",
     "compare_frames",
+    "PairedStatistic",
+    "paired_statistic",
+    "compare_clips",
 ]
 
 #: Everything here is measured on the display byte, so the axis is 0-255 codes.
@@ -100,6 +103,10 @@ class Check:
 @dataclass
 class Tier4Report:
     checks: list[Check] = field(default_factory=list)
+    #: Per-clip-pair distributions behind the whole-frame checks, keyed by check name, when the
+    #: report came from :func:`compare_clips`. The note carries the same numbers as prose; this is
+    #: what a reader who wants a different aggregation rule needs, and prose cannot be re-reduced.
+    paired: dict[str, Any] = field(default_factory=dict)
 
     @property
     def failed(self) -> list[Check]:
@@ -387,3 +394,195 @@ def auc_from_scores(scores: Any, labels: Any) -> float:
     np.add.at(sums, inverse, ranks)
     ranks = (sums / counts)[inverse]
     return float((ranks[y].sum() - n_pos * (n_pos + 1) / 2.0) / (n_pos * n_neg))
+
+
+# --- clips, not a composite nobody photographed (EV.1) ------------------------------------------
+
+
+@dataclass(frozen=True)
+class PairedStatistic:
+    """One whole-frame statistic measured over every clip pair, with its own controls.
+
+    ``median`` is the reported value and ``low``/``high`` are the 10th and 90th percentiles over
+    the pairs, so a reader sees the spread the aggregation hid. ``fraction_passing`` is there
+    because a median that passes while half the pairs fail is a different situation from one where
+    all of them pass, and the verdict alone cannot tell them apart.
+
+    ``within_real`` and ``within_synthetic`` are the same statistic measured **inside** each set,
+    over its own clip pairs. They are the control that says whether the between-set number means
+    anything: if a set's own clips differ from each other by more than the target, then no
+    simulator can meet that target against it and the honest report is that the target is below the
+    data's own spread, not that the simulator failed.
+    """
+
+    name: str
+    n_pairs: int
+    median: float
+    low: float
+    high: float
+    fraction_passing: float
+    within_real: float | None = None
+    within_synthetic: float | None = None
+
+    @property
+    def within(self) -> float | None:
+        """The larger of the two within-set spreads -- the floor under any between-set value."""
+        values = [v for v in (self.within_real, self.within_synthetic) if v is not None]
+        return max(values) if values else None
+
+    @property
+    def below_the_sets_own_spread(self) -> bool:
+        """True when the two sets differ by no more than one set differs from itself.
+
+        This is the strongest form of agreement these statistics can express: a difference smaller
+        than the within-set spread is not evidence of a gap, whatever the target says.
+        """
+        floor = self.within
+        return floor is not None and self.median <= floor
+
+    def as_note(self) -> str:
+        """The one line the report carries, so the aggregation is never implicit."""
+        parts = [
+            f"median of {self.n_pairs} clip pair{'s' if self.n_pairs != 1 else ''} "
+            f"(10-90 %: {self.low:.4g}-{self.high:.4g}); "
+            f"{self.fraction_passing:.0%} of pairs meet the target"
+        ]
+        floor = self.within
+        if floor is not None:
+            verdict = "at or under" if self.below_the_sets_own_spread else "above"
+            parts.append(
+                f"each set's own clip pairs read {floor:.4g}, so the between-set value is "
+                f"{verdict} the sets' own clip-to-clip spread"
+            )
+        return "; ".join(parts)
+
+
+def _pairwise(frames_a: Any, frames_b: Any, statistic: Any) -> NDArray[np.float64]:
+    """``statistic`` over every (a, b) pair. Same list twice gives the within-set pairs, i < j."""
+    a = list(frames_a)
+    b = list(frames_b)
+    if not a or not b:
+        raise ValueError("a paired statistic needs at least one clip on each side")
+    same = a is b or (len(a) == len(b) and all(x is y for x, y in zip(a, b, strict=True)))
+    if same:
+        values = [statistic(a[i], a[j]) for i in range(len(a)) for j in range(i + 1, len(a))]
+        # One clip has no pair to differ from, which is not a spread of zero -- it is no
+        # measurement at all, and returning zero would claim a perfectly uniform set.
+        return np.asarray(values, dtype=np.float64)
+    return np.asarray([statistic(x, y) for x in a for y in b], dtype=np.float64)
+
+
+def paired_statistic(
+    name: str,
+    real_mosaics: Any,
+    synthetic_mosaics: Any,
+    statistic: Any,
+    target: float,
+) -> PairedStatistic:
+    """Measure ``statistic`` over every clip pair, and inside each set as its own control."""
+    between = _pairwise(real_mosaics, synthetic_mosaics, statistic)
+    real_list, synth_list = list(real_mosaics), list(synthetic_mosaics)
+    within_real = _pairwise(real_list, real_list, statistic)
+    within_synth = _pairwise(synth_list, synth_list, statistic)
+    return PairedStatistic(
+        name=name,
+        n_pairs=int(between.size),
+        median=float(np.median(between)),
+        low=float(np.percentile(between, 10.0)),
+        high=float(np.percentile(between, 90.0)),
+        fraction_passing=float(np.mean(between <= target)),
+        within_real=float(np.median(within_real)) if within_real.size else None,
+        within_synthetic=float(np.median(within_synth)) if within_synth.size else None,
+    )
+
+
+def compare_clips(
+    real_mosaics: Any,
+    synthetic_mosaics: Any,
+    *,
+    targets: Tier4Targets | None = None,
+    boxes: tuple[Any, Any] | None = None,
+    profiles: tuple[Any, Any] | None = None,
+    psd_floor_fraction: float = 0.0,
+    auc: float | None = None,
+    report: Tier4Report | None = None,
+) -> Tier4Report:
+    """Compare two sets **clip by clip** rather than as one pooled composite (EV.1).
+
+    :func:`compare_frames` takes one frame from each side, which is right when there is one clip on
+    each side and wrong the moment there is more than one. The report used to build its single
+    frame by taking the temporal median of every clip's frames stacked together, and that composite
+    is an image neither set contains: measured on this project's own matched clips the per-clip
+    mosaic means were 63.2, 58.3, 67.1, 93.3, 113.1 and 102.0 codes, a **55-code span**, against an
+    8-code histogram target. The pooled number was therefore reporting the clip-to-clip variation
+    of the synthetic set and calling it a gap.
+
+    **The aggregation is stated, not implied.** Each whole-frame statistic is measured on every
+    (real clip, synthetic clip) mosaic pair; the reported value is the **median** over those pairs,
+    because these statistics are distances, bounded below by zero and skewed, and one anomalous
+    clip should not carry a verdict. The 10-90 % span, the fraction of pairs meeting the target and
+    each set's own clip-to-clip spread all travel in the note, so a reader can apply a stricter
+    rule without re-running anything.
+
+    With one clip on each side this reduces exactly to :func:`compare_frames` for the two
+    whole-frame checks: one pair, and its median is its value.
+    """
+    goals = targets or Tier4Targets()
+    out = report or Tier4Report()
+
+    emd = paired_statistic(
+        "histogram EMD (DN8 codes)",
+        real_mosaics,
+        synthetic_mosaics,
+        histogram_emd,
+        goals.histogram_emd_codes,
+    )
+    out.add(
+        emd.name,
+        emd.median,
+        goals.histogram_emd_codes,
+        ok=emd.median <= goals.histogram_emd_codes,
+        note="L1 between the cumulative distributions, in codes of shift; " + emd.as_note(),
+    )
+    out.paired[emd.name] = emd
+
+    def _psd(a: Any, b: Any) -> float:
+        return psd_shape_ratio(a, b, floor_fraction=psd_floor_fraction)
+
+    psd = paired_statistic(
+        "PSD shape ratio", real_mosaics, synthetic_mosaics, _psd, goals.psd_shape_ratio
+    )
+    out.add(
+        psd.name,
+        psd.median,
+        goals.psd_shape_ratio,
+        ok=psd.median <= goals.psd_shape_ratio,
+        note=(
+            (
+                "radial, normalised, every bin compared; "
+                if psd_floor_fraction <= 0.0
+                else f"radial, normalised, bins below {psd_floor_fraction:.2%} of peak excluded; "
+            )
+            + psd.as_note()
+        ),
+    )
+    out.paired[psd.name] = psd
+
+    # The remaining checks need an annotation, an edge or a trained discriminator rather than a
+    # second frame, so they are unchanged by the pooling fix and are delegated as they were. A
+    # representative mosaic is passed only to satisfy the signature; neither check reads it when
+    # its own input is absent, and when the input is present it is the caller's pairing.
+    first_real = list(real_mosaics)[0]
+    first_synth = list(synthetic_mosaics)[0]
+    _skip = {"histogram EMD (DN8 codes)", "PSD shape ratio"}
+    rest = compare_frames(
+        first_real,
+        first_synth,
+        targets=goals,
+        boxes=boxes,
+        profiles=profiles,
+        psd_floor_fraction=psd_floor_fraction,
+        auc=auc,
+    )
+    out.checks.extend(c for c in rest.checks if c.name not in _skip)
+    return out

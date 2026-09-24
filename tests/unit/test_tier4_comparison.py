@@ -15,12 +15,15 @@ import numpy as np
 import pytest
 
 from irsim.validation.compare import (
+    PairedStatistic,
     Tier4Report,
     Tier4Targets,
     auc_from_scores,
+    compare_clips,
     compare_frames,
     esf_width_px,
     histogram_emd,
+    paired_statistic,
     psd_shape_ratio,
 )
 from irsim_eval.discriminator import FEATURE_NAMES, gap_score, patch_features
@@ -234,7 +237,124 @@ def test_the_acceptance_report_exits_non_zero_when_a_target_is_exceeded(
     """The whole point of a report that a pipeline can run: it fails loudly."""
     module = _script()
     real, synthetic = module._self_test_frames()
-    shifted = [np.clip(f.astype(np.int16) + 30, 0, 255).astype(np.uint8) for f in synthetic]
+    shifted = [
+        [np.clip(f.astype(np.int16) + 30, 0, 255).astype(np.uint8) for f in clip]
+        for clip in synthetic
+    ]
     report = module._run(real, shifted, patch=32, per_frame=4, seed=1, targets=Tier4Targets())
     assert not report.passed
     assert any(c.name.startswith("histogram EMD") for c in report.failed)
+
+
+# --- clips, not a composite nobody photographed (EV.1) ------------------------------------------
+
+
+def _clip(level: float, seed: int, n: int = 8, noise: float = 6.0) -> list[np.ndarray]:
+    """A clip whose background sits at ``level`` codes -- the thing that used to get pooled away."""
+    rng = np.random.default_rng(seed)
+    scene = _scene() - 110.0 + level
+    return [
+        np.clip(scene + rng.normal(0.0, noise, scene.shape), 0, 255).astype(np.uint8)
+        for _ in range(n)
+    ]
+
+
+def test_pooling_clips_measures_their_spread_and_calls_it_a_gap() -> None:
+    """The defect EV.1 names, reproduced with the levels that were measured on this project.
+
+    Six synthetic clips whose mosaic means span 55 codes (63.2 to 113.1) are compared against a
+    real set that sits inside that range. Pooled, the median of all their frames is a composite
+    image neither set contains, and the histogram EMD against it is a number about the synthetic
+    set's own clip-to-clip variation. Per clip pair, the same data reports a distribution and --
+    critically -- a within-set spread that is larger than the 8-code target, which is what says
+    the target was never reachable against this set rather than that the simulator failed.
+    """
+    levels = [63.2, 58.3, 67.1, 93.3, 113.1, 102.0]
+    synthetic = [_clip(lv, seed=10 + i) for i, lv in enumerate(levels)]
+    real = [_clip(78.0, seed=100 + i) for i in range(6)]
+    mosaics_s = [np.median(np.stack(c).astype(np.float64), axis=0) for c in synthetic]
+    mosaics_r = [np.median(np.stack(c).astype(np.float64), axis=0) for c in real]
+
+    stat = paired_statistic("histogram EMD (DN8 codes)", mosaics_r, mosaics_s, histogram_emd, 8.0)
+    assert stat.n_pairs == 36, "every pair, not one composite"
+    assert stat.high - stat.low > 8.0, "the spread the pooled number hid is larger than the target"
+    # The synthetic set differs from *itself* by more than the target, so no simulator could meet
+    # the target against it. That is the finding, and a pooled scalar cannot express it.
+    assert stat.within_synthetic is not None and stat.within_synthetic > 8.0
+    assert stat.within_real is not None and stat.within_real < stat.within_synthetic
+    assert stat.below_the_sets_own_spread
+
+    # And the direction is the part worth pinning. The pooled composite reads ~2.4 codes -- a
+    # comfortable PASS -- while **not one** of the 36 clip pairs meets the same target. Pooling
+    # did not merely blur the number here, it inverted the verdict, because the median of a stack
+    # spanning 55 codes sits in a middle that neither set occupies.
+    pooled = histogram_emd(
+        np.median(np.stack([f for c in real for f in c]).astype(np.float64), axis=0),
+        np.median(np.stack([f for c in synthetic for f in c]).astype(np.float64), axis=0),
+    )
+    assert pooled <= 8.0, f"the pooled composite passes: {pooled:.3g} codes"
+    assert stat.fraction_passing == 0.0, "while no individual clip pair does"
+    assert stat.median > 2 * pooled
+
+
+def test_one_clip_a_side_reduces_to_the_single_frame_comparison() -> None:
+    """The degenerate case has to stay exact, or every existing result silently moves.
+
+    With one clip on each side there is one pair, its median is its value, and `compare_clips`
+    must agree with `compare_frames` to the last bit on both whole-frame checks.
+    """
+    a, b = _scene(), _scene() + 3.0
+    clipped = compare_clips([a], [b])
+    single = compare_frames(a, b)
+    by_name = {c.name: c for c in single.checks}
+    for check in clipped.checks:
+        if check.name in ("histogram EMD (DN8 codes)", "PSD shape ratio"):
+            assert check.measured == by_name[check.name].measured, check.name
+            assert check.verdict == by_name[check.name].verdict, check.name
+    assert clipped.paired["histogram EMD (DN8 codes)"].n_pairs == 1
+
+
+def test_a_single_clip_has_no_within_set_spread_rather_than_a_spread_of_zero() -> None:
+    """Zero would claim a perfectly uniform set; the truth is that nothing was measured."""
+    stat = paired_statistic("emd", [_scene()], [_scene() + 2.0], histogram_emd, 8.0)
+    assert stat.within_real is None and stat.within_synthetic is None
+    assert stat.within is None
+    assert not stat.below_the_sets_own_spread, "an absent control cannot be evidence of agreement"
+    assert "own clip pairs" not in stat.as_note()
+
+
+def test_the_aggregation_is_stated_in_every_note_it_produces() -> None:
+    """The rule is the median over clip pairs, and a report that hid that would be the old one."""
+    real = [_scene() + d for d in (0.0, 1.0, 2.0)]
+    synthetic = [_scene() + d for d in (5.0, 6.0, 7.0)]
+    report = compare_clips(real, synthetic)
+    for name in ("histogram EMD (DN8 codes)", "PSD shape ratio"):
+        check = next(c for c in report.checks if c.name == name)
+        assert "median of 9 clip pairs" in check.note, check.note
+        assert "% of pairs meet the target" in check.note
+        assert isinstance(report.paired[name], PairedStatistic)
+        assert report.paired[name].median == check.measured
+
+
+def test_the_report_carries_the_distribution_as_data_not_only_as_prose(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A reader who wants a stricter rule than the median cannot re-reduce a sentence."""
+    import json
+
+    module = _script()
+    assert module.main(["--self-test", "--out", str(tmp_path)]) == 0
+    payload = json.loads((tmp_path / "tier4-acceptance.json").read_text())
+    emd = payload["paired"]["histogram EMD (DN8 codes)"]
+    assert emd["n_pairs"] == 9
+    assert emd["low"] <= emd["median"] <= emd["high"]
+    assert 0.0 <= emd["fraction_passing"] <= 1.0
+    assert emd["within_real"] is not None
+
+
+def test_the_control_now_has_several_clips_a_side() -> None:
+    """A control with one clip each would exercise neither the pairing nor the within-set spread."""
+    module = _script()
+    real, synthetic = module._self_test_frames()
+    assert len(real) > 1 and len(synthetic) > 1
+    assert all(len(clip) > 1 for clip in real + synthetic)
