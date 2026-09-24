@@ -61,7 +61,7 @@
 <article class="prose">
 <p>Every module under <code>src/</code>, its own one-line docstring, and the sections of the physics specification it cites. The layering rule that keeps the first column engine-free is not a convention here — <code>tests/unit/test_layering.py</code> fails the build if <code>irsim</code> imports an engine module.</p>
 <h2 id="irsim">irsim</h2>
-<p>the engine-free physics core — pure Python and NumPy, no engine import anywhere. 184 modules, 41,886 lines.</p>
+<p>the engine-free physics core — pure Python and NumPy, no engine import anywhere. 184 modules, 41,895 lines.</p>
 <div class='table-wrap'><table><thead><tr><th>module</th><th>what it is</th>
 <th>spec §</th><th>lines</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/__init__.py" target="_blank" rel="noopener">irsim</a></td><td>irsim — engine-free physics core for a multi-band infrared camera simulator.</td><td class='nowrap'>—</td><td>9</td></tr>
@@ -161,7 +161,7 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/optics/vignetting.py" target="_blank" rel="noopener">irsim.optics.vignetting</a></td><td>Field angles and cos⁴θ natural vignetting from undistorted pinhole geometry.</td><td class='nowrap'>§2, §8.1</td><td>112</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/__init__.py" target="_blank" rel="noopener">irsim.pipeline</a></td><td>The engine-free CPU reference pipeline: G-buffer → radiance → focal plane → DN → outputs.</td><td class='nowrap'>§13.4, §13.6, §16.4</td><td>32</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/atmosphere.py" target="_blank" rel="noopener">irsim.pipeline.atmosphere</a></td><td>Stage 2 — atmosphere on the G-buffer: L' = τ(d) L + (1 − τ(d)) L_B(T_air), sky pixels untouched.</td><td class='nowrap'>§3.3, §7.1, §13.4</td><td>141</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/core.py" target="_blank" rel="noopener">irsim.pipeline.core</a></td><td>Pipeline scaffolding: the stage protocol, the immutable configuration, the mutable state.</td><td class='nowrap'>§9.1, §9.4, §10.1, §13.4, §13.6</td><td>370</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/core.py" target="_blank" rel="noopener">irsim.pipeline.core</a></td><td>Pipeline scaffolding: the stage protocol, the immutable configuration, the mutable state.</td><td class='nowrap'>§9.1, §9.4, §10.1, §13.4, §13.6</td><td>379</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/detector.py" target="_blank" rel="noopener">irsim.pipeline.detector</a></td><td>Stage 4 on the plane dict: pixel power → the ideal detector signal, through the membrane lag.</td><td class='nowrap'>§9.1, §9.2, §13.4, §15</td><td>112</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/environment.py" target="_blank" rel="noopener">irsim.pipeline.environment</a></td><td>The reflected environment term of stage 1 (§5.3 a, §4.1, ADR 0045).</td><td class='nowrap'>§4.1, §5.3, §13.7</td><td>82</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/flat_field.py" target="_blank" rel="noopener">irsim.pipeline.flat_field</a></td><td>Calibrate the camera's own flat-field correction from two synthetic blackbodies (§11.2).</td><td class='nowrap'>§11.1, §11.2</td><td>97</td></tr>
@@ -312,13 +312,13 @@
 <p>The gate is <code>make check</code>: ruff, mypy <code>--strict</code>, and the unit and golden suites, none of which need a GPU or Isaac Sim. Integration tests are marked <code>@pytest.mark.isaac</code> and skipped by default.</p>
 <div class='table-wrap'><table><thead><tr><th>suite</th><th>files</th>
 <th>test functions</th><th>what it covers</th></tr></thead><tbody>
-<tr><td><code>tests/unit</code></td><td>259</td><td>2758</td><td>fast, engine-free; the developer loop and the commit gate</td></tr>
+<tr><td><code>tests/unit</code></td><td>259</td><td>2759</td><td>fast, engine-free; the developer loop and the commit gate</td></tr>
 <tr><td><code>tests/golden</code></td><td>9</td><td>28</td><td>regression fixtures: reference arrays with stated tolerances</td></tr>
 <tr><td><code>tests/integration</code></td><td>15</td><td>130</td><td>needs a running Isaac Sim; marked `isaac` and skipped by default</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:34 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

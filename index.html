@@ -78,23 +78,23 @@
 <h2 id="by-the-numbers">The repository, counted at build time</h2>
 <div class="numbers">
 <div class='number'><b>233</b><span>modules in <code>src/</code></span></div>
-<div class='number'><b>2,916</b><span>test functions, none needing a GPU</span></div>
+<div class='number'><b>2,917</b><span>test functions, none needing a GPU</span></div>
 <div class='number'><b>137</b><span>decision records</span></div>
 <div class='number'><b>61</b><span>configuration files</span></div>
 <div class='number'><b>73</b><span>specification sections cited by the code</span></div>
-<div class='number'><b>104/167</b><span>roadmap steps shipped</span></div>
+<div class='number'><b>105/167</b><span>roadmap steps shipped</span></div>
 </div>
 <h2 id="where-it-is">Where the plan is</h2>
 <p>Phases run repair → point-wise physics → aerial → maritime → ground → cross-cutting; the order is the owner's, recorded in ADR 0003.</p>
 <div class="bars">
 <div class="bar"><span class="bar-label">phase 0</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">15/15</span></div>
 <div class="bar"><span class="bar-label">phase P</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">36/36</span></div>
-<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:93%"></span></span><span class="bar-value">25/27</span></div>
+<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:96%"></span></span><span class="bar-value">26/27</span></div>
 <div class="bar"><span class="bar-label">phase B</span><span class="bar-track"><span class="bar-fill" style="width:55%"></span></span><span class="bar-value">6/11</span></div>
 <div class="bar"><span class="bar-label">phase C</span><span class="bar-track"><span class="bar-fill" style="width:57%"></span></span><span class="bar-value">8/14</span></div>
 <div class="bar"><span class="bar-label">phase X</span><span class="bar-track"><span class="bar-fill" style="width:22%"></span></span><span class="bar-value">14/64</span></div>
 </div>
-<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>PT.23</code> <span class='lane'>Point-wise surface temperature</span> <strong>The analytic point target delivers 0.7785 of its own model.</strong> <code>IG.2</code>'s first in-sim run measured it: the chain returns that fraction of <code>excess_radiance</code> at <strong>every</strong> range, converged from frame 3.</li><li><code>AI.2</code> <span class='lane'>Asset ingestion</span> <strong>Put the Phantom 4 in a scene.</strong> 🟡 <strong>Mostly shipped:</strong> schema v16 binds a field to a prepared asset's prims (ADR 0132) and <code>render_phantom4.py</code> flies it in LWIR and colour, mounted by the rotation its own <code>world_frame:</code> implies (ADR 0133).</li><li><code>AI.4</code> <span class='lane'>Asset ingestion</span> <strong>Exercise the <code>materialBind</code> subset path with a real asset.</strong> <code>prep_asset.py</code> reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data</li><li><code>IG.16</code> <span class='lane'>Isaac glue integrity</span> <strong>Take the Warp ISP's host readbacks off the per-frame path.</strong> <code>replace_bad_pixels_warp</code> calls <code>counters.numpy()</code> <strong>inside its pass loop</strong> — a device sync per iteration to read two ints. <code>agc_lut_warp</code> pulls the whole 2^bit_depth histogram,</li><li><code>SE.2</code> <span class='lane'>Sea and maritime</span> <strong>Maritime and illumination in-sim tests.</strong> The maritime stage feeds water prims into <code>background_prim_paths</code> so their pixels join the sky mask and take the analytic sea profile; <code>illumination_isaac</code> fixed "every Isaac render was emission o</li></ol>
+<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>AI.2</code> <span class='lane'>Asset ingestion</span> <strong>Put the Phantom 4 in a scene.</strong> 🟡 <strong>Mostly shipped:</strong> schema v16 binds a field to a prepared asset's prims (ADR 0132) and <code>render_phantom4.py</code> flies it in LWIR and colour, mounted by the rotation its own <code>world_frame:</code> implies (ADR 0133).</li><li><code>AI.4</code> <span class='lane'>Asset ingestion</span> <strong>Exercise the <code>materialBind</code> subset path with a real asset.</strong> <code>prep_asset.py</code> reads subsets and deliberately ignores the mesh-level binding Blender also writes, but no committed asset has a subset, so that branch has never run on real data</li><li><code>IG.16</code> <span class='lane'>Isaac glue integrity</span> <strong>Take the Warp ISP's host readbacks off the per-frame path.</strong> <code>replace_bad_pixels_warp</code> calls <code>counters.numpy()</code> <strong>inside its pass loop</strong> — a device sync per iteration to read two ints. <code>agc_lut_warp</code> pulls the whole 2^bit_depth histogram,</li><li><code>SE.2</code> <span class='lane'>Sea and maritime</span> <strong>Maritime and illumination in-sim tests.</strong> The maritime stage feeds water prims into <code>background_prim_paths</code> so their pixels join the sky mask and take the analytic sea profile; <code>illumination_isaac</code> fixed "every Isaac render was emission o</li><li><code>TC.8</code> <span class='lane'>Thermal coupling</span> <strong>Wheel arches and brakes reach a frame.</strong> A <code>RadiantRectangle</code> per wheel well carries the tyre and brake sources <code>vehicle.py</code> already computes but nothing calls; the closed-form brake deposit and the speed-driven tyre rise are driven from</li></ol>
 <p><a href="roadmap/">The whole plan →</a></p>
 <h2 id="read-next">Read next</h2>
 <div class="cards">
@@ -108,7 +108,7 @@
 </div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:34 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
   <a href="physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

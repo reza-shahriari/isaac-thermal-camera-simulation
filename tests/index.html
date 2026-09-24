@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The test suite — irsim</title>
-<meta name="description" content="2,916 tests across 283 files — every one listed, with what it asserts.">
+<meta name="description" content="2,917 tests across 283 files — every one listed, with what it asserts.">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
@@ -54,15 +54,15 @@
 <main id="content" class="main wide">
 <div class="page-head">
   <h1>The test suite</h1>
-  <p class="subtitle">2,916 tests across 283 files — every one listed, with what it asserts.</p>
+  <p class="subtitle">2,917 tests across 283 files — every one listed, with what it asserts.</p>
   
 </div>
 
 <article class="prose">
-<p>Nobody has intuition for what a correct thermal image looks like — a frame that is wrong by 20 K looks exactly as convincing as one that is right. That is why this project carries 2,916 tests across 283 files, and why a test here is expected to <em>fail if the physics were wrong</em> rather than merely to call the function. Each file below links to its own page, where every test is listed with what it asserts.</p>
+<p>Nobody has intuition for what a correct thermal image looks like — a frame that is wrong by 20 K looks exactly as convincing as one that is right. That is why this project carries 2,917 tests across 283 files, and why a test here is expected to <em>fail if the physics were wrong</em> rather than merely to call the function. Each file below links to its own page, where every test is listed with what it asserts.</p>
 <p class="filterline"><input id="table-filter" type="search" placeholder="Filter 283 test files…" aria-label="Filter test files"></p>
 <h2 id="unit">Unit — <code>tests/unit</code></h2>
-<p>Fast, engine-free, and the half of the commit gate that runs on every change. No GPU, no Isaac Sim, no network. 259 files, 2,758 tests.</p>
+<p>Fast, engine-free, and the half of the commit gate that runs on every change. No GPU, no Isaac Sim, no network. 259 files, 2,759 tests.</p>
 <div class='table-wrap'><table class="filterable suite"><thead><tr><th>file</th><th>what it guards</th><th>cites</th><th>tests</th></tr></thead><tbody>
 <tr><td><a href="unit/test_adr_citations/">test_adr_citations.py</a></td><td>RP.4 — every <code>ADR NNNN</code> citation in the repository resolves to a file that exists.</td><td>ADR 0042, ADR 0079, ADR 0078, ADR 0053</td><td>7</td></tr>
 <tr><td><a href="unit/test_adr_status/">test_adr_status.py</a></td><td>RP.5 — every ADR carries a status in one spelling, and supersessions are actually recorded.</td><td>ADR 0001, §9.2, ADR 0077, ADR 0014</td><td>9</td></tr>
@@ -230,7 +230,7 @@
 <tr><td><a href="unit/test_plume/">test_plume.py</a></td><td>Stage 2d: an exhaust plume composited per pixel (roadmap PH.6).</td><td>CO2, §6.6, §8.1, §8.3</td><td>17</td></tr>
 <tr><td><a href="unit/test_png/">test_png.py</a></td><td>The stdlib PNG writer (M5.7): valid signature and chunks, and a decodable payload.</td><td>M5.7</td><td>1</td></tr>
 <tr><td><a href="unit/test_point_bridge/">test_point_bridge.py</a></td><td>MP.3 — the per-pixel temperature lookup, on synthetic G-buffers and no renderer.</td><td>M2.4, §13.1, §13.3, ADR 0087</td><td>22</td></tr>
-<tr><td><a href="unit/test_point_target/">test_point_target.py</a></td><td>Point-target injection (MS.6): 1/R^2 with tau = 1, tau(R)/R^2 with the atmosphere and the exact per-class identity, zero excess at the sky-beyond radiance, flux conservation over a sub-pixel sweep, handoff continuity in the phase mean, the rasteriser's measured error, the F-number ratio 3.4, and the whole chain.</td><td>—</td><td>7</td></tr>
+<tr><td><a href="unit/test_point_target/">test_point_target.py</a></td><td>Point-target injection (MS.6): 1/R^2 with tau = 1, tau(R)/R^2 with the atmosphere and the exact per-class identity, zero excess at the sky-beyond radiance, flux conservation over a sub-pixel sweep, handoff continuity in the phase mean, the rasteriser's measured error, the F-number ratio 3.4, and the whole chain.</td><td>—</td><td>8</td></tr>
 <tr><td><a href="unit/test_projection/">test_projection.py</a></td><td>Lens projection (M10.9a): frame conventions, the OpenCV model, and the inverse.</td><td>M10.9a, §8.4, ADR 0015</td><td>20</td></tr>
 <tr><td><a href="unit/test_quad_outbound/">test_quad_outbound.py</a></td><td>The outbound quadrotor stage, engine-free (PT.9/IG.2, ADR 0123).</td><td>ADR 0123, ADR 0087, ADR 0060</td><td>17</td></tr>
 <tr><td><a href="unit/test_quad_pointwise/">test_quad_pointwise.py</a></td><td>PT.9 (engine-free half) — the aerial scenario, regenerated point-wise.</td><td>§6.1, §6.6, ADR 0072, ADR 0087</td><td>7</td></tr>
@@ -358,7 +358,7 @@
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:34 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

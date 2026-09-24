@@ -82,7 +82,7 @@
 <p>The 30-minute quadrotor mission of <code>quad_flight_clear_noon.yaml</code>, filmed twice at the same instants from the same camera. Left: the <code>airframe</code> solver, one temperature for the whole aircraft. Right: four patched surfaces, every cell holding its own energy balance. <strong>Over the whole mission the object-wise aircraft moves 0.5 K</strong> — it simply tracks the air — <strong>while the deck alone moves 16.6 K and runs up to 29.9 K away from it.</strong></p>
 <p>This is the defect the project exists to fix: one temperature per object is not a coarser picture of a thermal scene, it is a different scene.</p>
 <div class="shots">
-<figure class="shot full"><video src="../media/pointwise_flight/quad_pointwise_vs_objectwise.mp4" poster="../media/pointwise_flight/quad_pointwise_vs_objectwise.webp" width="720" height="358" controls loop muted playsinline preload="none"></video><figcaption>Object-wise on the left, point-wise on the right, the same instants and the same camera.</figcaption></figure>
+<figure class="shot full"><video src="../media/pointwise_flight/quad_pointwise_vs_objectwise.mp4" poster="../media/pointwise_flight/quad_pointwise_vs_objectwise.webp" width="926" height="460" controls loop muted playsinline preload="none"></video><figcaption>Object-wise on the left, point-wise on the right, the same instants and the same camera.</figcaption></figure>
 </div>
 <div class="note"><p>Engine-free: the camera rays are intersected with the quadrotor's own rectangles in NumPy, producing the instance-id and world-position planes Isaac supplies from its AOVs, and those go through the same point bridge the renderer uses. The body shells are unpatched, so they keep the per-prim value in both panels — patch what you author, and the rest of the prim stays as it was.</p></div>
 <p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/quad_flight_pointwise.py" target="_blank" rel="noopener"><code>scripts/quad_flight_pointwise.py</code></a></p>
@@ -167,9 +167,9 @@
 <p>A 62 MB third-party DJI Phantom 4 Pro FBX that nobody here modelled: 41 prims, 2,486,459 triangles, <strong>41 of 41 materials resolved in Kit</strong> through <code>configs/assets/phantom4.yaml</code>. It flies a figure-of-eight from 4.6 m to 10.3 m range — 70 to 157 px across the span — and the display spans <strong>−12.0 to 26.4 °C</strong>.</p>
 <p>Solved point-wise it is the first scene in the project whose geometry was not authored in Python: 234,923 cells over 0.1628 m², and the physics the lane exists for — black mouldings reach <strong>65.9 °C</strong> where the white shell tops out at <strong>33.8 °C</strong> (α 0.94 against 0.25), every surface carrying a <em>span</em> rather than one value per object.</p>
 <div class="shots">
-<figure class="shot full"><video src="../media/phantom4/phantom4_pair.mp4" poster="../media/phantom4/phantom4_pair.webp" width="720" height="288" controls loop muted playsinline preload="none"></video><figcaption>LWIR beside its visible companion, the same instants</figcaption></figure>
-<figure class="shot half"><video src="../media/phantom4_weather/phantom4_pair.mp4" poster="../media/phantom4_weather/phantom4_pair.webp" width="720" height="288" controls loop muted playsinline preload="none"></video><figcaption>the same aircraft with the scene's measured weather file driving the sky</figcaption></figure>
-<figure class="shot half"><video src="../media/phantom4_smoke/phantom4_pair.mp4" poster="../media/phantom4_smoke/phantom4_pair.webp" width="720" height="288" controls loop muted playsinline preload="none"></video><figcaption>and through smoke</figcaption></figure>
+<figure class="shot full"><video src="../media/phantom4/phantom4_pair.mp4" poster="../media/phantom4/phantom4_pair.webp" width="1280" height="512" controls loop muted playsinline preload="none"></video><figcaption>LWIR beside its visible companion, the same instants</figcaption></figure>
+<figure class="shot half"><video src="../media/phantom4_weather/phantom4_pair.mp4" poster="../media/phantom4_weather/phantom4_pair.webp" width="1280" height="512" controls loop muted playsinline preload="none"></video><figcaption>the same aircraft with the scene's measured weather file driving the sky</figcaption></figure>
+<figure class="shot half"><video src="../media/phantom4_smoke/phantom4_pair.mp4" poster="../media/phantom4_smoke/phantom4_pair.webp" width="1280" height="512" controls loop muted playsinline preload="none"></video><figcaption>and through smoke</figcaption></figure>
 </div>
 <p class="made-by">Made by <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_phantom4.py" target="_blank" rel="noopener"><code>scripts/render_phantom4.py</code></a></p>
 </section>
@@ -249,7 +249,7 @@
 </section>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:34 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>
