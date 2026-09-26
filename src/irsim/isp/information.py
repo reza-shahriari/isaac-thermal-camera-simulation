@@ -51,6 +51,8 @@ __all__ = [
     "information_lut",
     "agc_information",
     "blend_linear",
+    "equalise_image",
+    "limit_gain",
 ]
 
 Float32Array = NDArray[np.float32]
@@ -109,11 +111,13 @@ def information_lut(
     info: NDArray[np.float64] | None = None,
     info_weight: float = 0.0,
     linear_percent: float = 0.0,
+    clip_limit_low: float = 0.0,
 ) -> NDArray[np.float64] | None:
     """The bin → [0, 1] transfer of steps 2 and 3, or ``None`` when the frame has no range.
 
     With ``info_weight = 0`` and ``linear_percent = 0`` this *is* :func:`plateau_lut`: the same
-    function is called and nothing is added to its result.
+    function is called and nothing is added to its result. ``clip_limit_low`` is passed to it
+    unchanged (SC.25).
     """
     if info_weight < 0.0:
         raise ValueError("info_weight must be non-negative")
@@ -122,13 +126,15 @@ def information_lut(
     c = np.asarray(counts, dtype=np.float64)
     if info is not None and info_weight > 0.0 and float(np.sum(info)) > 0.0:
         clipped = np.minimum(c, plateau * float(c.sum()))
+        if clip_limit_low > 0.0:
+            clipped = clipped + np.where(c > 0.0, clip_limit_low * float(c.sum()), 0.0)
         extra = info_weight * float(clipped.sum()) * np.asarray(info) / float(np.sum(info))
         # `plateau_lut` clips at P·N of what it is given; hand it the clipped counts plus the
         # information mass, with an N large enough that no bin is clipped a second time.
         combined = clipped + extra
         eq = _cdf_lut(combined, c)
     else:
-        eq = plateau_lut(c, plateau)
+        eq = plateau_lut(c, plateau, clip_limit_low)
     if eq is None:
         return None
     if linear_percent == 0.0:
@@ -152,6 +158,56 @@ def _cdf_lut(
     if hi <= lo:
         return None
     return np.asarray(np.clip((cdf_excl - lo) / (hi - lo), 0.0, 1.0))
+
+
+def limit_gain(
+    lut: NDArray[np.float64], counts: NDArray[np.float64], max_gain: float
+) -> NDArray[np.float64]:
+    """Cap the transfer's slope at ``max_gain`` display codes (of 255) per DN (SC.25, ADR 0149).
+
+    Every equalising core has this control -- FLIR's *Max Gain*, Xenics' "maximal allowed
+    stretching" -- because on a bland scene (a clear sky a few DN wide) equalisation stretches the
+    whole ramp across the noise and shows the fixed pattern as the picture. Each bin's increment is
+    capped, the transfer re-integrated, and when the cap bites the occupied range is centred on
+    mid-grey, as a camera's mid-point default does. ``max_gain = 0`` means no cap; a cap that never
+    binds returns ``lut`` itself.
+    """
+    if max_gain < 0.0:
+        raise ValueError("max_gain must be non-negative (0 = no limit)")
+    if max_gain == 0.0:
+        return lut
+    step = np.diff(lut)
+    cap = max_gain / 255.0
+    if float(step.max(initial=0.0)) <= cap:
+        return lut
+    cum = np.concatenate(([0.0], np.cumsum(np.minimum(step, cap))))
+    occupied = np.flatnonzero(counts)
+    lo, hi = occupied[0], occupied[-1]
+    centred = 0.5 + cum - 0.5 * (cum[lo] + cum[hi])
+    return np.asarray(np.clip(centred, 0.0, 1.0))
+
+
+def equalise_image(
+    x: object,
+    plateau: float,
+    bit_depth: int,
+    *,
+    linear_percent: float = 0.0,
+    clip_limit_low: float = 0.0,
+    max_gain: float = 0.0,
+) -> Float32Array:
+    """Global plateau equalisation with the cross-vendor controls (SC.21, SC.25).
+
+    ``linear_percent`` (Boson), ``clip_limit_low`` (Lepton) and ``max_gain`` (both, and Xenics)
+    on one transfer. All three at zero is :func:`agc_plateau` bit for bit.
+    """
+    dn = _as_dn(x, bit_depth)
+    counts = histogram_dn(dn, bit_depth)
+    lut = information_lut(counts, plateau, None, 0.0, linear_percent, clip_limit_low)
+    if lut is None:
+        return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
+    lut = limit_gain(lut, counts, max_gain)
+    return np.asarray(lut[np.floor(dn).astype(np.int64)], dtype=np.float32)
 
 
 def blend_linear(y_eq: object, x: object, linear_percent: float, bit_depth: int) -> Float32Array:
@@ -184,6 +240,8 @@ def agc_information(
     detail_headroom: float = 0.0,
     detail_gain: float = 1.0,
     smoothing_sigma_dn: float = 1250.0,
+    clip_limit_low: float = 0.0,
+    max_gain: float = 0.0,
 ) -> Float32Array:
     """Information-based equalisation with Linear Percent, Detail Headroom and DDE (§11.3).
 
@@ -201,9 +259,10 @@ def agc_information(
     low = np.clip(low, 0.0, float(2**bit_depth - 1))
     counts = histogram_dn(low, bit_depth)
     info = histogram_dn(low, bit_depth, np.abs(high)) if np.any(high) else None
-    lut = information_lut(counts, plateau, info, info_weight, linear_percent)
+    lut = information_lut(counts, plateau, info, info_weight, linear_percent, clip_limit_low)
     if lut is None:
         return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
+    lut = limit_gain(lut, counts, max_gain)
     if detail_headroom > 0.0:
         lut = detail_headroom + (1.0 - 2.0 * detail_headroom) * lut
     idx = np.floor(low).astype(np.int64)

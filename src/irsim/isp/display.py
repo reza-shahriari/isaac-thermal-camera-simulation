@@ -35,7 +35,7 @@ from numpy.typing import NDArray
 from irsim.config.sensor import ISP_OPTIONAL_DEFAULTS, IspSpec
 from irsim.isp.agc import agc_linear, agc_plateau, agc_plateau_local
 from irsim.isp.dde import dde
-from irsim.isp.information import agc_information, blend_linear
+from irsim.isp.information import agc_information, blend_linear, equalise_image
 from irsim.isp.palette import to_display8
 
 __all__ = ["DisplayOutputs", "isp_config_hash", "agc_none", "run_display_branch"]
@@ -85,8 +85,17 @@ def run_display_branch(dn16: object, isp: IspSpec, bit_depth: int) -> DisplayOut
     if isp.agc == "linear":
         y = agc_linear(dn, isp.clip_percentiles[0], isp.clip_percentiles[1], 1.0, bit_depth)  # R1
     elif isp.agc == "plateau_equalization":
-        y = agc_plateau(dn, isp.plateau, bit_depth)  # R1
-        y = blend_linear(y, dn, isp.linear_percent, bit_depth)  # SC.21; λ = 0 is the identity
+        if isp.linear_percent or isp.clip_limit_low or isp.max_gain:  # SC.21, SC.25
+            y = equalise_image(
+                dn,
+                isp.plateau,
+                bit_depth,
+                linear_percent=isp.linear_percent,
+                clip_limit_low=isp.clip_limit_low,
+                max_gain=isp.max_gain,
+            )
+        else:
+            y = agc_plateau(dn, isp.plateau, bit_depth)  # R1
     elif isp.agc == "information_based":
         # SC.21: DDE is part of this operator (the high-pass is added back at the transfer's
         # slope), so the R3 unsharp mask below is skipped for it rather than applied twice.
@@ -99,9 +108,14 @@ def run_display_branch(dn16: object, isp: IspSpec, bit_depth: int) -> DisplayOut
             detail_headroom=isp.detail_headroom,
             detail_gain=1.0 + isp.dde_gain,
             smoothing_sigma_dn=isp.smoothing_sigma_dn,
+            clip_limit_low=isp.clip_limit_low,
+            max_gain=isp.max_gain,
         )
     elif isp.agc == "plateau_local":
-        y = agc_plateau_local(dn, isp.plateau, isp.agc_tiles, bit_depth)  # M9.10
+        y = agc_plateau_local(
+            dn, isp.plateau, isp.agc_tiles, bit_depth, clip_limit_low=isp.clip_limit_low
+        )  # M9.10
+        y = blend_linear(y, dn, isp.linear_percent, bit_depth)  # SC.25; λ = 0 is the identity
     elif isp.agc == "none":
         y = agc_none(dn, bit_depth)
     else:  # pragma: no cover - the schema restricts the literal

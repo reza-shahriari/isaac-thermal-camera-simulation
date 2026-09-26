@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **Vendor-neutral AGC controls and a mode selector** (SC.25, ADR 0149, §11.3): `clip_limit_low`
+  (the Lepton low clip) and `max_gain` (Boson, Xenics) on every equalising mode, beside
+  `linear_percent`. Zero is the old operator bit for bit. The low clip takes a clear-sky target from
+  ≤ 3 to ≥ 20 codes, and `max_gain` 1.25 holds a bland sky's noise to ≤ 43 codes instead of 256.
+  `redisplay_planes.py --agc all` renders every mode side by side. The Warp AGC now refuses the
+  controls it has no port of (it had silently dropped `linear_percent`).
+
+### Changed
+- **The NIR camera has a visible-camera display, not the Boson's** (SC.26, S54):
+  `example_nir_si_1280.yaml` goes from plateau + DDE to `linear` with gamma 2.2. The
+  `nir_frame_display8` golden was regenerated deliberately; `dn16` and `radiance` are bit-identical.
+
 ### Fixed
 - **The infrared cloud reads at its own base, dry-adiabatically, through its own march** (AT.19,
   ADR 0146). The `phantom4_weather` clip's 17 °C cloud under 12.9 °C air was the two-weather

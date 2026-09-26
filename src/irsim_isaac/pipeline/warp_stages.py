@@ -46,7 +46,7 @@ from numpy.typing import NDArray
 from irsim.atmosphere.beer_lambert import transmittance
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.config.gbuffer import UNMAPPED_MATERIAL_ID
-from irsim.config.sensor import IspSpec, SensorSpec
+from irsim.config.sensor import ISP_OPTIONAL_DEFAULTS, IspSpec, SensorSpec
 from irsim.detector.bolometer import PHOTON_SCALE_GUARD, MicrobolometerDetector
 from irsim.detector.lowpass import alpha_for
 from irsim.detector.params import BolometerParams
@@ -1901,6 +1901,16 @@ def agc_lut_warp(
     kernels", not "only scalars move". The device-side version is a roadmap step; the loop in
     :func:`replace_bad_pixels_warp` is the worse offender and is named there too.
     """
+    # SC.21/SC.25: the cross-vendor controls (Linear Percent, low clip, max gain, the information
+    # histogram) exist only on the CPU branch. A table built without them would render a different
+    # picture from the oracle and say nothing, so refuse instead (ADR 0147, ADR 0149).
+    dumped = isp.model_dump()
+    unported = [k for k, v in ISP_OPTIONAL_DEFAULTS.items() if dumped.get(k) != v]
+    if unported or isp.agc == "information_based":
+        raise NotImplementedError(
+            f"the device AGC has no port of agc={isp.agc!r} / {unported}; "
+            "use the CPU display branch"
+        )
     warp = _require()
     import warp.utils as wputils
 

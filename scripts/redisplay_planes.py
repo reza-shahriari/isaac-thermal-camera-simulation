@@ -27,9 +27,17 @@ Two corrections are applied, both from the 2026-09-26 diagnosis (spec issues S52
 −26 … +34 °C apparent. The bar is fixed for the whole clip, which is what lets a warm-up be seen.
 Under the AGC the mapping is rebuilt every frame, so that clip has gauges but no bar.
 
+**The AGC is selectable** (``--agc``, SC.25): linear, global plateau equalisation, local tiled
+equalisation (CLAHE) and detail-weighted equalisation, each a vendor-neutral family that a given
+camera parameterises (ADR 0149), with the shared controls ``--linear-percent``,
+``--clip-limit-low`` and ``--max-gain``. ``--agc all`` writes one clip per mode and a 2×2 mosaic.
+
 Usage (CPU only, no Isaac Sim)::
 
     python.sh scripts/redisplay_planes.py outputs/phantom4_perpart
+    python.sh scripts/redisplay_planes.py outputs/phantom4_perpart --agc all
+    python.sh scripts/redisplay_planes.py outputs/phantom4_perpart --agc plateau_equalization \
+        --clip-limit-low 1e-3 --max-gain 4
 """
 
 from __future__ import annotations
@@ -50,6 +58,16 @@ CEILING_K = 473.15
 #: Both even, so the encoded frame keeps even dimensions.
 MARGIN_TOP = 96
 MARGIN_LEFT = 400
+#: Every AGC the display branch can run (`isp.agc`, §11.3). The camera's own config chooses one;
+#: this script lets the viewer choose, and compare them on the same frames.
+AGC_MODES = ("linear", "plateau_equalization", "plateau_local", "information_based")
+#: One line per mode for the frame caption: which vendor family each one stands for.
+AGC_LABEL = {
+    "linear": "linear, percentile tails (every vendor's 'linear' preset)",
+    "plateau_equalization": "global plateau HEQ (Boson plateau / Lepton HEQ)",
+    "plateau_local": "local tiled HEQ (CLAHE)",
+    "information_based": "detail-weighted HEQ (Boson IBE)",
+}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -64,7 +82,33 @@ def main(argv: list[str] | None = None) -> int:
         default=0.3,
         help="Linear Percent blend (FLIR's worked example uses 30 %%; its default is unpublished)",
     )
+    parser.add_argument(
+        "--agc",
+        default="information_based",
+        help="the AGC mode(s) for the AGC clip: one of "
+        f"{', '.join(AGC_MODES)}, a comma-separated list, or 'all'. More than one writes a clip "
+        "per mode plus FIXED_agc_modes.mp4, every mode side by side on the same frames",
+    )
+    parser.add_argument(
+        "--clip-limit-low",
+        type=float,
+        default=0.0,
+        help="Lepton-family low clip, fraction of N per occupied bin (SC.25; 0 = off)",
+    )
+    parser.add_argument(
+        "--max-gain",
+        type=float,
+        default=0.0,
+        help="cap on display codes per DN, Boson/Xenics max gain (SC.25; 0 = off)",
+    )
     args = parser.parse_args(argv)
+    modes = list(AGC_MODES) if args.agc == "all" else [m.strip() for m in args.agc.split(",")]
+    unknown = [m for m in modes if m not in AGC_MODES]
+    if unknown:
+        parser.error(f"unknown AGC mode(s) {unknown}; choose from {', '.join(AGC_MODES)}")
+    # FIXED_agc and its side-by-side stay the detail-weighted mode whenever it was asked for, so
+    # `--agc all` adds clips rather than changing what the existing ones show.
+    main_mode = "information_based" if "information_based" in modes else modes[0]
 
     import numpy as np
     from PIL import Image
@@ -74,7 +118,13 @@ def main(argv: list[str] | None = None) -> int:
     from irsim.isp.display import run_display_branch
     from irsim.isp.palette import palette_table, quantise_display
     from irsim.radiometry.lut_files import load_band_lut_for_config
-    from irsim_eval.video import encode_mp4, ffmpeg_available, overlay_readout, target_span_k
+    from irsim_eval.video import (
+        annotate,
+        encode_mp4,
+        ffmpeg_available,
+        overlay_readout,
+        target_span_k,
+    )
 
     run: pathlib.Path = args.run
     metas = sorted(run.glob("frame_*.json"))
@@ -90,13 +140,18 @@ def main(argv: list[str] | None = None) -> int:
     top = float(2**bits - 1)
     l_lo = float(lut.lookup(FLOOR_K)[()])
     l_hi = float(lut.lookup(CEILING_K)[()])
-    isp = sensor.sensor.isp.model_copy(
-        update={
-            "agc": "information_based",
-            "plateau": args.plateau,
-            "linear_percent": args.linear_percent,
-        }
-    )
+    isps = {
+        mode: sensor.sensor.isp.model_copy(
+            update={
+                "agc": mode,
+                "plateau": args.plateau,
+                "linear_percent": args.linear_percent,
+                "clip_limit_low": args.clip_limit_low,
+                "max_gain": args.max_gain,
+            }
+        )
+        for mode in modes
+    }
     nodes = [{k: float(v) for k, v in f["node_temperatures_k"].items()} for f in frames]
     # The gauges carry the parts' *kinetic* temperatures (the thermal model's), which fix the
     # gauge scale. The picture is *apparent* temperature: each part also reflects the −45 °C sky,
@@ -132,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
 
     out_dir = run / "frames"
     stats: dict[str, Any] = {
+        "agc_modes": modes,
         "floor_k": FLOOR_K,
         "span_k": span,
         "gauge_span_k": gauge_span,
@@ -155,17 +211,37 @@ def main(argv: list[str] | None = None) -> int:
             f"el {meta['elevation_deg']:4.1f} deg"
             + (f"   span {rows[index]['px_across']:5.1f} px" if rows else "")
         )
-        agc = run_display_branch(dn, isp, bits).display8[..., :3]
-        agc_frame = overlay_readout(
-            with_margin(agc),
-            [
-                head,
-                f"FIXED: information-based AGC, linear {args.linear_percent:.0%}, per frame",
-                f"ADC floor {FLOOR_K:.0f} K (was 233 K: {old_clipped:.0%} of frame at DN 0)",
-            ],
-            values,
-            gauge_span,
-        )
+        shown = {
+            mode: run_display_branch(dn, isp, bits).display8[..., :3] for mode, isp in isps.items()
+        }
+        per_mode = {
+            mode: overlay_readout(
+                with_margin(image),
+                [
+                    head,
+                    f"FIXED: {AGC_LABEL[mode]}, linear {args.linear_percent:.0%}, per frame",
+                    f"ADC floor {FLOOR_K:.0f} K (was 233 K: {old_clipped:.0%} of frame at DN 0)",
+                ],
+                values,
+                gauge_span,
+            )
+            for mode, image in shown.items()
+        }
+        agc = shown[main_mode]
+        agc_frame = per_mode[main_mode]
+        if len(modes) > 1:
+            for mode, image in per_mode.items():
+                write_png(out_dir / f"{args.prefix}agc-{mode}_{index:05d}.png", image)
+            tiles = [annotate(image, [head, AGC_LABEL[mode]]) for mode, image in shown.items()]
+            while len(tiles) % 2:
+                tiles.append(np.zeros_like(tiles[0]))
+            rows_of_two = [
+                np.concatenate(tiles[i : i + 2], axis=1) for i in range(0, len(tiles), 2)
+            ]
+            write_png(
+                out_dir / f"{args.prefix}modes_{index:05d}.png",
+                np.ascontiguousarray(np.concatenate(rows_of_two, axis=0)[..., :3]),
+            )
         linear = gray[quantise_display((t_k - span[0]) / (span[1] - span[0]))]
         ir_frame = overlay_readout(
             with_margin(linear),
@@ -209,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
         ("ir", "ir"),
         ("agcvsold", "agc_vs_old"),
         ("irvsold", "ir_vs_old"),
+        ("modes", "agc_modes"),
+        *((f"agc-{mode}", f"agc_{mode}") for mode in modes if len(modes) > 1),
     ):
         pattern = out_dir / f"{args.prefix}{kind}_*.png"
         if not any(out_dir.glob(pattern.name)):

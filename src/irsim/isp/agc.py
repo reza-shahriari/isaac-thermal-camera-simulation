@@ -168,18 +168,29 @@ def agc_plateau(
     return np.asarray(lut[idx], dtype=np.float32)
 
 
-def plateau_lut(counts: object, plateau: float) -> NDArray[np.float64] | None:
+def plateau_lut(
+    counts: object, plateau: float, clip_limit_low: float = 0.0
+) -> NDArray[np.float64] | None:
     """The bin → [0, 1] mapping :func:`agc_plateau` applies, or ``None`` for a flat histogram.
 
     Factored out because the local operator needs one of these per tile and must blend four of
     them per pixel; sharing the function is what makes "one tile equals the global operator"
     an identity rather than a coincidence.
+
+    ``clip_limit_low`` (SC.25, ADR 0149) is the Lepton-family control: ``clip_limit_low · N`` is
+    added to every *occupied* bin after the high clip, so sparsely populated temperatures -- a
+    small target's -- are guaranteed a floor of shades however few pixels hold them. Zero adds
+    0.0 to every bin, which changes no bits.
     """
     if plateau <= 0.0:
         raise ValueError("plateau must be positive (fraction of N_pixels per bin)")
+    if clip_limit_low < 0.0:
+        raise ValueError("clip_limit_low must be non-negative (fraction of N_pixels per bin)")
     c = np.asarray(counts, dtype=np.float64)
     n = float(c.sum())
     clipped = np.minimum(c, plateau * n)
+    if clip_limit_low > 0.0:
+        clipped = clipped + np.where(c > 0.0, clip_limit_low * n, 0.0)
     cdf_excl = np.concatenate(([0.0], np.cumsum(clipped)[:-1]))
     occupied = np.flatnonzero(c)
     if occupied.size == 0:
@@ -228,6 +239,7 @@ def agc_plateau_local(
     tiles: tuple[int, int] = DEFAULT_TILES,
     bit_depth: int = 16,
     weights: object = None,
+    clip_limit_low: float = 0.0,
 ) -> Float32Array:
     """Locally-adaptive plateau equalisation: per-tile CDFs blended bilinearly (§11.3, M9.10).
 
@@ -272,7 +284,7 @@ def agc_plateau_local(
             tile_w = None if w is None else w[rows[i] : rows[i + 1], cols[j] : cols[j + 1]]
             if tile_w is not None and tile_w.sum() <= 0.0:
                 tile_w = None  # an ROI that misses this tile entirely: fall back to every pixel
-            lut = plateau_lut(histogram_dn(tile, bit_depth, tile_w), plateau)
+            lut = plateau_lut(histogram_dn(tile, bit_depth, tile_w), plateau, clip_limit_low)
             contribution = CONSTANT_FRAME_LEVEL if lut is None else lut[idx]
             out += weight * contribution
             covered += weight

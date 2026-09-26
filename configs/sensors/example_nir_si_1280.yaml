@@ -116,12 +116,16 @@ sensor:
     shutterless_tau_s: 120.0
 
   isp:
-    agc: plateau_equalization
-    plateau: 0.012
+    # SC.26 (ADR 0149): a silicon NIR camera is a visible-camera pipeline, not a thermal core.
+    # It auto-exposes, then applies a black level, a linear stretch and a display gamma; it has
+    # no histogram equaliser tuned for a 14-bit bolometer and no thermal DDE. This block used to
+    # be the Boson's, copied. The exposure half is SC.27 -- this file is still one exposure.
+    agc: linear
+    plateau: 0.012                               # unused by `linear`; the schema requires it
     clip_percentiles: [0.005, 0.995]
-    gamma: 1.0
-    dde_gain: 0.25
-    polarity: white_hot
+    gamma: 2.2                                   # display gamma, y = x^(1/2.2): sRGB-like
+    dde_gain: 0.0
+    polarity: white_hot                          # brighter = more reflected light in this band
     palette: gray
 
   outputs:

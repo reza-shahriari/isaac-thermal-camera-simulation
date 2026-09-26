@@ -502,6 +502,8 @@ ISP_OPTIONAL_DEFAULTS: dict[str, float] = {
     "info_weight": 1.0,
     "detail_headroom": 0.0,
     "smoothing_sigma_dn": 1250.0,
+    "clip_limit_low": 0.0,
+    "max_gain": 0.0,
 }
 
 
@@ -526,6 +528,12 @@ class IspSpec(_Frozen):
     info_weight: float = Field(1.0, ge=0.0)  # ESTIMATED: FLIR publishes no number
     detail_headroom: float = Field(0.0, ge=0.0, lt=0.5)
     smoothing_sigma_dn: float = Field(1250.0, gt=0.0)  # FLIR's Smoothing Factor default, as DN
+    # SC.25 (ADR 0149): two controls every equalising core has under some name. The Lepton
+    # family's low clip limit (a floor of shades for any occupied bin, fraction of N per bin)
+    # and the Boson/Xenics max gain (display codes of 255 per DN; 0 = no limit). Both 0 = the
+    # old operator.
+    clip_limit_low: float = Field(0.0, ge=0.0, lt=1.0)
+    max_gain: float = Field(0.0, ge=0.0)
 
     @model_validator(mode="after")
     def _clip(self) -> IspSpec:

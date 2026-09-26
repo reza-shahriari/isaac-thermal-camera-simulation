@@ -959,6 +959,25 @@ is also what spreads a drone's motors away from its shell.
 
 **Why it matters for automotive:** a hot exhaust entering frame collapses contrast on everything else, because AGC is global. That failure mode is real, is a genuine hazard for perception, and only appears in simulation if you model AGC. Add ROI-weighted and locally-adaptive variants as options.
 
+**The families are shared; the parameters are the camera.** Across vendors the uncooled-core AGC is
+one construction with differently named controls: a high clip (plateau) and a **low clip** — a
+constant added to every occupied bin, so a sparsely populated temperature keeps a floor of shades —
+in the Lepton family [R52]; Linear Percent, tail rejection and a **max gain** capping the transfer's
+slope in the Boson family [R51]; auto-gain with a "maximal allowed stretching" and an equalisation
+strength in InGaAs SWIR cores [R53]; CLAHE-style local equalisation in the literature for the rest.
+Model the families (linear, global plateau, local tiled, detail-weighted) and the shared controls
+(linear percent, low clip, max gain), and express a specific camera as a parameter set of them.
+Max gain matters most for the sky lane: a clear sky a few DN wide is the blandest scene there is,
+and uncapped equalisation stretches its noise across the whole ramp.
+
+**A band's display chain follows its detector.** In the emissive bands the scene radiance moves by a
+small factor between night and noon, so exposure is fixed and the display work is the AGC. In the
+reflective bands (NIR, SWIR) it moves by five to six decades, and the camera is exposure-driven like
+a visible camera: **auto-exposure** sets the integration time and switches gain modes, and only then
+does a lighter AGC run [R53]. A silicon NIR sensor's display is the visible-camera chain — black
+level, linear stretch, display gamma — not a bolometer's equaliser. Do not give a reflective-band
+camera an uncooled LWIR core's ISP.
+
 **Digital detail enhancement (DDE):** high-pass boost added back over the compressed image. Model as unsharp mask with a configurable gain — it is why real thermal images look "crunchy."
 
 ### 11.4 Polarity and palette
@@ -1589,6 +1608,8 @@ Steps 1–5 give a defensible LWIR camera. Steps 6–9 are what separate it from
 - [R49] C. Tempelhahn, H. Budzier, V. Krause, G. Gerlach, *Shutter-less calibration of uncooled infrared cameras*, J. Sens. Sens. Syst. 5, 9–16, 2016. https://jsss.copernicus.org/articles/5/9/2016/ — the housing and shutter radiation as explicit, temperature-measured terms; the field-dependent share of the housing seen by each pixel.
 - [R50] P. W. Nugent, J. A. Shaw, N. J. Pust, *Correcting for focal-plane-array temperature dependence in microbolometer infrared cameras lacking thermal stabilization*, Opt. Eng. 52(6), 061304, 2013. https://doi.org/10.1117/1.OE.52.6.061304 — responsivity and offset drift as functions of FPA temperature, the multiplicative mechanism distinct from the housing pedestal.
 - [R51] FLIR, *FLIR Camera Adjustments — Boson Application Note*, 102-2013-100-01 Rev 220, June 2018. https://tesscorn-thermalimaging.com/wp-content/uploads/2024/08/Boson-CameraAdjustments-AppNote-2.pdf — the Boson's AGC: plateau value as a fraction of the ROI's pixels per bin (default 7 %), Information-Based Equalization as the factory default mode, Linear Percent, Tail Rejection, Max Gain, Damping Factor, DDE and Detail Headroom.
+- [R52] FLIR, *Lepton Software Interface Description Document (IDD)*, 110-0144-04. https://cdn.sparkfun.com/assets/0/6/d/2/e/16465-FLIRLepton-SoftwareIDD.pdf — AGC HEQ: clip limit high (bin population cap), clip limit low (constant added to every non-zero bin), linear percent, dampening factor (IIR), ROI.
+- [R53] Xenics, *Smart onboard image enhancement algorithms for SWIR day and night vision camera*, 2015. https://www.researchgate.net/publication/283861475_Smart_onboard_image_enhancement_algorithms_for_SWIR_day_and_night_vision_camera — auto-exposure positions the histogram by integration time and switches gain and read-out modes; auto-gain and histogram equalisation follow, with a maximal allowed stretching and equalisation strength.
 
 **Related open work**
 

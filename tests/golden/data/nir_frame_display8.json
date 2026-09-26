@@ -1,6 +1,6 @@
 {
   "atol": 1.0,
-  "config_hash": "295b8d5975432b6db8ac510de70e978873838bf03cae79df754c348f7baa5b33",
+  "config_hash": "f92adfa2474b9fde0b82d9f3220dea1f3861c54e463b12d6ff774245ca5ee2c3",
   "dtype": "uint8",
   "name": "nir_frame_display8",
   "numpy_version": "2.3.1",

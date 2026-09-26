@@ -116,6 +116,16 @@ parts in temperature order, and on `phantom4_perpart` frame 96 from 3 to 30. Its
 published, so it is a flagged approximation until a Tier 4 fit exists. No config selects it yet
 (`SC.22`), and no hash or golden moved.
 
+**The AGC is selectable, and it is a set of families rather than one camera (`SC.25`, `SC.26`,
+ADR 0149).** `isp.agc` picks `linear`, `plateau_equalization`, `plateau_local` (tiled, CLAHE),
+`information_based` (detail-weighted) or `none`. Every equalising mode takes the controls vendors
+share under different names: `linear_percent`, `clip_limit_low` (the Lepton low clip) and
+`max_gain` (Boson and Xenics). A specific camera is a parameter set of these. On a clear sky the
+low clip takes a 0.6 % target from 3 to 27 codes, and `max_gain` stops a bland sky's noise filling
+the ramp. `scripts/redisplay_planes.py <run> --agc all` renders every mode on the same frames.
+The NIR silicon config, which had inherited the Boson's thermal ISP, now has a visible-camera
+display (linear, gamma 2.2). Reflective-band cameras still lack auto-exposure (`SC.27`).
+
 **The global AGC is why a target reads as one flat white shape, and there is now an alternative
 (M9.10).** One hot object sets the stretch for every pixel in the frame — that is not a defect to
 fix, it is what a real core does, so the global operators stay the default. But §11.3 offers two
@@ -794,7 +804,9 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   0.6 % of the frame, receives 3 of 256 grey levels for parts spanning 15 → 38 °C. A Boson's factory
   default, Information-Based Equalization blended by Linear Percent, exists as `agc:
   information_based` (`SC.21`), but no config selects it yet. Separately, the ADC puts DN 0 at
-  −40 °C, so 33–79 % of those frames' sky is clipped to one code. The float32 `apparent_t` and `radiance` planes are unaffected; only `dn16` below −40 °C and
+  −40 °C, so 33–79 % of those frames' sky is clipped to one code. And no photon camera
+  auto-exposes (`SC.27`, S54): the NIR and SWIR configs are each one fixed integration time, valid
+  only near the light level they were written for. The float32 `apparent_t` and `radiance` planes are unaffected; only `dn16` below −40 °C and
   the 8-bit display are.
 - **Every camera is in perfect focus at every range** (`OC` lane). There is no focus distance in
   `OpticsSpec`, the optical PSF is one kernel applied to the whole plane independent of

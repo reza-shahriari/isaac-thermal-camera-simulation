@@ -166,23 +166,23 @@ def _isp(**overrides: object) -> IspSpec:
     return IspSpec.model_validate(base)
 
 
-def test_a_config_written_before_sc21_keeps_its_isp_hash() -> None:
-    """The four new fields at their defaults are left out of the hash, so no golden's provenance
-    moves; any one of them set away from its default does move it."""
-    isp = _isp()
-    legacy = {
-        k: v
-        for k, v in isp.model_dump(mode="json").items()
-        if k not in ("linear_percent", "info_weight", "detail_headroom", "smoothing_sigma_dn")
-    }
-    import hashlib
-    import json
+#: The `isp_hash` written into every `phantom4_perpart` frame sidecar, rendered with the Boson's
+#: `isp` block before SC.21 existed. A hash recorded by a real run, not recomputed by the test.
+PRE_SC21_BOSON_ISP_HASH = "bc94c25ef9fe1f3b5d3e14ca953d9aa71a5af4fd08eec898d4e5c92a50ec0c4e"
 
-    expected = hashlib.sha256(
-        json.dumps({"isp": legacy, "bit_depth": 16}, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    assert isp_config_hash(isp, 16) == expected
-    assert isp_config_hash(_isp(linear_percent=0.3), 16) != expected
+
+def test_a_config_written_before_sc21_keeps_its_isp_hash() -> None:
+    """Every SC.21/SC.25 field at its default is left out of the hash, so the Boson's ISP hashes
+    exactly as it did in a render made before the fields existed; any one set away from its
+    default moves it."""
+    assert isp_config_hash(_isp(), 16) == PRE_SC21_BOSON_ISP_HASH
+    for field, value in (
+        ("linear_percent", 0.3),
+        ("info_weight", 2.0),
+        ("clip_limit_low", 0.001),
+        ("max_gain", 1.25),
+    ):
+        assert isp_config_hash(_isp(**{field: value}), 16) != PRE_SC21_BOSON_ISP_HASH, field
 
 
 def test_the_display_branch_runs_information_based_to_rgba8() -> None:
