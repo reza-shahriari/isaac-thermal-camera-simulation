@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A VDB cloud renders in the path tracer after all** (AT.13 reopened, ADR 0144). ADR 0140's
+  "nothing volumetric renders here" rested on a probe control that contained the cube under test
+  and on four `OmniVolumeDensity` inputs the MDL does not declare (`densityMultiplier`,
+  `scattering_scale`, `absorption_scale`, `albedo`), which USD drops silently — so the file was
+  never named to the material. `irsim_isaac.cloud_volume.author_cloud_volume` now authors the
+  recipe that renders: a mesh box at the grid's world bounds with **no transform**,
+  `primvars:isVolume`, the `.vdb` on `volume_density_texture`, `volume_albedo`,
+  `volume_density_scale`, `directional_bias`, and the material on all three `mdl:` outputs.
+  Measured in eleven path-traced runs on the A6000: the box renders the cloud (linear-HDR
+  99.9th percentile **2.12** against the control's 0.92; lit tops, flat bases, its shadow on the
+  backdrop); a unit cube scaled to the same bounds darkens the whole frame **40×** at any density
+  because the texture is sampled in local space; a `UsdVol.Volume` prim renders nothing in five
+  variants; a volume writes **no depth**. `scripts/probe_cloud_volume.py` gained a real control
+  stage, `HdrColor` with auto-exposure off, the Non-uniform Volumes settings
+  (`/rtx/pathtracing/ptvol/enabled`), and `--pt-bounces`, `--texture-box`, `--texture-cube`,
+  `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
+
 ### Changed
 - **The physics spec now says where the housing radiation lands on the array, and what a shutter FFC
   actually snapshots.** A downloaded clear-sky frame from an uncooled 640×512 core showed a smooth radial

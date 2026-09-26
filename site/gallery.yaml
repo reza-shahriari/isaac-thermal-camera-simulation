@@ -579,3 +579,33 @@ sections:
       - image: recapture/cloudy_flatfield.png
         width: third
         caption: cloudy, flat-fielded
+
+  - id: cloud-in-the-path-tracer
+    title: The cloud deck, rendered by the path tracer
+    lead: |
+      The first cloud this project has had *inside* the renderer rather than painted on a dome at
+      infinity: `irsim.atmosphere.cloud_deck`'s field, written as OpenVDB by the library that
+      ships inside Isaac Sim, and integrated by RTX path tracing with its own multiple scattering.
+      Lit tops, flat bases, self-shadowing, and the cloud's shadow on the red backdrop behind it.
+      ADR 0140 had recorded that nothing volumetric renders on this build; ADR 0144 records why
+      that was wrong (a probe control that contained the thing under test, and material inputs
+      the MDL does not declare) and the recipe that renders: a mesh box at the grid's world
+      bounds with no transform, `primvars:isVolume`, and the `.vdb` handed to `OmniVolumeDensity`
+      as its density texture. Measured in linear HDR against the control frame: the 99.9th
+      percentile rises from 0.92 to 2.12, and the depth buffer does not move at all — a volume
+      writes no depth, which is why occlusion in the infrared stays with this project's own march.
+    media:
+      - image: cloud_volume_probe/cloud_path_traced.png
+        width: half
+        caption: >-
+          With the volume: 640×480, 64 samples per pixel, 32 bounces, one fixed tone curve anchored
+          on the control frame.
+      - image: cloud_volume_probe/control.png
+        width: half
+        caption: The control frame — the same backdrop and sun with nothing under test.
+    note: |
+      A probe frame, not a scene: the backdrop is a red plane and the haze with light shafts under
+      the cloud is the probe's global volumetric fog setting, left on so that a shadow through it
+      would show. The path-traced base is visibly noisy at this sample count; the dome bake remains
+      the real-time path and the volume is the path-tracing one.
+    source: scripts/probe_cloud_volume.py

@@ -377,35 +377,42 @@ pixels and carries real structure with it, at 27 s of bake and a 25 MB EXR — b
 and a clear dome pays neither, because the cost is the march.
 
 The same deck is the visible band's cloud. `irsim_isaac.cloud_volume` voxelises the *same
-function* the infrared march integrates into a NanoVDB grid and binds it to a `UsdVol.Volume`, so
-the companion frame carries real participating geometry a camera can fly toward rather than cloud
-painted on a dome at infinity — and the two bands cannot be different clouds, because they are one
-object. Two things that had to be got right and were not, first time: the field is synthesised **on
-the deck in metres** (projecting the hemispherical field down and extruding it makes tall thin fins,
-and the frame came out as vertical streaks), and the march sizes its own step count from the
-geometry (a fixed 48 steps put samples 68 m apart across a 25 m grid, which drew bands along every
-cloud edge).
+function* the infrared march integrates into an OpenVDB grid and puts it in the stage as a volume,
+so the companion frame carries real participating geometry a camera can fly toward rather than
+cloud painted on a dome at infinity — and the two bands cannot be different clouds, because they
+are one object. Two things that had to be got right and were not, first time: the field is
+synthesised **on the deck in metres** (projecting the hemispherical field down and extruding it
+makes tall thin fins, and the frame came out as vertical streaks), and the march sizes its own
+step count from the geometry (a fixed 48 steps put samples 68 m apart across a 25 m grid, which
+drew bands along every cloud edge).
 
-One half of that does not work on this build, and `AT.13` has now found out why — which is not
-what the previous answer said. The grid is written with **the OpenVDB that ships inside Isaac
-Sim**: `omni.volume` carries OpenVDB 12 and NanoVDB bindings, importable outside Kit once the
-libraries they carry no RPATH for are preloaded, so there is no hand-stamped header and no
-back-filled file metadata any more, and writing a deck needs no GPU. It still does not render —
-and neither does a plain **cube carrying `OmniVolumeDensity` with no VDB file of any kind**, which
-is the measurement that matters: it was never our grid. In `PathTracing` the frames are
-*byte*-identical with and without the volume; in `RaytracedLighting` the difference sits below the
-denoiser's own floor. The MDL resolves, `carb.volume` and `usdVolImaging` load, and every setting
-reads back as set. `scripts/probe_cloud_volume.py` reproduces it in one command (ADR 0140).
+**The path tracer renders it (`AT.13`, ADR 0144)** — which reverses ADR 0140's verdict, and the
+reversal is the useful part. ADR 0140's "nothing volumetric renders here" rested on a control
+stage that contained the cube under test, and on four material inputs that `OmniVolumeDensity`
+does not declare and USD drops without a word. Eleven path-traced runs on 2026-09-26, each
+differenced against a control *and* a repeat of the control, and read in linear HDR with
+auto-exposure off, found the recipe by its failures: a `UsdVol.Volume` with an `OpenVDBAsset`
+field renders nothing in five variants; a unit cube scaled to the grid's bounds darkens the
+**whole frame forty-fold** at any density, because the density texture is sampled in the prim's
+*local* frame and the scale magnifies the grid until the camera is inside it; a **mesh box with
+its vertices at the grid's world bounds and no transform**, `primvars:isVolume`, the `.vdb` on the
+material's `volume_density_texture`, Non-uniform Volumes on and the bounce limit raised from the
+app's default of 3, renders the cloud — lit tops, flat bases, self-shadowing, its shadow on the
+backdrop, HDR 99.9th percentile 2.12 against the control's 0.92. `author_cloud_volume` now authors
+exactly that. One measurement shapes what follows: a volume writes **no depth**, so occlusion of a
+target by cloud in a band computed from AOVs still comes from this project's own march (`AT.14`).
 
-So `--cloud-deck` is the flag that works (the dome bakes the deck, both bands read one object) and
-`--cloud-volume` is off by default.
+`--cloud-deck` remains the flag the drivers use (the dome bakes the deck, both bands read one
+object) and is the real-time path; the volume is the path-tracing one, and switching a driver's
+`--cloud-volume` to the OpenVDB writer and the render settings is the next step.
 
 Three limits of the deck, stated rather than left to be discovered. A cloud is still a **vertical
 extrusion** — a dome standing on the base plane, widest at the bottom — where a real cumulus bulges
 above its base; the visible cloud's **interior has no shading**, because one Lambertian radiance
 covers every cloudy texel and the opacity now saturates over a cloud's body; and **every base sits
 at one altitude**, which is a degenerate geometry for a near-horizontal ray that skims it for
-kilometres. Genuine 3-D shape needs the volume in the renderer: `AT.13`, then `AT.14`.
+kilometres. Genuine 3-D shape is what the path-traced volume gives (`AT.13`); making the infrared band's
+occlusion agree with it is `AT.14`.
 
 **A close-up is a different measurement (ADR 0125).** `--close-up` holds the aircraft filling the
 frame for the whole mission, so the only thing changing is temperature: the four motor bells run

@@ -1,5 +1,5 @@
-"""The cloud deck as real geometry in the stage: NanoVDB on disk, `UsdVol.Volume` in USD
-(AT.12, ADR 0127).
+"""The cloud deck as real geometry in the stage: OpenVDB on disk, a volume box in USD
+(AT.12, ADR 0127; AT.13, ADR 0140 and ADR 0144).
 
 The visible companion used to paint cloud into the environment-dome texture (ADR 0073/0076). A
 dome light is at infinity, so that cloud had no distance, no thickness and no inside: a camera
@@ -55,8 +55,8 @@ __all__ = [
     "author_cloud_volume",
 ]
 
-#: The NanoVDB grid's name, and the `UsdVol.Volume` field relationship that binds to it. Both
-#: sides must agree; they are the same constant so they cannot drift.
+#: The grid's name inside the file. The renderer reads the file's density grid through the
+#: material's texture input (ADR 0144); the name is what a stranger's tool lists it as.
 DENSITY_GRID_NAME = "density"
 
 #: NanoVDB's sentinel for "this grid carries no checksum". Written after the grid name is patched,
@@ -349,58 +349,106 @@ def author_cloud_volume(
     grid_name: str = DENSITY_GRID_NAME,
     albedo: float = 0.96,
     density_multiplier: float = 1.0,
+    phase_bias: float = 0.85,
     with_material: bool = True,
 ) -> Any:
-    """Define a `UsdVol.Volume` at ``prim_path`` bound to ``volume``'s grid, and shade it.
+    """Put ``volume`` in the stage the way this build's path tracer actually renders it.
 
-    ``albedo`` is the single-scattering albedo of a cloud droplet in the visible, which is very
-    nearly 1 -- water barely absorbs at 0.55 um, which is why clouds are white rather than grey
-    and why their undersides are dark by shadowing rather than by absorption. 0.96 leaves a little
-    absorption so a deep tower does not glow. ESTIMATED; nothing radiometric rests on it, because
-    no infrared output reads this prim (ADR 0073).
+    **The recipe, measured on 2026-09-26 (ADR 0144), is not the USD-textbook one.** A
+    `UsdVol.Volume` with an `OpenVDBAsset` field never rendered here in any variant. What renders
+    is the recipe NVIDIA documents for USD Composer: a **mesh box** whose vertices sit at the
+    grid's world bounds and which carries **no transform**, marked ``primvars:isVolume``, bound to
+    `OmniVolumeDensity` with the ``.vdb`` handed to it as ``volume_density_texture``. Each of
+    those four clauses was found by its failure:
 
-    The scattering and absorption coefficients are split out of the grid's own extinction, so the
-    *sum* is the extinction the deck authored and the optical depth the path tracer integrates is
-    the one the environment preset asked for.
+    * the box's local space must *be* world space. A unit `UsdGeom.Cube` scaled to the same
+      bounds magnifies the grid by the scale factor and puts the camera inside cloud everywhere
+      -- the whole frame, backdrop included, darkened forty-fold in linear radiance;
+    * without ``isVolume`` the prim is a glass block with a homogeneous interior, writes depth,
+      and shows the sun as a specular highlight on its face;
+    * the material's inputs are ``volume_density_texture``, ``volume_albedo``,
+      ``volume_density_scale`` and ``directional_bias`` (read off the MDL source in the Kit
+      kernel). Inputs the MDL does not declare are dropped silently, and the first version of
+      this function set four of those;
+    * the renderer's "Non-uniform Volumes" frame (``/rtx/pathtracing/ptvol/enabled``) has to be
+      on and the bounce limits raised, or a thick scattering slab terminates black. Those are
+      render settings, not stage content: see ``VOLUME_SETTINGS`` in
+      ``scripts/probe_cloud_volume.py`` and the driver that renders with it.
+
+    ``albedo`` is the single-scattering albedo of a cloud droplet in the visible, very nearly 1
+    -- water barely absorbs at 0.55 um, which is why clouds are white and their undersides are
+    dark by shadowing rather than by absorption. 0.96 leaves a little absorption so a deep tower
+    does not glow. ESTIMATED; nothing radiometric rests on it, because no infrared output reads
+    this prim (ADR 0073). ``phase_bias`` is the material's Henyey-Greenstein-like forward bias;
+    0.85 is the visible-band cloud value.
+
+    The grid carries visible extinction per metre and the stage is in metres, so a
+    ``density_multiplier`` of 1 makes the optical depth the path tracer integrates the one the
+    deck authored. A volume writes **no depth**: ``distance_to_camera`` behind a cloud is the
+    backdrop's, so occlusion in a band computed from AOVs still has to come from this project's
+    own march (AT.14).
     """
-    from pxr import Gf, Sdf, UsdShade, UsdVol  # noqa: PLC0415
+    from pxr import Gf, Sdf, UsdGeom, UsdShade  # noqa: PLC0415
 
-    prim = UsdVol.Volume.Define(stage, prim_path)
-    asset = UsdVol.OpenVDBAsset.Define(stage, f"{prim_path}/{grid_name}")
-    asset.CreateFilePathAttr(Sdf.AssetPath(str(volume.path)))
-    asset.CreateFieldNameAttr(grid_name)
-    prim.CreateFieldRelationship(grid_name, asset.GetPath())
-    # **A volume with no extent has no bounding box, and a prim with no bounding box is culled.**
-    # `UsdVol.Volume` is `Boundable`, and unlike a mesh it has no points for USD to fall back on:
-    # the bounds live inside a file the scene delegate has not opened yet. Authoring them is not
-    # optional, and leaving them out fails the way that is hardest to diagnose -- no error, no
-    # warning, and a frame that renders correctly without the cloud in it.
-    low = volume.min_world_m
-    high = tuple(low[i] + volume.shape[i] * volume.voxel_m for i in range(3))
-    prim.CreateExtentAttr([Gf.Vec3f(*(float(v) for v in low)), Gf.Vec3f(*(float(v) for v in high))])
+    low = tuple(float(v) for v in volume.min_world_m)
+    high = tuple(float(low[i] + volume.shape[i] * volume.voxel_m) for i in range(3))
+    x0, y0, z0 = low
+    x1, y1, z1 = high
+
+    mesh = UsdGeom.Mesh.Define(stage, prim_path)
+    corners = [
+        (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+        (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
+    ]  # fmt: skip
+    mesh.CreatePointsAttr([Gf.Vec3f(*c) for c in corners])
+    mesh.CreateFaceVertexCountsAttr([4] * 6)
+    mesh.CreateFaceVertexIndicesAttr(
+        [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+    )
+    # Authored, not computed: a prim with no bounding box is culled before anything asks what is
+    # inside it, and a volume's contents live in a file the scene delegate has not opened yet.
+    mesh.CreateExtentAttr([Gf.Vec3f(*low), Gf.Vec3f(*high)])
+    # **No transform.** The density texture is sampled in the prim's local frame, and the grid's
+    # own transform is in world metres; the two coincide only when local is world.
+    UsdGeom.Xformable(mesh.GetPrim()).ClearXformOpOrder()
+    UsdGeom.PrimvarsAPI(mesh.GetPrim()).CreatePrimvar("isVolume", Sdf.ValueTypeNames.Bool).Set(True)
+    prim = mesh.GetPrim()
     if not with_material:
         # Unshaded, so a probe can tell "the grid did not load" from "the grid loaded and the
         # material did not": those two failures look identical in a frame and are different bugs.
-        return prim.GetPrim()
+        return prim
 
     material = UsdShade.Material.Define(stage, f"{prim_path}/Material")
     shader = UsdShade.Shader.Define(stage, f"{prim_path}/Material/Shader")
     shader.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
     shader.SetSourceAsset(Sdf.AssetPath("OmniVolumeDensity.mdl"), "mdl")
     shader.SetSourceAssetSubIdentifier("OmniVolumeDensity", "mdl")
-    scatter = float(albedo) * float(density_multiplier)
-    absorb = (1.0 - float(albedo)) * float(density_multiplier)
-    shader.CreateInput("scattering_scale", Sdf.ValueTypeNames.Float).Set(scatter)
-    shader.CreateInput("absorption_scale", Sdf.ValueTypeNames.Float).Set(absorb)
-    shader.CreateInput("densityMultiplier", Sdf.ValueTypeNames.Float).Set(float(density_multiplier))
-    # Neutral, because cloud droplets are far larger than a wavelength and scatter without much
-    # spectral preference -- which is itself the visible signature, the sky behind being blue.
-    tint = shader.CreateInput("albedo", Sdf.ValueTypeNames.Color3f)
-    tint.Set(Gf.Vec3f(1.0, 1.0, 1.0))
+    # The density texture *is* the grid. ``grid_name`` is kept in the signature for the callers
+    # that name it; the material reads the file's first density grid, which is the one written.
+    del grid_name
+    shader.CreateInput("volume_density_texture", Sdf.ValueTypeNames.Asset).Set(
+        Sdf.AssetPath(str(volume.path))
+    )
+    shader.CreateInput("volume_density_scale", Sdf.ValueTypeNames.Float).Set(
+        float(density_multiplier)
+    )
+    # The MDL splits the coefficients itself: scattering = albedo, absorption = 1 - albedo, both
+    # times the density. A grey albedo, because cloud droplets are far larger than a wavelength
+    # and scatter without spectral preference -- the sky behind being blue is the visible sign.
+    tint = shader.CreateInput("volume_albedo", Sdf.ValueTypeNames.Color3f)
+    tint.Set(Gf.Vec3f(float(albedo), float(albedo), float(albedo)))
     tint.GetAttr().SetColorSpace("raw")
-    material.CreateVolumeOutput("mdl").ConnectToSource(shader.ConnectableAPI(), "out")
-    UsdShade.MaterialBindingAPI(prim.GetPrim()).Bind(material)
-    return prim.GetPrim()
+    shader.CreateInput("directional_bias", Sdf.ValueTypeNames.Float).Set(float(phase_bias))
+    # Kit binds an MDL material through all three of its outputs; a stage authored by Composer
+    # carries `mdl:surface`, `mdl:displacement` and `mdl:volume` on the same shader.
+    for output in (
+        material.CreateSurfaceOutput("mdl"),
+        material.CreateDisplacementOutput("mdl"),
+        material.CreateVolumeOutput("mdl"),
+    ):
+        output.ConnectToSource(shader.ConnectableAPI(), "out")
+    UsdShade.MaterialBindingAPI(prim).Bind(material)
+    return prim
 
 
 def deck_bounds_m(deck: CloudDeck) -> tuple[np.ndarray, np.ndarray]:

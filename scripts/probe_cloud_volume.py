@@ -53,12 +53,60 @@ parser.add_argument(
     "frames byte-identical is how you learn the setting did nothing.",
 )
 parser.add_argument(
+    "--no-isvolume",
+    action="store_true",
+    help="leave `primvars:isVolume` off the cube (the 24 Sep control rendered as a lit fog "
+    "without it; with it and the ptvol settings on, it rendered black)",
+)
+parser.add_argument(
+    "--noise-cube",
+    action="store_true",
+    help="a cube with `isVolume` and the procedural OmniVolumeWorleyNoise material at its "
+    "defaults -- no file anywhere, so it tests whether a heterogeneous volume lights at all",
+)
+parser.add_argument(
+    "--pt-bounces",
+    type=int,
+    default=None,
+    help="set /rtx/pathtracing/maxBounces and ptvol/maxBounces (the UI allows up to 63); the "
+    "renderer's default of four starves a thick scattering slab",
+)
+parser.add_argument(
+    "--density-scale",
+    type=float,
+    default=None,
+    help="override `volume_density_scale` on the cube variants (tests the unit the renderer "
+    "reads the grid in: per metre, or per something else)",
+)
+parser.add_argument(
+    "--dome-light",
+    action="store_true",
+    help="add a uniform dome light beside the sun, in case volumes are not lit by distant lights",
+)
+parser.add_argument(
+    "--texture-box",
+    action="store_true",
+    help="like --texture-cube, but the bounds are a mesh box with its vertices at the VDB's "
+    "world bounds and **no transform**, so the prim's local space is world space. If the "
+    "renderer samples the density texture in local space, a unit cube scaled by 5200 magnifies "
+    "the grid 5200-fold and puts the camera inside cloud everywhere -- which is what a frame "
+    "that darkens edge to edge, at any density scale, looks like.",
+)
+parser.add_argument(
+    "--texture-cube",
+    action="store_true",
+    help="the documented recipe: a cube with `isVolume` on the VDB's bounds, and the VDB given "
+    "to OmniVolumeDensity as its `volume_density_texture`",
+)
+parser.add_argument(
     "--cube",
     action="store_true",
     help="a cube of constant density with the same volume material and no VDB at all -- which "
     "separates 'the material does not exist on this build' from 'the grid is refused'",
 )
 args = parser.parse_args()
+args._volume_path = None
+args._volume_bounds = None
 
 if args.gpu is not None:
     os.environ["IRSIM_GPU"] = str(args.gpu)
@@ -101,6 +149,11 @@ VOLUME_EXTENSIONS = ("omni.volume", "omni.hydra.index", "omni.index")
 #: front of an aircraft cannot occlude it in a band computed from AOVs.
 AOVS = (
     "LdrColor",
+    # Linear radiance, before the tonemapper and before any exposure adaptation. A bright volume
+    # in one corner pulls the auto-exposure down over the whole frame, and the LDR then reports
+    # a darker *backdrop* where the only change was a cloud: measured, 227 -> 52 on the backdrop
+    # below a texture-cube. HDR cannot be fooled that way.
+    "HdrColor",
     "distance_to_camera",
     "instance_id_segmentation",
     "semantic_segmentation",
@@ -110,8 +163,20 @@ AOVS = (
 #: Path-traced AOV contributions. `volumesAOV` is this build's own switch for "shading from VDB
 #: volumes" and is the first thing to check when a volume loads and renders black.
 VOLUME_SETTINGS = {
+    # **The master switch.** Path-traced volumes are the "Non-uniform Volumes" frame of the render
+    # settings, and that frame is gated by this one boolean (`omni.rtx.settings.core`,
+    # `pt_widgets.NonUniformVolumesSettingsFrame._frame_setting_path`). ADR 0140's four runs set
+    # every setting *inside* the frame and never the frame itself, which is why a volume with a
+    # file and a cube without one were equally invisible.
+    "/rtx/pathtracing/ptvol/enabled": True,
+    "/rtx/pathtracing/ptvol/transmittanceMethod": 0,
+    # The UI's own tooltips: "increase to more than 32 for highly scattering volumes like clouds".
+    "/rtx/pathtracing/ptvol/maxCollisionCount": 128,
+    "/rtx/pathtracing/ptvol/maxLightCollisionCount": 64,
+    "/rtx/pathtracing/ptvol/maxBounces": 8,
     "/rtx/pathtracing/volumesAOV": True,
     "/rtx/pathtracing/maxVolumeBounces": 8,
+    "/rtx/rtpt/maxVolumeBounces": 8,
     "/rtx/raytracing/globalVolumetricEffects/enabled": True,
 }
 
@@ -133,23 +198,84 @@ def _density_cube(stage):
     """
     from pxr import Gf, Sdf, UsdGeom, UsdShade
 
-    cube = UsdGeom.Cube.Define(stage, "/World/Cloud")
-    cube.CreateSizeAttr(1.0)
+    if args.texture_box and args._volume_bounds is not None:
+        low, high = args._volume_bounds
+        cube = UsdGeom.Mesh.Define(stage, "/World/Cloud")
+        x0, y0, z0 = low
+        x1, y1, z1 = high
+        corners = [
+            (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),
+            (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),
+        ]  # fmt: skip
+        cube.CreatePointsAttr([Gf.Vec3f(*c) for c in corners])
+        cube.CreateFaceVertexCountsAttr([4] * 6)
+        cube.CreateFaceVertexIndicesAttr(
+            [0, 3, 2, 1, 4, 5, 6, 7, 0, 1, 5, 4, 1, 2, 6, 5, 2, 3, 7, 6, 3, 0, 4, 7]
+        )
+        cube.CreateExtentAttr([Gf.Vec3f(*low), Gf.Vec3f(*high)])
+    else:
+        cube = UsdGeom.Cube.Define(stage, "/World/Cloud")
+        cube.CreateSizeAttr(1.0)
+        cube.CreateExtentAttr([Gf.Vec3f(-0.5, -0.5, -0.5), Gf.Vec3f(0.5, 0.5, 0.5)])
     half = 1200.0
-    cube.CreateExtentAttr([Gf.Vec3f(-0.5, -0.5, -0.5), Gf.Vec3f(0.5, 0.5, 0.5)])
     xform = UsdGeom.Xformable(cube.GetPrim())
-    xform.AddTranslateOp().Set(Gf.Vec3d(0.0, 1800.0, 0.0))
-    xform.AddScaleOp().Set(Gf.Vec3f(4.0 * half, 2.0 * half, 4.0 * half))
+    if args.texture_box:
+        pass
+    elif args.texture_cube and args._volume_bounds is not None:
+        low, high = args._volume_bounds
+        centre = [0.5 * (a + b) for a, b in zip(low, high, strict=True)]
+        size = [b - a for a, b in zip(low, high, strict=True)]
+        xform.AddTranslateOp().Set(Gf.Vec3d(*centre))
+        xform.AddScaleOp().Set(Gf.Vec3f(*size))
+    else:
+        xform.AddTranslateOp().Set(Gf.Vec3d(0.0, 1800.0, 0.0))
+        xform.AddScaleOp().Set(Gf.Vec3f(4.0 * half, 2.0 * half, 4.0 * half))
 
     material = UsdShade.Material.Define(stage, "/World/Cloud/Material")
     shader = UsdShade.Shader.Define(stage, "/World/Cloud/Material/Shader")
     shader.CreateImplementationSourceAttr(UsdShade.Tokens.sourceAsset)
-    shader.SetSourceAsset(Sdf.AssetPath("OmniVolumeDensity.mdl"), "mdl")
-    shader.SetSourceAssetSubIdentifier("OmniVolumeDensity", "mdl")
-    shader.CreateInput("densityMultiplier", Sdf.ValueTypeNames.Float).Set(0.004)
-    shader.CreateInput("scattering_scale", Sdf.ValueTypeNames.Float).Set(1.0)
-    material.CreateVolumeOutput("mdl").ConnectToSource(shader.ConnectableAPI(), "out")
+    if args.noise_cube:
+        shader.SetSourceAsset(Sdf.AssetPath("OmniVolumeNoise.mdl"), "mdl")
+        shader.SetSourceAssetSubIdentifier("OmniVolumeWorleyNoise", "mdl")
+        # Its defaults are a dense grey medium at a 25-unit feature size; scale the feature to
+        # the cube so the noise is visible from three kilometres.
+        shader.CreateInput("size", Sdf.ValueTypeNames.Float).Set(600.0)
+        shader.CreateInput("volume_density_scale", Sdf.ValueTypeNames.Float).Set(0.01)
+        shader.CreateInput("volume_albedo", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(0.9, 0.9, 0.9))
+    else:
+        shader.SetSourceAsset(Sdf.AssetPath("OmniVolumeDensity.mdl"), "mdl")
+        shader.SetSourceAssetSubIdentifier("OmniVolumeDensity", "mdl")
+        # The material's real inputs (see `author_cloud_volume`). 0.004 per metre across 2.4 km
+        # of cube is an optical depth near ten: opaque, but a path survives it.
+        shader.CreateInput("volume_density_scale", Sdf.ValueTypeNames.Float).Set(0.004)
+        shader.CreateInput("volume_albedo", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(1.0, 1.0, 1.0))
+    if args.texture_cube or args.texture_box:
+        # The documented recipe: a cube that says `isVolume`, with the VDB handed to the material
+        # as its density texture. The cube is the bounds; the file is the density inside them.
+        shader.CreateInput("volume_density_texture", Sdf.ValueTypeNames.Asset).Set(
+            Sdf.AssetPath(str(args._volume_path))
+        )
+        shader.CreateInput("volume_density_scale", Sdf.ValueTypeNames.Float).Set(1.0)
+    if args.density_scale is not None:
+        shader.CreateInput("volume_density_scale", Sdf.ValueTypeNames.Float).Set(
+            float(args.density_scale)
+        )
+    # Kit binds an MDL material through all three of its outputs; a stage authored by Composer
+    # carries `mdl:surface`, `mdl:displacement` and `mdl:volume` on the same shader.
+    for output in (
+        material.CreateSurfaceOutput("mdl"),
+        material.CreateDisplacementOutput("mdl"),
+        material.CreateVolumeOutput("mdl"),
+    ):
+        output.ConnectToSource(shader.ConnectableAPI(), "out")
     UsdShade.MaterialBindingAPI(cube.GetPrim()).Bind(material)
+    # A mesh only becomes a procedural volume for the path tracer when it says so; without this
+    # primvar the cube is an opaque box with a volume material bound to it, which renders as
+    # nothing in particular.
+    if not args.no_isvolume:
+        UsdGeom.PrimvarsAPI(cube.GetPrim()).CreatePrimvar("isVolume", Sdf.ValueTypeNames.Bool).Set(
+            True
+        )
     return cube.GetPrim()
 
 
@@ -225,11 +351,27 @@ def build_stage(volume_path, use_material: bool):
     light.CreateIntensityAttr(3000.0)
     light.CreateAngleAttr(0.53)
     UsdGeom.Xformable(light.GetPrim()).AddRotateXYZOp().Set(Gf.Vec3f(-35.0, 25.0, 0.0))
+    if args.dome_light:
+        dome = UsdLux.DomeLight.Define(stage, "/World/Dome")
+        dome.CreateIntensityAttr(1000.0)
+        dome.CreateColorAttr(Gf.Vec3f(0.6, 0.7, 1.0))
 
     cloud = None
-    if args.cube:
+    # `volume_path is None` means "the control stage": nothing under test in it. The cube has to
+    # honour that too -- the first version built it into the "without" stage as well, so the cube
+    # run differenced the cube against itself, read zero, and was written up as "the material is
+    # as invisible as the grid" (ADR 0140). It was not; the control was wrong.
+    if volume_path is None:
+        pass
+    elif args.cube or args.texture_cube or args.texture_box or args.noise_cube:
+        args._volume_path = volume_path.path
+        low = volume_path.min_world_m
+        args._volume_bounds = (
+            tuple(float(v) for v in low),
+            tuple(float(low[i] + volume_path.shape[i] * volume_path.voxel_m) for i in range(3)),
+        )
         cloud = _density_cube(stage)
-    elif volume_path is not None:
+    else:
         cloud = author_cloud_volume(stage, "/World/Cloud", volume_path, with_material=use_material)
 
     camera = UsdGeom.Camera.Define(stage, "/World/Camera")
@@ -249,8 +391,15 @@ def capture(camera_path, resolution, settle, spp):
     settings.set("/rtx/pathtracing/spp", int(spp))
     settings.set("/rtx/pathtracing/totalSpp", int(spp))
     settings.set("/rtx/post/aa/op", 0)
+    # No auto-exposure: the LDR frame is compared across captures, and adaptation to a bright
+    # volume would change the backdrop in a frame where only the cloud changed.
+    settings.set("/rtx/post/histogram/enabled", False)
     for key, value in VOLUME_SETTINGS.items():
         settings.set(key, value)
+    if args.pt_bounces is not None:
+        settings.set("/rtx/pathtracing/maxBounces", int(args.pt_bounces))
+        settings.set("/rtx/pathtracing/ptvol/maxBounces", int(args.pt_bounces))
+        settings.set("/rtx/pathtracing/maxSpecularAndTransmissionBounces", int(args.pt_bounces))
 
     product = rep.create.render_product(camera_path, tuple(resolution))
     path = product.path if hasattr(product, "path") else str(product)
@@ -393,6 +542,9 @@ def main() -> int:
     settings = carb.settings.get_settings()
     report["settings_readback"] = {k: settings.get(k) for k in VOLUME_SETTINGS}
     report["settings_readback"]["/rtx/rendermode"] = settings.get("/rtx/rendermode")
+    report["settings_readback"]["/rtx/pathtracing/maxBounces"] = settings.get(
+        "/rtx/pathtracing/maxBounces"
+    )
 
     for name in AOVS:
         entry = changed_fraction(with_cloud.get(name), without_cloud.get(name)) or {}
@@ -439,6 +591,29 @@ def main() -> int:
     for name, arr in repeat.items():
         np.save(os.path.join(out_dir, f"repeat_{name}.npy"), arr)
     _save_png(with_cloud.get("LdrColor"), os.path.join(out_dir, "with_cloud.png"))
+    hdr = with_cloud.get("HdrColor")
+    if hdr is not None:
+        # One fixed tone curve for every run, anchored on the *control* frame's brightest
+        # percentile, so a picture from one run can be compared with a picture from another.
+        ref = without_cloud.get("HdrColor")
+        linear = np.asarray(hdr, dtype=np.float64)[..., :3]
+        anchor = np.asarray(ref if ref is not None else hdr, dtype=np.float64)[..., :3]
+        scale = max(float(np.nanpercentile(anchor, 99.5)), 1e-9)
+        mapped = np.clip(linear / scale, 0.0, 1.0) ** (1.0 / 2.2)
+        _save_png((mapped * 255.0).astype(np.uint8), os.path.join(out_dir, "with_cloud_hdr.png"))
+        H = linear.shape[0]
+        report["hdr_means"] = {
+            "with_top_half": [round(float(v), 4) for v in linear[: H // 2].reshape(-1, 3).mean(0)],
+            "with_bottom_quarter": [
+                round(float(v), 4) for v in linear[3 * H // 4 :].reshape(-1, 3).mean(0)
+            ],
+            "without_top_half": [
+                round(float(v), 4) for v in anchor[: H // 2].reshape(-1, 3).mean(0)
+            ],
+            "with_p99_9": round(float(np.nanpercentile(linear, 99.9)), 4),
+            "without_p99_9": round(float(np.nanpercentile(anchor, 99.9)), 4),
+        }
+        print("hdr means:", report["hdr_means"])
     _save_png(without_cloud.get("LdrColor"), os.path.join(out_dir, "without_cloud.png"))
 
     path = os.path.join(out_dir, "report.json")
