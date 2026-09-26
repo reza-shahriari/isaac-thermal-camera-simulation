@@ -41,7 +41,7 @@ from irsim.optics.defocus import scene_defocus_um
 from irsim.optics.layered import layered_defocus
 from irsim.optics.projection import Intrinsics
 from irsim.optics.psf import apply_psf
-from irsim.optics.stage import apply_optics, invert_optics
+from irsim.optics.stage import apply_optics, invert_optics, shutter_flux
 from irsim.optics.thermal_defocus import effective_focus_distance_m, thermal_defocus_um
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
@@ -352,6 +352,15 @@ def run_frame(
     # the radiometric branch -- reads the corrected plane, so a frozen frame is stale in every
     # output at once rather than only in the picture.
     report = None
+    if config.chain is not None and config.chain.needs_shutter_frame(state.frame_index):
+        # §11.2 (SC.18): the shutter closes. It sits beside the focal plane, so it is at T_FPA;
+        # the housing it is seen against is this frame's. Noiseless, because the camera averages
+        # the shutter frames it calibrates on.
+        lb_shutter = float(lut.lookup(t_fpa_k, q)[()])
+        shutter_dn = config.detector.noiseless_signal_dn(
+            shutter_flux(sensor, lb_shutter, lb_housing_now)
+        )
+        config.chain.record_shutter(shutter_dn, config.flat_field)
     if config.chain is not None:
         signal, report = config.chain.finish_frame(
             signal, dn_max_for_bits(sensor.fpa.bit_depth), state.frame_index, t_fpa_k
@@ -375,8 +384,12 @@ def run_frame(
         # divides cos⁴ out per pixel -- correcting both would remove the same term twice. What a
         # viewer sees is what the camera's own ISP shows, which on any real core is flat-fielded.
         display_dn = dn16
-        if config.flat_field is not None:
-            display_dn = quantise(config.flat_field.apply(dn16), sensor.fpa.bit_depth)
+        # SC.18: after a shutter event the camera shows through the offset it measured there
+        flat = config.flat_field
+        if config.chain is not None and config.chain.display_nuc is not None:
+            flat = config.chain.display_nuc
+        if flat is not None:
+            display_dn = quantise(flat.apply(dn16), sensor.fpa.bit_depth)
         display = run_display_branch(display_dn, sensor.isp, sensor.fpa.bit_depth)
         display8, isp_hash = display.display8, display.isp_hash
     state.advance()

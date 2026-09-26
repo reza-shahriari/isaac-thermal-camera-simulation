@@ -46,6 +46,7 @@ from irsim.config.sensor import SensorSpec
 from irsim.detector.fpa_thermal import FpaThermalModel
 from irsim.isp.bad_pixel import replace_bad_pixels
 from irsim.isp.ffc import FfcController, FfcEvent
+from irsim.isp.nuc import TwoPointNuc
 from irsim.noise.defects import (
     BadPixelMap,
     DefectState,
@@ -93,6 +94,10 @@ class SensorChain:
     sensor_seed: int
     defects_enabled: bool = True
     residual_enabled: bool = True
+    #: The closed-shutter frame of the last FFC, noiseless DN (SC.18); None before the first.
+    shutter_dn: NDArray[np.float32] | None = None
+    #: The display flat field with its offset re-measured on that shutter; None = factory.
+    display_nuc: TwoPointNuc | None = None
     _drift_rng: np.random.Generator = field(init=False, repr=False)
     _last_t_s: float | None = field(default=None, init=False, repr=False)
 
@@ -159,6 +164,33 @@ class SensorChain:
             defects_enabled=defects_enabled,
             residual_enabled=residual_enabled,
         )
+
+    # -- the shutter (SC.18) ---------------------------------------------------------------
+    def needs_shutter_frame(self, frame_index: int) -> bool:
+        """True when this frame closes the shutter: at power-up and at every scheduled FFC.
+
+        A shuttered core flat-fields when it starts, so the first frame takes a snapshot even
+        though `FfcController.fires_on` never fires there (no freeze at frame 0, M9.7). The other
+        two modes have no shutter to look at.
+        """
+        if not self.ffc.shutters:
+            return False
+        return self.shutter_dn is None or self.ffc.fires_on(frame_index)
+
+    def record_shutter(
+        self, shutter_dn: NDArray[np.floating], factory_nuc: TwoPointNuc | None
+    ) -> None:
+        """Keep the shutter frame for the residual and re-measure the display offset on it.
+
+        §11.2 (SC.18): the offset snapshot. ``factory_nuc`` is the configured display flat field;
+        without one the display has no gain map to refresh, and only the residual's reference
+        changes.
+        """
+        sh = np.asarray(shutter_dn)
+        if sh.dtype == np.float16:
+            raise TypeError("shutter frame is float16 (non-negotiable #2)")
+        self.shutter_dn = np.asarray(sh, dtype=np.float32)
+        self.display_nuc = None if factory_nuc is None else factory_nuc.refreshed(self.shutter_dn)
 
     # -- the per-frame clock --------------------------------------------------------------
     def begin_frame(self, t_s: float, frame_index: int) -> tuple[float, float]:
@@ -228,7 +260,7 @@ class SensorChain:
 
         delta_t = self.ffc.delta_t_eff_k
         if self.residual_enabled:
-            signal = self.residual.apply(signal, delta_t)
+            signal = self.residual.apply(signal, delta_t, self.shutter_dn)
 
         signal = self._temporal_filter(signal)
 

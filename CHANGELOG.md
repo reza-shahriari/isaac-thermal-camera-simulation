@@ -38,6 +38,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
 
 ### Changed
+- **The FFC snapshots the shutter; the residual is radial** (SC.18, ADR 0148, §11.2). At power-up
+  and at every shutter event the chain computes the noiseless frame of the closed shutter
+  (`irsim.optics.stage.shutter_flux`: the shutter fills each pixel's cone at T_FPA, the housing
+  is seen out of cone) and `TwoPointNuc.refreshed` moves the display offset so that frame reads
+  flat. Between events the housing's drift leaves the §11.2 bowl, (1/τ)(1/RI − 1)·ΔL_h toward the
+  corners: on the Boson 640 a housing 2 K cooler than at the event puts the corners **563 mK**
+  below the centre on a 300 K scene and **1446 mK** on a 230 K sky. The residual's gain term now
+  acts on signal minus the shutter frame, so it vanishes at the shutter's own signal and is
+  largest on a cold sky -- the old form multiplied the whole signal and did the opposite. The
+  noise-budget test scales that term by rms(signal − shutter). The Warp residual kernel takes the
+  shutter plane (zeros by default); its device test was not run.
+  `tests/unit/test_shutter_reference.py`.
 - **Defects that appear after calibration are not replaced** (SC.19, §10.4). A camera
   interpolates over the defect map it was shipped with, not over the truth. The new
   `noise.bad_pixel_late_fraction` (sensor schema v12, default 0) marks that share of the defect

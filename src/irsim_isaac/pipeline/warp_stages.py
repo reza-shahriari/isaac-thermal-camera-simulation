@@ -443,11 +443,15 @@ if wp is not None:
         signal_dn: wp.array2d(dtype=wp.float32),
         gain_xi: wp.array2d(dtype=wp.float32),
         offset_xi: wp.array2d(dtype=wp.float32),
+        reference: wp.array2d(dtype=wp.float32),
         gain_scale: wp.float32,
         offset_scale: wp.float32,
         out: wp.array2d(dtype=wp.float32),
     ):
-        """g_ij x + o_ij, with both scales already carrying ΔT_FPA (M9.6, §2, §11.2).
+        """ref + g_ij (x − ref) + o_ij, both scales already carrying ΔT_FPA (M9.6, §11.2).
+
+        ``reference`` is the closed-shutter frame of the last FFC (SC.18), or zeros for the
+        pre-SC.18 form g x + o.
 
         The scales are computed on the host from the same ``NucSpec`` and the same ∂DN/∂T the CPU
         path used, so the only thing that can differ between the two paths is the xi fields --
@@ -456,7 +460,8 @@ if wp is not None:
         """
         i, j = wp.tid()
         g = wp.float32(1.0) + gain_scale * gain_xi[i, j]
-        out[i, j] = signal_dn[i, j] * g + offset_scale * offset_xi[i, j]
+        r = reference[i, j]
+        out[i, j] = r + (signal_dn[i, j] - r) * g + offset_scale * offset_xi[i, j]
 
     @wp.kernel
     def _histogram_kernel(
@@ -1805,10 +1810,16 @@ def launch_nuc_residual(
     delta_t_fpa_k: float,
     out: Any,
     device: str,
+    reference: Any = None,
 ) -> Any:
-    """Apply M9.6's residual on device; the scales are computed here, exactly as on the host."""
+    """Apply M9.6's residual on device; the scales are computed here, exactly as on the host.
+
+    ``reference`` is the shutter frame (SC.18) as a device array, or None for zeros.
+    """
     warp = _require()
     rows, cols = signal_dn.shape
+    if reference is None:
+        reference = warp.zeros((rows, cols), dtype=warp.float32, device=device)
     gain_scale = float(gain_ppm_per_k) * 1e-6 * float(delta_t_fpa_k)
     offset_scale = float(offset_mk_per_k) * 1e-3 * float(delta_t_fpa_k) * float(dn_per_k)
     warp.launch(
@@ -1818,6 +1829,7 @@ def launch_nuc_residual(
             signal_dn,
             xi[0],
             xi[1],
+            reference,
             warp.float32(gain_scale),
             warp.float32(offset_scale),
             out,

@@ -83,6 +83,23 @@ class TwoPointNuc:
     def identity(cls, shape: tuple[int, int]) -> TwoPointNuc:
         return cls(gain=np.ones(shape, np.float32), offset=np.zeros(shape, np.float32))
 
+    def refreshed(self, shutter_dn: object) -> TwoPointNuc:
+        """The same gain, with the offset re-measured on a closed shutter (§11.2, SC.18).
+
+        A shutter event is a one-point offset update: whatever the correction leaves on a frame of
+        the closed shutter, minus its mean, is taken out of the offset, so that frame reads
+        uniform. The gain is the factory's, so what survives afterwards is the housing's drift
+        since the event and any gain-map error scaled by scene minus shutter -- the two radial
+        terms of §11.2. The mean level is untouched, so the AGC downstream sees the same range.
+        """
+        sh = _as_signal(shutter_dn, "shutter_dn")
+        if sh.shape != self.gain.shape:
+            raise ValueError(f"shutter frame {sh.shape} != coefficient shape {self.gain.shape}")
+        corrected = self.apply(sh).astype(np.float64)
+        excess = corrected - corrected.mean()
+        offset = self.offset.astype(np.float64) + excess / self.gain.astype(np.float64)
+        return TwoPointNuc(gain=self.gain, offset=offset.astype(np.float32), pedestal=self.pedestal)
+
     def apply(self, dn: object) -> Float32Array:
         """DN_corr = G (DN − O) + pedestal, float32; with pedestal 0 the cold blackbody reads 0."""
         x = _as_signal(dn, "dn")

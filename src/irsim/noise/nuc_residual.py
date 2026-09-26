@@ -145,12 +145,23 @@ class NucResidual:
         """
         return abs(float(self.nuc.residual_offset_mk_per_k) * float(delta_t_fpa_k))
 
-    def apply(self, dn: NDArray[np.floating], delta_t_fpa_k: float) -> Float32Array:
+    def apply(
+        self,
+        dn: NDArray[np.floating],
+        delta_t_fpa_k: float,
+        reference_dn: NDArray[np.floating] | None = None,
+    ) -> Float32Array:
         """Apply the residual to a NUC-corrected signal plane (§2's g_ij, o_ij; §11.2).
 
         Operates on the un-quantised float signal in DN units, after the ideal two-point operator:
         what comes out is what a real camera's correction leaves. float16 is refused
         (non-negotiable #2) and the input is not modified.
+
+        ``reference_dn`` is the closed-shutter frame of the last FFC (SC.18). The offset was
+        re-measured on it, so a gain error acts on the signal *relative to the shutter*:
+        ref + g (x − ref) + o. A scene at the shutter's radiance carries no gain residual at
+        all, and a clear sky tens of kelvin below it carries the most. None keeps the
+        pre-SC.18 form g x + o, which is the same thing with the shutter at zero signal.
         """
         arr = np.asarray(dn)
         if arr.dtype == np.float16:
@@ -159,5 +170,15 @@ class NucResidual:
             raise TypeError(f"expected a float signal plane in DN units, got {arr.dtype}")
         if arr.shape != self.shape:
             raise ValueError(f"signal shape {arr.shape} != residual shape {self.shape}")
-        out = arr.astype(np.float32) * self.gain(delta_t_fpa_k) + self.offset_dn(delta_t_fpa_k)
+        x = arr.astype(np.float32)
+        if reference_dn is None:
+            out = x * self.gain(delta_t_fpa_k) + self.offset_dn(delta_t_fpa_k)
+            return np.asarray(out, dtype=np.float32)
+        ref = np.asarray(reference_dn)
+        if ref.dtype == np.float16:
+            raise TypeError("reference_dn is float16 (non-negotiable #2)")
+        if ref.shape != self.shape:
+            raise ValueError(f"reference shape {ref.shape} != residual shape {self.shape}")
+        r = ref.astype(np.float32)
+        out = r + (x - r) * self.gain(delta_t_fpa_k) + self.offset_dn(delta_t_fpa_k)
         return np.asarray(out, dtype=np.float32)

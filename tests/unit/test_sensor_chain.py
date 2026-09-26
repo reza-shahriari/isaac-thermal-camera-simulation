@@ -183,11 +183,16 @@ def test_the_spatial_noise_budget_is_two_mechanisms_not_four(
     sigma_tvh = float(np.asarray(config.detector.response(out.flux, 0, SEED).sigma_dn).mean())
     ratios = config.sensor.sensor.noise.ratios_3d
     sigma_3d = sigma_tvh * float(np.sqrt(ratios.v**2 + ratios.h**2 + ratios.vh**2))
-    mean_signal = float(np.mean(out.signal_dn))
+    # SC.18: the gain residual acts on the signal *relative to the closed shutter* the offset was
+    # last measured on, so it scales with the rms of signal − shutter, not with the whole signal.
+    assert chain.shutter_dn is not None
+    above_shutter = float(
+        np.sqrt(np.mean((np.asarray(out.signal_dn, np.float64) - chain.shutter_dn) ** 2))
+    )
     sigma_res = float(
         np.hypot(
             float(chain.residual.offset_dn(delta_t).std()),
-            float(chain.residual.gain(delta_t).std()) * mean_signal,
+            float(chain.residual.gain(delta_t).std()) * above_shutter,
         )
     )
     budget = float(np.hypot(sigma_3d, sigma_res))

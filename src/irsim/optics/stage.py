@@ -33,7 +33,7 @@ from irsim.optics.self_emission import housing_power_field
 from irsim.optics.smear import apply_motion_smear
 from irsim.optics.vignetting import cos4_field, load_vignetting_map
 
-__all__ = ["optics_field", "apply_optics", "invert_optics"]
+__all__ = ["optics_field", "apply_optics", "invert_optics", "shutter_flux"]
 
 
 def optics_field(sensor: SensorSpec, supersample: int = 1) -> NDArray[np.float32]:
@@ -100,6 +100,24 @@ def apply_optics(
     irradiance = fpa_irradiance(radiance, f, tau, ri)
     phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri)
     phi = irradiance.astype(np.float64) * a_d + phi_housing
+    return np.asarray(phi, dtype=np.float32)
+
+
+def shutter_flux(sensor: SensorSpec, lb_shutter: float, lb_housing: float) -> NDArray[np.float32]:
+    """Pixel power with the flat-field shutter closed (§11.2 revised 2026-09-26, SC.18).
+
+    The shutter sits between the lens and the focal plane and fills each pixel's cone at
+    L_B(T_shutter); the out-of-cone view of the housing is unchanged. Referenced to the axis as
+    `apply_optics` is (ADR 0145):
+
+        Φ_sh,ij = A_d Ω_eff [L_h + RI_ij (L_shutter − L_h)]
+
+    which is `apply_optics` on a uniform scene with τ = 1, no lens emission and no blur.
+    """
+    ri = optics_field(sensor).astype(np.float64)
+    a_d, f = sensor.detector_active_area_m2, sensor.optics.f_number
+    axis = a_d * aperture_factor(f)
+    phi = axis * (lb_housing + ri * (lb_shutter - lb_housing))
     return np.asarray(phi, dtype=np.float32)
 
 
