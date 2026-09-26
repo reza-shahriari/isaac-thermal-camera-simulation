@@ -270,13 +270,16 @@ def test_roughening_the_sea_flattens_the_profile(rig) -> None:
 
 
 def test_overcast_flattens_the_profile_only_as_far_as_the_cloud_base_is_warm(rig) -> None:
-    """Cloud compresses the span, but nowhere near to zero, and the reason is checkable.
+    """Cloud compresses the span, but not to zero, and the reason is checkable.
 
-    An overcast sky is the cloud base's temperature at every elevation, so the reflection stops
-    varying with angle — but the base is still colder than the water, so the span only closes by
-    the fraction (T_sea − T_base)/(T_sea − T_sky_clear). With a base about 5 K under the SST the
-    measured reduction is ~30 %, not the near-total collapse an overcast *ground* scene shows.
-    Cloud comes from the WeatherSeries, never from the environment preset (CLAUDE.md #6).
+    A sea seen from 20 m reflects the sky near the horizon. Under overcast that sky is the cloud
+    base read *through the air in front of it* (ADR 0126's range term on the plane-parallel
+    blend, ADR 0146): on this rig the base is 1320 m up at 5.0 °C, and the reflected sky runs
+    from 17.3 °C at 0.3° to 7.2 °C at the zenith, where the clear sky runs from 17.3 °C to
+    −47 °C. So the reflected term still varies, a little, and the span closes to what that
+    variation and the emissivity leave: **1.27 K against 5.62 K clear**, a ratio of 0.23. It
+    would be near-total only if the base were at the surface. Cloud comes from the
+    WeatherSeries, never from the environment preset (CLAUDE.md #6).
     """
     _, lut, _ = rig
     depression = np.radians(np.array([0.3, 1.0, 2.0, 5.0, 15.0, 45.0, 90.0]))
@@ -291,7 +294,7 @@ def test_overcast_flattens_the_profile_only_as_far_as_the_cloud_base_is_warm(rig
 
     clear, overcast = spans
     assert overcast < clear
-    assert 0.5 < overcast / clear < 0.95
+    assert 0.12 < overcast / clear < 0.45
 
 
 def test_the_emissivity_lut_matches_direct_band_averaging(rig) -> None:

@@ -148,3 +148,79 @@ def test_a_missing_submodule_says_how_to_fix_it_rather_than_failing_to_import() 
         bridge.WEATHER_FX_PACKAGE = original
         __import__("sys").modules.update(saved)
         bridge.ensure_weather_fx_on_path()
+
+
+# --- the infrared band's own quadrature over the shared array (ADR 0146) -----------------------
+
+
+def _frame_rays(n_el: int = 24, n_az: int = 96):
+    el = np.radians(np.linspace(18.0, 44.0, n_el))[:, None] * np.ones((1, n_az))
+    az = np.linspace(0.0, 2.0 * math.pi, n_az, endpoint=False)[None, :] * np.ones((n_el, 1))
+    return el, az
+
+
+def test_the_adaptive_march_agrees_with_a_dense_reference_to_the_detector_s_noise() -> None:
+    """One sample per grid pitch is enough: against a 2048-step march of the same field the
+    emissivity differs by under 0.01 at the 99th percentile and the emission level by under a
+    level, which at the preset lapse is under 0.4 K of cloud temperature."""
+    d = deck(cover=0.6)
+    el, az = _frame_rays()
+    adaptive = d.march(el, az)
+    reference = d.march(el, az, steps=2048)
+    eps_err = np.abs(adaptive.emissivity() - reference.emissivity())
+    assert np.percentile(eps_err, 99) < 0.01
+    cloudy = reference.optical_depth > 0.5
+    height_err = np.abs(adaptive.emission_height_m - reference.emission_height_m)[cloudy]
+    assert np.percentile(height_err, 90) < d.thickness_m / d.field.levels
+
+
+def test_the_march_s_error_is_less_banded_than_the_one_it_replaces() -> None:
+    """The defect this replaces: weather-fx's jitter is a smooth function of the direction, so
+    neighbouring pixels' quadrature errors share a sign and print as rings. Measured on the
+    shipped decks the lag-one correlation of its residual along a row is 0.84-0.90; this march's
+    is 0.4-0.56 at the same step count, and what remains is the edge structure both share, not
+    the sampling. Both numbers are pinned, as a bound on ours and a margin over theirs."""
+    d = deck(cover=0.6)
+    el, az = _frame_rays()
+    reference = d.march(el, az, steps=2048)
+    cloudy = reference.optical_depth > 0.5
+    if cloudy.sum() < 50:
+        pytest.skip("too little cloud on these rays to measure a correlation")
+
+    def lag1(err: np.ndarray) -> float:
+        err = err - err.mean()
+        return float(np.corrcoef(err[:-1], err[1:])[0, 1])
+
+    ours = lag1((d.march(el, az, steps=32).optical_depth - reference.optical_depth)[cloudy])
+    direction = np.stack([np.cos(el) * np.sin(az), np.sin(el), -np.cos(el) * np.cos(az)], axis=-1)
+    theirs_march = d.field.march(np.zeros(direction.shape), direction, steps=32)
+    theirs = lag1((theirs_march.optical_depth - reference.optical_depth)[cloudy])
+    assert ours < 0.7, f"neighbouring rays' errors are correlated ({ours:.2f}): banding"
+    assert ours < theirs - 0.2, (
+        f"no less banded than weather-fx's march ({ours:.2f} vs {theirs:.2f})"
+    )
+
+
+def test_the_step_count_follows_the_longest_crossing() -> None:
+    """A shallow ray crosses more slab than a steep one and gets more samples for it, two per
+    grid pitch, between the floor and the cap."""
+    d = deck(cover=0.6)
+    steep = d.steps_for(d.thickness_m / math.sin(math.radians(60.0)))
+    shallow = d.steps_for(d.thickness_m / math.sin(math.radians(10.0)))
+    assert d.min_steps <= steep <= shallow <= d.max_steps
+    crossing = d.thickness_m / math.sin(math.radians(10.0))
+    want = math.ceil(2.0 * crossing / d.sample_pitch_m)
+    assert shallow == min(d.max_steps, max(d.min_steps, want))
+
+
+def test_the_ray_hash_is_not_smooth_in_the_direction() -> None:
+    """Adjacent pixels get unrelated offsets; the hash is deterministic."""
+    from irsim.atmosphere.weather_fx import ray_hash
+
+    el, az = _frame_rays(8, 512)
+    direction = np.stack([np.cos(el) * np.sin(az), np.sin(el), -np.cos(el) * np.cos(az)], axis=-1)
+    h = ray_hash(direction)
+    assert np.all((h >= 0.0) & (h < 1.0))
+    row = h[4] - h[4].mean()
+    assert abs(float(np.corrcoef(row[:-1], row[1:])[0, 1])) < 0.2
+    assert np.array_equal(h, ray_hash(direction))

@@ -357,7 +357,11 @@ sections:
         caption: LWIR beside its visible companion, the same instants
       - video: phantom4_weather/phantom4_pair.mp4
         width: half
-        caption: the same aircraft with the scene's measured weather file driving the sky
+        caption: >-
+          the same aircraft under one weather-fx weather (14.2 °C air, 38 % cumulus with its base
+          at 600 m): the infrared cloud reads about 9 °C against a −30 to −42 °C clear sky, the
+          airframe 14 to 15 °C, on a −23.8 to 16.6 °C span — re-rendered after ADR 0146, which
+          found the earlier clip's 17 °C cloud was lit by one weather and warmed by another
       - video: phantom4_smoke/phantom4_pair.mp4
         width: half
         caption: and through smoke

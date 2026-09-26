@@ -416,6 +416,22 @@ target by cloud in a band computed from AOVs still comes from this project's own
 object) and is the real-time path; the volume is the path-tracing one, and switching a driver's
 `--cloud-volume` to the OpenVDB writer and the render settings is the next step.
 
+**What the infrared band makes of that cloud (`AT.19`, ADR 0146).** The owner's reading of the
+clips — clouds brighter than they should be, and smooth in a way no LWIR footage is — was measured
+on `phantom4_weather`. Its 17 °C cloud under 12.9 °C air was the two-weather frame of ADR 0136,
+rendered the day before it closed and never re-rendered: under the scene's CSV weather the sky
+model reproduces the clip to the decimal (26.3 °C air, a second LCL at 1.8 km, cloud 17.0 °C,
+airframe 26.3 °C). Under one weather the same field reads 8.5 °C against a −40 °C sky. Two things
+beneath that were still wrong and are fixed: the deck's geometry and its *temperature* came from
+two bases, and the base was lapsed at the environment's 6.5 K/km where the LCL of surface air is
+dry-adiabatic — 3.3 K per kilometre of base, always toward a brighter cloud; the same cloud now
+reads **7.1 °C**, and the plane-parallel blend the sea and the tilt LUTs read carries the range to
+the base as the per-ray path already did. The infrared band also no longer borrows weather-fx's march: its jitter is smooth
+in the direction and printed 3.6 K rings through every cloud, so the band samples the same array
+with its own stratified, hashed march (emissivity error 0.0018 at the 99th percentile, 10 s a
+frame). What it does **not** fix is the shape: the softness is the shared 60 m grid, and
+sharpening it is a change to the field.
+
 Three limits of the deck, stated rather than left to be discovered. A cloud is still a **vertical
 extrusion** — a dome standing on the base plane, widest at the bottom — where a real cumulus bulges
 above its base; the visible cloud's **interior has no shading**, because one Lambertian radiance

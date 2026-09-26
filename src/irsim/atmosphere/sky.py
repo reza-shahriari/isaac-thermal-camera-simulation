@@ -66,6 +66,7 @@ from irsim.atmosphere.cloud_deck import (
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.atmosphere.skylight import DiffuseSkylight
 from irsim.config.environment import EnvironmentSpec
+from irsim.radiometry.constants import DRY_ADIABATIC_LAPSE_K_PER_M
 from irsim.radiometry.lut import BandLUT, Quantity
 from irsim.thermal.longwave import EmissivityFormula, longwave_down_from_sample
 from irsim.thermal.weather import WeatherSeries
@@ -136,7 +137,9 @@ class SkyModel:
             )
         self._cache: dict[float, tuple[NDArray[np.float64], NDArray[np.float64]]] = {}
         #: (tau to the cloud base, L beyond it) on the elevation grid; see `_cloud_path`.
-        self._path_cache: dict[float, tuple[NDArray[np.float64], NDArray[np.float64]]] = {}
+        self._path_cache: dict[
+            tuple[float, float], tuple[NDArray[np.float64], NDArray[np.float64]]
+        ] = {}
 
     # -- identity -------------------------------------------------------------------------
     @property
@@ -197,10 +200,27 @@ class SkyModel:
             sample.t_air_k, sample.rh_fraction, c.min_base_m, c.max_base_m
         )
 
-    def cloud_base_temperature_k(self, t_s: float) -> float:
+    def cloud_base_temperature_k(self, t_s: float, base_m: float | None = None) -> float:
+        """Air temperature at a cumulus base ``base_m`` above the surface (the LCL by default).
+
+        **Dry-adiabatic to the base, not the environment's mean lapse** (ADR 0146). The base is the
+        lifting condensation level of surface air, and a parcel lifted from the surface cools at
+        g/c_p until it saturates there; on the convective day that makes cumulus the sub-cloud
+        layer is well mixed and follows the same rate. ADR 0070 took the atmosphere preset's
+        environmental lapse instead, which is the free-atmosphere mean above the mixed layer and
+        undercools the base by nothing and overwarms it by (9.76 - 6.5) K per kilometre of base:
+        2 K at a 600 m base, 6 K at 1.8 km, always toward a brighter cloud in the LWIR. The
+        preset's lapse stays the law *inside* the cloud (:meth:`radiance_field_from_deck`), where
+        a saturated parcel cools at the moist rate the 6.5 K/km is close to.
+
+        ``base_m`` lets a caller that owns the geometry -- a marched deck -- name the base its
+        rays actually entered, so the temperature and the geometry cannot come from two different
+        heights (which is what made a stale run's cloud read 17 C under 26 C air: the field's
+        base at 600 m and a second LCL at 1.8 km from another weather).
+        """
         sample = self.weather.at(t_s)
-        lapse = self._atm.preset.profile.lapse_rate_k_per_m
-        return cloud_base_temperature_k(sample.t_air_k, self.cloud_base_m(t_s), lapse)
+        base = self.cloud_base_m(t_s) if base_m is None else float(base_m)
+        return cloud_base_temperature_k(sample.t_air_k, base, DRY_ADIABATIC_LAPSE_K_PER_M)
 
     def _flux_emissivity(self) -> float:
         """The cloud's emissivity to a **hemispherically integrated flux**, which is what the
@@ -223,8 +243,13 @@ class SkyModel:
         )
         return sample.cloud_fraction * self._flux_emissivity(), l_base
 
-    def _cloud_path(self, t_s: float) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-        """``(τ(0 → base, θ), L_beyond(base, θ))`` on the elevation grid, cached per time.
+    def _cloud_path(
+        self, t_s: float, base_m: float | None = None
+    ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+        """``(τ(0 → base, θ), L_beyond(base, θ))`` on the elevation grid, cached per (time, base).
+
+        ``base_m`` is the deck's own base when a marched deck asks (ADR 0146); the default is the
+        LCL the weather implies, which is what the plane-parallel blend uses.
 
         The slant range to a plane-parallel deck at ``z_base`` is ``z_base / sin θ``, so both
         quantities are functions of elevation alone and go on the same 0.5° grid the clear-sky
@@ -234,9 +259,10 @@ class SkyModel:
         is exactly what an opaque cloud occults; it is the layered model's own ``sky_beyond`` and
         not an approximation of it, so a cloud of emissivity 0 returns the clear sky identically.
         """
-        key = float(t_s)
+        base = self.cloud_base_m(float(t_s)) if base_m is None else float(base_m)
+        key = (float(t_s), base)
         if key not in self._path_cache:
-            base_m = self.cloud_base_m(key)
+            base_m = base
             tau = np.empty(ELEVATION_GRID_DEG.size)
             beyond = np.empty(ELEVATION_GRID_DEG.size)
             for i, deg in enumerate(ELEVATION_GRID_DEG):
@@ -249,14 +275,14 @@ class SkyModel:
                 # **exactly** (both sides are Sum_k w_k L_sky,k), so eps = 0 and eps = 1 are exact
                 # and the k-distribution approximation only enters in between.
                 tau[i] = (
-                    float(self._atm.transmittance(self._band, key, slant, el)[()])
+                    float(self._atm.transmittance(self._band, float(t_s), slant, el)[()])
                     if slant > 0.0
                     else 1.0
                 )
                 beyond[i] = (
-                    self._atm.sky_beyond(self._band, key, slant, el, self._q)
+                    self._atm.sky_beyond(self._band, float(t_s), slant, el, self._q)
                     if slant > 0.0
-                    else self._atm.sky_radiance(self._band, key, el, self._q)
+                    else self._atm.sky_radiance(self._band, float(t_s), el, self._q)
                 )
             self._path_cache[key] = (tau, beyond)
         return self._path_cache[key]
@@ -369,11 +395,18 @@ class SkyModel:
         """
         el = np.asarray(elevation_rad, dtype=np.float64)
         march = deck.march(el, azimuth_rad, origin_m=origin_m, steps=steps)
+        # **One base.** The deck's geometry says where its base is; the temperature the rays emit
+        # at, and the air in front of it, are taken at *that* height (ADR 0146). Before this the
+        # temperature came from a second LCL computed from the weather, and the two agreed only
+        # while the weather and the field were drawn from one state.
+        base_m = float(getattr(deck, "base_m", self.cloud_base_m(t_s)))
+        # Inside the cloud the parcel is saturated and cools at the moist rate, which the
+        # preset's environmental lapse is close to; the dry rate applies only up to the base.
         lapse = self._atm.preset.profile.lapse_rate_k_per_m
-        t_emit = self.cloud_base_temperature_k(t_s) - lapse * march.emission_height_m
+        t_emit = self.cloud_base_temperature_k(t_s, base_m) - lapse * march.emission_height_m
         l_base = np.asarray(self._lut.lookup(t_emit, self._q), dtype=np.float64)
         deg = np.degrees(el)
-        tau_grid, beyond_grid = self._cloud_path(t_s)
+        tau_grid, beyond_grid = self._cloud_path(t_s, base_m)
         return cloud_radiance_at_range(
             self.clear_radiance(t_s, el),
             np.interp(deg, ELEVATION_GRID_DEG, beyond_grid),
@@ -408,11 +441,32 @@ class SkyModel:
         )
 
     def radiance(self, t_s: float, elevation_rad: Any) -> NDArray[np.float64]:
-        """L_sky,B(θ) with the uniform cloud blend (1 − c ε) L_clear + c ε L_B(T_base): the
-        expectation over the structured field, used for the LUTs and the tilt-integrated sky."""
+        """L_sky,B(θ): the clear column with the uniform cloud blend **at the base's range**.
+
+        ``L = L_clear(θ) + c ε τ(θ) (L_B(T_base) − L_beyond(θ))`` -- ADR 0126's range term, the
+        one :meth:`radiance_field` already carries, applied to the expectation over the field
+        (ADR 0146). With the base at the surface (saturated air) ``τ = 1`` and ``L_beyond`` is
+        the clear column, so this is ``(1 − c ε) L_clear + c ε L_B(T_base)`` exactly, which is
+        what it always was; with the base a kilometre up a grazing ray no longer reads the base
+        through seventy kilometres of air it cannot see through. That mattered once the base was
+        lapsed dry-adiabatically: a 1.2 km base under 288 K air is 276 K, colder than the clear
+        *horizon*, and the range-free blend made an overcast sea widen its profile instead of
+        flattening it. The tilt-integrated sky (:meth:`effective_radiance`) keeps the flux form,
+        which has no single ray to take a range along.
+        """
+        el = np.asarray(elevation_rad, dtype=np.float64)
+        clear = self.clear_radiance(t_s, el)
         c, l_cloud = self._cloud(t_s)
-        return np.asarray(
-            (1.0 - c) * self.clear_radiance(t_s, elevation_rad) + c * l_cloud, dtype=np.float64
+        if c <= 0.0:
+            return np.asarray(clear, dtype=np.float64)
+        deg = np.degrees(el)
+        tau_grid, beyond_grid = self._cloud_path(t_s)
+        return cloud_radiance_at_range(
+            clear,
+            np.interp(deg, ELEVATION_GRID_DEG, beyond_grid),
+            np.interp(deg, ELEVATION_GRID_DEG, tau_grid),
+            l_cloud,
+            c,
         )
 
     def apparent_temperature_k(self, t_s: float, elevation_rad: Any) -> NDArray[np.float64]:

@@ -5,6 +5,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **The infrared cloud reads at its own base, dry-adiabatically, through its own march** (AT.19,
+  ADR 0146). The `phantom4_weather` clip's 17 °C cloud under 12.9 °C air was the two-weather
+  defect of ADR 0136 rendered the day before it closed -- reproduced to the decimal from the
+  scene's CSV weather (26.3 °C air, a second LCL at 1792 m) -- and two things under it were still
+  wrong: `radiance_field_from_deck` took the emission heights from the deck's base but the base
+  *temperature* and the slant path from an LCL computed from the weather, and the base was lapsed
+  at the preset's environmental 6.5 K/km where the LCL of surface air is dry-adiabatic (g/c_p
+  = 9.76 K/km; the parcel meets its dew point at the base to 0.1 K, and a test says so). Both
+  now come from `deck.base_m`; `DRY_ADIABATIC_LAPSE_K_PER_M` and `DEW_POINT_LAPSE_K_PER_M` join
+  `irsim.radiometry.constants`. On the clip's own state the opaque cloud goes 8.5 -> **7.1 °C**.
+  The plane-parallel blend `SkyModel.radiance` -- what the sea, the tilt LUTs and the uniform
+  sky read -- now carries ADR 0126's range term as well, so a grazing ray reads a lifted base
+  through the air in front of it rather than through none; identical to before when the base
+  is at the surface.
+  `WeatherFxDeck.march` no longer calls weather-fx's march, whose jitter is a smooth function of
+  the direction and printed **3.6 K rings** (p99, 64 against 512 steps) through every infrared
+  cloud: it samples the same array uniformly at two samples per grid pitch with a per-ray hash,
+  dropping opaque rays. Measured: band-emissivity error p99 **0.0018** at 311 steps (weather-fx
+  0.0025), residual lag-one correlation **0.4–0.56** against 0.84–0.90, 10.1 s per 640×512 frame.
+  `tests/unit/test_cloud_base_law.py` and four march tests. The softness that remains is the
+  shared 60 m grid, which is the next step and belongs to the field, not to a band.
+
 ### Added
 - **The AGC starves a small target, and the ADC clips a cold sky** (spec issues S52, S53). On the
   `phantom4_perpart` clip the drone (0.6 % of the frame) gets 3 of 256 grey levels, because the

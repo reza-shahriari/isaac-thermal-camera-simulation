@@ -176,7 +176,9 @@ def test_a_puddle_reads_colder_than_its_own_temperature_off_nadir_under_a_clear_
     colder than the row assumed (226 K at the zenith in the Boson band), so the nadir deficit is
     0.55 K where the row allows 0.5, and "several kelvin" arrives at 70° rather than 60°. The
     mechanism, its angular shape and its dependence on the sky are exactly as specified, and an
-    overcast sky collapses the whole effect to under half a kelvin at 60°.
+    overcast sky collapses the whole effect to about half a kelvin at 60° -- 0.52 K once the
+    base is lapsed dry-adiabatically and read through the air in front of it (ADR 0146), where
+    the environmental lapse and a range-free blend gave 0.49.
     """
     from irsim.atmosphere import LayeredAtmosphere, SkyModel, load_atmosphere_preset
     from irsim.config.environment import load_environment_preset
@@ -205,7 +207,7 @@ def test_a_puddle_reads_colder_than_its_own_temperature_off_nadir_under_a_clear_
     assert clear[70.0] < -3.0, clear[70.0]  # "several kelvin", one band later than the row said
     assert clear[80.0] < clear[70.0] < clear[60.0] < clear[30.0] < clear[0.0] < 0.0
     overcast = deficits(1.0)
-    assert abs(overcast[60.0]) < 0.5, overcast
+    assert abs(overcast[60.0]) < 0.6, overcast
     assert all(overcast[a] > clear[a] for a in clear)
     with pytest.raises(ValueError, match="emissivity must lie"):
         apparent_temperature_k(lut, kinetic_k, 1.2, 0.0)

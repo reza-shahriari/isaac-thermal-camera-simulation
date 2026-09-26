@@ -201,7 +201,13 @@ def test_a_seed_puts_structure_in_the_background(scene: Scene) -> None:
     plain = bridge(scene).background_temperature_k(el, az)
     seeded = bridge(scene, cloud_seed=11).background_temperature_k(el, az)
     assert not np.allclose(plain, seeded)
-    assert float(seeded.max()) > float(plain.max()), "cloud should add a warm tail"
+    # Cloud is warmer than the blend where it is and colder where the gap is -- per pixel. The
+    # two frames' *maxima* are no longer the comparison: both sit at the horizon, where a base
+    # read through the air in front of it and the clear column meet (ADR 0126 on the blend,
+    # ADR 0146), so the tail has to be looked for against the same pixel.
+    difference = seeded - plain
+    assert float(difference.max()) > 1.0, "cloud should add a warm tail"
+    assert float(difference.min()) < -1.0, "and the gaps between clouds a cold one"
 
 
 def test_the_field_is_fixed_to_the_sky_not_to_the_frame(scene: Scene) -> None:

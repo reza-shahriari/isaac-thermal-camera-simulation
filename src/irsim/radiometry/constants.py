@@ -221,3 +221,16 @@ CTE_ALUMINIUM: Final[float] = 23.1e-6
 CTE_STEEL: Final[float] = 11.7e-6
 CTE_TITANIUM: Final[float] = 8.6e-6
 CTE_INVAR: Final[float] = 1.2e-6
+
+
+# --- Meteorology: the lapse rate a rising parcel follows (`AT.19`, ADR 0146) -------------------
+#: Dry-adiabatic lapse rate, K m^-1: g / c_p = 9.80665 / 1004.68. An unsaturated parcel lifted
+#: from the surface cools at this rate until it reaches its lifting condensation level, so the
+#: temperature at a *cumulus* base is the surface air cooled by this much over the base height --
+#: not by the environment's mean lapse, which describes the free atmosphere above the mixed layer
+#: (AMS Glossary of Meteorology, "dry-adiabatic lapse rate"; Stull 2017, *Practical Meteorology*
+#: ch. 3). Espy's 125 m K^-1 rule for the LCL is this rate minus the dew-point lapse (1.8 K km^-1)
+#: inverted, which is why the two agree to a tenth of a kelvin at the base.
+DRY_ADIABATIC_LAPSE_K_PER_M: Final[float] = 9.761e-3
+#: Dew-point lapse rate of a lifted parcel, K m^-1, from the same rule.
+DEW_POINT_LAPSE_K_PER_M: Final[float] = 1.8e-3

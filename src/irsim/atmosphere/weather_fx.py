@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 
 from irsim.atmosphere.cloud import CLOUD_OD_RATIO
 from irsim.atmosphere.cloud_deck import MarchResult
@@ -42,6 +43,7 @@ __all__ = [
     "WeatherFxDeck",
     "cloud_field_from_spec",
     "ensure_weather_fx_on_path",
+    "ray_hash",
     "weather_fx_available",
 ]
 
@@ -131,6 +133,26 @@ def cloud_field_from_spec(
     )
 
 
+#: Transmittance below which a ray is opaque for every purpose this project has: e^-12 of the
+#: sky behind it is 1e-5 of a radiance the band LUT resolves to 1e-4.
+OPAQUE_TRANSMITTANCE = math.exp(-12.0)
+
+
+def ray_hash(direction: Any) -> NDArray[np.float64]:
+    """A per-ray offset in [0, 1), decorrelated between neighbouring rays.
+
+    The classic fractional-sine hash on the direction vector. What matters is not its quality as
+    a random number but that it is **not smooth in the direction**: a jitter that varies slowly
+    across the frame moves every neighbouring ray's samples together, and the quadrature error
+    then has the same sign over whole regions -- which is the ring pattern this replaces.
+    Deterministic, so a frame is reproducible.
+    """
+    d = np.asarray(direction, dtype=np.float64)
+    phase = d[..., 0] * 12.9898 + d[..., 1] * 78.233 + d[..., 2] * 37.719
+    value = np.sin(phase) * 43758.5453123
+    return np.asarray(value - np.floor(value), dtype=np.float64)
+
+
 @dataclass
 class WeatherFxDeck:
     """A weather-fx ``CloudField``, presented through this project's deck march contract.
@@ -145,9 +167,17 @@ class WeatherFxDeck:
     #: each band derives what it needs from it (ADR 0126), which is the same convention the
     #: native deck uses; it is kept here so an infrared caller can override it per band.
     od_ratio: float = CLOUD_OD_RATIO
-    #: Steps the march takes through the field. The default matches weather-fx's own, so the
-    #: infrared band and the visible dome integrate the same cloud at the same fidelity.
-    steps: int = 64
+    #: Steps the march takes when a caller fixes them. ``None`` -- the default -- sizes the march
+    #: from the geometry instead (:meth:`steps_for`), which is what an infrared frame wants: a
+    #: ray at 18 degrees crosses three times the slab a ray at 60 degrees does.
+    steps: int | None = None
+    #: Bounds on the adaptive step count. The floor matches weather-fx's own march; the cap is
+    #: what keeps a horizon-grazing frame from costing minutes.
+    min_steps: int = 64
+    max_steps: int = 512
+    #: Longest path followed through the slab, metres. Beyond it the transmittance of anything
+    #: this field can hold has underflowed, and a level ray would otherwise march forever.
+    max_path_m: float = 12_000.0
 
     @property
     def base_m(self) -> float:
@@ -170,6 +200,26 @@ class WeatherFxDeck:
         """The sky fraction the field actually covers, measured rather than requested."""
         return float(self.field.measured_cover)
 
+    @property
+    def sample_pitch_m(self) -> float:
+        """The finest spacing the grid carries: the smaller of a cell and a level."""
+        return float(min(self.field.cell_m, self.field.thickness_m / self.field.levels))
+
+    def steps_for(self, span_m: Any) -> int:
+        """Steps that put two samples per grid pitch along the longest ray in ``span_m``.
+
+        Two per pitch is the Nyquist spacing of a trilinear field: one per pitch left the band
+        emissivity 0.019 out at the 99th percentile against a dense reference on the test deck,
+        two leaves it under 0.01, which is a quarter kelvin of cloud. One count for the whole
+        array, because a vectorised march wants one loop; it is set by the longest crossing, so
+        the shallowest ray in a frame is sampled at that spacing and the steep ones finer.
+        Bounded by :attr:`min_steps` and :attr:`max_steps`.
+        """
+        arr = np.asarray(span_m, dtype=np.float64)
+        longest = float(np.max(arr)) if arr.size else 0.0
+        want = math.ceil(2.0 * longest / max(self.sample_pitch_m, 1.0))
+        return int(min(self.max_steps, max(self.min_steps, want)))
+
     def march(
         self,
         elevation_rad: Any,
@@ -180,13 +230,26 @@ class WeatherFxDeck:
     ) -> MarchResult:
         """Integrate the field along each ray and answer in this project's own terms.
 
-        **The two conventions already agree, and that is checked rather than assumed.** Both
+        **The array is shared; the quadrature is this band's own (ADR 0146).** weather-fx's
+        ``CloudField.march`` places its samples geometrically along the ray and offsets them by
+        a jitter that is a *smooth* function of the ray direction, which is right for a dome
+        baked once and read at a texel's blur, and wrong for a per-pixel infrared frame: the
+        sampling error is then coherent across neighbouring pixels and prints as rings and bands
+        through every cloud -- measured at 3.6 K at the 99th percentile against a 512-step
+        reference, in concentric contours. This march is **stratified and uniform** -- one sample
+        per grid pitch along the longest ray, every ray offset by a hash of its own direction --
+        so what error remains is white and below the detector's noise, and the same density
+        array is integrated, so the two bands still cannot disagree about *where* the cloud is.
+
+        **The two direction conventions agree, and that is checked rather than assumed.** Both
         projects place a direction as ``[cos el sin az, sin el, -cos el cos az]`` -- +Y up, -Z at
-        azimuth zero, +X at ninety. weather-fx writes it that way in
-        ``BodyPosition.direction``; this project writes it that way in
-        ``irsim_isaac.visible_sky.stage_direction``. A test pins the pair, because a silent
-        disagreement here rotates the whole cloud field about the observer and looks entirely
-        plausible.
+        azimuth zero, +X at ninety. weather-fx writes it that way in ``BodyPosition.direction``;
+        this project writes it that way in ``irsim_isaac.visible_sky.stage_direction``. A test
+        pins the pair, because a silent disagreement here rotates the whole cloud field about
+        the observer and looks entirely plausible.
+
+        The emission height is reported **above the cloud base**, because the temperature this
+        project lapses from is the base's; weather-fx reports heights above the ground.
         """
         el = np.asarray(elevation_rad, dtype=np.float64)
         az = np.asarray(azimuth_rad, dtype=np.float64)
@@ -202,29 +265,64 @@ class WeatherFxDeck:
         origin = np.zeros(direction.shape, dtype=np.float64)
         origin[...] = np.asarray(origin_m, dtype=np.float64)
 
-        result = self.field.march(origin, direction, steps=steps or self.steps)
-        # This project measures the emission height **above the cloud base**, because the
-        # temperature it lapses from is the base's. weather-fx reports it as a height above the
-        # ground, which is the frame a renderer wants. Subtracting the base is the whole
-        # conversion, and getting it wrong is a cloud that emits at ground temperature.
-        above_base = np.maximum(
-            np.asarray(result.emission_height_m, dtype=np.float64) - self.base_m, 0.0
+        near, far = self.field.slab_span(origin, direction)
+        hit = far > near
+        span = np.where(hit, np.minimum(far - near, self.max_path_m), 0.0)
+        shape = span.shape
+        optical = np.zeros(shape, dtype=np.float64)
+        height_sum = np.zeros(shape, dtype=np.float64)
+        height_weight = np.zeros(shape, dtype=np.float64)
+        if not np.any(hit) or self.field.cover <= 0.0:
+            return MarchResult(optical_depth=optical, emission_height_m=height_sum)
+
+        n = int(steps if steps is not None else (self.steps or self.steps_for(span)))
+        n = max(n, 1)
+        jitter = ray_hash(direction)
+        width = span / n
+        transmittance = np.ones(shape, dtype=np.float64)
+        extinction = float(self.field.extinction_per_m)
+        dx, dy, dz = direction[..., 0], direction[..., 1], direction[..., 2]
+        ox, oy, oz = origin[..., 0], origin[..., 1], origin[..., 2]
+        # Only the rays that can still see are sampled. A ray that has gone opaque -- which in a
+        # cumulus field is most of the cloudy ones within a few hundred metres of entry -- adds
+        # nothing the sensor can tell apart, so it drops out of the gather; on a broken-cloud
+        # frame that is about half the work.
+        active = hit.copy()
+        for k in range(n):
+            idx = np.nonzero(active)
+            if idx[0].size == 0:
+                break
+            t = near[idx] + (k + jitter[idx]) * width[idx]
+            px, py, pz = ox[idx] + dx[idx] * t, oy[idx] + dy[idx] * t, oz[idx] + dz[idx] * t
+            sigma = np.asarray(self.field.density(px, py, pz), dtype=np.float64) * extinction
+            d_tau = sigma * width[idx]
+            # What reaches the sensor from this sample: extinction times the transmittance back
+            # along the ray. Weighting by extinction alone would average in cloud it cannot see.
+            weight = sigma * transmittance[idx] * width[idx]
+            height_sum[idx] += weight * py
+            height_weight[idx] += weight
+            optical[idx] += d_tau
+            transmittance[idx] = transmittance[idx] * np.exp(-d_tau)
+            active[idx] = transmittance[idx] > OPAQUE_TRANSMITTANCE
+
+        above_base = np.where(
+            height_weight > 1e-12,
+            height_sum / np.maximum(height_weight, 1e-12) - self.base_m,
+            0.0,
         )
         return MarchResult(
-            optical_depth=np.asarray(result.optical_depth, dtype=np.float64),
-            emission_height_m=above_base,
+            optical_depth=optical,
+            emission_height_m=np.maximum(above_base, 0.0),
         )
 
     def adequate_steps(self, elevation_rad: Any) -> int:
         """How many steps this field wants for the shallowest ray in the array.
 
-        Present so a caller written against the native deck keeps working. weather-fx grows its
-        own steps geometrically along the ray, so the count is far less sensitive here than it is
-        for a uniform march -- the answer is a sanity bound rather than a requirement.
+        Present so a caller written against the native deck keeps working; it is
+        :meth:`steps_for` evaluated on the slab crossing of the lowest ray.
         """
         el = np.abs(np.asarray(elevation_rad, dtype=np.float64))
         positive = el[el > 0.0]
         lowest = float(np.min(positive)) if positive.size else 0.5 * math.pi
         lowest = max(lowest, math.radians(2.0))
-        want = self.thickness_m / math.sin(lowest) / 120.0
-        return int(min(256, max(32, math.ceil(want))))
+        return self.steps_for(min(self.thickness_m / math.sin(lowest), self.max_path_m))

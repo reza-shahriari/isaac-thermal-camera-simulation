@@ -19,6 +19,7 @@ from irsim.atmosphere.cloud import (
 )
 from irsim.atmosphere.humidity import dew_point_k
 from irsim.config.environment import EnvironmentConfig, load_environment_preset
+from irsim.radiometry.constants import DRY_ADIABATIC_LAPSE_K_PER_M
 from irsim.radiometry.lut import BandLUT
 from irsim.thermal import WeatherSample, WeatherSeries
 
@@ -53,19 +54,40 @@ def test_dew_point_and_lcl_from_the_weather() -> None:
 def test_thick_cloud_is_uniform_at_the_base_temperature_and_clear_is_ms2(
     tophat_lwir_lut: BandLUT,
 ) -> None:
-    sky = _sky(tophat_lwir_lut, cloud=1.0, rh=0.5)
+    """Saturated air puts the base at the surface: zero range, so an opaque sky is L_B(T_base)
+    at every elevation exactly, and T_base is T_air. A base a kilometre up is read *through*
+    the air in front of it (ADR 0126's range term, on the plane-parallel blend since ADR 0146):
+    never colder than the base, never warmer than the air, and warmer toward the horizon where
+    the path is longer. Clear sky is MS.2's column, untouched."""
+    sky = _sky(tophat_lwir_lut, cloud=1.0, rh=1.0)
     els = np.radians(np.array([[2.0, 15.0, 45.0], [60.0, 80.0, 90.0]]))
     cov = np.ones(els.shape, dtype=bool)
     t = sky.apparent_temperature_field(0.0, els, cov)
     t_base = sky.cloud_base_temperature_k(0.0)
+    assert sky.cloud_base_m(0.0) == 0.0
+    assert t_base == pytest.approx(T_AIR, abs=1e-9)
     assert np.max(np.abs(t - t_base)) * 1e3 < 1.0, (
-        "thick cloud: uniform L_B(T_base) at every elevation"
+        "thick cloud at zero range: uniform L_B(T_base) at every elevation"
     )
-    assert t_base == pytest.approx(T_AIR - 6.5e-3 * sky.cloud_base_m(0.0), rel=1e-12)
     for el in (2.0, 45.0, 90.0):
         assert float(sky.radiance(0.0, math.radians(el))) == pytest.approx(
             float(tophat_lwir_lut.lookup(np.float64(t_base))[()]), rel=1e-9
         )
+
+    lifted = _sky(tophat_lwir_lut, cloud=1.0, rh=0.5)
+    base_m = lifted.cloud_base_m(0.0)
+    assert 1000.0 < base_m < 1500.0
+    # Dry-adiabatic to the base (ADR 0146): the LCL is where surface air, cooled at g/c_p,
+    # saturates. ADR 0070's environmental 6.5 K/km overwarmed this base by 4 K.
+    t_lifted = lifted.cloud_base_temperature_k(0.0)
+    assert t_lifted == pytest.approx(T_AIR - DRY_ADIABATIC_LAPSE_K_PER_M * base_m, rel=1e-12)
+    seen = lifted.apparent_temperature_field(0.0, els, cov)
+    assert np.all(seen >= t_lifted - 1e-3) and np.all(seen < T_AIR)
+    assert seen[0, 0] >= seen[1, 2], "the grazing ray reads the base through more warm air"
+    blend = np.asarray([float(lifted.apparent_temperature_k(0.0, e)) for e in els.ravel()])
+    assert np.all(blend >= t_lifted - 1e-3) and np.all(blend < T_AIR)
+    assert blend[0] >= blend[-1]
+
     clear = _sky(tophat_lwir_lut, cloud=0.0, rh=0.5)
     none = np.zeros(els.shape, dtype=bool)
     np.testing.assert_array_equal(
@@ -95,16 +117,22 @@ def test_cloud_edges_warmer_than_clear_zenith_and_thin_cloud_in_between(
     thin = _sky(tophat_lwir_lut, cloud=0.5, rh=rh, tau=0.5)
     t_thin = thin.apparent_temperature_field(0.0, np.array([[zenith]]), np.array([[True]]))[0, 0]
     assert t[0, 1] < t_thin < t[0, 0], "thin cloud lies between the clear sky and the thick cloud"
-    # the uniform blend is the expectation of the structured field:
-    # (1 - c eps) L_clear + c eps L_base
+    # the uniform blend is the expectation of the structured field, **at the base's range**
+    # (ADR 0126 on the plane-parallel blend, ADR 0146): L_clear + c eps tau (L_base - L_beyond),
+    # which is (1 - c eps) L_clear + c eps L_base only when the base is at the surface.
     l_clear = float(sky.clear_radiance(0.0, zenith))
     l_base = float(sky._lut.lookup(np.float64(sky.cloud_base_temperature_k(0.0)))[()])
+    tau_grid, beyond_grid = sky._cloud_path(0.0)
+    tau_up, beyond_up = float(tau_grid[-1]), float(beyond_grid[-1])
+    assert 0.5 < tau_up < 1.0, "a kilometre of air is neither clear nor opaque in the window"
     assert float(sky.radiance(0.0, zenith)) == pytest.approx(
-        0.5 * l_clear + 0.5 * l_base, rel=1e-12
+        l_clear + 0.5 * tau_up * (l_base - beyond_up), rel=1e-12
     )
     assert float(thin.radiance(0.0, zenith)) == pytest.approx(
-        0.75 * l_clear + 0.25 * l_base, rel=1e-12
+        l_clear + 0.25 * tau_up * (l_base - beyond_up), rel=1e-12
     )
+    # and the range-free blend it replaced would have read the base through no air at all:
+    assert float(sky.radiance(0.0, zenith)) != pytest.approx(0.5 * l_clear + 0.5 * l_base, rel=1e-3)
 
 
 @pytest.mark.parametrize("beta", [1.5, 2.0, 2.5])
