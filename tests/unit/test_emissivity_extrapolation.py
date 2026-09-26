@@ -46,6 +46,10 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 #: later has to decide rather than inherit silence. Mirrors SC.4's `IDEAL_LENS` registry.
 CARRIES_THE_FRACTION = ("validate_thermal_diurnal.py",)
 EXEMPT_REPORTS = {
+    "validate_sky_flat.py": (
+        "SC.20 measures the radial shape of a sky-only frame in counts and display grey; the "
+        "scene holds no surface, so there is no eps_hemi to extrapolate"
+    ),
     "validate_sky_r13.py": (
         "quotes an absolute apparent *sky* temperature, which comes from the atmosphere's column "
         "emission and not from any surface's eps_hemi -- there is no material to extrapolate"

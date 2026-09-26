@@ -81,6 +81,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   (`/rtx/pathtracing/ptvol/enabled`), and `--pt-bounces`, `--texture-box`, `--texture-cube`,
   `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
 
+### Added
+- **A sky-only scene and a radial bench make a real clear-sky frame a Tier 4 reference** (SC.20).
+  `configs/scenes/sky_only.yaml` has no target; `irsim.validation.radial.radial_fit` fits a plane
+  (the sky's elevation gradient) plus a paraboloid about the principal point (the camera's bowl),
+  with outlier rejection, and reports sign, radial share and profile; `scripts/validate_sky_flat.py`
+  renders the scene through the Boson 640 with its chain and flat field, takes the shutter, moves
+  the housing, and measures rendered and `--real` frames the same way. Measured: the drift bowl
+  (after − at shutter, in flat-fielded counts) has the predicted sign for a cooling and a warming
+  housing, radial share **0.999**; the public clear-sky frame the spec revision started from fits
+  a bright centre with share **0.86** and the same profile shape. Two findings: at 45° elevation the
+  sky's own curvature dominates the display until the housing has cooled ~2 K since the shutter;
+  near the zenith the sky is itself a dark-centred bowl, so a bright centre there needs ≳ 1.7 K of
+  cooling or a black-hot display. `tests/unit/test_radial_profile.py`.
+
 ### Changed
 - **The FFC snapshots the shutter; the residual is radial** (SC.18, ADR 0148, §11.2). At power-up
   and at every shutter event the chain computes the noiseless frame of the closed shutter

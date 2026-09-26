@@ -634,3 +634,27 @@ sections:
       would show. The path-traced base is visibly noisy at this sample count; the dome bake remains
       the real-time path and the volume is the path-tracing one.
     source: scripts/probe_cloud_volume.py
+
+  - id: sky-flat-bowl
+    title: What a camera adds to an empty sky
+    lead: |
+      A clear sky gives the AGC no contrast of its own, so a real uncooled core pointed at one shows
+      a smooth bowl filling the frame: its housing seen through the field (§8.2) and the housing's
+      drift since the last shutter event (§11.2). `scripts/validate_sky_flat.py` renders
+      `sky_only.yaml` through the Boson 640, takes the shutter, lets the housing cool 1.5 K, and fits
+      a plane plus a paraboloid to every frame. **The rendered drift bowl and a public clear-sky frame
+      have the same sign and nearly the same radial profile**: the paraboloid explains 99.9 % of the
+      rendered drift and 86 % of the real frame.
+    media:
+      - image: validation/sky_flat/profiles.png
+        width: half
+        caption: >-
+          Plane-removed radial profiles, normalised. Orange: the rendered camera drift alone. Green:
+          the real frame. Blue: the rendered frame with the sky, whose own curvature points the
+          other way at 45° elevation.
+    note: |
+      The real frame is measured, not published: the figure carries its profile, not its pixels.
+      Near the zenith the sky is itself a dark-centred bowl (the zenith is its coldest point), so a
+      bright centre there needs the housing to have cooled by about 1.7 K or more since the shutter
+      closed, or a black-hot display.
+    source: scripts/validate_sky_flat.py

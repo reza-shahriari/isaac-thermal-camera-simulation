@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `SC.22` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 65 open steps
+#### Then, in order — 64 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`SC.22`** | SC | A | S | — | ready |
 | 2 | **`SC.24`** | SC | A | S | — | ready |
-| 3 | **`SC.20`** | SC | A | M | — | ready |
-| 4 | **`SC.23`** | SC | A | M | — | ready |
-| 5 | **`IG.16`** | IG | B | M | — | ready |
-| 6 | **`AT.14`** | AT | B | L | — | ready |
-| 7 | **`AT.6`** | AT | C | M | — | ready |
-| 8 | **`AT.9`** | AT | C | M | — | ready |
-| 9 | **`PT.16`** | PT | C | M | — | ready |
-| 10 | **`XD.10`** | XD | C | L | — | ready |
-| 11 | **`IG.3`** | IG | X | S | 3 | ready |
-| 12 | **`EV.5`** | EV | X | M | 3 | ready |
-| 13 | **`SC.5`** | SC | X | M | 3 | ready |
-| 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 3 | **`SC.23`** | SC | A | M | — | ready |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`AT.14`** | AT | B | L | — | ready |
+| 6 | **`AT.6`** | AT | C | M | — | ready |
+| 7 | **`AT.9`** | AT | C | M | — | ready |
+| 8 | **`PT.16`** | PT | C | M | — | ready |
+| 9 | **`XD.10`** | XD | C | L | — | ready |
+| 10 | **`IG.3`** | IG | X | S | 3 | ready |
+| 11 | **`EV.5`** | EV | X | M | 3 | ready |
+| 12 | **`SC.5`** | SC | X | M | 3 | ready |
+| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 15 | **`XD.7`** | XD | X | M | 2 | ready |
 
-…and 50 more — `python scripts/next_step.py --queue 40`.
+…and 49 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -598,7 +598,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.17 | ✅ **done** (ADR 0145). `apply_optics` computes Φ = A_d Ω_eff [L_h + τ RI (L_scene − L_h)]: RI multiplies scene minus housing, on-axis power unchanged, and `optics.vignetting_map` is loaded, resolved and hashed. A +1 K housing drift at the Boson corner now reads 372 mK on a 300 K scene (was 110) and 938 mK on a 230 K sky; the centre stays 87 mK. | `test_housing_field.py`: sign, closed-form depth, flat at T_housing. Warp device test updated, not run. | — | M | A |
 | SC.18 | ✅ **done** (ADR 0148). At power-up and every FFC the chain computes the closed-shutter frame (`shutter_flux`, T_shutter = T_FPA) and `TwoPointNuc.refreshed` moves the display offset so it reads flat; the residual's gain acts on signal − shutter. Boson corner, housing −2 K since the FFC: −563 mK on 300 K, −1446 mK on a 230 K sky. | `test_shutter_reference.py`: closed form to 5 %, monotonic. Warp test not run. | SC.17 | M | A |
 | SC.19 | ✅ **done.** `noise.bad_pixel_late_fraction` (schema v12) marks defects that failed after the factory map; `replacement_mask` leaves them in the image, so a late hot pixel reaches the 8-bit output as a white dot. Flags are drawn last, so maps are bit-identical at any fraction. Both Boson configs set 0.01, ESTIMATED from one public clear-sky frame. Warp kernel takes the map; device test updated, not run. | `test_late_defects.py` | — | S | A |
-| SC.20 | **A sky-only scene and a radial bench, so a real clear-sky frame is a Tier 4 reference.** `configs/scenes/sky_only.yaml` (no target, one `SkyModel`) plus `irsim.validation.radial_profile` (azimuthal mean about the principal point: bowl depth and sign), run by `scripts/validate_sky_flat.py` on a rendered and a public clear-sky frame. | Red: no scene renders nothing and no bench measures a radial residual. Green: depth and sign for both frames, the rendered sign as §8.2 predicts for the housing history, report on the site. | SC.17, SC.18, SC.19 | M | A |
+| SC.20 | ✅ **done.** `sky_only.yaml` + `irsim.validation.radial.radial_fit` (plane + paraboloid) + `scripts/validate_sky_flat.py`. Drift bowl sign follows the housing both ways, radial share 0.999; a public clear-sky frame fits a bright centre, share 0.86. The sky itself is dark-centred near the zenith, so that bright centre needs ≳ 1.7 K of cooling since the FFC. | `test_radial_profile.py` | SC.17, SC.18, SC.19 | M | A |
 | SC.21 | ✅ **done** (ADR 0147). `agc: information_based` in `irsim.isp.information`: bilateral LP/HP split, the LP histogram plateau-clipped plus an |HP| information histogram, `linear_percent`, detail headroom, HP back at the slope. Opt-in; `linear_percent` also on `plateau_equalization`. | **Measured.** 0.6 % four-part target on a 60 K sky: plateau ≤ 3 codes, `information_based` + λ 0.3 ≥ 25, parts ordered; frame 96 3 → 30. σ_r → 0 is `agc_plateau` bit for bit. Hashes unchanged. 12 cases. | — | M | A |
 | SC.22 | **The Boson runs its factory default AGC.** Both Boson YAMLs move from `plateau_equalization` to `information_based` with FLIR's published defaults (plateau 7 %, ADR on the rest), and the goldens that carry `display8` are regenerated deliberately. | Red: `flir_boson_640_lwir.yaml` selects the mode FLIR does not ship by default. Green: the config names FLIR's default; `make golden-update` diff is display-only (`dn16`, `radiance`, `apparent_t` bit-identical). | SC.21 | S | A |
 | SC.23 | **The ADC floor holds the coldest sky (§11.1, S53).** DN 0 sits at −40 °C (`RADIOMETRIC_RANGE_K`) and 33–79 % of `phantom4_perpart` sky reads DN 0. Lower the floor to the LUT's 200 K. | Red: a −60 °C sky quantises to one code. Green: no `phantom4_perpart` sky pixel at DN 0; DN → T_app round trip inside budget; goldens regenerated deliberately. | — | M | A |

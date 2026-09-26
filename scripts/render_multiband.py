@@ -99,6 +99,12 @@ SCENES: dict[str, tuple[str, list[str], int]] = {
 #: this accounts for every file in `configs/scenes/` that `SCENES` does not name, so a new scene
 #: cannot be added and quietly left unfilmed.
 UNSWEPT_SCENES: dict[str, str] = {
+    "sky_only.yaml": (
+        "SC.20's Tier 4 reference: nothing but sky, so the camera's own radial shading is all "
+        "a frame holds. It is measured, not filmed: `scripts/validate_sky_flat.py` renders it "
+        "through one LWIR camera with a controlled housing drift and fits the bowl. A band sweep "
+        "of an empty sky would be four pictures of four housings and say nothing about bands."
+    ),
     "phantom4_parts.yaml": (
         "AI.5's reference scene: the Phantom 4 solved on its **functional parts** rather than its "
         "material prims (ADR 0138), with four motors, four ESC mounts and a battery as separate "

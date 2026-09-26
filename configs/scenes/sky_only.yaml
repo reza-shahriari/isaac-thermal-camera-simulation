@@ -1,0 +1,16 @@
+# SC.20: nothing but sky. The Tier 4 reference scene for the radial shading a camera leaves on a
+# featureless background (§8.2, §11.2): with no target and no horizon in frame, the AGC stretches
+# whatever the camera adds over the whole display range, which is what a real clear-sky frame shows.
+# Rendered by scripts/validate_sky_flat.py; the boresight elevation is chosen there so the horizon
+# stays out of the field.
+# Schema: irsim.config.scene (M6.17). Same weather, atmosphere and site as sky_target_clear_day.
+
+schema_version: 7
+scene:
+  name: sky_only
+  description: "Clear sky, no target: the camera's own radial shading is all there is"
+  weather_file: weather/clear_midlat_summer_48h.csv     # relative to the data root
+  atmosphere_preset: us_standard_clear                  # configs/atmospheres/
+  environment_preset: clear_dry                         # configs/environments/ (sky, ground, solar)
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"                     # local noon
