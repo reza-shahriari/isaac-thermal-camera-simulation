@@ -213,6 +213,10 @@ def _dump_with_file_hashes(
     for key, default in v11_defaults:
         if optics.get(key) == default:
             optics.pop(key, None)
+    # `SC.19`, same rule: no late defects is the pre-v12 camera (every defect on the map).
+    noise = sensor.get("noise", {})
+    if noise.get("bad_pixel_late_fraction") == 0.0:
+        noise.pop("bad_pixel_late_fraction", None)
     root = resolve_data_dir(data_dir)
     for field in DATA_PATH_FIELDS:
         raw = _get_path_field(sensor, field)

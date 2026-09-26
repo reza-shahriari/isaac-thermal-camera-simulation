@@ -24,6 +24,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
 
 ### Changed
+- **Defects that appear after calibration are not replaced** (SC.19, §10.4). A camera
+  interpolates over the defect map it was shipped with, not over the truth. The new
+  `noise.bad_pixel_late_fraction` (sensor schema v12, default 0) marks that share of the defect
+  population as late; `irsim.noise.replacement_mask` leaves them out, so a late hot pixel reaches
+  the 8-bit output as an isolated white dot and a late dead one as a black dot. The flags are drawn
+  from the map stream after every other draw, so positions and classes are bit-identical at any
+  fraction. Both Boson configs set **0.01**, ESTIMATED from one public 640×512 clear-sky frame with
+  one surviving hot pixel against the ~150 hot defects the map predicts. The frame report still
+  counts every active defect. The Warp defect kernel takes a cached factory-map plane; its device
+  test was updated and not run. Goldens regenerated for the config hash; the only changed pixel
+  in any of them is the sensor-chain golden's one late defect, a dead pixel now left at 0.
+  `tests/unit/test_late_defects.py`.
 - **The housing is seen through the field, not added as one number** (SC.17, ADR 0145, §8.2).
   `apply_optics` now computes Φ_ij = A_d Ω_eff [L_h + τ RI_ij (L_scene − L_h)]: the relative
   illumination multiplies the scene *minus* the housing, because an off-axis pixel sees less scene

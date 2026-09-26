@@ -121,6 +121,11 @@ sensor:
     fpn_drift_tau_s: 120.0
     bad_pixel_fraction: 0.0015
     bad_pixel_cluster_lambda: 1.6
+    bad_pixel_late_fraction: 0.01                # ESTIMATED (SC.19, §10.4): share of defects
+                                                 # that failed after the factory map and are
+                                                 # never replaced. A public 640x512 clear-sky
+                                                 # frame shows one surviving hot pixel against
+                                                 # ~150 hot defects this map predicts
 
   nuc:
     mode: shuttered

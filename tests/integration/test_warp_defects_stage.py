@@ -234,7 +234,7 @@ def test_defect_injection_matches_the_cpu_for_a_given_rts_state(
     both paths rather than drawn on each, so any difference here is the defect model and not the
     random numbers.
     """
-    from irsim.noise.defects import DefectState, active_defect_mask, apply_defects
+    from irsim.noise.defects import DefectState, apply_defects, replacement_mask
     from irsim_isaac.pipeline.warp_stages import defect_terms, launch_defects
 
     rng = np.random.default_rng(7)
@@ -252,7 +252,7 @@ def test_defect_injection_matches_the_cpu_for_a_given_rts_state(
     changed = defective != quantised
     expected = frame.copy()
     expected[changed] = defective[changed].astype(np.float32)
-    expected_active = active_defect_mask(bad_map, cpu_state)
+    expected_active = replacement_mask(bad_map, cpu_state)
 
     state = device_state(device)
     kind, _, _ = state.defect_buffers(bad_map, bad.astype(np.uint8))

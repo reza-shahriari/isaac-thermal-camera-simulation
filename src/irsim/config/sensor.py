@@ -68,7 +68,10 @@ __all__ = [
 # 11: `optics.athermal`, `lens_material`, `housing_material` and `focus_reference_temp_k`
 # (`OC.10`, ADR 0129). `athermal: true` is the default and is the pre-v11 camera, so a v10 document
 # is a valid v11 document describing exactly the camera it described before.
-SCHEMA_VERSION = 11
+# 12: `noise.bad_pixel_late_fraction` (SC.19, §10.4): the share of the defect population that
+# appeared after the factory map was made and so is never replaced. Defaults to 0, which is the
+# pre-v12 camera (every defect on the map).
+SCHEMA_VERSION = 12
 #: The oldest version this loader still accepts. v9 added `fidelity:` as an **optional** block whose
 #: default is full fidelity, so every v8 document is a valid v9 document and describes exactly the
 #: camera it described before. A range is the honest representation of a backwards-compatible
@@ -464,6 +467,10 @@ class NoiseSpec(_Frozen):
     bad_pixel_rts_occupancy: float = Field(default=0.3, gt=0, lt=1)
     bad_pixel_rts_dwell_frames: float = Field(default=8.0, gt=1)
     bad_pixel_rts_amplitude_dn: float = Field(default=400.0, ge=0)
+    # §10.4 (SC.19): the fraction of defects, of any class, that developed after the factory
+    # replacement map was made. The camera interpolates over its map, not over the truth, so these
+    # reach the output unreplaced -- the lone stuck pixel of a real clear-sky frame.
+    bad_pixel_late_fraction: float = Field(default=0.0, ge=0, le=1)
 
     def sigma_ratios(self) -> tuple[float, ...]:
         return self.ratios_3d.as_vector()

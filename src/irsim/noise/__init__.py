@@ -12,6 +12,7 @@ from irsim.noise.defects import (
     advance_state,
     apply_defects,
     generate_map,
+    replacement_mask,
 )
 from irsim.noise.drift import (
     DRIFTING_COMPONENTS,
@@ -43,6 +44,7 @@ __all__ = [
     "advance_state",
     "apply_defects",
     "active_defect_mask",
+    "replacement_mask",
     "NucResidual",
     "RESIDUAL_REFERENCE_K",
     "DRIFTING_COMPONENTS",

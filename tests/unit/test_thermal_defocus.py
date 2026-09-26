@@ -101,7 +101,7 @@ def test_unknown_materials_are_refused() -> None:
 
 def test_the_schema_defaults_to_athermal_and_keeps_the_hash() -> None:
     """v11 must be the pre-v11 camera: every existing config describes an athermal lens."""
-    assert SCHEMA_VERSION == 11
+    assert SCHEMA_VERSION == 12  # v12 (SC.19) added only a noise key
     cfg = load_sensor_config(BOSON)
     assert cfg.sensor.optics.athermal is True
     assert cfg.sensor.optics.lens_material == "germanium"

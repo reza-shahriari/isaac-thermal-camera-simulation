@@ -52,6 +52,7 @@ from irsim.noise.defects import (
     active_defect_mask,
     advance_state,
     apply_defects,
+    replacement_mask,
 )
 from irsim.noise.defects import generate_map as generate_defect_map
 from irsim.noise.drift import DriftingPattern, FpnDrift, drift_rng
@@ -207,6 +208,8 @@ class SensorChain:
 
         if self.defects_enabled and self.bad_pixels.count:
             active = active_defect_mask(self.bad_pixels, self.defect_state)
+            # the camera's map, not the truth: late defects stay in the image (SC.19, §10.4)
+            replaced = replacement_mask(self.bad_pixels, self.defect_state)
             quantised = np.clip(np.floor(signal), 0, dn_max).astype(np.uint16)
             defective = apply_defects(
                 quantised,
@@ -220,8 +223,8 @@ class SensorChain:
             changed = defective != quantised
             signal = signal.copy()
             signal[changed] = defective[changed].astype(np.float32)
-            if active.any():
-                signal = replace_bad_pixels(signal, active).astype(np.float32)
+            if replaced.any():
+                signal = replace_bad_pixels(signal, replaced).astype(np.float32)
 
         delta_t = self.ffc.delta_t_eff_k
         if self.residual_enabled:

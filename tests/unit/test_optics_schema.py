@@ -49,7 +49,7 @@ def test_new_fields_default_and_schema_version() -> None:
     have silently stopped testing the defaults the moment a camera started authoring them.
     """
     cfg = SensorConfig.model_validate(BOSON)
-    assert cfg.schema_version == SCHEMA_VERSION == 11
+    assert cfg.schema_version == SCHEMA_VERSION == 12
 
     bare = copy.deepcopy(BOSON)
     for field in ("housing_tau_s", "housing_self_heating_k", "supersample_factor", "mtf"):

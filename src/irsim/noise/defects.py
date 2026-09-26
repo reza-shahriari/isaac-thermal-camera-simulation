@@ -35,6 +35,13 @@ M9.5b repair on the same plane.
 
 The map is drawn once per sensor from the ``BAD_PIXEL_MAP`` stream and the per-frame states from
 ``RTS`` (ADR 0022), so a camera's defects are a property of the camera, not of the scene.
+
+**Factory and late defects (SC.19, §10.4).** A camera replaces the pixels on the defect map it was
+shipped with, not the pixels that are actually bad. ``noise.bad_pixel_late_fraction`` of the
+population is marked *late* -- it failed after the map was made -- and :func:`replacement_mask`
+leaves it out, so a late hot pixel reaches the 8-bit output as an isolated full-scale dot. The late
+flags are drawn from the same stream **after** every other draw, so a map's positions and classes
+are bit-identical whatever the fraction is.
 """
 
 from __future__ import annotations
@@ -56,6 +63,7 @@ __all__ = [
     "generate_map",
     "apply_defects",
     "active_defect_mask",
+    "replacement_mask",
 ]
 
 # ADR 0055: offspring land within two pixels of their parent. Big enough to make 2x2 and small
@@ -83,6 +91,8 @@ class BadPixelMap:
     """Which pixels are bad and how (§10.4). Drawn once per sensor; never per frame."""
 
     kind: NDArray[np.uint8]  # DefectKind per pixel, shape (rows, cols)
+    #: True where the defect appeared after the factory map was made (SC.19); None = none did.
+    late: NDArray[np.bool_] | None = None
 
     def __post_init__(self) -> None:
         k = np.asarray(self.kind)
@@ -90,6 +100,24 @@ class BadPixelMap:
             raise ValueError(f"kind must be a 2-D uint8 plane, got {k.ndim}-D {k.dtype}")
         if k.max(initial=0) > int(DefectKind.BLINKING):
             raise ValueError("kind contains a value outside DefectKind")
+        if self.late is not None:
+            late = np.asarray(self.late)
+            if late.shape != k.shape or late.dtype != np.bool_:
+                raise ValueError("late must be a bool plane of the map's shape")
+            if np.any(late & (k == int(DefectKind.GOOD))):
+                raise ValueError("a good pixel cannot be a late defect")
+
+    @property
+    def late_mask(self) -> NDArray[np.bool_]:
+        """True where the defect is not on the camera's factory map (SC.19)."""
+        if self.late is None:
+            return np.zeros(self.shape, dtype=bool)
+        return np.asarray(self.late)
+
+    @property
+    def factory_mask(self) -> NDArray[np.bool_]:
+        """The camera's own defect map: every defect except the late ones."""
+        return np.asarray(self.mask & ~self.late_mask)
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -206,7 +234,12 @@ def generate_map(shape: tuple[int, int], noise: NoiseSpec, sensor_seed: int) -> 
         return BadPixelMap(kind=kind)
     classes = _draw_classes(flat.size, noise.bad_pixel_type_mix, rng)
     kind.reshape(-1)[flat] = classes
-    return BadPixelMap(kind=kind)
+    late = None
+    if noise.bad_pixel_late_fraction > 0.0:
+        # Drawn last, so positions and classes do not depend on the fraction (SC.19).
+        late = np.zeros((rows, cols), dtype=bool)
+        late.reshape(-1)[flat] = rng.random(flat.size) < float(noise.bad_pixel_late_fraction)
+    return BadPixelMap(kind=kind, late=late)
 
 
 def _draw_classes(n: int, mix: BadPixelTypeMix, rng: np.random.Generator) -> NDArray[np.uint8]:
@@ -263,12 +296,21 @@ def active_defect_mask(bad_map: BadPixelMap, state: DefectState) -> NDArray[np.b
     """The pixels that are actually defective *this frame* — the mask M9.5b replaces.
 
     Dead and hot pixels are always in it; a blinking or flickering one only while its state is
-    bad. This is the ideal mask, i.e. what a camera would replace if its map were perfect. A real
-    core's factory map is static, and what it fails to contain is exactly why intermittent defects
-    reach the image; that distinction belongs with the FFC controller in M9.7.
+    bad. This is the truth; what the camera replaces is :func:`replacement_mask`.
     """
     static = bad_map.mask_of(DefectKind.DEAD) | bad_map.mask_of(DefectKind.HOT)
     return np.asarray(static | (bad_map.stateful_mask & state.bad))
+
+
+def replacement_mask(bad_map: BadPixelMap, state: DefectState) -> NDArray[np.bool_]:
+    """What the camera interpolates over this frame: the active defects on its factory map.
+
+    §10.4 (SC.19). A late defect is active but not on the map, so it is left in the image. An
+    intermittent defect on the map is still replaced only while bad -- a static map cannot know
+    when a flickering pixel is in its good state, but interpolating a good pixel is invisible, so
+    replacing only while bad is the same image.
+    """
+    return np.asarray(active_defect_mask(bad_map, state) & bad_map.factory_mask)
 
 
 def apply_defects(

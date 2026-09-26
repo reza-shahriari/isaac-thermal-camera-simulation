@@ -43,7 +43,7 @@ def test_the_default_camera_is_the_one_every_render_before_the_lane_used() -> No
     assert s.optics.mtf.defocus_model == "none"
     assert s.focus_distance_m is None
     assert s.defocus_enabled is False
-    assert SCHEMA_VERSION == 11  # v10 added focus, v11 the thermal-defocus materials (OC.10)
+    assert SCHEMA_VERSION == 12  # v10 focus, v11 thermal-defocus materials, v12 late defects
 
 
 def test_the_default_focus_block_is_dropped_from_the_config_hash(boson_doc) -> None:
