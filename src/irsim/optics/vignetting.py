@@ -20,7 +20,13 @@ import math
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ["cos4_at_radius", "field_radius_map_mm", "field_angle_map", "cos4_field"]
+__all__ = [
+    "cos4_at_radius",
+    "field_radius_map_mm",
+    "field_angle_map",
+    "cos4_field",
+    "load_vignetting_map",
+]
 
 Float32Array = NDArray[np.float32]
 
@@ -102,6 +108,23 @@ def cos4_field(
             raise ValueError("measured vignetting map values must lie in (0, 1]")
         field = field * m
     return np.asarray(field, dtype=np.float32)
+
+
+def load_vignetting_map(path: str, width: int, height: int) -> NDArray[np.float64]:
+    """A measured mechanical-vignetting map from a ``.npy`` file at the native detector grid.
+
+    ``optics.vignetting_map`` in a sensor config; the loader has already resolved the path against
+    the data root. The map multiplies cos⁴ -- it is the part of the relative illumination a lens
+    drawing cannot give (§2, §8.1) -- so it is normalised by the caller's measurement to 1 on axis,
+    and values must lie in (0, 1]. float16 is refused (non-negotiable #2).
+    """
+    m = np.load(path, allow_pickle=False)
+    if m.dtype == np.float16:
+        raise TypeError(f"{path}: vignetting map is float16 (non-negotiable #2)")
+    if m.shape != (height, width):
+        grid = (height, width)
+        raise ValueError(f"{path}: vignetting map shape {m.shape} != detector grid {grid}")
+    return np.asarray(m, dtype=np.float64)
 
 
 def format_corner_cos4(width: int, height: int, pitch_um: float, focal_length_mm: float) -> float:

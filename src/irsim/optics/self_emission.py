@@ -16,6 +16,10 @@ downstream of it (§8.2, [R19]):
 Everything here is in radiance/power space -- never kelvin (non-negotiable #3). The caller supplies
 band radiances L_B(T) from the band LUT or the closed-form top-hat, so the module is band-agnostic.
 
+Where that term lands on the array is :func:`housing_power_field`: a pixel off axis sees less of
+the scene and more of the housing, so the non-scene power is A_d Ω_eff (1 − τ_opt RI_ij) L_B(T_h),
+not one number per frame (§8.2 revised 2026-09-26, ADR 0145).
+
 docs/physics-model.md §8.2, §2 (Φ_self), §11.2
 """
 
@@ -24,12 +28,17 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+import numpy as np
+from numpy.typing import NDArray
+
 from irsim.optics.aperture import aperture_factor
 
 __all__ = [
     "KIRCHHOFF_TOL",
     "OpticalElement",
     "self_emission_power",
+    "housing_power_field",
+    "housing_power_axis",
     "stack_transmittance",
     "stack_self_radiance",
 ]
@@ -48,6 +57,49 @@ def self_emission_power(
     if lb_housing < 0.0:
         raise ValueError("lb_housing is a band radiance and cannot be negative")
     return active_area_m2 * aperture_factor(f_number) * (1.0 - tau_opt) * lb_housing
+
+
+def housing_power_field(
+    active_area_m2: float,
+    f_number: float,
+    tau_opt: float,
+    lb_housing: float,
+    relative_illumination: object,
+) -> NDArray[np.float64]:
+    """Everything a pixel receives that is not scene: A_d Ω_eff (1 − τ_opt RI_ij) L_B(T_housing).
+
+    docs/physics-model.md §8.2 ("Where the housing radiation lands on the array"), ADR 0145. The
+    pixel's hemisphere splits into the aperture cone, of projected solid angle Ω_eff RI_ij, and the
+    inside of the camera. With lens and housing at one temperature the power on a uniform scene is
+
+        Φ_ij = A_d π L_h + A_d Ω_eff τ_opt RI_ij (L_scene − L_h).
+
+    The uniform pedestal A_d π L_h is balanced by the detector's own emission at T_FPA and is not
+    carried (ADR 0145); referencing it to the optical axis instead leaves
+
+        Φ_ij = A_d Ω_eff [L_h + τ_opt RI_ij (L_scene − L_h)],
+
+    whose non-scene part is this function. On axis (RI = 1) it equals :func:`self_emission_power`
+    exactly, so every on-axis number the project has measured is unchanged; off axis it grows,
+    because the pixel sees less scene and more housing. Units follow L_B.
+    """
+    ri = np.asarray(relative_illumination, dtype=np.float64)
+    if np.any(ri <= 0.0) or np.any(ri > 1.0 + 1e-12) or not np.all(np.isfinite(ri)):
+        raise ValueError("relative illumination must lie in (0, 1]")
+    axis_housing = housing_power_axis(active_area_m2, f_number, tau_opt, lb_housing)
+    return np.asarray(axis_housing * (1.0 - tau_opt * ri), dtype=np.float64)
+
+
+def housing_power_axis(
+    active_area_m2: float, f_number: float, tau_opt: float, lb_housing: float
+) -> float:
+    """A_d Ω_eff L_B(T_housing): the housing power a pixel would receive with no scene in its cone.
+
+    The two scalars of :func:`housing_power_field` a device kernel needs are this and L_h itself:
+    Φ_ij = τ Ω_eff RI_ij A_d (L_scene − L_h) + this (§8.2, ADR 0145).
+    """
+    self_emission_power(active_area_m2, f_number, tau_opt, lb_housing)  # validates the scalars
+    return active_area_m2 * aperture_factor(f_number) * lb_housing
 
 
 @dataclass(frozen=True)

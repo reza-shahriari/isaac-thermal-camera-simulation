@@ -38,6 +38,8 @@ from irsim.optics.psf import apply_psf, optical_psf
 from irsim.optics.sampling import box_downsample, box_transfer, required_render_size
 from irsim.optics.self_emission import (
     OpticalElement,
+    housing_power_axis,
+    housing_power_field,
     self_emission_power,
     stack_self_radiance,
     stack_transmittance,
@@ -79,6 +81,8 @@ __all__ = [
     "cos4_field",
     "field_angle_map",
     "OpticalElement",
+    "housing_power_axis",
+    "housing_power_field",
     "self_emission_power",
     "stack_self_radiance",
     "stack_transmittance",

@@ -4,8 +4,13 @@ Fixed order (docs/physics-model.md §2, §8.1-§8.3, §13.4; ADR 0020):
 
     1. optical PSF (diffraction · aberration Gaussian) at the supersampled pitch, if given
     2. box-mean downsample k× → native grid            (detector footprint MTF + aliasing)
-    3. × π τ_opt / (4F² + 1) · cos⁴θ · A_d               (aperture, natural vignetting, area)
-    4. + Φ_self = A_d Ω_eff (1 − τ_opt) L_B(T_housing)  (optics self-emission)
+    3. × π τ_opt / (4F² + 1) · RI_ij · A_d               (aperture, relative illumination, area)
+    4. + A_d Ω_eff (1 − τ_opt RI_ij) L_B(T_housing)     (lens emission + out-of-cone housing view)
+
+so Φ_ij = A_d Ω_eff [L_h + τ_opt RI_ij (L_scene − L_h)]: the relative illumination multiplies the
+scene radiance *minus* the housing radiance (§8.2 revised 2026-09-26, ADR 0145). RI_ij is cos⁴θ
+times the measured map named by ``optics.vignetting_map``, when there is one. On axis this is the
+old single-lens form exactly; a uniform scene colder than the housing is darkest on axis.
 
 Output Φ is float32 in W (or photons s⁻¹ if the input was photon radiance). ``invert_optics``
 undoes 3-4 at the native grid and returns the scene band radiance the radiometric branch
@@ -24,15 +29,26 @@ from irsim.config.sensor import SensorSpec
 from irsim.optics.aperture import aperture_factor, fpa_irradiance
 from irsim.optics.psf import apply_psf
 from irsim.optics.sampling import box_downsample
-from irsim.optics.self_emission import self_emission_power
+from irsim.optics.self_emission import housing_power_field
 from irsim.optics.smear import apply_motion_smear
-from irsim.optics.vignetting import cos4_field
+from irsim.optics.vignetting import cos4_field, load_vignetting_map
 
 __all__ = ["optics_field", "apply_optics", "invert_optics"]
 
 
 def optics_field(sensor: SensorSpec, supersample: int = 1) -> NDArray[np.float32]:
-    """The cos⁴ (or ones) field for this sensor's geometry at the requested grid."""
+    """The relative illumination RI_ij: cos⁴ (or ones) times the measured map, if configured.
+
+    The measured map is native-grid data, so it is only accepted at ``supersample=1``; the
+    optics stage applies RI after the box downsample, where the native grid is what it needs.
+    """
+    measured = None
+    if sensor.optics.vignetting_map is not None:
+        if supersample != 1:
+            raise ValueError("a measured vignetting map is native-grid data; use supersample=1")
+        measured = load_vignetting_map(
+            sensor.optics.vignetting_map, sensor.fpa.width, sensor.fpa.height
+        )
     return cos4_field(
         sensor.fpa.width,
         sensor.fpa.height,
@@ -40,6 +56,7 @@ def optics_field(sensor: SensorSpec, supersample: int = 1) -> NDArray[np.float32
         sensor.optics.focal_length_mm,
         supersample=supersample,
         enabled=sensor.optics.vignetting_cos4,
+        measured_map=measured,
     )
 
 
@@ -79,9 +96,10 @@ def apply_optics(
     _check_native(radiance, sensor, "downsampled radiance")
     a_d = sensor.detector_active_area_m2
     f, tau = sensor.optics.f_number, sensor.optics.transmittance
-    irradiance = fpa_irradiance(radiance, f, tau, optics_field(sensor))
-    phi_self = self_emission_power(a_d, f, tau, lb_housing)
-    phi = irradiance.astype(np.float64) * a_d + phi_self
+    ri = optics_field(sensor)
+    irradiance = fpa_irradiance(radiance, f, tau, ri)
+    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri)
+    phi = irradiance.astype(np.float64) * a_d + phi_housing
     return np.asarray(phi, dtype=np.float32)
 
 
@@ -90,8 +108,10 @@ def invert_optics(
 ) -> NDArray[np.float32]:
     """Pixel power → equivalent scene band radiance at the native grid (float32).
 
-    Divides out cos⁴ so an off-axis pixel reports the radiance it actually saw; the
-    radiometric branch therefore recovers T everywhere, not only on axis.
+    Removes the field-weighted housing term and divides out RI, so an off-axis pixel reports the
+    radiance it actually saw; the radiometric branch therefore recovers T everywhere, not only on
+    axis. ``lb_housing`` is what the camera *believes* the housing is (its calibration value), so a
+    housing that has drifted reads back as a shading that grows toward the corners (§8.2).
     """
     p = np.asarray(phi)
     if p.dtype == np.float16:
@@ -99,6 +119,7 @@ def invert_optics(
     _check_native(p, sensor, "pixel power")
     a_d = sensor.detector_active_area_m2
     f, tau = sensor.optics.f_number, sensor.optics.transmittance
-    phi_self = self_emission_power(a_d, f, tau, lb_housing)
-    denom = a_d * aperture_factor(f) * tau * optics_field(sensor).astype(np.float64)
-    return np.asarray((p.astype(np.float64) - phi_self) / denom, dtype=np.float32)
+    ri = optics_field(sensor).astype(np.float64)
+    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri)
+    denom = a_d * aperture_factor(f) * tau * ri
+    return np.asarray((p.astype(np.float64) - phi_housing) / denom, dtype=np.float32)

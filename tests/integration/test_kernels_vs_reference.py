@@ -394,10 +394,11 @@ def test_step_edge_psf_then_box_matches_the_cpu_to_1e5(
 def test_vignetting_and_self_emission_come_from_the_host(
     warp: Any, config_edge: Any, device: str
 ) -> None:
-    """cos^4 across the field and Phi_self at the corner, against `irsim.optics` directly: the
-    kernel may scale and add, it may not own the aperture factor (non-negotiable #5)."""
+    """RI across the field and the field-weighted housing term (ADR 0145), against `irsim.optics`
+    directly: the kernel may scale and add, it may not own the aperture factor (non-negotiable
+    #5)."""
     from irsim.optics.aperture import aperture_factor
-    from irsim.optics.self_emission import self_emission_power
+    from irsim.optics.self_emission import housing_power_field
     from irsim.optics.stage import optics_field
     from irsim_isaac.pipeline.warp_stages import apply_optics_warp, optics_terms
 
@@ -408,11 +409,10 @@ def test_vignetting_and_self_emission_come_from_the_host(
     flux = apply_optics_warp(np.ones((h * k, w * k), np.float32), terms, device=device)
 
     f, tau, a_d = spec.optics.f_number, spec.optics.transmittance, spec.detector_active_area_m2
-    phi_self = self_emission_power(a_d, f, tau, lb_housing)
-    expected = aperture_factor(f) * tau * optics_field(spec) * a_d + phi_self
+    ri = optics_field(spec).astype(np.float64)
+    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri)
+    expected = aperture_factor(f) * tau * ri * a_d + phi_housing
     assert np.max(np.abs(flux - expected) / expected) <= 1e-6
-    corner = float(flux[0, 0] - phi_self) / float(flux[h // 2, w // 2] - phi_self)
-    assert corner == pytest.approx(float(optics_field(spec)[0, 0]), rel=1e-6)
 
 
 @pytest.mark.parametrize("device", DEVICES)

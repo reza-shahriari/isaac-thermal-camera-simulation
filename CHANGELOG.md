@@ -24,6 +24,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
 
 ### Changed
+- **The housing is seen through the field, not added as one number** (SC.17, ADR 0145, §8.2).
+  `apply_optics` now computes Φ_ij = A_d Ω_eff [L_h + τ RI_ij (L_scene − L_h)]: the relative
+  illumination multiplies the scene *minus* the housing, because an off-axis pixel sees less scene
+  and more camera interior. A uniform scene colder than the housing (a clear sky) is brighter in the
+  corners before correction, warmer is darker, equal is flat; the old form darkened every scene.
+  On-axis power is unchanged to the bit and the flat field and radiometric inverse stay exact at the
+  calibration housing. A drifted housing now shades: at the Boson 640 corner a +1 K housing reads
+  **372 mK** on a 300 K scene (was 110 mK) and **938 mK** on a 230 K sky; the centre stays 87 mK.
+  `optics.vignetting_map` (a `.npy` at the native grid) is finally loaded, resolved against the
+  data root and hashed by content. The Warp twin takes L_h and A_d Ω_eff L_h as two host scalars;
+  its device test was updated and not run. `tests/unit/test_housing_field.py`;
+  `test_flat_field.py`'s premise moved from a 300 K scene, now correctly flat, to 400 K.
 - **The physics spec now says where the housing radiation lands on the array, and what a shutter FFC
   actually snapshots.** A downloaded clear-sky frame from an uncooled 640×512 core showed a smooth radial
   bowl over the whole frame, which the spec's uniform self-emission term (§8.2) and white NUC residual

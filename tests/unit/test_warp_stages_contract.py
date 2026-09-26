@@ -183,16 +183,18 @@ def test_validate_distance_mirrors_the_oracle() -> None:
 
 def test_optics_terms_take_every_scalar_from_irsim_optics() -> None:
     """Non-negotiable #5 in its positive form: the aperture factor the kernel is handed is the
-    one `irsim.optics.aperture` computes, and Phi_self is `self_emission_power`'s value."""
+    one `irsim.optics.aperture` computes, and the housing power is `housing_power_axis`'s value
+    (ADR 0145: the kernel subtracts L_h before scaling by RI, then adds A_d Omega_eff L_h)."""
     from irsim.optics.aperture import aperture_factor
-    from irsim.optics.self_emission import self_emission_power
+    from irsim.optics.self_emission import housing_power_axis
     from irsim.optics.stage import optics_field
 
     spec = _boson(width=8, height=8).sensor
     terms = ws.optics_terms(spec, 12.5, 4, None)
     f, tau, a_d = spec.optics.f_number, spec.optics.transmittance, spec.detector_active_area_m2
     assert terms.factor == pytest.approx(aperture_factor(f) * tau, rel=1e-15)
-    assert terms.phi_self == pytest.approx(self_emission_power(a_d, f, tau, 12.5), rel=1e-15)
+    assert terms.phi_housing == pytest.approx(housing_power_axis(a_d, f, tau, 12.5), rel=1e-15)
+    assert terms.lb_housing == 12.5
     assert terms.area_m2 == pytest.approx(a_d, rel=1e-15)
     assert np.array_equal(terms.cos4, optics_field(spec).astype(np.float32))
     assert terms.supersample == 4 and terms.psf is None
@@ -203,7 +205,7 @@ def test_optics_terms_refuse_an_even_sided_psf() -> None:
     with pytest.raises(ValueError, match="odd sides"):
         ws.optics_terms(spec, 1.0, 4, np.ones((4, 4)))
     with pytest.raises(ValueError, match="supersample"):
-        ws.OpticsTerms(1.0, 1.0, 0.0, 0, np.ones((2, 2), np.float32), None)
+        ws.OpticsTerms(1.0, 1.0, 0.0, 0.0, 0, np.ones((2, 2), np.float32), None)
 
 
 def test_the_kernel_source_never_recomputes_the_aperture_factor() -> None:

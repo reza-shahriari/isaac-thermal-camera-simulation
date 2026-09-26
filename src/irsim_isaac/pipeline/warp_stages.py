@@ -59,7 +59,7 @@ from irsim.materials.table import MaterialTable
 from irsim.noise.stage import NoiseStage
 from irsim.noise.three_d import FixedPattern
 from irsim.optics.aperture import aperture_factor
-from irsim.optics.self_emission import self_emission_power
+from irsim.optics.self_emission import housing_power_axis as housing_power_field_axis
 from irsim.optics.stage import optics_field
 from irsim.pipeline.atmosphere import atmosphere_stage
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes, require_fp32_or_better
@@ -263,14 +263,15 @@ if wp is not None:
         cos4: wp.array2d(dtype=wp.float32),
         factor: wp.float32,
         area_m2: wp.float32,
-        phi_self: wp.float32,
+        lb_housing: wp.float32,
+        phi_housing: wp.float32,
         supersample: wp.int32,
         flux: wp.array2d(dtype=wp.float32),
     ):
-        """Box-mean k× downsample, then Φ = E A_d + Φ_self on the detector grid (§8.1, §8.3).
+        """Box-mean k× downsample, then Φ = A_d Ω τ RI (L − L_h) + A_d Ω L_h (§8.1, §8.2, §8.3).
 
-        ``factor`` is Ω_eff τ_opt and ``phi_self`` is A_d Ω_eff (1 − τ_opt) L_B(T_housing), both
-        computed on the host by `irsim.optics` — the aperture factor π/(4F² + 1) is written once,
+        ``factor`` is Ω_eff τ_opt and ``phi_housing`` is A_d Ω_eff L_B(T_housing), both computed
+        on the host by `irsim.optics` (ADR 0145) — the aperture factor π/(4F² + 1) is written once,
         in `irsim.optics.aperture`, and `tests/unit/test_aperture_guard.py` walks the AST of this
         file to keep it that way (non-negotiable #5). The box is the full pitch; the fill factor
         is already in A_d, not in the box (ADR 0020).
@@ -281,7 +282,7 @@ if wp is not None:
             for b in range(supersample):
                 acc += radiance_ss[i * supersample + a, j * supersample + b]
         mean = acc / (wp.float32(supersample) * wp.float32(supersample))
-        flux[i, j] = mean * factor * cos4[i, j] * area_m2 + phi_self
+        flux[i, j] = (mean - lb_housing) * factor * cos4[i, j] * area_m2 + phi_housing
 
     @wp.kernel
     def _bolometer_signal_kernel(
@@ -585,6 +586,7 @@ if wp is not None:
         signal_dn: wp.array2d(dtype=wp.float32),
         kind: wp.array2d(dtype=wp.uint8),
         rts_bad: wp.array2d(dtype=wp.uint8),
+        on_map: wp.array2d(dtype=wp.uint8),
         dn_max: wp.int32,
         amplitude_dn: wp.int32,
         out: wp.array2d(dtype=wp.float32),
@@ -597,7 +599,8 @@ if wp is not None:
         hot pixel keeps its sub-LSB value exactly as on the CPU. And the replacement mask is the
         *active* mask -- dead and hot always, blinking and flickering only while their chain is in
         the bad state -- which is what makes an intermittent defect reach the image through a
-        static factory map (§10.4).
+        static factory map (§10.4). ``active`` is written as ``replacement_mask``: an active
+        defect that is not ``on_map`` -- a late defect, SC.19 -- is left in the image.
         """
         i, j = wp.tid()
         s = signal_dn[i, j]
@@ -618,7 +621,7 @@ if wp is not None:
         elif k == wp.uint8(3) and bad:  # FLICKERING, currently bad
             d = wp.clamp(q + amplitude_dn, 0, dn_max)
             is_active = wp.uint8(1)
-        active[i, j] = is_active
+        active[i, j] = is_active * on_map[i, j]
         if d != q:
             out[i, j] = wp.float32(d)
         else:
@@ -1129,7 +1132,8 @@ class OpticsTerms:
 
     factor: float  # Omega_eff * tau_opt
     area_m2: float
-    phi_self: float
+    lb_housing: float
+    phi_housing: float  # A_d * Omega_eff * L_B(T_housing), the housing power with no scene
     supersample: int
     cos4: NDArray[np.float32]
     psf: NDArray[np.float32] | None
@@ -1156,7 +1160,9 @@ def optics_terms(
     return OpticsTerms(
         factor=aperture_factor(f) * tau,
         area_m2=a_d,
-        phi_self=self_emission_power(a_d, f, tau, lb_housing),
+        lb_housing=float(lb_housing),
+        # A_d Ω_eff L_h: housing_power_field at RI = 0, i.e. with no scene in the cone
+        phi_housing=housing_power_field_axis(a_d, f, tau, lb_housing),
         supersample=k,
         cos4=np.ascontiguousarray(optics_field(sensor), dtype=np.float32),
         psf=None if psf is None else np.ascontiguousarray(psf, dtype=np.float32),
@@ -1194,7 +1200,8 @@ def launch_optics(radiance_ss: Any, terms: OpticsTerms, flux: Any, device: str) 
             _as_device(warp, terms.cos4, warp.float32, device),
             np.float32(terms.factor),
             np.float32(terms.area_m2),
-            np.float32(terms.phi_self),
+            np.float32(terms.lb_housing),
+            np.float32(terms.phi_housing),
             np.int32(terms.supersample),
         ],
         outputs=[flux],
@@ -1281,6 +1288,8 @@ class WarpPipelineState:
         self._xi_shape: tuple[int, int] | None = None
         self._defects: tuple[Any, Any, Any] | None = None
         self._defects_shape: tuple[int, int] | None = None
+        self._factory: Any = None
+        self._factory_shape: tuple[int, ...] | None = None
         self._held: Any = None
         self._held_shape: tuple[int, int] | None = None
 
@@ -1389,6 +1398,19 @@ class WarpPipelineState:
             self._defects[1].assign(np.ascontiguousarray(seed_state, dtype=np.uint8))
         return self._defects
 
+    def factory_map_buffer(self, bad_map: Any) -> Any:
+        """1 where a pixel is on the camera's factory map or is good, 0 for a late defect (SC.19).
+
+        Uploaded once per map and cached, like the kind plane: the map is a property of the
+        camera, and a per-frame upload is exactly the host round trip `IG.16` is removing.
+        """
+        warp = _require()
+        on_map = np.ascontiguousarray(~np.asarray(bad_map.late_mask), dtype=np.uint8)
+        if self._factory is None or self._factory_shape != on_map.shape:
+            self._factory = warp.array(on_map, dtype=warp.uint8, device=self.device)
+            self._factory_shape = on_map.shape
+        return self._factory
+
     def swap_rts(self) -> None:
         """Make the freshly written RTS state the current one."""
         if self._defects is not None:
@@ -1429,6 +1451,8 @@ class WarpPipelineState:
         self._xi_shape = None
         self._defects = None
         self._defects_shape = None
+        self._factory = None
+        self._factory_shape = None
         self._held = None
         self._held_shape = None
 
@@ -2066,10 +2090,17 @@ def launch_defects(
     out: Any,
     active: Any,
     device: str = DEFAULT_DEVICE,
+    on_map: Any = None,
 ) -> None:
-    """Inject the defects and write the active mask the replacement will consume."""
+    """Inject the defects and write the replacement mask the replacement will consume.
+
+    ``on_map`` is `WarpPipelineState.factory_map_buffer`; None means every defect is on the map
+    (no late defects), which is the pre-SC.19 behaviour.
+    """
     warp = _require()
     rows, cols = int(signal.shape[0]), int(signal.shape[1])
+    if on_map is None:
+        on_map = warp.full((rows, cols), 1, dtype=warp.uint8, device=device)
     warp.launch(
         _apply_defects_kernel,
         dim=(rows, cols),
@@ -2077,6 +2108,7 @@ def launch_defects(
             signal,
             kind,
             rts_bad,
+            on_map,
             np.int32(terms.dn_max),
             np.int32(terms.amplitude_dn),
         ],
@@ -2211,7 +2243,8 @@ def defects_stage_warp(
     src = _as_device(warp, signal.astype(np.float32), warp.float32, device)
     defective = warp.zeros(shape, dtype=warp.float32, device=device)
     active = warp.zeros(shape, dtype=warp.uint8, device=device)
-    launch_defects(src, kind, rts_bad, terms, defective, active, device)
+    on_map = device_state.factory_map_buffer(chain.bad_pixels)
+    launch_defects(src, kind, rts_bad, terms, defective, active, device, on_map=on_map)
 
     replaced = warp.zeros(shape, dtype=warp.float32, device=device)
     passes = launch_replacement(defective, active, replaced, device)

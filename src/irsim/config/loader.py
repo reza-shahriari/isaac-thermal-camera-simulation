@@ -46,7 +46,9 @@ __all__ = [
 DEFAULT_DATA_DIR = pathlib.Path(__file__).resolve().parents[3] / "data"
 # Dotted paths (under ``sensor``) of fields that name data files. Extend here when material or
 # atmosphere configs add file references; the hashes pick them up automatically.
-DATA_PATH_FIELDS: tuple[str, ...] = ("band.spectral_response",)
+DATA_PATH_FIELDS: tuple[str, ...] = ("band.spectral_response", "optics.vignetting_map")
+# The subset that may be absent or null: an optional file is resolved and hashed when given.
+OPTIONAL_DATA_PATH_FIELDS: frozenset[str] = frozenset({"optics.vignetting_map"})
 
 
 def resolve_data_dir(data_dir: str | os.PathLike[str] | None = None) -> pathlib.Path:
@@ -66,6 +68,18 @@ def _get(d: dict[str, Any], dotted: str) -> Any:
     return node
 
 
+def _get_path_field(d: dict[str, Any], dotted: str) -> Any:
+    """The raw value of a data-path field, or None when an optional one is absent or null."""
+    if dotted not in OPTIONAL_DATA_PATH_FIELDS:
+        return _get(d, dotted)
+    node: Any = d
+    for key in dotted.split("."):
+        if not isinstance(node, dict) or node.get(key) is None:
+            return None
+        node = node[key]
+    return node
+
+
 def _set(d: dict[str, Any], dotted: str, value: Any) -> None:
     *path, last = dotted.split(".")
     node = d
@@ -76,7 +90,9 @@ def _set(d: dict[str, Any], dotted: str, value: Any) -> None:
 
 def _resolve_paths(sensor: dict[str, Any], data_dir: pathlib.Path) -> None:
     for field in DATA_PATH_FIELDS:
-        raw = _get(sensor, field)
+        raw = _get_path_field(sensor, field)
+        if raw is None:
+            continue
         path = pathlib.Path(raw).expanduser()
         if not path.is_absolute():
             path = data_dir / path
@@ -199,7 +215,9 @@ def _dump_with_file_hashes(
             optics.pop(key, None)
     root = resolve_data_dir(data_dir)
     for field in DATA_PATH_FIELDS:
-        raw = _get(sensor, field)
+        raw = _get_path_field(sensor, field)
+        if raw is None:
+            continue
         path = pathlib.Path(raw).expanduser()
         if not path.is_absolute():
             path = root / path

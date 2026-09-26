@@ -93,15 +93,33 @@ def corner_over_centre(plane: np.ndarray, half: int = 24) -> float:
 
 
 def test_the_raw_dn_plane_really_does_carry_cos4(config) -> None:  # type: ignore[no-untyped-def]
-    """The premise, measured: an un-corrected camera darkens toward the corners by ~21 %.
+    """The premise, measured: an un-corrected camera looking at a scene warmer than its housing
+    darkens toward the corners.
 
-    Stated first so the fix below is measured against a number rather than an impression. The
-    ratio is not exactly cos⁴ because the DN plane also carries the optics self-emission pedestal,
-    which does not vanish at the corner -- but it is unmistakably the same artefact.
+    Stated first so the fix below is measured against a number rather than an impression. Since
+    SC.17 (§8.2, ADR 0145) the relative illumination multiplies the scene *minus* the housing, so
+    the depth depends on how far the scene is from the housing: 400 K through a 300 K housing is
+    the case this module was written for.
     """
-    raw = uniform_signal_dn(config, 300.0)
+    raw = uniform_signal_dn(config, 400.0)
     ratio = corner_over_centre(raw)
     assert ratio < 0.90, f"corner/centre {ratio:.3f}: the premise of this module is wrong"
+
+
+def test_the_raw_shading_follows_the_scene_minus_the_housing(config) -> None:  # type: ignore[no-untyped-def]
+    """SC.17: the sign of the raw shading is the sign of L_scene − L_housing (§8.2).
+
+    A pixel off axis sees less scene and more housing. Warmer than the housing, the corners are
+    darker; colder -- a clear sky -- they are *brighter*; at the housing temperature the camera is
+    an isothermal enclosure and there is no shading at all. The old form, cos⁴ on the scene alone
+    plus one self-emission number, darkened the corners at every temperature.
+    """
+    t_housing = config.t_housing_cal_k
+    warm = corner_over_centre(uniform_signal_dn(config, t_housing + 60.0))
+    cold = corner_over_centre(uniform_signal_dn(config, t_housing - 60.0))
+    same = corner_over_centre(uniform_signal_dn(config, t_housing))
+    assert warm < 1.0 < cold, f"warm {warm:.4f}, cold {cold:.4f}"
+    assert abs(same - 1.0) < 1e-3, f"scene at the housing temperature: corner/centre {same:.5f}"
 
 
 def test_a_uniform_scene_comes_out_uniform(corrected_config) -> None:  # type: ignore[no-untyped-def]
@@ -188,12 +206,13 @@ def row_band(image: np.ndarray, centre_row: int, half: int = 12) -> tuple[float,
     return edge, middle
 
 
-def test_the_picture_stops_having_dark_corners(config, corrected_config) -> None:  # type: ignore[no-untyped-def]
+def test_the_picture_stops_having_shaded_edges(config, corrected_config) -> None:  # type: ignore[no-untyped-def]
     """End to end, in the 8-bit image: the artefact the complaint was about.
 
     Along a row the scene temperature is constant, so the edges and the centre must read the same.
-    Uncorrected they do not -- the edges are far darker, which is the black-corner look that no
-    real thermal clip has, because every real camera flat-fields before its AGC.
+    Uncorrected they do not, which is a shading no real thermal clip has, because every real
+    camera flat-fields before its AGC. The sign is not asserted: this scene is colder than the
+    housing, so since SC.17 the uncorrected edges come out *brighter* (§8.2); the size is.
     """
     planes = gradient_planes(config)
     plain = np.asarray(run_frame(planes, config, PipelineState()).display8)[..., 0].astype(float)
@@ -205,11 +224,12 @@ def test_the_picture_stops_having_dark_corners(config, corrected_config) -> None
     plain_edge, plain_centre = row_band(plain, row)
     flat_edge, flat_centre = row_band(flat, row)
 
-    assert plain_centre - plain_edge > 20.0, (
-        f"uncorrected should darken at the edges: {plain_edge:.1f} vs {plain_centre:.1f}"
+    shading = abs(plain_centre - plain_edge)
+    assert shading > 20.0, (
+        f"uncorrected should shade at the edges: {plain_edge:.1f} vs {plain_centre:.1f}"
     )
-    assert abs(flat_edge - flat_centre) < 0.2 * (plain_centre - plain_edge), (
-        f"still darkening after correction: {flat_edge:.1f} vs {flat_centre:.1f}"
+    assert abs(flat_edge - flat_centre) < 0.2 * shading, (
+        f"still shading after correction: {flat_edge:.1f} vs {flat_centre:.1f}"
     )
 
 
