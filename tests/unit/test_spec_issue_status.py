@@ -58,6 +58,7 @@ WORDS = {
     69: "sixty-nine",
     70: "seventy",
     71: "seventy-one",
+    73: "seventy-three",
 }
 
 
@@ -87,14 +88,16 @@ def _adrs_in(text: str) -> list[str]:
 # --- every row carries a status -------------------------------------------------------------------
 
 
-def test_the_file_still_holds_seventy_one_issues() -> None:
+def test_the_file_still_holds_seventy_three_issues() -> None:
     """If this moves, the summary paragraph's counts move with it and the tests below say so.
 
     Sixty until 2026-09-20; `S41`-`S49` were opened by roadmap revision 6 for the owner's
     per-point, part-to-part, water and fire requirements, and `S50` by `AT.12` for the cloud
-    field's spectral-slope convention, and `S51` by `OC.1` for §8.3's undefined `MTF_defocus`.
+    field's spectral-slope convention, `S51` by `OC.1` for §8.3's undefined `MTF_defocus`, and
+    `S52`/`S53` on 2026-09-26 for the AGC that starves a small target and the ADC floor that clips
+    a cold sky.
     """
-    assert len(_rows()) == 71
+    assert len(_rows()) == 73
 
 
 def test_every_row_has_a_non_empty_status() -> None:

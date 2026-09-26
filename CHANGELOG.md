@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **The AGC starves a small target, and the ADC clips a cold sky** (spec issues S52, S53). On the
+  `phantom4_perpart` clip the drone (0.6 % of the frame) gets 3 of 256 grey levels, because the
+  global plateau never clips a cloud-clutter histogram and becomes full HE; and DN 0 sits at −40 °C,
+  so up to 79 % of a frame's sky reads one code. §11.1 and §11.3 now say why, citing FLIR's Boson AGC
+  application note [R51]; roadmap rows `SC.21`–`SC.24` own the fixes.
+- **`agc: information_based` and `linear_percent`** (SC.21, ADR 0147, §11.3): an approximation of
+  the Boson's factory-default AGC. A 0.6 % target on a 60 K cluttered sky goes from ≤ 3 to ≥ 25
+  grey codes with its parts in order, and `phantom4_perpart` frame 96 goes from 3 to 30. Opt-in: no
+  config, hash or golden changes.
+- **`scripts/redisplay_planes.py`** (SC.24, part): re-displays a finished render's float32 planes as
+  `FIXED_agc`, `FIXED_ir` and side-by-side `FIXED_*_vs_old` clips on the CPU, with the ADC floor at
+  200 K, the camera's ISP in `information_based`, and the readout moved off the aircraft.
+
 ### Fixed
 - **A VDB cloud renders in the path tracer after all** (AT.13 reopened, ADR 0144). ADR 0140's
   "nothing volumetric renders here" rested on a probe control that contained the cube under test

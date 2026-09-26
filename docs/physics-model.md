@@ -849,6 +849,16 @@ raw DN → bad-pixel replace → NUC (2-pt gain/offset) → temporal filter
 
 Note the fork: a **radiometric** camera exposes the linear branch (calibrated $T_{\text{app}}$ per pixel); a **non-radiometric** core exposes only the AGC branch. Emit both — perception stacks usually consume the 8-bit AGC image, while your validation needs the linear one. §11.5 continues the radiometric branch past $T_{\text{app}}$ to the number the camera actually reports.
 
+**The raw DN must hold the coldest scene.** A microbolometer's DN is referenced to the shutter,
+$\mathrm{DN} \propto \Phi_{\text{scene}} - \Phi_{\text{shutter}}$ plus a mid-scale pedestal, so the low end
+of the 14-bit range sits far below any natural scene: zero radiance is still on scale. A camera
+datasheet's "scene dynamic range" (e.g. −40 °C … +140 °C high gain) is the range over which the
+radiometry is *specified*, not an ADC floor. A model that puts DN 0 at the lower end of the datasheet
+range clips every clear sky colder than it — the zenith sky in dry air reads −50 … −70 °C in LWIR — to a
+single code, which erases the sky's structure from the display branch and, worse, hands the AGC one
+enormous histogram bin. The ADC transfer's lower bound must lie below the coldest sky the scene can
+produce (spec issue S53).
+
 ### 11.2 Two-point NUC
 
 $$
@@ -911,6 +921,41 @@ $$
 with $p_{\text{lo}},p_{\text{hi}}$ typically 0.5% / 99.5%.
 
 **Plateau equalisation (what most thermal cores actually use):** histogram equalisation with the per-bin count clipped at a plateau value $P$ before integrating the CDF. Low $P$ → approaches linear; high $P$ → full HE. This is the algorithm behind the characteristic thermal "look."
+
+**$P$ only clips a histogram with a spike.** $P$ is a fraction of $N_{\text{pixels}}$ per bin (FLIR's
+default is 7 % [R51]), so it limits a bin only when one DN value holds more than that share of the
+frame — a *uniform* background such as a clear sky a few counts wide. A background that is itself
+spread over thousands of DN (cumulus clutter spanning 60 K at ~170 DN/K) never reaches the plateau,
+and the operator degenerates to full HE: grey shades are handed out in proportion to pixel count. A
+small target then gets the share of the ramp that it has of the frame. FLIR says it in so many words:
+"an image with 60 % sky will devote 60 % of the available 8 bit shades to the sky" [R51]. Measured
+on this repository's Phantom 4 clip (spec issue S52), a drone covering 0.6 % of the frame received
+**three** of 256 grey levels for a 15 → 38 °C spread of part temperatures. That is correct plateau
+behaviour; it is the wrong operator to call the camera's default.
+
+**Information-based equalisation (a Boson's factory default).** The frame is split into a low-pass
+image $x_{LP}$ (an edge-preserving smoother; FLIR's control is a range sigma, *Smoothing Factor*) and
+$x_{HP} = x - x_{LP}$. Plateau equalisation runs on $x_{LP}$, and the histogram is then re-weighted
+so that bins holding high-pass content receive more shades:
+
+$$
+h(b) = \min\big(h_{LP}(b),\,P N\big) + \beta_{\text{info}}\,\frac{\sum_b \min(h_{LP}, PN)}{\sum_{i}|x_{HP,i}|}\sum_{i\in b}|x_{HP,i}|
+$$
+
+so a textured target on a smooth sky earns shades in proportion to its detail, not its area.
+$\beta_{\text{info}}$ (the relative weight of the information histogram) is **not published**; FLIR
+describes the weighting only qualitatively, so the form above is a flagged approximation of a
+proprietary operator, and its free parameter must be fitted to public footage before it is called a
+Boson (Tier 4). The high-pass layer is added back after the mapping at the local slope of the
+transfer, $y = \mathrm{LUT}(x_{LP}) + g_{\text{DDE}}\,\mathrm{LUT}'(x_{LP})\,x_{HP}$, which is what DDE
+means on this core: detail is shown at the gain of its surroundings, and *Detail Headroom* reserves
+$h$ of the range at each end so that $g_{\text{DDE}}\,x_{HP}$ does not rail.
+
+**Linear Percent.** Every equalising mode is blended with the min–max linear map,
+$\mathrm{LUT} = (1-\lambda)\,\mathrm{LUT}_{\text{eq}} + \lambda\,\mathrm{LUT}_{\text{lin}}$. $\lambda$
+restores the ordering of *how much* hotter one object is than another (FLIR's example: a stove and a
+person both "hot" under pure HE), at the price of shades spent on empty DN [R51]. On a sky scene it
+is also what spreads a drone's motors away from its shell.
 
 **Why it matters for automotive:** a hot exhaust entering frame collapses contrast on everything else, because AGC is global. That failure mode is real, is a genuine hazard for perception, and only appears in simulation if you model AGC. Add ROI-weighted and locally-adaptive variants as options.
 
@@ -1543,6 +1588,7 @@ Steps 1–5 give a defensible LWIR camera. Steps 6–9 are what separate it from
 - [R48] H. Budzier, G. Gerlach, *Calibration of uncooled thermal infrared cameras*, J. Sens. Sens. Syst. 4, 187–197, 2015. https://jsss.copernicus.org/articles/4/187/2015/ — radiometric camera model of a microbolometer core: the detector signal is the scene radiance relative to the housing, with the lens, housing and shutter as radiance terms.
 - [R49] C. Tempelhahn, H. Budzier, V. Krause, G. Gerlach, *Shutter-less calibration of uncooled infrared cameras*, J. Sens. Sens. Syst. 5, 9–16, 2016. https://jsss.copernicus.org/articles/5/9/2016/ — the housing and shutter radiation as explicit, temperature-measured terms; the field-dependent share of the housing seen by each pixel.
 - [R50] P. W. Nugent, J. A. Shaw, N. J. Pust, *Correcting for focal-plane-array temperature dependence in microbolometer infrared cameras lacking thermal stabilization*, Opt. Eng. 52(6), 061304, 2013. https://doi.org/10.1117/1.OE.52.6.061304 — responsivity and offset drift as functions of FPA temperature, the multiplicative mechanism distinct from the housing pedestal.
+- [R51] FLIR, *FLIR Camera Adjustments — Boson Application Note*, 102-2013-100-01 Rev 220, June 2018. https://tesscorn-thermalimaging.com/wp-content/uploads/2024/08/Boson-CameraAdjustments-AppNote-2.pdf — the Boson's AGC: plateau value as a fraction of the ROI's pixels per bin (default 7 %), Information-Based Equalization as the factory default mode, Linear Percent, Tail Rejection, Max Gain, Damping Factor, DDE and Detail Headroom.
 
 **Related open work**
 

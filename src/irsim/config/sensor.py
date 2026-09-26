@@ -84,7 +84,7 @@ HousingTempMode = Literal["fixed", "ambient", "coupled"]
 FpaTempMode = Literal["fixed", "ambient", "coupled"]
 DistortionModel = Literal["brown_conrady", "kannala_brandt", "ftheta"]
 NucMode = Literal["shuttered", "shutterless", "ideal"]
-AgcMode = Literal["linear", "plateau_equalization", "plateau_local", "none"]
+AgcMode = Literal["linear", "plateau_equalization", "plateau_local", "information_based", "none"]
 Polarity = Literal["white_hot", "black_hot"]
 # §11.4 lists ironbow/rainbow/lava/arctic and §12.2 gray/ironbow/rainbow/lava: both accepted (S27).
 Palette = Literal["gray", "ironbow", "rainbow", "lava", "arctic"]
@@ -494,6 +494,17 @@ class NucSpec(_Frozen):
     shutterless_tau_s: float = Field(default=120.0, gt=0)
 
 
+#: SC.21's `isp` fields and their defaults (ADR 0147). A field at its default is dropped from both
+#: the sensor config hash and the ISP hash, so a config written before they existed keeps its
+#: hashes and every golden stays valid -- the hash tracks the display, not the notation.
+ISP_OPTIONAL_DEFAULTS: dict[str, float] = {
+    "linear_percent": 0.0,
+    "info_weight": 1.0,
+    "detail_headroom": 0.0,
+    "smoothing_sigma_dn": 1250.0,
+}
+
+
 class IspSpec(_Frozen):
     """§12.2 ``isp`` (§11.3, §11.4)."""
 
@@ -507,6 +518,14 @@ class IspSpec(_Frozen):
     # Tiling for `agc: plateau_local` (M9.10); ignored by the global modes. (1, 1) is the global
     # operator exactly, which is the identity the local path is tested against.
     agc_tiles: tuple[int, int] = (8, 8)
+    # SC.21 (§11.3, ADR 0147): a Boson's factory-default controls. `linear_percent` blends every
+    # global equalising mode with the min-max linear map; the other three belong to
+    # `information_based` alone. The defaults change nothing a config wrote before they existed,
+    # and a field at its default is left out of both hashes (`ISP_OPTIONAL_DEFAULTS`).
+    linear_percent: float = Field(0.0, ge=0.0, le=1.0)
+    info_weight: float = Field(1.0, ge=0.0)  # ESTIMATED: FLIR publishes no number
+    detail_headroom: float = Field(0.0, ge=0.0, lt=0.5)
+    smoothing_sigma_dn: float = Field(1250.0, gt=0.0)  # FLIR's Smoothing Factor default, as DN
 
     @model_validator(mode="after")
     def _clip(self) -> IspSpec:

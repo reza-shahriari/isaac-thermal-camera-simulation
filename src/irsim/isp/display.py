@@ -2,6 +2,9 @@
 
     AGC (linear | plateau_equalization | none) → gamma → DDE → polarity → palette      (ADR 0031)
 
+``information_based`` (SC.21, ADR 0147) carries its own DDE -- the high-pass is added back inside
+the AGC at the transfer's local slope -- so the DDE step is skipped for it rather than run twice.
+
 Every operator is a **pure per-frame function** with no hidden memory: an SPG port (which holds
 no cross-frame state, ADR 0014) can implement the whole branch, and any future temporal
 behaviour (AGC smoothing, FFC tables) must be explicit fields of ``PipelineState``.
@@ -29,9 +32,10 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from irsim.config.sensor import IspSpec
+from irsim.config.sensor import ISP_OPTIONAL_DEFAULTS, IspSpec
 from irsim.isp.agc import agc_linear, agc_plateau, agc_plateau_local
 from irsim.isp.dde import dde
+from irsim.isp.information import agc_information, blend_linear
 from irsim.isp.palette import to_display8
 
 __all__ = ["DisplayOutputs", "isp_config_hash", "agc_none", "run_display_branch"]
@@ -45,7 +49,11 @@ class DisplayOutputs:
 
 
 def isp_config_hash(isp: IspSpec, bit_depth: int) -> str:
-    payload = {"isp": isp.model_dump(mode="json"), "bit_depth": int(bit_depth)}
+    dumped = isp.model_dump(mode="json")
+    for key, default in ISP_OPTIONAL_DEFAULTS.items():  # SC.21: defaults leave the hash alone
+        if dumped.get(key) == default:
+            dumped.pop(key, None)
+    payload = {"isp": dumped, "bit_depth": int(bit_depth)}
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -78,6 +86,20 @@ def run_display_branch(dn16: object, isp: IspSpec, bit_depth: int) -> DisplayOut
         y = agc_linear(dn, isp.clip_percentiles[0], isp.clip_percentiles[1], 1.0, bit_depth)  # R1
     elif isp.agc == "plateau_equalization":
         y = agc_plateau(dn, isp.plateau, bit_depth)  # R1
+        y = blend_linear(y, dn, isp.linear_percent, bit_depth)  # SC.21; λ = 0 is the identity
+    elif isp.agc == "information_based":
+        # SC.21: DDE is part of this operator (the high-pass is added back at the transfer's
+        # slope), so the R3 unsharp mask below is skipped for it rather than applied twice.
+        y = agc_information(
+            dn,
+            isp.plateau,
+            bit_depth,
+            info_weight=isp.info_weight,
+            linear_percent=isp.linear_percent,
+            detail_headroom=isp.detail_headroom,
+            detail_gain=1.0 + isp.dde_gain,
+            smoothing_sigma_dn=isp.smoothing_sigma_dn,
+        )
     elif isp.agc == "plateau_local":
         y = agc_plateau_local(dn, isp.plateau, isp.agc_tiles, bit_depth)  # M9.10
     elif isp.agc == "none":
@@ -86,7 +108,7 @@ def run_display_branch(dn16: object, isp: IspSpec, bit_depth: int) -> DisplayOut
         raise ValueError(f"unknown agc mode {isp.agc!r}")
     if isp.gamma != 1.0:
         y = np.power(y, np.float32(1.0 / isp.gamma), dtype=np.float32)  # R2
-    if isp.dde_gain > 0.0:
+    if isp.dde_gain > 0.0 and isp.agc != "information_based":
         y = dde(y, isp.dde_gain)  # R3
     display8 = to_display8(y, isp.polarity, isp.palette)  # R4
     return DisplayOutputs(

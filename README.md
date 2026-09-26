@@ -106,6 +106,16 @@ now come off the config rather than being restated in the tests. No golden moved
 the membrane adopts its first input, because a core staring at a scene is already in equilibrium
 with it.
 
+**A Boson's own default AGC exists as an opt-in (`SC.21`, ADR 0147).** Global plateau
+equalisation is full histogram equalisation on a sky of cloud clutter, because no bin reaches the
+plateau, so a drone at 0.6 % of the frame received 3 of 256 grey levels. `agc: information_based`
+approximates FLIR's factory default from its application note [R51]: an edge-preserving split, a
+histogram re-weighted by high-pass detail, a `linear_percent` blend, and detail added back at the
+transfer's slope. On a synthetic sky-plus-drone frame the target goes from ≤ 3 to ≥ 25 codes with its
+parts in temperature order, and on `phantom4_perpart` frame 96 from 3 to 30. Its weighting is not
+published, so it is a flagged approximation until a Tier 4 fit exists. No config selects it yet
+(`SC.22`), and no hash or golden moved.
+
 **The global AGC is why a target reads as one flat white shape, and there is now an alternative
 (M9.10).** One hot object sets the stretch for every pixel in the frame — that is not a defect to
 fix, it is what a real core does, so the global operators stay the default. But §11.3 offers two
@@ -762,6 +772,14 @@ site/               the project site's source: gallery.yaml (what to show) + ass
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
+- **A small target against a cloudy sky gets almost no grey levels** (spec issues S52, S53;
+  `SC.22`–`SC.24`). Every camera config selects global plateau equalisation, which on a sky
+  spread over thousands of DN is full histogram equalisation: the drone in `phantom4_perpart`,
+  0.6 % of the frame, receives 3 of 256 grey levels for parts spanning 15 → 38 °C. A Boson's factory
+  default, Information-Based Equalization blended by Linear Percent, exists as `agc:
+  information_based` (`SC.21`), but no config selects it yet. Separately, the ADC puts DN 0 at
+  −40 °C, so 33–79 % of those frames' sky is clipped to one code. The float32 `apparent_t` and `radiance` planes are unaffected; only `dn16` below −40 °C and
+  the 8-bit display are.
 - **Every camera is in perfect focus at every range** (`OC` lane). There is no focus distance in
   `OpticsSpec`, the optical PSF is one kernel applied to the whole plane independent of
   `distance_m`, and the camera prim leaves `focusDistance` and `fStop` unset, so the RTX camera is a

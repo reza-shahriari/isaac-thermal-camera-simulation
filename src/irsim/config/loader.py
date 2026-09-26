@@ -29,7 +29,7 @@ from typing import Any
 
 import yaml
 
-from irsim.config.sensor import FULL_FIDELITY, FocusSpec, SensorConfig
+from irsim.config.sensor import FULL_FIDELITY, ISP_OPTIONAL_DEFAULTS, FocusSpec, SensorConfig
 
 __all__ = [
     "DEFAULT_DATA_DIR",
@@ -217,6 +217,11 @@ def _dump_with_file_hashes(
     noise = sensor.get("noise", {})
     if noise.get("bad_pixel_late_fraction") == 0.0:
         noise.pop("bad_pixel_late_fraction", None)
+    # `SC.21`, same rule: the four `isp` fields at their defaults are the pre-SC.21 display.
+    isp = sensor.get("isp", {})
+    for key, isp_default in ISP_OPTIONAL_DEFAULTS.items():
+        if isp.get(key) == isp_default:
+            isp.pop(key, None)
     root = resolve_data_dir(data_dir)
     for field in DATA_PATH_FIELDS:
         raw = _get_path_field(sensor, field)

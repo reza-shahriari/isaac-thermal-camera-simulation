@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `SC.18` is phase A, size M, and unblocks 1 other step(s).
 
-#### Then, in order — 62 open steps
+#### Then, in order — 65 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`SC.18`** | SC | A | M | 1 | ready |
-| 2 | **`SC.20`** | SC | A | M | — | `SC.18` |
-| 3 | **`IG.16`** | IG | B | M | — | ready |
-| 4 | **`AT.14`** | AT | B | L | — | ready |
-| 5 | **`AT.6`** | AT | C | M | — | ready |
-| 6 | **`AT.9`** | AT | C | M | — | ready |
-| 7 | **`PT.16`** | PT | C | M | — | ready |
-| 8 | **`XD.10`** | XD | C | L | — | ready |
-| 9 | **`IG.3`** | IG | X | S | 3 | ready |
-| 10 | **`EV.5`** | EV | X | M | 3 | ready |
-| 11 | **`SC.5`** | SC | X | M | 3 | ready |
-| 12 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 13 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 14 | **`XD.7`** | XD | X | M | 2 | ready |
-| 15 | **`IG.4`** | IG | X | S | 1 | ready |
+| 2 | **`SC.22`** | SC | A | S | — | ready |
+| 3 | **`SC.24`** | SC | A | S | — | ready |
+| 4 | **`SC.20`** | SC | A | M | — | `SC.18` |
+| 5 | **`SC.23`** | SC | A | M | — | ready |
+| 6 | **`IG.16`** | IG | B | M | — | ready |
+| 7 | **`AT.14`** | AT | B | L | — | ready |
+| 8 | **`AT.6`** | AT | C | M | — | ready |
+| 9 | **`AT.9`** | AT | C | M | — | ready |
+| 10 | **`PT.16`** | PT | C | M | — | ready |
+| 11 | **`XD.10`** | XD | C | L | — | ready |
+| 12 | **`IG.3`** | IG | X | S | 3 | ready |
+| 13 | **`EV.5`** | EV | X | M | 3 | ready |
+| 14 | **`SC.5`** | SC | X | M | 3 | ready |
+| 15 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
 
-…and 47 more — `python scripts/next_step.py --queue 40`.
+…and 50 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -275,7 +275,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `SC.1`–`SC.4`, `SC.17`–`SC.20`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `SC.1`–`SC.4`, `SC.17`–`SC.24`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`, `GT.9`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -598,6 +598,10 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.18 | **The FFC snapshots the shutter and the housing; the residual is radial (§11.2, revised 2026-09-26).** `FfcController` records only T_FPA and `NucResidual` is white. Carry T_shutter as a state, snapshot the §11.2 offset at each event, make the residual its three-term form; the white ΔT_FPA term stays. ADR. | Red: a uniform scene after an FFC has a white residual whatever the housing does. Green: housing 2 K cooler than at the event puts the corners below the centre by the §11.2 amount to 5 %, monotonic in radius; a 250 K sky shows 10× the residual of a 300 K scene. | SC.17 | M | A |
 | SC.19 | ✅ **done.** `noise.bad_pixel_late_fraction` (schema v12) marks defects that failed after the factory map; `replacement_mask` leaves them in the image, so a late hot pixel reaches the 8-bit output as a white dot. Flags are drawn last, so maps are bit-identical at any fraction. Both Boson configs set 0.01, ESTIMATED from one public clear-sky frame. Warp kernel takes the map; device test updated, not run. | `test_late_defects.py` | — | S | A |
 | SC.20 | **A sky-only scene and a radial bench, so a real clear-sky frame is a Tier 4 reference.** `configs/scenes/sky_only.yaml` (no target, one `SkyModel`) plus `irsim.validation.radial_profile` (azimuthal mean about the principal point: bowl depth and sign), run by `scripts/validate_sky_flat.py` on a rendered and a public clear-sky frame. | Red: no scene renders nothing and no bench measures a radial residual. Green: depth and sign for both frames, the rendered sign as §8.2 predicts for the housing history, report on the site. | SC.17, SC.18, SC.19 | M | A |
+| SC.21 | ✅ **done** (ADR 0147). `agc: information_based` in `irsim.isp.information`: bilateral LP/HP split, the LP histogram plateau-clipped plus an |HP| information histogram, `linear_percent`, detail headroom, HP back at the slope. Opt-in; `linear_percent` also on `plateau_equalization`. | **Measured.** 0.6 % four-part target on a 60 K sky: plateau ≤ 3 codes, `information_based` + λ 0.3 ≥ 25, parts ordered; frame 96 3 → 30. σ_r → 0 is `agc_plateau` bit for bit. Hashes unchanged. 12 cases. | — | M | A |
+| SC.22 | **The Boson runs its factory default AGC.** Both Boson YAMLs move from `plateau_equalization` to `information_based` with FLIR's published defaults (plateau 7 %, ADR on the rest), and the goldens that carry `display8` are regenerated deliberately. | Red: `flir_boson_640_lwir.yaml` selects the mode FLIR does not ship by default. Green: the config names FLIR's default; `make golden-update` diff is display-only (`dn16`, `radiance`, `apparent_t` bit-identical). | SC.21 | S | A |
+| SC.23 | **The ADC floor holds the coldest sky (§11.1, S53).** DN 0 sits at −40 °C (`RADIOMETRIC_RANGE_K`) and 33–79 % of `phantom4_perpart` sky reads DN 0. Lower the floor to the LUT's 200 K. | Red: a −60 °C sky quantises to one code. Green: no `phantom4_perpart` sky pixel at DN 0; DN → T_app round trip inside budget; goldens regenerated deliberately. | — | M | A |
+| SC.24 | **The demo clips show what the camera shows.** The AGC clip re-implements plateau on float bins (0 clipped); the `ir` top clips the motors. *Half shipped:* `scripts/redisplay_planes.py` writes `FIXED_*` clips from saved planes (camera ISP, apparent-T span, readout in a margin). Left: route `render_phantom4.py` itself the same way. | Red: drone 3 codes in `agc`. Green: 25–39 codes in `FIXED_agc` on `phantom4_perpart`; the render's own clips match it. | SC.21 | S | A |
 
 ---
 
