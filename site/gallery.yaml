@@ -222,6 +222,27 @@ sections:
         caption: the same stage through a colour camera, for reference
     source: scripts/render_multiband.py
 
+  - id: agc-grid-drone
+    title: One quadrotor, four bands, five AGCs
+    lead: |
+      The same frames as above, re-displayed on the CPU from each camera's raw 16-bit output. Rows are
+      the bands; columns are the RGB companion and five AGC families (ADR 0149): linear, global
+      plateau equalisation, local tiled equalisation (CLAHE), detail-weighted equalisation, and
+      equalisation with a low clip and a max gain. Every tile is the band's own ISP with only the
+      AGC swapped, run on the whole frame as a camera does and then cropped to the aircraft. The
+      AGC is a choice about which pixels get the grey levels, and it can decide whether a part is
+      visible at all.
+    media:
+      - image: multiband/drone/drone_agc_grid.png
+        width: full
+        caption: at the motor peak (T+05:00, motors 58.8 °C)
+      - video: multiband/drone/drone_agc_grid.mp4
+        max_width: 1280
+        crf: 30
+        width: full
+        caption: the whole flight, every third frame
+    source: scripts/agc_band_grid.py
+
   - id: four-bands-ship
     title: A vessel on open water, four bands
     lead: |

@@ -6,6 +6,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`scripts/agc_band_grid.py`: one aircraft, every band, every AGC.** It reads a
+  `render_multiband.py` scene's raw `dn16` frames and writes a grid on the CPU, with no render.
+  Rows are the bands (LWIR, MWIR, SWIR, NIR); columns are the RGB companion and five AGC
+  scenarios, each the band's own ISP with only the AGC swapped, run on the whole frame, then
+  cropped to the aircraft. It writes `outputs/multiband/drone/drone_agc_grid.{png,mp4}` (51 frames
+  in 90 s) and is on the site as `agc-grid-drone`.
+
+### Added
 - **Vendor-neutral AGC controls and a mode selector** (SC.25, ADR 0149, §11.3): `clip_limit_low`
   (the Lepton low clip) and `max_gain` (Boson, Xenics) on every equalising mode, beside
   `linear_percent`. Zero is the old operator bit for bit. The low clip takes a clear-sky target from

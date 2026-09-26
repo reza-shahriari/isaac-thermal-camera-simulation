@@ -122,7 +122,8 @@ ADR 0149).** `isp.agc` picks `linear`, `plateau_equalization`, `plateau_local` (
 share under different names: `linear_percent`, `clip_limit_low` (the Lepton low clip) and
 `max_gain` (Boson and Xenics). A specific camera is a parameter set of these. On a clear sky the
 low clip takes a 0.6 % target from 3 to 27 codes, and `max_gain` stops a bland sky's noise filling
-the ramp. `scripts/redisplay_planes.py <run> --agc all` renders every mode on the same frames.
+the ramp. `scripts/redisplay_planes.py <run> --agc all` renders every mode on the same frames, and
+`scripts/agc_band_grid.py outputs/multiband/drone` puts every band and every AGC in one grid.
 The NIR silicon config, which had inherited the Boson's thermal ISP, now has a visible-camera
 display (linear, gamma 2.2). Reflective-band cameras still lack auto-exposure (`SC.27`).
 
