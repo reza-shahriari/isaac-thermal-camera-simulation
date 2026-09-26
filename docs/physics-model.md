@@ -103,6 +103,8 @@ This three-term form is the standard thermal-IR radiative transfer model, with d
 | $A_d$ | detector active area | m² |
 | $\theta_{ij}$ | field angle of pixel $(i,j)$ | rad |
 | $\Phi_{\text{self}}$ | self-emission of optics/housing reaching the pixel | W |
+| $\mathrm{RI}_{ij}$ | relative illumination of pixel $(i,j)$: $\cos^4\theta_{ij}$ × measured mechanical vignetting | – |
+| $T_{\text{shutter}}$ | temperature of the flat-field shutter at the last FFC | K |
 | $g_{ij}, o_{ij}$ | per-pixel gain and offset (post-NUC residual) | – |
 | $\mathcal{S}$ | detector transfer (photoelectrons or bolometer response) | – |
 | $\mathcal{Q}$ | quantisation | – |
@@ -567,6 +569,48 @@ $$
 
 with $\Omega_{\text{eff}} = \pi/(4F^2+1)$. Because $T_{\text{housing}}$ drifts, this term is the physical origin of **shutterless drift** and the reason cameras need periodic flat-field correction (§11.2). Model it and you get NUC behaviour for free; skip it and you have to fake NUC drift with an arbitrary random walk.
 
+**Where the housing radiation lands on the array — the field dependence.** The single-lens form above
+is one number for the whole array, and a featureless scene shows that to be wrong. A pixel at field
+angle $\theta_{ij}$ sees the aperture as the projected solid angle $\Omega_{\text{eff}}\,\mathrm{RI}_{ij}$,
+where $\mathrm{RI}_{ij}$ is the relative illumination of §8.1 ($\cos^4\theta_{ij}$ times the measured
+mechanical vignetting). The rest of its Lambertian hemisphere, projected solid angle
+$\pi - \Omega_{\text{eff}}\mathrm{RI}_{ij}$, is the inside of the camera. So for a uniform scene of
+in-band radiance $L_{\text{scene}}$ the power on pixel $(i,j)$ is
+
+$$
+\Phi_{ij} = A_d\,\Omega_{\text{eff}}\,\mathrm{RI}_{ij}\Big[\tau_{\text{opt}}L_{\text{scene}} + (1-\tau_{\text{opt}})L_B(T_{\text{lens}})\Big]
+          + A_d\big(\pi - \Omega_{\text{eff}}\mathrm{RI}_{ij}\big)L_B(T_{\text{housing}})
+$$
+
+and with $T_{\text{lens}} = T_{\text{housing}}$, which is the single-lens simplification,
+
+$$
+\Phi_{ij} = A_d\,\pi\,L_B(T_{\text{housing}})
+          + A_d\,\Omega_{\text{eff}}\,\mathrm{RI}_{ij}\,\tau_{\text{opt}}\Big[L_{\text{scene}} - L_B(T_{\text{housing}})\Big]
+$$
+
+An uncooled detector measures the scene **relative to its own housing**, and the relative illumination
+multiplies that *difference*, not the scene radiance [R48, R49]. Three consequences:
+
+- A uniform scene warmer than the housing is brightest on axis; one colder — a clear sky sits tens of
+  kelvin below any housing — is darkest on axis. The vignetting of §8.1 must therefore be applied to
+  $L_{\text{scene}} - L_B(T_{\text{housing}})$, never to $L_{\text{scene}}$ alone: applying $\cos^4$ to the
+  scene and adding a uniform self-emission term gets the sign of the shading wrong for every scene
+  colder than the camera.
+- The pedestal $A_d\pi L_B(T_{\text{housing}})$ is the term the flat-field correction removes, and its
+  drift between shutter events is what the §11.2 residual is made of. It is not white noise: it is
+  smooth and radial, because the out-of-cone weight $\pi - \Omega_{\text{eff}}\mathrm{RI}_{ij}$ grows
+  toward the corners.
+- In a cooled system the cold shield replaces the out-of-cone housing view with the cold-shield term of
+  §9.1 (`cold_shield_efficiency`), and only the in-cone bracket survives; the field dependence then
+  lives in the residual cold-shield leakage instead.
+
+A real reference frame of nothing but clear sky, from an uncooled 640×512 core, shows exactly this: a
+smooth, radially symmetric bowl centred on the optical axis and spanning the whole frame, with the
+column striping of §10.2 running straight through it, stretched to full contrast by the AGC because
+the scene itself has no contrast to offer. Any simulator whose uniform scene comes out uniform is
+missing this term.
+
 Related effect worth modelling if you care about realism: **narcissus** — the detector seeing its own cold reflection in the optics, producing a soft dark blob near image centre that shifts with focus and temperature. A radially symmetric multiplicative field with a slowly drifting amplitude reproduces it convincingly.
 
 ### 8.3 MTF cascade
@@ -782,6 +826,11 @@ Every real FPA has them. Model:
 - **Dead** (stuck low), **hot** (stuck high), **flickering** (random telegraph noise), **blinking** (intermittent).
 - Typical: 0.05–0.5% of pixels, clustered slightly (use a Poisson cluster process, not uniform).
 - Cameras replace them with neighbour interpolation, which leaves a **detectable smoothed footprint**. Simulate the defect *and* the replacement — the replacement artefact is what a detector actually sees.
+- The replacement map is a **calibration-time artefact**. The camera interpolates over the defect map it
+  was shipped with, so a pixel that fails afterwards is not on the map and reaches the output as an
+  isolated stuck-high or stuck-low pixel. A single bright dot in an otherwise featureless sky frame is
+  usually this, and a sky-target detector must be trained on frames that contain it. Simulate two
+  populations: factory defects (replaced, smoothed footprint) and late defects (not replaced).
 
 ---
 
@@ -814,6 +863,40 @@ calibrated against two blackbody temperatures. This is the standard two-point te
 - coefficients calibrated at $T_{\text{FPA}}^{\text{cal}}$, applied at current $T_{\text{FPA}}$ → drift $\propto (T_{\text{FPA}}-T^{\text{cal}}_{\text{FPA}})$;
 - residual non-uniformity growing between shutter events (flat-field correction, FFC);
 - the FFC event itself: a shutter closes, the image freezes for 0.5–1 s, then the pattern resets.
+
+**The shutter is a radiance reference, not a reset button.** At the FFC the shutter fills each pixel's
+cone at $L_B(T_{\text{shutter}})$ while the out-of-cone housing view of §8.2 is unchanged, so the
+offset snapshot is
+
+$$
+O_{ij} = \mathcal{S}\Big[A_d\,\Omega_{\text{eff}}\mathrm{RI}_{ij}\,L_B(T_{\text{shutter}})
+       + A_d\big(\pi-\Omega_{\text{eff}}\mathrm{RI}_{ij}\big)L_B\!\big(T^{\text{FFC}}_{\text{housing}}\big)\Big]
+$$
+
+Subtract it from the §8.2 power at a later time $t$, apply the factory gain $G_{ij}$ (ideally
+$1/\mathrm{RI}_{ij}$), and what remains on a uniform scene is three terms:
+
+$$
+\mathrm{DN}^{\text{corr}}_{ij} \propto
+\underbrace{\Omega_{\text{eff}}\Big[\tau_{\text{opt}}L_{\text{scene}} + (1-\tau_{\text{opt}})L_B(T_{\text{housing}}) - L_B(T_{\text{shutter}})\Big]}_{\text{uniform: the signal}}
++\underbrace{\Big(\tfrac{\pi}{\mathrm{RI}_{ij}} - \Omega_{\text{eff}}\Big)\Big[L_B\big(T_{\text{housing}}(t)\big) - L_B\big(T^{\text{FFC}}_{\text{housing}}\big)\Big]}_{\text{radial: housing drift since the FFC}}
++\underbrace{\big(1 - G_{ij}\mathrm{RI}_{ij}\big)\,\Omega_{\text{eff}}\,\tau_{\text{opt}}\Big[L_{\text{scene}} - L_B(T_{\text{shutter}})\Big]}_{\text{radial: gain-map error}}
+$$
+
+What this predicts, and a clear-sky reference frame confirms:
+
+- The residual after an FFC is a **smooth radial bowl**, not a white per-pixel field. Its depth is the
+  housing's radiance change since the event, weighted by $\pi/\mathrm{RI}_{ij} - \Omega_{\text{eff}}$,
+  so it is deepest in the corners: a housing that has *cooled* since the shutter closed (a camera
+  carried outside, or a lens radiating to a cold sky) darkens the corners and leaves a bright centre;
+  one that has warmed does the opposite. The white $(T_{\text{FPA}} - T^{\text{cal}}_{\text{FPA}})$
+  bullet above is a different, multiplicative mechanism — pixel responsivity drift [R50] — and stays.
+- A scene far from the shutter temperature multiplies any gain-map error. The clear sky is the
+  extreme case, which makes it both the worst scene for non-uniformity and the right Tier 4 scene for
+  measuring it: point the camera at nothing and the residual is all that is left.
+- $T_{\text{shutter}}$ is a state, not a constant. The shutter sits beside the FPA and follows it with
+  its own lag [R49]; when it is not at the housing temperature the uniform term carries a radiometric
+  bias that a two-point NUC cannot see.
 
 That freeze is a real behavioural artefact that a perception stack must survive. Simulating it is worth more than another decimal place of radiometry. Some cameras avoid it: shutterless approaches process consecutive scene and internal-shutter images to stabilise response [R32], and scene-based methods estimate fixed-pattern noise from pixel-sized translations of the FPA, requiring neither shutter nor elaborate calibration and being invariant to noise magnitude and robust to unknown camera and inter-scene movement [R33]. If you model a shutterless core, use a slow-drift + scene-based-correction residual instead of periodic freezes.
 
@@ -1457,6 +1540,9 @@ Steps 1–5 give a defensible LWIR camera. Steps 6–9 are what separate it from
 
 - [R24] FLIR, *Boson Thermal Imaging Core* datasheet. https://groupgets-files.s3.amazonaws.com/boson/documents/Boson%20datasheet,%20102-2013-40,%20Rev%20340.pdf
 - [R38] Teledyne FLIR Boson 640 product listings (NETD grades, lens options, frame rates). https://www.oemcameras.com/products/20640a032-htm
+- [R48] H. Budzier, G. Gerlach, *Calibration of uncooled thermal infrared cameras*, J. Sens. Sens. Syst. 4, 187–197, 2015. https://jsss.copernicus.org/articles/4/187/2015/ — radiometric camera model of a microbolometer core: the detector signal is the scene radiance relative to the housing, with the lens, housing and shutter as radiance terms.
+- [R49] C. Tempelhahn, H. Budzier, V. Krause, G. Gerlach, *Shutter-less calibration of uncooled infrared cameras*, J. Sens. Sens. Syst. 5, 9–16, 2016. https://jsss.copernicus.org/articles/5/9/2016/ — the housing and shutter radiation as explicit, temperature-measured terms; the field-dependent share of the housing seen by each pixel.
+- [R50] P. W. Nugent, J. A. Shaw, N. J. Pust, *Correcting for focal-plane-array temperature dependence in microbolometer infrared cameras lacking thermal stabilization*, Opt. Eng. 52(6), 061304, 2013. https://doi.org/10.1117/1.OE.52.6.061304 — responsivity and offset drift as functions of FPA temperature, the multiplicative mechanism distinct from the housing pedestal.
 
 **Related open work**
 

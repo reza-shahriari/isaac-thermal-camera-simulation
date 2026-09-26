@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **The physics spec now says where the housing radiation lands on the array, and what a shutter FFC
+  actually snapshots.** A downloaded clear-sky frame from an uncooled 640×512 core showed a smooth radial
+  bowl over the whole frame, which the spec's uniform self-emission term (§8.2) and white NUC residual
+  (§11.2) cannot produce. §8.2 gains the per-pixel form — the relative illumination multiplies the scene
+  *minus* the housing radiance, and the out-of-cone housing view $\pi-\Omega_{\text{eff}}\mathrm{RI}_{ij}$
+  grows toward the corners — and §11.2 the offset snapshot at $T_{\text{shutter}}$ with its three-term
+  residual (uniform signal, radial housing drift since the FFC, gain-map error scaled by scene minus
+  shutter). §10.4 adds late defects that are off the replacement map. References [R48]–[R50]
+  (Budzier & Gerlach 2015, Tempelhahn et al. 2016, Nugent et al. 2013). Roadmap rows `SC.17`–`SC.20`
+  carry the implementation: field-dependent housing term, shutter-referenced FFC, late defects, a
+  sky-only scene with a radial bench.
+
 ### Added
 - **A material must name the surface state its optics were measured on** (AT.17, §4.5). Material
   schema **v2**: `surface_treatment` is required and has no default, from §4.5's own vocabulary —
