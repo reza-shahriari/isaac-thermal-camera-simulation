@@ -461,12 +461,15 @@ sections:
       - video: phantom4_perpart/phantom4_parts_agcpair.mp4
         width: full
         caption: >-
-          LWIR through one plateau-equalisation LUT built over the whole run (§11.3), beside the
-          visible companion: the cumulus and the motors share the frame as a real camera shows
-          them, and nothing rescales between frames
+          LWIR as the camera itself displays it: its own 8-bit output, frame by frame, through the
+          Boson's factory information-based AGC (§11.3), beside the visible companion. The cumulus
+          and the aircraft share the frame, and the hot parts span 19–32 of 256 grey codes, where
+          the old clip's rebuilt plateau gave them 3
       - video: phantom4_perpart/phantom4_parts_pair.mp4
         width: half
-        caption: the same frames stretched to the aircraft, where the four motors read apart
+        caption: >-
+          the same frames stretched to the aircraft, up to its hottest pixel, so the four motors
+          read apart instead of clipping to one white
       - video: phantom4_perpart/phantom4_parts_skypair.mp4
         width: half
         caption: and stretched to the sky, where the aircraft saturates against the cloud field

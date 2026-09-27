@@ -213,24 +213,19 @@ parser.add_argument("--no-rgb", action="store_true", help="infrared only; no vis
 # display choice. This writes the same planes a second time, stretched to the whole frame, where
 # the cloud is 40 K of structure and the aircraft is the part that saturates. Both are the same
 # radiometry; neither is an extra render.
-# A real camera shows the aircraft *and* the cloud in one frame, and it does it with a histogram
-# equaliser, not with a ramp: §11.3's plateau AGC clips every bin's population, so the sky's
-# hundreds of thousands of near-identical pixels stop owning the ramp and the aircraft's few
-# thousand get grey levels in proportion to how many distinct temperatures they hold. One LUT is
-# built over **every frame of the clip** and applied to each, for the same reason the two ramps
-# above are fixed across the run: a per-frame equaliser would re-map the motors every frame and
-# cancel the warm-up being filmed. This is display only -- the float32 planes are untouched.
+# A real camera shows the aircraft *and* the cloud in one frame, and it does it with its own AGC,
+# not with a ramp. `SC.24`: the clip is **the camera's own `display8`**, frame by frame -- the
+# config's ISP (the Boson's factory information-based equalisation since `SC.22`), run by the
+# pipeline on the raw DN. It used to rebuild plateau equalisation over 65 536 float bins of
+# apparent temperature, one LUT for the whole run, which is no camera: no bin ever reached the
+# plateau, so it was full histogram equalisation and the drone got 3 grey codes. The camera
+# re-maps every frame, as a real one does (it has no damping yet, `SC.10`), so the legend is what
+# carries the warm-up. Display only -- the float32 planes are untouched.
 parser.add_argument(
     "--agc-clip",
     action="store_true",
-    help="also write a third clip through one plateau-equalisation LUT built over the whole "
-    "run (§11.3), where the aircraft and the cloud share the frame as a real camera shows them",
-)
-parser.add_argument(
-    "--agc-plateau",
-    type=float,
-    default=0.001,
-    help="plateau fraction of N_pixels per bin for --agc-clip (§11.3, ADR 0028)",
+    help="also write a third clip: the camera's own 8-bit display (its ISP, per frame, §11.3), "
+    "where the aircraft and the cloud share the frame as a real camera shows them",
 )
 parser.add_argument(
     "--sky-clip",
@@ -364,7 +359,15 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     )
     from irsim.scene import Scene
     from irsim.thermal.weather_fx_series import weather_series_from_state
-    from irsim_eval.video import encode_mp4, ffmpeg_available, overlay_readout
+    from irsim_eval.video import (
+        apparent_target_span_k,
+        encode_mp4,
+        ffmpeg_available,
+        interior,
+        overlay_readout,
+        target_code_span,
+        with_margin,
+    )
     from irsim_isaac.aircraft_pass import look_at_quaternion
     from irsim_isaac.asset_flight import (
         FigureEightTrack,
@@ -756,6 +759,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
 
     planes: list[Any] = []
     hits: list[Any] = []
+    #: the target's pixels per frame (`None` when the frame carried no material ids), and the
+    #: camera's own 8-bit display per frame (`None` when the config turns `display_8` off)
+    masks: list[Any] = []
+    displays: list[Any] = []
     rgbs: list[Any] = []
     rows: list[dict[str, Any]] = []
     started = time.time()
@@ -821,6 +828,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         last = cam.last_frame
         mat = None if last is None else getattr(last, "material_id", None)
         if mat is None:
+            mask = None
             hit = t_app.reshape(-1)
         else:
             mask = np.asarray(mat) > 0
@@ -829,6 +837,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 mask = mask.reshape(t_app.shape[0], k, t_app.shape[1], k).any(axis=(1, 3))
             hit = t_app[mask]
         hits.append(hit)
+        masks.append(mask)
+        displays.append(
+            None
+            if outputs.display8 is None
+            else np.ascontiguousarray(np.asarray(outputs.display8, dtype=np.uint8)[..., :3])
+        )
 
         rgb = None if last is None else getattr(last, "rgb", None)
         if not args.no_rgb and rgb is None and index == 0:
@@ -884,13 +898,13 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     # A span taken over the whole frame is a span over sky: this scene is ~98 % background, so the
     # percentiles land inside it and the target saturates to one flat white shape -- a picture of
     # the sky's noise, not of an aircraft. Fixed across the clip, not per frame: a per-frame AGC
-    # would rescale from each histogram and cancel the warm-up being filmed.
+    # would rescale from each histogram and cancel the warm-up being filmed. The top is the
+    # hottest target pixel (`SC.24`): a 99th percentile sat below the four motor bells and
+    # clipped them to one white.
     if args.span:
         lo, hi = (float(v) + 273.15 for v in args.span.split(","))
     else:
-        target_pixels = np.concatenate([h for h in hits if h.size])
-        lo = float(np.percentile(target_pixels, 1.0))
-        hi = float(np.percentile(target_pixels, 99.0))
+        lo, hi = apparent_target_span_k(np.concatenate([h for h in hits if h.size]))
     print(f"display span: {lo - 273.15:.1f} .. {hi - 273.15:.1f} C, white-hot grayscale")
     gray = palette_table("gray")
 
@@ -900,29 +914,29 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         span_lo: float,
         span_hi: float,
         note: str,
-        mapper: Any = None,
+        images: list[Any] | None = None,
     ) -> None:
         """Write one display clip's stills from the planes already in hand.
 
         `span_lo`/`span_hi` are the only thing that changes between calls: the radiometry is
         identical and the 8-bit frames are not (ADR 0068 -- a display PNG has had the stretch,
         the palette and a 256-level quantisation applied, none of which invert). `note` is the
-        readout's third line, which is where the frame says which stretch it is. `mapper`, when
-        given, replaces the linear ramp with its own plane -> [0, 1] mapping (the AGC clip); the
-        span then only scales the legend's gauges, and the colour bar is left off because under
-        an equaliser the brightness axis is no longer a temperature axis (`palette_scale`).
+        readout's third line, which is where the frame says which stretch it is. `images`, when
+        given, are finished 8-bit frames used instead of the linear ramp (the camera's own
+        display, the AGC clip); the span then only scales the legend's gauges, and the colour bar
+        is left off because under an equaliser the brightness axis is no longer a temperature
+        axis (`palette_scale`). The readout goes in a margin beside the frame (`with_margin`), so
+        it covers no scene; the visible companion is padded by the same top margin to pair.
         """
         for index, plane in enumerate(planes):
             row = rows[index]
-            unit = (
-                (plane - span_lo) / max(span_hi - span_lo, 1e-6)
-                if mapper is None
-                else mapper(plane)
-            )
-            eight = gray[quantise_display(unit)]
+            if images is None:
+                eight = gray[quantise_display((plane - span_lo) / max(span_hi - span_lo, 1e-6))]
+            else:
+                eight = images[index]
             minutes, seconds = divmod(int(row["t_rel_s"]), 60)
             readout = overlay_readout(
-                eight,
+                eight if args.no_overlay else with_margin(eight),
                 [
                     f"T+{minutes:02d}:{seconds:02d}   range {row['range_m']:5.1f} m   "
                     f"span {row['px_across']:5.1f} px   el {row['elevation_deg']:4.1f} deg",
@@ -938,12 +952,15 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 {k: v + 273.15 for k, v in row["node_c"].items()},
                 (span_lo, span_hi),
                 bare=args.no_overlay,
-                palette=None if mapper is not None else gray,
+                palette=None if images is not None else gray,
             )
             write_png(frames_dir / f"{kind}_{index:05d}.png", readout)
             if rgbs[index] is not None:
                 write_png(frames_dir / f"rgb_{index:05d}.png", rgbs[index])
-                pair = np.concatenate([readout, np.asarray(rgbs[index])], axis=1)
+                rgb = np.asarray(rgbs[index], dtype=np.uint8)[..., :3]
+                top = readout.shape[0] - rgb.shape[0]
+                rgb = np.pad(rgb, ((top, 0), (0, 0), (0, 0))) if top > 0 else rgb
+                pair = np.concatenate([readout, rgb], axis=1)
                 write_png(frames_dir / f"{pair_kind}_{index:05d}.png", np.ascontiguousarray(pair))
 
     write_display(
@@ -974,37 +991,37 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             f"1 frame / {interval_s:.0f} s   the same {band.upper()} frames, stretched to the sky",
         )
 
-    agc_span: list[float] | None = None
+    # The camera's own display (`SC.24`): what its ISP made of each raw frame, nothing rebuilt.
+    agc_isp: dict[str, Any] | None = None
     if args.agc_clip:
-        from irsim.isp.agc import plateau_lut
-
-        whole = np.concatenate([plane.reshape(-1) for plane in planes])
-        agc_lo, agc_hi = float(whole.min()), float(whole.max())
-        bins = 1 << 16
-        scale = (bins - 1) / max(agc_hi - agc_lo, 1e-6)
-        counts = np.bincount(
-            np.floor((whole - agc_lo) * scale).astype(np.int64).clip(0, bins - 1), minlength=bins
-        )
-        table = plateau_lut(counts, args.agc_plateau)
-
-        def equalise(plane: Any) -> Any:
-            if table is None:
-                return np.full(plane.shape, 0.5, dtype=np.float32)
-            dn = np.floor((plane - agc_lo) * scale).astype(np.int64).clip(0, bins - 1)
-            return np.asarray(table[dn], dtype=np.float32)
-
-        agc_span = [agc_lo - 273.15, agc_hi - 273.15]
-        print(
-            f"agc clip: plateau {args.agc_plateau:g}, one LUT over {len(planes)} frames, "
-            f"{agc_span[0]:.1f} .. {agc_span[1]:.1f} C occupied"
-        )
+        if any(d is None for d in displays):
+            raise RuntimeError(
+                "--agc-clip shows the camera's own display8, and this sensor config turns "
+                "outputs.display_8 off"
+            )
+        isp = sensor.sensor.isp
+        agc_isp = {
+            "agc": isp.agc,
+            "plateau": isp.plateau,
+            "linear_percent": isp.linear_percent,
+            "max_gain": isp.max_gain,
+            "detail_headroom": isp.detail_headroom,
+        }
+        for index, display in enumerate(displays):
+            if masks[index] is not None:
+                # interior pixels only: a rim pixel is half sky and reads the sky's codes
+                rows[index]["target_codes_agc"] = target_code_span(display, interior(masks[index]))
+        codes = [r["target_codes_agc"] for r in rows if r.get("target_px")]
+        if codes:
+            print(f"agc clip: camera {isp.agc}, target spans {min(codes)}-{max(codes)} codes")
         write_display(
             "agc",
             "agcpair",
-            agc_lo,
-            agc_hi,
-            f"1 frame / {interval_s:.0f} s   plateau AGC, one LUT over the run (§11.3)",
-            mapper=equalise,
+            lo,
+            hi,
+            f"1 frame / {interval_s:.0f} s   camera display8: {isp.agc}, "
+            f"linear {isp.linear_percent:.0%}, per frame (§11.3)",
+            images=displays,
         )
 
     videos: dict[str, str] = {}
@@ -1037,8 +1054,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             else f"band_radiance_{sensor.sensor.quantity}"
         ),
         "sky_span_c": sky_span,
-        "agc_span_c": agc_span,
-        "agc_plateau": args.agc_plateau if args.agc_clip else None,
+        "agc_isp": agc_isp,
         "interval_s": interval_s,
         "seconds_per_frame": round(render_s / max(args.frames, 1), 2),
         "mount_rotation": [[float(v) for v in r] for r in mount],

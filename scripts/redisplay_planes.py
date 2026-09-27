@@ -54,10 +54,6 @@ sys.path.insert(0, str(REPO / "src"))
 
 #: The band LUT's floor (ADR 0011): a saved ``apparent_t`` never reads below it.
 LUT_FLOOR_K = 200.0
-#: The readout's footprint: the caption block is ~90 px tall and the gauge panel ~380 px wide.
-#: Both even, so the encoded frame keeps even dimensions.
-MARGIN_TOP = 96
-MARGIN_LEFT = 400
 #: Every AGC the display branch can run (`isp.agc`, §11.3). The camera's own config chooses one;
 #: this script lets the viewer choose, and compare them on the same frames.
 AGC_MODES = ("linear", "plateau_equalization", "plateau_local", "information_based")
@@ -130,7 +126,9 @@ def main(argv: list[str] | None = None) -> int:
         encode_mp4,
         ffmpeg_available,
         overlay_readout,
+        target_code_span,
         target_span_k,
+        with_margin,
     )
 
     run: pathlib.Path = args.run
@@ -184,18 +182,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         span = gauge_span
     gray = palette_table("gray")
-
-    def with_margin(image: Any) -> Any:
-        """Put the frame below and right of an empty margin, so the readout covers no scene.
-
-        `overlay_readout` draws the caption top-left and the part gauges bottom-left, and on
-        `phantom4_perpart` the gauges sat over half of the aircraft -- in the old clip too. The
-        margin is where they land now; the frame itself is untouched.
-        """
-        height, width = image.shape[:2]
-        canvas = np.zeros((height + MARGIN_TOP, width + MARGIN_LEFT, 3), dtype=np.uint8)
-        canvas[MARGIN_TOP:, MARGIN_LEFT:] = image[..., :3]
-        return canvas
 
     out_dir = run / "frames"
     stats: dict[str, Any] = {
@@ -276,15 +262,12 @@ def main(argv: list[str] | None = None) -> int:
                 pair = np.ascontiguousarray(np.concatenate([before, image], axis=1))
                 # `vsold`, not `_vs_old`: `FIXED_agc_*.png` must not also glob the pairs.
                 write_png(out_dir / f"{args.prefix}{kind}vsold_{index:05d}.png", pair)
-        codes = agc[..., 0].astype(int)
-        hot = t_k > 287.0
+        # the saved planes carry no material ids, so the target is what is warmer than any sky
         stats["frames"].append(
             {
                 "frame_index": index,
                 "old_sky_clipped_fraction": old_clipped,
-                "target_codes_fixed_agc": int(codes[hot].max() - codes[hot].min())
-                if hot.any()
-                else 0,
+                "target_codes_fixed_agc": target_code_span(agc, t_k > 287.0),
             }
         )
 

@@ -25,6 +25,11 @@ from numpy.typing import NDArray
 __all__ = [
     "annotate",
     "target_span_k",
+    "apparent_target_span_k",
+    "target_code_span",
+    "interior",
+    "with_margin",
+    "READOUT_MARGIN",
     "overlay_readout",
     "temperature_bar",
     "palette_scale",
@@ -33,6 +38,11 @@ __all__ = [
 ]
 
 _MARGIN = 10
+
+#: (top, left) pixels of empty canvas that `with_margin` puts before a frame, so the readout lands
+#: beside the scene instead of over it. The caption block is ~90 px tall and the gauge panel ~380
+#: px wide; both even, so an encoded frame keeps even dimensions.
+READOUT_MARGIN: tuple[int, int] = (96, 400)
 
 
 def target_span_k(
@@ -71,6 +81,80 @@ def target_span_k(
     coldest, hottest = min(values), max(values)
     spread = max(hottest - coldest, float(minimum_spread_k))
     return (coldest - below * spread, hottest + above * spread)
+
+
+def apparent_target_span_k(
+    target_pixels: NDArray[np.floating], *, floor_percentile: float = 1.0
+) -> tuple[float, float]:
+    """The white-hot span of a demo clip, from the target's own *apparent* pixels (`SC.24`).
+
+    The floor is the target's ``floor_percentile`` (1 %), so a stray rim pixel blended with the
+    sky does not pull it down. The top is the **hottest** target pixel, not a percentile: the
+    hottest parts are few pixels -- four motor bells on a Phantom 4 -- so a 99th percentile lands
+    below them and they clip to one white, which is exactly the contrast the clip exists to show.
+
+    Apparent, not kinetic: a part with ε < 1 reflects the cold sky, so it reads colder than
+    `target_span_k`'s node temperatures say (15 … 38 °C kinetic against −26 … +34 °C apparent at
+    `phantom4_perpart` frame 96), and a span from the nodes would clip the picture's cold end.
+    """
+    values = np.asarray(target_pixels, dtype=np.float64).reshape(-1)
+    values = values[np.isfinite(values)]
+    if values.size == 0:
+        raise ValueError("need at least one finite target pixel to span")
+    lo, hi = float(np.percentile(values, floor_percentile)), float(values.max())
+    return (lo, hi if hi > lo else lo + 1.0)
+
+
+def target_code_span(display8: NDArray[np.uint8], mask: NDArray[np.bool_]) -> int:
+    """Grey codes the target spans in an 8-bit frame: max − min over ``mask`` (0 if empty).
+
+    The one number the AGC defects were measured in (S52: 3 of 256 on `phantom4_perpart`), so the
+    render and the re-display both report it the same way.
+    """
+    codes = np.asarray(display8)
+    if codes.ndim == 3:
+        codes = codes[..., 0]
+    picked = codes[np.asarray(mask, dtype=bool)]
+    return int(picked.max()) - int(picked.min()) if picked.size else 0
+
+
+def interior(mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
+    """The mask with its one-pixel rim removed: pixels whose four neighbours are all in it.
+
+    A silhouette's rim pixels are part target and part sky once the optics and the supersampling
+    have mixed them, so their display codes run all the way to the sky's. Counted as target, they
+    make a starved target look well spread: on `phantom4_perpart` the whole aircraft mask read
+    112-231 codes where its parts, measured away from the rim, read 18-33. The frame edge counts as
+    outside, so a mask touching it loses that row too.
+    """
+    m: NDArray[np.bool_] = np.asarray(mask, dtype=bool)
+    out: NDArray[np.bool_] = m.copy()
+    out[1:, :] &= m[:-1, :]
+    out[:-1, :] &= m[1:, :]
+    out[:, 1:] &= m[:, :-1]
+    out[:, :-1] &= m[:, 1:]
+    out[0, :] = out[-1, :] = False
+    out[:, 0] = out[:, -1] = False
+    return out
+
+
+def with_margin(
+    image: NDArray[np.uint8], margin: tuple[int, int] = READOUT_MARGIN
+) -> NDArray[np.uint8]:
+    """Put a frame below and right of an empty margin, so the readout covers no scene.
+
+    `overlay_readout` draws the caption top-left and the node gauges bottom-left; on
+    `phantom4_perpart` the gauges sat over half of the aircraft. The frame itself is untouched,
+    and the result is always RGB.
+    """
+    arr = np.asarray(image, dtype=np.uint8)
+    if arr.ndim == 2:
+        arr = np.repeat(arr[..., None], 3, axis=2)
+    top, left = margin
+    height, width = arr.shape[:2]
+    canvas = np.zeros((height + top, width + left, 3), dtype=np.uint8)
+    canvas[top:, left:] = arr[..., :3]
+    return canvas
 
 
 def _font(size: int) -> Any:

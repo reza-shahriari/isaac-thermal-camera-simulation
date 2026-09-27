@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **The demo clips show what the camera shows** (`SC.24`, S52). `render_phantom4.py --agc-clip` is
+  the camera's own per-frame `display8`, no longer plateau equalisation rebuilt over float bins
+  (3 grey codes on the drone). The `ir` span's top is the hottest target pixel (the motors had
+  clipped), and readouts sit in a margin. The span, margin, interior-mask and code-count helpers
+  live in `irsim_eval.video`, shared with `redisplay_planes.py`. Re-rendered in Isaac Sim (144
+  frames, A6000): hot parts 3 → 19–32 codes, and on the same pixels the render and the
+  re-display agree within 2 codes on 13 of 14 flight frames (`tests/unit/test_demo_display.py`).
 - **The Boson 640 runs FLIR's factory-default AGC** (`SC.22`, ADR 0152, S52). `agc:
   information_based` with the values [R51] prints on its control-panel screenshot: Plateau 7 %,
   Linear Percent 20 %, Max Gain 1.38, Detail Headroom 12. DDE, ACE and Damping are recorded as

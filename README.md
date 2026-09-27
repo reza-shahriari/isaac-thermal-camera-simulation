@@ -579,13 +579,15 @@ legs, gimbal, lens) are lumped nodes with ESTIMATED offsets, on purpose: they ca
 faces each and the solver puts a cell on every face, so a mesh solve of the shell waits on a
 decimated thermal archive (ADR 0137). The driver no longer decides any of this — `target_for_part`
 takes the part's own name if the scene defines a node by it, so the *scene* sets the granularity.
-A third clip, `--agc-clip`, puts the aircraft and the cumulus in one frame through a single §11.3
-plateau LUT built over the whole run. **It does not show the aircraft as a real camera would**
-(spec issue S52): it rebuilds plateau equalisation on 65 536 float bins over the temperature plane,
-none of which reaches the plateau, so it is full histogram equalisation and the drone gets 3 of 256
-codes. `scripts/redisplay_planes.py <run>` re-displays a finished run's saved planes through the
-corrected chain as `FIXED_*` clips beside the originals, with no GPU needed; `SC.24` routes the
-renderer itself the same way.
+A third clip, `--agc-clip`, puts the aircraft and the cumulus in one frame the way the camera
+shows them: it is **the camera's own `display8`**, frame by frame, through the config's ISP
+(`SC.24`). It used to rebuild plateau equalisation on 65 536 float bins of temperature, none of
+which reached the plateau, so the drone got 3 of 256 codes. Under the Boson's factory AGC
+(`SC.22`) its hot parts span 19–32. The linear `ir` clip now tops out at the hottest target pixel, so
+the motors no longer clip to one white, and every readout sits in a margin beside the frame
+instead of over the aircraft. `scripts/redisplay_planes.py <run>` re-displays a finished run's
+saved planes through the same chain without a GPU. On the same pixels it agrees with the
+render's own display to within 2 codes on 13 of 14 flight frames.
 
 **The first stills came back rolled, and nothing in the physics was wrong.** ADR 0128 ended on a
 principle — *the asset's frame is the stage's frame* — so the first driver authored a **Z-up**
@@ -831,11 +833,11 @@ site/               the project site's source: gallery.yaml (what to show) + ass
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
-- **A small target against a cloudy sky still gets only a few dozen grey levels** (`SC.24`,
-  `SC.27`). The Boson now runs FLIR's factory-default AGC (`SC.22`), and the `phantom4_perpart`
-  drone gets 16–28 of 256 codes, up from 2–3. `render_phantom4.py`'s own clips still re-implement
-  plateau equalisation instead of using the camera's display (`SC.24`), and a global AGC cannot
-  give a 0.6 % target most of the ramp in any case. And no photon camera
+- **A small target against a cloudy sky still gets only a few dozen grey levels** (`SC.27`). The
+  Boson runs FLIR's factory-default AGC (`SC.22`) and the demo clips show the camera's own display
+  (`SC.24`), and the `phantom4_perpart` drone's hot parts get 19–32 of 256 codes, up from 2–3. A global AGC
+  cannot give a 0.6 % target most of the ramp in any case; that needs an ROI or local AGC, which a
+  real camera also has to be configured for. And no photon camera
   auto-exposes (`SC.27`, S54): the NIR and SWIR configs are each one fixed integration time, valid
   only near the light level they were written for. The float32 `apparent_t` and `radiance` planes
   are unaffected; only the 8-bit display is.
