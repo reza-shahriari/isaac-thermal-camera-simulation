@@ -471,7 +471,25 @@ sections:
         width: half
         caption: and stretched to the sky, where the aircraft saturates against the cloud field
     note: |
-      IN_SIM_NOTE
+      Measured over the shipped 144-frame clip. Range holds **2.6–4.9 m**, the aircraft **148–282
+      px** across, peaking at **9,497 pixels** of a 640x512 frame near closest approach. The four
+      motors run **15.2 -> 37.8 °C**, the four ESCs **14.8 -> 30.0 °C**, and no two stations peak
+      at the same value or the same instant — the rear-left motor leads at 37.7 °C in the first
+      orbit, the rear-right at 37.8 °C in the second, exactly the outer-pair asymmetry the
+      throttle histories were written to produce. The battery, on the mean of the four, spans
+      **14.5–21.0 °C**. The six airframe-family offsets stay within **1–4 °C of air** the whole
+      flight, as a fixed offset must, and that flatness *is* the visible boundary of this scene's
+      fidelity: the white shell that is 55 % of the aircraft's area carries one value, not a
+      field, until a decimated thermal archive lets it take a mesh solve of its own.
+
+      The nine mesh-bound surfaces still carry the per-cell physics `AI.2` wired to the camera:
+      the widest gradient across one propeller reached **10.7 K** on 212 interior pixels this run
+      (`propeller_rear_left`, frame 54) — two hundred NETDs of structure inside a single blade,
+      on a part whose *node* value is a flat line above. Three fixed stretches came out of one
+      float32 plane: the aircraft's own **−21.0 .. 28.4 °C**, the sky's **−45.7 .. 14.6 °C**
+      (cloud 40+ K above clear), and the AGC clip's single §11.3 plateau LUT built over all 144
+      frames and left unchanged between them, occupied range **−47.2 .. 34.0 °C** — the one where
+      the cumulus and the four separating motors are both legible in the same frame.
     source: scripts/render_phantom4.py
 
   - id: aircraft-pass
