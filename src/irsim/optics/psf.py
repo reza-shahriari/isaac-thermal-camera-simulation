@@ -74,7 +74,16 @@ def optical_psf(
 
 
 def apply_psf(image_ss: object, kernel: FloatArray) -> NDArray[np.floating]:
-    """Convolve a (H, W) image with the kernel by FFT (edge-replicated padding); dtype preserved."""
+    """Convolve a (H, W) image with the kernel by FFT (edge-replicated padding); dtype preserved.
+
+    A non-negative image through a non-negative kernel is non-negative by construction, but the
+    FFT's round-off is not: it leaves ~1e-16 of the frame's brightest value, of either sign, on
+    every pixel. Where the scene is truly black beside something bright -- a black airframe
+    silhouetted against a daylight sky in NIR, ~3e20 photons s⁻¹ m⁻² sr⁻¹ beside 0 -- that is
+    enough to go negative, and the photon detector rightly refuses a negative flux. So in exactly
+    that case the output is clipped at zero, which removes round-off and nothing else. A kernel
+    with genuine negative lobes (a defocus OTF's ringing) is left unclipped.
+    """
     x = np.asarray(image_ss)
     if x.dtype == np.float16:
         raise TypeError("image is float16 (non-negotiable #2)")
@@ -98,6 +107,8 @@ def apply_psf(image_ss: object, kernel: FloatArray) -> NDArray[np.floating]:
     fk = np.fft.rfft2(kern)
     out = np.fft.irfft2(np.fft.rfft2(padded) * fk, s=(h, w))
     out = out[ry : ry + x.shape[0], rx : rx + x.shape[1]]
+    if k.min() >= 0.0 and x.min() >= 0.0:
+        out = np.maximum(out, 0.0)
     return np.asarray(out, dtype=x.dtype)
 
 

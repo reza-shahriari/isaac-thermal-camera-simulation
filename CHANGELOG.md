@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **A black silhouette on a bright sky no longer crashes the photon detector.** `apply_psf`
+  convolves by FFT, whose round-off (~7e-16 of the brightest pixel, either sign) turned a black
+  airframe beside a 3e20 photon-unit NIR sky into −2e5, so `PhotonDetector` refused a negative
+  flux six frames into a Phantom 4 NIR render. A non-negative image through a non-negative kernel
+  is now clipped at zero; a kernel with real negative lobes (defocus ringing) is not. LWIR/MWIR
+  goldens unchanged (`tests/unit/test_mtf.py`).
+
 ### Added
 - **The `ingest-asset` skill: a shared link becomes a library entry** (`AI.9`, ADR 0150). The
   checklist any session follows from link to library entry — fetch through the gate, identify

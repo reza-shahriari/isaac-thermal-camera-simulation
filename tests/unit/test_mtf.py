@@ -109,3 +109,30 @@ def test_apply_psf_conserves_uniform_and_dtypes() -> None:
         apply_psf(img.astype(np.float16), k)
     with pytest.raises(ValueError):
         apply_psf(img, k[:-1])
+
+
+def test_a_black_silhouette_on_a_bright_sky_stays_non_negative() -> None:
+    """The NIR crash of 2026-09-26: FFT round-off (~1e-16 of the brightest pixel) turned a black
+    airframe beside a 3e20 photon-unit sky into -2e5, and the photon detector refused it. A
+    non-negative image through a non-negative kernel must come out non-negative, and nothing but
+    the round-off may change: the bright field is untouched to float32 precision."""
+    import numpy as np
+
+    from irsim.config.loader import load_sensor_config
+    from irsim.optics.psf import apply_psf, optical_psf
+
+    s = load_sensor_config("configs/sensors/example_nir_si_1280.yaml").sensor
+    k = optical_psf(
+        s.reference_wavelength_um,
+        s.optics.f_number,
+        s.optics.mtf.aberration_sigma_um,
+        s.fpa.pitch_um,
+        s.optics.supersample_factor,
+    )
+    img = np.full((256, 320), 3.0e20, dtype=np.float32)
+    img[100:160, 120:200] = 0.0
+    out = apply_psf(img, k)
+    assert float(out.min()) >= 0.0
+    assert float(out[0:40, 0:40].min()) == pytest.approx(3.0e20, rel=1e-6)
+    # Deep inside the silhouette only round-off remains: below 1e-12 of the sky, not light.
+    assert float(out[125:135, 150:170].max()) < 1e-12 * 3.0e20
