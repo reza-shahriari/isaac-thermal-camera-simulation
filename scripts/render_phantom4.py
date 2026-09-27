@@ -49,6 +49,7 @@ import math
 import pathlib
 import sys
 import time
+from collections.abc import Collection
 from typing import Any
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
@@ -56,8 +57,12 @@ REPO = pathlib.Path(__file__).resolve().parents[1]
 #: Where the prepared asset's prims land once referenced.
 ASSET_ROOT = "/World/Targets/phantom4"
 
-#: Part name -> thermal target (AI.5, ADR 0138). The asset used with ``--asset phantom4_parts``
-#: has one prim per **part**, so a target can finally name hardware instead of a material.
+#: Part name -> thermal-node candidates, in order of preference (AI.5, ADR 0138). The asset used
+#: with ``--asset phantom4_parts`` has one prim per **part**, so a target can name hardware
+#: instead of a material. A part's *own name* is always tried first and is not listed here:
+#: :func:`target_for_part` takes the first candidate the scene actually defines, so a scene that
+#: gives each motor its own node (`phantom4_perpart.yaml`) gets four motor nodes and a scene with
+#: one `motor` node (`phantom4_parts.yaml`) gets one, from the same map and the same asset.
 #:
 #: What this replaces, and why the old form could not be rescued. Until AI.5 this was
 #: ``TARGET_BY_MATERIAL = {"copper": "motor"}`` with everything else on ``airframe`` -- two thermal
@@ -66,29 +71,53 @@ ASSET_ROOT = "/World/Targets/phantom4"
 #: than 90 % one part and those carry just 34.7 % of the area, and the prim containing the battery
 #: holds nine parts of which the battery is 26 %. So the geometry was regrouped instead
 #: (``prep_asset.py --emit-parts``), and this map keys on the result.
-TARGET_BY_PART: dict[str, str] = {
+TARGET_BY_PART: dict[str, tuple[str, ...]] = {
     # The four motors are the hottest surfaces on a flying quadcopter: §6.6's aerial node peaks at
-    # +45 K over ambient at full throttle (ADR 0072). Four nodes, not one.
-    "motor_front_left": "motor",
-    "motor_front_right": "motor",
-    "motor_rear_left": "motor",
-    "motor_rear_right": "motor",
-    # The mounts carry the ESC wiring out of the arms; the ESC node peaks at +30 K.
-    "motor_mount_front_left": "esc",
-    "motor_mount_front_right": "esc",
-    "motor_mount_rear_left": "esc",
-    "motor_mount_rear_right": "esc",
+    # +45 K over ambient at full throttle (ADR 0072). Four prims; four nodes where the scene has
+    # them, one where it does not.
+    "motor_front_left": ("motor",),
+    "motor_front_right": ("motor",),
+    "motor_rear_left": ("motor",),
+    "motor_rear_right": ("motor",),
+    # The mounts are the plastic over the ESC in each arm; the ESC node peaks at +30 K. A mount's
+    # pixels come from its own mesh field wherever a cell covers them, so this is the fallback.
+    "motor_mount_front_left": ("esc_front_left", "esc"),
+    "motor_mount_front_right": ("esc_front_right", "esc"),
+    "motor_mount_rear_left": ("esc_rear_left", "esc"),
+    "motor_mount_rear_right": ("esc_rear_right", "esc"),
     # The pack: +15 K, large mass, and **enclosed by the shell**, so the camera sees it only
     # through what it warms. It exists in the model for the first time as of ADR 0138.
-    "battery": "battery",
-    # Everything else takes the airframe's own energy balance. The propellers are named separately
-    # in the scene because they are 1 mm of ABS moving fastest through their own boundary layer.
-    "propeller_front_left": "airframe",
-    "propeller_front_right": "airframe",
-    "propeller_rear_left": "airframe",
-    "propeller_rear_right": "airframe",
+    "battery": ("battery",),
+    # The propellers are 1 mm of ABS spinning above the arm they are bolted to, and are mesh
+    # surfaces in every scene that flies this asset; the fallback is the arm, then the airframe.
+    "propeller_front_left": ("arms", "airframe"),
+    "propeller_front_right": ("arms", "airframe"),
+    "propeller_rear_left": ("arms", "airframe"),
+    "propeller_rear_right": ("arms", "airframe"),
 }
 DEFAULT_TARGET = "airframe"
+
+
+def target_for_part(part: str, defined: Collection[str]) -> str:
+    """The thermal node a part's prim falls back to where no mesh cell covers a pixel.
+
+    ``defined`` is the set of target names the scene declares. The scene is the authority: the
+    part's own name wins if the scene defines a node by it, then each entry of
+    :data:`TARGET_BY_PART` in order, then :data:`DEFAULT_TARGET`. Nothing here is checked
+    against the scene beyond membership -- the bridge refuses an undefined name, and the name it
+    refuses is the one this returned, so an asset with a part the scene never heard of fails
+    loudly at construction rather than rendering at the wrong temperature.
+
+    Only **targets** are candidates, never §12.3 thermal surfaces, although the bridge would take
+    either. A surface's temperature is already in the picture through its cells, and the readout
+    legend draws every mapped name -- mapping nine surfaces as well as fifteen nodes would push
+    the legend off the bottom of a 512-row frame.
+    """
+    for candidate in (part, *TARGET_BY_PART.get(part, ())):
+        if candidate in defined:
+            return candidate
+    return DEFAULT_TARGET
+
 
 #: Which way the airframe's nose points **in the asset's own axes**, before the mount rotation.
 #: Measured from the archive, and corrected in `AI.5` after the first measurement proved wrong by
@@ -125,6 +154,13 @@ parser.add_argument("--scene", default="configs/scenes/phantom4_pointwise.yaml")
 parser.add_argument("--sensor", default="configs/sensors/flir_boson_640_lwir.yaml")
 parser.add_argument("--out", default="outputs/phantom4")
 parser.add_argument("--frames", type=int, default=96)
+parser.add_argument(
+    "--integration-ms",
+    type=float,
+    default=None,
+    help="override a photon FPA's integration time, in ms (as render_quad_flight.py): a daylight "
+    "reflective-band scene saturates a low-light exposure; changes the config hash",
+)
 parser.add_argument("--fps", type=float, default=12.0)
 parser.add_argument(
     "--mission-s",
@@ -177,6 +213,25 @@ parser.add_argument("--no-rgb", action="store_true", help="infrared only; no vis
 # display choice. This writes the same planes a second time, stretched to the whole frame, where
 # the cloud is 40 K of structure and the aircraft is the part that saturates. Both are the same
 # radiometry; neither is an extra render.
+# A real camera shows the aircraft *and* the cloud in one frame, and it does it with a histogram
+# equaliser, not with a ramp: §11.3's plateau AGC clips every bin's population, so the sky's
+# hundreds of thousands of near-identical pixels stop owning the ramp and the aircraft's few
+# thousand get grey levels in proportion to how many distinct temperatures they hold. One LUT is
+# built over **every frame of the clip** and applied to each, for the same reason the two ramps
+# above are fixed across the run: a per-frame equaliser would re-map the motors every frame and
+# cancel the warm-up being filmed. This is display only -- the float32 planes are untouched.
+parser.add_argument(
+    "--agc-clip",
+    action="store_true",
+    help="also write a third clip through one plateau-equalisation LUT built over the whole "
+    "run (§11.3), where the aircraft and the cloud share the frame as a real camera shows them",
+)
+parser.add_argument(
+    "--agc-plateau",
+    type=float,
+    default=0.001,
+    help="plateau fraction of N_pixels per bin for --agc-clip (§11.3, ADR 0028)",
+)
 parser.add_argument(
     "--sky-clip",
     action="store_true",
@@ -289,7 +344,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     from pxr import Gf, Usd, UsdGeom
 
     from irsim.atmosphere.skylight import skylight_for_sensor
-    from irsim.config.loader import band_hash, config_hash, load_sensor_config
+    from irsim.config.loader import (
+        band_hash,
+        config_hash,
+        load_sensor_config,
+        with_integration_time_ms,
+    )
     from irsim.config.scene import load_scene_config
     from irsim.io.dataset import FrameWriter
     from irsim.io.png import write_png
@@ -326,10 +386,17 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
 
     # --- the scene, first: its `world_frame:` is what the mount rotation is derived from --------
     sensor = load_sensor_config(REPO / args.sensor)
+    if args.integration_ms is not None:
+        sensor = with_integration_time_ms(sensor, args.integration_ms)
     band = sensor.sensor.band.band_id
+    # ADR 0021: a photon FPA runs the whole chain on the photon table, so the sky, the atmosphere
+    # and the target solvers are built in the sensor's own form. This was hard-coded "lb", which is
+    # right only for the bolometer this driver was written for: a photon camera would have had its
+    # scene built in energy units and its detector read in photons.
+    quantity = sensor.sensor.quantity
     lut = load_band_lut_for_config(sensor, REPO / "data" / "lut")
     response = load_band_response_for_config(sensor, REPO / "data")
-    skylight = skylight_for_sensor(sensor, "lb")
+    skylight = skylight_for_sensor(sensor, quantity)
     # The *config* first, not the scene: the weather-fx state is drawn from the site and the
     # clock it names, and the scene is then built around whichever weather won (below).
     scene_config = load_scene_config(REPO / args.scene)
@@ -480,7 +547,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         scene_config,
         {band: lut},
         responses={band: response},
-        quantity="lb",
+        quantity=quantity,
         weather_override=weather_override,
         skylights={band: skylight},
     )
@@ -522,10 +589,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         print(f"  UNMAPPED (renders magenta): {path}")
 
     # --- every prim needs a thermal node, or the camera refuses it ------------------------------
-    # A part-split asset names its prims after parts, so the leaf name is the key. A prim the map
-    # does not name falls to `airframe`, which is what every shell, arm and leg wants anyway.
+    # A part-split asset names its prims after parts, so the leaf name is the key, and the scene's
+    # own target names decide how fine the nodes are (`target_for_part`). A prim nothing names
+    # falls to `airframe`, which is what a shell, an arm or a leg wants in a four-node scene.
+    defined_targets = set(scene.targets)
     prim_to_target = {
-        record.path: TARGET_BY_PART.get(record.path.rsplit("/", 1)[-1], DEFAULT_TARGET)
+        record.path: target_for_part(record.path.rsplit("/", 1)[-1], defined_targets)
         for record in records
     }
     by_node: dict[str, int] = {}
@@ -699,9 +768,16 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         cam.refresh_pose()
 
         outputs = cam.get_outputs(rt_subframes=args.rt_subframes)
-        if outputs.apparent_t is None:
-            raise RuntimeError("the sensor config produced no apparent_t plane")
-        t_app = np.asarray(outputs.apparent_t, dtype=np.float32)
+        # A reflective band (SWIR, NIR) switches `apparent_temperature` off in its config --
+        # inverting reflected sunlight through Planck gives a number that is not a temperature --
+        # so the driver carries the band radiance instead. Every span, legend and statistic below
+        # then describes radiance, not kelvin, and the summary says which (`plane_quantity`).
+        if outputs.apparent_t is not None:
+            t_app = np.asarray(outputs.apparent_t, dtype=np.float32)
+        elif outputs.radiance is not None:
+            t_app = np.asarray(outputs.radiance, dtype=np.float32)
+        else:
+            raise RuntimeError("the sensor config produced neither apparent_t nor radiance")
         planes.append(t_app)
 
         # `material_id` lives on the *supersampled* grid (ADR 0014: ids are never filtered, so
@@ -796,7 +872,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 f"  frame {index:4d}  T+{r['t_rel_s']:7.0f}s  R={slant:5.1f} m  "
                 f"{r['px_across']:5.1f} px  aircraft {r['target_px']:6d} px  "
                 f"{r['target_min_c']:6.1f} .. {r['target_max_c']:6.1f} C  "
-                f"motor {r['node_c'].get('motor', float('nan')):5.1f} C"
+                f"hottest {max(r['node_c'], key=r['node_c'].__getitem__)} "
+                f"{max(r['node_c'].values()):5.1f} C"
             )
     render_s = time.time() - started
     cam.close()
@@ -817,17 +894,32 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     print(f"display span: {lo - 273.15:.1f} .. {hi - 273.15:.1f} C, white-hot grayscale")
     gray = palette_table("gray")
 
-    def write_display(kind: str, pair_kind: str, span_lo: float, span_hi: float, note: str) -> None:
+    def write_display(
+        kind: str,
+        pair_kind: str,
+        span_lo: float,
+        span_hi: float,
+        note: str,
+        mapper: Any = None,
+    ) -> None:
         """Write one display clip's stills from the planes already in hand.
 
         `span_lo`/`span_hi` are the only thing that changes between calls: the radiometry is
         identical and the 8-bit frames are not (ADR 0068 -- a display PNG has had the stretch,
         the palette and a 256-level quantisation applied, none of which invert). `note` is the
-        readout's third line, which is where the frame says which stretch it is.
+        readout's third line, which is where the frame says which stretch it is. `mapper`, when
+        given, replaces the linear ramp with its own plane -> [0, 1] mapping (the AGC clip); the
+        span then only scales the legend's gauges, and the colour bar is left off because under
+        an equaliser the brightness axis is no longer a temperature axis (`palette_scale`).
         """
         for index, plane in enumerate(planes):
             row = rows[index]
-            eight = gray[quantise_display((plane - span_lo) / max(span_hi - span_lo, 1e-6))]
+            unit = (
+                (plane - span_lo) / max(span_hi - span_lo, 1e-6)
+                if mapper is None
+                else mapper(plane)
+            )
+            eight = gray[quantise_display(unit)]
             minutes, seconds = divmod(int(row["t_rel_s"]), 60)
             readout = overlay_readout(
                 eight,
@@ -846,7 +938,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 {k: v + 273.15 for k, v in row["node_c"].items()},
                 (span_lo, span_hi),
                 bare=args.no_overlay,
-                palette=gray,
+                palette=None if mapper is not None else gray,
             )
             write_png(frames_dir / f"{kind}_{index:05d}.png", readout)
             if rgbs[index] is not None:
@@ -859,7 +951,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "pair",
         lo,
         hi,
-        f"1 frame / {interval_s:.0f} s   LWIR apparent temperature, gray white-hot",
+        f"1 frame / {interval_s:.0f} s   {band.upper()} "
+        f"{'apparent temperature' if sensor.sensor.outputs.apparent_temperature else 'radiance'}"
+        ", gray white-hot",
     )
 
     # The sky's own stretch. Taken over every frame rather than per frame, for the same reason the
@@ -877,12 +971,45 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             "skypair",
             sky_lo,
             sky_hi,
-            f"1 frame / {interval_s:.0f} s   the same LWIR frames, stretched to the sky",
+            f"1 frame / {interval_s:.0f} s   the same {band.upper()} frames, stretched to the sky",
+        )
+
+    agc_span: list[float] | None = None
+    if args.agc_clip:
+        from irsim.isp.agc import plateau_lut
+
+        whole = np.concatenate([plane.reshape(-1) for plane in planes])
+        agc_lo, agc_hi = float(whole.min()), float(whole.max())
+        bins = 1 << 16
+        scale = (bins - 1) / max(agc_hi - agc_lo, 1e-6)
+        counts = np.bincount(
+            np.floor((whole - agc_lo) * scale).astype(np.int64).clip(0, bins - 1), minlength=bins
+        )
+        table = plateau_lut(counts, args.agc_plateau)
+
+        def equalise(plane: Any) -> Any:
+            if table is None:
+                return np.full(plane.shape, 0.5, dtype=np.float32)
+            dn = np.floor((plane - agc_lo) * scale).astype(np.int64).clip(0, bins - 1)
+            return np.asarray(table[dn], dtype=np.float32)
+
+        agc_span = [agc_lo - 273.15, agc_hi - 273.15]
+        print(
+            f"agc clip: plateau {args.agc_plateau:g}, one LUT over {len(planes)} frames, "
+            f"{agc_span[0]:.1f} .. {agc_span[1]:.1f} C occupied"
+        )
+        write_display(
+            "agc",
+            "agcpair",
+            agc_lo,
+            agc_hi,
+            f"1 frame / {interval_s:.0f} s   plateau AGC, one LUT over the run (§11.3)",
+            mapper=equalise,
         )
 
     videos: dict[str, str] = {}
     if ffmpeg_available():
-        for kind in ("ir", "rgb", "pair", "sky", "skypair"):
+        for kind in ("ir", "rgb", "pair", "sky", "skypair", "agc", "agcpair"):
             if not any(frames_dir.glob(f"{kind}_*.png")):
                 continue
             path = out / f"{args.asset}_{kind}.mp4"
@@ -904,7 +1031,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "band_hash": band_hash(sensor),
         "float_format": args.float_format,
         "plane_stride": args.plane_stride,
+        "plane_quantity": (
+            "apparent_temperature_k"
+            if sensor.sensor.outputs.apparent_temperature
+            else f"band_radiance_{sensor.sensor.quantity}"
+        ),
         "sky_span_c": sky_span,
+        "agc_span_c": agc_span,
+        "agc_plateau": args.agc_plateau if args.agc_clip else None,
         "interval_s": interval_s,
         "seconds_per_frame": round(render_s / max(args.frames, 1), 2),
         "mount_rotation": [[float(v) for v in r] for r in mount],

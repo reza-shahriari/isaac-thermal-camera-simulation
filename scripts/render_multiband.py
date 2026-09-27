@@ -114,6 +114,14 @@ UNSWEPT_SCENES: dict[str, str] = {
         "fail for a missing file. It is filmed by `scripts/render_phantom4.py --asset "
         "phantom4_parts`, which is a single-asset driver rather than a band sweep."
     ),
+    "phantom4_perpart.yaml": (
+        "AI.7's capability scene (ADR 0143): the part-split Phantom 4 with **every part on its own "
+        "node** -- four motors and four ESCs on four throttle histories, six airframe-family "
+        "offsets, a battery, nine mesh surfaces. Unswept for the reasons `phantom4_parts.yaml` is: "
+        "it needs the generated part-split archive, and it is filmed by "
+        "`scripts/render_phantom4.py --asset phantom4_parts "
+        "--scene configs/scenes/phantom4_perpart.yaml`."
+    ),
     "phantom4_pointwise.yaml": (
         "AI.2's reference scene: the first in this project whose geometry was not authored in "
         "Python. It needs a mesh archive that is generated rather than committed -- "

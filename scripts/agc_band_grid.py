@@ -74,13 +74,26 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     summary = json.loads((scene / bands[0] / "summary.json").read_text())
-    peak_frame = int(round(float(summary.get("motor_peak_at_s", 0.0)) / summary["interval_s"]))
-    peak_frame = min(frames, key=lambda f: abs(f - peak_frame))
+    if "motor_peak_at_s" in summary:
+        peak_frame = int(round(float(summary["motor_peak_at_s"]) / summary["interval_s"]))
+        peak_frame = min(frames, key=lambda f: abs(f - peak_frame))
+    else:  # no recorded peak: the frame where the hottest part is hottest
+        peak_frame = max(
+            frames,
+            key=lambda f: max(
+                json.loads((scene / bands[0] / f"frame_{f:06d}.json").read_text())[
+                    "node_temperatures_k"
+                ].values()
+            ),
+        )
 
     sensors = {}
     for band in bands:
         meta = json.loads((scene / band / f"frame_{frames[0]:06d}.json").read_text())
-        sensors[band] = load_sensor_config(REPO / "configs" / "sensors" / f"{meta['sensor']}.yaml")
+        name = str(meta["sensor"])  # render_multiband writes the stem, render_phantom4 the file
+        sensors[band] = load_sensor_config(
+            REPO / "configs" / "sensors" / (name if name.endswith(".yaml") else f"{name}.yaml")
+        )
 
     def find_target(rgb: Any) -> tuple[float, float, float, float] | None:
         """Bounding box of the aircraft in the RGB companion: pixels far from the smooth sky."""
@@ -153,14 +166,19 @@ def main(argv: list[str] | None = None) -> int:
             rows.append(np.concatenate(tiles, axis=1))
         grid = np.concatenate(rows, axis=0)
         meta = json.loads((scene / bands[0] / f"frame_{f:06d}.json").read_text())
+        # Parts grouped by kind (`motor_front_left` -> `motor`), each as its range: fifteen named
+        # parts do not fit on one line, and the kinds are what a reader compares across tiles.
+        groups: dict[str, list[float]] = {}
+        for k, v in meta["node_temperatures_k"].items():
+            groups.setdefault(k.split("_")[0], []).append(float(v) - 273.15)
         nodes = "   ".join(
-            f"{k} {v - 273.15:4.1f}C" for k, v in sorted(meta["node_temperatures_k"].items())
+            f"{g} {min(vs):.1f}C" if len(vs) == 1 else f"{g} {min(vs):.1f}-{max(vs):.1f}C"
+            for g, vs in sorted(groups.items(), key=lambda kv: -max(kv[1]))
         )
-        minutes, seconds = divmod(int(f * summary["interval_s"]), 60)
+        minutes, seconds = divmod(int(f * float(summary["interval_s"])), 60)
+        throttle = f"throttle {meta['throttle']:.0%}   " if "throttle" in meta else ""
         footer = (
-            f"T+{minutes:02d}:{seconds:02d}   range {meta['range_m']:.0f} m   "
-            f"throttle {meta.get('throttle', 0.0):.0%}   {nodes}   "
-            "each tile: the band's own ISP, only the AGC swapped, run on the whole frame"
+            f"T+{minutes:02d}:{seconds:02d}   range {meta['range_m']:.1f} m   {throttle}{nodes}"
         )
         grid = label(grid, footer, height=30, face=footer_font)
         path = out_dir / f"grid_{f:05d}.png"

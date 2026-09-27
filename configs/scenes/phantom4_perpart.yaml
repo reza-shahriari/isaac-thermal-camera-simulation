@@ -1,0 +1,162 @@
+# A **DJI Phantom 4 Pro** in which **every part has its own temperature and its own history**.
+# Schema: irsim.config.scene (v17). A capability demonstration built on `phantom4_parts.yaml`
+# (roadmap AI.2/AI.5, ADR 0138) -- read that file first for the asset, the frame, the cell
+# budget and why `self_occluding` is off; nothing about the geometry changes here.
+#
+# **What changes is the thermal graph.** `phantom4_parts.yaml` has four nodes -- airframe, motor,
+# ESC, battery -- so its four motors read the same temperature at every instant and so do its
+# four ESCs. That is a *category* per part, and a viewer cannot tell it from a simulator that is
+# unable to do better. This scene gives the nineteen parts of the decomposition nineteen
+# temperatures:
+#
+#   * **four motor nodes and four ESC nodes**, one per station, each on its own throttle
+#     history. §6.6's node has no time constant (ADR 0072), so the histories are what make the
+#     stations differ, and they differ the way a real flight makes them differ: in forward
+#     flight the aircraft pitches nose-down and the *rear* pair carries more of the thrust; in a
+#     banked orbit the *outer* pair does; hovering in a wind, the upwind pair leans into it. The
+#     asymmetries are 6-12 % of throttle, which at 45 K x u^2 is 4-7 K between motors -- eighty
+#     to a hundred and forty NETDs on this camera, and visible in the legend before the picture.
+#   * **one battery node** on the mean of the four (the pack feeds all four ESCs).
+#   * **six airframe-family nodes** -- shell_upper, shell_lower, arms, landing_gear, gimbal,
+#     camera_lens -- each `T_air + offset`, where the offsets are ESTIMATED and say which
+#     surfaces have something behind them: the gimbal's three brushless motors run whenever the
+#     aircraft is powered (+4 K), the image sensor sits behind the lens (+2 K), the sun-facing
+#     white shell and the thin arms warm a little (+3 K, +1.5 K), the underside and the legs do
+#     not (+0.5 K, +0.8 K). These are lumped nodes because the shells and arms carry 150-220 k
+#     faces each and the solver puts a cell on every face (see `phantom4_parts.yaml`); a mesh
+#     solve of the shell is a cell budget away, not a code change.
+#   * **nine mesh-solved surfaces** exactly as in the parent scene -- the battery skin, the four
+#     motor mounts and the four propellers -- but each propeller now spins at a speed derived
+#     from *its own* motor's throttle, so the four gradients across the blades differ too.
+#
+# Every temperature in the readout is therefore a different physical part, and same-kind parts
+# differ by more than the sensor can hide. `tests/unit/test_phantom4_perpart.py` pins that: the
+# four motors span more than 4 K in the orbit, their ordering follows the schedule, and they
+# converge again after landing.
+#
+# Mission clock: T+0 idle on the ground, spool and take off by T+60, hover, climb to T+300,
+# forward cruise to T+570, right-hand orbit T+630..870, left-hand orbit T+930..1170, hover in a
+# wind from the front-left T+1230..1470, descent from T+1500, landed and idle at T+1680.
+
+schema_version: 17
+scene:
+  name: phantom4_perpart
+  description: "A DJI Phantom 4 Pro whose nineteen parts each carry their own temperature history"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+
+  targets:
+    # --- the airframe family: T_air + an ESTIMATED offset per part -------------------------
+    - {name: shell_upper,  solver: airframe, offset_k: 3.0}   # white, sun-facing
+    - {name: shell_lower,  solver: airframe, offset_k: 0.5}   # underside, shaded
+    - {name: arms,         solver: airframe, offset_k: 1.5}   # thin white sections in the sun
+    - {name: landing_gear, solver: airframe, offset_k: 0.8}   # legs, in the body's shadow
+    - {name: gimbal,       solver: airframe, offset_k: 4.0}   # three brushless gimbal motors
+    - {name: camera_lens,  solver: airframe, offset_k: 2.0}   # the image sensor behind it
+
+    # --- four motors, four ESCs, one battery: §6.6 heat-source nodes (ADR 0072) ----------------
+    # One time axis for all nine, so the phases line up: the values are what differ.
+    # throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+    - name: motor_front_left
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.58,  0.58,  0.62,  0.70,  0.70,  0.62,  0.60,  0.60,  0.62,  0.68,  0.68,  0.60,  0.45,  0.05]
+    - name: motor_front_right
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.58,  0.58,  0.62,  0.60,  0.60,  0.62,  0.70,  0.70,  0.62,  0.63,  0.63,  0.60,  0.44,  0.05]
+    - name: motor_rear_left
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.70,  0.70,  0.62,  0.72,  0.72,  0.62,  0.62,  0.62,  0.62,  0.62,  0.62,  0.60,  0.46,  0.05]
+    - name: motor_rear_right
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.70,  0.70,  0.62,  0.62,  0.62,  0.62,  0.72,  0.72,  0.62,  0.57,  0.57,  0.60,  0.45,  0.05]
+    - name: esc_front_left
+      solver: heat_source
+      source: esc
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.58,  0.58,  0.62,  0.70,  0.70,  0.62,  0.60,  0.60,  0.62,  0.68,  0.68,  0.60,  0.45,  0.05]
+    - name: esc_front_right
+      solver: heat_source
+      source: esc
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.58,  0.58,  0.62,  0.60,  0.60,  0.62,  0.70,  0.70,  0.62,  0.63,  0.63,  0.60,  0.44,  0.05]
+    - name: esc_rear_left
+      solver: heat_source
+      source: esc
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.70,  0.70,  0.62,  0.72,  0.72,  0.62,  0.62,  0.62,  0.62,  0.62,  0.62,  0.60,  0.46,  0.05]
+    - name: esc_rear_right
+      solver: heat_source
+      source: esc
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.70,  0.70,  0.62,  0.62,  0.62,  0.62,  0.72,  0.72,  0.62,  0.57,  0.57,  0.60,  0.45,  0.05]
+    - name: battery
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+      throttle:   [ 0.15,  0.50,  0.55,  0.62,  0.64,  0.64,  0.62,  0.66,  0.66,  0.62,  0.66,  0.66,  0.62,  0.62,  0.62,  0.60,  0.45,  0.05]
+
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0
+
+    surfaces:
+      # Named apart from the `battery` *node* above, as in the parent scene: a name that is both
+      # a target and a §12.3 surface is refused by `AerialThermalBridge`.
+      - name: battery_skin
+        material: car_paint_black
+        tilt_deg: 0.0
+        mesh: {asset: phantom4_parts, prim: battery, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/battery/battery}
+      - name: motor_mount_front_left
+        material: car_paint_black
+        tilt_deg: 0.0
+        mesh: {asset: phantom4_parts, prim: motor_mount_front_left, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/motor_mount_front_left/motor_mount_front_left}
+      - name: motor_mount_front_right
+        material: car_paint_black
+        tilt_deg: 0.0
+        mesh: {asset: phantom4_parts, prim: motor_mount_front_right, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/motor_mount_front_right/motor_mount_front_right}
+      - name: motor_mount_rear_left
+        material: car_paint_black
+        tilt_deg: 0.0
+        mesh: {asset: phantom4_parts, prim: motor_mount_rear_left, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/motor_mount_rear_left/motor_mount_rear_left}
+      - name: motor_mount_rear_right
+        material: car_paint_black
+        tilt_deg: 0.0
+        mesh: {asset: phantom4_parts, prim: motor_mount_rear_right, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/motor_mount_rear_right/motor_mount_rear_right}
+      # Each propeller's speed through its own boundary layer follows *its* motor's throttle,
+      # on the parent scene's scale (0.15 -> 2 m/s, 0.66 -> 14 m/s), floored at 2 m/s.
+      - name: propeller_front_left
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+        speed_m_s: [ 2.00, 10.20, 11.40, 13.00, 12.10, 12.10, 13.00, 14.90, 14.90, 13.00, 12.60, 12.60, 13.00, 14.50, 14.50, 12.60,  9.10,  2.00]
+        mesh: {asset: phantom4_parts, prim: propeller_front_left, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/propeller_front_left/propeller_front_left}
+      - name: propeller_front_right
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+        speed_m_s: [ 2.00, 10.20, 11.40, 13.00, 12.10, 12.10, 13.00, 12.60, 12.60, 13.00, 14.90, 14.90, 13.00, 13.30, 13.30, 12.60,  8.80,  2.00]
+        mesh: {asset: phantom4_parts, prim: propeller_front_right, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/propeller_front_right/propeller_front_right}
+      - name: propeller_rear_left
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+        speed_m_s: [ 2.00, 10.20, 11.40, 13.00, 14.90, 14.90, 13.00, 15.40, 15.40, 13.00, 13.00, 13.00, 13.00, 13.00, 13.00, 12.60,  9.30,  2.00]
+        mesh: {asset: phantom4_parts, prim: propeller_rear_left, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/propeller_rear_left/propeller_rear_left}
+      - name: propeller_rear_right
+        material: abs_plastic_white
+        tilt_deg: 0.0
+        speed_s:   [0.0, 60.0, 120.0, 300.0, 330.0, 570.0, 600.0, 630.0, 870.0, 900.0, 930.0, 1170.0, 1200.0, 1230.0, 1470.0, 1500.0, 1620.0, 1680.0]
+        speed_m_s: [ 2.00, 10.20, 11.40, 13.00, 14.90, 14.90, 13.00, 13.00, 13.00, 13.00, 15.40, 15.40, 13.00, 11.90, 11.90, 12.60,  9.10,  2.00]
+        mesh: {asset: phantom4_parts, prim: propeller_rear_right, cell_m: 0.01, self_occluding: false, prim_path: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002/propeller_rear_right/propeller_rear_right}

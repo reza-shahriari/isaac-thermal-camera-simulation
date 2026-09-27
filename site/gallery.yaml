@@ -437,6 +437,43 @@ sections:
       while it flies and the readout carries it. What is held constant is the background.
     source: scripts/render_phantom4.py
 
+  - id: imported-asset-perpart
+    title: Every part its own temperature
+    lead: |
+      The same part-split Phantom 4, flown close — **2 to 6 m**, a motor can tens of pixels
+      across — with **fifteen thermal nodes and nine mesh-solved surfaces** where the clip above
+      had four nodes. The four motors and the four ESCs sit on four *different* throttle
+      histories, written the way a flight writes them: the rear pair carries more thrust in
+      nose-down cruise, the outer pair in each banked orbit, the upwind pair hovering in a wind
+      from the front-left. Solved on the scene's own nodes, the rear pair runs **6.9 K** over the
+      front in cruise and the outer pair **5.9–6.1 K** over the inner in each orbit; landed and
+      idle, all four fall back to within **0.1 K** of each other. The differences were the
+      mission, not four models — and a viewer can watch them open and close in the legend while
+      the picture does the same.
+
+      The scene decides the granularity, not the driver: `target_for_part` takes a part's own
+      name if the scene defines a node by it, so `phantom4_parts.yaml` and this scene fly the
+      same asset through the same code with four and fifteen nodes respectively. The six
+      airframe-family parts — shells, arms, legs, gimbal, lens — are lumped nodes with ESTIMATED
+      offsets on purpose (ADR 0143): they carry 150–220 k faces each and the solver puts a cell
+      on every face, so a mesh solve of the shell waits on a decimated thermal archive.
+    media:
+      - video: phantom4_perpart/phantom4_parts_agcpair.mp4
+        width: full
+        caption: >-
+          LWIR through one plateau-equalisation LUT built over the whole run (§11.3), beside the
+          visible companion: the cumulus and the motors share the frame as a real camera shows
+          them, and nothing rescales between frames
+      - video: phantom4_perpart/phantom4_parts_pair.mp4
+        width: half
+        caption: the same frames stretched to the aircraft, where the four motors read apart
+      - video: phantom4_perpart/phantom4_parts_skypair.mp4
+        width: half
+        caption: and stretched to the sky, where the aircraft saturates against the cloud field
+    note: |
+      IN_SIM_NOTE
+    source: scripts/render_phantom4.py
+
   - id: aircraft-pass
     title: A low pass, where aspect is the variable
     lead: |

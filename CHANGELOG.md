@@ -63,24 +63,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `FIXED_agc`, `FIXED_ir` and side-by-side `FIXED_*_vs_old` clips on the CPU, with the ADC floor at
   200 K, the camera's ISP in `information_based`, and the readout moved off the aircraft.
 
-### Fixed
-- **A VDB cloud renders in the path tracer after all** (AT.13 reopened, ADR 0144). ADR 0140's
-  "nothing volumetric renders here" rested on a probe control that contained the cube under test
-  and on four `OmniVolumeDensity` inputs the MDL does not declare (`densityMultiplier`,
-  `scattering_scale`, `absorption_scale`, `albedo`), which USD drops silently — so the file was
-  never named to the material. `irsim_isaac.cloud_volume.author_cloud_volume` now authors the
-  recipe that renders: a mesh box at the grid's world bounds with **no transform**,
-  `primvars:isVolume`, the `.vdb` on `volume_density_texture`, `volume_albedo`,
-  `volume_density_scale`, `directional_bias`, and the material on all three `mdl:` outputs.
-  Measured in eleven path-traced runs on the A6000: the box renders the cloud (linear-HDR
-  99.9th percentile **2.12** against the control's 0.92; lit tops, flat bases, its shadow on the
-  backdrop); a unit cube scaled to the same bounds darkens the whole frame **40×** at any density
-  because the texture is sampled in local space; a `UsdVol.Volume` prim renders nothing in five
-  variants; a volume writes **no depth**. `scripts/probe_cloud_volume.py` gained a real control
-  stage, `HdrColor` with auto-exposure off, the Non-uniform Volumes settings
-  (`/rtx/pathtracing/ptvol/enabled`), and `--pt-bounces`, `--texture-box`, `--texture-cube`,
-  `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
-
 ### Added
 - **A sky-only scene and a radial bench make a real clear-sky frame a Tier 4 reference** (SC.20).
   `configs/scenes/sky_only.yaml` has no target; `irsim.validation.radial.radial_fit` fits a plane
@@ -144,7 +126,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   carry the implementation: field-dependent housing term, shutter-referenced FFC, late defects, a
   sky-only scene with a radial bench.
 
+### Fixed
+- **A VDB cloud renders in the path tracer after all** (AT.13 reopened, ADR 0144). ADR 0140's
+  "nothing volumetric renders here" rested on a probe control that contained the cube under test
+  and on four `OmniVolumeDensity` inputs the MDL does not declare (`densityMultiplier`,
+  `scattering_scale`, `absorption_scale`, `albedo`), which USD drops silently — so the file was
+  never named to the material. `irsim_isaac.cloud_volume.author_cloud_volume` now authors the
+  recipe that renders: a mesh box at the grid's world bounds with **no transform**,
+  `primvars:isVolume`, the `.vdb` on `volume_density_texture`, `volume_albedo`,
+  `volume_density_scale`, `directional_bias`, and the material on all three `mdl:` outputs.
+  Measured in eleven path-traced runs on the A6000: the box renders the cloud (linear-HDR
+  99.9th percentile **2.12** against the control's 0.92; lit tops, flat bases, its shadow on the
+  backdrop); a unit cube scaled to the same bounds darkens the whole frame **40×** at any density
+  because the texture is sampled in local space; a `UsdVol.Volume` prim renders nothing in five
+  variants; a volume writes **no depth**. `scripts/probe_cloud_volume.py` gained a real control
+  stage, `HdrColor` with auto-exposure off, the Non-uniform Volumes settings
+  (`/rtx/pathtracing/ptvol/enabled`), and `--pt-bounces`, `--texture-box`, `--texture-cube`,
+  `--noise-cube`, `--no-isvolume`, `--density-scale`, `--dome-light` for the factorial.
+
 ### Added
+- **Every part of the Phantom 4 carries its own temperature history** (AI.7, ADR 0143).
+  `configs/scenes/phantom4_perpart.yaml` gives the nineteen parts of ADR 0138 fifteen thermal
+  nodes and nine mesh-solved surfaces: four motor and four ESC nodes on four *different* throttle
+  histories (rear pair loaded in cruise, outer pair in each orbit, upwind pair hovering in a
+  wind), a battery on their mean, six airframe-family nodes with ESTIMATED offsets, and each
+  propeller spinning at its own motor's speed. `render_phantom4.target_for_part` lets the
+  scene decide the granularity — the same driver gives four nodes on `phantom4_parts.yaml` —
+  and `--agc-clip` writes a third clip through one §11.3 plateau LUT over the whole run, so the
+  cloud and the motors share a frame as a real camera shows them.
+  `tests/unit/test_phantom4_perpart.py`: motors split by more than 4 K in the orbits, in the
+  order the flight dictates, and converge to within 0.1 K once landed.
 - **A material must name the surface state its optics were measured on** (AT.17, §4.5). Material
   schema **v2**: `surface_treatment` is required and has no default, from §4.5's own vocabulary —
   polished, machined, oxidised, anodised, painted, sandblasted, weathered — plus `as_manufactured`
