@@ -970,6 +970,11 @@ Model the families (linear, global plateau, local tiled, detail-weighted) and th
 Max gain matters most for the sky lane: a clear sky a few DN wide is the blandest scene there is,
 and uncapped equalisation stretches its noise across the whole ramp.
 
+**A Boson's factory values are published.** [R51] p. 5 shows them in the camera's own control
+panel: Information-Based on, Plateau 7 %, Linear Percent 20 %, Max Gain 1.38, Detail Headroom 12,
+DDE 0.95, Smoothing Factor 1250, Tail Rejection 0, ACE 0.97, Damping 85. A Boson config carries
+these, not values tuned for a picture (ADR 0152 maps each one and lists the three that do not map).
+
 **A band's display chain follows its detector.** In the emissive bands the scene radiance moves by a
 small factor between night and noon, so exposure is fixed and the display work is the AGC. In the
 reflective bands (NIR, SWIR) it moves by five to six decades, and the camera is exposure-driven like

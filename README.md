@@ -113,8 +113,11 @@ approximates FLIR's factory default from its application note [R51]: an edge-pre
 histogram re-weighted by high-pass detail, a `linear_percent` blend, and detail added back at the
 transfer's slope. On a synthetic sky-plus-drone frame the target goes from ≤ 3 to ≥ 25 codes with its
 parts in temperature order, and on `phantom4_perpart` frame 96 from 3 to 30. Its weighting is not
-published, so it is a flagged approximation until a Tier 4 fit exists. No config selects it yet
-(`SC.22`), and no hash or golden moved.
+published, so it is a flagged approximation until a Tier 4 fit exists. **The Boson 640 now runs it
+with FLIR's published factory values** (`SC.22`, ADR 0152): Plateau 7 %, Linear Percent 20 %, Max
+Gain 1.38 and Detail Headroom 12, read off [R51]'s control-panel screenshot. With them the synthetic
+target gets 37 codes, and the display is the only thing that moves: `dn16`, `radiance` and
+`apparent_t` are bit-identical.
 
 **The ADC holds the coldest sky (`SC.23`, ADR 0151).** A bolometer's DN 0 is zero scene radiance.
 It used to be the datasheet's −40 °C, which clipped up to two thirds of a `phantom4_perpart` frame's
@@ -828,12 +831,11 @@ site/               the project site's source: gallery.yaml (what to show) + ass
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
-- **A small target against a cloudy sky gets almost no grey levels** (spec issues S52, S53;
-  `SC.22`–`SC.24`). Every camera config selects global plateau equalisation, which on a sky
-  spread over thousands of DN is full histogram equalisation: the drone in `phantom4_perpart`,
-  0.6 % of the frame, receives 3 of 256 grey levels for parts spanning 15 → 38 °C. A Boson's factory
-  default, Information-Based Equalization blended by Linear Percent, exists as `agc:
-  information_based` (`SC.21`), but no config selects it yet. And no photon camera
+- **A small target against a cloudy sky still gets only a few dozen grey levels** (`SC.24`,
+  `SC.27`). The Boson now runs FLIR's factory-default AGC (`SC.22`), and the `phantom4_perpart`
+  drone gets 16–28 of 256 codes, up from 2–3. `render_phantom4.py`'s own clips still re-implement
+  plateau equalisation instead of using the camera's display (`SC.24`), and a global AGC cannot
+  give a 0.6 % target most of the ramp in any case. And no photon camera
   auto-exposes (`SC.27`, S54): the NIR and SWIR configs are each one fixed integration time, valid
   only near the light level they were written for. The float32 `apparent_t` and `radiance` planes
   are unaffected; only the 8-bit display is.

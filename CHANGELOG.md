@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **The Boson 640 runs FLIR's factory-default AGC** (`SC.22`, ADR 0152, S52). `agc:
+  information_based` with the values [R51] prints on its control-panel screenshot: Plateau 7 %,
+  Linear Percent 20 %, Max Gain 1.38, Detail Headroom 12. DDE, ACE and Damping are recorded as
+  unmapped. A small target on a cluttered sky goes from 2 to 37 grey codes (the `phantom4_perpart`
+  drone from 2–3 to 16–28). Display only: the two `display8` goldens were regenerated, and `dn16`,
+  `radiance` and `apparent_t` are bit-identical. `halmstad_boson_320` keeps its recorder's `linear`.
+  `redisplay_planes.py` now takes AGC controls from the camera unless a flag overrides them.
+
 ### Fixed
 - **The ADC floor holds the coldest sky** (`SC.23`, ADR 0151, S53). A bolometer's DN 0 moves from
   −40 °C to zero scene radiance, so a clear LWIR sky is no longer clipped to one code (up to 66 %

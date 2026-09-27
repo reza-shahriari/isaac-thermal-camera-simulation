@@ -103,12 +103,27 @@ sensor:
     residual_gain_ppm_per_k: 900                 # ESTIMATED
     residual_offset_mk_per_k: 45                 # ESTIMATED
 
+  # The factory-default AGC (SC.22, ADR 0152), read off [R51] p. 5's "Current Camera Values" panel:
+  # Information-Based Mode on, Plateau 7, Linear Percent 20, Max Gain 1.38, Detail Headroom 12,
+  # DDE 0.95, Smoothing Factor 1250, Tail Rejection 0, ACE 0.97, Damping 85.
   isp:
-    agc: plateau_equalization
-    plateau: 0.012
-    clip_percentiles: [0.005, 0.995]
-    gamma: 1.0
-    dde_gain: 0.35
+    agc: information_based                       # [R51] "FLIR recommends the Information-Based
+                                                 # Equalization mode"; the panel shows it on
+    plateau: 0.07                                # [R51] Plateau Value 7 (% of pixels per bin)
+    linear_percent: 0.20                         # [R51] Linear Percent 20
+    max_gain: 1.38                               # [R51] Max Gain 1.38, display codes per count.
+                                                 # ESTIMATED: an irsim DN (5.9 mK at 300 K) is not
+                                                 # a Boson count, so the cap binds on blander
+                                                 # scenes than a Boson's does
+    detail_headroom: 0.047                       # [R51] Detail Headroom 12 of 0-127, i.e. 12/255
+                                                 # of the 8-bit range reserved at each end
+    clip_percentiles: [0.005, 0.995]             # `linear` mode only; FLIR's Tail Rejection 0
+                                                 # is the min-max map `linear_percent` blends in
+    gamma: 1.0                                   # [R51] ACE 0.97 not mapped: "ACE is implemented
+                                                 # differently in Boson" -- it is not a gamma
+    dde_gain: 0.0                                # [R51] DDE 0.95 is the high-pass gain; irsim adds
+                                                 # it back at 1 + dde_gain >= 1, so 0.0 is nearest
+                                                 # (5 % more detail than the Boson). Was 0.35
     polarity: white_hot
     palette: gray
 

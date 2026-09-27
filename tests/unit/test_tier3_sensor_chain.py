@@ -48,6 +48,9 @@ SHAPE = (48, 64)
 PAIR_COLD_K, PAIR_WARM_K = 300.0, 303.0
 EXHAUST_K = 450.0
 EXHAUST_FRACTION = 0.05
+#: The Boson's SC.22 factory controls zeroed (ADR 0152): these tests compare AGC *operators*, and
+#: an override naming only `agc` would otherwise inherit Linear Percent 20 % and Max Gain 1.38.
+BARE_OPERATOR: dict[str, Any] = {"linear_percent": 0.0, "max_gain": 0.0, "detail_headroom": 0.0}
 
 
 def _config(lut: BandLUT, fps: float = 60.0, **over: Any) -> PipelineConfig:
@@ -93,6 +96,7 @@ def _pair_scene(with_exhaust: bool) -> np.ndarray:
 
 def _pair_contrast(lut: BandLUT, isp_over: dict[str, Any], with_exhaust: bool) -> float:
     """Mean display8 difference between the two halves of the pair, away from the exhaust."""
+    isp_over = {**BARE_OPERATOR, **isp_over}
     config = _config(lut, isp=isp_over)
     out = run_frame(_planes(_pair_scene(with_exhaust)), config, PipelineState())
     spec = IspSpec.model_validate({**BOSON["sensor"]["isp"], **isp_over})

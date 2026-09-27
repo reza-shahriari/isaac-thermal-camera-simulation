@@ -225,7 +225,10 @@ def test_the_picture_stops_having_shaded_edges(config, corrected_config) -> None
     flat_edge, flat_centre = row_band(flat, row)
 
     shading = abs(plain_centre - plain_edge)
-    assert shading > 20.0, (
+    # "visible", the precondition, not the claim: 19.6 codes under the Boson's factory AGC
+    # (SC.22, ADR 0152) and 22.2 under the plateau it replaced. The claim is the next assertion,
+    # and the factory camera clears it by 100x (0.05 codes left).
+    assert shading > 15.0, (
         f"uncorrected should shade at the edges: {plain_edge:.1f} vs {plain_centre:.1f}"
     )
     assert abs(flat_edge - flat_centre) < 0.2 * shading, (

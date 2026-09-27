@@ -58,15 +58,19 @@ def _config(
     lut: BandLUT,
     *,
     ceiling_k: float | None = None,
-    agc: str = "linear",
+    agc: str | None = "linear",
     emissivity: float = 0.98,
     size: tuple[int, int] = (32, 24),
     display: bool = False,
 ) -> PipelineConfig:
+    """``agc`` names a bare operator: the Boson's SC.22 controls (Linear Percent, Max Gain,
+    Detail Headroom) are zeroed so the families are compared as operators. ``None`` keeps the
+    camera's own factory ISP untouched."""
     d = copy.deepcopy(BOSON)
     d["sensor"]["fpa"].update(width=size[0], height=size[1])
     d["sensor"]["optics"]["supersample_factor"] = 1
-    d["sensor"]["isp"]["agc"] = agc
+    if agc is not None:
+        d["sensor"]["isp"].update(agc=agc, linear_percent=0.0, max_gain=0.0, detail_headroom=0.0)
     if ceiling_k is not None:
         d["sensor"]["fpa"]["gain_ceiling_k"] = ceiling_k
     if display:
@@ -238,6 +242,20 @@ def test_a_linear_agc_collapses_on_a_fire_and_plateau_equalisation_does_not(
     assert linear_fire < 2.0, linear_fire  # FLIR: about 0.7 % of the range
     assert plateau_fire >= 10.0, plateau_fire
     assert plateau_fire > 20.0 * linear_fire, (plateau_fire, linear_fire)
+
+
+def test_the_boson_as_shipped_does_not_collapse_on_a_fire(boson_lut: BandLUT) -> None:
+    """The same fire through the camera's factory ISP (`SC.22`, ADR 0152): information-based
+    equalisation with Linear Percent 20 % and Max Gain 1.38. Measured 51 codes against the linear
+    stretch's 1 -- the 20 % linear blend and the gain cap cost shades, not the ordering."""
+    ceiling = BOSON_GAIN_CEILING_K["low"]
+    size = (64, 64)
+    factory = _config(boson_lut, ceiling_k=ceiling, agc=None, size=size, display=True)
+    linear = _config(boson_lut, ceiling_k=ceiling, agc="linear", size=size, display=True)
+    assert factory.sensor.sensor.isp.agc == "information_based"
+    factory_fire = _person_room_contrast(factory, FLAME_K)
+    assert factory_fire >= 25.0, factory_fire
+    assert factory_fire > 20.0 * _person_room_contrast(linear, FLAME_K)
 
 
 def test_the_radiometric_branch_does_not_pass_through_the_agc(boson_lut: BandLUT) -> None:

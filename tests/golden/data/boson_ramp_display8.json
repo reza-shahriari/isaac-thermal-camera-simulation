@@ -1,6 +1,6 @@
 {
   "atol": 1.0,
-  "config_hash": "8cfd920499cd7e77084bdc556b642a36707dc9a160eb13126a721d2b5677d4e1",
+  "config_hash": "42cd81e3c726067e8d59a50d8ce63bcd112515acdf6ad8b52fdd8485225933fb",
   "dtype": "uint8",
   "name": "boson_ramp_display8",
   "numpy_version": "2.3.1",

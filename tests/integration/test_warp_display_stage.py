@@ -62,6 +62,17 @@ def _config(lut, **isp: Any):  # type: ignore[no-untyped-def]
     d = copy.deepcopy(yaml.safe_load(BOSON_YAML.read_text()))
     d["sensor"]["fpa"].update(width=SHAPE[1], height=SHAPE[0])
     d["sensor"]["optics"].update(supersample_factor=1)
+    # The device AGC ports the table-shaped operators only (ADR 0147, 0149); since SC.22 the Boson
+    # ships `information_based` with Linear Percent, Max Gain and Detail Headroom, which it
+    # refuses. Pin the pre-SC.22 plateau ISP so these tests keep measuring the port they cover.
+    d["sensor"]["isp"].update(
+        agc="plateau_equalization",
+        plateau=0.012,
+        linear_percent=0.0,
+        max_gain=0.0,
+        detail_headroom=0.0,
+        dde_gain=0.35,
+    )
     d["sensor"]["isp"].update(isp)
     sensor = SensorConfig.model_validate(d)
     return PipelineConfig.from_sensor(sensor, MaterialTable.constant(1.0), lut=lut)

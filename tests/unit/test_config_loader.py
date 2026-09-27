@@ -133,7 +133,12 @@ def _perturb(d: dict[str, Any], dotted: str, factor: float) -> dict[str, Any]:
         node[name][int(idx)] = v * factor if v else 0.01
     else:
         v = node[last]
-        node[last] = (v + (1 if factor > 1 else -1)) if isinstance(v, int) else v * factor
+        # a zero float scaled is still zero, which would test nothing (the Boson's dde_gain is 0.0
+        # since SC.22), so a zero moves to 0.01 exactly as a zero list element does above
+        if isinstance(v, int):
+            node[last] = v + (1 if factor > 1 else -1)
+        else:
+            node[last] = v * factor if v else 0.01
     return out
 
 

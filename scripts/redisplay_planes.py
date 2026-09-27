@@ -75,12 +75,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("run", type=pathlib.Path, help="a render's output directory")
     parser.add_argument("--prefix", default="FIXED_")
     parser.add_argument("--fps", type=float, default=3.0, help="saved planes are every Nth frame")
-    parser.add_argument("--plateau", type=float, default=0.07, help="FLIR's default [R51]")
+    # Every AGC control defaults to the camera's own value (None): since SC.22 the Boson config
+    # carries FLIR's factory defaults [R51], and a script default would silently replace them.
+    parser.add_argument(
+        "--plateau", type=float, default=None, help="default: the camera's (Boson: 0.07 [R51])"
+    )
     parser.add_argument(
         "--linear-percent",
         type=float,
-        default=0.3,
-        help="Linear Percent blend (FLIR's worked example uses 30 %%; its default is unpublished)",
+        default=None,
+        help="Linear Percent blend; default: the camera's (Boson: 0.20, FLIR's factory value)",
     )
     parser.add_argument(
         "--agc",
@@ -92,14 +96,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--clip-limit-low",
         type=float,
-        default=0.0,
-        help="Lepton-family low clip, fraction of N per occupied bin (SC.25; 0 = off)",
+        default=None,
+        help="Lepton-family low clip, fraction of N per occupied bin (SC.25; 0 = off; "
+        "default: the camera's)",
     )
     parser.add_argument(
         "--max-gain",
         type=float,
-        default=0.0,
-        help="cap on display codes per DN, Boson/Xenics max gain (SC.25; 0 = off)",
+        default=None,
+        help="cap on display codes per DN, Boson/Xenics max gain (SC.25; 0 = off; "
+        "default: the camera's, Boson 1.38)",
     )
     args = parser.parse_args(argv)
     modes = list(AGC_MODES) if args.agc == "all" else [m.strip() for m in args.agc.split(",")]
@@ -144,12 +150,16 @@ def main(argv: list[str] | None = None) -> int:
     l_hi = float(lut.lookup(RADIOMETRIC_RANGE_K[1])[()])
     isps = {
         mode: sensor.sensor.isp.model_copy(
-            update={
-                "agc": mode,
-                "plateau": args.plateau,
-                "linear_percent": args.linear_percent,
-                "clip_limit_low": args.clip_limit_low,
-                "max_gain": args.max_gain,
+            update={"agc": mode}
+            | {
+                key: value
+                for key, value in (
+                    ("plateau", args.plateau),
+                    ("linear_percent", args.linear_percent),
+                    ("clip_limit_low", args.clip_limit_low),
+                    ("max_gain", args.max_gain),
+                )
+                if value is not None
             }
         )
         for mode in modes
@@ -221,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
                 with_margin(image),
                 [
                     head,
-                    f"FIXED: {AGC_LABEL[mode]}, linear {args.linear_percent:.0%}, per frame",
+                    f"FIXED: {AGC_LABEL[mode]}, linear {isps[mode].linear_percent:.0%}, per frame",
                     f"ADC floor 0 radiance (was 233 K: {old_clipped:.0%} of frame at DN 0)",
                 ],
                 values,
