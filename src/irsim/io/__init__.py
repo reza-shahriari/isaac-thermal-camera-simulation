@@ -20,6 +20,13 @@ from irsim.io.dataset import (
 )
 from irsim.io.exr import exr_bytes, read_exr, write_exr
 from irsim.io.png import png_bytes, write_png
+from irsim.io.sketchfab import (
+    GateDecision,
+    Provenance,
+    gate_license,
+    model_uid_from_url,
+    plan_fetch,
+)
 
 __all__ = [
     "AssetMesh",
@@ -36,4 +43,9 @@ __all__ = [
     "FrameRecord",
     "FrameWriter",
     "PLANE_UNITS",
+    "GateDecision",
+    "Provenance",
+    "gate_license",
+    "model_uid_from_url",
+    "plan_fetch",
 ]

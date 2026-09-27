@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A shared Sketchfab link becomes a gated local model** (`AI.8`, ADR 0150).
+  `scripts/fetch_sketchfab.py` parses the UID from any link shape, reads the model's metadata,
+  gates the licence *before* downloading — CC0/CC-BY/CC-BY-SA go to `3d_models/<name>/` with a
+  committed `configs/assets/<name>.provenance.yaml`; ND, NC, Standard, Editorial and anything
+  unrecognised land in `3d_models/quarantine/<name>/`, never to be committed or published — then
+  fetches the glTF archive (the API never serves the source FBX) and writes `ATTRIBUTION.md`
+  beside it. The gate and provenance logic are engine-free in `irsim.io.sketchfab`; 33 unit
+  tests pin the shareable set to exactly {cc0, by, by-sa}.
+
+### Added
 - **`scripts/agc_band_grid.py`: one aircraft, every band, every AGC.** It reads a
   `render_multiband.py` scene's raw `dn16` frames and writes a grid on the CPU, with no render.
   Rows are the bands (LWIR, MWIR, SWIR, NIR); columns are the RGB companion and five AGC

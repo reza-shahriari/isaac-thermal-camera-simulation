@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `SC.22` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 64 open steps
+#### Then, in order — 65 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`SC.22`** | SC | A | S | — | ready |
 | 2 | **`SC.24`** | SC | A | S | — | ready |
-| 3 | **`SC.23`** | SC | A | M | — | ready |
-| 4 | **`IG.16`** | IG | B | M | — | ready |
-| 5 | **`AT.14`** | AT | B | L | — | ready |
-| 6 | **`AT.6`** | AT | C | M | — | ready |
-| 7 | **`AT.9`** | AT | C | M | — | ready |
-| 8 | **`PT.16`** | PT | C | M | — | ready |
-| 9 | **`XD.10`** | XD | C | L | — | ready |
-| 10 | **`IG.3`** | IG | X | S | 3 | ready |
-| 11 | **`EV.5`** | EV | X | M | 3 | ready |
-| 12 | **`SC.5`** | SC | X | M | 3 | ready |
-| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 15 | **`XD.7`** | XD | X | M | 2 | ready |
+| 3 | **`AI.9`** | AI | A | M | — | ready |
+| 4 | **`SC.23`** | SC | A | M | — | ready |
+| 5 | **`IG.16`** | IG | B | M | — | ready |
+| 6 | **`AT.14`** | AT | B | L | — | ready |
+| 7 | **`AT.6`** | AT | C | M | — | ready |
+| 8 | **`AT.9`** | AT | C | M | — | ready |
+| 9 | **`PT.16`** | PT | C | M | — | ready |
+| 10 | **`XD.10`** | XD | C | L | — | ready |
+| 11 | **`IG.3`** | IG | X | S | 3 | ready |
+| 12 | **`EV.5`** | EV | X | M | 3 | ready |
+| 13 | **`SC.5`** | SC | X | M | 3 | ready |
+| 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
 
-…and 49 more — `python scripts/next_step.py --queue 40`.
+…and 50 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -275,7 +275,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`, `AI.8`, `AI.9`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`, `GT.9`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -325,7 +325,7 @@ for Tier 3, and `M7` resolves to `1a0f13c`, the commit `RP.7` separately identif
 | M8 atmosphere, grey and layered | done | `e4caef9` | Layered exponential-sum slant path, R13-anchored. Per-pixel slant path was never in scope: `AT.1` |
 | M9 sensor chain | done | `d38c3f0` | 3-D noise, FPN, bad pixels, NUC residual, budget test. M9.8's IIR wiring is recorded by ADR 0082 |
 | M10 Isaac pipeline | partial | `b2f89f2` | AOVs, IrCamera, Warp stage twins, six demo stages. M10.12 and M10.13a/b/e blocked: see `DC.1` |
-| AI asset ingestion | partial | `pending` | Per-asset material map + CPU Blender prep (ADR 0128), solvable geometry (ADR 0132), and the asset flies in both bands (ADR 0133). Phantom 4: 48.8% -> 100%. Functional part decomposition and a bound battery (ADR 0138, `AI.5`). Still one temperature per prim: `AI.2`'s remainder |
+| AI asset ingestion | partial | `pending` | Per-asset material map + CPU Blender prep (ADR 0128), solvable geometry (ADR 0132), and the asset flies in both bands (ADR 0133). Phantom 4: 48.8% -> 100%. Functional part decomposition and a bound battery (ADR 0138, `AI.5`). Still one temperature per prim: `AI.2`'s remainder. A shared link now arrives through a licence gate with committed provenance (`AI.8`, ADR 0150); the `ingest-asset` checklist is `AI.9` |
 | M11 multi-band and aerial extras | done | `3553b33` | `72e8142` shipped the NIR config and response. Specular lobe not wired per pixel (ADR 0067) |
 | M12 Tier 4 acceptance | partial | `e22c010` | The run fails and says so. `EV.1`-`EV.4` redo it before its attribution is used |
 | ME evaluation data lane | partial | `2cac77d` | ME.5 measured 365 clips on a hashed archive. ME.7 blocked on labels, not compute: `EV.11`, `XD.11` |
@@ -775,6 +775,8 @@ of the silhouette still render at their node's one temperature.
 | AI.5 | ✅ **done.** An imported asset is decomposed into **functional parts** by connected component, authored as data in the asset config, and regrouped so that one prim is one part. ADR 0138. | **Measured.** 41 material prims → 31,068 components → 19 parts at 100 % of 0.294 m2; the part-split USD keeps all 2,486,459 faces. Four nodes separate at T+600 s: airframe 26.4 C, battery 32.9 C, ESC 39.5 C, motor 46.0 C. 22 tests. `AI.2` rendered it: the parts scene is what the outbound clip flies. | AI.1 | M | A |
 | AI.6 | ✅ **done.** `irsim.io.asset_material_split` plans one prim per material and `prep_asset.py --emit-material-split` regroups the geometry in Blender, on the CPU. Blender's importers put a USD subset, an FBX group and an OBJ `usemtl` on one footing — a per-face slot index — so it is one mechanism for every format. | **Measured, end to end.** The subset fixture: 3 meshes → 6 prims, **35.7 %** of its 14 m² rendered as the wrong material before, and the walk in Kit now finds **no** subset mesh left. The Phantom 4 is 41 → 41 at 0.0 %. 21 tests. | AI.4, AI.5 | M | B |
 | AI.7 | ✅ **done.** Every part its own node: `phantom4_perpart.yaml` puts four motors and four ESCs on four throttle histories, six airframe-family parts on their own offsets, each propeller on its own motor's speed; `target_for_part` lets the *scene* set the granularity and `--agc-clip` shows cloud and motors in one frame. ADR 0143. | **Measured.** Engine-free: rear pair 6.9 K over the front in cruise, outer pair 5.9–6.1 K over the inner in each orbit, all four within 0.1 K landed; 5 tests. In-sim: the figure-of-eight clip under fair cumulus, three stretches. | AI.2, AI.5 | S | A |
+| AI.8 | ✅ **done.** A link becomes a gated local model: `fetch_sketchfab.py` + `irsim.io.sketchfab` parse the UID, gate the licence **before** the download, fetch the glTF (the API never serves source FBX) and write `ATTRIBUTION.md` + committed sha256-pinned provenance. CC0/BY/BY-SA share; all else quarantines in `3d_models/quarantine/`. ADR 0150. | **Measured, engine-free.** 33 tests pin what no image reveals: the shareable set is exactly {cc0, by, by-sa}; every other known slug quarantines with a reason; an unknown licence never shares; provenance round-trips through YAML. | — | S | A |
+| AI.9 | **The `ingest-asset` skill: a link becomes a library entry.** Drives AI.8 and ADR 0128's toolchain: scale fixed against a published dimension, parts by evidence order (metadata → material names → geometry/symmetry → highlighted renders; names last), materials researched into the closure-gated library with `ESTIMATED` flags, then `.blend` + `.usdc` + FBX export. | The skill names its gates (coverage ≥ 0.95, closure, part-name grammar, size sanity); `prep_asset.py` gains `--save-blend`/`--emit-fbx`; the checklist reaches every gate on the Phantom 4 config, engine-free. | AI.8 | M | A |
 
 ---
 
