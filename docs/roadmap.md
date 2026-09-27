@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `SC.22` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 65 open steps
+#### Then, in order — 64 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`SC.22`** | SC | A | S | — | ready |
 | 2 | **`SC.24`** | SC | A | S | — | ready |
-| 3 | **`AI.9`** | AI | A | M | — | ready |
-| 4 | **`SC.23`** | SC | A | M | — | ready |
-| 5 | **`IG.16`** | IG | B | M | — | ready |
-| 6 | **`AT.14`** | AT | B | L | — | ready |
-| 7 | **`AT.6`** | AT | C | M | — | ready |
-| 8 | **`AT.9`** | AT | C | M | — | ready |
-| 9 | **`PT.16`** | PT | C | M | — | ready |
-| 10 | **`XD.10`** | XD | C | L | — | ready |
-| 11 | **`IG.3`** | IG | X | S | 3 | ready |
-| 12 | **`EV.5`** | EV | X | M | 3 | ready |
-| 13 | **`SC.5`** | SC | X | M | 3 | ready |
-| 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 3 | **`SC.23`** | SC | A | M | — | ready |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`AT.14`** | AT | B | L | — | ready |
+| 6 | **`AT.6`** | AT | C | M | — | ready |
+| 7 | **`AT.9`** | AT | C | M | — | ready |
+| 8 | **`PT.16`** | PT | C | M | — | ready |
+| 9 | **`XD.10`** | XD | C | L | — | ready |
+| 10 | **`IG.3`** | IG | X | S | 3 | ready |
+| 11 | **`EV.5`** | EV | X | M | 3 | ready |
+| 12 | **`SC.5`** | SC | X | M | 3 | ready |
+| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 15 | **`XD.7`** | XD | X | M | 2 | ready |
 
-…and 50 more — `python scripts/next_step.py --queue 40`.
+…and 49 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -776,7 +776,7 @@ of the silhouette still render at their node's one temperature.
 | AI.6 | ✅ **done.** `irsim.io.asset_material_split` plans one prim per material and `prep_asset.py --emit-material-split` regroups the geometry in Blender, on the CPU. Blender's importers put a USD subset, an FBX group and an OBJ `usemtl` on one footing — a per-face slot index — so it is one mechanism for every format. | **Measured, end to end.** The subset fixture: 3 meshes → 6 prims, **35.7 %** of its 14 m² rendered as the wrong material before, and the walk in Kit now finds **no** subset mesh left. The Phantom 4 is 41 → 41 at 0.0 %. 21 tests. | AI.4, AI.5 | M | B |
 | AI.7 | ✅ **done.** Every part its own node: `phantom4_perpart.yaml` puts four motors and four ESCs on four throttle histories, six airframe-family parts on their own offsets, each propeller on its own motor's speed; `target_for_part` lets the *scene* set the granularity and `--agc-clip` shows cloud and motors in one frame. ADR 0143. | **Measured.** Engine-free: rear pair 6.9 K over the front in cruise, outer pair 5.9–6.1 K over the inner in each orbit, all four within 0.1 K landed; 5 tests. In-sim: the figure-of-eight clip under fair cumulus, three stretches. | AI.2, AI.5 | S | A |
 | AI.8 | ✅ **done.** A link becomes a gated local model: `fetch_sketchfab.py` + `irsim.io.sketchfab` parse the UID, gate the licence **before** the download, fetch the glTF (the API never serves source FBX) and write `ATTRIBUTION.md` + committed sha256-pinned provenance. CC0/BY/BY-SA share; all else quarantines in `3d_models/quarantine/`. ADR 0150. | **Measured, engine-free.** 33 tests pin what no image reveals: the shareable set is exactly {cc0, by, by-sa}; every other known slug quarantines with a reason; an unknown licence never shares; provenance round-trips through YAML. | — | S | A |
-| AI.9 | **The `ingest-asset` skill: a link becomes a library entry.** Drives AI.8 and ADR 0128's toolchain: scale fixed against a published dimension, parts by evidence order (metadata → material names → geometry/symmetry → highlighted renders; names last), materials researched into the closure-gated library with `ESTIMATED` flags, then `.blend` + `.usdc` + FBX export. | The skill names its gates (coverage ≥ 0.95, closure, part-name grammar, size sanity); `prep_asset.py` gains `--save-blend`/`--emit-fbx`; the checklist reaches every gate on the Phantom 4 config, engine-free. | AI.8 | M | A |
+| AI.9 | ✅ **done.** The `ingest-asset` skill: a link becomes a library entry. Drives AI.8 and ADR 0128's toolchain: scale against a published dimension, parts by evidence order (metadata → material names → geometry/symmetry → renders; names last), materials into the closure-gated library with `ESTIMATED` flags, then `.blend` + `.usdc` + FBX export. | **Measured.** `--save-blend --emit-fbx` ran headless on the subset fixture: one Blender pass wrote `.usdc` + `.blend` + `.fbx` from one scene; the driver→worker argv is pinned by 3 tests. The skill names every gate it defers to. | AI.8 | M | A |
 
 ---
 

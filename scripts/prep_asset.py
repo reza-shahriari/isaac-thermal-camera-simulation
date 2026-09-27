@@ -683,6 +683,28 @@ def total_error_signed(before: float, after: float) -> float:
     return 0.0 if before == 0.0 else after / before - 1.0
 
 
+def export_side_artefacts(save_blend: pathlib.Path | None, emit_fbx: pathlib.Path | None) -> None:
+    """Save the master ``.blend`` and an interchange FBX of whatever scene the pass built.
+
+    The library's per-asset formats (ADR 0150, the owner's 2026-09-26 decision): the ``.usdc``
+    is what a scene references, the ``.blend`` is the master an operator reopens, and the FBX
+    is a courtesy for non-USD consumers — Blender's FBX exporter re-bakes axis conventions and
+    re-realises instancing, exactly the ambiguity the USD path avoids, so nothing downstream
+    may depend on the FBX. Called at the end of a pass so all three artefacts describe one
+    scene: after the rescale on a plain prep, after the regroup on a part or material split.
+    """
+    import bpy
+
+    if save_blend is not None:
+        save_blend.parent.mkdir(parents=True, exist_ok=True)
+        bpy.ops.wm.save_as_mainfile(filepath=str(save_blend))
+        print(f"wrote {save_blend}")
+    if emit_fbx is not None:
+        emit_fbx.parent.mkdir(parents=True, exist_ok=True)
+        bpy.ops.export_scene.fbx(filepath=str(emit_fbx), use_selection=False, path_mode="COPY")
+        print(f"wrote {emit_fbx}")
+
+
 def run_worker(argv: Sequence[str]) -> int:
     import bpy
 
@@ -700,6 +722,8 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--split-material-plan", type=pathlib.Path, default=None)
     ap.add_argument("--dissolve-deg", type=float, default=5.0)
     ap.add_argument("--max-area-error", type=float, default=0.02)
+    ap.add_argument("--save-blend", type=pathlib.Path, default=None)
+    ap.add_argument("--emit-fbx", type=pathlib.Path, default=None)
     args = ap.parse_args(list(argv))
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -716,11 +740,13 @@ def run_worker(argv: Sequence[str]) -> int:
         return 0
     if args.split_material_plan is not None:
         split_by_material_usd(args.split_material_plan, args.split_out_usd)
+        export_side_artefacts(args.save_blend, args.emit_fbx)
         return 0
     if args.split_assignment is not None:
         # A split-only pass: exporting the un-split stage first would cost a 115 MB write of a
         # file nobody reads.
         split_by_part_usd(args.split_assignment, args.split_face_ids, args.split_out_usd)
+        export_side_artefacts(args.save_blend, args.emit_fbx)
         return 0
     args.out_usd.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.usd_export(
@@ -738,6 +764,7 @@ def run_worker(argv: Sequence[str]) -> int:
         emit_components(args.out_components)
     if args.out_meshes is not None:
         emit_meshes(args.out_meshes, args.dissolve_deg, args.max_area_error)
+    export_side_artefacts(args.save_blend, args.emit_fbx)
     return 0
 
 
@@ -753,9 +780,16 @@ def blender_split_command(
     components: pathlib.Path,
     assignment: pathlib.Path,
     out_usd: pathlib.Path,
+    save_blend: pathlib.Path | None = None,
+    emit_fbx: pathlib.Path | None = None,
 ) -> list[str]:
     """The argv for the part-splitting pass. Separate from :func:`blender_command` because it is a
     different job: that one prepares an asset, this one regroups a prepared one."""
+    side: list[str] = []
+    if save_blend is not None:
+        side += ["--save-blend", str(save_blend)]
+    if emit_fbx is not None:
+        side += ["--emit-fbx", str(emit_fbx)]
     return [
         blender,
         "--background",
@@ -777,6 +811,7 @@ def blender_split_command(
         str(components.with_suffix(".faces.npz")),
         "--split-out-usd",
         str(out_usd),
+        *side,
     ]
 
 
@@ -873,6 +908,8 @@ def blender_command(
     out_meshes: pathlib.Path | None = None,
     dissolve_deg: float = 5.0,
     max_area_error: float = 0.02,
+    save_blend: pathlib.Path | None = None,
+    emit_fbx: pathlib.Path | None = None,
 ) -> list[str]:
     """The exact argv the driver runs. Split out so a test can check it without Blender."""
     extra: list[str] = []
@@ -885,6 +922,10 @@ def blender_command(
             "--max-area-error",
             repr(float(max_area_error)),
         ]
+    if save_blend is not None:
+        extra += ["--save-blend", str(save_blend)]
+    if emit_fbx is not None:
+        extra += ["--emit-fbx", str(emit_fbx)]
     return [
         blender,
         "--background",
@@ -988,6 +1029,19 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="audit an existing prims.json in --out-dir without re-running Blender",
     )
+    # The library's side artefacts (ADR 0150): master .blend + interchange FBX beside the .usdc,
+    # written by whichever Blender pass ran last so all three describe one scene. The FBX is a
+    # courtesy for non-USD consumers -- a scene references the .usdc, never the FBX.
+    ap.add_argument(
+        "--save-blend",
+        action="store_true",
+        help="also save the master .blend beside the exported USD (ADR 0150)",
+    )
+    ap.add_argument(
+        "--emit-fbx",
+        action="store_true",
+        help="also export an interchange .fbx beside the USD -- never what a scene references",
+    )
     args = ap.parse_args(argv)
 
     library = MaterialLibrary.load()
@@ -1014,6 +1068,8 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             out_meshes,
             args.dissolve_deg,
             args.max_area_error,
+            save_blend=out_dir / f"{asset.name}.blend" if args.save_blend else None,
+            emit_fbx=out_dir / f"{asset.name}.fbx" if args.emit_fbx else None,
         )
         print(f"$ {' '.join(cmd)}")
         try:
@@ -1134,6 +1190,10 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 components,
                 assignment,
                 out_dir.parent / name / f"{name}.usdc",
+                # The part-split scene IS the cleaned master when a parts: block exists, so the
+                # library's .blend/.fbx of a decomposed asset come from this pass (ADR 0150).
+                save_blend=out_dir.parent / name / f"{name}.blend" if args.save_blend else None,
+                emit_fbx=out_dir.parent / name / f"{name}.fbx" if args.emit_fbx else None,
             )
             print("splitting geometry by part: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:

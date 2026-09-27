@@ -195,6 +195,7 @@ around Isaac Sim 6.0, which is recent.
 | `thermal-solver` | Surface temperature, energy balance, weather, vehicle heat sources |
 | `sensor-noise-chain` | Detector models, NETD, 3D noise, NUC/FFC, AGC and the ISP |
 | `isaac-sim-spg` | Anything touching Isaac Sim, AOVs, SPG kernels, Warp |
+| `ingest-asset` | A shared model link → downloaded, licence-gated, part-decomposed, material-mapped library entry |
 | `ir-sim-testing` | Writing tests, tolerances, golden data, validation tiers |
 | `ship-step` | Finishing any step — README, CHANGELOG, git |
 | `present-on-the-site` | Anything worth showing reaching the project site — renders, tests, reports |

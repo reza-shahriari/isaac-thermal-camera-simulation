@@ -6,6 +6,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The `ingest-asset` skill: a shared link becomes a library entry** (`AI.9`, ADR 0150). The
+  checklist any session follows from link to library entry — fetch through the gate, identify
+  the real object, fix the scale against a published dimension, decompose into parts by
+  evidence order (metadata → material names → geometry/symmetry → highlighted CPU renders;
+  object names last), research materials into the closure-gated library with `ESTIMATED` flags
+  — and `prep_asset.py --save-blend` / `--emit-fbx`, so the master `.blend` and an interchange
+  FBX come from the same Blender pass as the `.usdc` (verified headless on the subset fixture;
+  the part-split pass carries them too, since that scene is the cleaned master).
+
+### Added
 - **A shared Sketchfab link becomes a gated local model** (`AI.8`, ADR 0150).
   `scripts/fetch_sketchfab.py` parses the UID from any link shape, reads the model's metadata,
   gates the licence *before* downloading — CC0/CC-BY/CC-BY-SA go to `3d_models/<name>/` with a
