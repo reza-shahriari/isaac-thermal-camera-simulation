@@ -77,6 +77,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.config.sensor import DistortionSpec, SensorConfig, SensorSpec
+from irsim.io.truth import TruthPlanes, truth_planes
 from irsim.materials.mapping import Resolution
 from irsim.optics.projection import (
     FTHETA_UNVERIFIED,
@@ -408,6 +409,8 @@ class IrCamera:
         self.strict_patch_coverage = strict_patch_coverage
         self.device = device
         self.resolutions = list(resolutions)
+        #: prim path -> thermal node, kept so :meth:`truth` can name each pixel's node
+        self.prim_to_target = dict(prim_to_target)
         # IG.6: the prims whose pose changes between frames, for the synthesised `motion_px`.
         # The camera is tracked unconditionally beside them, because a camera that slews smears
         # a static scene exactly as a moving target smears a static camera -- `render_aircraft_
@@ -638,6 +641,32 @@ class IrCamera:
     @property
     def last_frame(self) -> _Frame | None:
         return self._last
+
+    def truth(self, shape: tuple[int, int] | None = None) -> TruthPlanes | None:
+        """The last frame's scene truth on the detector grid (:mod:`irsim.io.truth`).
+
+        ``shape`` (rows, cols) defaults to the render grid divided by the supersample factor,
+        which is the grid every written camera plane is on.
+
+        True surface temperature, range, material, part and thermal node under each pixel
+        centre, with legends naming the ids -- for :class:`~irsim.io.dataset.FrameWriter`'s
+        ``extra_planes`` and ``legends``, so a frame viewer can say what a clicked pixel *was*
+        beside what the camera *reported*. ``None`` before the first frame.
+        """
+        if self._last is None:
+            return None
+        if shape is None:
+            k = self.optics.supersample
+            rows, cols = np.asarray(self._last.instance_id).shape[:2]
+            shape = (rows // k, cols // k)
+        return truth_planes(
+            self._last.planes,
+            shape,
+            instance_id=self._last.instance_id,
+            labels=labels_to_paths(self._last.labels),
+            prim_to_node=self.prim_to_target,
+            material_names=self.config.materials.names,
+        )
 
     # -- one frame ------------------------------------------------------------------------
 

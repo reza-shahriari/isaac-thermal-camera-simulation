@@ -30,6 +30,7 @@ PACKAGES = {
     "irsim": "the engine-free physics core — pure Python and NumPy, no engine import anywhere",
     "irsim_isaac": "the Isaac Sim glue — the only place an engine import is allowed",
     "irsim_eval": "evaluation and imaging: dataset readers, detection metrics, sim-to-real scoring",
+    "irsim_viewer": "the frame viewer: click a rendered pixel, read every plane saved under it",
 }
 
 

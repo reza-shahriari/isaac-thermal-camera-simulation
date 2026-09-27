@@ -460,7 +460,9 @@ def main() -> int:
         # The frame itself. `wants` is asked first so the companion RGB is not copied out of the
         # renderer on a frame whose planes are not being kept.
         if writer.wants(index):
-            extra = {}
+            # scene truth under each pixel centre, for the frame viewer (`python -m irsim_viewer`)
+            truth = camera.truth()
+            extra = {} if truth is None else dict(truth.planes)
             if args.rgb and camera.last_frame is not None and camera.last_frame.rgb is not None:
                 extra["rgb"] = camera.last_frame.rgb
             writer.write(
@@ -468,6 +470,7 @@ def main() -> int:
                 frame_index=index,
                 t_s=camera.last_frame_t_s,
                 extra_planes=extra,
+                legends=None if truth is None else truth.legends,
                 extra_metadata={
                     "throttle": round(throttle, 4),
                     "node_temperatures_k": {k: round(float(v), 3) for k, v in temps.items()},

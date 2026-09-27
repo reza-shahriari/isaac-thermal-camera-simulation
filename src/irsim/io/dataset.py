@@ -72,6 +72,15 @@ PLANE_UNITS: dict[str, str] = {
         "image with NO infrared content; nothing in the radiometric chain reads it"
     ),
     "instance_id": "renderer instance id (uint32)",
+    # Scene truth under each pixel centre (irsim.io.truth): what was there, not what the camera saw.
+    "temperature_k": (
+        "K -- true surface temperature the radiometry was given, at the pixel centre "
+        "(sky pixels: apparent sky temperature)"
+    ),
+    "distance_m": "m -- range from the camera to the surface along the ray (NaN = sky)",
+    "material_id": "material index (uint16; names in legends)",
+    "part_id": "part index (uint16; names in legends, 0 = sky / no geometry)",
+    "node_id": "thermal node index (uint16; names in legends, 0 = sky / no geometry)",
 }
 
 
@@ -139,6 +148,7 @@ def write_frame(
     float_format: FloatFormat = "npy",
     extra_planes: dict[str, Any] | None = None,
     extra_metadata: dict[str, Any] | None = None,
+    legends: dict[str, dict[int, str]] | None = None,
 ) -> FrameRecord:
     """Write an :class:`~irsim.pipeline.frame.Outputs` and its sidecar into ``directory``.
 
@@ -150,6 +160,9 @@ def write_frame(
     ``t_s`` is the scene time on the weather axis and ``start_utc`` the weather series' own start,
     so the sidecar can state the wall-clock time the frame represents. Without them the frame is
     still written and the fields are recorded as null rather than invented.
+
+    ``legends`` names the values of integer planes (``{"part_id": {3: "motor_front_left"}}``);
+    it is written to the sidecar under ``legends`` with string keys, as JSON requires.
     """
     out_dir = pathlib.Path(directory)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -227,6 +240,11 @@ def write_frame(
         "float_format": float_format,
         "planes": planes,
     }
+    if legends:
+        metadata["legends"] = {
+            key: {str(ident): str(name) for ident, name in table.items()}
+            for key, table in legends.items()
+        }
     metadata.update(extra_metadata or {})
 
     sidecar = out_dir / f"{stem}.json"
@@ -284,6 +302,7 @@ class FrameWriter:
         name: str | None = None,
         extra_planes: dict[str, Any] | None = None,
         extra_metadata: dict[str, Any] | None = None,
+        legends: dict[str, dict[int, str]] | None = None,
     ) -> FrameRecord | None:
         """Write one frame, or return ``None`` if ``stride`` skips it.
 
@@ -307,4 +326,5 @@ class FrameWriter:
             float_format=self.float_format,
             extra_planes=extra_planes,
             extra_metadata=merged,
+            legends=legends,
         )

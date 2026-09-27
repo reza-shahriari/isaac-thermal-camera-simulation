@@ -10,7 +10,7 @@ CI_PYTHON ?= python3.10
 CI_VENV ?= .venv-ci
 
 .PHONY: install test test-slow test-all lint fmt typecheck check ci luts golden-update clean next stage \
-        site site-preview site-publish
+        site site-preview site-publish viewer
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"
@@ -38,7 +38,7 @@ fmt:
 	$(PYTHON) -m ruff check --fix src tests scripts
 
 typecheck:
-	$(PYTHON) -m mypy src/irsim src/irsim_isaac src/irsim_eval
+	$(PYTHON) -m mypy src/irsim src/irsim_isaac src/irsim_eval src/irsim_viewer
 
 # What to start now, and republish the queue the roadmap shows. `make next` regenerates it;
 # `make check` only verifies it, so a stale queue fails the gate instead of misleading a reader.
@@ -84,6 +84,13 @@ site-preview:
 
 site-publish: site
 	scripts/publish_site.sh
+
+# Click on rendered frames in a browser and read every saved plane under the pixel -- true surface
+# temperature, part, range, radiance, apparent temperature, ADC code (src/irsim_viewer). RUN is a
+# render's output folder or a folder of them. Standard library + NumPy: nothing to install.
+RUN ?= outputs
+viewer:
+	$(PYTHON) -m irsim_viewer $(RUN)
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache dist build $(CI_VENV)

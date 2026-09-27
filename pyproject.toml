@@ -54,6 +54,10 @@ isaac = []
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# The frame viewer's page ships inside the package so `python -m irsim_viewer` works installed.
+[tool.setuptools.package-data]
+irsim_viewer = ["static/*.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-m 'not isaac and not gpu'"

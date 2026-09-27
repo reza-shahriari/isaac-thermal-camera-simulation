@@ -6,6 +6,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A frame viewer for debugging renders** (ADR 0154). `make viewer RUN=outputs` opens a local
+  page: click a frame to drop a coloured marker and read every saved plane under that pixel, with
+  units, true surface temperature, part and thermal node included. Markers are removable one by one
+  and hold their place while a clip plays. Stdlib + NumPy, no GUI toolkit; the data layer
+  (`irsim_viewer.source.FrameSource`) is the swap point for a future non-`.npy` layout.
+- **Frames carry the scene truth behind them** (ADR 0154). `irsim.io.truth` + `IrCamera.truth()`
+  write `temperature_k`, `distance_m`, `material_id`, `part_id` and `node_id` on the detector grid
+  (centre sample of the supersample block), with the ids named in a new sidecar `legends` field;
+  all five `FrameWriter` render drivers write them. `irsim.io.png.read_png` reads a PNG back.
 - **An asset can arrive as a file, and with its real-life name** (`AI.9` follow-up, ADR 0150).
   `scripts/register_local_asset.py <file> --real-name "DJI Mavic 3"` registers a model handed
   over directly (.fbx/.glb/.gltf/.obj/.usd or a .zip) through the same licence gate: the licence

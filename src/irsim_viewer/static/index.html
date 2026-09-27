@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>irsim frame viewer</title>
+<style>
+  :root {
+    --bg: #15171a; --panel: #1d2024; --line: #2e3238; --text: #e4e6e9; --dim: #8b929b;
+    --warn: #ffb347; --err: #ff6b6b; --accent: #5aa9ff;
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+  body { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
+  header, footer { display: flex; gap: 8px; align-items: center; padding: 6px 10px;
+    background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  footer { border-top: 1px solid var(--line); border-bottom: 0; color: var(--dim); }
+  header label { color: var(--dim); }
+  select, button, input { background: #262a2f; color: var(--text); border: 1px solid var(--line);
+    border-radius: 4px; padding: 3px 7px; font: inherit; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  input[type=range] { width: 220px; padding: 0; }
+  main { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+  #view { position: relative; overflow: hidden; background: #0c0d0f; cursor: crosshair; }
+  #view.panning { cursor: grabbing; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; padding: 8px; }
+  .hint { color: var(--dim); padding: 8px 2px; }
+  details { margin-bottom: 8px; border: 1px solid var(--line); border-radius: 4px; }
+  summary { padding: 5px 8px; cursor: pointer; color: var(--dim); }
+  .card { border: 1px solid var(--line); border-left: 4px solid; border-radius: 4px; margin-bottom: 8px; }
+  .card h3 { margin: 0; padding: 5px 8px; font-size: 13px; display: flex; justify-content: space-between;
+    align-items: center; }
+  .card h3 button { padding: 0 6px; line-height: 18px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 2px 8px; vertical-align: top; border-top: 1px solid var(--line); word-break: break-word; }
+  td.k { color: var(--dim); width: 38%; }
+  td.u { color: var(--dim); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .warn { color: var(--warn); padding: 3px 8px; }
+  .err { color: var(--err); }
+  .label { font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <label>run <select id="run"></select></label>
+  <label>image <select id="plane"></select></label>
+  <button id="prev" title="previous frame (←)">◀</button>
+  <input id="slider" type="range" min="0" max="0" value="0">
+  <button id="next" title="next frame (→)">▶</button>
+  <button id="play" title="play / pause (space)">play</button>
+  <label>fps <input id="fps" type="number" min="1" max="30" value="4" style="width:50px"></label>
+  <span id="frameName"></span>
+  <span style="flex:1"></span>
+  <button id="fit" title="fit image to view (f)">fit</button>
+  <button id="clear">clear all markers</button>
+</header>
+<main>
+  <div id="view"><canvas id="canvas"></canvas></div>
+  <aside id="side"><div class="hint">Loading…</div></aside>
+</main>
+<footer><span id="status">click: add marker · drag: pan · wheel: zoom · ←/→: frame · space: play</span></footer>
+<script>
+"use strict";
+// The page is a thin client: every number comes from /api/probe, which reads the saved planes.
+// Nothing here interprets a plane except to choose what goes in the small on-image box.
+const COLORS = ["#ff5a5a", "#4cd964", "#5aa9ff", "#ffcc00", "#d17bff", "#2fe0d0",
+                "#ff9f40", "#ff6fb5", "#b4e05a", "#ffffff"];
+// What the on-image box shows first, when the frame has it. The side panel shows everything.
+const BOX_KEYS = ["part_id", "temperature_k", "distance_m", "apparent_t", "material_id"];
+
+const $ = (id) => document.getElementById(id);
+const canvas = $("canvas"), ctx = canvas.getContext("2d"), view = $("view");
+const state = {
+  run: null, frames: [], index: 0, plane: null, img: null,
+  zoom: 1, ox: 0, oy: 0,               // image pixel (0,0) is drawn at screen (ox, oy)
+  markers: [], nextId: 1, playing: null,
+};
+
+async function api(path) {
+  const r = await fetch(path);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+  return r.json();
+}
+const q = (o) => new URLSearchParams(o).toString();
+const frame = () => state.frames[state.index];
+
+function fmt(v) {
+  if (typeof v === "number") {
+    if (Number.isInteger(v)) return String(v);
+    const a = Math.abs(v);
+    return a !== 0 && (a < 1e-3 || a >= 1e6) ? v.toExponential(4) : v.toFixed(a < 10 ? 4 : 3);
+  }
+  if (Array.isArray(v)) return v.map(fmt).join(", ");
+  return typeof v === "object" ? JSON.stringify(v) : String(v);
+}
+const shortUnit = (u) => (u || "").split(" (")[0].split(" --")[0];
+
+// ---- runs, frames, images ----------------------------------------------------------------
+// ?run=R&frame=F&plane=P&pts=x,y;x,y reopens a view with its markers -- a link to a problem pixel.
+async function loadRuns() {
+  const { runs, root } = await api("/api/runs");
+  $("run").innerHTML = runs.map((r) => `<option>${r.name}</option>`).join("");
+  $("status").textContent = `${runs.length} run(s) under ${root}`;
+  if (!runs.length) return;
+  const url = new URLSearchParams(location.search);
+  const run = runs.some((r) => r.name === url.get("run")) ? url.get("run") : runs[0].name;
+  $("run").value = run;
+  await selectRun(run, url.get("plane"));
+  const at = state.frames.findIndex((f) => f.name === url.get("frame"));
+  if (at > 0) await showFrame(at);
+  for (const p of (url.get("pts") || "").split(";").filter(Boolean)) {
+    const [x, y] = p.split(",").map(Number);
+    if (Number.isInteger(x) && Number.isInteger(y)) await addMarker(x, y);
+  }
+}
+
+async function selectRun(name, wanted = null) {
+  stop();
+  state.run = name;
+  state.frames = (await api(`/api/frames?${q({ run: name })}`)).frames;
+  $("slider").max = Math.max(0, state.frames.length - 1);
+  const images = frame().planes.filter((p) => p.image || p.shape.length >= 2);
+  const pref = ["display8", "rgb", "apparent_t", "temperature_k"];
+  const pick = images.some((p) => p.key === wanted) ? wanted
+    : pref.find((k) => images.some((p) => p.key === k)) || images[0]?.key;
+  $("plane").innerHTML = images.map((p) =>
+    `<option value="${p.key}" ${p.key === pick ? "selected" : ""}>${p.key}${p.image ? "" : " (stretched)"}</option>`
+  ).join("");
+  state.plane = pick;
+  state.markers = [];
+  state.img = null;
+  await showFrame(0, true);
+}
+
+async function showFrame(i, refit = false) {
+  state.index = Math.max(0, Math.min(state.frames.length - 1, i));
+  $("slider").value = state.index;
+  const f = frame();
+  const stride = f.metadata.plane_stride;
+  $("frameName").textContent = `${f.name}  (${state.index + 1}/${state.frames.length}` +
+    (stride > 1 ? `, every ${stride}th rendered frame` : "") + ")";
+  const img = new Image();
+  try {
+    await new Promise((ok, fail) => {
+      img.onload = ok; img.onerror = fail;
+      img.src = `/api/image?${q({ run: state.run, frame: f.name, plane: state.plane })}`;
+    });
+  } catch { $("status").textContent = `${f.name}: could not load plane ${state.plane}`; return; }
+  const sizeChanged = !state.img || state.img.width !== img.width || state.img.height !== img.height;
+  state.img = img;
+  if (refit || sizeChanged) fit();
+  await refreshMarkers();
+  draw();
+}
+
+// ---- markers -------------------------------------------------------------------------------
+async function refreshMarkers() {
+  if (!state.markers.length) { renderSide(); return; }
+  const pts = state.markers.map((m) => `${m.x},${m.y}`).join(";");
+  try {
+    const { points } = await api(`/api/probe?${q({ run: state.run, frame: frame().name, plane: state.plane, pts })}`);
+    points.forEach((p, i) => { state.markers[i].data = p; state.markers[i].error = null; });
+  } catch (e) {
+    state.markers.forEach((m) => { m.error = e.message; });
+  }
+  renderSide();
+}
+
+async function addMarker(x, y) {
+  const id = state.nextId++;
+  state.markers.push({ id, x, y, color: COLORS[(id - 1) % COLORS.length], data: null });
+  await refreshMarkers();
+  draw();
+}
+
+function removeMarker(id) {
+  state.markers = state.markers.filter((m) => m.id !== id);
+  renderSide(); draw();
+}
+
+function boxLines(m) {
+  if (m.error) return ["error"];
+  if (!m.data) return ["…"];
+  const byKey = Object.fromEntries(m.data.readings.map((r) => [r.key, r]));
+  const lines = [];
+  for (const k of [...BOX_KEYS, ...Object.keys(byKey)]) {
+    const r = byKey[k];
+    if (!r || r.error || lines.some((l) => l.key === k)) continue;
+    let text;
+    if (r.label !== undefined) text = `${k}: ${r.label}`;
+    else if (r.celsius !== undefined) text = `${k}: ${r.celsius.toFixed(2)} °C`;
+    else if (Array.isArray(r.value)) continue;
+    else text = `${k}: ${fmt(r.value)} ${shortUnit(r.unit).length <= 6 ? shortUnit(r.unit) : ""}`;
+    lines.push({ key: k, text });
+    if (lines.length === 4) break;
+  }
+  return lines.map((l) => l.text);
+}
+
+// ---- drawing -------------------------------------------------------------------------------
+function fit() {
+  if (!state.img) return;
+  const w = view.clientWidth, h = view.clientHeight;
+  state.zoom = Math.min(w / state.img.width, h / state.img.height);
+  state.ox = (w - state.img.width * state.zoom) / 2;
+  state.oy = (h - state.img.height * state.zoom) / 2;
+  draw();
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = view.clientWidth, h = view.clientHeight;
+  if (canvas.width !== w * dpr || canvas.height !== h * dpr) { canvas.width = w * dpr; canvas.height = h * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  if (!state.img) return;
+  ctx.imageSmoothingEnabled = false;   // one image pixel stays one visible square when zoomed
+  ctx.drawImage(state.img, state.ox, state.oy, state.img.width * state.zoom, state.img.height * state.zoom);
+  ctx.font = "12px system-ui, sans-serif";
+  const placed = [];                   // boxes already drawn this pass, so the next one steps aside
+  for (const m of state.markers) drawMarker(m, w, h, placed);
+}
+
+const overlaps = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+function drawMarker(m, w, h, placed) {
+  const z = state.zoom;
+  // centre of the image pixel, and a square outlining the pixel itself once it is big enough
+  const sx = state.ox + (m.x + 0.5) * z, sy = state.oy + (m.y + 0.5) * z;
+  ctx.strokeStyle = m.color; ctx.fillStyle = m.color; ctx.lineWidth = 2;
+  if (z >= 6) ctx.strokeRect(state.ox + m.x * z, state.oy + m.y * z, z, z);
+  ctx.beginPath(); ctx.arc(sx, sy, 6, 0, 2 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx - 11, sy); ctx.lineTo(sx - 3, sy); ctx.moveTo(sx + 3, sy); ctx.lineTo(sx + 11, sy);
+  ctx.moveTo(sx, sy - 11); ctx.lineTo(sx, sy - 3); ctx.moveTo(sx, sy + 3); ctx.lineTo(sx, sy + 11); ctx.stroke();
+
+  const lines = [`#${m.id}  (${m.x}, ${m.y})`, ...boxLines(m)];
+  const pad = 5, lh = 15;
+  const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 2 * pad;
+  const bh = lines.length * lh + 2 * pad - 3;
+  let bx = sx + 14, by = sy - bh - 14;           // up and to the right of the point...
+  if (bx + bw > w) bx = sx - 14 - bw;            // ...flipped when it would leave the view
+  if (by < 0) by = sy + 14;
+  for (let tries = 0; tries < 12 && placed.some((b) => overlaps(b, { x: bx, y: by, w: bw, h: bh })); tries++) {
+    by += (tries % 2 ? -1 : 1) * (tries + 1) * (bh + 4);   // alternate below / above, widening
+  }
+  by = Math.max(0, Math.min(h - bh, by));
+  placed.push({ x: bx, y: by, w: bw, h: bh });
+  ctx.fillStyle = "rgba(12,13,15,0.85)"; ctx.fillRect(bx, by, bw, bh);
+  ctx.strokeRect(bx, by, bw, bh);
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(bx < sx ? bx + bw : bx, by < sy ? by + bh : by); ctx.stroke();
+  lines.forEach((l, i) => {
+    ctx.fillStyle = i === 0 ? m.color : "#e4e6e9";
+    ctx.fillText(l, bx + pad, by + pad + 11 + i * lh);
+  });
+}
+
+// ---- side panel ----------------------------------------------------------------------------
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function renderSide() {
+  const f = frame();
+  const parts = [];
+  if (!state.markers.length) parts.push(`<div class="hint">Click the image to read every saved plane at that pixel.
+    Each click adds a marker; markers stay put while you step through frames.</div>`);
+  for (const m of state.markers) {
+    let body = "";
+    if (m.error) body = `<div class="warn err">${esc(m.error)}</div>`;
+    else if (m.data) {
+      body += m.data.warnings.map((w) => `<div class="warn">⚠ ${esc(w)}</div>`).join("");
+      body += "<table>" + m.data.readings.map((r) => {
+        if (r.error) return `<tr><td class="k">${esc(r.key)}</td><td colspan="2" class="err">${esc(r.error)}</td></tr>`;
+        let v = fmt(r.value);
+        if (r.label !== undefined) v = `<span class="label">${esc(r.label)}</span> <span style="color:var(--dim)">(${v})</span>`;
+        else if (r.celsius !== undefined) v = `${fmt(r.value)} K · <b>${r.celsius.toFixed(3)} °C</b>`;
+        else v = esc(v);
+        const note = r.note ? `<br><span style="color:var(--dim)">${esc(r.note)}</span>` : "";
+        const unit = r.celsius !== undefined ? "" : shortUnit(r.unit);
+        return `<tr><td class="k">${esc(r.key)}</td><td>${v}${note}</td><td class="u" title="${esc(r.unit)}">${esc(unit)}</td></tr>`;
+      }).join("") + m.data.joins.map((j) =>
+        `<tr><td class="k">${esc(j.key)}</td><td colspan="2">${esc(fmt(j.value))}</td></tr>`).join("") + "</table>";
+    }
+    parts.push(`<div class="card" style="border-left-color:${m.color}">
+      <h3><span style="color:${m.color}">#${m.id} &nbsp;x ${m.x}, y ${m.y}</span>
+      <button data-remove="${m.id}" title="remove this marker">×</button></h3>${body}</div>`);
+  }
+  if (f) {
+    const rows = Object.entries(f.metadata).map(([k, v]) =>
+      `<tr><td class="k">${esc(k)}</td><td>${esc(typeof v === "object" && v !== null ? JSON.stringify(v, null, 1) : fmt(v))}</td></tr>`).join("");
+    const planes = f.planes.map((p) =>
+      `<tr><td class="k">${esc(p.key)}</td><td>${esc(p.dtype)} ${esc(p.shape.join("×"))} · ${esc(p.unit)}</td></tr>`).join("");
+    parts.push(`<details><summary>frame metadata — ${esc(f.name)}</summary><table>${rows}</table></details>`);
+    parts.push(`<details><summary>planes saved (${f.planes.length})</summary><table>${planes}</table></details>`);
+  }
+  $("side").innerHTML = parts.join("");
+}
+
+$("side").addEventListener("click", (e) => {
+  const id = e.target.dataset?.remove;
+  if (id) removeMarker(Number(id));
+});
+
+// ---- interaction ---------------------------------------------------------------------------
+const toImage = (cx, cy) => [Math.floor((cx - state.ox) / state.zoom), Math.floor((cy - state.oy) / state.zoom)];
+let drag = null;
+
+view.addEventListener("mousedown", (e) => { drag = { x: e.clientX, y: e.clientY, ox: state.ox, oy: state.oy, moved: false }; });
+window.addEventListener("mousemove", (e) => {
+  const r = view.getBoundingClientRect();
+  if (state.img) {
+    const [ix, iy] = toImage(e.clientX - r.left, e.clientY - r.top);
+    if (ix >= 0 && iy >= 0 && ix < state.img.width && iy < state.img.height)
+      $("status").textContent = `pixel x ${ix}, y ${iy} · zoom ${state.zoom.toFixed(2)}×`;
+  }
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) { drag.moved = true; view.classList.add("panning"); }
+  if (drag.moved) { state.ox = drag.ox + dx; state.oy = drag.oy + dy; draw(); }
+});
+window.addEventListener("mouseup", (e) => {
+  if (!drag) return;
+  const wasClick = !drag.moved;
+  drag = null; view.classList.remove("panning");
+  if (!wasClick || !state.img || e.target !== canvas) return;
+  const r = view.getBoundingClientRect();
+  const [ix, iy] = toImage(e.clientX - r.left, e.clientY - r.top);
+  if (ix >= 0 && iy >= 0 && ix < state.img.width && iy < state.img.height) addMarker(ix, iy);
+});
+view.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const r = view.getBoundingClientRect();
+  const cx = e.clientX - r.left, cy = e.clientY - r.top;
+  const k = Math.exp(-e.deltaY * 0.0015);
+  const z = Math.max(0.05, Math.min(80, state.zoom * k));
+  state.ox = cx - (cx - state.ox) * (z / state.zoom);
+  state.oy = cy - (cy - state.oy) * (z / state.zoom);
+  state.zoom = z; draw();
+}, { passive: false });
+
+function stop() { if (state.playing) { clearTimeout(state.playing); state.playing = null; $("play").textContent = "play"; } }
+async function tick() {
+  if (!state.playing) return;
+  await showFrame((state.index + 1) % state.frames.length);
+  if (state.playing) state.playing = setTimeout(tick, 1000 / Math.max(1, Number($("fps").value) || 4));
+}
+$("play").onclick = () => { if (state.playing) stop(); else { state.playing = setTimeout(tick, 0); $("play").textContent = "pause"; } };
+$("prev").onclick = () => { stop(); showFrame(state.index - 1); };
+$("next").onclick = () => { stop(); showFrame(state.index + 1); };
+$("slider").oninput = (e) => { stop(); showFrame(Number(e.target.value)); };
+$("run").onchange = (e) => selectRun(e.target.value);
+$("plane").onchange = (e) => { state.plane = e.target.value; showFrame(state.index); };
+$("fit").onclick = fit;
+$("clear").onclick = () => { state.markers = []; renderSide(); draw(); };
+window.addEventListener("resize", draw);
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "ArrowLeft") { stop(); showFrame(state.index - 1); }
+  else if (e.key === "ArrowRight") { stop(); showFrame(state.index + 1); }
+  else if (e.key === " ") { e.preventDefault(); $("play").click(); }
+  else if (e.key === "f") fit();
+});
+
+loadRuns().catch((e) => { $("side").innerHTML = `<div class="warn err">${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>

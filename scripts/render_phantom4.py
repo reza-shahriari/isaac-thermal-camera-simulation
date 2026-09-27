@@ -867,11 +867,19 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             }
         )
         if writer.wants(index):
+            # What was there under each pixel centre -- true surface temperature, range, part,
+            # thermal node, material -- beside what the camera reported, for the frame viewer
+            # (`python -m irsim_viewer`) to read back at a clicked pixel.
+            truth = cam.truth()
+            extra = {} if truth is None else dict(truth.planes)
+            if rgbs[-1] is not None:
+                extra["rgb"] = rgbs[-1]
             writer.write(
                 outputs,
                 frame_index=index,
                 t_s=cam.last_frame_t_s,
-                extra_planes={} if rgbs[-1] is None else {"rgb": rgbs[-1]},
+                extra_planes=extra,
+                legends=None if truth is None else truth.legends,
                 extra_metadata={
                     "range_m": round(slant, 3),
                     "aspect_deg": round(aspect, 2),

@@ -84,6 +84,9 @@ src/irsim_isaac/        # Isaac Sim glue — the ONLY place engine imports are a
   spg/                  # empty on purpose: the .cu / .cu.lua / .usda assets are blocked on one
                          # capability question, written down in its README (DC.1)
 
+src/irsim_viewer/       # frame viewer (`make viewer`): click a rendered pixel, read every saved plane.
+                         # Reads files only through `source.FrameSource` -- a new layout is a new source
+
 tests/
   conftest.py           # synthetic G-buffer fixtures (ramp, uniform, two-material, grazing sphere,
                          # supersampled step edge, moving edge) — the engine-free kernel test bed
