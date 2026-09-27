@@ -9,10 +9,11 @@ It never touches the planes.
 
 Two corrections are applied, both from the 2026-09-26 diagnosis (spec issues S52, S53):
 
-* **ADC floor (S53, preview of `SC.23`).** The camera's ``dn16`` put DN 0 at −40 °C and clipped
-  up to 79 % of a cold sky to one code. The planes are unclipped, so the DN is re-derived from
-  them over L_B(200 K) … L_B(473.15 K) -- the band LUT's own floor -- at the camera's bit depth.
-  This is an affine map of band radiance, which is all the display branch sees of the ADC.
+* **ADC floor (S53, `SC.23`).** A render made before `SC.23` put DN 0 at −40 °C and clipped up to
+  two thirds of a cold sky to one code. The planes are unclipped, so the DN is re-derived from them
+  on the camera's current transfer: zero scene radiance … L_B(473.15 K) (ADR 0151) at the camera's
+  bit depth. This is an affine map of band radiance, which is all the display branch sees of the
+  ADC.
 * **AGC (S52).** ``FIXED_agc`` runs the camera's own display branch (`run_display_branch`) in
   ``agc: information_based`` with ``linear_percent`` (ADR 0147), per frame, as the camera would. The
   old clip rebuilt plateau equalisation over 65 536 float bins, of which none reached the plateau.
@@ -51,9 +52,8 @@ from typing import Any
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-#: The band LUT's floor (ADR 0011) and the pipeline's ceiling (`RADIOMETRIC_RANGE_K`).
-FLOOR_K = 200.0
-CEILING_K = 473.15
+#: The band LUT's floor (ADR 0011): a saved ``apparent_t`` never reads below it.
+LUT_FLOOR_K = 200.0
 #: The readout's footprint: the caption block is ~90 px tall and the gauge panel ~380 px wide.
 #: Both even, so the encoded frame keeps even dimensions.
 MARGIN_TOP = 96
@@ -117,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     from irsim.io.png import write_png
     from irsim.isp.display import run_display_branch
     from irsim.isp.palette import palette_table, quantise_display
+    from irsim.pipeline.core import ADC_FLOOR_RADIANCE, RADIOMETRIC_RANGE_K
     from irsim.radiometry.lut_files import load_band_lut_for_config
     from irsim_eval.video import (
         annotate,
@@ -138,8 +139,9 @@ def main(argv: list[str] | None = None) -> int:
     lut = load_band_lut_for_config(sensor, REPO / "data" / "lut")
     bits = sensor.sensor.fpa.bit_depth
     top = float(2**bits - 1)
-    l_lo = float(lut.lookup(FLOOR_K)[()])
-    l_hi = float(lut.lookup(CEILING_K)[()])
+    # the camera's own ADC (ADR 0151): DN 0 at zero scene radiance, top code at the range's top
+    l_lo = ADC_FLOOR_RADIANCE
+    l_hi = float(lut.lookup(RADIOMETRIC_RANGE_K[1])[()])
     isps = {
         mode: sensor.sensor.isp.model_copy(
             update={
@@ -188,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir = run / "frames"
     stats: dict[str, Any] = {
         "agc_modes": modes,
-        "floor_k": FLOOR_K,
+        "adc_floor_radiance": ADC_FLOOR_RADIANCE,
         "span_k": span,
         "gauge_span_k": gauge_span,
         "frames": [],
@@ -198,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         t_k = np.load(run / meta["planes"]["apparent_t"]["file"])
         if t_k.dtype != np.float32:
             raise TypeError(f"{meta['name']}: apparent_t is {t_k.dtype}, expected float32")
-        radiance = lut.lookup(np.clip(t_k, FLOOR_K, CEILING_K)).astype(np.float64)
+        radiance = lut.lookup(np.clip(t_k, LUT_FLOOR_K, RADIOMETRIC_RANGE_K[1])).astype(np.float64)
         dn = np.clip(np.round((radiance - l_lo) / (l_hi - l_lo) * top), 0, top).astype(np.uint16)
         dn16_file = meta["planes"].get("dn16", {}).get("file")
         old_clipped = (
@@ -220,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
                 [
                     head,
                     f"FIXED: {AGC_LABEL[mode]}, linear {args.linear_percent:.0%}, per frame",
-                    f"ADC floor {FLOOR_K:.0f} K (was 233 K: {old_clipped:.0%} of frame at DN 0)",
+                    f"ADC floor 0 radiance (was 233 K: {old_clipped:.0%} of frame at DN 0)",
                 ],
                 values,
                 gauge_span,

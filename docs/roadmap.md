@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `SC.22` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 65 open steps
+#### Then, in order — 64 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`SC.22`** | SC | A | S | — | ready |
 | 2 | **`SC.24`** | SC | A | S | — | ready |
 | 3 | **`AT.20`** | AT | A | M | — | ready |
-| 4 | **`SC.23`** | SC | A | M | — | ready |
-| 5 | **`IG.16`** | IG | B | M | — | ready |
-| 6 | **`AT.14`** | AT | B | L | — | ready |
-| 7 | **`AT.6`** | AT | C | M | — | ready |
-| 8 | **`AT.9`** | AT | C | M | — | ready |
-| 9 | **`PT.16`** | PT | C | M | — | ready |
-| 10 | **`XD.10`** | XD | C | L | — | ready |
-| 11 | **`IG.3`** | IG | X | S | 3 | ready |
-| 12 | **`EV.5`** | EV | X | M | 3 | ready |
-| 13 | **`SC.5`** | SC | X | M | 3 | ready |
-| 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`AT.14`** | AT | B | L | — | ready |
+| 6 | **`AT.6`** | AT | C | M | — | ready |
+| 7 | **`AT.9`** | AT | C | M | — | ready |
+| 8 | **`PT.16`** | PT | C | M | — | ready |
+| 9 | **`XD.10`** | XD | C | L | — | ready |
+| 10 | **`IG.3`** | IG | X | S | 3 | ready |
+| 11 | **`EV.5`** | EV | X | M | 3 | ready |
+| 12 | **`SC.5`** | SC | X | M | 3 | ready |
+| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
+| 15 | **`XD.7`** | XD | X | M | 2 | ready |
 
-…and 50 more — `python scripts/next_step.py --queue 40`.
+…and 49 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -602,7 +602,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.20 | ✅ **done.** `sky_only.yaml` + `irsim.validation.radial.radial_fit` (plane + paraboloid) + `scripts/validate_sky_flat.py`. Drift bowl sign follows the housing both ways, radial share 0.999; a public clear-sky frame fits a bright centre, share 0.86. The sky itself is dark-centred near the zenith, so that bright centre needs ≳ 1.7 K of cooling since the FFC. | `test_radial_profile.py` | SC.17, SC.18, SC.19 | M | A |
 | SC.21 | ✅ **done** (ADR 0147). `agc: information_based` in `irsim.isp.information`: bilateral LP/HP split, the LP histogram plateau-clipped plus an |HP| information histogram, `linear_percent`, detail headroom, HP back at the slope. Opt-in; `linear_percent` also on `plateau_equalization`. | **Measured.** 0.6 % four-part target on a 60 K sky: plateau ≤ 3 codes, `information_based` + λ 0.3 ≥ 25, parts ordered; frame 96 3 → 30. σ_r → 0 is `agc_plateau` bit for bit. Hashes unchanged. 12 cases. | — | M | A |
 | SC.22 | **The Boson runs its factory default AGC.** Both Boson YAMLs move from `plateau_equalization` to `information_based` with FLIR's published defaults (plateau 7 %, ADR on the rest), and the goldens that carry `display8` are regenerated deliberately. | Red: `flir_boson_640_lwir.yaml` selects the mode FLIR does not ship by default. Green: the config names FLIR's default; `make golden-update` diff is display-only (`dn16`, `radiance`, `apparent_t` bit-identical). | SC.21 | S | A |
-| SC.23 | **The ADC floor holds the coldest sky (§11.1, S53).** DN 0 sits at −40 °C (`RADIOMETRIC_RANGE_K`) and 33–79 % of `phantom4_perpart` sky reads DN 0. Lower the floor to the LUT's 200 K. | Red: a −60 °C sky quantises to one code. Green: no `phantom4_perpart` sky pixel at DN 0; DN → T_app round trip inside budget; goldens regenerated deliberately. | — | M | A |
+| SC.23 | ✅ **done** (ADR 0151). DN 0 is **zero scene radiance**, not the LUT's 200 K: the layered winter zenith sky is below L_B(200 K) in every preset. `RADIOMETRIC_RANGE_K` keeps the top code and the flat-field blackbodies. | **Measured.** −68…−41 °C sky: 1 code → >900. `phantom4_perpart`: worst frame 66 % → 0 % at DN 0. Coldest preset sky 266 DN on scale. Gain −4.3 %, the closed form; DN16 → T_app ≤ 9.5 mK over 200–470 K. A 200 K floor fails. `test_adc_floor.py`. | — | M | A |
 | SC.24 | **The demo clips show what the camera shows.** The AGC clip re-implements plateau on float bins (0 clipped); the `ir` top clips the motors. *Half shipped:* `scripts/redisplay_planes.py` writes `FIXED_*` clips from saved planes (camera ISP, apparent-T span, readout in a margin, `--agc` mode selector and a mosaic of every mode). Left: route `render_phantom4.py` itself the same way. | Red: drone 3 codes in `agc`. Green: 25–39 codes in `FIXED_agc` on `phantom4_perpart`; the render's own clips match it. | SC.21 | S | A |
 | SC.25 | ✅ **done** (ADR 0149). The equalising modes gain the controls every vendor ships under some name: `clip_limit_low` (Lepton low clip) and `max_gain` (Boson, Xenics), beside `linear_percent`. Zero is the old operator; the Warp AGC refuses what it has no port of. | **Measured.** Clear sky + 0.6 % target: low clip 1e-3 lifts the target ≤ 3 → ≥ 20 codes, parts ordered. Bland 33 DN sky: `max_gain` 1.25 cuts noise from 256 codes to ≤ 43. Pre-SC.21 Boson ISP hash reproduced. 11 cases. | SC.21 | S | A |
 | SC.26 | ✅ **done** (ADR 0149, S54). The NIR silicon config drops the Boson's copied `isp` for a visible-camera display: `linear`, gamma 2.2, no DDE. SWIR keeps equalisation, which its vendors document on-board. | **Measured.** `nir_frame_display8` moves up to 71 codes; `nir_frame_dn16` and `nir_frame_radiance` bit-identical. | — | S | A |

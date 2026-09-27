@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- **The ADC floor holds the coldest sky** (`SC.23`, ADR 0151, S53). A bolometer's DN 0 moves from
+  −40 °C to zero scene radiance, so a clear LWIR sky is no longer clipped to one code (up to 66 %
+  of a `phantom4_perpart` frame was). The LUT's 200 K, which the roadmap proposed, is not low
+  enough: the model's winter zenith sky falls below it in every atmosphere preset. Gain −4.3 %
+  (177.95 → 170.33 DN/K at 300 K); DN16 → T_app within half a code over 200–470 K. Bolometer
+  `dn16`/`display8` goldens regenerated; `RADIOMETRIC_RANGE_K` still sets the top code and the
+  flat-field blackbodies (`tests/unit/test_adc_floor.py`).
 - **A black silhouette on a bright sky no longer crashes the photon detector.** `apply_psf`
   convolves by FFT, whose round-off (~7e-16 of the brightest pixel, either sign) turned a black
   airframe beside a 3e20 photon-unit NIR sky into −2e5, so `PhotonDetector` refused a negative

@@ -63,17 +63,45 @@ class RadiometricCalibration:
         """Size the DN gain so blackbodies at [t_min, t_max] span the ADC, housing at T_cal."""
         if not t_min_k < t_max_k:
             raise ValueError("t_min_k must be below t_max_k")
+        return cls.from_radiance_range(
+            sensor,
+            lut,
+            float(lut.lookup(t_min_k, quantity)[()]),
+            float(lut.lookup(t_max_k, quantity)[()]),
+            t_housing_cal_k,
+            quantity,
+        )
+
+    @classmethod
+    def from_radiance_range(
+        cls,
+        sensor: SensorSpec,
+        lut: BandLUT,
+        l_min: float,
+        l_max: float,
+        t_housing_cal_k: float,
+        quantity: Quantity = "lb",
+    ) -> RadiometricCalibration:
+        """Size the DN gain so uniform scenes at band radiance [l_min, l_max] span the ADC.
+
+        The radiance form exists for the floor (§11.1, S53, `SC.23`): DN 0 at *zero* scene
+        radiance, which no temperature in the band LUT reaches -- the table starts at 200 K and
+        the model's clear winter zenith sky is colder than that. ``l_min = 0`` is legal and still
+        lands on a positive flux, because the housing fills the rest of the pixel's view.
+        """
+        if not 0.0 <= l_min < l_max:
+            raise ValueError("need 0 <= l_min < l_max")
         lb_housing = float(lut.lookup(t_housing_cal_k, quantity)[()])
         phi = [
             float(
                 apply_optics(
-                    np.full(sensor.fpa_shape, float(lut.lookup(t, quantity)[()]), dtype=np.float32),
+                    np.full(sensor.fpa_shape, value, dtype=np.float32),
                     sensor,
                     lb_housing,
                     supersample=1,
                 )[sensor.fpa.height // 2, sensor.fpa.width // 2]
             )
-            for t in (t_min_k, t_max_k)
+            for value in (l_min, l_max)
         ]
         transfer = BolometerTransfer.from_power_range(phi[0], phi[1], sensor.fpa.bit_depth)
         return cls(sensor=sensor, transfer=transfer, lb_housing_cal=lb_housing)

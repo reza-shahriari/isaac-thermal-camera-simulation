@@ -116,6 +116,13 @@ parts in temperature order, and on `phantom4_perpart` frame 96 from 3 to 30. Its
 published, so it is a flagged approximation until a Tier 4 fit exists. No config selects it yet
 (`SC.22`), and no hash or golden moved.
 
+**The ADC holds the coldest sky (`SC.23`, ADR 0151).** A bolometer's DN 0 is zero scene radiance.
+It used to be the datasheet's −40 °C, which clipped up to two thirds of a `phantom4_perpart` frame's
+sky to one code. The band LUT's 200 K would not have been enough either: the layered model's winter
+zenith sky is colder than that in every preset. The coldest sky walked now sits 266 DN on scale,
+and the DN16 route returns T_app within half a code from 200 to 470 K. The cost is 4 % of the gain,
+5.9 mK a code at 300 K.
+
 **The AGC is selectable, and it is a set of families rather than one camera (`SC.25`, `SC.26`,
 ADR 0149).** `isp.agc` picks `linear`, `plateau_equalization`, `plateau_local` (tiled, CLAHE),
 `information_based` (detail-weighted) or `none`. Every equalising mode takes the controls vendors
@@ -826,11 +833,10 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   spread over thousands of DN is full histogram equalisation: the drone in `phantom4_perpart`,
   0.6 % of the frame, receives 3 of 256 grey levels for parts spanning 15 → 38 °C. A Boson's factory
   default, Information-Based Equalization blended by Linear Percent, exists as `agc:
-  information_based` (`SC.21`), but no config selects it yet. Separately, the ADC puts DN 0 at
-  −40 °C, so 33–79 % of those frames' sky is clipped to one code. And no photon camera
+  information_based` (`SC.21`), but no config selects it yet. And no photon camera
   auto-exposes (`SC.27`, S54): the NIR and SWIR configs are each one fixed integration time, valid
-  only near the light level they were written for. The float32 `apparent_t` and `radiance` planes are unaffected; only `dn16` below −40 °C and
-  the 8-bit display are.
+  only near the light level they were written for. The float32 `apparent_t` and `radiance` planes
+  are unaffected; only the 8-bit display is.
 - **Every camera is in perfect focus at every range** (`OC` lane). There is no focus distance in
   `OpticsSpec`, the optical PSF is one kernel applied to the whole plane independent of
   `distance_m`, and the camera prim leaves `focusDistance` and `fStop` unset, so the RTX camera is a

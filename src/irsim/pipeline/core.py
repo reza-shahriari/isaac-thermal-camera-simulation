@@ -38,12 +38,28 @@ from irsim.radiometry.lut import BandLUT, Quantity
 from irsim.radiometry.lut_files import load_band_lut_for_config, load_band_response_for_config
 from irsim.radiometry.spectral_response import SpectralResponse
 
-__all__ = ["Planes", "Stage", "PipelineConfig", "PipelineState", "RADIOMETRIC_RANGE_K"]
+__all__ = [
+    "Planes",
+    "Stage",
+    "PipelineConfig",
+    "PipelineState",
+    "RADIOMETRIC_RANGE_K",
+    "ADC_FLOOR_RADIANCE",
+]
 
 Planes = dict[str, NDArray[Any]]
 
-# Scene-temperature span that fills the ADC for the calibrated transfer (ADR 0021): -40..+200 C.
+# Scene-temperature span the radiometry is *specified* over (ADR 0021): -40..+200 C, a datasheet
+# range. Its top is the ADC's ceiling and its two ends are where the flat field's bench blackbodies
+# sit; its bottom is **not** the ADC's floor (ADR 0151) -- that is `ADC_FLOOR_RADIANCE`.
 RADIOMETRIC_RANGE_K: tuple[float, float] = (233.15, 473.15)
+
+#: Scene band radiance at DN 0 (§11.1, spec issue S53, `SC.23`, ADR 0151): **zero**. A real core is
+#: shutter-referenced with a pedestal, so zero radiance is on scale. The floor used to be the
+#: datasheet's -40 C, which clipped up to two thirds of a clear LWIR sky to one code; the band
+#: LUT's 200 K would not do either, because the layered model's zenith sky falls below it in any
+#: weather at or under 0 C. Zero is the one floor no scene can go under.
+ADC_FLOOR_RADIANCE: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -113,6 +129,7 @@ class PipelineConfig:
         data_dir: str | os.PathLike[str] | None = None,
         t_housing_cal_k: float | None = None,
         radiometric_range_k: tuple[float, float] = RADIOMETRIC_RANGE_K,
+        adc_floor_radiance: float | None = ADC_FLOOR_RADIANCE,
         sensor_seed: int = 0,
         noise_enabled: bool | None = None,
         psf_enabled: bool | None = None,
@@ -139,6 +156,10 @@ class PipelineConfig:
         runs when an ``Atmosphere`` (M8.5, bound to the scene's WeatherSeries) is given; the
         frame time on the weather axis is ``PipelineState.t_s``. ``tau_override`` is the L1
         fallback: a constant τ at every distance, path radiance still at the weather's T_air.
+
+        A bolometer's DN 0 sits at scene radiance ``adc_floor_radiance`` (zero by default, §11.1,
+        ADR 0151) and its top code at the top of ``radiometric_range_k``. ``None`` puts DN 0 back at
+        the range's bottom -- the pre-`SC.23` transfer, kept so that clip can be reproduced.
         """
         # The gain state is the *transfer*, not only a clip (`PH.8`, ADR 0116): a Boson's high and
         # low states share one converter and differ in how much scene they map onto it. Taking the
@@ -229,8 +250,17 @@ class PipelineConfig:
             budget = anchor_noise(sensor.sensor, lut, background_electrons=background)
         detector: Detector
         if isinstance(fpa, BolometerParams):
-            calibration = RadiometricCalibration.from_scene_range(
-                sensor.sensor, lut, radiometric_range_k[0], radiometric_range_k[1], t_housing_cal_k
+            floor = (
+                float(lut.lookup(radiometric_range_k[0], "lb")[()])
+                if adc_floor_radiance is None
+                else float(adc_floor_radiance)
+            )
+            calibration = RadiometricCalibration.from_radiance_range(
+                sensor.sensor,
+                lut,
+                floor,
+                float(lut.lookup(radiometric_range_k[1], "lb")[()]),
+                t_housing_cal_k,
             )
             detector = MicrobolometerDetector(fpa, calibration.transfer, budget)
         elif isinstance(fpa, PhotonParams):
