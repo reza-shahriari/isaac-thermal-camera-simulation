@@ -3,6 +3,7 @@
 
     python scripts/fetch_sketchfab.py https://sketchfab.com/3d-models/<slug>-<uid>
     python scripts/fetch_sketchfab.py <uid> --dry-run
+    python scripts/fetch_sketchfab.py <link> --real-name "DJI Mavic 3"
 
 The front door of asset ingestion (roadmap ``AI.8``, ADR 0150). What it does, in order:
 
@@ -145,6 +146,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("url", help="model page URL, API URL, or bare 32-hex uid")
     ap.add_argument(
+        "--real-name",
+        default="",
+        help="what the object is in the world, e.g. 'DJI Mavic 3': names the asset and is the "
+        "search key for its published dimensions and part materials",
+    )
+    ap.add_argument(
         "--dest",
         type=pathlib.Path,
         default=REPO_ROOT / "3d_models",
@@ -166,7 +173,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     uid = model_uid_from_url(args.url)
     token = os.environ.get(args.token_env)
     model = _api_json(DATA_API.format(uid=uid), token, args.timeout)
-    plan = plan_fetch(model)
+    plan = plan_fetch(model, real_name=args.real_name)
     _print_plan(plan, model)
 
     for problem in plan.problems:
@@ -201,6 +208,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         decision=plan.decision,
         downloaded_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         archive_sha256=sha256,
+        real_name=args.real_name.strip(),
     )
     (asset_dir / "ATTRIBUTION.md").write_text(attribution_markdown(provenance))
     if plan.decision.shareable:

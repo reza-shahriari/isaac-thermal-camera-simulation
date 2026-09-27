@@ -22,6 +22,7 @@ from irsim.io.sketchfab import (
     load_provenance,
     model_uid_from_url,
     plan_fetch,
+    provenance_from_local,
     provenance_from_model,
     write_provenance,
 )
@@ -190,3 +191,74 @@ def test_attribution_carries_the_four_required_elements() -> None:
     assert record.model_url in text  # the model page
     assert "creativecommons.org/licenses/by" in text  # the licence terms
     assert "Changes:" in text  # CC-BY requires indicating modifications
+
+
+# --------------------------------------------------- the real-world name, and a file handed over
+
+
+def test_the_real_name_names_the_asset_over_the_page_title() -> None:
+    # A page titled "free low poly drone" is a DJI Mavic 3 once the owner says so; the asset key
+    # and every search for its published specs follow the real name.
+    plan = plan_fetch(model_response(name="free low poly drone"), real_name="DJI Mavic 3")
+    assert plan.asset_name == "dji_mavic_3"
+    assert (
+        plan_fetch(model_response(name="free low poly drone")).asset_name == "free_low_poly_drone"
+    )
+
+
+def test_the_real_name_travels_in_provenance_and_attribution(tmp_path: Path) -> None:
+    model = model_response()
+    record = provenance_from_model(
+        model,
+        asset_name="dji_mavic_3",
+        decision=gate_license(model["license"]),
+        real_name="DJI Mavic 3",
+    )
+    assert record.real_name == "DJI Mavic 3"
+    assert "Depicts: DJI Mavic 3" in attribution_markdown(record)
+    path = tmp_path / "p.yaml"
+    write_provenance(record, path)
+    assert load_provenance(path).real_name == "DJI Mavic 3"
+
+
+def test_a_local_file_with_no_stated_licence_is_quarantined() -> None:
+    # No special case for local files: "somebody gave me this file" is the unknown-licence case.
+    record = provenance_from_local(
+        asset_name="dji_mavic_3",
+        file_name="mavic.fbx",
+        decision=gate_license({}),
+        real_name="DJI Mavic 3",
+    )
+    assert record.source == "local"
+    assert record.shareable is False
+    assert record.source_format == "fbx"
+    assert record.title == "DJI Mavic 3"
+
+
+def test_a_local_file_with_a_stated_permissive_licence_is_shareable(tmp_path: Path) -> None:
+    record = provenance_from_local(
+        asset_name="dji_mavic_3",
+        file_name="mavic.glb",
+        decision=gate_license({"slug": "by"}),
+        author="some_artist",
+        archive_sha256="cd" * 32,
+    )
+    assert record.shareable is True
+    text = attribution_markdown(record)
+    assert "Supplied as a file" in text and "some_artist" in text
+    path = tmp_path / "p.yaml"
+    write_provenance(record, path)
+    assert load_provenance(path) == record
+
+
+def test_records_written_before_real_name_existed_still_load(tmp_path: Path) -> None:
+    # Additive schema change: an AI.8-era record has no `source` or `real_name` key.
+    path = tmp_path / "old.provenance.yaml"
+    path.write_text(
+        "provenance:\n  schema_version: 1\n  asset_name: x\n  uid: " + UID + "\n  title: X\n"
+        "  author: a\n  model_url: https://sketchfab.com/3d-models/x\n"
+        "  license: {slug: by, label: CC Attribution}\n  shareable: true\n  gate_reason: ok\n"
+    )
+    record = load_provenance(path)
+    assert record.source == "sketchfab"
+    assert record.real_name == ""

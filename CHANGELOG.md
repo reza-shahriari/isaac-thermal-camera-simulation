@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **An asset can arrive as a file, and with its real-life name** (`AI.9` follow-up, ADR 0150).
+  `scripts/register_local_asset.py <file> --real-name "DJI Mavic 3"` registers a model handed
+  over directly (.fbx/.glb/.gltf/.obj/.usd or a .zip) through the same licence gate: the licence
+  is the one the owner states, and none stated means quarantine. `fetch_sketchfab.py` gains
+  `--real-name` too. The real name names the asset, is recorded in the provenance
+  (`real_name`, `source: sketchfab|local`; older records still load) and is what the
+  `ingest-asset` skill now searches the web for (published dimensions, part list, materials);
+  with no name given, the skill infers one and says which. 5 new tests (38 in the file).
+
 ### Fixed
 - **In NIR and SWIR the ground reflects the sun and the clouds scatter it** (`AT.20`, ADR 0153,
   S55). The environment's ground half was thermal only, so a downward-facing white shell rendered

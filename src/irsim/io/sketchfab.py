@@ -50,6 +50,7 @@ __all__ = [
     "load_provenance",
     "model_uid_from_url",
     "plan_fetch",
+    "provenance_from_local",
     "provenance_from_model",
     "write_provenance",
 ]
@@ -191,16 +192,18 @@ class FetchPlan:
     problems: tuple[str, ...]
 
 
-def plan_fetch(model: Mapping[str, Any]) -> FetchPlan:
+def plan_fetch(model: Mapping[str, Any], real_name: str = "") -> FetchPlan:
     """Turn a Data API model response into a :class:`FetchPlan`, before any download happens.
 
-    Problems that make the fetch pointless are collected rather than raised, so a driver can
-    print all of them at once: a model that is not downloadable (view-only), or one with no
-    glTF among its archives when the response says so up front.
+    The asset is named after ``real_name`` when the owner gave one, since that is what the object
+    is; the page title ("free low poly drone") is the fallback. Problems that make the fetch
+    pointless are collected rather than raised, so a driver can print all of them at once: a
+    model that is not downloadable (view-only), or one with no glTF among its archives when the
+    response says so up front.
     """
     uid = str(model.get("uid", ""))
     title = str(model.get("name", "") or "")
-    name = asset_name_from_title(title, uid)
+    name = asset_name_from_title(real_name.strip() or title, uid)
     decision = gate_license(model.get("license", {}) or {})
     downloadable = bool(model.get("isDownloadable", False))
     problems: list[str] = []
@@ -241,19 +244,29 @@ MODIFICATIONS_NOTE = (
 class Provenance(BaseModel):
     """Where an asset came from and what may be done with it (``configs/assets/*.provenance.yaml``).
 
-    One record per ingested asset, written by ``scripts/fetch_sketchfab.py`` at download time.
-    For a shareable asset it is committed beside the material map; for a quarantined one it
-    stays with the quarantined files. ``downloaded_at`` and ``archive_sha256`` pin *which*
-    upload this was — a Sketchfab author can re-upload under the same UID.
+    One record per ingested asset, written at arrival time by ``scripts/fetch_sketchfab.py`` (a
+    shared link, ``source: sketchfab``) or ``scripts/register_local_asset.py`` (a file the owner
+    handed over, ``source: local``). For a shareable asset it is committed beside the material
+    map; for a quarantined one it stays with the quarantined files. ``downloaded_at`` and
+    ``archive_sha256`` pin *which* upload this was — a Sketchfab author can re-upload under the
+    same UID.
+
+    ``real_name`` is what the object *is* in the world ("DJI Mavic 3", "Cessna 172"), as the
+    owner stated it. It outranks the page title — often "low poly drone" or a free-text joke — as
+    the search key for published dimensions and part materials, and it is recorded so the next
+    reader of the material map knows which product its ``ESTIMATED`` lines were researched
+    against. Empty when nobody said.
     """
 
     schema_version: int = 1
     asset_name: str
-    uid: str
+    source: str = "sketchfab"
+    real_name: str = ""
+    uid: str = ""
     title: str
     author: str
     author_url: str = ""
-    model_url: str
+    model_url: str = ""
     license: LicenseRecord
     shareable: bool
     gate_reason: str
@@ -271,6 +284,7 @@ def provenance_from_model(
     downloaded_at: str = "",
     archive_sha256: str = "",
     source_format: str = "gltf",
+    real_name: str = "",
 ) -> Provenance:
     """Build the :class:`Provenance` record from the Data API response and the gate's verdict."""
     uid = str(model.get("uid", ""))
@@ -280,6 +294,8 @@ def provenance_from_model(
     license_info: Mapping[str, Any] = license_raw if isinstance(license_raw, Mapping) else {}
     return Provenance(
         asset_name=asset_name,
+        source="sketchfab",
+        real_name=real_name,
         uid=uid,
         title=str(model.get("name", "") or ""),
         author=str(user.get("username", "") or "unknown"),
@@ -295,6 +311,40 @@ def provenance_from_model(
         source_format=source_format,
         archive_sha256=archive_sha256,
         downloaded_at=downloaded_at,
+    )
+
+
+def provenance_from_local(
+    *,
+    asset_name: str,
+    file_name: str,
+    decision: GateDecision,
+    real_name: str = "",
+    author: str = "",
+    origin_url: str = "",
+    archive_sha256: str = "",
+    registered_at: str = "",
+) -> Provenance:
+    """The :class:`Provenance` record for a file the owner handed over rather than a link.
+
+    A local file carries no licence metadata, so ``decision`` comes from :func:`gate_license`
+    on whatever licence the owner *stated* — and with none stated that is the unknown-licence
+    branch, which quarantines. The gate does not get a special case for local files: "somebody
+    gave me this file" is exactly the situation in which nobody knows the terms.
+    """
+    return Provenance(
+        asset_name=asset_name,
+        source="local",
+        real_name=real_name,
+        title=real_name or file_name,
+        author=author or "unknown",
+        model_url=origin_url,
+        license=LicenseRecord(slug=decision.slug, label=decision.label),
+        shareable=decision.shareable,
+        gate_reason=decision.reason,
+        source_format=file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "unknown",
+        archive_sha256=archive_sha256,
+        downloaded_at=registered_at,
     )
 
 
@@ -315,18 +365,21 @@ def attribution_markdown(provenance: Provenance) -> str:
         if provenance.license.url
         else provenance.license.label
     )
+    where = f" ({provenance.model_url})" if provenance.model_url else ""
+    via = "Provided via Sketchfab" if provenance.source == "sketchfab" else "Supplied as a file"
     lines = [
         "# Attribution",
         "",
-        f'"{provenance.title}" ({provenance.model_url}) by {author}, '
-        f"licensed under {license_text}.",
+        f'"{provenance.title}"{where} by {author}, licensed under {license_text}.',
         "",
-        f"Provided via Sketchfab. Downloaded {provenance.downloaded_at or 'date not recorded'}; "
+        f"{via}. Received {provenance.downloaded_at or 'date not recorded'}; "
         f"archive sha256 {provenance.archive_sha256 or 'not recorded'}.",
         "",
         f"Changes: {provenance.modifications}",
         "",
     ]
+    if provenance.real_name and provenance.real_name != provenance.title:
+        lines[3:3] = [f"Depicts: {provenance.real_name}.", ""]
     return "\n".join(lines)
 
 

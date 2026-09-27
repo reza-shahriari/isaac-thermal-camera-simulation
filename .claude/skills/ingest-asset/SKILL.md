@@ -1,19 +1,42 @@
 ---
 name: ingest-asset
-description: The full pipeline from a shared model link (Sketchfab) to a library entry — download through the licence gate, identify the real object, fix the scale, decompose into functional parts, research and map every part's real material, export .blend/.usdc/.fbx, audit, ship. Use this skill whenever the user shares a 3D-model link or asks to add, import, ingest or download a model/asset/drone/aircraft, whenever a new entry is wanted in the asset library, and whenever a downloaded mesh needs materials or parts assigned. The judgement steps (part naming, material research) are LLM work by design; do them with this checklist, not from memory.
+description: The full pipeline from a shared model link (Sketchfab) or a 3D file handed over directly, optionally with the object's real-life name ("DJI Mavic 3"), to a library entry — arrival through the licence gate, identify the real object and search its published specs, fix the scale, decompose into functional parts, research and map every part's real material, export .blend/.usdc/.fbx, audit, ship. Use this skill whenever the user shares a 3D-model link or a model file (.fbx/.glb/.gltf/.obj/.usd/.zip), names what a model really is, or asks to add, import, ingest or download a model/asset/drone/aircraft, whenever a new entry is wanted in the asset library, and whenever a downloaded mesh needs materials or parts assigned. The judgement steps (part naming, material research) are LLM work by design; do them with this checklist, not from memory.
 ---
 
-# Ingesting a third-party asset: a link becomes a library entry
+# Ingesting a third-party asset: a link or a file becomes a library entry
 
-The automation of what was done by hand for the Phantom 4. One asset per run. Everything here is
-CPU-only — Blender is the toolchain (ADR 0128), no step boots Isaac Sim or touches the GPU.
+The automation of what was done by hand for the Phantom 4. One asset per run. The pipeline itself
+is CPU work — Blender is the toolchain (ADR 0128) and no step here needs Isaac Sim or the GPU.
+
+## 0. What the owner hands you
+
+Any of these, in any combination:
+
+| input | example | goes to |
+|---|---|---|
+| a Sketchfab link | `https://sketchfab.com/3d-models/…-<uid>` | step 1a |
+| a 3D file or a .zip | `~/Downloads/mavic.fbx`, `drone.glb`, `plane.zip` | step 1b |
+| the object's **real-life name** | "DJI Mavic 3", "Cessna 172 Skyhawk", "white stork" | step 2 |
+| a licence / author for a file | "it's CC-BY by some_artist", "I made it" | step 1b |
+
+**The real name is the most valuable thing the owner can say.** It is what you search the web for
+in step 2 — published dimensions, the real part list, what each part is made of — and it names the
+asset (`dji_mavic_3`), outranking a page title like "free low poly drone". Pass it through with
+`--real-name` so it is recorded in the provenance and the next reader of the material map knows
+which product its `ESTIMATED` lines were researched against.
+
+When the owner gives **no** real name, infer it (page title, tags, description, what the model
+looks like), say which name you inferred and why in one line, and carry on — do not stop to ask.
+When the inference is genuinely ambiguous (a generic "quadcopter", a bird of unknown species),
+pick the most representative real product/species, flag every number that depends on it
+`ESTIMATED`, and say so in the final report.
 
 **What a finished entry is** (ADR 0150; the owner's 2026-09-26 format decision):
 
 | where | what | in git? |
 |---|---|---|
-| `3d_models/<name>/` | source glTF archive + zip, `ATTRIBUTION.md` | no (cloud drive) |
-| `configs/assets/<name>.provenance.yaml` | author, licence, gate verdict, sha256 | **yes** |
+| `3d_models/<name>/` | downloaded glTF (`gltf/`) or handed-over file (`source/`), `ATTRIBUTION.md` | no (cloud drive) |
+| `configs/assets/<name>.provenance.yaml` | real name, author, licence, gate verdict, sha256 | **yes** |
 | `configs/assets/<name>.yaml` | `scale_to_metres`, material map, `parts:` block | **yes** |
 | `data/assets/<name>*/` | generated `.usdc`, `.meshes.npz`, prim dump, textures | no (regenerable) |
 | `data/assets/<name>/<name>.blend` + `.fbx` | master scene + interchange copy | no (cloud drive) |
@@ -21,11 +44,11 @@ CPU-only — Blender is the toolchain (ADR 0128), no step boots Isaac Sim or tou
 Binaries travel by the owner's cloud-drive link, never by git. The two YAMLs are what git carries;
 with them plus the binaries, every generated artefact reproduces from `prep_asset.py`.
 
-## 1. Fetch, through the licence gate (AI.8)
+## 1a. A link: fetch through the licence gate (AI.8)
 
 ```bash
 python scripts/fetch_sketchfab.py <link> --dry-run   # metadata + gate verdict, no token needed
-SKETCHFAB_API_TOKEN=…  python scripts/fetch_sketchfab.py <link>
+SKETCHFAB_API_TOKEN=…  python scripts/fetch_sketchfab.py <link> --real-name "DJI Mavic 3"
 ```
 
 The gate runs **before** the download and fails towards quarantine: CC0 / CC-BY / CC-BY-SA land in
@@ -38,10 +61,28 @@ Known failure modes, all printed with what to do: view-only model (pick another 
 401 (token from sketchfab.com Settings → Password & API), 429 (automatic backoff), no glTF key
 (rare; inspect by hand). The API **never serves the source FBX** — glTF in, FBX out is the design.
 
-## 2. Identify the real object before opening Blender
+## 1b. A file: register it through the same gate
 
-The model page's title/tags identify a real product more reliably than anything inside the file.
-Web-search it now and write down, in the config's comments as you go:
+```bash
+python scripts/register_local_asset.py <file> --real-name "DJI Mavic 3" \
+    [--license by --author some_artist --origin-url <where it came from>]
+```
+
+Copies the file (or extracts the .zip) into `3d_models/<name>/source/`, pins its sha256, and
+writes `ATTRIBUTION.md` + provenance exactly as a fetch does. A file carries no licence metadata,
+so `--license` is the licence **the owner stated** (`cc0`, `by`, `by-sa`, …; their own work is
+`cc0` or `by`). **No `--license` means quarantine** — the unknown-licence branch of the same gate,
+with no special case for files. If the owner mentioned a licence in passing, pass it; if they did
+not, register quarantined, keep going (local use is fine), and tell them in the final report that
+one flag re-registers it as shareable. A `.blend` is refused: export it to `.glb` in Blender first,
+so every asset enters through an importer that preserves material names.
+
+## 2. Identify the real object and search its specs, before opening Blender
+
+Start from the real name (step 0). Without one, the page's title/tags identify a real product more
+reliably than anything inside the file. Web-search it now — manufacturer spec sheet first, then
+teardowns, reviews and reference sites — and write down, with the source URL, in the config's
+comments as you go:
 
 * **one published dimension** (wingspan, rotor diameter, height) — this fixes the scale;
 * **the real part list and what each part is made of** (a named quadcopter's shell is moulded
@@ -51,9 +92,10 @@ Web-search it now and write down, in the config's comments as you go:
 ## 3. Author the config skeleton and fix the scale
 
 Copy the shape of `configs/assets/phantom4.yaml` (schema: `irsim.materials.mapping.AssetConfig`).
-First run only needs `asset.name`, `source_file` (the extracted `gltf/scene.gltf`), and
-`scale_to_metres`. glTF is metres by spec — so the expected factor is **1.0** — but verify anyway:
-measure the axis-aligned extent **from the vertices, never `bound_box`** (the phantom4.yaml header
+First run only needs `asset.name`, `source_file` (`gltf/scene.gltf` for a link, `source/<file>`
+for a file) and `scale_to_metres`. glTF is metres by spec, so expect **1.0**; an FBX declares no
+unit and is often centimetres (the Phantom 4 was: 0.01). Verify either way: measure the
+axis-aligned extent **from the vertices, never `bound_box`** (the phantom4.yaml header
 records how the local-box shortcut inflated 41 cm to 60), compare against the published dimension,
 and write the reasoning as a comment where the number lives. A wrong scale renders a perfectly
 plausible image; that is the hazard.
@@ -128,8 +170,8 @@ Respect the geometry budget's verdict (AI.3): over-budget means decimate or desc
 
 * `make check` — the materials-library walk, the layering test and the asset tests are the gate;
 * `python scripts/audit_materials.py` on the prim dump if anything changed since the last prep run;
-* a contact-sheet render is welcome but **only on the CPU**; never launch Isaac Sim for this —
-  binding the asset into a scene (`configs/scenes/phantom4_perpart.yaml` is the template) is the
+* a contact-sheet render is welcome (CPU is enough for this); binding the asset into a scene
+  and rendering it in Isaac Sim (`configs/scenes/phantom4_perpart.yaml` is the template) is the
   *next* step's work, not this skill's;
 * finish with the `ship-step` skill: README status, CHANGELOG, roadmap row, one commit. Remind the
   owner which directories to upload to the cloud drive (`3d_models/<name>/`,
@@ -137,7 +179,10 @@ Respect the geometry budget's verdict (AI.3): over-budget means decimate or desc
 
 ## When to stop and ask
 
-* the licence gate quarantines a model the user seems to want shared — say so, do not override;
+* the licence gate quarantines a model the user seems to want shared — say so, do not override
+  (for a file, the fix is re-registering with the licence the owner states, not editing the gate);
+* the real name the owner gave contradicts the model (a "Mavic 3" with fixed wings) — report it
+  rather than researching the wrong product;
 * no published dimension can be found and the glTF's own scale looks wrong — a guessed scale
   poisons everything downstream;
 * the model is one merged blob with a texture atlas (no components to select) — per-face material
