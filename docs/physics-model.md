@@ -340,6 +340,18 @@ $$
 
 Practical LWIR values: $\Delta T_{\text{clear}}\approx 55$–$70$ K at zenith for a dry clear sky, dropping toward 5–10 K under thick overcast or high humidity; $q\approx0.5$–$1.0$. Under overcast, $T_{\text{sky}}\to T_{\text{air}}$ and the reflected term nearly vanishes — which is exactly why thermal images look "flat" on cloudy days. That behaviour falling out of your model for free is a good sanity check.
 
+**In a reflective band the ground and the cloud are lit, not only warm** (spec issue S55). The
+ground's own emission $L_B(T_{\text{ground}})$ is all of $L_{\text{ground}}$ in LWIR and next to nothing
+in NIR and SWIR, where a sunlit ground returns
+$L_{\text{ground}} = L_B(T_{\text{ground}}) + \rho_{B,\text{ground}}\,E_B/\pi$ with
+$E_B = f_{\text{dir}}\,\text{DNI}\sin h + f_{\text{diff}}\,\text{DHI}$, the weather's own irradiance
+through the band's shares of the beam and of the (Rayleigh-blue) sky. Leave it out and every
+downward-facing surface, $V_s \to 0$, reflects nothing: a white underside renders black against a
+bright sky. A cloud likewise scatters sunlight. Seen from below, its base is drawn as a Lambertian
+reflector $R(\tau,\mu_0)\,E_B/\pi$ with the two-stream $R$ the visible companion uses, so the two
+bands agree about which clouds are bright. Otherwise an opaque cloud in SWIR swaps the column's
+thermal emission for its own, both near zero, and the clouds vanish (ADR 0153).
+
 **(b) Low-resolution irradiance cubemap (L2.5).** Render a 32×32×6 cubemap of scene band-radiance (including sky) from a few probe positions, prefilter into an irradiance map. This gets you building/vehicle self-heating reflections without full path tracing. Cheap, and it is what makes urban thermal scenes stop looking synthetic.
 
 **(c) Path-trace in the radiance domain (L3).** Let the renderer do it, with materials whose emission is $\varepsilon B(T)$ and whose BRDF is the IR BRDF. Correct, and expensive.

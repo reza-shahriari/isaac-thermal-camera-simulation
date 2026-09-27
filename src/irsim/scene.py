@@ -351,6 +351,31 @@ def build_network(
     )
 
 
+def ground_reflectance(
+    environment: EnvironmentSpec,
+    band: str,
+    data_dir: str | os.PathLike[str] | None = None,
+) -> float:
+    """ρ_B of the environment's ground material in ``band`` -- its albedo (AT.20, ADR 0153).
+
+    Kirchhoff-closed by the library (ρ = 1 − ε − τ, CLAUDE.md #4), so the ground's albedo is the
+    same number a surface of that material reflects anywhere else in the scene, and a new band is
+    a new entry in the material rather than an edit here. 0.0 when the environment names none.
+    """
+    name = environment.ground.material
+    if name is None:
+        return 0.0
+    from irsim.materials.library import MATERIAL_DIR, load_material
+
+    path = MATERIAL_DIR / f"{name}.yaml"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"environment {environment.name!r} names ground material {name!r}, which is not in "
+            f"the library ({MATERIAL_DIR})"
+        )
+    return float(load_material(path, data_dir).band_properties(band).reflectance)
+
+
 def build_target(spec: TargetSpec, weather: WeatherSeries, t0_s: float) -> TemperatureSolver:
     """A solver for one target spec, on the scene's one shared ``WeatherSeries`` (CLAUDE.md #6).
 
@@ -712,13 +737,25 @@ class Scene:
                 # configs. `None` is the purely thermal sky this class has always been -- right
                 # for an emissive band, where the scattered term is 1.6e-8 of the column's own
                 # emission, and a black sky in a reflective one.
+                skylight = None if skylights is None else skylights.get(band)
                 sky_models[band] = SkyModel(
                     layered,
                     environment,
                     band,
                     lut,
                     quantity,
-                    skylight=None if skylights is None else skylights.get(band),
+                    skylight=skylight,
+                    # AT.20 (ADR 0153): a sunlit band also sees the ground reflect the sun and
+                    # the cloud scatter it. Only where there is a skylight, so an emissive band
+                    # -- which has none -- is untouched.
+                    site=(
+                        None
+                        if skylight is None
+                        else (spec.site.latitude_deg, spec.site.longitude_deg)
+                    ),
+                    ground_albedo=(
+                        0.0 if skylight is None else ground_reflectance(environment, band, data_dir)
+                    ),
                 )
         build = _build_thermal_field(spec, weather, t0_s, data_dir)
         patches, patch_prims = {}, {}

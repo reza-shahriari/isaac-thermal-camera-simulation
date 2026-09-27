@@ -950,6 +950,17 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   count: a sensor count has no NaN to carry. The limitation that remains is the ordinary one --
   a frame with unmapped geometry is unusable over those pixels, and `debug_unmapped=False` raises
   instead, which is what a production run should set.
+- **In the reflective bands the ground and the clouds are lit by one-bounce stand-ins (`AT.20`,
+  ADR 0153, S55).** Until this step the ground only glowed, which is nothing in NIR and SWIR: a
+  white underside rendered black, and SWIR clouds read exactly the clear sky. The ground now
+  reflects the weather's own DNI and DHI through its library material's band reflectance
+  (`environment.ground.material`, e.g. `soil_dry`, ρ_SWIR 0.26). A cloud base returns the two-stream
+  R(τ, μ0) of that irradiance, the same expression the visible dome uses, so the pair agree. A
+  downward-facing surface's environment goes from 9e-8 to 13.4 W m⁻² sr⁻¹ in SWIR, and deck clouds
+  from 1.0× to 13× the clear sky. The approximations are flagged: the ground is Lambertian and
+  unshadowed, droplet absorption is ignored (a thick SWIR cloud is somewhat too bright), and a
+  cloud base is drawn as a reflector rather than by diffuse transmission. LWIR is bit-identical.
+  Not yet seen in an in-engine render.
 - **No cast shadows in the reflective bands (ADR 0084).** The Isaac render path now supplies the
   M11.2 illumination bundle — without it every render was emission only, which is right to 0.35 %
   for LWIR and *black* for NIR — but `shadow` is 1 everywhere, so the only shadowing is

@@ -89,10 +89,17 @@ class DiffuseSkylight:
     spectrum_sha256: str
     spectrum_path: str
     exponent: float = RAYLEIGH_EXPONENT
+    #: In-band irradiance per W m^-2 of broadband **direct** beam (AT.20): the ground-level
+    #: solar spectrum's own in-band share, unweighted, because the beam is not Rayleigh-shaped.
+    #: A ratio like :attr:`per_dhi`, and in the same quantity. ``None`` on a skylight built
+    #: before AT.20, which then cannot light the ground or a cloud.
+    per_dni: float | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.per_dhi) or self.per_dhi < 0.0:
             raise ValueError(f"per_dhi must be finite and non-negative, got {self.per_dhi}")
+        if self.per_dni is not None and (not math.isfinite(self.per_dni) or self.per_dni < 0.0):
+            raise ValueError(f"per_dni must be finite and non-negative, got {self.per_dni}")
 
     @classmethod
     def from_spectrum(
@@ -108,8 +115,10 @@ class DiffuseSkylight:
         broadband = float(np.trapezoid(shape.irradiance_w_m2_um, shape.wavelength_um))
         if broadband <= 0.0:
             raise ValueError("the diffuse shape integrates to zero; check the spectrum file")
+        direct = float(np.trapezoid(spectrum.irradiance_w_m2_um, spectrum.wavelength_um))
         return cls(
             per_dhi=in_band / broadband / math.pi,
+            per_dni=float(spectrum.band(response, quantity)) / direct,
             quantity=quantity,
             band_id=band_id,
             spectrum_sha256=spectrum.sha256,
@@ -139,6 +148,25 @@ class DiffuseSkylight:
         spectrum = load_solar_spectrum(root / spectrum_file)
         response = load_spectral_response(sensor.sensor.band.spectral_response)
         return cls.from_spectrum(spectrum, response, quantity, sensor.sensor.band.band_id, exponent)
+
+    def horizontal_irradiance(
+        self, dni_w_m2: float, sun_elevation_deg: float, dhi_w_m2: float
+    ) -> float:
+        """E_B on a horizontal plane: the beam's ``per_dni`` share + the sky's Rayleigh share.
+
+        ``E_B = per_dni · DNI · sin(el) + π · per_dhi · DHI`` -- the weather's own GHI split into
+        its two spectral shapes, because a NIR band takes a far larger share of the beam than of
+        the blue sky. Zero with the sun at or below the horizon. Needs :attr:`per_dni`.
+        """
+        if self.per_dni is None:
+            raise ValueError(
+                "this skylight carries no direct-beam fraction (per_dni); rebuild it with "
+                "DiffuseSkylight.from_spectrum / for_sensor"
+            )
+        if dni_w_m2 < 0.0 or dhi_w_m2 < 0.0:
+            raise ValueError("irradiance cannot be negative")
+        beam = float(dni_w_m2) * max(math.sin(math.radians(float(sun_elevation_deg))), 0.0)
+        return self.per_dni * beam + math.pi * self.per_dhi * float(dhi_w_m2)
 
     def radiance(self, dhi_w_m2: Any) -> NDArray[np.float64]:
         """f_B . DHI / pi -- the isotropic sky radiance this band sees from scattered sunlight."""

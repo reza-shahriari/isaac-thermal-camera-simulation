@@ -48,6 +48,7 @@ from numpy.typing import NDArray
 from scipy.optimize import least_squares
 
 from irsim.atmosphere.cloud import (
+    CLOUD_BASE_ALBEDO,
     DIFFUSIVITY_FACTOR,
     CloudField,
     cloud_airmass,
@@ -55,6 +56,7 @@ from irsim.atmosphere.cloud import (
     cloud_emissivity,
     cloud_radiance,
     cloud_radiance_at_range,
+    cloud_reflectance,
     generate_cloud_field,
     lifting_condensation_level_m,
 )
@@ -109,6 +111,8 @@ class SkyModel:
         lut: BandLUT,
         quantity: Quantity = "lb",
         skylight: DiffuseSkylight | None = None,
+        site: tuple[float, float] | None = None,
+        ground_albedo: float = 0.0,
     ) -> None:
         if not isinstance(atmosphere, LayeredAtmosphere):
             raise TypeError(
@@ -129,6 +133,18 @@ class SkyModel:
         #: of the column's own emission. In a reflective band leaving it out renders a **black
         #: sky**, which is backwards: there the daytime sky is the brightest thing in the frame.
         self._skylight = skylight
+        #: Sunlight on the ground and on cloud (AT.20, ADR 0153): the site places the sun, the
+        #: shared weather supplies DNI and DHI, and the skylight's two band fractions split them.
+        #: Both need the skylight, so an emissive band -- which has none -- stays bit-identical.
+        if not 0.0 <= ground_albedo <= 1.0:
+            raise ValueError(f"ground_albedo must lie in [0, 1], got {ground_albedo}")
+        if ground_albedo > 0.0 and (skylight is None or site is None):
+            raise ValueError(
+                "a ground albedo reflects sunlight, which needs the skylight's band fractions "
+                "and the site that places the sun; pass skylight= and site= with it"
+            )
+        self._site = site
+        self._ground_albedo = float(ground_albedo)
         if skylight is not None and skylight.quantity != quantity:
             raise ValueError(
                 f"the skylight is in the {skylight.quantity!r} form and this sky model runs on "
@@ -169,6 +185,69 @@ class SkyModel:
     @property
     def skylight(self) -> DiffuseSkylight | None:
         return self._skylight
+
+    @property
+    def ground_albedo(self) -> float:
+        return self._ground_albedo
+
+    # -- sunlight on the ground and on cloud (AT.20, ADR 0153) -------------------------------
+    @property
+    def sunlit(self) -> bool:
+        """Whether this band sees sunlight reflected off the ground and scattered by cloud."""
+        return self._skylight is not None and self._site is not None
+
+    def _sun(self, t_s: float) -> tuple[float, float]:
+        """(E_B on the horizontal, sin of the sun's elevation) at ``t_s`` on the weather's axis."""
+        from irsim.thermal.scene_forcing import solar_terms_at
+
+        assert self._skylight is not None and self._site is not None
+        terms = solar_terms_at(self.weather, self._site[0], self._site[1], float(t_s))
+        e_band = self._skylight.horizontal_irradiance(
+            terms.dni_w_m2, terms.elevation_deg, terms.dhi_w_m2
+        )
+        return e_band, max(math.sin(math.radians(terms.elevation_deg)), 0.0)
+
+    def band_irradiance(self, t_s: float) -> float:
+        """E_B = f_dir DNI sin(el) + f_diff DHI on a horizontal plane; 0.0 without sunlight."""
+        return self._sun(t_s)[0] if self.sunlit else 0.0
+
+    def ground_shine(self, t_s: float) -> float:
+        """ρ_B E_B / π: the sunlight a Lambertian ground returns in this band (S55).
+
+        Exactly 0.0 when the band is not sunlit or the ground reflects nothing, so adding it to
+        the ground's emission changes no emissive render by a bit.
+        """
+        if not self.sunlit or self._ground_albedo == 0.0:
+            return 0.0
+        return self._ground_albedo * self._sun(t_s)[0] / math.pi
+
+    def cloud_shine(self, t_s: float, column_optical_depth: Any = None) -> Any:
+        """R(τ, μ0) E_B / π: a cloud base as the visible dome draws it, in this band (S55).
+
+        The same two-stream :func:`~irsim.atmosphere.cloud.cloud_reflectance` and the same
+        horizontal irradiance the dome's ``_cloud_base`` uses, so the pair agree about which
+        clouds are bright. ``column_optical_depth`` is the cloud's vertical visible depth per
+        ray; without one, a ``clouds.optical_depth`` preset's own depth is used, and a
+        ``clouds.tau`` preset -- which has none -- takes :data:`CLOUD_BASE_ALBEDO`. 0.0 without
+        sunlight.
+        """
+        if not self.sunlit:
+            return 0.0
+        e_band, mu0 = self._sun(t_s)
+        if e_band == 0.0:
+            return (
+                0.0
+                if column_optical_depth is None
+                else np.zeros_like(np.asarray(column_optical_depth, dtype=np.float64))
+            )
+        if column_optical_depth is None:
+            depth = self._env.clouds.optical_depth
+            albedo: Any = (
+                CLOUD_BASE_ALBEDO if depth is None else float(cloud_reflectance(depth, mu0)[()])
+            )
+        else:
+            albedo = cloud_reflectance(column_optical_depth, mu0)
+        return albedo * e_band / math.pi
 
     # -- clear-sky elevation LUT ----------------------------------------------------------
     def _clear_lut(self, t_s: float) -> NDArray[np.float64]:
@@ -241,7 +320,8 @@ class SkyModel:
         l_base = float(
             self._lut.lookup(np.float64(self.cloud_base_temperature_k(t_s)), self._q)[()]
         )
-        return sample.cloud_fraction * self._flux_emissivity(), l_base
+        # A reflective band's cloud also scatters sunlight (AT.20); 0.0 in an emissive one.
+        return sample.cloud_fraction * self._flux_emissivity(), l_base + self.cloud_shine(t_s)
 
     def _cloud_path(
         self, t_s: float, base_m: float | None = None
@@ -405,6 +485,11 @@ class SkyModel:
         lapse = self._atm.preset.profile.lapse_rate_k_per_m
         t_emit = self.cloud_base_temperature_k(t_s, base_m) - lapse * march.emission_height_m
         l_base = np.asarray(self._lut.lookup(t_emit, self._q), dtype=np.float64)
+        if self.sunlit:
+            # The ray's slant depth brought back to the vertical column it crossed (AT.20):
+            # exact for a ray through a flat slab, an underestimate where it leaves by a side.
+            column = march.optical_depth * np.sin(np.maximum(el, ELEVATION_FLOOR_RAD))
+            l_base = l_base + self.cloud_shine(t_s, column)
         deg = np.degrees(el)
         tau_grid, beyond_grid = self._cloud_path(t_s, base_m)
         return cloud_radiance_at_range(

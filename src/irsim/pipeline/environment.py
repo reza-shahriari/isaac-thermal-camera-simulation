@@ -2,6 +2,11 @@
 
     L = ε L_B(T_s) + (1 − ε) L_env,        L_env = V_s L_sky,eff + (1 − V_s) L_ground
 
+In a reflective or mixed band the ground is also lit (AT.20, ADR 0153, spec issue S55):
+L_ground = L_B(T_ground) + ρ_B,ground E_B / π, where E_B is the weather's own DNI and DHI through
+the band's two solar fractions. Without it a downward-facing surface (V_s → 0) saw only the
+ground's *thermal* emission, which is ~0 in NIR and SWIR, and a white underside rendered black.
+
 The reflected part uses (1 − ε) = ρ + τ: a transmitting material passes the environment behind
 it (L_behind = L_env until a second ray exists, ADR 0046). L_sky,eff comes from the SkyModel's tilt
 LUT indexed by the pixel's sky-view factor (the unoccluded relation V_s = (1 + cos β)/2);
@@ -70,7 +75,11 @@ def environment_radiance(
     sky_view: NDArray[np.floating],
     quantity: Quantity = "lb",
 ) -> NDArray[np.float32]:
-    """L_env per pixel = V_s L_sky,eff(V_s) + (1 − V_s) L_B(T_ground), float32."""
+    """L_env per pixel = V_s L_sky,eff(V_s) + (1 − V_s) L_ground, float32.
+
+    ``L_ground = L_B(T_ground) + sky.ground_shine(t_s)``; the second term is exactly 0.0 in an
+    emissive band, so an LWIR frame is bit-identical to what it was before AT.20.
+    """
     v = np.asarray(sky_view, dtype=np.float64)
     if v.dtype == np.float16:  # pragma: no cover - asarray above widens; kept for clarity
         raise TypeError("sky_view_factor is float16")
@@ -78,4 +87,5 @@ def environment_radiance(
         raise ValueError("sky_view_factor must lie in [0, 1]")
     l_sky = sky.effective_radiance_from_sky_view(t_s, v)
     l_ground = float(lut.lookup(np.float64(ground_temperature_k(sky, t_s)), quantity)[()])
+    l_ground += sky.ground_shine(t_s)
     return np.asarray(v * l_sky + (1.0 - v) * l_ground, dtype=np.float32)

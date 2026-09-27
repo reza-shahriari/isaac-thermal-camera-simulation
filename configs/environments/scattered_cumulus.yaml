@@ -13,7 +13,7 @@ environment:
   sky:
     delta_t_clear_k: {lwir: 62.0, mwir: 15.0, swir: 0.0, nir: 0.0}   # section 5.3: 55-70 K LWIR
     q: 0.75
-  ground: {mode: air}
+  ground: {mode: air, material: vegetation_leaf}   # AT.20: reflects as vegetation_leaf in NIR/SWIR (fair-weather summer ground, vegetated)
   solar: {enabled: true, glint_model: specular}
   night:
     airglow_irradiance_nw_cm2: 10.0       # section 5.5 default (range 3.5-39)

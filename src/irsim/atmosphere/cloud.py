@@ -39,6 +39,7 @@ from irsim.atmosphere.humidity import dew_point_k
 
 __all__ = [
     "ESPY_M_PER_K",
+    "CLOUD_BASE_ALBEDO",
     "DEFAULT_EDGE_SOFTNESS",
     "SkyFixedCloud",
     "generate_sky_cloud",
@@ -79,6 +80,11 @@ DEFAULT_EDGE_SOFTNESS = 0.45
 #: are far larger than the wavelength -- and it is what the two-stream reflectance below needs.
 CLOUD_ASYMMETRY = 0.85
 
+#: Reflectance of a cloud base whose optical depth is not known (a ``clouds.tau`` preset, or the
+#: uniform blend). ESTIMATED; the visible dome's value, shared so the two bands cannot disagree
+#: about how bright an unresolved cloud is (AT.20).
+CLOUD_BASE_ALBEDO = 0.55
+
 
 def cloud_reflectance(
     optical_depth: Any, cos_sun_zenith: float, asymmetry: float = CLOUD_ASYMMETRY
@@ -100,9 +106,12 @@ def cloud_reflectance(
 
     At g = 0.85 and a 40 degree sun: tau = 1 gives 0.10, tau = 10 gives 0.54, tau = 30 gives 0.78.
 
-    Absorption is neglected, which is right in the visible and would not be in the near infrared,
-    where a thick cloud is measurably darker than this. Stated rather than assumed: this function
-    is called for the visible dome only.
+    Absorption is neglected, which is right in the visible and not in the short-wave infrared,
+    where liquid water absorbs (single-scattering albedo ~0.99 near 1.6 um) and a thick cloud is
+    measurably darker than this. It is used there anyway (AT.20, ADR 0153): the reflective
+    infrared bands light a cloud base with this same R and the same irradiance as the visible
+    dome, so the pair cannot disagree about which clouds are bright -- a flagged approximation
+    that overstates a thick SWIR cloud, not an omission.
     """
     tau = np.maximum(np.asarray(optical_depth, dtype=np.float64), 0.0)
     if not 0.0 <= asymmetry < 1.0:

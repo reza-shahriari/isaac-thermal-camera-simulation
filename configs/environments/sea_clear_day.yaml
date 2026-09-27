@@ -17,6 +17,7 @@ environment:
   ground:
     mode: sea
     bulk_sst_k: 290.0      # 17 C: a temperate open-sea summer value. ESTIMATED, not measured.
+    material: water        # AT.20: what the sea reflects of the sun in NIR/SWIR, as a diffuse ground
   solar: {enabled: true, glint_model: specular}
   night:
     airglow_irradiance_nw_cm2: 10.0

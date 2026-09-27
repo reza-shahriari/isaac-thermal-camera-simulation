@@ -7,7 +7,7 @@ environment:
   sky:
     delta_t_clear_k: {lwir: 7.0, mwir: 3.0, swir: 0.0, nir: 0.0}
     q: 0.75
-  ground: {mode: air}
+  ground: {mode: air, material: soil_dry}   # AT.20: reflects as soil_dry in NIR/SWIR (a generic bare ground)
   solar: {enabled: false, glint_model: lambertian}
   night:
     airglow_irradiance_nw_cm2: 10.0

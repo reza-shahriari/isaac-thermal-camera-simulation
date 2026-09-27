@@ -7,7 +7,7 @@ environment:
   sky:
     delta_t_clear_k: {lwir: 35.0, mwir: 10.0, swir: 0.0, nir: 0.0}   # ESTIMATED within section 5.3
     q: 0.6
-  ground: {mode: air}
+  ground: {mode: air, material: vegetation_leaf}   # AT.20: reflects as vegetation_leaf in NIR/SWIR (a vegetated ground under humid air; NIR 0.45 is the red edge)
   solar: {enabled: true, glint_model: specular}
   night:
     airglow_irradiance_nw_cm2: 10.0

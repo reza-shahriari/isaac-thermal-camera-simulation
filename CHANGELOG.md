@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **In NIR and SWIR the ground reflects the sun and the clouds scatter it** (`AT.20`, ADR 0153,
+  S55). The environment's ground half was thermal only, so a downward-facing white shell rendered
+  black; an opaque cloud swapped the column's thermal emission for its own, so SWIR skies had no
+  clouds. `environment.ground.material` names a library material, and ρ_B × E_B/π is added to the
+  ground. E_B is the weather's DNI and DHI through the band's two solar fractions
+  (`DiffuseSkylight.per_dni`, new, beside ADR 0086's `per_dhi`). Cloud bases gain R(τ, μ0) E_B/π, the
+  visible dome's own form. At SWIR noon the V_s = 0 environment goes 9e-8 → 13.4 W m⁻² sr⁻¹, deck
+  clouds 1.0× → 13× the clear sky; LWIR is bit-identical (`tests/unit/test_sunlit_environment.py`).
+
 ### Changed
 - **The demo clips show what the camera shows** (`SC.24`, S52). `render_phantom4.py --agc-clip` is
   the camera's own per-frame `display8`, no longer plateau equalisation rebuilt over float bins

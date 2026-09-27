@@ -103,6 +103,12 @@ class GroundSpec(_Frozen):
     #: Bulk SST for ``mode: sea``. A measured SST is what a maritime scenario actually has; the
     #: skin temperature is derived from it (MM.4), never authored beside it.
     bulk_sst_k: float | None = Field(default=None, gt=250.0, lt=320.0)
+    #: The library material the ground is made of, for what it *reflects* (AT.20, ADR 0153). In a
+    #: reflective or mixed band the ground returns ρ_B · E_B / π of sunlight on top of its own
+    #: emission, with ρ_B the material's Kirchhoff-closed band reflectance -- so a new band needs
+    #: no edit here, only the material's own entry. ``None`` is a ground that reflects nothing,
+    #: which is what every environment was before AT.20 and is black in NIR and SWIR.
+    material: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def _mode_needs_its_value(self) -> GroundSpec:
