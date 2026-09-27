@@ -175,27 +175,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `SC.22` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 64 open steps
+#### Then, in order — 65 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`SC.22`** | SC | A | S | — | ready |
 | 2 | **`SC.24`** | SC | A | S | — | ready |
-| 3 | **`SC.23`** | SC | A | M | — | ready |
-| 4 | **`IG.16`** | IG | B | M | — | ready |
-| 5 | **`AT.14`** | AT | B | L | — | ready |
-| 6 | **`AT.6`** | AT | C | M | — | ready |
-| 7 | **`AT.9`** | AT | C | M | — | ready |
-| 8 | **`PT.16`** | PT | C | M | — | ready |
-| 9 | **`XD.10`** | XD | C | L | — | ready |
-| 10 | **`IG.3`** | IG | X | S | 3 | ready |
-| 11 | **`EV.5`** | EV | X | M | 3 | ready |
-| 12 | **`SC.5`** | SC | X | M | 3 | ready |
-| 13 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
-| 14 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
-| 15 | **`XD.7`** | XD | X | M | 2 | ready |
+| 3 | **`AT.20`** | AT | A | M | — | ready |
+| 4 | **`SC.23`** | SC | A | M | — | ready |
+| 5 | **`IG.16`** | IG | B | M | — | ready |
+| 6 | **`AT.14`** | AT | B | L | — | ready |
+| 7 | **`AT.6`** | AT | C | M | — | ready |
+| 8 | **`AT.9`** | AT | C | M | — | ready |
+| 9 | **`PT.16`** | PT | C | M | — | ready |
+| 10 | **`XD.10`** | XD | C | L | — | ready |
+| 11 | **`IG.3`** | IG | X | S | 3 | ready |
+| 12 | **`EV.5`** | EV | X | M | 3 | ready |
+| 13 | **`SC.5`** | SC | X | M | 3 | ready |
+| 14 | **`SC.6`** | SC | X | S | 2 | `SC.5` |
+| 15 | **`EV.7`** | EV | X | M | 2 | `EV.5` |
 
-…and 49 more — `python scripts/next_step.py --queue 40`.
+…and 50 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -275,7 +275,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `PH.1`–`PH.8`, `PH.13` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half and wait on `IG.2` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`, `AI.8`, `AI.9`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`, `AI.8`, `AI.9`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `GT.1`, `GT.2` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `PT.13`, `PT.16`, `TC.8`, `PH.9`–`PH.12`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`, `GT.9`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -558,6 +558,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.17 | ✅ **done.** `surface_treatment` is required on every material, from §4.5's own vocabulary plus `as_manufactured`/`natural` for substances nobody treated, with **no default** — a default is a state nobody chose. Material schema v2. `aluminium_polished` and `aluminium_anodised` join the corrected `bare_aluminium`. ADR 0142. | **Measured.** 23 materials all name a state. One metal, three states: ρ/c_p/k identical, ε **0.04 → 0.09 → 0.845** [R39], a span of 0.805. The anodised one *falls* toward grazing where the two bare metals rise — its surface is oxide. 24 tests. | — | M | C |
 | AT.18 | ✅ **done.** `*metal*`/`*alumin*` point at the matte entry and the `aircraft` class at painted skin; `*chrome*` is deleted, not redirected — `phantom4.yaml` settled its chrome from the shader's metallic 0.987, not the name. `audit(…, emissivity=)` fails a prim reaching ε < 0.2 by glob or class; only an asset map or an override may. | **Measured.** A 300 K housing under a 250 K sky reads **40.1 K** apart on a top-hat (38.0 K on the Boson response), **800 × NETD**, and the mirror reports the sky, not itself. Phantom 4 bare coverage 48.8 → **43.9 %**. 27 cases. | — | S | A |
 | AT.19 | ✅ **done.** The infrared cloud: **one base** (the deck's own, for temperature and path), **dry-adiabatic** to it (g/c_p; the preset's 6.5 K/km overwarmed a base 3.3 K/km), and **the band's own march** over the shared array (uniform, two samples per pitch, hashed jitter). The stale two-weather `phantom4_weather` clip re-rendered. ADR 0146. | **Measured**: the clip's 17 °C cloud reproduced from the CSV weather; one weather 8.5 °C, dry lapse **7.1 °C**; residual lag-one correlation **0.4–0.56** vs 0.84–0.90; ε error p99 0.0018; 10 s a frame. | AT.16, AT.15 | M | A |
+| AT.20 | **A target in a reflective band is lit by the sunlit ground and the clouds scatter (S55).** The environment's ground half is thermal only, so a downward-facing white shell renders black in NIR/SWIR against its white RGB companion, and the SWIR sky has no clouds. Add albedo × GHI through the band's solar fraction to the ground half, and single-scattering cloud radiance in reflective bands. ADR. | Red: the Phantom 4 underside is ~0 in SWIR. Green: a V_s = 0 white panel reads ρ·albedo·GHI/π to 5 %; SWIR clouds brighter than clear sky; LWIR bit-identical. | — | M | A |
 ---
 
 ## SE — Sea and maritime

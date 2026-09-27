@@ -95,6 +95,18 @@ def main(argv: list[str] | None = None) -> int:
             REPO / "configs" / "sensors" / (name if name.endswith(".yaml") else f"{name}.yaml")
         )
 
+    # `render_phantom4.py` records the aircraft's span in each band's own pixels for every frame
+    # (`rows[].px_across`), and its mount tracks the aircraft at the image centre. Where that is
+    # known the tile is centred on the image and sized per frame from the span, with no detector:
+    # a cumulus edge in the RGB companion is as far from the smooth sky as the aircraft is, and a
+    # detector drags the box out to the clouds.
+    span_px: dict[str, dict[int, float]] = {}
+    for band in bands:
+        band_rows = json.loads((scene / band / "summary.json").read_text()).get("rows", [])
+        span_px[band] = {
+            int(r["frame"]): float(r["px_across"]) for r in band_rows if r.get("px_across")
+        }
+
     def find_target(rgb: Any) -> tuple[float, float, float, float] | None:
         """Bounding box of the aircraft in the RGB companion: pixels far from the smooth sky."""
         lum = rgb[..., :3].astype(np.float64).mean(axis=2)
@@ -120,14 +132,22 @@ def main(argv: list[str] | None = None) -> int:
     for band in bands:
         for f in frames[:: args.stride] + [peak_frame]:
             rgb = np.asarray(Image.open(scene / band / f"frame_{f:06d}_rgb.png"))
+            if f in span_px[band]:
+                # Tracked at the image centre: the centre *is* the aircraft, and no detector is
+                # needed -- one searching the RGB also finds the cloud behind it.
+                h, w = rgb.shape[:2]
+                boxes[band][f] = (h / 2.0, h / 2.0, w / 2.0, w / 2.0)
+                continue
             box = find_target(rgb)
             if box is not None:
                 boxes[band][f] = box
-    side = {
-        b: int(1.5 * max(max(y1 - y0, x1 - x0) for y0, y1, x0, x1 in boxes[b].values()))
-        for b in bands
-        if boxes[b]
-    }
+
+    def side_for(band: str, frame: int) -> int:
+        """Tile edge in the band's pixels: 1.3 x the recorded span when known (the aircraft fills
+        the tile at every range), else 1.5 x the largest box of the clip (a fixed zoom)."""
+        if frame in span_px[band]:
+            return int(1.3 * span_px[band][frame])
+        return int(1.5 * max(max(y1 - y0, x1 - x0) for y0, y1, x0, x1 in boxes[band].values()))
 
     font = _font(15)
     footer_font = _font(17)
@@ -140,8 +160,8 @@ def main(argv: list[str] | None = None) -> int:
 
     def crop(image: Any, band: str, frame: int) -> Any:
         y0, y1, x0, x1 = boxes[band][frame]
-        cy, cx, s = (y0 + y1) / 2.0, (x0 + x1) / 2.0, side[band]
         h, w = image.shape[:2]
+        cy, cx, s = (y0 + y1) / 2.0, (x0 + x1) / 2.0, min(side_for(band, frame), h, w)
         top = int(min(max(cy - s / 2, 0), max(h - s, 0)))
         left = int(min(max(cx - s / 2, 0), max(w - s, 0)))
         tile = image[top : top + s, left : left + s]
