@@ -66,13 +66,25 @@ def free_convection(
 
 
 def forced_convection(
-    relative_speed_m_s: Any, params: ConvectionParams = DEFAULT_CONVECTION
+    relative_speed_m_s: Any,
+    params: ConvectionParams = DEFAULT_CONVECTION,
+    *,
+    density_ratio: float = 1.0,
 ) -> NDArray[np.float64]:
-    """a + b v^n (W m⁻² K⁻¹); v ≥ 0."""
+    """a + b (ρ_r v)^n (W m⁻² K⁻¹); v ≥ 0.
+
+    ``density_ratio`` is ``ρ(z)/ρ(0)`` (PT.28): the turbulent correlation the parameters fit
+    goes as the mass flux ``ρ v``, so thinner air blows less. At 1 this is the sea-level law
+    bit for bit.
+    """
     v = np.asarray(relative_speed_m_s, dtype=np.float64)
     if np.any(v < 0.0):
         raise ValueError("relative air speed must be non-negative")
-    return params.a + params.b * v**params.n
+    if not 0.0 < density_ratio <= 1.0:
+        raise ValueError("density_ratio is rho(z)/rho(0) in (0, 1]")
+    if density_ratio == 1.0:
+        return params.a + params.b * v**params.n
+    return params.a + params.b * (density_ratio * v) ** params.n
 
 
 def convection_coefficient(

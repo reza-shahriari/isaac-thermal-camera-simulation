@@ -235,5 +235,11 @@ CTE_INVAR: Final[float] = 1.2e-6
 #: ch. 3). Espy's 125 m K^-1 rule for the LCL is this rate minus the dew-point lapse (1.8 K km^-1)
 #: inverted, which is why the two agree to a tenth of a kelvin at the base.
 DRY_ADIABATIC_LAPSE_K_PER_M: Final[float] = 9.761e-3
+#: The ISA environmental lapse rate in the troposphere (ICAO Doc 7488), the column a target
+#: climbs through when the atmosphere preset names none (PT.28).
+ISA_LAPSE_RATE_K_PER_M: Final[float] = 6.5e-3
+#: ISA sea-level temperature and the standard gravity the hydrostatic column uses (PT.28).
+ISA_SEA_LEVEL_T_K: Final[float] = 288.15
+STANDARD_GRAVITY_M_S2: Final[float] = 9.80665
 #: Dew-point lapse rate of a lifted parcel, K m^-1, from the same rule.
 DEW_POINT_LAPSE_K_PER_M: Final[float] = 1.8e-3

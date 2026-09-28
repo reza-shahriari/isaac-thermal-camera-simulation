@@ -179,6 +179,9 @@ class TargetSpec(_Frozen):
     recovery_factor: float | None = Field(default=None, gt=0.0, le=1.0)
     #: ``exhaust`` only: which section's skin the target reports (TC.7, ADR 0105).
     section: str | None = None
+    #: PT.28: height above the site, metres. The target flies in the air up there -- T_air − Γ z
+    #: with Γ from the atmosphere preset -- and its ram recovery uses the speed of sound in it.
+    altitude_agl_m: float = Field(default=0.0, ge=0.0, le=20000.0)
     #: ``exhaust`` only: the gas cone it blows, in world coordinates (schema v15, `PH.6`).
     plume: PlumeSpec | None = None
     #: TC.12 (schema v19, ADR 0158): ``evolve: false`` holds this object at its spun-up state

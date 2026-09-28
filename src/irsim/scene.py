@@ -36,11 +36,13 @@ from irsim.config.scene import (
     TargetSpec,
     load_scene_config,
 )
+from irsim.radiometry.constants import ISA_LAPSE_RATE_K_PER_M
 from irsim.radiometry.lut import BandLUT, Quantity
 from irsim.radiometry.spectral_response import SpectralResponse
 from irsim.thermal.aerial import (
     AERIAL_HEAT_SOURCES,
     RECOVERY_FACTOR_TURBULENT,
+    air_density_ratio,
     airframe_solver,
     heat_source_solver,
     ram_skin_solver,
@@ -376,7 +378,17 @@ def ground_reflectance(
     return float(load_material(path, data_dir).band_properties(band).reflectance)
 
 
-def build_target(spec: TargetSpec, weather: WeatherSeries, t0_s: float) -> TemperatureSolver:
+def scene_lapse_rate_k_per_m(spec: SceneSpec) -> float:
+    """Γ for the scene's column (PT.28): the atmosphere preset's profile."""
+    return float(load_atmosphere_preset(spec.atmosphere_preset).profile.lapse_rate_k_per_m)
+
+
+def build_target(
+    spec: TargetSpec,
+    weather: WeatherSeries,
+    t0_s: float,
+    lapse_rate_k_per_m: float = ISA_LAPSE_RATE_K_PER_M,
+) -> TemperatureSolver:
     """A solver for one target spec, on the scene's one shared ``WeatherSeries`` (CLAUDE.md #6).
 
     ``heat_source``, ``airframe`` and ``ram_skin`` are the aerial nodes (ADR 0072, ADR 0075).
@@ -432,14 +444,16 @@ def build_target(spec: TargetSpec, weather: WeatherSeries, t0_s: float) -> Tempe
             t0_s=t0_s,
         )
     if spec.solver in ("airframe", "heat_source", "ram_skin"):
+        column = {"altitude_agl_m": spec.altitude_agl_m, "lapse_rate_k_per_m": lapse_rate_k_per_m}
         if spec.solver == "airframe":
-            derived = airframe_solver(weather, offset_k=spec.offset_k or 0.0)
+            derived = airframe_solver(weather, offset_k=spec.offset_k or 0.0, **column)
         elif spec.solver == "ram_skin":
             assert spec.speed_m_s is not None
             derived = ram_skin_solver(
                 weather,
                 spec.speed_m_s,
                 recovery_factor=spec.recovery_factor or RECOVERY_FACTOR_TURBULENT,
+                **column,
             )
         else:
             assert spec.source is not None and spec.throttle_s is not None
@@ -451,6 +465,7 @@ def build_target(spec: TargetSpec, weather: WeatherSeries, t0_s: float) -> Tempe
                 weather,
                 t0_s + np.asarray(spec.throttle_s, dtype=np.float64),
                 spec.throttle,
+                **column,
             )
         # Neither constructor takes t0_s, and an airframe node's schedule spans the whole weather
         # file, so without this its initial reading is the temperature at the *file's* start
@@ -573,6 +588,18 @@ class Scene:
     def transfer_atmosphere(self) -> Atmosphere | LayeredAtmosphere:
         """The model stage 2 must run: the layered one where it exists, else the grey fallback."""
         return self.grey_atmosphere if self.layered is None else self.layered
+
+    @property
+    def lapse_rate_k_per_m(self) -> float:
+        """Γ of the scene's column (PT.28): the preset's, else the ISA value."""
+        return scene_lapse_rate_k_per_m(self.spec)
+
+    @property
+    def air_density_ratio(self) -> float:
+        """``ρ/ρ₀`` at the site's altitude, the number the forced convection blows with (PT.28)."""
+        return air_density_ratio(
+            self.spec.site.altitude_m, lapse_rate_k_per_m=self.lapse_rate_k_per_m
+        )
 
     @property
     def atmosphere_preset(self) -> AtmospherePreset:
@@ -726,7 +753,8 @@ class Scene:
         t0_s = weather.seconds_of(spec.start_utc)
         preset = load_atmosphere_preset(spec.atmosphere_preset)
         atmosphere = Atmosphere(preset, weather, luts)
-        targets = {t.name: build_target(t, weather, t0_s) for t in spec.targets}
+        lapse = scene_lapse_rate_k_per_m(spec)
+        targets = {t.name: build_target(t, weather, t0_s, lapse) for t in spec.targets}
         layered = None
         environment = None
         sky_models: dict[str, SkyModel] = {}
@@ -1050,6 +1078,9 @@ def _build_thermal_field(
         longitude_deg=spec.site.longitude_deg,
         ground_temperature_k=ground_temperature_k,
         ground_albedo=ground_albedo,
+        air_density_ratio=air_density_ratio(
+            spec.site.altitude_m, lapse_rate_k_per_m=scene_lapse_rate_k_per_m(spec)
+        ),
         orientations=tuple(
             SurfaceOrientation(
                 tilt_deg=s.tilt_deg,

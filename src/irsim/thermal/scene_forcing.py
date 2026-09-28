@@ -158,6 +158,9 @@ class SceneSurfaceForcing:
     orientations: tuple[SurfaceOrientation, ...]
     convection: ConvectionParams = DEFAULT_CONVECTION
     surface_temperature_k: float = 300.0
+    #: PT.28: ``ρ(z)/ρ(0)`` at the site's altitude; the forced convection blows with it. 1 is
+    #: sea level and every scene written before the field existed.
+    air_density_ratio: float = 1.0
     #: PT.24: what a surface sees below its own horizon. ``ground_temperature_k`` is a callable
     #: ``t_s -> K`` (the environment preset's ground: air, a fixed value, the SST); ``None`` is
     #: the air temperature, which every scene had until now and which put a quadrotor's belly
@@ -246,7 +249,11 @@ class SceneSurfaceForcing:
         # PT.25: the forced term only. Free convection used to be evaluated here at a fixed
         # `surface_temperature_k` (300 K) whatever the facet's own temperature was; the solver now
         # takes `max(h_forced, c |T_s − T_air|^{1/3})` at its own state, which is what §6.2 says.
-        h = forced_convection(relative_air_speed(sample.wind_speed_m_s, speeds), self.convection)
+        h = forced_convection(
+            relative_air_speed(sample.wind_speed_m_s, speeds),
+            self.convection,
+            density_ratio=self.air_density_ratio,  # PT.28: the site's thinner air
+        )
         # PH.1: what the latent term needs from the weather, on every forcing. With no wetness
         # declared and no film the balance never evaluates it, so a dry scene is unchanged.
         from irsim.thermal.latent import bulk_conductance_kg_m2_s, specific_humidity_kg_kg

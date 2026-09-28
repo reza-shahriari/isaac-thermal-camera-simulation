@@ -51,11 +51,20 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from irsim.radiometry.constants import GAMMA_AIR, PRANDTL_AIR, R_SPECIFIC_AIR
+from irsim.radiometry.constants import (
+    GAMMA_AIR,
+    ISA_LAPSE_RATE_K_PER_M,
+    ISA_SEA_LEVEL_T_K,
+    PRANDTL_AIR,
+    R_SPECIFIC_AIR,
+    STANDARD_GRAVITY_M_S2,
+)
 from irsim.thermal.solvers import PrescribedSolver
 from irsim.thermal.weather import WeatherSeries
 
 __all__ = [
+    "air_density_ratio",
+    "air_temperature_at_altitude_k",
     "RECOVERY_FACTOR_TURBULENT",
     "RECOVERY_FACTOR_LAMINAR",
     "speed_of_sound_m_s",
@@ -227,14 +236,26 @@ def heat_source_solver(
     times_s: object,
     throttle: object,
     tolerance_k: float = DEFAULT_TOLERANCE_K,
+    *,
+    altitude_agl_m: float = 0.0,
+    lapse_rate_k_per_m: float = ISA_LAPSE_RATE_K_PER_M,
 ) -> PrescribedSolver:
     """Motor / ESC / battery node as a prescribed schedule over a throttle profile (§6.6).
 
     The returned solver reproduces T_air(t) + ΔT_max u(t)^n to ``tolerance_k`` at every instant in
-    the profile's span, including between its nodes.
+    the profile's span, including between its nodes. With ``altitude_agl_m`` the base is the air
+    at that height (PT.28); at zero it is the surface series, bit for bit.
     """
     u_of_t = throttle_profile(times_s, throttle)
-    law = node_temperature(source, weather, u_of_t)
+    base_law = node_temperature(source, weather, u_of_t)
+    if altitude_agl_m == 0.0:
+        return prescribed_from_schedule(base_law, _base_nodes(weather, times_s), tolerance_k)
+
+    def law(t_query: FloatArray) -> FloatArray:
+        return np.asarray(
+            air_temperature_at_altitude_k(base_law(t_query), altitude_agl_m, lapse_rate_k_per_m)
+        )
+
     return prescribed_from_schedule(law, _base_nodes(weather, times_s), tolerance_k)
 
 
@@ -243,6 +264,9 @@ def airframe_solver(
     times_s: object | None = None,
     offset_k: float = 0.0,
     tolerance_k: float = DEFAULT_TOLERANCE_K,
+    *,
+    altitude_agl_m: float = 0.0,
+    lapse_rate_k_per_m: float = ISA_LAPSE_RATE_K_PER_M,
 ) -> PrescribedSolver:
     """The airframe node: T_air(t) + ``offset_k``, from the scene's shared weather (CLAUDE.md #6).
 
@@ -256,12 +280,62 @@ def airframe_solver(
 
     def law(t_query: FloatArray) -> FloatArray:
         t_air = weather.interpolate(np.asarray(t_query, dtype=np.float64))["t_air_k"]
-        return np.asarray(np.asarray(t_air, dtype=np.float64) + offset_k, dtype=np.float64)
+        t_here = air_temperature_at_altitude_k(t_air, altitude_agl_m, lapse_rate_k_per_m)
+        return np.asarray(t_here + offset_k, dtype=np.float64)
 
     return prescribed_from_schedule(law, _base_nodes(weather, span), tolerance_k)
 
 
 # --- aerodynamic heating of a moving skin (ADR 0075) -----------------------------------------
+
+
+def air_temperature_at_altitude_k(
+    t_air_k: object, altitude_agl_m: float, lapse_rate_k_per_m: float
+) -> FloatArray:
+    """``T_air − Γ z``: the air a target flies in, from the surface series and the preset's Γ.
+
+    PT.28. The weather file is the surface; a target at 500 m AGL under a 6.5 K/km lapse sits
+    in air 3.25 K colder, and everything that reads T_air for it -- the airframe's own
+    temperature, a heat source's base, the speed of sound the ram recovery divides by -- reads
+    this instead. ``z = 0`` returns the input bit for bit.
+    """
+    if not math.isfinite(altitude_agl_m) or altitude_agl_m < 0.0:
+        raise ValueError("altitude_agl_m must be finite and non-negative")
+    if not math.isfinite(lapse_rate_k_per_m) or lapse_rate_k_per_m < 0.0:
+        raise ValueError("lapse_rate_k_per_m must be finite and non-negative")
+    t = np.asarray(t_air_k, dtype=np.float64)
+    if altitude_agl_m == 0.0:
+        return np.asarray(t, dtype=np.float64)
+    out = t - lapse_rate_k_per_m * altitude_agl_m
+    if np.any(out <= 0.0):
+        raise ValueError("the lapse rate cools the column below zero kelvin")
+    return np.asarray(out, dtype=np.float64)
+
+
+def air_density_ratio(
+    altitude_m: float,
+    *,
+    lapse_rate_k_per_m: float = ISA_LAPSE_RATE_K_PER_M,
+    t0_k: float = ISA_SEA_LEVEL_T_K,
+) -> float:
+    """``ρ(z)/ρ(0)`` of a hydrostatic column with a constant lapse rate (PT.28).
+
+    ``(1 − Γ z / T₀)^(g/(R Γ) − 1)`` for Γ > 0 and the barometric ``exp(−g z / (R T₀))`` for
+    an isothermal column; the ISA values give 0.742 at 3 km and 0.338 at 10 km. The forced
+    convection scales its ``v`` by this, because ``h ∝ (ρ v)^n`` for the turbulent
+    correlation the default parameters fit. Exactly 1 at ``z = 0``.
+    """
+    if not math.isfinite(altitude_m) or altitude_m < 0.0:
+        raise ValueError("altitude_m must be finite and non-negative")
+    if altitude_m == 0.0:
+        return 1.0
+    g_over_r = STANDARD_GRAVITY_M_S2 / R_SPECIFIC_AIR
+    if lapse_rate_k_per_m <= 0.0:
+        return float(math.exp(-g_over_r * altitude_m / t0_k))
+    base = 1.0 - lapse_rate_k_per_m * altitude_m / t0_k
+    if base <= 0.0:
+        raise ValueError("altitude above the top of a constant-lapse column")
+    return float(base ** (g_over_r / lapse_rate_k_per_m - 1.0))
 
 
 def speed_of_sound_m_s(t_air_k: object) -> FloatArray:
@@ -317,6 +391,9 @@ def ram_skin_solver(
     times_s: object | None = None,
     recovery_factor: float = RECOVERY_FACTOR_TURBULENT,
     tolerance_k: float = DEFAULT_TOLERANCE_K,
+    *,
+    altitude_agl_m: float = 0.0,
+    lapse_rate_k_per_m: float = ISA_LAPSE_RATE_K_PER_M,
 ) -> PrescribedSolver:
     """An aircraft skin at its recovery temperature, on the scene's shared weather (ADR 0075).
 
@@ -333,6 +410,9 @@ def ram_skin_solver(
             weather.interpolate(np.asarray(t_query, dtype=np.float64))["t_air_k"],
             dtype=np.float64,
         )
-        return recovery_temperature_k(t_air, mach_number(speed_m_s, t_air), recovery_factor)
+        # PT.28: the air up there, and the speed of sound in it -- the Mach number rises in
+        # cold air at the same true airspeed, and the recovery rides on the colder base
+        t_here = air_temperature_at_altitude_k(t_air, altitude_agl_m, lapse_rate_k_per_m)
+        return recovery_temperature_k(t_here, mach_number(speed_m_s, t_here), recovery_factor)
 
     return prescribed_from_schedule(law, _base_nodes(weather, span), tolerance_k)
