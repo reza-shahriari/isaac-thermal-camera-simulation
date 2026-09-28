@@ -340,3 +340,50 @@ def test_an_image_in_a_document_is_published_not_linked_to_github(site: pathlib.
     for src in sources:
         assert not src.startswith("http"), f"{src} points off-site"
         assert (site / "viewer" / src).resolve().is_file(), f"{src} was not copied into the site"
+
+
+def test_a_tutorial_is_a_folder_of_pages_linked_in_order(site: pathlib.Path) -> None:
+    """`docs/tutorials/<name>/` publishes as its own section, one page per step, each step linked
+    to the one before and after it, and the folder's README is the contents.
+
+    The owner's rule (2026-09-28): a tutorial is a folder of pages on the site as well as on
+    GitHub, not one long file.
+    """
+    urls = build_site.tutorial_sources(REPO)
+    tutorials = {posixpath.dirname(s) for s in urls if s.count("/") == 3}
+    assert tutorials, "docs/tutorials has no tutorial folder"
+    assert (site / "tutorials" / "index.html").is_file()
+    for folder in tutorials:
+        steps = [s for s in urls if s.startswith(folder + "/") and not s.endswith("README.md")]
+        assert len(steps) >= 2, f"{folder} is one page, not a tutorial"
+        for i, source in enumerate(steps):
+            page = (site / urls[source] / "index.html").read_text(encoding="utf-8")
+            assert f"Step {i + 1} of {len(steps)}" in page
+            nav = re.search(r'<nav class="tutorial-steps">(.*?)</nav>', page, re.S)
+            assert nav, f"{source} has no way to the next step"
+            assert ('class="prev"' in nav.group(1)) == (i > 0)
+            assert ('class="next"' in nav.group(1)) == (i + 1 < len(steps))
+    # A step number is not in the url, so inserting a step does not break a saved link.
+    assert all(not re.search(r"/\d+-", url) for url in urls.values())
+
+
+def test_every_tutorial_page_is_listed_in_the_contents_above_it() -> None:
+    urls = build_site.tutorial_sources(REPO)
+    assert build_site.unlisted_tutorial_pages(REPO, urls) == []
+
+
+def test_an_unlisted_tutorial_page_is_reported(tmp_path: pathlib.Path) -> None:
+    folder = tmp_path / "docs" / "tutorials" / "demo"
+    folder.mkdir(parents=True)
+    (tmp_path / "docs" / "tutorials" / "README.md").write_text("# T\n\n[Demo](demo/README.md)\n")
+    (folder / "README.md").write_text("# Demo\n\n1. [One](01-one.md)\n")
+    (folder / "01-one.md").write_text("# One\n")
+    (folder / "02-two.md").write_text("# Two\n")
+    urls = build_site.tutorial_sources(tmp_path)
+    assert list(urls.values()) == [
+        "tutorials/",
+        "tutorials/demo/",
+        "tutorials/demo/one/",
+        "tutorials/demo/two/",
+    ]
+    assert build_site.unlisted_tutorial_pages(tmp_path, urls) == ["docs/tutorials/demo/02-two.md"]

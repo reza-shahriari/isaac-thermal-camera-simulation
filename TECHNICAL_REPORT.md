@@ -30,7 +30,8 @@ evidence behind the plan is in [`docs/research/`](docs/research/), most recently
 **Project site:** `make site` builds a browsable copy of all of this — the specification, the plan,
 the decision log, the validation reports, **every test in the repository with what it asserts**, the
 module, configuration and command catalogues measured from the tree at build time, the working-practice
-skills, and a web-sized gallery of what the simulator has actually rendered — into the gitignored
+skills, the tutorials (`docs/tutorials/`, one page per step, each linked to the next), and a
+web-sized gallery of what the simulator has actually rendered — into the gitignored
 `_site/`. `make site-preview` serves it locally; `make site-publish` commits it onto the
 `gh-pages` branch and prints the push command (ADR 0139). The renders it shows come from `outputs/`,
 which is not in git: anything the checkout lacks is listed on the page rather than quietly omitted.
@@ -835,6 +836,10 @@ tests/golden/       regression fixtures: .npy + JSON sidecar with config hash (A
 configs/            sensor / material / atmosphere YAML
 data/               data root (`$IRSIM_DATA_DIR` overrides): spectra/responses/, n/k tables, LUTs, weather
 docs/               physics-model.md and ADRs
+docs/tutorials/     step-by-step guides, one folder per tutorial and one page per step; on the site
+                    under Start ▸ Tutorials, each step linked to the next
+blender_addon/      the Blender add-on for giving a model its infrared materials, parts, contacts and
+                    hidden parts (its own plan and tests: blender_addon/PLAN.md, not the roadmap)
 site/               the project site's source: gallery.yaml (what to show) + assets/ (one stylesheet,
                     one script). scripts/build_site.py renders it into the gitignored _site/
 ```

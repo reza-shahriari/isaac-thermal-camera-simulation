@@ -341,6 +341,110 @@ def skill_pages(repo: pathlib.Path, resolver: Resolver) -> tuple[Page, list[Page
     return index, made
 
 
+#: Where the tutorials live: `README.md` introduces them, and each folder with its own `README.md`
+#: is one tutorial whose other pages are read in the order of their `NN-` prefix.
+TUTORIALS = "docs/tutorials"
+_STEP_PREFIX = re.compile(r"^\d+-")
+
+
+def tutorial_sources(repo: pathlib.Path) -> dict[str, str]:
+    """``{repository path: site url}`` for every tutorial document, in reading order.
+
+    The step number is left out of the url (``01-install.md`` is ``…/install/``), so inserting a
+    step renumbers files without breaking a link somebody saved.
+    """
+    root = repo / TUTORIALS
+    if not (root / "README.md").is_file():
+        return {}
+    urls = {f"{TUTORIALS}/README.md": "tutorials/"}
+    for folder in sorted(p for p in root.iterdir() if (p / "README.md").is_file()):
+        base = f"tutorials/{folder.name}/"
+        urls[f"{TUTORIALS}/{folder.name}/README.md"] = base
+        for path in sorted(folder.glob("*.md")):
+            if path.name != "README.md":
+                urls[f"{TUTORIALS}/{folder.name}/{path.name}"] = (
+                    f"{base}{_STEP_PREFIX.sub('', path.stem)}/"
+                )
+    return urls
+
+
+def _title_of(path: pathlib.Path) -> str:
+    """A document's own `# Title`, as plain text."""
+    for line in path.read_text(encoding="utf-8").split("\n"):
+        if line.startswith("# "):
+            return _plain(site_markdown.render(line[2:].strip()).html)
+    return path.stem
+
+
+def tutorial_pages(repo: pathlib.Path, urls: dict[str, str], resolver: Resolver) -> list[Page]:
+    """The tutorials, one page per file, each step linked to the one before and after it.
+
+    The contents of a tutorial are its `README.md`, written by hand so the folder reads the same on
+    GitHub; `unlisted_tutorial_pages` is what keeps that list complete.
+    """
+    titles = {source: _title_of(repo / source) for source in urls}
+    steps: dict[str, list[str]] = {}
+    for source in urls:
+        folder = posixpath.dirname(source)
+        if folder != TUTORIALS and not source.endswith("/README.md"):
+            steps.setdefault(folder, []).append(source)
+    pages: list[Page] = []
+    for source, url in urls.items():
+        page = document_page(repo, source, url, titles[source], "Start", "", resolver)
+        folder = posixpath.dirname(source)
+        if folder == TUTORIALS:
+            page.subtitle = "Step-by-step guides to using irsim."
+        elif source.endswith("/README.md"):
+            page.subtitle = f"A tutorial in {len(steps.get(folder, []))} steps."
+        else:
+            order = steps[folder]
+            index = order.index(source)
+            contents = f"{folder}/README.md"
+            page.subtitle = f"Step {index + 1} of {len(order)} · {html.escape(titles[contents])}"
+            links = []
+            if index > 0:
+                before = order[index - 1]
+                links.append(
+                    f'<a class="prev" href="{relative(url, urls[before])}">'
+                    f"← {html.escape(titles[before])}</a>"
+                )
+            links.append(f'<a class="up" href="{relative(url, urls[contents])}">All steps</a>')
+            if index + 1 < len(order):
+                after = order[index + 1]
+                links.append(
+                    f'<a class="next" href="{relative(url, urls[after])}">'
+                    f"{html.escape(titles[after])} →</a>"
+                )
+            page.body += f'\n<nav class="tutorial-steps">{"".join(links)}</nav>'
+        pages.append(page)
+    return pages
+
+
+def unlisted_tutorial_pages(repo: pathlib.Path, urls: dict[str, str]) -> list[str]:
+    """Tutorial pages that the contents above them do not link to.
+
+    A step's contents is its tutorial's `README.md`; a tutorial's is `docs/tutorials/README.md`.
+    A page missing from its contents is reachable on the site only through its neighbours'
+    arrows, and on GitHub not at all.
+    """
+    missing = []
+    for source in urls:
+        if source == f"{TUTORIALS}/README.md":
+            continue
+        folder = posixpath.dirname(source)
+        if source.endswith("/README.md"):
+            contents = f"{TUTORIALS}/README.md"
+            name = posixpath.basename(folder)
+            wanted = (f"{name}/README.md", f"{name}/", name)
+        else:
+            contents = f"{folder}/README.md"
+            wanted = (posixpath.basename(source),)
+        text = (repo / contents).read_text(encoding="utf-8")
+        if not any(f"]({w})" in text for w in wanted):
+            missing.append(source)
+    return missing
+
+
 def _split_frontmatter(text: str, fallback: str) -> tuple[str, str, str]:
     """`name` and `description` out of a skill's YAML front matter, and the body after it."""
     if not text.startswith("---"):
@@ -685,6 +789,8 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
         collection_pages[directory] = paths
         for path in paths:
             url_map[f"{directory}/{path.name}"] = f"{url}{path.stem}/"
+    tutorials = tutorial_sources(repo)
+    url_map.update(tutorials)
     resolver = Resolver(url_map, repo)
 
     pages: list[Page] = []
@@ -722,6 +828,8 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
         encode=media,
     ).build("gallery/")
     pages.append(gallery.page)
+
+    pages.extend(tutorial_pages(repo, tutorials, resolver))
 
     skill_index, skills = skill_pages(repo, resolver)
     pages.append(skill_index)
@@ -769,6 +877,7 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
     total = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
     return {
         "unresolved": sorted(resolver.unresolved),
+        "unlisted_tutorial_pages": unlisted_tutorial_pages(repo, tutorials),
         # The headline figures, returned so a caller (and the test) can check what was published
         # against what was counted, in one run: this tree is edited by several sessions at once,
         # so recounting afterwards races against them.
@@ -785,7 +894,7 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
 def nav_groups(pages: list[Page]) -> list[NavGroup]:
     """The sidebar: one group per section, collections collapsed to their index."""
     wanted = {
-        "Start": ["", "gallery/", "viewer/", "status/"],
+        "Start": ["", "gallery/", "tutorials/", "viewer/", "status/"],
         "Demos": [],
         "Physics": ["physics/", "spec-issues/"],
         "Plan": ["roadmap/", "decisions/", "changelog/"],
@@ -864,6 +973,8 @@ def main() -> int:
     )
     for source, href in result["unresolved"]:
         print(f"  dead link in {source}: {href}", file=sys.stderr)
+    for source in result["unlisted_tutorial_pages"]:
+        print(f"  {source} is not linked from the README.md above it", file=sys.stderr)
     if result["missing"]:
         print(
             f"  {result['missing']} manifest entries were not in {args.outputs} "

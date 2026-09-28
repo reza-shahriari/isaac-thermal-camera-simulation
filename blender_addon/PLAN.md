@@ -6,7 +6,8 @@ the physics project is project work, and it is recorded as rows in `docs/roadmap
 `AI.12`, `TC.9`–`TC.12`) and in `TECHNICAL_REPORT.md`'s limitations. Nothing under `src/`,
 `scripts/` or `tests/` was changed to build the add-on.
 
-How to use it: [`TUTORIAL.md`](TUTORIAL.md).
+How to use it: the tutorial [`docs/tutorials/blender-addon/`](../docs/tutorials/blender-addon/README.md),
+one page per step, also on the project site under Start ▸ Tutorials.
 
 ## What it is for
 
@@ -51,6 +52,23 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 9. **Licence: the repository's own.** `blender_manifest.toml` declares
    `LicenseRef-irsim-use-only`, meaning `LICENSE` at the repository root (use-only, non-commercial,
    committed on 2026-09-28). The add-on does not choose a licence of its own (open question 2).
+10. **Connections are proposed by a finder and decided by a person.** The finder scatters points
+    by area over each part (so a shell's one huge triangle beside many slivers is weighed
+    correctly) and counts a point as touching another part when that part's surface is within
+    reach, roughly parallel and straight across; the contact area is the smaller of the two sides'
+    estimates. A facing pair is the area whose outward normal reaches another part first, which
+    says *which* parts exchange heat by radiation, not how much: the view factor is the project's
+    `TC.9`. A person confirms, rejects, re-joints or adds; a new search updates what it found and
+    never overrides a verdict, so a rejected pair stays out.
+11. **A hidden part is a box, not geometry the camera sees.** It is marked not to render, is left
+    out of the USD and of the coverage figure, and moves with the part it sits inside. This
+    answers open question 3 the reversible way: nothing about it reaches the RGB companion, and if
+    the owner wants it as a guide prim instead, only the export changes.
+12. **Until the asset format has a place for them (`AI.11`), connections and hidden parts go in
+    `3d_models/<name>/<name>.structure.yaml`,** beside the USD and checked by the bridge first
+    with the refusals `AI.11` specifies (a missing part, a joint not in `joints.yaml`, a contact
+    larger than its parts, a hidden part without mass). Nothing in irsim reads that file yet; it
+    and the `.blend` copy keep the work until `AI.11` moves it into the asset config.
 
 ## Steps
 
@@ -59,27 +77,28 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 | B1 | Sidebar tab; parts list; library browser with ε/ρ/τ per band; assign to parts, to faces in Edit Mode, or to every part using a material; thermal view | ✅ 2026-09-28 | — |
 | B2 | New-material form, checked by irsim's own schema and closure before it writes `configs/materials/<name>.yaml` | ✅ 2026-09-28 | — |
 | B3 | Checklist (area-weighted coverage, mirror-like parts, default names); optional size guidance with *Apply scale*; export to USD + `.blend` + asset YAML; `prep_asset.py` audit in the background | ✅ 2026-09-28 | — |
-| B4 | Tutorial | ✅ text 2026-09-28; screenshots wait for B10 | — |
+| B4 | Tutorial | ✅ 2026-09-28: a folder of pages, `docs/tutorials/blender-addon/` (the owner: "should have a folder for that not just in the github but also in the github.io site"), with pictures from the Phantom 4 demo and one real screenshot | — |
 | B5 | **Reopen from an asset config.** *Load materials from an asset* applies an existing map (the Phantom 4's hand-written one, or an earlier export's) to the Blender materials of the same names -- raw or USD-safe -- keeping existing assignments unless told otherwise | ✅ 2026-09-28 | — |
-| B6 | **Hidden parts.** Pick a predefined component (motor, ESC, battery, piston or turbine engine, exhaust line; car and ship parts later), place it as a proxy box inside the shell, and edit its mass, idle and rated heat. The component data comes from the project library, not from the add-on | planned | `AI.11` (schema), `AI.12` (library) |
-| B7 | **Connection finder.** Parts that touch (with contact area) and parts that face each other across a gap are found automatically. They are shown as a list and as lines in the viewport; the user confirms, deletes, or changes the joint type (from `configs/thermal/joints.yaml`) | planned | `AI.11` (contacts), `TC.9` (facing) |
+| B6 | **Hidden parts.** Place a box inside the shell for a part the model lacks (motor, ESC, battery, electronics, piston engine, turbine, exhaust, gearbox, other); set its material, mass, idle and full-load heat, and where the numbers came from. Exported to the structure file, never to the USD | ✅ 2026-09-28, with the person's own numbers. **Next:** ready-made components with cited numbers once the project has a component library | `AI.12` (library); `AI.11` for irsim to read them |
+| B7 | **Connection finder.** Parts that touch (with contact area) and parts that face each other across a gap are found automatically, shown as a list and as crosses and lines in the viewport; the person confirms, rejects, changes the joint (from `configs/thermal/joints.yaml`) or the area, or adds one | ✅ 2026-09-28 | `AI.11` for irsim to read them; `TC.9` for the view factor itself |
 | B8 | **Main-object flag.** If `TC.11` wants "solve this asset fully" to be a property of the asset rather than the scene, the add-on offers it. Evolve/freeze (`TC.12`) and the exchange switch (`TC.10`) are scene settings, not asset ones | open | `TC.10`–`TC.12` |
-| B9 | The project site shows the tutorial | waiting for the owner: it needs a change to the site builder, a project file | — |
-| B10 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | pending: no interactive Blender was running | — |
+| B9 | The project site shows the tutorial | ✅ 2026-09-28: `docs/tutorials/` is a section of the site (`scripts/build_site.py`), every step linked to the next | — |
+| B10 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | partly: the owner's own session (the Sketchfab Phantom 4) showed the panels drawing and gave the *Parts* screenshot, and two fixes (below). Screenshots of *Connections* and *Hidden parts* with content still to take | — |
 
 ## Verification
 
 ```bash
-# Blender-free logic and the bridge (48 tests; the bridge writes only to temporary directories)
+# Blender-free logic and the bridge (72 tests; the bridge writes only to temporary directories)
 ~/IsaacSim/_build/linux-x86_64/release/python.sh -m pytest blender_addon/tests -q
 
-# End to end in a headless Blender, against a scratch copy of the repository (71 checks)
+# End to end in a headless Blender, against a scratch copy of the repository (134 checks)
 blender_addon/tests/run_blender_smoke.sh            # add --skip-audit to leave out prep_asset
 
-# The real Phantom 4 (needs the git-ignored 3d_models/phantom4.fbx): a .blend to open, two CPU
-# pictures, and an export + prep_asset audit of a 2.5-million-face asset
+# The real Phantom 4 (needs the git-ignored 3d_models/phantom4.fbx): a .blend to open, CPU
+# pictures, the hidden battery and the connection finder, and an export + prep_asset audit of a
+# 2.5-million-face asset
 blender -b --factory-startup --python blender_addon/demo/make_phantom4_demo.py -- \
-    --out outputs/blender_addon_demo --render --export-scratch /tmp/irsim_phantom_export
+    --out outputs/blender_addon_demo --render --structure --export-scratch /tmp/irsim_phantom_export
 ```
 
 What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
@@ -100,21 +119,49 @@ What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
   own API.
 - **The project's audit.** `scripts/prep_asset.py` passes the exported asset: 8/8 prims mapped,
   100 % coverage.
+- **Connections, on shapes whose answers are exact.** A 0.5 m box standing on a 1 m block touches
+  it over 0.25 m² (found 0.245) and is not also listed as facing it. Two 1 m plates 0.2 m apart
+  face each other fully (1.000 and 1.000 m², gap 0.2000 m), a third plate behind one of them is
+  hidden from the other, and a cube 10 m away is connected to nothing. A confirmed contact stays
+  confirmed through a new search, with the joint the person chose, and a rejected pair stays out.
+- **Hidden parts.** One is placed in the middle of the selected part at the size asked for, is
+  never rendered, is not in the exported USD, and is flagged by the checklist until it has a mass.
+- **The structure file.** The confirmed contact is written with its joint, the rejected pair is
+  left out, an unreviewed pair is written as unreviewed, and a joint the table lacks is refused
+  before anything is written.
 
 ## Open questions for the owner
 
-1. **The site (B9).** Should the tutorial be published on the project site? The site builder has a
-   fixed document list, so this means editing `scripts/build_site.py` or `site/gallery.yaml`, which
-   are project files.
+1. *(Answered 2026-09-28: the tutorial is a folder, on GitHub and on the site.)*
 2. **The licence.** The folder now carries the repository's use-only licence. The Blender
    Foundation's position is that add-ons importing `bpy` are GPL when distributed, so if the add-on
    is ever shared outside the repository, its licence is a decision for you, possibly with advice.
    Using it privately is unaffected.
-3. **Hidden parts (B6).** Should a component's proxy box appear in the exported USD as an ordinary
-   prim, or as a guide prim that the camera never renders? The physics needs its position and size;
-   the RGB companion should not show a box inside the shell.
+3. **Hidden parts (B6).** Should a component's box appear in the exported USD at all? Decided for
+   now (decision 11): no, it goes in the structure file only, so the RGB companion never shows it.
+   A guide prim in the USD is the alternative, if the owner prefers it.
 
 ## Log
+
+- **2026-09-28 (third commit)**: B6 hidden parts, B7 connection finder, B9 the tutorial as a folder
+  on the site.
+  - On the real Phantom 4, with the flight battery added inside the body (DJI's 468 g; heat
+    estimated, and labelled so), the finder searches 2.5 million faces in 9.9 s and finds 103
+    contacts and 87 facing pairs. The battery touches the middle shell over 29 cm² and faces
+    64 cm² of it. Exported through the add-on with its structure file, the model still passes
+    `prep_asset.py`, 41/41.
+  - The first picture drew every contact as a line through both parts' centres, and 103 contacts
+    made a web. Contacts are now small crosses where the parts touch; only the one selected in
+    the list gets lines to its parts.
+  - The first contact rule counted a strip beside a box standing on a block (within reach of the
+    box's bottom edge): 0.27 m² for a 0.25 m² footprint. A point now counts only when the other
+    surface is straight across as well as parallel: 0.245 m².
+  - A ray starting on a contact starts inside the other part, and reported its far side as
+    "facing". Points in contact are now left out of the facing search.
+  - From the owner's own session on the Sketchfab Phantom 4: its 41 parts are all called
+    `GeometryNode_<n>`, which the checklist did not flag (it now does, with 3ds Max's `Box001`
+    and Maya's `polySurface12`), and the checklist's lines cut off the material names (they now
+    come first).
 
 - **2026-09-28 (second commit)**: B5, reopening from an asset config, plus the Phantom 4 demo.
   - The real FBX (2,486,459 faces in 41 prims) is measured in 0.35 s and read as centimetres. The
