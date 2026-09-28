@@ -1,0 +1,1150 @@
+# irsim — technical report
+
+The engineering record of the simulator: per-component status and validation tier, the evidence
+behind each claim, known limitations, commands, layout and how to contribute. Every finished step
+updates this file (the `ship-step` skill). The [README](README.md) is the short public front page
+and only gains a one-line note when a step adds a feature worth showing.
+
+## Overview
+
+Simulates what a real LWIR / MWIR / SWIR / NIR camera would see, with radiometry that closes in physical
+units. Targets NVIDIA Isaac Sim 6.x (every engine fact is measured on the 6.1.0-rc.26 source build,
+ADR 0014); the physics core is engine-free so an Unreal Engine port is a rewrite of the glue only.
+
+**Physics specification:** [`docs/physics-model.md`](docs/physics-model.md) — the source of truth for
+every equation here. Code cites it by section.
+
+**Spec issues:** [`docs/spec-issues.md`](docs/spec-issues.md) — contradictions found in the spec, with the
+resolution the code assumes and what has been applied; raise new ones there, never diverge silently.
+
+**Next step:** `make next`, or the **Do next** block at the top of
+[`docs/roadmap.md`](docs/roadmap.md) — generated, so it cannot go stale; `make check` fails if it does.
+
+**Plan:** [`docs/roadmap.md`](docs/roadmap.md) — milestones, one-commit steps, risks, ADR backlog. Revision 6
+(2026-09-20) puts the physics the owner's requirements need first, in phase P: per-point surface temperature
+reachable from a scene config, heat moving between parts, water and fire. The scene lanes then follow the
+owner's order — aerial (validated against public anti-UAV thermal video), maritime, ground (ADR 0003). The
+evidence behind the plan is in [`docs/research/`](docs/research/), most recently the
+[2026-09-18 thermal coupling survey](docs/research/2026-09-18-thermal-coupling-survey.md).
+
+**Project site:** `make site` builds a browsable copy of all of this — the specification, the plan,
+the decision log, the validation reports, **every test in the repository with what it asserts**, the
+module, configuration and command catalogues measured from the tree at build time, the working-practice
+skills, and a web-sized gallery of what the simulator has actually rendered — into the gitignored
+`_site/`. `make site-preview` serves it locally; `make site-publish` commits it onto the
+`gh-pages` branch and prints the push command (ADR 0139). The renders it shows come from `outputs/`,
+which is not in git: anything the checkout lacks is listed on the page rather than quietly omitted.
+The front page opens on a full-bleed render and three blocks a reader can judge by looking — four
+bands of one scene, the point-wise comparison, and a wipe they drag — before any prose; which
+renders those are is declared in `site/gallery.yaml`, not in the generator (ADR 0141).
+
+---
+
+## Status
+
+Validation tiers: **T1** unit/analytic · **T2** radiometric bench · **T3** phenomenology ·
+**T4** vs. real data · **T5** task-level. See `docs/physics-model.md` §15.
+
+Validation artefacts, all generated and all committed:
+
+| report | what it is |
+|---|---|
+| [`docs/validation/reference-stats-2026-09-15.md`](docs/validation/reference-stats-2026-09-15.md) | the bands the simulator must land in, measured on all 365 IR clips of the Halmstad set (ME.5) |
+| [`docs/validation/tier4-2026-09-15.md`](docs/validation/tier4-2026-09-15.md) | the Tier 4 acceptance run — **it fails**, and each failing metric names the step it points at (M12.2) |
+| [`docs/validation/fidelity-ablation-2026-09-15.md`](docs/validation/fidelity-ablation-2026-09-15.md) | which mechanisms actually move the frames, ranked (M12.3) |
+| [`docs/validation/tier2-bench-protocol.md`](docs/validation/tier2-bench-protocol.md) | the lab bench, written and waiting for a camera (M12.4) |
+| [`docs/validation/tier3-checklist.md`](docs/validation/tier3-checklist.md) | the Tier 3 phenomenology checklist |
+
+What promotes a row (the table claims nothing above its evidence):
+
+- **T1** — analytic identities, independent implementations or known answers, in physical units,
+  in `tests/unit` (ir-sim-testing skill). Every row starts here.
+- **T2** — a standard lab characterisation reproduced *inside the simulator* on the CPU reference
+  (SITF, two-blackbody NETD, 3-D noise decomposition, MTF from a slant edge) with a stated tolerance.
+  Until a camera is available these are self-consistency checks (ADR 0003).
+- **T3** — a phenomenology item of §15 that emerges from the model and is asserted as a scalar (the
+  hot-exhaust AGC collapse, thermal crossover, fog vs band, FFC freeze …); a manual look does not count.
+- **T4** — a statistic measured on public imagery (`docs/validation/`) and matched within the
+  ADR 0068 targets, with N and a confidence interval.
+- **T5** — a detector-transfer experiment (real↔synthetic); external to this table and reported
+  in `docs/validation/`, never as a row state.
+
+A 🟢 row means the L2 scope of `docs/physics-model.md` §1 is implemented for that module and its
+tier evidence is in the suite; 🟡 means partial with the notes saying what is missing.
+
+| Component | State | Tier | Notes |
+|---|---|---|---|
+| `radiometry` | 🟢 done | T1–T2 | Planck (both forms, derivatives, exitances; σ, σ_q to 1e-6), encoding (0.05 mK), R(λ) contract, Simpson oracle, band averaging, float32 LUT (0.03 mK) + inverse (< 1 mK), bundles + `make luts`; golden LUT slice at 1 mK; ADRs 0005–0013 |
+| `materials` | 🟡 partial | T1 | **The extrapolated fraction is reported and decomposed (AT.7, ADR 0119):** `total_hemispherical_emissivity` always measured how much of eps_hemi comes from extending the nearest band past the four nominal ranges, and every scene build took `.value` and discarded it -- **61 % of the weight that sets every surface temperature was an assumption no scene author could see**. `Scene.emissivity_extrapolation()` reports it and `validate_thermal_diurnal.py` prints it beside the absolute temperatures it quotes. Two corrections to the plan: the fraction is **bit-identical for all twenty materials** (0.606695073 at 300 K, from bare aluminium's 0.113 to cotton's 0.943) because it is a property of the band set and the Planck weight, not of the material -- so there is no "worst material" to report; and the single number hides *which* assumption is being made. At 300 K it is 0.508 **red tail** beyond 13.5 um, the standard and defensible thermal-solver assumption; by 800 K it is 0.394 **interior gaps** (1.7-3.0 and 5.0-7.5 um), where "extend the nearest band" is far weaker because a real spectrum is bounded either side -- and `PH.6`'s 594 K plumes and `PH.7`'s 1200 K flames put the project in exactly that regime. It is not monotone either: 0.509 at 1200 K, since a flame's Planck peak lands at 2.4 um in the SWIR-MWIR hole, so a flame is *less* well covered than a 500 K manifold. Which reports carry it is a registry with a written reason per exemption, not a habit. Material schema (one YAML per material, `source` required, author exactly one of ε/ρ, τ optional; ADR 0040) + library deriving the third quantity per band via the ADR 0010 band average; closure library walk to 1e-6 (CLAUDE.md #4); six §16.2 materials; scalar-per-band `MaterialTable` with the UNMAPPED sentinel (npz + sidecar, stale guard); engine-free USD mapping resolver + `scripts/audit_materials.py` coverage gate (ADR 0047); four-material aerial library -- painted composite, carbon fibre, painted aircraft aluminium, propeller rubber (MS.7, ADR 0072); **branch-safe complex Fresnel (Level A, M7.4)** -- `fresnel_reflectance(n, k, cos θ)` with the §4.2 A/B reparameterisation, so the passive square-root branch is selected by construction (the rejected one returns R > 1) and an absorbing medium grows no total-internal-reflection knee; water at 10 µm reproduces [R1] (R(0) = 0.01018, ε(60°) = 0.961, ε(80°) = 0.697), which is the angular collapse a sea surface is made of; **real water optical constants** (`data/nk/water.csv`, Segelstein 1981, 2.0–15.6 µm) behind a loader that refuses a table with no `# source:` header and never extrapolates, plus `band_directional_emissivity` giving the band-effective ε_B(θ) — water over the Boson band reads 0.988 at nadir and 0.673 at 80°, where Fresnel at a single 10 µm would say 0.711 (M7.5 water, MM.1); **the n/k library is complete (M7.5, ADR 0041)** -- water measured, aluminium modelled (Drude), and glass and paint fetched as labelled **proxies** from the CC0 RefractiveIndex.INFO database by `scripts/fetch_nk_tables.py`: fused silica for soda-lime, PMMA for a clearcoat, since no redistributable dataset covers either real substance across 0.75-13.5 um. Provenance is enforced rather than linted -- the loader refuses a table with no `# source:` block, and the PROXY label lives *inside* that block because the loader stops carrying provenance at the first blank comment line (the first draft shipped its label where nothing could read it). **`glass_windshield` is now Level A**: one `angular_model` serves all four bands, and glass cannot be served by one -- the Si-O reststrahlen band drives n to 0.35 at 8.8 um inside the LWIR window, so a per-band fit wants a = 1.43 there against 0.66-0.73 elsewhere, and an a > 1 clips to zero at 85.1 deg, calling a windshield edge a perfect mirror where Fresnel still has 0.37 of normal. eps(70 deg) in LWIR falls 0.83 -> 0.69 against the estimate it replaces; roughness and the reflection lobe pending; semi-transparent second ray L = ε L_B + ρ L_env + τ L_behind with ρ derived and closure enforced per pixel, so the committed windshield shows itself in LWIR and what is behind it in SWIR (M7.15, ADR 0046) **The reflection lobe (M11.7, ADR 0067).** §4.3's claim — infrared lobes are narrower than visible ones, so paint and glass show near-mirror sky in LWIR while asphalt stays Lambertian — as a GGX kernel with α = roughness². **The split is explicit because the tidy alternative was tried and measured:** a microfacet lobe does *not* converge to Lambertian, and at α = 1 GGX sits a total-variation distance of **0.30** from the cosine hemisphere. So `K = w_s·K_GGX + (1−w_s)·cos θ/π` with `w_s = (1−r)²`, which conserves energy to **1e-12** at every roughness and makes both endpoints exact (mirror to 1e-6, V_s blend to 1e-6). The `(1−r)²` shape is checked against §4.3's own prose, from the library's authored values and not fitted to them: glass **94 %** specular, paint **77 %**, asphalt **9 %**. A ρ = 0.9 mirror at 30° elevation reads **more than 30 K below** its own 300 K surface — the car-roof effect. Solar glint arrives through the same kernel and is **capped at the sun's own radiance**, which is physics rather than a guard: an uncapped NDF peak claims 1/(πα²) = 4e5 sr⁻¹ for glass and renders a glint four orders of magnitude brighter than its source. MWIR glint against a 300 K scene: glass **1.4e4×** (off the top of the LUT), paint 630× (698 K apparent), and by roughness 0.6 it is *below* ambient and invisible. Engine-free oracle only — stage 1 still uses the M7.13 blend, which is exactly this model's roughness → 1 limit, so nothing rendered so far moves. **Third-party assets can now be imported (ADR 0128):** `scripts/prep_asset.py` converts FBX/OBJ/glTF to USD, applies the asset's `scale_to_metres` and audits it, entirely on the **CPU** -- Blender ships a complete `pxr` (OpenUSD 26.03), so the inspect -> map -> audit loop boots no Kit and touches no CUDA. A new precedence rung, the **per-asset material map** (`configs/assets/<name>.yaml`, exact case-insensitive names, above the semantic class and below the `thermal:material` override), carries what is true of one asset without changing every other scene. Measured on a 62 MB DJI Phantom 4 Pro (41 meshes, 21 materials, 2.49 M triangles): **43.9 % -> 100 %** coverage, and one *confident* global hit corrected -- `*white*` -> `car_paint_white` is paint on steel at 4399 J m^-2 K^-1 where the shell is moulded ABS at 2205, so the global rule made it twice as sluggish as it is. The second correction this asset used to make is now in the globs: `*metal*` -> `bare_aluminium` put eps = 0.09 on the motor housings, making them read as reflected sky rather than as themselves, until `AT.18` pointed the metal globs at the matte entry, deleted `*chrome*` (which is why bare coverage fell from 48.8 %: two chrome prims became honest misses) and made `audit_materials.py` fail any prim that reaches eps < 0.2 by glob or semantic class rather than by assertion. Material identity and geometry only: heat sources, thickness overrides and interior/exterior classification remain unauthored, and per-cell temperature still comes from the ADR 0110 mesh field. **A material names the surface its optics were measured on (`AT.17`, §4.5).** Emissivity belongs to the *surface*, not to the substance under it: one paper reports 0.834–0.856 for anodised aluminium and 0.055–0.82 across untreated cavities in the same window frames [R39], one metal, a fifteen-fold spread. `surface_treatment` is therefore required, with **no default**, because a default is a state nobody chose. The library's own violation is fixed and now demonstrates the rule: `bare_aluminium` shipped described as *polished* and valued as *oxidised*, and `aluminium_polished` (ε 0.04), `bare_aluminium` (0.09) and `aluminium_anodised` (0.845) now share ρ, c_p and k exactly while spanning 0.805 in ε. The anodised one *falls* toward grazing where the two bare metals rise, because its emitting surface is micrometres of oxide over the same metal — a distinction a library keyed on substance cannot express. |
+| `thermal` | 🟡 partial | T1 | `WeatherSeries` (one injected object, ADR 0032; unit guards, interpolation identities, hash), project CSV loader/writer (bit-exact round trip), synthetic clear day + committed 48 h sample; convection h = max(free, forced) with vehicle speed (ADR 0033); NOAA sun position + facet solar loading (ADR 0034, checked against an independent Spencer oracle); broadband longwave down from Brunt/Idso clear-sky emissivity (ADR 0035: the LWIR-window T_sky is not a broadband proxy); `TemperatureSolver` protocol with Prescribed and Newton (exact exponential) solvers; aerial target nodes -- motor/ESC/battery ΔT = ΔT_max u² above the shared weather's T_air and an airframe node, on a grid refined to 1 mK (MS.7, ADR 0072; magnitudes ESTIMATED); the two-node environment solver, the cabin node and the vehicle regimes are shipped but reachable from no scene (`PT.15`), and a `patch:` block on a §12.3 surface is solved **per cell** from the config on the surface's own material and bound to its prim by path -- under uniform forcing the cells reproduce the per-prim value bit for bit (`PT.17`); the car demo reads its bonnet and road grids from the config and overlays the bay radiators in Python until `TC.3` moves them into it; **occluders and daylight from the config** (`PT.18`, ADR 0095) -- schema v8's `world_frame:` and `thermal.occluders:` put a per-cell shadow on any world-frame patch (the beam gated by `cell_shadow`, the diffuse sky kept, spun up with the shadow) and the car fields finally carry a solar term, shaded by the car's own faces: a south-west concrete wall under an overhang is 9.9 K lit/shaded at 16:00 from YAML alone, unshaded cells are bit-identical to the per-prim solve, and the noon car's shadow runs 12.7 K colder than the road beside it after 25 min; a spatial field holds only the two ticks a query blends (`keep_ticks`, ADR 0093) with `on_tick` for whoever wants the history -- a day of the road patch went from ~240 MB to 166 KB (`PT.8`); **conduction between facets** -- `ConductionOperator` (symmetric W/K links plus areas) stepped implicitly beside the explicit surface balance (IMEX, one factorisation per tick size), so a 60 s tick stands over a joint whose time constant is a tenth of a second, and §6.4's explicit bound is finally enforced every step (`TC.1`, ADR 0094); **a thermal network** (`TC.2`, ADR 0096) -- `irsim.thermal.network`: lumped nodes in J/K, fixed-temperature and fluid boundaries, imposed heat in watts, links as a total G or as h_c·A / h·A (bit-identical, callable h for the key-off switch), link nodes with mass (a rubber mount) and radiation links, all stepped by one backward Euler solve per tick with fixed nodes eliminated; ΔT = Q/G and Q/(hA) to 1e-6, energy closed to 1e-6 every tick on a seven-node bay, and a bracket on a dry joint hot-soaks after key-off; **declared in the scene config** (`TC.4`, ADR 0097) -- schema v9's `thermal.nodes:` / `links:` / `sources:` with links in exactly one of the forms the literature reports and `configs/thermal/joints.yaml` carrying the survey's joint conductances with MEASURED/ESTIMATED provenance (the loader refuses a per-K typo); a bracket on 25 cm² of a new ferrous joint against a dry one, from YAML, settles in the two-resistor ratio to 1e-6; **the latent-heat term and a wet film per cell** (`PH.1`, ADR 0101) -- Q_L = L_v E in the balance on the cell's own temperature, a film per cell that rain fills and evaporation empties, humidity and wind from the one weather series, and the sea skin's net loss finally including the latent flux; a saturated cell lands on the psychrometric wet bulb within 0.1 K, a dry cell is bit-identical, 75 W/m² at 5 m/s against COARE's 76; **the wet/dry road** (`PH.2`) -- `wet_road_noon.yaml` waters half a road patch from the scene config (`film: {depth_mm, region_m}`): the sunlit wet half runs 9.9 K colder than the dry half at 27 min, the shaded a third of that, the film is gone at 28 min and the halves reconverge, the budget closing exactly; **lateral conduction between cells** (`PT.11`, ADR 0102) -- every patch conducts in its plane from its material's own k and thickness on the implicit step, held to the semi-infinite sheet's erf to 0.6 %, bit-identical at k → 0, stable at the 60 s tick where forward Euler explodes; **the car's fields on the library's own materials** (`PT.6`) -- the driver no longer authors C, ε or α (it had the road at 60 000 J m⁻² K⁻¹ against the library's 101 200), reads them from the scene's surfaces and refuses an override; **the R1 reference scene** (`PT.20`) -- `wall_half_in_sun.yaml` plus `scripts/wall_half_in_sun.py`: one concrete building whose faces sit 12 K apart, a neighbour's shadow cutting a 10.3 K terminator across the concrete half of the west wall and 7.4 K across the insulated-render half of the same face, and a synthetic-G-buffer frame of it on one prim; **an unconsumed binding is loud** (`PT.19`) -- a patch bound to a prim path the stage does not know raises before the first frame, naming it, and every binding's pixel count is recorded per frame; **an N-layer stack through every cell** (`PT.12`, ADR 0103) -- `layers: N` on a patched surface cuts its material into slices joined by §6.4's contact resistance inside one implicit solve; two layers match the two-node solver to a millikelvin, and a six-layer road's surface runs 5.6 K colder than the lumped slab's at 04:00; **the engine as a solved node** (`TC.5`, ADR 0100) -- `irsim.thermal.engine` and `solver: engine`: block + coolant, bay air, rubber mounts and subframe with heat in watts from the load schedule and forced → natural convection at key-off; from 93 °C the block is +32 K after 1 h and under 1 K after 7 h where §6.6's schedule is cold in one, the bay air overshoots +27 K at key-off, and the bonnet over the block keeps warming after the key turns off; **the R2 reference scene** (`TC.6`) -- both car scenes declare the engine as a solved node with a coolant loop and thermostat and the metal around it as nodes and links (block followed as a boundary, rubber mounts, subframe, a bolted bracket whose fan convection stops at key-off, the wing on two bolts): a bracket settles at G/(G + hA) of the block's rise to 1e-6, parts warm block → bracket → mounts → wing, and the bonnet is 18 K max–min with the engine on and keeps warming after key-off; the bonnet joined to the body by a contactor is deferred; **fields spun up with the scene present** (`PT.7`) -- the car demo's road and bonnet start as a car that has stood there through `spin_up_hours`: a 4.5 K standing patch under the clear night, under 0.3 K under overcast, the bonnet 4 K below the air it radiated past, and `emission_factor` on the balance so a grey body facing a cell returns one reflection of what the cell emits (the missing term had a cold car cooling the road under it by 2 K); **contactors and radiation between fields** (`TC.3`, ADR 0099) -- `irsim.thermal.coupling` joins two patches by exact overlap-area conductances (no grid alignment; the total is h_c·A_overlap and survives refinement, which a per-node conductance does not), steps coupled patches as one solver so a τ = 0.8 s joint stands under a 60 s tick with energy conserved, and reads ADR 0088's view factors both ways so an underbody's loss to the road is the road cells' gain to 1e-6; **point-wise surface temperature (MP.1, ADR 0087)** -- `PlanarPatch` is a grid of the same S6.1 facets on a plane and `PlanarThermalField` solves it on the existing fixed tick, so a surface carries a temperature *field* and not one number. Every rendered prim used to have exactly one temperature: `ThermalField` was always an N-facet solver, but every consumer mapped one facet to one prim, so N counted objects, not points -- which in LWIR is the dominant error for anything larger than a few pixels (a wall half in sun spans 10-20 K and rendered flat). The balance is unchanged; the spatial variation enters through `q_internal_w_m2` and friends, already per-facet and simply never varied across one surface, and the new code is the bilinear *lookup*. Held to **per-cell equilibrium**: with 250 W/m2 on half a patch each cell converges to the root `steady_state_temperature` gives for its own flux to **1 mK**, the halves 9+ K apart, so a field that averaged or broadcast the forcing fails by ~10 K. A patch claims a **slab**, not a rectangle -- a bonnet 0.9 m above a road projects into the road's own rectangle, and a patch testing only its in-plane extent would paint the car with the road and look reasonable doing it. **Per-cell sky view** (`PT.21`, ADR 0104): a 145-patch Tregenza dome sub-sampled 3 × 4 through the scene's occluders scales diffuse solar and longwave down alike; open sky 1.000 exactly, wall foot and overhang edge 0.5 within 0.01, an enclosed cell 3.2 K warmer at its night minimum. **The exhaust line as a gas stream in a wall** (`TC.7`, ADR 0105): `irsim.thermal.exhaust_line` marches the gas segment by segment into wall nodes of the network (manifold, downpipe, catalyst with its monolith, mid pipe, silencer, tailpipe; hangers, a heat shield), `solver: exhaust` from YAML; the march matches `exp(−NTU x/L)` to 1e-6, the line runs 557 → 368 °C at 60 % load, and after key-off the manifold shield rises 60 K to peak at +65 s before falling below 260 °C on MVFRI's clock. **The cabin, reachable** (`PT.15`, ADR 0038, ADR 0106): `thermal.cabin:` makes the air behind a car's panels a lumped member of their coupled solve, reproducing `CabinNode`'s equilibrium to 0.021 K and ADR 0038's +4.8 K roof; `parked_car_cabin.yaml` puts a saloon's cabin at 68.7 °C at noon and 3 K below the air at midnight. **Occlusion from geometry** (`PT.22`, ADR 0107): `irsim.thermal.raycast` puts rectangles, NumPy triangle soups or both behind one `(origins, directions) → hit` call, and samples the sun's 0.53° disc on 1/7/19/37 rays into a sunlit fraction -- a box shades identically as rectangles and as triangles, a neighbour's mesh shades a wall its own cannot, and the terminator becomes a ramp 9.3 mm wide per metre of standoff. **Still water** (`PH.3`, ADR 0108): `irsim.thermal.still_water` gives a pond or puddle a fresh-water conductive sublayer with a **signed** skin (0.38 K below the bulk on a clear calm night, 0.21 K *above* it on a humid overcast one, where the sea's clamped form reports zero), the mixed layer's own mass, and the Fresnel-plus-sky mix a camera reads; `water:` on a patched surface makes a puddle a region of a road. **A mesh field from the scene config** (`WM.7`, schema v14): a surface's `mesh:` block builds a cylinder or a sphere and solves cells **on it**, each cell taking its own face's normal for the direct beam and for `V_s = (1 + n·up)/2`, through `MeshCellForcing`. It is spun up per cell always -- no two cells of a mesh share a forcing history, so the per-prim spun-up value is wrong for all of them and the scene would otherwise open with a uniform tube. `configs/scenes/quad_flight_mesh.yaml` flies the aerial mission with the two arms as 30 mm carbon tubes: the crown runs 42.7 C over an underside on 27.3 C, **15.4 K around one arm**, where the same arm as a patched strip carries under a millikelvin across its width. `scripts/quad_flight_mesh.py` writes each arm unrolled and a video. **Lateral conduction on a mesh** (`WM.6`, ADR 0112): `irsim.thermal.mesh_conduction` puts `PT.11`'s term on a triangle mesh -- a two-point flux `k δ w/(d_a + d_b)` within each face and across every shared edge, with faces of different levels matched by the length they overlap, behind the same `ConductionOperator`. **Monotone over consistent**: the circumcentric (dual-cotan) weight `2kδ/(cot θ_a + cot θ_b)` is the consistent one and goes **negative** on any obtuse face, which breaks the discrete maximum principle and renders as a bright speck; `ConductionOperator` refuses a negative conductance outright, so that assembly fails at build. The two agree **bit for bit** on an equilateral face (`√3 kδ = kδ tan 60°`), the weight does not depend on the level, a linear field is exact to 7e-16 there against 1.5-4.5 % when skewed, and a tube reproduces the fin equation's `1/(1 + (2πL/λ)²)` = 0.744 to **1 %**. The cost of skew is an authoring rule: cut a tube so its rings are ~1.4x its circumferential arc, or the operator carries as little as three quarters of the conductivity it should. **What a mesh cell can see, traced** (`WM.4`): `irsim.thermal.mesh_geometry` gives every cell a ray-traced sky view on `PT.21`'s Tregenza dome and a ray-traced beam on `PT.22`'s disc, against the scene's occluders and the mesh's own triangles through one `Occluders` protocol -- so a shadow and a sky view cannot disagree about where the geometry is. A **convex** mesh traces to the analytic `(1 + n·up)/2` **bit for bit** (the gated and open quadratures are the same additions in the same order), which is why `cell_occluders` skips it -- exactness, not a speed heuristic -- and every mesh shipped before this row keeps its numbers. A mesh cell and a patch cell agree to the bit about the sky at the same point under the same wall, through two independent ray-rectangle implementations; the foot of a 60 m wall reads 0.5000 and the edge of a wide overhang 0.5042. In the aerial scene the motor pod covers the outer 60 mm of each arm: those cells lose the whole midday beam and all but 0.10 of their sky against 0.93 along the open span, and the same body rectangles now shade the meshed arms and the patched ones alike. **A field on a triangle mesh** (`WM.2`): `irsim.thermal.mesh_field` cuts each face into k² congruent cells on the barycentric grid at a per-face level (Ptex style, so resolution follows the gradient and not the tessellation) and solves them on the same `ThermalField` tick, which is the geometry ADR 0087's projection cannot cover. A 0.25 m sphere under an overhead sun holds every face to its own root within 1 mK across a 34.3 K span, where one facet for the whole prim lands at 295.0 K -- 25 K under the sunlit cap and 9 K over the far side; under uniform forcing it is bit-identical in float32 to the scalar solve, so the change is provably a redistribution. Not yet on the render path: that is `WM.3`. **People: skin and clothing are two temperatures on one body (PH.12, ADR 0122):** `human.py` -- a person is the most common IR target and one temperature gets the most important thing about them wrong. At 0 C in still air with 1 clo: skin **34.07 C**, clothing **13.96 C**, a **20.1 K step across one body**, four hundred times a 50 mK NETD -- the reason a face and hands are the brightest things in a winter street while the coat between them is nearly background. Indoors at 22 C in 0.5 clo the same person's step is **4.9 K**, so how much of a person stands out is a property of the weather, not the person. Skin is **authored** from ISO 7730's thermoregulated set point `35.7 - 0.028(M-W)` (and *falls* with work -- 34.07 C seated, 32.44 C walking -- because more heat leaves by sweat than by the surface); clothing is **solved** from the standard's own implicit balance rather than from this project's, because its coefficients were fitted together as a set. Solved by **bisection**: the textbook fixed-point iteration **diverges for a coat in wind** at 1 m/s, and damping by a half only postpones it. Two findings against the row. Its 10-15 K band is what the same equation gives at **10-15 C air** -- exactly ISO 7730 Annex A's validity floor -- so the criterion was written for an in-range condition and quoted at an out-of-range one; the tests record the measured 20.1 K rather than loosening the band until it fits. And "more wind lowers t_cl" is the special case: wind couples the coat to the **air**, so above **3 clo** under a -40 C sky the coat sits *below* air and the same wind **warms** it. The `pythermalcomfort` two-node cross-check **is not run** -- the package is not installed; a `comfort` optional extra declares it, the test skips loudly with the install command, and a second test asserts nothing under `src/irsim` imports it. **Vegetation: leaves transpire (PH.11, ADR 0121):** `vegetation.py` -- a leaf's temperature set by its stomata and nothing else. Same sun, same wind, same air: a well-watered leaf sits **-1.93 K below air** at a 3.18 kPa deficit and a stressed one **+7.00 K above** it, nine kelvin from one number. The Idso non-water-stressed slope is **-1.84 C/kPa**, inside the published [-3.8, -1.1] band, which was **recorded as an acceptance and not fitted to**. Two decisions with teeth. A leaf is **solved, not stepped**: 630 J/m2K with its own well-ventilated boundary layer gives a **15.4 s** time constant, so the midpoint rule is stable only to **30.8 s** and a 60 s tick diverges -- against 3089 s for a snowpack and 8825 s for asphalt, so the leaf is two orders more restrictive than anything else here (`TC.1`'s guard). And a leaf has **its own boundary layer**, not the project's bulk one: **33 s/m** at 2 m/s against **435 s/m**, thirteen times better ventilated because the air only crosses five centimetres. Built on the bulk value a watered leaf read **+6.4 K** where the answer is -1.9 K -- the wrong *sign* of the only effect the module exists to produce, and nothing but a test asking for the sign would have caught it. The oracle is Campbell & Norman's closed form written in **molar** units from published constants, independent of this project's SI mass-based balance: the two agree to **0.10 K** near air temperature, drift to **0.37 K** by 4.6 K of departure (the closed form linearises both the saturation curve and sigma-T^4 about air), and agree to **4e-10 K** in the degenerate case where both linearisations vanish -- which is the check that says they are the same equation. The molar constants are **derived** from this project's SI ones, not pasted, so c_p comes out 29.105 against C&N's 29.3 and gamma 6.594e-4 against 6.66e-4; the tests assert the derived values and name the published ones rather than loosening a tolerance until the gap disappears. No material carries a stomatal resistance and no scene declares vegetation. **Snow: the melt cap (PH.10, ADR 0120):** `melt_capped_step` holds a snow surface at 273.15 K and routes the surplus into fusion at L_f = 334 kJ/kg -- +200 W/m2 holds the cell at the cap **bit-exactly** and sheds **2.1557 mm of water equivalent per hour**, which is `200*3600/334000` and not a fit. The flux is read **at** the melt point, not at an RK2 midpoint above it: clamping after a step evaluates emission and convection at a temperature the surface never reaches and under-reports the melt by 0.1-1 % **every step, always in the same direction**. A step that carries a cell *through* the cap splits its enthalpy, so energy is conserved across the transition rather than discarded at every thaw; a finite pack hands back what it cannot melt, so the last micron of snow cannot pin a surface at freezing forever. The night-time half needs **no special case at all**, which is the better evidence the emissivity chain is right: with snow's eps_hemi of 0.9874 (0.99 LWIR pulled down by its own angular fall-off) eight hours of clear calm night sits **-12.73 K** below air, a breezy one -4.75 K, and overcast **identically 0.00 K** -- a fully overcast sky is a blackbody at air temperature, so absorbed and emitted longwave cancel and there is no imbalance left for wind to mix away. The alpine ESSD 16 (2024) Tier 4 bar (0.7-1.3 K MAE) is **recorded, not run**; no scene declares snow yet, as `PH.7` shipped fire with no `fire:` block **Cost budget (`GT.7`):** `tests/unit/test_cost_budget.py` pins what the lane's sizing rests on — 102,400 cells through a 48 h spin-up in **11.5 s** (39 ns per cell per tick), so 10⁵ cells is affordable and a patch authored coarsely for speed is trading accuracy for nothing. One bound prim costs **32.7 ms** per frame at 640×512. It also removed a duplicated pass: `PlanarPatch.sample` needed both the patch coordinates and the inside test and computed the coordinates twice to get them, once itself and once inside `contains` — **5.3 ms of a 23.5 ms** sample, now reused via `contains_local`. That one is guarded by **counting calls rather than seconds**, so the optimisation cannot be undone by a change that merely looks fast on a quiet machine; the two timing budgets sit an order of magnitude above the measured value, because the regression worth catching is an accidental O(n²), not a 20 % drift. **A driving vehicle's wheels reach a frame (`TC.8`, ADR 0089 addendum).** `irsim.thermal.drive_cycle` walks a `VehicleState` trace and drives §6.6's two differently-shaped wheel laws: the brake disc as an **energy deposit** — its axle's share of f·½m(v₁²−v₂²), 162 K into an 8 kg disc from 30 m/s and four times that from 60 (ADR 0038) — and the tyre as a **relation in speed** with a 20-minute constant, so a frame shows where the car has been rather than how fast it is going now. Both had been implemented since M6.14 with no caller outside their own tests, so no rendered frame here has ever contained a warm brake. A parked car gets **cold wheels**, which §6.6 does not say: its +10 K lower bound describes a tyre rolling slowly, not one standing still, and tyre heating is flexing work — the departure is in the ADR rather than in the code. Measured on the demo car: 40 minutes at 27 m/s puts the tyre 28.1 K over ambient and the arch liner above it takes 285.9 W/m² against the door's 0.11. |
+| `atmosphere` | 🟡 partial | T1 | Beer–Lambert kernel (isothermal invariance to 1e-12), Magnus humidity, grey-band error study (ADR 0048), seven presets reproducing the §7.2 table rows with Koschmieder aerosol (ADR 0049: fog ordering and the humid/fog LWIR–SWIR crossover from weather alone); `Atmosphere(preset, weather, luts)` bound to the one shared `WeatherSeries` (object only; T_air identity with the solver's ambient; humid/fog crossovers from weather alone); stage 2 in `run_frame` with the sky-pixel pass-through and the constant-τ L1 fallback (ADR 0050; known answer 306.303 K within 1 mK); layered slant-path model (exponential sum over spectral classes, sky = column emission; R13's −40 °C LWIR sky at 15° reproduced; ADR 0071); `SkyModel` elevation/tilt LUTs, cloud blend, broadband delegation, the spec's cos^q form derived and its error recorded (ADR 0044); cloud clutter with the LCL base from the weather and seeded 1/f^β structure (MS.3, ADR 0070; display-domain bound deferred to ME.5), a 0-to-1 depth per ray rather than a stencil (ADR 0125), and — since `AT.11` — an authored **visible optical depth** rather than a transmittance: ε = 1 − exp(−0.5 m τ_vis) per ray, which at the diffusivity factor reproduces Shaw & Nugent's published 1 − exp(−0.79 τ) exactly, with the cloud placed at the LCL so the air in front of it attenuates its excess over the clear sky (ADR 0126). A plane-parallel deck has no sides, so an optically thick core is flat to within a kelvin; Tier 3 phenomenology over every preset (band orderings, the humid and fog crossovers from weather alone, short-slant self-consistency) and a Bouguer solar-path stub, `τ_sun(θ) = τ_zenith^sec θ` (M8.8, ADR 0051). **Sea surface as a background (MM.2/MM.3, ADR 0078):** `SeaModel` gives apparent sea temperature vs depression angle — Cox–Munk slope statistics from the shared weather's wind, a facet-tilt quadrature moving emissivity and reflected-sky elevation together, spherical horizon geometry. The isothermal identity is exact to 0 mK. **Sea skin temperature (MM.4, ADR 0080):** the camera never sees the authored bulk SST -- it sees the top fraction of a millimetre, which is colder whenever the ocean loses heat. `T_skin = T_bulk - dT_cool(U, Q_net) + dT_warm(Q_sw, U)`, Saunders (1967) for the conductive sublayer (**0.93 mm** at 5 m/s, against ~1 mm observed) and an explicitly empirical diurnal warm layer. The `cool_skin_k` argument is **gone**: the skin is derived from the scene's own wind, sky and site, so it cannot contradict the wind the same scene uses for Cox-Munk (#6). Measured **0.110 K** of deficit at 5 m/s under the 79 W/m2 a clear night over a 290 K sea gives -- 2-6x a 50 mK NETD, one-signed, across half the frame, which is why every maritime frame rendered before this was biased warm. Known limit, recorded rather than hidden: Q_net is longwave-only, so the deficit is a **lower bound by ~2x**, and it is exactly linear in Q_net which is what makes that bounded. The SST **sensitivity ordering** is the deliverable: a 1 K bulk error moves nadir by 0.98 K and a 0.2 deg patch by 0.20 K, so SST accuracy matters looking down and stops mattering within a degree of the horizon. **Tier 3 maritime phenomenology (MM.8):** `validation/maritime_scene.py` is the maritime twin of the aerial fixture -- sky above a spherical horizon, sea below it at each ray's own depression, vessels resolved or sub-pixel -- and whole frames go through `run_frame`. The rendered sea matches the sea model's own un-tabulated profile to **0.34 mK**, which is the check that the atmospheric path is not counted twice (sea and sky are both *background* at distance 0, because the sea profile already carries its own path). Two of the step's written criteria turned out backwards and the tests measure them instead: the near-horizon sea reads **2.89 K warmer** than close sea rather than colder (the profile's cold trough is ~5 deg down, so a horizon frame sits on its rising side and the path doubles the lean), and overcast compresses the span to **57 %** of clear rather than under 20 % (the cloud base is still colder than the water, and the path ignores cloud). The third holds and is the one that matters for detection: a 289.5 K vessel reads **+1.27 K** against sea at 574 m and **-0.86 K** at 7.9 km -- same vessel, opposite polarity, with a contrast null between. The profile is **not** a monotone ramp: there is a cold band 2–15° below the horizon (283.7 K against 289.5 K at nadir for a 290 K sea), and the atmospheric path pulls the far field back toward T_air, so range and not angle alone sets maritime background contrast. . **The sea model's angular validity envelope (SE.1, ADR 0118):** `sea_envelope.py` records that published in-situ radiometry (CE 312 over buoy-instrumented sea, 8-14 um) backs this Masuda-class model only to **50 deg from nadir**, converts a camera depression to the view zenith at the surface by the exact spherical `sin(theta) = (1 + h/R) cos(delta)` (exactly 90 deg at the horizon, where the flat-earth form is short by the horizon dip -- 0.14 deg at 20 m, 3.2 deg at 10 km), and reports what fraction of a frame is outside. Measured: **every shore and mast frame is 1.0000 outside the envelope; every down-looking airborne frame is 0.0000**, so the flag separates two real deployments instead of firing everywhere. At 20 m of eye height the limit is crossed at **31 m of slant range** -- the entire maritime working band is extrapolation, and MM.8's findings above are findings about one. Two things the roadmap row did not anticipate: the envelope has a **second axis**, since our facet-integrated emissivity drop at 55 deg reproduces the published 2-3 % only up to **7.3 m/s** of wind (4.33 % at 15 m/s), and recording the limit against *depression* instead of zenith **inverts** the answer -- it would certify the shore camera and warn about the airborne one. The 2.07 % calm-sea drop landing inside the published 2-3 % is the first external check on this chain's angular emissivity; the isothermal identity cannot be that check, and a test demonstrates it by holding the identity with epsilon replaced by a flat 0.5. Nothing is gated: the model still answers past 50 deg, now labelled. Wu-Smith is deliberately not implemented from a one-line survey claim; **scattered sunlight in the sky (M11.10, ADR 0086)** -- `skylight.py` adds L = f_B . DHI / pi to the clear sky, with the diffuse spectrum taken as the ground-level solar spectrum weighted by lambda^-4 because skylight is far bluer than the beam that made it. Isotropy is chosen for the *integral*: the hemisphere integral of L cos(theta) is exactly L.pi, so the form puts back the diffuse irradiance the weather file measured. Without it a NIR render is a sunlit target on a **black sky**, which is backwards. Measured at DHI = 120 W/m2: NIR 5.35e18 photons/s/m2/sr against LWIR's 8.2e-7 W/m2/sr, eight orders below that band's column emission -- so an emissive band gets None and renders bit-identically. Deliberately wrong in its distribution: no horizon brightening and no circumsolar aureole **Droplet plumes (`PH.9`, ADR 0135):** `irsim.atmosphere.mie` computes Bohren-Huffman Mie efficiencies in NumPy (no SciPy, downward `Dₙ` recursion — upward is unstable once `k` is appreciable, and for water in LWIR it is), and `irsim.atmosphere.droplets` turns them into `β_ext = 3·LWC·Q_ext/(4ρr)`; `GasSlab` gains `lwc_kg_m3` and `droplet_radius_um`. The row's premise was wrong — **`cloud.py` has no Mie tables**, only one measured band ratio — so the efficiency is computed from `data/nk/water.csv`, checked against the *exact* Rayleigh limit to 2e-4 rather than a published table value. **What a LWIR camera sees of steam is the droplets, not the vapour**: at 373 K over a metre, pure saturated vapour leaves an optical depth of 0.169 and 5 g/m³ of 5 µm droplets leaves 1.02, the two being equal at 0.83 g/m³. MWIR extincts 4.1× harder than LWIR at 2 µm but only 0.99× at 20 µm, where both bands are geometric — so `PH.9`'s band criterion is true for fresh condensate and not in general. Extinction goes as **1/r**, so the same water spread over smaller droplets is *more* opaque. A droplet-only slab is allowed down to freezing, below the 300 K gas-table floor that does not apply to it. |
+| `optics` | 🟢 done (L2) | T1–T2 | Aperture factor π/(4F²+1) defined once (AST guard), FPA irradiance, pixel power; pinhole field angles and cos⁴ vignetting (ADR 0015); self-emission single-lens form + Kirchhoff-closed element stack, 87 mK/K shutterless drift (ADR 0016); **the housing is seen through the field** — relative illumination multiplies the scene *minus* the housing, so a sky colder than the camera shades brighter at the corners, and a measured `vignetting_map` is loaded (SC.17, ADR 0145); **the housing is seen through the field** — relative illumination multiplies the scene *minus* the housing, so a sky colder than the camera shades brighter at the corners, and a measured `vignetting_map` is loaded (SC.17, ADR 0145); **the housing is seen through the field** — relative illumination multiplies the scene *minus* the housing, so a sky colder than the camera shades brighter at the corners, and a measured `vignetting_map` is loaded (SC.17, ADR 0145); box downsample + composed optics stage with inverse (ADR 0020); MTF cascade and optical PSF at the supersampled pitch, slant-edge MTF bench 0.31 at Nyquist (ADR 0059); `HousingTemperature` source for the self-emission term -- `fixed` / `ambient` / `coupled`, the coupled node a first-order lag on the shared weather's T_air plus ΔT_self via the M6.6 exact-exponential solver, checked against the closed-form step response at τ/2τ/5τ to 0.01 K and against the first-order Bode amplitude and phase under a diurnal drive (M9.3, ADR 0016 addendum; `coupled` now requires `housing_tau_s`, sensor schema v6); lens projection as the **oracle for the lens the engine is handed** -- OpenCV rational-polynomial and Kannala-Brandt forward models, the USD/OpenCV frame flip and the principal-point convention tied to the vignetting geometry by test, distort/undistort round trip < 1e-6 px against the 0.2 px in-sim budget, and `ftheta` **refused** because its polynomial convention is undetermined on this build (M10.9a, ADR 0015 addendum); **within-frame motion smear** -- the spatially varying spatial twin of the cascade's `mtf_motion`, which had been described since M5 and never applied, held to within 0.015 of `|sinc(s·f)|` and split by integration duty so a shutterless bolometer smears over the whole frame and a cooled photon detector does not (ADR 0077); **rotor discs as a time-averaged veil** -- a running mean of blade passage over the swept angle, composited in radiance, mean-preserving under every shutter, with tilt entering only as the projected area of a pitched plate (ADR 0081) **Defocus geometry (`OC.1`):** blur circle, W020 in waves, hyperfocal and the depth-of-field limits, tested against the thin-lens construction rather than against itself. No kernels yet (`OC.2`) and nothing in the pipeline reads it (`OC.5`), so every render is still in perfect focus. A non-positive distance **raises**: G-buffer sky carries `distance_m = 0` and a depth-to-blur map that takes it literally defocuses the sky hardest of all. **Defocus OTF (`OC.2`, ADR 0129):** Hopkins by quadrature — diffraction and defocus in one term, equal to `mtf_diffraction` at zero defocus to 7.7e-9 — with the geometric disk and a Gaussian selectable for ablation, and a SciPy-free `bessel_j1`. The geometric disk is invalid everywhere this project renders: it needs a 168 µm blur circle, fourteen pixels, at F/1.0 in LWIR. Defocus is achromatic (λ cancels from Hopkins' a), so band averaging moves the contrast-carrying OTF by under 0.3 % and matters only at the cut-off. **`scripts/focus_demo.py` (`OC.3`)** renders two cubes at different ranges and focuses on either — stills plus a focus-sweep video, no scene config and no Isaac Sim. Blur is applied in **radiance**, per layer, composited back to front with each layer's blurred coverage as its alpha. The measured 10-90 % edge width tracks the blur circle in quadrature with a line-spread constant stable to 5 % across a 20x range of defocus. **Global defocus (`OC.5`)**: `PipelineConfig` carries a `DefocusKernelBank` whenever the camera names a model, and stage 3 picks the kernel from the **median** range of the geometry in frame, sky excluded. Kernels are quantised to a quarter of a supersample cell of blur circle and cached, so an unchanging scene builds one. A camera that names no model keeps the single in-focus `optical_psf` and is bit-identical. **Layered defocus (`OC.6`)**: `defocus_apply: layered` buckets the frame by W020 — equal width in W020, not equal counts, because a frame that is mostly background puts the median there and collapses to one layer — blurs each with its own kernel and its coverage, and composites back to front **normalised by the accumulated alpha**. A flat field survives any focus to 1e-9. **The analytic hidden layer (`OC.7`)**: an optional `background_t_k` G-buffer plane — the apparent temperature each ray would report with all geometry removed — seeds the layered composite as an opaque backmost layer, so the occlusion gap behind a defocused silhouette is filled with the truth instead of `OC.6`'s normalisation. For sky and sea that costs no second render, because their radiance is a function of ray direction the adapter already evaluates. Matches a two-layer reference to 1e-12, against a 1.98-radiance-unit error without it. **The occlusion bound (`OC.8`, ADR 0131)**: measured against a two-layer reference at three depth ratios — normalisation alone 2.9-5.1 K, push-pull `estimate_background` 2.6-5.0 K, the analytic background **0.0000 K**. Both approximations stay inside a band about the silhouette. Push-pull buys 1-10 %, not an order of magnitude: an extrapolation cannot recover structure that was never visible, and the exact answer for clutter is a second rendered depth layer, written up and deliberately not scheduled. **Focus that moves (`OC.9`)**: `autofocus` is a passive contrast-detection servo — it may only look at the picture — with a normalised Tenengrad measure, a multiplicative probe and a step that widens when it stalls, so it hunts the way a real core does. `track` follows a `semantic_id`'s median range and **holds** when the target leaves frame. Convergence is asserted to the depth of field, because that is all a contrast measure can resolve. **Thermal defocus (`OC.10`, schema v11)**: germanium's dn/dT is ~250x a visible glass, so an unathermalised IR lens walks out of focus as its housing warms. Derived from the lens and housing materials in `irsim.radiometry.constants` and folded into an **effective focus distance**, so every stage downstream gets it free. A 20 K rise takes a 14 mm F/1.0 Boson from infinity to **6.8 m** — inside its own 16.3 m hyperfocal. `athermal: true` is the default and is every camera written before v11. **A receding surface is one surface (`OC.11`, ADR 0134):** the layered composite used `over` between every pair of layers, which is right between a foreground and its background and wrong between two slices of the *same* surface receding through two bins — those do not hide each other, the aperture bundle lands on both, so they add. The `over` chain left `alpha(1-alpha)(L_surface - L_behind)` at every bin edge: **8.6 K** on a 0.6 m cube at 3 m against sky, with RMS **rising 1.31 → 2.32 K** as `max_layers` went 3 → 8, so the error grew with the only quality knob the stage has and the shipped default of 8 was its worst setting. Every surface that recedes — ground, sea, the flank of a vehicle — was affected; `OC.6`'s own tests missed it because they measured flat slabs with space between them. `DepthLayer` now carries the depth span it covers and `separated` composites `over` only across a genuine gap, adding where layers abut. Peak **0.16 K**, and the residual now *falls* with the cap. **`OC.13`** then removed that: membership is **fractional**, a pixel shared between the two W020 bins its blur falls between, so a bin boundary is a ramp rather than a step and the mismatched kernels either side have nothing to disagree over. Ripple **±0.52 % → ±0.06 %**, and on the cube **0.16 K → 0.041 K** peak with an RMS of 0.0055 K — a seventh of the Boson's 50 mK NETD. Across the whole lane, from what `OC.6` shipped, **8.76 K → 0.070 K**. A scene of flat slabs has no pixel between two bins, so there the split degenerates to the old hard partition exactly, which is why `OC.6`–`OC.8`'s measurements carry over rather than needing to be re-taken. **The focus pull (`OC.12`)**: `scripts/focus_sky_demo.py` puts one cube against a cloudy sky and pulls the lens from the sky onto the cube and back, through the shipped `OC.6`/`OC.7` path with the sky's own radiance handed in as the analytic background. The sky loses **3.1×** of its contrast when the lens leaves it and the cube **1.7×**, measured with `OC.9`'s focus measure per region — a whole-frame measure cannot tell the two settings apart, because something is sharp either way. A **clear** sky cannot show this at all, and that is physics rather than a gap in the demo: defocus is a low-pass filter and a clear LWIR sky is a smooth 1/sin(θ) ramp, so the same pull moves it **1.002×** — 0.2 % — while carrying **three orders of magnitude** less structure to begin with (6.9e-8 against 8.4e-5). What visibly blurs in a real sky is **cloud edges**, so the scene carries the project's own sky-fixed cloud field at an eighth of a degree; the half-degree survey default is ten Boson pixels per cell and a cloud whose smallest feature is twenty pixels wide barely registers a 5.4-pixel blur circle. |
+| `detector` | 🟡 partial | T1–T2 | `FpaParams`; ideal bolometer/photon transfers (ADR 0019), shared quantiser; NETD predictor (ADR 0024), anchoring (ADR 0025) -- **and for a photon FPA the anchor is no longer used** (`SC.1`): `from_sensor` builds the budget from the electron datasheet the part actually ships with, so the MWIR InSb stopped rendering at 1.52x its own read noise and the SWIR InGaAs gained the 199.7 e- of dark current its config implies. **The Boson's own numbers now come from [R24]** (`SC.3`, ADR 0091): FFC Period 300 s, membrane 8 ms, and the 3-D ratios marked ESTIMATED with Table 13's limits beside them -- measured at FLIR's acceptance conditions the committed camera reads tvh 48.5 / th 2.4 / tv 2.6 mK against < 50 / < 18 / < 18, compliant and 7x more spatially uniform than guaranteed. **`SC.2` gave the 320 the ratios it actually has**: ME.5 decomposed 365 clips of the public Halmstad set, and five of the seven components move -- vh 0.30 -> **2.64**, v 0.08 -> 0.58, t 0.02 -> 0.38, h 0.15 -> 0.16 (already right). sigma_VH > sigma_TVH is a real core between flat-field events, and total noise over sigma_TVH goes 1.06 -> 2.91. The same step proved `read_noise_e` reaches the rendered sigma: under the old anchor **halving it left the frame bit-identical**; `PhotonDetector` / `MicrobolometerDetector` responses with seeded per-pixel noise in physical units, two-blackbody NETD benches reproduce the anchor and the 0.576 derivative ratio (ADR 0026); membrane thermal time constant as a pre-noise per-pixel float32 IIR, settled start, moving-edge tail length v τ_th/Δt measured from a rendered trail (M9.1, ADR 0052) -- **actually on `run_frame`'s path since M9.13** (ADR 0082); M9.8's title claimed to have wired it and this row said so too, but stage 4 reached the detector through `response(flux, frame_index, sensor_seed)`, a signature with no `dt` and no state; FPA temperature node (tau and ΔT_self authored, RK2, fixed/ambient/coupled) with the raw gain/offset(T_FPA) polynomials normalised at T_cal by construction — the NUC residual keeps its own parameters so drift is not double-counted (M9.2, ADR 0053) **The cold shield (M11.5, ADR 0066).** §9.1 asks for `cold_shield_efficiency` and gives no equation; `optics.cold_shield_efficiency` had been in the schema since M0.9 and nothing read it. Ω_admit = min(π, Ω_lens/η_cs) — **exactly** zero excess at η_cs = 1, and at η_cs = 0 the scene cone plus the background close the isothermal-enclosure identity A_d·π·L_B(T), which holds only because the cap is the *projected* hemisphere π and not 2π. τ_opt does **not** multiply it (the flux does not go through the lens), which is what separates it from §8.2's self-emission. What it costs is the offset's **shot noise**, not the offset — NUC removes offsets — so NETD(η)/NETD(1) = √((N+N_bg)/N), held to 1e-9. For the InSb example at 300 K: η_cs = 0.90 costs **6 %** of NETD, η_cs = 0.50 costs 48 %, and at η_cs = 0.20 the dewar alone fills **138 % of the well** — the camera saturates on its own structure before it sees the scene. Every uncooled camera has η_cs = 1, so no golden moves. |
+| `noise` | 🟢 done | T2 | Counter-based per-pixel hash RNG (ADR 0022); NVESD synthesiser; `NoiseStage` (correlated 3-D terms on the detector's σ_TVH) wired into `run_frame`; DN-domain NETD within 10 % of the anchor, ratios recovered within floors; mean-reverting (OU) drift of the V, H and VH fixed terms by the exact stationary update, so the configured ratios survive a 2000-frame run where a random walk would destroy them invisibly -- lag-τ autocorrelation e⁻¹ ± 0.05 (a random walk control reads > 0.9), σ stationary within 5 %, zero mean, τ = ∞ frozen bit-identical, and the global offset refused because it drifts physically via M3.3/M9.3 (M9.4, ADR 0054); bad-pixel map by a Neyman--Scott cluster process (parents uniform, 1 + Poisson(λ) offspring in a 2 px disc) with the four §10.4 classes and a two-state RTS chain for the flickering and blinking ones -- count within 10 % of the configured fraction, mean nearest-neighbour distance 0.26× the uniform-Poisson expectation (a uniform control reads 1.0), stuck pixels bit-identical over 100 frames, RTS occupancy within 5 % and geometric dwell by a Monte-Carlo-calibrated KS (a memoryless control is rejected) (M9.5a, ADR 0055; defects that failed after the factory map -- `bad_pixel_late_fraction` -- are left unreplaced, SC.19; the FFC is an offset snapshot on the closed shutter, so housing drift since the event leaves §11.2's radial bowl and the gain residual scales with scene minus shutter (SC.18, ADR 0148); schema v7); NUC residual `g = 1 + ppm·1e-6·ΔT_FPA·ξ`, `o = mK/K·ΔT_FPA·(∂DN/∂T)·ξ` with the millikelvin→DN conversion done **once** at 300 K (ADR 0056) -- exactly unity/zero at ΔT = 0, 90 mK at ΔT = 2 K and exactly 2× the 1 K value, and `test_residual_not_kelvin_flat` pins the apparent-T error at 373 K to 0.576× the 300 K one, the measured ∂DN/∂T ratio (the same 0.576 ADR 0026 found for NETD); `ffc_reset` redraws, giving |r| < 0.05 across the event -- the pattern is replaced, not faded (M9.6, ADR 0053/0056); `DriftingPattern`, the FFC-resettable holder for the breathing pattern **Electron-space budget for photon FPAs (M11.6, ADR 0025 addendum).** ADR 0025 made NETD the calibration handle, which is right for a bolometer and wrong for a photon FPA: a 300 K blackbody puts **1.24 photoelectrons per pixel per frame** into 0.9–1.7 µm against 120 e⁻ of read noise, so §9.4 honestly evaluated gives 976 K and anchoring to it would scale the Gaussian term by 2e4 — inventing the noise rather than describing it. `electron_budget` therefore **uses** the datasheet's read noise, Arrhenius dark current and cold-shield background, and demotes NETD to a cross-check that raises when a camera cannot reach its own claim (skipped, with the reason named, for a reflective band where the 300 K definition is vacuous). Synthetic bench against prediction: **0.16 %** for both the InGaAs at 700 K and the InSb at 300 K, with the InSb sitting 2.4 % above shot-limited. Dark current as the reason InSb is cooled: **200 e⁻ per frame** uncooled against **0.12 e⁻** at 77 K. **`SC.1` wired it to the render path**, where it had no caller: `from_sensor` takes the electron budget whenever a photon FPA authors `read_noise_e` (`noise_handle` forces either way), so the MWIR InSb stops rendering at σ 533.3 e⁻ against the 350 e⁻ its config authors — 1.52×, a Gaussian the anchor was free to invent — and the SWIR InGaAs gains the 199.7 e⁻ of dark current its own Arrhenius block implies, a term larger than its 120 e⁻ read noise that was simply absent. NETD becomes a prediction that can disagree: 19.47 mK against the InSb's 20 mK claim, where anchored it reproduced the claim to 1e-9 and carried no information. |
+| `isp` | 🟢 done (L2) | T2–T3 | Radiometric branch (ADR 0021); **flat-field correction wired into the display branch (M9.12)** -- `TwoPointNuc` existed from M5 and nothing applied it, so the 8-bit picture carried cos⁴ vignetting (21 % at the Boson's corner) that plateau equalisation stretched into black corners, which no real camera shows. Calibrated from two synthetic blackbody frames through the real forward chain, not from the analytic cos⁴ field, so it removes whatever fixed structure is actually there. **Display branch only**: `invert_optics` already divides cos⁴ out per pixel, so `dn16` and the radiometric outputs stay bit-identical either way and correcting both would remove the same term twice; linear AGC (ADR 0027), plateau equalisation with the hot-exhaust collapse as a scalar test (ADR 0028), DDE (ADR 0029), polarity + palettes → RGBA8 (ADR 0030); display branch in the fixed order with documented rounding points and the isp config hash (ADR 0031); ideal two-point NUC operator; wired as stage 6 — the first thermal-looking image (`outputs/first_image_*.png` from the golden test); bad-pixel replacement by the valid 4-neighbour mean, iterated so a 3×3 cluster fills in two synchronous passes and a partial fill raises rather than leaking a stuck value — exact on a ramp for an isolated defect, σ²/4 on white noise where copy-one-neighbour gives σ² and an 8-neighbour mean σ²/8, and a local Laplacian under half the untouched one, which is §10.4's detectable smoothed footprint (M9.5b, ADR 0055 addendum); `FfcController` — the §11.2 schedule, the freeze that **holds the last good frame** rather than blanking (60 Hz/300 s/700 ms fires at frame 18000 for exactly 42 bit-identical frames; 9 Hz gives 6, round not ceil; the 300 s is [R24]'s published FFC Period, corrected from an unsourced 180 s by `SC.3`, which makes the worst-case NUC residual 1.67× larger), a `Resettable` hook for the residual and the drift, and ownership of the ΔT_FPA the residual sees — raw for `shuttered`, a scene-based-correction first-order lag for `shutterless` (540 s at 1.15× the 180 s value where an uncorrected core is at 3×), zero for `ideal` (M9.7, ADR 0057; schema v8); **ROI-weighted and locally-adaptive AGC** (M9.10) -- every histogram takes per-pixel weights, and `agc: plateau_local` tiles the frame, equalises each tile's own histogram and blends the four nearest mappings bilinearly. Both are held to *identities* rather than tolerances: uniform weights and a single tile each reproduce the global operator **bit for bit**, so the new path cannot become a second, slightly different AGC. The global modes stay the default, because a real core is global and §15 Tier 5 needs the simulator to be too **Tier 3 sensor-chain bench (M9.9).** The four things a camera does to a picture that a radiometer does not, measured: on a 300/303 K pair with a 5 % 450 K plume, `linear` AGC keeps **1.54 %** of the pair's contrast, `plateau_equalization` **76.3 %** and `plateau_local` **144 %** (the local operator raises pair contrast under the plume, from a smaller C0); the shutter reports **42** frozen frames while a viewer sees **43** bit-identical pictures, since the held frame is the first of the run; the membrane trail matches e^{−dt/τ} = 0.1244... (0.1888756 before `SC.3` corrected τ to 8 ms) over five terms to ~1e-5 and the cooled MWIR config leaves none; and 1000 K clips at 65535 with DN monotone all the way up. |
+| `io` | 🟢 done (L2) | T1 | Float32-preserving frame writers (M10.10a): radiance/apparent-T to float32 `.npy` or float32 EXR, DN16 to a uint16 PNG, display to RGBA8 PNG, plus a JSON sidecar with the config/band/ISP hashes, the frame index, the scene time and its UTC, and each plane's dtype, shape and **unit**. A plane in physical units never reaches an integer or half-float container -- a 16-bit PNG over 233-473 K quantises to 3.66 mK and half-float at 300 K to 250 mK, exactly 5x a 50 mK NETD, both of which open and look right; float16 and `half=True` are refused. The EXR writer is stdlib `struct`/`zlib` (single-part, scanline, uncompressed, FLOAT only), so no imaging dependency enters the core, and its header is checked against the format spec rather than only round-tripped. The scene time in the sidecar is the **captured** frame's, read from `IrCamera.last_frame_t_s`: `get_outputs` advances the render clock on its way out, so recomputing `t0_s + t_rel_s` one line later labels every frame with the next one's time -- a whole six seconds on a time-lapse driver, and two of the six drivers were doing it. **`FrameWriter` (IG.13)** binds a run's hashes, quantity, container, weather start and metadata once so a driver's loop writes a frame in one line, with a `stride` that thins the written sequence without thinning the render and records itself in every sidecar, so a gap in the numbering is distinguishable from a render that died. All six render drivers now write float32 planes and a sidecar; three of them -- the quadrotor, aircraft-pass and vessel-departure flights -- emitted 8-bit PNGs and nothing else until this step **An imported asset is decomposed into functional parts (`AI.5`, ADR 0138):** `irsim.io.asset_parts` recovers parts from **connected components** rather than from prim names — the source asset groups by material, so a prim is not a part, and the Phantom 4's one "all the white plastic" prim spans 987 disconnected shells. The decomposition is authored as data in the asset config, so nothing in `irsim` knows what a quadcopter is. **Measured:** 41 prims → 31,068 components → 19 parts over **100 %** of 0.294 m2 — four propellers (spread 4.4 %), four motors (spread **0.0 %**), and a **battery** (0.00570 m2, 401 faces, 88 x 83 x 28 mm) that the scene had declared as a heat source and bound to *no geometry at all*, so it solved a quadcopter with no battery in it. Four-fold symmetry is the correctness check and needs no reference data; `PartReport.empty_parts` fails a part that matched nothing even at 100 % coverage. Two findings fell out: the asset is modelled pitched **2.93° nose-down** (zero-residual plane fit through the four motor cans), and `render_phantom4.py`'s `NOSE_IN_ASSET` is **wrong by ~30°** — it read only the `y` component of the camera's offset, which is actually (−32, −52) mm. Every Phantom 4 clip so far flew ~30° crabbed. **The parts now reach the renderer:** `--emit-parts` writes a part-split USD (one prim per part, all 2,486,459 faces preserved) and `TARGET_BY_PART` replaces the two-node `TARGET_BY_MATERIAL`. The CPU solve separates four nodes at T+600 s — airframe 26.4 C, battery 32.9 C (+6.5 K), ESC 39.5 C (+13.1 K), motor 46.0 C (+19.6 K) — collapsing to ambient on landing. **A shared Sketchfab link arrives through a licence gate** (`AI.8`, ADR 0150): `irsim.io.sketchfab` parses the UID, decides shareable (CC0/BY/BY-SA) vs quarantine *before* `scripts/fetch_sketchfab.py` downloads the glTF, and records provenance + attribution; the shareable set is pinned by test. The `ingest-asset` skill (`AI.9`) is the checklist from a link — or a file handed over via `scripts/register_local_asset.py`, through the same gate — plus the object's real-life name, which drives the spec search, to a library entry; the `low2high` skill (`AI.10`, ADR 0155) makes its geometry fit for the camera — smoothing or redesigning a low-poly model up, tessellating a STEP/IGES CAD model (`scripts/tessellate_step.py`) or decimating a heavy one down — against one number, each edge's silhouette error vs half a pixel (`scripts/mesh_facets.py`); and `prep_asset.py --save-blend`/`--emit-fbx` writes the master `.blend` and an interchange FBX from the same Blender pass as the `.usdc`. **Scene truth beside the camera (ADR 0154):** `irsim.io.truth` brings the G-buffer's surface temperature, range (NaN = sky), material, part and thermal-node ids to the detector grid by centre sample -- ids cannot be averaged -- and `IrCamera.truth()` hands them to `FrameWriter`, which names the ids in a new sidecar `legends` field; all five `FrameWriter` drivers write them. `read_png` is the stdlib inverse of `write_png` (all five row filters, checked against a spec-derived encoder). |
+| `irsim_viewer` | 🟢 done | T1 | **Frame viewer (ADR 0154):** `make viewer RUN=outputs` opens a local page -- stdlib `http.server` + NumPy, no GUI toolkit -- where a click on a frame drops a coloured marker and lists every saved plane under that pixel with its unit: true surface temperature, part, thermal node (joined with the frame's `node_temperatures_k`), range, material, radiance, apparent temperature, ADC code. Markers are removable one by one and stay put while a clip is stepped or played. A plane on another grid is mapped exactly when it nests and **warned** when it does not. Files are read only through `irsim_viewer.source.FrameSource`, so a new data layout (a Warp buffer dump) is one reader or one source, not a viewer rewrite. |
+| `eval` | 🟡 partial | T4 infra | Validation-data index (ME.1a): `data/validation/datasets.yaml` + `irsim_eval.manifest` record licence, access, sensor, **signal path**, bit depth, codec and the analysers each public set may and may not support -- required fields, because a set that cannot say what its frames are cannot be measured. Checked against each publisher: only the Halmstad set (CC0-1.0, Boson 320x256, Y16 -> 8-bit -> mp4) states a licence, so it is the one `primary`; the other five are `unstated`, which records that the terms are unknown rather than assuming they are permissive. `noise_3d` is usable on Halmstad alone; `agc_signature` is *excluded* there because those clips never met an AGC. `scripts/fetch_validation_data.py` plans, hashes and mostly refuses; `data/validation/README.md` is generated and tested for staleness. **`Sequence`/`Frame`/`Box` + canonical layout (ME.1b)** so converters target one form and analysers never read a publisher's -- 8-bit enforced, boxes in the project's pixel-edge convention. **Static-clip gate** in front of every per-pixel temporal statistic, discriminating on cumulative displacement from frame 0 (jitter is bounded and static; a drift accumulates and is moving), by phase correlation with Foroosh's ratio rather than a parabolic fit, which under-reads a Dirichlet peak ~30 % and is biased toward calling a drifting clip static. **`transcode.h264_round_trip` (ME.2b)** calibrates the codec floor by sending a cube of known noise through libx264: full-range flags pinned so CRF 0 is bit-exact, and at CRF 18 -- a *high quality* setting -- 95 % of a Boson-ratio cube's temporal noise is gone while the blocking score barely moves, which is why a lossy set gives a lower bound and not a measurement ; **the reference-statistics report (ME.5)** -- `scripts/reference_statistics.py` measured all 365 IR clips of the Halmstad set and wrote `docs/validation/reference-stats-2026-09-15.md`, with N, a bootstrap CI and a floor on every value and a stated refusal for everything that could not be measured. **The headline is negative:** the median robust noise scale is **0.00 codes** and **306 of 365 clips** sit at or below one code -- the codec removed the sensor's noise entirely -- leaving 28 clips that support a noise table at all. The missing `color_range` flag is worth **6.09 codes**, several times what noise survived. Three index errors were found by measuring rather than reading: the files are 30 fps not the core's 60, the colour range is unflagged, and the annotation labels are MATLAB MCOS objects with no Python reader, so every box-dependent Tier 4 statistic is excluded there ; **the Tier 5 detection metrics (ME.7)** -- `detection.py` is pure NumPy (IoU, greedy matching, all-point AP@0.5, AP on small and tiny targets, P_d against SCR and size, false alarms per frame), so a detector trained anywhere is scored in the default environment. All-point rather than the 11-point rule, which reports 0.8182 against 0.8333 on a worked example -- a comparison metric must not depend on that choice. An empty P_d bin reports **NaN, never zero**. ⚠️ Training is blocked on **labels**: the reference set's annotations are MATLAB MCOS objects with no Python reader, so there are no boxes to train on; the `ml` extra (torch) is declared and deliberately not installed **Index re-checked (`XD.1`, 2026-09-24):** `anti_uav_600` added — 600 sequences, 723k frames, the largest infrared set indexed — and `lrddv3`'s licence corrected from `unstated` to **CDLA-Permissive-2.0**, which moves it from `refused` to `manual`. Both corrections turn on one distinction: **a licence written down nearby is not a grant over the frames**. LRDDv3's arXiv paper carries CC BY 4.0 while its dataset page names CDLA plus an export condition and a no-redistribution condition the licence does not contain; Anti-UAV600's repository announces MIT over its *toolkit* and says nothing about the data, so that one stays `unstated` and stays refused. `licence_known` opens the fetch gate, so this field is permission rather than documentation — the roadmap row asked for CC BY 4.0 here and would have granted terms the frames do not carry. Its camera is an Autel EVO II Dual 640T V3 recording 30 fps against the 5 fps stored, kept in separate fields because an analyser must fit the rate of the file it reads. **A radiometric signal path and a declared bit depth (`XD.2`, ADR 0068 addendum):** the reader refused anything but 8 bits, which was right when every indexed set was 8-bit and had become the thing standing between the project and the 16-bit sets it needs. The refusal moved rather than went: `Sequence` now carries `bit_depth` -- the **significant** width, not the container's, because FLIR's ADAS frames are 14 bits in a 16-bit TIFF and the two differ by a factor of four in the floor they put under a noise figure -- and a frame holding a value that depth cannot represent is an error, not a wider frame. `signal_path` stopped being prose and became one of four words (`display`, `recorder`, `radiometric`, `unknown`), with the per-set detail kept as `signal_path_note`. Every measurement name now declares which paths it can live on in one table (`irsim.validation.signal_path`), and both locks turn from it: the index **will not load** if a set lists a measurement its own path cannot carry, and `measure_clip` records `<measurement>_wrong_signal_path` rather than quietly omitting the statistic. The property that pays for the scheme is that the ISP measurements and the sensor measurements live on **disjoint** paths -- an AGC has rewritten the frame's statistics, or there is no AGC in it to measure -- and that `unknown` is not a weaker `display`: an undocumented path cannot be assumed monotone, so it cannot say white-hot from black-hot. Nothing indexed is radiometric yet and the index says so: `usable_for("noise_3d_kelvin")` returns `[]`, pinned by a test that `XD.4` and `XD.10` may each change. **MassMIND indexed, and the `[]` did not move (`XD.3`):** the first public LWIR maritime set — 2,916 Boston Harbor images, FLIR ADK, NETD < 50 mK, pixel-level semantic and instance masks over seven classes — is here for its **labelled sky and water polygons**, which are the flat window every noise statistic needs and which `EV.3` showed the heuristic finder never finding. Its licence is **CC BY-NC-SA 4.0 and genuinely grants the frames** (the repository's LICENSE is the CC text and the README says it of "all datasets and benchmarks on this page"), which is `XD.1`'s distinction coming out the other way for once — though NonCommercial and ShareAlike are live restrictions for a simulator aimed at a vehicle, so the open fetch gate is not the whole question. Two roadmap corrections: the row asked for a 16-bit radiometric set, and while the ADK *writes* 16-bit TIFF, **nobody states what is inside `Images.zip`** — the frames came out of rosbags, the README is silent, the repository's samples are 8-bit PNG — so inferring `radiometric` from a datasheet would be `XD.1`'s substitution moved to the field that opens the gate, and the set is `unknown` until one file is opened. And **1,423 of the 2,916 frames (48.8 %) came off a 320×256 camera** while the release presents 640×512, so nearly half carry no sensor content above half their stated Nyquist and `spatial_psd`/`edge_spread` are excluded for that reason. |
+| `config` | 🟡 partial | T1 | `GBuffer` contract; pydantic `SensorConfig` (ADR 0007); YAML loader with data-root resolution, `config_hash`/`band_hash` (ADR 0008); band registry with derived/checked `band.id` and regime-driven illumination terms — and, since `AT.4`, the atmosphere's **anchor band** too (`ANCHOR_BAND`, `BAND_KEYS`, `regime_for`, `nominal_range_for`): `visible` is a reference key no `BandId` names and no sensor YAML may declare, but the physics needs it spelled, and spelled by hand it was five independent copies of one convention. That let `irsim.atmosphere.layered` drop its own band-keyed `WEIGHT_T_REF_K`, which had already drifted from the registry it duplicated — it weighted MWIR at 300 K while `DEFAULT_REGIME["mwir"]` is `mixed`, so the obvious derivation would have moved MWIR to 5800 K and silently rescaled τ_MWIR at every range but the 200 m anchor (ADR 0092); optics/detector/noise extensions (schema v4, ADR 0017); 3-D ratio vector and variance closure `total_over_tvh`; scene config + `Scene` builder: one `WeatherSeries` loaded once and injected into the atmosphere and every target solver (M6.17, ADR 0032); **`Scene.atmosphere` refuses to hand out the grey L1 model** once a layered one stands beside it (`AT.5`) — every shipped scene builds both, and at 5 km / 20° they differ by τ 0.057 against 0.590, so the primary-looking name was never the model any render used. `transfer_atmosphere` is the one stage 2 runs, `atmosphere_preset` the object both share; environment/illumination presets (`configs/environments/`, ranges checked against §5.3/§5.5; M7.11); **a second band as pure data (M11.1)** — `configs/sensors/example_swir_ingaas_640.yaml` plus `data/spectra/responses/ingaas.csv` classify, hash and tabulate through the same code the LWIR core does. The SWIR file also exposes where the schema is still emissive-shaped: `noise.netd_mk_at_300k` is mandatory, and evaluating §9.4's definition honestly on this camera gives **976 K** (a 300 K scene puts 1.24 photoelectrons per pixel per frame into 0.9–1.7 µm against 120 e⁻ of read noise), so the field is recorded as that and nothing may anchor to it until M11.6 supplies the electron-space budget ; **the §15 Tier 5 ablation switches (ME.8, ADR 0083)** -- a `fidelity:` block (`noise`, `optical_psf`, `bad_pixels`, `nuc_residual`, all default `true`) makes the four ablations that used to live as keyword arguments into hashed config, because a keyword argument is invisible to `config_hash` and two ablation variants therefore produced the same hash. The AGC (`isp.agc`), the FFC (`nuc.mode`) and the clouds (weather `cloud_fraction`) are not duplicated there: they were already explicit config. `schema_version` is excluded from the hash -- it describes the document format, not the sensor -- and the sensor schema now has a readable range v8-v9 **Schema v10 (`OC.4`, ADR 0129):** `optics.focus` (`infinity` the default, `hyperfocal` with its acceptable circle of confusion stated rather than assumed, or `fixed` with a distance), `optics.mtf.defocus_model` and `defocus_apply`, and a `fidelity.defocus` ablation that can switch defocus off but never on. Every default is the pre-v10 camera and is **dropped from the config hash**, so a v9 document and a v10 document that spells the defaults out hash the same and every golden written before `OC` stays valid. A focus distance with `defocus_model: none` is refused: it would look like it did something and do nothing. |
+| `pipeline` | 🟡 partial | T2–T3 |  **A gas slab in radiance space (`PH.4`)** -- `irsim.pipeline.gas_slab`: a flame, plume or hot-gas volume authored as (T_gas, p_CO₂, p_H₂O, f_soot, L), never as an emissivity, rendered per band as τ_b L_behind + (1 − τ_b) B_b(T_g) with soot's band-mean κ from the camera's own R(λ) and gas κ_b(T, X) from the committed tables (a species without a table raises). **The hot-gas tables (`PH.5`).** `data/gas/<key>_{co2,h2o}.npy` -- float32 κ over 300–2500 K **and over column density**, from RadCal's weak-line coefficients (NIST TN 1402, public domain) via `scripts/radcal.py`, whose transcription reproduces both checked-in RadCal arrays **bit-exactly at every grid node**. RADIS/HITEMP was the first choice and was not taken: it needs a multi-gigabyte registered download into a shared interpreter (ADR 0098 addendum). The second axis is not decoration -- in a 3–5 µm camera essentially all of CO₂'s absorption sits in 4.2–4.45 µm, so a single band mean is wrong by **sixty times** across the paths one exhaust plume spans, and the stored coefficient is the one that reproduces the band's own transmittance at that path. Measured, for a 0.25 m 600 K plume at 10 % CO₂ / 12 % H₂O: τ(MWIR) = **0.830**, τ(LWIR) = **0.913**, τ(3.80–4.05 µm through-flame filter) = **1.000** -- three cameras that differ by a response file and nothing else; attenuated from its range per class like the point target. An opaque soot flame reads T_g in both bands to 1 mK; a CO₂/H₂O slab reads > 900 K apart between MWIR and LWIR where a grey ε cannot. **The lens's second factor (`SC.4`, ADR 0117).** `aberration_sigma_um` was 0.0 on every shipped camera while the schema called it "the Gaussian fitted from a measured slant edge" — so every render was a **diffraction-limited** lens, the best physics allows and not one anyone sells. Both Bosons now carry σ **solved in code** from FLIR's published 42 % nominal on-axis MTF at Nyquist (`aberration_sigma_for_mtf`, σ = **1.654 µm**), with a test that re-runs the solve against the YAML so the config and the datasheet cannot drift apart. **The check is on the lens, not the system**, and that is the lesson: the acceptance band is 0.27 ± 0.03 on the system MTF, and a diffraction-limited Boson gives **0.294 — inside it**. The band would have passed the broken camera. What separates them is 0.420 authored against **0.461** ideal at the lens. Twelve goldens moved and seventeen did not, in the shape an aberration should: the ramp by **7.8 mK**, the hot patch by **3.97 K**, and the uniform SITF and noise-cube fields bit-identical because no PSF can change a flat. Three generic cameras keep an ideal lens on the record in `IDEAL_LENS`, and a camera in neither branch fails. **Fire on the camera (`PH.8`, ADR 0116).** `irsim.detector.gain_state`: a camera has a **gain state**, not one dynamic range — the Boson's two hold a scene to 140 °C and 500 °C behind the same converter. `fpa.gain_ceiling_k` is **a radiance ceiling, never a temperature one**. For a blackbody the two are identical, which is why the mistake survives review; for a scene they are not, because what arrives is `ε L_B(T) + (1 − ε) L_env`. Measured on a 1273 K surface under the low-gain ceiling: at **ε = 0.6** the radiance clip rails and a temperature clip **misses the rail**; at **ε = 0.4** neither rails and a temperature clip is **119 K wrong on a pixel that never reached the ceiling**. The ceiling is also the transfer, so a clipped pixel lands exactly on the top code: a 400 °C object — between the two ceilings — rails high gain at DN 65535 reading 413 K and reads 668 K at DN 45 780 in low gain. The rail does not reach the measurement (`apparent_t` is bit-identical across AGC modes) but it does reach the picture: the same person against the same room keeps **252 DN** of separation under a linear AGC until a fire enters frame, then **1.0 DN** — FLIR quote 0.7 % of range — while plateau equalisation keeps **90 DN**. That is the whole argument for the plateau mode, as a number. **Fire (`PH.7`, ADR 0115).** `irsim.thermal.fire`: a flame is authored by **what it emits**, not by how hot it is — `RadiantRectangle.sep_w_m2` carries a surface emissive power (135 kW/m² luminous, 40 kW/m² smoke-obscured; Mudan/Considine) and refuses a temperature, because 1200 K at ε = 1 and 1500 K at ε = 0.41 are the same 118 kW/m² and authoring a temperature means authoring an emissivity nobody measured. A cell's `q_int = F (α SEP − ε L_occluded)`: **α is the surface's absorptivity for the flame's 1–5 µm spectrum and ε is its own long-wave emissivity**, and they coincide only for a grey surface. Above the fire the air is Heskestad's plume, not the weather's — `ΔT₀ ∝ Q_c^(2/3) (z − z₀)^(−5/3)`, held at the tip's value inside the flame so the profile is continuous by construction. That tip value then falls out **independent of Q and D at 452.7 K**, from a 0.3 m gas ring at 50 kW to a 6 m pool at 40 MW, which is Heskestad's own definition of the mean flame height and the cheapest transcription check the module has. `Q_c` in watts is refused. The flame a camera sees is `flame_plume`, a soot slab whose **mixing length is solved** so it cools to exactly that same tip — one model, two consumers. Soot is grey-ish and gas is not: the bands differ by **2.47** for soot (just the ratio of their ⟨1/λ⟩) against **5.49** for hot CO₂, which is why a camera that cannot see an exhaust plume can still see a fire. **The exhaust plume, per pixel (`PH.6`, ADR 0114).** `irsim.pipeline.plume` is stage 2d: a truncated cone in camera space, one analytic chord per pixel, `PH.4`'s slab on it. The composite `τ_p L_plane + (1 − τ_p) B_gas,at-sensor` is **exact**, not a convenient blend -- it rearranges out of the plane's own definition provided the gas radiance goes through stage 2's own path, which it does. Occlusion is the depth plane, so a plume cannot paint over the bumper it passes behind. Entrainment dilutes **temperature and species by one factor**, so a plume cannot cool without thinning. And the temperature is not authored: schema v15's `plume:` sits only on an `exhaust` target and takes `TC.7`'s solved outlet **gas**, which runs ~50 K above the *skin* that target reports. One scene file, `configs/scenes/car_exhaust_plume.yaml`, and two cameras disagree about it by construction: τ = **0.866** in MWIR against **0.979** in LWIR, **+72.7 K** of peak apparent temperature against **+7.1 K**. A grey table makes the same two cameras agree to 0.02 %, which is the negative control. **A camera and scenarios matched to the reference set (M12.1).** `configs/sensors/halmstad_boson_320.yaml` is the Breach PTQ-136's Boson 320x256 at 24.0 x 19.3 deg, and its ISP models the *recorder* rather than the core -- the published clips never met the Boson's AGC, but something turned 16 bits into 8 and it was not the identity. `irsim.validation.scenario` draws the scenario with a **provenance tag on every parameter**, and its own summary is the uncomfortable result: **0 of 5 are measured**, because ME.5 could measure neither the sky nor the target distributions. A Tier 4 figure from these clips compares against an *assumed* scenario, and every run prints that beside its numbers. **Night illumination (M11.4, ADR 0065).** Airglow as a hemisphere source with **no shadow parameter at all** — §5.5 says it has no directional shadow, so the signature enforces it rather than documenting it — plus a first-order moon whose level is *derived*, not authored: m_sun = −26.74 and m_moon = −12.74 give a flux ratio of 3.98e5 and E_full = 3.42e-3 W m⁻², and the moon borrows the solar shape so the lunar albedo cancels. Lane & Irvine's phase law makes a **quarter moon 0.091 of a full one, not half** — a model using the illuminated fraction would render every quarter-moon scene 5× too bright and look reasonable doing it. The configured airglow level is defined over the shape file's support, so a band takes its share: the modelled InGaAs camera sees **61 %**, and extending the cut-off from 1.7 to 2.5 µm gains **a third more light**, because the strongest OH sequence sits at 1.4–2.0 µm. §5.5's claim that full moon and airglow are "comparable" is **not** reproduced — these models give 12.6× — and that is recorded as spec issue S38 rather than tuned away; what *is* reproduced is the SWIR rule of thumb that airglow ≈ a quarter moon (1.15×). **Reflected sunlight (M11.3, ADR 0064).** The number the step exists to produce: the solar/thermal crossover for a 300 K, ρ = 0.3 surface in full sun is at **4.14 µm** — which is why §12.1 has three regimes and why MWIR is the only band marked `mixed`. At band level SWIR reflected/emitted is 1.6e8 and LWIR 0.0035. The two spectra are **modelled and named after their models** (`toa_planck_5778k.csv`, `direct_normal_am1p5.csv`), not after ASTM E-490 and G-173: this machine has no network, those are tabulated standards, and a file of plausible digits under a standard's name is worse than no file. Their integrals are therefore calibrations and prove nothing; the tests hold **shape**, which was not fitted — τ(1.38 µm) = 0.025 and τ(1.87 µm) = 0.008, the bands that blind a SWIR camera, against 0.92–0.94 in the 1.06 and 1.55 µm windows. A response reaching below 0.70 µm is **refused**, because that is where the effective-temperature model fails. **Band-agnostic stage 1 (M11.2, ADR 0063).** §5.2 puts the emissive/reflective choice behind a *compile-time* flag; that cannot be set by a YAML file which did not exist when the binary was built, so it is a runtime function of `band.regime`, consulted in exactly one place. `Illumination` carries three **incident** band radiances — the thermal environment, the direct beam as an equivalent isotropic radiance `E τ cos θ_s S / π`, and the isotropic night sources — under **one declared quantity that the kernel checks**, because `lb` and `lb_q` differ by ~1e19 and a mis-tagged solar spectrum produces a uniformly, invisibly mis-scaled scene that AGC then normalises away. A gated term is dropped to `None`, not zeroed, so an LWIR frame with a solar plane attached is **bit-identical** to one without. **Self-emission is never culled:** "reflective" describes a 300 K scene, not a band — against §5.5 airglow a ρ = 0.1 surface in 0.9–1.7 µm crosses over at **330 K**, reflection winning 15× at 300 K and emission winning **11 235×** at 500 K, so a jet exhaust is a self-luminous object in night SWIR. Engine-free NumPy oracle (ADR 0018): `run_frame` emits radiance, apparent_t, dn16 and RGBA8 display8 (stage 2 atmosphere identity); end-to-end golden frames; hot-exhaust AGC collapse reproduced; stage 1 reflected environment term ε L_B + (1−ε)(V_s L_sky,eff + (1−V_s) L_ground) from the SkyModel (M7.13, ADR 0045); analytic point-target injection below one native pixel with the per-class sky-beyond term (MS.6, ADR 0071); the **M9 sensor chain wired into `run_frame`** (M9.8, ADR 0058) — housing and FPA nodes, breathing fixed pattern, defects then replacement, NUC residual, an identity temporal filter and the FFC freeze, in §11.1's order. Attached explicitly by `attach_sensor_chain`; `chain=None` stays the default and is the ideal camera the radiometric goldens describe. The spatial-noise budget is **two mechanisms in quadrature, not four** (3-D spatial ⊕ NUC residual, within 10 %), measured against a subtracted flat-field reference and over averaged frames, at two drift rates so the quadrature is actually under test; the assembled chain has its own golden |
+| `validation` | 🟡 partial | T2, T4 infra | Tier 2 SITF, two-blackbody NETD and slant-edge MTF benches; **sky-flat bowl**: a plane-plus-paraboloid fit measures a camera's radial shading the same way on rendered and real frames (SC.20); leakage-corrected NVESD 3-D decomposition, spatial/temporal PSD, `compare_psd` (ADR 0023); aerial target-vs-sky contrast and the zero-contrast elevation (MS.7, ADR 0072: 1.26° for ε = 0.9 at 1 km, none at ε = 1 -- the inversion is the reflected term); synthetic aerial scene generator (sky elevation gradient, horizon, 1/f^β cloud, resolved and sub-pixel targets) behind the `gbuffer_aerial` fixture, with the Tier 3 sky phenomenology suite (MS.8); **the Tier 4 reading layer (ME.2b, ADR 0023 addendum)** -- `flat.py` picks the windows a noise statistic may be measured in (flatness scored against the window's own noise, so the thresholds mean the same thing on any DN scale; striped windows stay flat because column noise is what is being measured; a single-pixel target is caught by the outlier rule alone, and on a clip the judgement runs on the temporal median, which deletes a moving one), and `codec.py` measures the floor under them -- lattice step read off the data, floor `step/sqrt(12)` = 0.289 codes at 8 bits, Sheppard's correction applied *and* flagged within two floors of it, per-component codec-limited marks. At sigma_TVH = 1.5 codes only the temporal white term of a Boson-ratio clip survives that test. `temporal_shape` fits the sampled one-pole (the membrane at 60 Hz recovered to 1 %) and reports drift separately, since on flat sky a low-pass is the fingerprint of an in-camera temporal filter; **the shutter signature (ME.3a, ADR 0068)** -- `find_freezes` reads the FFC freezes out of the video (42-frame freezes every 18 000 recovered exactly, and the real `FfcController` loop agrees frame for frame) and reports `pattern_change` beside each one, because a run of repeated frames is equally a dropped chunk of recording and both would feed an interval distribution identically; the interval itself is refused below 300 s, the Boson's own published schedule (`SC.3`), so Halmstad's 10 s clips give freeze length and never an interval; `fit_pattern_growth` recovers a 30 s OU correlation time from a 5-minute sequence within 15 %, fitting the **variance** (`1 - e^(-2t/tau)`) because the amplitude's law returns 2τ and looks reasonable; **the display-output extractors (ME.3b)** -- the recorder conversion is a required argument of `agc_signature` and `edge_overshoot`, so a Y16-derived set is refused in the function and not only in the index; plateau equalisation separates from a linear stretch by 20× on every sky-like frame (and a naturally uniform scene is reported `indeterminate`, not guessed); DDE overshoot is the analytic `gain/3` of a 3×3 unsharp mask; `replaced_pixel_map` finds the §10.4 footprint by its vanishing Laplacian -- 69 of 69 on float, 93 % on 8-bit codes, no false positives, and **nothing at all through a codec**, which is reported as not measurable rather than as zero defects ; **sky and target statistics (ME.4)** -- `targets.py` reports SCR against the ring around the box rather than the frame, a sky profile normalised by its own horizon-to-zenith span *and* an SNR per degree, a scale-free cloud slope, and the smear fingerprint. **The planned closed-form inversion of smear to the membrane's τ does not exist and is withdrawn**: a point-source formula returns 0.45 frames for a true τ of 4 on a sigma = 3 px target, so what ships is a calibration curve built for the measurement's own target size, speed and window, inverted by interpolation (a τ = 3 probe reads 3.25 -- the curve is convex, and that is the accuracy this statistic supports). The asymmetry is split at the **box centre**, because a long faint trail drags the profile's centroid into itself and a centroid split then reports the trail on the wrong side ; **the Tier 4 acceptance report (ME.6, ADR 0085)** -- `compare.py` holds the four DN8 statistics and `Tier4Report`, in which **untestable is a verdict**: §15's "apparent temperature within 2 K" is printed as open in every run, because a missing row reads as a passing row. `scripts/validation_report.py` exits non-zero on a failed check and its `--self-test` runs synthetic-versus-itself, which is the gate on the gate. Three thresholds moved by measurement: the x2 PSD-shape target does not catch a 3x noise mismatch (matched 1.05-1.08, 3x 1.77-1.93, 5x 3.2) so it is 1.5; a fraction-of-peak spectral floor excludes exactly the bins noise lives in, taking a 3x mismatch from 1.90 to 1.06, so it defaults to zero; and "AUC 0.5 +/- 0.03" is below the AUC's own null standard error of 0.042 at this sample size, so the control is judged against 2 sigma_null instead. **`EV.1`: the report was pooling clips into a composite image neither set contains** -- it flattened every clip's frames into one list and took the temporal median of the whole stack, so the histogram EMD and PSD shape ratio described a picture nobody photographed. Per-clip mosaic means on the matched set span **55 codes** (63.2 to 113.1) against an 8-code target. **Pooling could invert a verdict, not merely blur one:** reproduced at that spread, the pooled composite reads **2.39 codes -- a PASS** -- while **none of the 36 clip pairs** meets the target (median 17.4). `compare_clips` now measures each whole-frame check on every (real, synthetic) mosaic pair and states its aggregation -- the **median**, with the 10-90 % span, the pass fraction and the per-pair distribution carried in the JSON. Each set is also compared **with itself**: the synthetic clips differ from each other by 30 codes, so the 8-code target was never reachable against that set, which is a fact about the data and not about the simulator. One clip a side reduces to `compare_frames` bit for bit, and reports no within-set spread rather than a spread of zero. **`EV.2`: the real side is now gated.** The report took the first six clips alphabetically and measured whatever they were, with none of the three gates this project had already built -- and ME.5 had already measured the cost: **81 of 365 clips are moving**, **306 of 365** have a noise scale at or below one code, and only **28** support a noise table at all, so six-alphabetically is six clips most likely unusable. `irsim_eval.admission` runs static, noise-scale and flat-window in the order they require, the loader scans until `limit` clips **pass**, and the **first** failing gate is the reason -- a pan invalidates the median the window finder judges against, so `no_flat_window` there would name the wrong problem. Refusals are returned rather than dropped and the report prints `N of M admitted (...)`, because "six clips" and "six of forty-one, the rest codec-flattened" are different claims about a sample size. The synthetic side is audited by the same gate and deliberately **not** gated by it (`EV.3` owns that), so the asymmetry is printed rather than applied to one side in silence ; **the Tier 4 acceptance run and the fidelity ablation (M12.2, M12.3)** -- the first acceptance run against real clips **fails and says where**: histogram EMD 24.7 codes against a target of 8, PSD shape 5.70 against 1.5, discriminator AUC 0.907 at +37.8 null sigma, with the discriminator's own heaviest feature `noise_scale` -- the signal path, not the radiometry, and the report's attribution table says so. The ablation ranks the mechanisms by how much they move the frames: AGC 1.000, optical PSF 0.962, noise 0.725, and bad pixels / NUC residual / FFC at the control's 0.495 for reasons verified rather than assumed (a 24-frame clip contains none of an 18 000-frame FFC interval). **The bench for when a camera arrives is written and waiting** (M12.4): `measured.py` fixes the layout and the two comparison rules -- a gain-and-offset fit where the scale is a range choice, and **no fit at all** for NETD and MTF, because a doubled NETD passes the first and fails the second |
+| `irsim_isaac` | 🟡 partial | T1 | `env.py` probes; **M2 gate spike done (ADR 0014):** no float32 colour AOV carries temperature (all fp16, exposure-scaled) → the renderer transports **instance ids + float32 geometry** and temperature comes from a Warp table; `omni.rtx.spg` 0.4.0 present, float32 pass-through bit-exact, **no cross-frame state** (stateful stages stay in Warp), LUT baked into the `.cu`. `probe.py`/`spg_probe.py` + `scripts/probe_isaac_*.py` reproduce it; `tests/integration` (22 tests, one Kit per session) pin it. **Geometry AOVs assembled into the M0.6 `GBuffer` (M10.1):** `gbuffer_isaac.py` builds `distance_m`, `normal_dot_view` (against the per-pixel ray, not the optical axis), `normal_dot_up`, V_s = occlusion·(1+n·up)/2 and `sky_mask`; the ADR 0014 addendum records the survey -- `normals` is float32, full-resolution and **world space**, while `PtWorldNormal` is fp16, half-resolution and all-zero, **no AO AOV delivers** (V_s is the unoccluded form) and **no motion AOV transports motion** (`motion_px` omitted; the analytic form is M10.1b). **`IrCamera` + the aerial demo stage (M10.9a-ii, M10.19):** a stage renders end to end and the frames land on disk. The stage that made it worth doing also found ADR 0014's one real error: `Camera3dPositionSD` is **camera** space, not world -- invisible until a camera is rotated, and read as world it moves the horizon 164 rows, paints the upper sky with the ground temperature and tilts every view cosine, plausibly. **M2.4 closed the record (2026-09-15):** the frame is decided against all three candidate readings at once -- world, camera, and the untested `rotated_world` that would be wrong by the camera offset on a camera both moved and turned -- scored against a world point built from the *distance* AOV and the pinhole ray, so the channel under test is not its own oracle. Measured at 0 / -8 / -20 deg of pitch: 9.4 mm for `camera` against 5.31-5.48 m for both rivals. **`IG.2` took the tautology out of that record.** The engine-free tests that guarded the decode built their input as `(world - C) @ rot` -- the algebraic inverse of the expression under test -- so flipping *both* transposes together left every one of them green while every frame came out tilted and displaced; and the production arithmetic was duplicated, with `world_positions` shipping the temperature of a pixel while a second copy inside `position_frame_residuals` was the only one a render ever exercised. The probe now decodes **with the production function**, and the oracle is geometric: a camera pose written out as three named world-space axes, a wall cast ray-by-ray onto the authored plane `z = -20`, and camera-space positions stated in the units camera space is defined in ("12 m ahead, 3 m right"). Flipping both transposes now turns **5** tests red where it used to turn none. **And the in-sim half has now run** (`IG.2`, pinned to an A6000): the whole `tests/integration` suite executed for the first time -- 15 modules on one Kit, **225 passed, 1 xfailed** in 2:19 -- and the authored wall decodes onto its own plane in the real frame, with a bound patch gathering a ramp across one prim. Three things the suite had never been run long enough to say: the membrane `alpha` assertion still carried 0.811 from before `SC.3` corrected tau to 8 ms (the kernel had followed, the test had not), the position-frame leak oracle compared against its own *eroded* mask and so counted the one-pixel silhouette rim as a leak, and the analytic point target appeared to deliver **0.7785** of `excess_radiance` at every range -- which turned out to be the test's own two branches sharing one membrane through a `dataclasses.replace` that copies the `buffers` *reference*, so the shortfall is exactly alpha/(2 - alpha) and the chain was never wrong (`PT.23`). **Material-ID transport (M10.2):** `material_ids.py` maps instance id → prim path → the M7.17 resolver's material id by exact integer lookup (no interpolation -- a blended id is a different substance), with the UNMAPPED miss painted magenta in the display branch only; `materials_usd.py` walks a stage for bindings, semantics and the `thermal:material` override and `scripts/audit_materials.py` gains `--stage`. The id channel is **`instance_id_segmentation`**: `instance_segmentation` is per-prim only for *labelled* prims (ADR 0014 addendum). Temperature still comes from the facet table; **Warp stage 1** (`warp_stages.py`) twin of the CPU oracle with the CPU-vs-GPU equivalence harness — ≤ 2 ulp on CUDA, bit-identical on Warp CPU, LUT uploaded once (ADR 0061); **aerial thermal bridge** (`aerial_bridge.py`, M10.18/ADR 0060) filling the float32 temperature-by-instance-id table from the M6.6 solvers on the scene's one `WeatherSeries`, 1 Hz thermal tick interpolated per frame, background pixels taking MS.2's `T_sky(θ)` from their own ray elevation and `T_ground` below the horizon where the sky model is undefined and extrapolating it would invert silhouette contrast. **Warp needs no Kit** (ADR 0014 addendum): `env.ensure_warp_on_path` puts the `omni.warp.core` extension on `sys.path`, so the equivalence harness runs on `cpu` and `cuda:0` from a bare `python.sh` in ~1.4 s rather than behind a 35 s Kit boot, and `gpu`-marked tests are selected on Warp rather than on Isaac Sim. **`WM.1`'s mesh probe** rides that: `scripts/probe_warp_mesh.py` (no Kit) and `probe_warp_prim.py` (a real USD prim) build a `wp.Mesh` and recover a triangle and its barycentrics from a world position with `mesh_query_point_no_sign`, round-tripping to **0.13 µm** against ADR 0014's 3.4 mm budget, checked against a brute-force NumPy oracle. The barycentric convention is **measured, not assumed** -- Warp's (u, v) weight v0 and v1 with 1-u-v on v2, and the reading a person writes down first misses by 0.56 m on a 0.4 m box. A USD prim needs triangulating and its local-to-world transform applying, and an analytic gprim exposes no points at all. **Warp stages 2-3 (M10.5):** one atmosphere kernel covers the grey, layered-exponential-sum and constant-τ branches (Σ w_k = 1 collapses the per-term path radiance), and the optics kernels do PSF-then-box in that order before Ω_eff τ_opt cos⁴θ A_d + Φ_self, with every radiometric scalar evaluated by `irsim.optics` on the host -- measured ≤ 1.9e-7 (stage 2) and 8.5e-7 with a 53×53 PSF (stage 3) against the oracle on both devices, and a +1 K housing step reading +87.43 mK on both. **Warp stage 4 (M10.6):** the membrane IIR runs in place on a persistent device buffer owned by `WarpPipelineState` (kept in `PipelineState.buffers`, ADR 0052's single-owner rule), the photon path is memoryless and allocates none -- a 20-frame flux step tracks the oracle to 1.74e-7, the frame-1 fraction is α = 0.8111 exactly, and photon DN matches the CPU `floor()` code for code across a saturation sweep. **Warp stage 5 (M10.7a):** the seven §10.2 components, the OU drift of the device-resident fixed fields and the NUC residual as kernels — the first stage held to *statistical* rather than bit equivalence (ADR 0022 addendum). The device pattern is seeded from the CPU's own realisation, so the comparison measures the two generators and not two different cameras; the residual's ξ fields are uploaded and stay bit-comparable to 2e-6. Measured on an RTX A6000 and Warp `cpu` over 200 frames: NETD within 5 % of the CPU path and 10 % of the config, every 3-D component within 15 % or its own estimator floor, NETD(373)/NETD(300) = 0.576, `compare_psd` ≤ 1.5, and τ = ∞ frozen bit-identical. Note the **stage boundary differs**: the CPU puts per-pixel TVH in stage 4 and the device in stage 5, so the oracle is detector+stage together. **Warp stage 6 (M10.8):** the display branch on device — atomic histogram, the plateau clip and `array_scan` CDF, the AGC as a 2^bit_depth lookup table, an edge-clamped 3×3 DDE and the palette → RGBA8. Both §11.3 modes are monotone functions of DN alone, so each *is* a table, which is what lets the port be held to ±1 display code: ≥ 99.9 % of pixels agree with the CPU branch on ramp / exhaust / constant scenes in all three AGC modes, DN16 is untouched under any of them, and the ADR 0028 exhaust collapse is reproduced on device. **Stage 5's remainder (M10.7b):** the defect map (uploaded, not redrawn -- one focal plane has one map), its RTS chain, the iterated 4-neighbour replacement in float64 and the FFC hold, all on device. Mostly **exact** rather than statistical: replacement is bit-for-bit against `replace_bad_pixels` on 1x1/2x2/3x3 clusters and on the real map, injection bit-for-bit against `apply_defects`, a held frame bit-identical across a freeze, and the **composition** bit-for-bit against `SensorChain.finish_frame` -- that last because M10.7a showed two correct stages can disagree tenfold if the seam moves. Only the RTS chain is statistical (occupancy 25 %, mean dwell 35 %, dwell > 2 frames where a memoryless redraw gives ~1). **`IrCamera` (M10.9a-ii):** the object that turns a stage into a frame -- authors the camera prim from the sensor YAML (aperture = width x pitch, so f_px = f/pitch), creates the render product at `supersample x native`, attaches the M10.1 annotators, assembles the G-buffer from geometry + the M10.2 ids + the M10.18 temperature table, and runs `run_frame`. Takes the `Scene` rather than a separate atmosphere preset so one weather object reaches everything (#6). **Distortion writes every attribute of the USD schema**, because the schemas default to a 2048x1024 lens with fx = 900 and a non-zero fisheye k1. In-sim: a rendered grid reprojects through the config to **< 0.2 px** undistorted and under barrel, the barrel term moves the outer quads 2.1 px with the axis fixed, and the zero-coefficient model fails on that render by > 1.5 px; a whole frame comes out float32/float32/uint16/RGBA8 with the two eps = 0.09 prims collapsing 27 K of authored difference to under a quarter. Runs the **CPU reference**, not the Warp stages: the device path has no post-ADC chain until M10.7b, and a frame from a different camera must not be labelled the same. **A generated environment dome for the companion visible frame** (`visible_sky.py`, ADR 0073): a Preetham daylight sky, Lambertian terrain hazed into the horizon by Koschmieder's law, and a 0.53° distant light for the solar disc, all driven by the scene's own NOAA sun position, the shared weather's visibility (turbidity as a *column* optical-depth ratio -- the ground-level one gives T = 14 on a clear 23 km day) and its DNI/DHI. The map is authored in **direction space**, because the renderer's lat-long convention is not the documented one and had to be measured: on this build the RTX dome light's pole is the stage's **+Z**, so an elevation/azimuth layout put the whole camera field inside one texture pole and filled the frame with ground. The infrared radiance and apparent-temperature planes are **bit-identical** with the dome and without it, and the solar disc is re-measured against the renderer each run of the integration suite. **The quadrotor flight stage (M10.20, ADR 0074):** `quadrotor.py` lays out a heavy-lift multirotor from primitives -- engine-free arithmetic, unit-tested, USD authoring separate -- so four motor bells, four speed controllers, a pack and a carbon frame are separate prims with their own materials and thermal nodes; `quad_flight.py` is the tracked stage, with attitude driven by the same throttle the thermal model reads. `IrCamera` gains a `frame_period_s` override that makes it a time-lapse camera -- every stage told the truth about the interval, not a fast-forward. The dome and the visible looks moved to a shared `stage.py` so a second stage cannot drift from the first. **The aircraft pass stage (M10.21, ADR 0075):** `aircraft.py` lays out a light jet with rear-mounted engines so both nozzles sit on the centreline; `aircraft_pass.py` carries the track, an azimuth/elevation look-at mount (not the minimal rotation, which rolls the horizon as it slews) and the stage. `Part`/`author_parts` moved to a shared `airframe.py` so the material override and the prim→node map have one implementation. `IrCamera.refresh_pose()` lets a camera move between frames -- the pose behind every ray is cached at `open()`, so a re-aimed camera without it renders geometry from the new aim and sky from the old one.  **Maritime demo (MM.5–MM.7, ADR 0078):** `maritime_demo.py` + `scripts/render_maritime_demo.py` put vessels on open water — a wave-displaced, Earth-curved water surface for the **visible** frame that joins the *background* mask, so its infrared temperature is the analytic sea profile at each ray's depression angle and `--no-water` leaves the IR frame unchanged. Rings are spaced uniformly in depression angle (a pixel row covers ground as r²) and the wave train is scaled by the shared weather's wind as U², so the picture and the radiometry cannot disagree about the weather. **`scripts/render_vessel_departure.py` (MM.7)** films a 90 m coaster leaving from 250 m while its funnel warms from cold to cruise power: the funnel runs 32 → 179 °C as the hull falls from 420 px to 17.5 px — a signature getting stronger while the target gets smaller, which a static frame cannot show. The camera does not track, so the vessel climbs through the frame and crosses the sea's own gradient. **The maritime stage is now checked in sim (`SE.2`):** four cameras on one stage measure that the rendered sea *is* `SeaModel` -- 293.2 K at half a degree of depression falling to 290.2 K at twenty-five, every band within **0.5 K** of the analytic curve, and monotone **down** because the slant path beats the angular emissivity, so a grazing ray reads above the 290.0 K bulk SST on path radiance alone. The sea's edge lands at row 72 against 71.36 from the camera's own height and tilt, and 3.6x nearer the curved horizon than the flat one -- a 16 km horizon, not 8 km. And the illumination bundle reaches the render path: the same stage under the same sun spans over **10x** the DN in SWIR with it than without, which is M10.22's claim made on a rendered frame rather than engine-free. ; **the illumination bundle on the render path (M10.22, ADR 0084)** -- `illumination_isaac` builds `l_sun`/`l_night` from the scene's own site, clock, weather and atmosphere preset, using the *same* sun vector the USD `DistantLight` is aimed along, so the radiometry and the companion visible frame's shadows cannot disagree about where the light comes from. Before it, every Isaac render was emission only: measured on dry asphalt at 300 K under a 61 deg sun, sunlit over emission-only is **1.08e15 in NIR**, 3.59e7 in SWIR and 1.17 in MWIR. An emissive band gets no bundle at all and renders bit-identically to what it did before ; **the render scripts work in any band (M10.23)** -- three things had assumed a bolometer: the Scene was built in the energy form regardless of the FPA, `attach_sensor_chain` raises for a photon FPA (its NUC residual is in mK/K and needs a radiometric calibration it has none of), and the manual display span was written in kelvin and applied to `apparent_t`, which is switched off for SWIR and NIR. `display_span.py` spans the raw ADC between first-frame percentiles in a reflective band and the readout leaves the temperature gauge off rather than print a kelvin scale beside a picture of reflected sunlight. The exposure had to move too: a 0.3-albedo surface in full sun saturates the NIR well **117x** over in 16 ms, so that file is authored at 80 us ; **the thermal bridge takes the §12.3 solver's surfaces (M10.3)** -- a rendered roof is now the one M6.12's energy balance solved, not a number typed beside it, and the bridge *advances* the field rather than only reading it (a `ThermalField` refuses a query past its last tick, so a renderer asking many times per tick cannot change the answer by asking). The two kinds of node use **different time bases** -- targets relative, the field absolute -- which is pinned by a test because on a scene starting at t = 0 the mistake would return a plausible number from the wrong hour. **ROS 2 messages (M10.10b)** are built and checked without a ROS graph: `fx = f/p`, a `width/2` principal point, integer-nanosecond stamps, and a float16 apparent-temperature plane **refused**. **No float16 reaches any G-buffer plane (`IG.8`):** the dtype guard used to carve out normals, occlusion and motion, justified by a claim that the renderer delivers fp16 normals — which ADR 0014's own addendum (**float32 ×4, full resolution**) and the build's annotator registry both contradict. The carve-out rescued nothing and spent non-negotiable #2. **No motion AOV reaches the G-buffer (`IG.5`):** `motion_vectors` sits at a ~6e-5 floor after a 180 px displacement (ADR 0014 addendum), but `_reject_reason` tested for all-zero only on *required* channels, so the plane was reaching the pipeline and the optics stage was running the smear path on it with a **defaulted** convention nobody had checked. `UNVERIFIED_CHANNELS` now keeps it unattached unless a caller asks (the probe does), and `geometry_planes` refuses a motion plane with no convention named — the three differ by a factor of the resolution and by the sign of y. Motion is synthesised instead (`irsim.optics.motion`) — and **`IG.6` gave that synthesis a caller**, which it had lacked since M10.1b: `IrCamera.planes()` now sets `motion_px` from `MotionTracker`, so ADR 0077's within-frame smear runs on a rendered frame for the first time. Before it every frame was sharp regardless of scene velocity, with M9.8 and M10.1b both ticked. The tracker's USD read moved behind an injectable hook, which is what lets the wiring be driven on a CPU — the reason it could sit unreferenced for two milestones was that reaching it required a renderer. Measured at the aircraft stage's 11 px/frame: the bolometer's 10–90 edge width goes 0 → 8.8 px and the cooled InSb's 0 → 1.1 px, which is the 8.33× **duty-cycle** ratio and not a property of the band. The plane is refused rather than faked on the first frame of a sequence, on a camera that was never opened, and outside the camera position frame. **Three strictness flags, not one (`IG.1`):** `strict_materials` (an id the label table does not name), `strict_thermal_nodes` (a rendered prim with no solver node) and `strict_patch_coverage` (a pixel on a field-backed prim outside every one of its patches) were one flag, and all six render scripts passed it `False` to get past the first two — so the third was off in every frame this project has produced, and a patch authored smaller than its geometry would have rendered part of a surface as a field and part as a flat value. The callers now name the two they mean; coverage keeps its `True` default. **A mesh temperature field on the render path** (`WM.1`-`WM.3`): `probe_warp_mesh.py` and `probe_warp_prim.py` measured that a Warp closest-point query recovers an exact (face, u, v) from the position AOV -- 0.13 um round trip against ADR 0014's 3.4 mm, with the barycentric convention measured rather than assumed -- and `pipeline.mesh_bridge.MeshPointBridge` turns that into per-pixel temperature from an `irsim.thermal.mesh_field` solve. Additive like the planar bridge, so an unbound prim is bit-identical; Warp is the accelerator and the brute-force NumPy closest point is both the oracle and the fallback, so the bridge runs with no Warp and no GPU. Warp and oracle agree on face, cell and sampled temperature for 100 % of 4 000 pixels on a sphere; an exhaust pipe goes from 0.000 K across the prim to 34.1 K; a pixel further than 7 mm from the bound mesh raises rather than snapping to the nearest cell. **The point-wise aerial scene, rendered (`PT.9` in-engine, ADR 0123):** `quad_outbound.py` authors the aircraft `configs/scenes/quad_outbound_pointwise.yaml` describes -- deck and belly as separate plates so one prim carries one field, four arms, bells, controllers and a pack -- and `scripts/render_quad_outbound.py` films it from a ground camera receding 12 m → 150 m against sky. The **camera moves and the aircraft does not**, because `OccluderSpec` refuses a moving frame and a flying airframe would lose the 27 K the deck's own shadow puts across each arm; the scene is authored in the **stage frame** with `world_frame:` (the car scenes' own choice) so every patch coordinate is a coordinate of a prim, checked cell by cell by `test_quad_outbound.py` rather than kept in step by hand. Deck − belly is **29.3 K** in the render and 29.3 K in the ENU oracle it was ported from. The boresight's 7.6° of margin to the horizon is computed from the sensor and the render **refused** if a wider lens would breach it, and every patched prim is inset **2 mm** inside its patch -- measured, after 150 deck pixels landed a float's width outside the rectangle on the first attempt. **A named aircraft and a sky with structure (ADR 0124):** `phantom3.py` lays out a **DJI Phantom 3** from the manufacturer's published specification (350 mm diagonal, 9450 props, 2312 motors), with the estimated dimensions labelled; `--airframe` on the outbound driver flies either aircraft. `abs_plastic_white` is the material that makes it a Phantom rather than a Phantom-shaped object -- alpha 0.25 against carbon's 0.90 puts its sunlit skin **+2.3 K** over air where the carbon deck sits **+24.4 K**, while both are near-blackbodies in LWIR, so the paint is invisible and its consequence is not. Cloud is on by default and comes from one `SkyFixedCloud` shared by the infrared background and the visible dome (ADR 0076), on a new SCT weather fixture, at six cells per degree because the half-degree survey default is ten pixels through this camera. Two measured corrections came out of it: `SPAN_M` had quoted the X-quad `2 x 0.42 x sqrt 2` for a **plus**-configuration frame and overstated it by 41 %, and a patched arm needs its patch **outside** its prim where a plate needs the reverse -- 1204 pixels outside every patch on the first render **An imported asset flies (`AI.2`, ADR 0133):** `render_phantom4.py` films the ADR 0128 Phantom 4 on one circuit of a lemniscate over its whole 28-minute mission, emitting an infrared clip, its registered visible companion and the pair side by side. The aircraft is mounted by **one rotation derived from the scene config's own `world_frame:` block** (`asset_flight.world_frame_to_stage`) rather than a hand-typed axis swap, because the sign of one of those is a coin flip and a mirrored mount renders a convincing aircraft facing the wrong way. The first attempt authored the stage **Z-up** to match the archive and came back rolled: `look_at_quaternion` levels against a world up vector defaulting to the stage convention `(0, 1, 0)`, which on a Z-up stage is horizontal -- and `visible_sky` and the `DistantLight` read +Y up and -Z north too, so the two halves of the pair would have shown differently lit skies. Range swings 2.24:1, the aircraft runs 70 -> 157 px across, aspect sweeps the full circle, and elevation holds 10.5-52.6 deg -- a track below the horizon would back a warm target with near-air-temperature sky-model radiance, since the scene authors no terrain. **Temperature is per pixel as of `AI.2`:** `IrCamera` takes `mesh_fields=` beside `surface_fields=`, so `WM.3`'s `MeshPointBridge` -- which had existed since its own tests and never been driven by a render, because reaching it required a renderer -- asks the prim's own triangles for the closest point to each pixel. The mounting is named on the *binding* (`MeshBinding.frame`) rather than in the scene, because the archive's coordinates must keep being called `world` there: `scene_forcing` refuses a patch in a moving frame outright, since shadow in one needs a pose the thermal core does not carry. Measured on the outbound clip: **24,214** pixels took a cell of the scene's own 234,923-cell solve across all six bound prims, and every one of the six carries a gradient **across itself** -- 3.83 K on the motor housings to **10.60 K** on the propellers, against a 50 mK NETD. A new `StraightOutTrack` flies the aircraft from 4 m to 80 m at a held 16 deg of elevation, spaced geometrically in range so it sheds the same fraction of its width every frame: 180 px across to 9. **The point-wise maritime scene (`PT.10`):** `vessel_pointwise.py` holds a 26 m patrol craft whose boxes come from `maritime_demo.vessel_boxes` rather than retyped beside it -- so the demo stage and the point-wise stage are one boat -- plus one part the demo has no use for, a thin **weather deck** plate at the deckhouse's own base level, because a box prim's top face cannot carry a patch on its own (the hull's sides are the same prim and their pixels would project into the same rectangle). `configs/scenes/vessel_pointwise_clear_day.yaml` binds fields to the deck and to two faces of the one deckhouse prim. The hour is chosen against the **weather series**, not the sun: this coast's sea breeze climbs 3 -> 9 m/s through the day and h(U) decides how far a sunlit plate gets from the air, so the deck's own span peaks at 7.7 K at local noon while the deckhouse's sunlit-to-shaded step peaks in mid-morning; at 09:00Z both clear 5 K at once (**5.49 K** and **5.21 K**). The shadow is asserted where the sun puts it -- 3.42 m forward of the deckhouse's west face at 44.6 deg of elevation -- and not merely somewhere, and the strakes outboard of the 4.0 m deckhouse on the 5.7 m deck are in full sun at the same stations, which is what makes it a shadow rather than a gradient along the hull. One consequence worth the name: the deck **under** the house is **1.3 K warmer** than the deck in its cast shadow a few metres forward, because it is roofed and loses far less to the cold sky -- a model treating shadow as one flag gets that difference backwards in sign for free. Take the occluders away and the field collapses onto the single number it replaced, uniform to **0 K** and within **0.061 mK** of the scalar solve, which is the redistribution bar. Frames need `IG.2`. **A raster can replace the solve, or steer it (`PT.13`).** `irsim.thermal.maps` gives this project DIRSIG's two escape hatches: a **temperature map** that *is* the surface (the Map Temperature Solver) and a **parameter map** that varies one `FacetProperties` field across the cells the solver then runs on (MappedTherm). Schema v17 `temperature_map:` / `parameter_maps:`. `PlanarPatch` was already a raster with a projection, so draping one is a resample and nothing more -- and a raster already at the patch's own `n_v x n_u` is returned with **no arithmetic at all**, which is what makes the round trip bit-identical rather than exact-to-a-tolerance; a genuinely resampled ramp holds **0.1 mK**. This is the escape hatch for a prescribed aerial skin, a hull somebody else solved, and -- the one the validation lane needs -- a **public thermal frame draped onto geometry**, so a scene can be built from a real measurement instead of from this simulator's own solver. **Units are declared and never inferred**, because published frames are in Celsius far more often than in kelvin and both load as plain floats: a 20 °C raster read as kelvin is 20 K, not a cold surface but an impossible one, which renders as a uniform floor rather than as an error. The guard is the band LUTs' own 200-1000 K domain -- a bound with a reason -- and it says in the message that it is **asymmetric**: kelvin mislabelled Celsius lands 273 K higher and inside the range, where nothing but a reader catches it. The parameter hatch is checked against the solver rather than against itself: a deck mapped α = 0.2 and the same deck mapped 0.8 sit **12.87 K** apart, and a half-and-half raster reproduces *both* uniform solves to **0.0000 mK** on one surface. One real defect surfaced on the way: the field started from the **per-prim** spun state, so a mapped absorptivity changed nothing at t0 and crept in over the first ticks -- 0.2 and 0.8 both returned 299.807 K. A map is part of a surface's history, like a shadow, so the per-cell spin-up now runs whenever either is present; the two paths that begin from one scalar (a layered stack, a cabin panel) refuse the map instead of reproducing that bug quietly. **Every part its own node (AI.7, ADR 0143):** `phantom4_perpart.yaml` puts fifteen nodes and nine surfaces on the part-split Phantom 4, the scene rather than the driver setting the granularity, and `--agc-clip` shows cloud and motors in one frame. |
+
+Tier 2 today is self-consistency (no camera, ADR 0003): SITF strictly increasing, linear in L_B(T) to
+0.29 LSB rms, blackbody T_app < 10 mK; two-blackbody NETD within 10 % of the anchor; 3-D ratios within
+the estimator floors. Tier 3 items landed: the hot-exhaust AGC collapse (linear AGC halves a
+pedestrian's 8-bit contrast; plateau 0.012 keeps > 50 % of the background std).
+
+**Bolometers have a thermal time constant again — or rather, for the first time (ADR 0082).**
+`BolometerLowPass` has existed since M9.1 and `irsim.pipeline.detector` has driven it since, but
+**`run_frame` never called either**: stage 4 reached the detector through
+`response(flux, frame_index, sensor_seed)`, a signature with no `dt` and no state, so it could not
+have carried a lag whatever it intended. Every frame *sequence* this repository has produced came
+from a bolometer with τ = 0 — no trail behind a moving target, and §15 Tier 3's "lateral motion
+smears LWIR, not cooled MWIR" true only in the within-frame half ADR 0077 supplied. This is ADR
+0077's failure mode a second time, and harder to see because **the documentation asserted it was
+wired**. Now held to the closed form: the step response is `1 − e^(−k·dt/τ)` to 1e-6, the first
+frame is α = 0.875486 of the step, successive residuals fall by exactly `e^(−dt/τ)` = 0.124513, and
+a cooled photon detector settles in one frame. The interval is **elapsed scene time**, not the
+frame rate: an 8 ms membrane settles completely across ADR 0074's six-second time-lapse, where
+driving it at 1/60 s would leave 12 % of a scene six seconds old in the picture. τ is **8 ms** and
+not the 10 ms this repository carried as an estimate: `SC.3` took it from [R24]'s "nominally
+8 msec", so the modelled detector had been *laggier* than the part FLIR ships, and the constants
+now come off the config rather than being restated in the tests. No golden moved —
+the membrane adopts its first input, because a core staring at a scene is already in equilibrium
+with it.
+
+**A Boson's own default AGC exists as an opt-in (`SC.21`, ADR 0147).** Global plateau
+equalisation is full histogram equalisation on a sky of cloud clutter, because no bin reaches the
+plateau, so a drone at 0.6 % of the frame received 3 of 256 grey levels. `agc: information_based`
+approximates FLIR's factory default from its application note [R51]: an edge-preserving split, a
+histogram re-weighted by high-pass detail, a `linear_percent` blend, and detail added back at the
+transfer's slope. On a synthetic sky-plus-drone frame the target goes from ≤ 3 to ≥ 25 codes with its
+parts in temperature order, and on `phantom4_perpart` frame 96 from 3 to 30. Its weighting is not
+published, so it is a flagged approximation until a Tier 4 fit exists. **The Boson 640 now runs it
+with FLIR's published factory values** (`SC.22`, ADR 0152): Plateau 7 %, Linear Percent 20 %, Max
+Gain 1.38 and Detail Headroom 12, read off [R51]'s control-panel screenshot. With them the synthetic
+target gets 37 codes, and the display is the only thing that moves: `dn16`, `radiance` and
+`apparent_t` are bit-identical.
+
+**The ADC holds the coldest sky (`SC.23`, ADR 0151).** A bolometer's DN 0 is zero scene radiance.
+It used to be the datasheet's −40 °C, which clipped up to two thirds of a `phantom4_perpart` frame's
+sky to one code. The band LUT's 200 K would not have been enough either: the layered model's winter
+zenith sky is colder than that in every preset. The coldest sky walked now sits 266 DN on scale,
+and the DN16 route returns T_app within half a code from 200 to 470 K. The cost is 4 % of the gain,
+5.9 mK a code at 300 K.
+
+**The AGC is selectable, and it is a set of families rather than one camera (`SC.25`, `SC.26`,
+ADR 0149).** `isp.agc` picks `linear`, `plateau_equalization`, `plateau_local` (tiled, CLAHE),
+`information_based` (detail-weighted) or `none`. Every equalising mode takes the controls vendors
+share under different names: `linear_percent`, `clip_limit_low` (the Lepton low clip) and
+`max_gain` (Boson and Xenics). A specific camera is a parameter set of these. On a clear sky the
+low clip takes a 0.6 % target from 3 to 27 codes, and `max_gain` stops a bland sky's noise filling
+the ramp. `scripts/redisplay_planes.py <run> --agc all` renders every mode on the same frames, and
+`scripts/agc_band_grid.py outputs/multiband/drone` puts every band and every AGC in one grid.
+The NIR silicon config, which had inherited the Boson's thermal ISP, now has a visible-camera
+display (linear, gamma 2.2). Reflective-band cameras still lack auto-exposure (`SC.27`).
+
+**The global AGC is why a target reads as one flat white shape, and there is now an alternative
+(M9.10).** One hot object sets the stretch for every pixel in the frame — that is not a defect to
+fix, it is what a real core does, so the global operators stay the default. But §11.3 offers two
+ways out and both are here. Measured on a broad exhaust plume: a global *linear* stretch keeps
+**8 %** of the background's contrast and a global plateau stretch **61 %**, while `agc:
+plateau_local` keeps **93 %** — the motor and the wings stay separable instead of saturating
+together. The cost is honest and stated: display level no longer means one thing across the frame,
+so two pixels of equal DN in different tiles can display differently, and none of this touches the
+radiometric branch. Tile seams are the obvious failure and the blend removes them completely — on a
+ramp, a tile boundary is no bigger a step than any other column, where assigning each pixel its own
+tile's mapping with no blending puts a **255-code** cliff there.
+
+**First image.** `make check` writes `outputs/first_image_boson_hot_patch.png` (the golden test): a
+295 K background with a 305 K block and a 600 K patch through the Boson configuration, noise on,
+plateau equalisation. The dark corners are the cos⁴ vignetting that plateau equalisation stretches
+on an un-flat-fielded camera. `flat_field_enabled=True` (M9.12) removes it -- that claim used to be here and was untrue: `TwoPointNuc` existed from M5 and nothing applied it. The atmosphere (stage 2) is still identity in this golden.
+
+**The golden store reaches past LWIR (`GT.2`).** All eight reference arrays used to come from one
+Boson LWIR config, which left the two subsystems where drift is hardest to see by eye — the
+reflective-band chain and the sky/sea background — with no reference at all. Fifteen more now
+cover the eight subjects that were missing: an **MWIR, SWIR and NIR frame** through the shipped
+configs, their committed LUTs and the library's own material table; the layered
+**τ(band, distance, elevation)** table; **L_sky(θ)**; the **sea's apparent temperature against
+depression angle**; a **half-in-sun thermal field**; and the **point-wise frame** made by sampling
+it. Each frame is asserted to span the converter without clipping, because a saturated golden hides
+the changes it exists to catch, and the reflective bands carry real solar irradiance from
+`SolarIllumination` — at 300 K their self-emission is ~1e-9 of LWIR's, so an emission-only golden
+would pin the dark current and nothing else. The worked example is checkable rather than claimed:
+a test shows the τ table **would have caught `AT.10`**, which moved SWIR from 0.4148 to 0.3877 at
+5 km while every one of the old eight goldens passed.
+
+**First light in Isaac Sim.** `python.sh scripts/render_aerial_demo.py --frames 4` renders the
+phase-1 aerial stage -- quadrotors at 120 m / 500 m / 1500 m, an aircraft at 2.5 km, a bird and a
+hot motor pod against sky -- through the whole camera model and writes the four outputs per frame
+in physical units (M10.9a-ii, M10.19, M10.10a). There is no sky *geometry* and no ground plane: a
+ray that hits nothing takes `T_sky(θ)` at its own elevation or `T_ground` below the horizon
+(ADR 0060), because an emissive dome would push the sky through a float16 colour AOV. The lens is
+verified against the renderer to 0.2 px. It also encodes a clip now (`IG.13`): it was the one
+render nobody could watch, and the video comes straight off the numbered display frames without a
+second PNG sequence. Still open for a full M10.19: the ME.6 real-vs-synthetic comparison, and the
+τ(R)/R² SCR law, which needs MS.6's analytic injection rather than renderer geometry.
+
+**One command, every scene, every band (`IG.13`).** `python.sh scripts/render_multiband.py` films
+**nine of the eighteen** scene configs in all four bands; it used to reach three of the eight that
+existed then, so five scenes -- the whole aerial point-target lane among them -- had only ever been
+seen in the single band their own driver defaults to. The other nine are declared unswept, each
+with its own reason in the file: `thermal_facet_scene` is the §6.13 facet bench, seven surfaces
+with no camera and no prims, and the rest are reference scenes whose patches and numbers are
+engine-free tests' but which no driver yet points a camera at -- each names the step that would
+close it. Adding the rows found two
+gaps in the drivers themselves: `--rt-subframes` and `--integration-ms` are passed to every child
+process and were accepted by only three of the six, so a sweep over the new scenes would have
+failed twelve renders at once with the reason buried in a subprocess's stderr. Running it found a
+third: three of the six drivers built their scene with `Scene.from_file`'s default `quantity="lb"`
+instead of the sensor's own, so the sky model came out in band radiance while a photon FPA runs on
+`lb_q` and `PipelineConfig` refused the pair. Each of the three therefore worked in exactly the
+band its `--sensor` default names and raised in the other three -- the aerial point-target scene
+among them, which is the lane ranked first. Fixing it uncovered a fourth, hidden behind it in the
+same three drivers: they attached the M9 sensor chain unconditionally, and `attach_sensor_chain`
+needs a radiometric calibration to turn the NUC residual's millikelvin into DN (ADR 0056), which a
+photon FPA does not have. And behind *that*, a fifth: `calibrate_flat_field`'s default hot
+calibration point is ADR 0021's +200 C, a bolometer range, which drives the modelled InSb camera
+16x past its converter -- the same three drivers did not catch the refusal and so could not render
+MWIR at all. Each defect hid the next, one band at a time, and only running the sweep found any of
+them. `tests/unit/test_render_multiband.py` now reads every swept driver by AST and fails if one
+builds a `Scene` without the sensor's quantity, attaches the sensor chain without checking for a
+calibration, or never retries without the flat field. A fifth turned up behind those: the aerial
+scene places its point targets by **angle**, so the InSb's narrower field put one at x = 700 px on
+a 640 px frame and the whole MWIR render stopped inside `splat`. A target outside the field of view
+is a target you cannot see, not a failure, so `IrCamera` now drops it and reports it on
+`last_offscreen_targets` — with `splat`'s own bounds, half a supersample cell in from each edge.
+
+**The companion visible frame has a real sky (ADR 0073).** `--rgb` used to write a flat grey void
+with six grey squares in it, which told a reader nothing about where the camera pointed or what
+hour it was -- and the visible frame is the only half of the pair a human can check by eye. The
+stage now carries a generated lat-long environment map on its dome light: a Preetham daylight sky
+above the horizon, Lambertian terrain hazed into it by Koschmieder's law below, plus a distant
+light with a 0.53° cone for the solar disc. Every input is the scene's own -- NOAA sun position at
+the scene's site and clock, turbidity from the shared weather's visibility against the atmosphere
+preset's Rayleigh coefficient (a *column* ratio: the ground-level one reads T = 14 on a clear
+23 km day), irradiance from the same weather. **The infrared frame is bit-identical with the dome
+and without it**, asserted in `tests/integration`, because a light is not geometry and never
+reaches the temperature plane. The dome's lat-long pole axis had to be *measured* -- on this build
+the RTX dome light samples with its pole on the stage's **+Z**, not the stage up axis -- and the
+sun is re-measured against the renderer: pointed down the sun's own azimuth, the disc lands within
+8 px of `f_px·tan(tilt − elevation)`. No cloud is painted and no disc is baked into the sky
+texture, both so the pair does not show what the infrared frame does not have.
+
+**A drone you can actually see (ADR 0074).** `python.sh scripts/render_quad_flight.py --frames 300
+--rgb` films a heavy-lift quadrotor at 20 m -- 105 px across its span, 6 px per motor bell -- flying
+a 30-minute mission, and writes an MP4. The airframe is built **parametrically from primitives**,
+not imported, so every part is a separate prim with its own material and thermal node: four motor
+bells, four speed controllers, a battery and a carbon frame. ADR 0072's law then takes the motors
+from ambient to +45 K and back as the throttle moves, with the speed controllers and the pack
+following at their own ΔT_max, so motor > ESC > battery > airframe holds at every instant of the
+flight by construction. Making that reachable needed a scene-schema bump: §6.6's aerial node model
+had existed since M6.6 and **no scene config could ask for a motor**, so v3 adds `heat_source` and
+`airframe` solvers that name a *throttle profile* and derive the temperatures.
+
+Two framing decisions in that video are physics, not taste. It is a **time-lapse** -- one frame per
+6 s of a 1800 s flight -- because the node law is a steady-state relation with no thermal time
+constant, so it is only defensible while the throttle moves slowly against a motor's minutes-scale
+response; every stage is told the truth about the interval, so the FFC fires on its real schedule
+and the noise decorrelates as it really would. And the main video uses a **fixed display span**
+rather than the camera's AGC -- in the sensor config's own white-hot grayscale, not a false-colour
+palette, because a presentation video that picks its own colours is a second display path that can
+drift from the camera's -- because both §11.3 AGC modes rescale from the current frame and
+cancel exactly the change being filmed -- plateau equalisation additionally gives a sub-1 % target
+almost no display codes, measured at 1217 of the object's pixels landing in the top ten, so the
+whole airframe is one flat white shape. The span is taken from the **target's own nodes**, not
+from ambient: spanning ±50 K about air spends half of 256 levels on sky-to-ambient and leaves the
+target 76 display codes of spread where the target-spanned version gives 128. Sky clips to black,
+deliberately; `--span-c` restores a scene-context span. The camera's own AGC output is filmed alongside, because that
+difference is the lesson. Propellers are still absent from *this stage*, but no longer for want of
+a model: ADR 0081 supplies one, and mounting it is glue (see below).
+
+**The same drone, going away, one temperature per point (ADR 0123).** `IRSIM_GPU=0 python.sh
+scripts/render_quad_outbound.py --frames 300 --rgb` films a quadrotor from a ground camera as it
+recedes from **12 m to 150 m** -- 111 px across its propeller tips down to 9 px -- with the deck, the
+belly and two arms each solved **per cell** from `configs/scenes/quad_outbound_pointwise.yaml` and
+bound to prims `irsim_isaac.quad_outbound` authors at the same coordinates. This is `PT.9`'s
+in-engine half: the first rendered scene here whose target carries a gradient across a single prim.
+Deck minus belly is **29.3 K** in the render and **29.3 K** in the engine-free oracle it was ported
+from, so moving the scene into the stage frame is provably a change of coordinates and not of
+physics; the arms carry **27 K** across one prim, cast by the deck's own underside and by each
+motor pod. Sun and throttle drive it together -- the sun through each cell's beam, occluders and
+sky view, the throttle through the motors, the controllers, the pack and the skin's convective
+speed (ADR 0109).
+
+Three things in that clip are decisions. **The camera moves and the aircraft does not**: an
+occluder in a moving frame is refused by the thermal core (see the limitation below), so a flying
+airframe would lose exactly the self-shadowing that is this target's point-wise signature, and
+relative motion is all a camera can see anyway. **The horizon is kept out by arithmetic, not by
+hope**: the boresight sits 20° up against a 24.8° vertical field, and the driver computes that
+field from the sensor config and *refuses to render* rather than paint ADR 0060's analytic ground
+across the bottom of a sky-target frame. And **every patched prim is 2 mm smaller than its patch**,
+which was measured rather than anticipated -- the first render of this scene raised on 150 deck
+pixels whose sampled surface position landed a float's width outside the rectangle.
+
+Recorded honestly: the deck's 29 K excess over air is on the **far side of the aircraft** from a
+camera looking up at it. That is the answer to the question rather than a gap -- an anti-UAV sensor
+reads a belly within a kelvin or two of ambient with four hot bells on it, and a scene that showed
+a ground camera the hot deck would be flattering instead of correct. The deck is in the float
+planes and in the burnt-in readout of every frame, so the number is there even where the picture is
+not. Two fixed spans are filmed (one for the powered parts, one anchored on air for the skin, since
+no single linear span shows both), plus the camera's own AGC and the companion RGB.
+
+**The same clip with a real aircraft, and a sky with something in it (ADR 0124).**
+`IRSIM_GPU=0 python.sh scripts/render_quad_outbound.py --airframe phantom3 --frames 300 --rgb`
+flies a **DJI Phantom 3**, laid out from DJI's published specification -- 350 mm diagonal, 9450
+propellers, 2312 motors, the battery in the rear of the shell -- with the shell plan, gimbal and
+skids ESTIMATED from photographs scaled on that diagonal and said to be. One number is not
+authored anywhere and falls out of the other two: the propeller clearance comes to **8 mm**, which
+is why 9450 is the largest prop this frame takes.
+
+Naming the aircraft changes the answer, which is the point of naming it. A Phantom's shell is
+white ABS, and `abs_plastic_white` absorbs **0.25** of the short-wave flux where `carbon_fibre`
+absorbs **0.90**: the sunlit skin sits **+2.3 K** over air against the carbon deck's **+24.4 K**.
+Against a 50 mK NETD both are visible -- 2.3 K is forty-six NETD -- but the margin is an order of
+magnitude apart, and a detector tuned on one is not tuned on the other. In LWIR the pigment does
+nothing at all (ε 0.95 against 0.90, both near-blackbodies), so a thermal camera sees the
+*consequence* of the paint and never the paint. It is not a thermal-mass effect either: at the
+same 1.5 mm the two skins carry 2205 and 2520 J m⁻² K⁻¹, 12 % apart. A first draft of this asserted
+"half the heat, twice as responsive" in three places; it was measured, it was wrong, and it was
+removed rather than softened.
+
+**And the sky finally has cloud in it, in both bands.** The machinery has been there since
+ADR 0076 and no scene exercised it, because the clear fixture carries 0.05 of cover and
+`generate_sky_cloud` lays coverage over the whole hemisphere -- so a 31 × 25° field almost never
+contained one. `data/weather/scattered_cumulus_48h.csv` is **SCT, 3-4 oktas**, which is the
+interesting condition rather than the extreme one: overcast would be easier and would prove
+nothing, since a fully covered sky is a blackbody at air temperature with no structure to
+false-alarm on and no sun. One `SkyFixedCloud`, seeded from that weather, is sampled per ray by
+the infrared background **and** baked into the visible dome, so the pair cannot show cloud in
+different places. A cloud base is *warmer* than the clear sky beside it in LWIR and brighter in
+the visible, so the same object reads bright in both here -- but under plateau equalisation the
+cloud edges take most of the display range and the aircraft nearly disappears into them, which is
+exactly the clutter a sky-background detector has to live with.
+
+That cloud was **a stencil** on its first render and looked it: `SkyFixedCloud.sample` returned a
+boolean, so every covered texel took one flat value and every cloud had a one-sample cliff round
+it — flat grey blobs in the visible and, worse, a step of tens of kelvin along every boundary in
+LWIR, which is exactly the edge statistic a detector keys on. `density` (ADR 0125) returns a 0-to-1
+depth instead, a smoothstep on the field's own excess over its threshold, and the blend becomes
+ε_eff = (1 − τ) d. Thin cloud turns out to be **more edge than core** — at 0.05 coverage the fringe
+is 3.0 % of the map against 2.4 % at full depth — which is why the stencil looked worst exactly
+where cloud was sparsest. Three things keep it a change to how a cloud *looks* rather than to what
+it covers: `density` crosses 0.5 exactly at the threshold, `softness = 0` returns the hard mask
+exactly, and `cloud_radiance` returns both limits through `np.where` so a boolean mask is
+bit-identical at any τ.
+
+**And it still had no optical depth and no distance (`AT.11`, ADR 0126).** Soft edges were not
+enough, because the *core* was still one number: every shipped preset authored `tau: 0.0`, so
+ε = 1 for every covered ray, and `L_B(T_base)` was evaluated as though the cloud were at the
+sensor. Measured on a rendered LWIR frame, **53.9 % of it sat within 0.25 K of one apparent
+temperature**, and inside that region the true spread was **0.073 K** — sensor noise and nothing
+else — which the plateau-equalising AGC with DDE stretched to display codes 106–255. "Always
+white" and "too noisy" were the same defect seen twice.
+
+A cloud now has a **visible optical depth** and its LWIR emissivity follows from it,
+ε = 1 − exp(−0.5 m τ_vis) along a ray of airmass m = 1/sin θ. At the diffusivity factor that *is*
+Shaw & Nugent's published 1 − exp(−0.79 τ), because 0.79 = 1.58 × 0.5 exactly — one relation for
+the tilt-integrated sky and for the image, decomposed rather than authored twice. And the cloud
+sits at the lifting condensation level, so the kilometres of warmer air in front of it attenuate
+its excess over the clear sky as 1/sin θ:
+L = L_clear + τ(R, θ) ε [L_B(T_base) − L_beyond(R, θ)]. That limit is **exact**, not a blend — the
+layered model's band transmittance and its `sky_beyond` carry the same spectral-class weights, so
+a gap in the cloud returns the clear sky to the bit. Measured on the same scene and seed with only
+the preset swapped: the cloud core spans **1.25 K** against 0.000 K, transmittance to the base
+runs 0.68 → 0.49 down the frame, and 73 mK of NETD occupies **0.3 of one display code** instead of
+149. Named rather than hidden: a plane-parallel deck has no *sides*, so an optically thick core is
+still flat to within a kelvin, and at an oblique aim that is not what a real cumulus field looks
+like — that needs a cloud with a third dimension.
+
+**A cloud with an inside (`AT.12`, ADR 0127).** Even with the right optical depth, a
+*plane-parallel* cloud is flat: every ray that enters an infinite sheet stays in it, so the core
+spanned 1.25 K. Looking straight up that is correct — a cumulus base is flat because it is the
+lifting condensation level — but these clips aim at 20°, where a real cumulus field is towers and
+a ray climbing 1.2 km travels **3.3 km horizontally** through them.
+
+So cloud is now a **deck**: a horizontal map of column depth at the LCL, each column given a top
+from its own depth and a vertical profile `6u(1−u)`, whose integral over the column is exactly the
+column thickness — so a **vertical ray reproduces the sheet to the bit** and the third dimension is
+provably a generalisation. Obliquely it is not: the cloud spans **19.7 K**, the emission level runs
+**12–834 m** above the base instead of sitting on it, and the largest histogram bin falls from
+55.4 % of the frame to 39.6 %.
+
+**A cumulus has a size and a shape (`AT.15`, ADR 0130).** The deck above still rendered badly, and
+the *visible* frame is what proved it: over the same directions at the same instant the dome drew
+cloud on **26 %** of the pixels and the infrared band on **57 %** of them. Three causes. The depth
+map was a soft threshold — a membership function, right for a sheet and wrong read as a top
+height, because it makes every covered column the full 1.2 km. The deck was **flat-topped mesas
+with vertical walls**: invisible looking up, and the whole picture at 20°, where an oblique ray
+runs *along* a wall rather than crossing a cloud (marched optical depth averaged 7.07 — opaque
+everywhere). A `1/f^β` field is also **scale-free**, so a 25 m grid carried 25 m clouds, which the
+dome sampled as specks and the march smeared over kilometres — bright marks in the infrared frame
+with nothing in the visible one to match them. And the deck **ended** at `base / tan(10°)`, putting
+a hard cold band across the bottom of every oblique frame.
+
+Now: column depth rises with the field's excess over the condensation threshold and is clipped by
+the capping inversion, so a tower has rounded shoulders; the field is band-limited at **400 m**,
+the low end of the observed fair-weather cumulus mode; and the deck **tiles** — the depth map is an
+inverse FFT and therefore exactly periodic, so wrapping it is seamless to the bit and there is no
+edge to reach. The largest histogram bin now holds **6.4 %** of the frame (53.9 % before ADR 0126),
+the in-cloud spread is **28.8 K**, and the emission level runs **15–1065 m** above the base.
+
+**One cloud, both bands — marched, not sampled.** The dome used to take the deck's column depth
+where each ray crosses the base: a *vertical* thickness read for an *oblique* look. It now marches
+the deck exactly as the infrared background does and takes `α = 1 − exp(−τ)` from the same
+integration the infrared band applies the band's optical-depth ratio to first. The two bands draw
+cloud in the same pixels by construction, and the test asserts that — and separately asserts that
+the old sampled quantity is a *different* cloud, so a dome agreeing with it would be the bug.
+
+The cloud's **brightness** comes from that same optical depth, through the two-stream reflectance
+of a conservatively scattering layer, `R = (1−g)τ / (2μ₀ + (1−g)τ)` at `g = 0.85`. That was not
+planned; the first rendered pair after the dome started marching is what showed it was needed. One
+Lambertian radiance per cloudy texel is fine while the opacity carries the gradation, and becomes a
+flat grey cut-out with a hard edge the moment the opacity saturates. The reflectance is the reason
+a cloud *has* an inside: a thin edge returns almost nothing and is the sky behind it, a deep core
+returns nearly everything and is white. Over a marched frame it spans **0.3 to 0.9**, and cloud
+sits at **1.23×** the clear sky's luminance at the median — thin edges darker, cores brighter —
+where the constant put every cloudy texel at a flat 1.8×.
+
+The dome's own resolution had to go up with it. `DOME_HEIGHT` was 512 rows, a texel every 0.35°,
+chosen when the softest thing on the dome was the solar aureole. A marched cloud is not soft: its
+opacity crosses from clear to opaque inside one texel, and a 640×512 frame magnifies each texel to
+seven pixels, which drew a visible **staircase** along every cloud edge. 1024 rows halves it to 3.6
+pixels and carries real structure with it, at 27 s of bake and a 25 MB EXR — both once per render,
+and a clear dome pays neither, because the cost is the march.
+
+The same deck is the visible band's cloud. `irsim_isaac.cloud_volume` voxelises the *same
+function* the infrared march integrates into an OpenVDB grid and puts it in the stage as a volume,
+so the companion frame carries real participating geometry a camera can fly toward rather than
+cloud painted on a dome at infinity — and the two bands cannot be different clouds, because they
+are one object. Two things that had to be got right and were not, first time: the field is
+synthesised **on the deck in metres** (projecting the hemispherical field down and extruding it
+makes tall thin fins, and the frame came out as vertical streaks), and the march sizes its own
+step count from the geometry (a fixed 48 steps put samples 68 m apart across a 25 m grid, which
+drew bands along every cloud edge).
+
+**The path tracer renders it (`AT.13`, ADR 0144)** — which reverses ADR 0140's verdict, and the
+reversal is the useful part. ADR 0140's "nothing volumetric renders here" rested on a control
+stage that contained the cube under test, and on four material inputs that `OmniVolumeDensity`
+does not declare and USD drops without a word. Eleven path-traced runs on 2026-09-26, each
+differenced against a control *and* a repeat of the control, and read in linear HDR with
+auto-exposure off, found the recipe by its failures: a `UsdVol.Volume` with an `OpenVDBAsset`
+field renders nothing in five variants; a unit cube scaled to the grid's bounds darkens the
+**whole frame forty-fold** at any density, because the density texture is sampled in the prim's
+*local* frame and the scale magnifies the grid until the camera is inside it; a **mesh box with
+its vertices at the grid's world bounds and no transform**, `primvars:isVolume`, the `.vdb` on the
+material's `volume_density_texture`, Non-uniform Volumes on and the bounce limit raised from the
+app's default of 3, renders the cloud — lit tops, flat bases, self-shadowing, its shadow on the
+backdrop, HDR 99.9th percentile 2.12 against the control's 0.92. `author_cloud_volume` now authors
+exactly that. One measurement shapes what follows: a volume writes **no depth**, so occlusion of a
+target by cloud in a band computed from AOVs still comes from this project's own march (`AT.14`).
+
+`--cloud-deck` remains the flag the drivers use (the dome bakes the deck, both bands read one
+object) and is the real-time path; the volume is the path-tracing one, and switching a driver's
+`--cloud-volume` to the OpenVDB writer and the render settings is the next step.
+
+**What the infrared band makes of that cloud (`AT.19`, ADR 0146).** The owner's reading of the
+clips — clouds brighter than they should be, and smooth in a way no LWIR footage is — was measured
+on `phantom4_weather`. Its 17 °C cloud under 12.9 °C air was the two-weather frame of ADR 0136,
+rendered the day before it closed and never re-rendered: under the scene's CSV weather the sky
+model reproduces the clip to the decimal (26.3 °C air, a second LCL at 1.8 km, cloud 17.0 °C,
+airframe 26.3 °C). Under one weather the same field reads 8.5 °C against a −40 °C sky. Two things
+beneath that were still wrong and are fixed: the deck's geometry and its *temperature* came from
+two bases, and the base was lapsed at the environment's 6.5 K/km where the LCL of surface air is
+dry-adiabatic — 3.3 K per kilometre of base, always toward a brighter cloud; the same cloud now
+reads **7.1 °C**, and the plane-parallel blend the sea and the tilt LUTs read carries the range to
+the base as the per-ray path already did. The infrared band also no longer borrows weather-fx's march: its jitter is smooth
+in the direction and printed 3.6 K rings through every cloud, so the band samples the same array
+with its own stratified, hashed march (emissivity error 0.0018 at the 99th percentile, 10 s a
+frame). What it does **not** fix is the shape: the softness is the shared 60 m grid, and
+sharpening it is a change to the field.
+
+Three limits of the deck, stated rather than left to be discovered. A cloud is still a **vertical
+extrusion** — a dome standing on the base plane, widest at the bottom — where a real cumulus bulges
+above its base; the visible cloud's **interior has no shading**, because one Lambertian radiance
+covers every cloudy texel and the opacity now saturates over a cloud's body; and **every base sits
+at one altitude**, which is a degenerate geometry for a near-horizontal ray that skims it for
+kilometres. Genuine 3-D shape is what the path-traced volume gives (`AT.13`); making the infrared band's
+occlusion agree with it is `AT.14`.
+
+**A close-up is a different measurement (ADR 0125).** `--close-up` holds the aircraft filling the
+frame for the whole mission, so the only thing changing is temperature: the four motor bells run
+22 → 65 → 22 °C while the skin, the skids and the gimbal sit at their own levels. The framing is
+checked against the sensor and the render refused if the aircraft overflows the frame or shrinks
+below a quarter of it. Every fixed-span frame now carries **the colour bar** beside it, with
+Celsius ticks, drawn from the same lookup table the display branch indexed — the gauge says what
+each named part *is*, and the bar says how any temperature became the pixel next to it. It is
+deliberately absent from the AGC videos, whose mapping is rebuilt from every frame's own
+histogram; that absence is what separates a picture of contrast from a measurement. From below the
+top shell is still hidden, which is the geometry and not a gap.
+
+**The sky, the sun, the moon and the weather live in their own project now (`isaac-weather-fx`).**
+`IRSIM_GPU=0 python.sh scripts/render_phantom4.py --weather broken_cumulus --weather-seed 3`
+films the imported Phantom 4 under a sky that the submodule at `third_party/isaac-weather-fx`
+owns end to end: where the sun and the moon are, what kind of day it is, and where every cloud is.
+It is a **git submodule and it was extended in its own repository**, not vendored — irsim holds
+the pin and the two adapters, and nothing else.
+
+That extension had **no sky at all** before this. It did fog, rain, snow, wind and light dimming;
+the only sky in it was a hard-coded HDR path inside its demo scene, which is not part of the
+extension. So the celestial and cloud subsystem is new work there: the NOAA solar position
+algorithm and Meeus's truncated lunar theory (cross-checked against *this* project's independent
+NOAA code — **62.49° / 148.23°** against 62.5° / 148.2° for Munich at the 2024 solstice), a
+Preetham daylight sky with a moonlit night built from the same Perez distribution and a starlight
+floor beneath it, and a coherent randomiser. Because its state is declared as dataclass fields
+with UI metadata, the generated panel, the JSON presets and the Python API picked all of it up
+with nothing to register.
+
+**Why the clouds looked like grey dunes.** The old model was a horizontal map of column depth
+*extruded upward*: every horizontal cross-section was the same shape, only scaled, so a cloud was
+a smooth mound standing on its base plane. The replacement is a genuine `density(x, y, z)` on a
+periodic grid. Measured on the shipped cumulus, two levels a third of the depth apart now share an
+intersection over union of about **0.24** — an extrusion scores 1.0 by construction — while levels
+50 m apart stay at **0.61**, because a cumulus is one parcel of air that rose and has to hold
+together vertically.
+
+Three things there looked right and were not, each found by measuring rather than by looking. A
+height profile written as a *threshold offset* fights the coverage solve and squashed every cloud
+into the bottom half of its declared thickness; it is now the occupied **area** at each height,
+solved per level as that level's own quantile, which is the morphology written down directly. A
+noise spectrum shaped in *cells* rather than in metres decorrelated over 150 m vertically against
+360 m horizontally — the grid is anisotropic — and rendered as fuzz instead of towers. And **a
+forward march cannot brighten a cloud with depth**: its value is bounded by the mean scattered
+term, so optical depth 60 came out no brighter than 20 where the real albedos are 0.89 and 0.72,
+and a sunlit cumulus rendered *darker than the sky behind it*. The energy now comes from the
+two-stream reflectance of a conservatively scattering layer and the march supplies only the
+directional detail around it, with a floor so the shadowed side is grey rather than black.
+
+**One cloud, read twice.** `irsim.atmosphere.weather_fx.WeatherFxDeck` presents that field through
+the contract `SkyModel.radiance_field_from_deck` already had — optical depth and emission height
+per ray — so every line of this project's infrared radiometry is reused and only the array that
+says *where* the cloud is changes. The visible companion is authored from the same field by
+weather-fx's own `SkyEffect`, through a four-line shim context, rather than by a copy of it.
+Measured on a rendered frame carrying a genuine mix of cloud and clear sky, the infrared apparent
+temperature and the visible luminance correlate at **Pearson 0.83 / Spearman 0.75** over sky
+pixels. ADR 0076's rule that the two bands cannot disagree about where a cloud is has been a thing
+to maintain by hand since it was written; it is now a property of there being one array.
+
+**Random weather that is actually weather.** `controller.randomize(seed)`, the panel's Randomize
+button, or `--weather random` draws a **regime** first and the parameters within it, with the
+couplings that make a day hang together: the cloud base follows the temperature and dew point at
+125 m per kelvin, rain implies a deep low deck and reduced visibility but a *lower* turbidity
+because rain scavenges aerosol, fog implies a tiny dew-point spread and almost no wind and no
+convective cloud above it. Drawing each parameter independently produces days that cannot happen,
+and a model trained on those learns the noise. The clock is drawn in local solar time and
+converted, so "night" means night where the scene is: over 160 draws, 39 % land with the sun below
+the horizon — 29 % astronomical night, 10 % twilight, 19 % low sun, 42 % high sun.
+
+**And now the surfaces run on the same weather (`AT.16`, ADR 0136).** Until this step the sky came
+from weather-fx and the *thermal solver* still read a measured 48-hour CSV, so
+`--weather broken_cumulus` lit a frame from one day while its paint had warmed through another.
+Neither half is wrong on its own, which is exactly why nothing caught it. weather-fx now
+synthesises the surface meteorology from the same state — air temperature anchored on the state's
+own value at the state's own hour and floored at the dew point (nocturnal cooling stalls at
+saturation), humidity derived from a constant dew point rather than the other way round, and
+irradiance computed per sample from the real sun elevation with Kasten–Czeplak cloud attenuation,
+which keeps **25 %** of the global under full overcast and puts broken-cloud diffuse *above* its
+clear-sky value. `irsim.thermal.weather_fx_series` wraps the columns in a `WeatherSeries`, which is
+where the ranges are checked and the content hash that keys every spin-up cache comes from, and
+injects it through `Scene.from_config(weather_override=…)` — the parameter that already existed, so
+CLAUDE.md #6 is satisfied by the same mechanism as before. The measured file stays: it is still the
+default for a scene config, and `--weather-csv` keeps it for the solve while weather-fx draws the
+sky, because a validation run wants the day that was recorded and not a synthesised one.
+
+**An aircraft nobody here modelled, flying (`AI.2`, ADR 0133).**
+`IRSIM_GPU=0 python.sh scripts/render_phantom4.py --frames 120 --fps 15` films the imported DJI
+Phantom 4 Pro of ADR 0128 — 41 prims, 21 source material names, 2.49 M triangles out of a 62 MB
+FBX — on one circuit of a lemniscate in front of a ground observer, over the aircraft's whole
+28-minute mission. Three clips come out: the infrared, the companion visible, and the two side by
+side. Every other stage in this project films geometry it authored in Python.
+
+The shape is chosen, not decorative. An **orbit** at constant radius is easier to write and shows a
+target that translates and never turns — its aspect angle is ±90° for the whole pass, which is the
+one thing a detector most wants varied. A figure of eight crosses its own track, so a single
+circuit takes the line of sight through both broadsides **and** tail-on while the slant range
+swings **2.24:1** and the aircraft grows from **70 px to 157 px** across. Measured over the
+shipped 120-frame clip: aspect covers **−178° to +178°**, the aircraft occupies **720 to 3344
+pixels**, and the motors run **27.3 → 46.0 °C** against an airframe that never leaves
+26.2–26.7 °C — a peak separation of **19.6 K** on a target a hundred pixels wide. The one hard constraint is
+elevation: this scene authors no terrain, so an aircraft below the observer's horizon would be
+backed by sky-model radiance at near-air temperature — a bright background behind a warm target,
+which is not what an aircraft against the sky looks like. The track holds **10.5–52.6°**, and
+there is a test that says so rather than a comment that hopes so.
+
+**Every part its own temperature (`AI.7`, ADR 0143).**
+`IRSIM_GPU=0 python.sh scripts/render_phantom4.py --asset phantom4_parts --scene configs/scenes/phantom4_perpart.yaml --track figure8 --centre-range-m 3 --half-width-m 2.5 --altitude-low-m 2 --altitude-high-m 4 --weather fair_cumulus --weather-seed 3 --sky-clip --agc-clip`
+flies the same part-split aircraft close — 2 to 6 m, so a motor can is tens of pixels — with
+**fifteen thermal nodes and nine mesh-solved surfaces** instead of the four nodes of
+`phantom4_parts.yaml`. The four motors and four ESCs sit on four *different* throttle histories,
+written the way a flight writes them: the rear pair carries more thrust in nose-down cruise, the
+outer pair in a banked orbit, the upwind pair hovering in a wind. Solved engine-free, the rear
+pair runs **6.9 K** over the front in cruise and the outer pair **5.9–6.1 K** over the inner in
+each orbit, and all four fall back to within **0.1 K** of each other once landed — the
+differences were the mission, not four models. The six airframe-family parts (shells, arms,
+legs, gimbal, lens) are lumped nodes with ESTIMATED offsets, on purpose: they carry 150–220 k
+faces each and the solver puts a cell on every face, so a mesh solve of the shell waits on a
+decimated thermal archive (ADR 0137). The driver no longer decides any of this — `target_for_part`
+takes the part's own name if the scene defines a node by it, so the *scene* sets the granularity.
+A third clip, `--agc-clip`, puts the aircraft and the cumulus in one frame the way the camera
+shows them: it is **the camera's own `display8`**, frame by frame, through the config's ISP
+(`SC.24`). It used to rebuild plateau equalisation on 65 536 float bins of temperature, none of
+which reached the plateau, so the drone got 3 of 256 codes. Under the Boson's factory AGC
+(`SC.22`) its hot parts span 19–32. The linear `ir` clip now tops out at the hottest target pixel, so
+the motors no longer clip to one white, and every readout sits in a margin beside the frame
+instead of over the aircraft. `scripts/redisplay_planes.py <run>` re-displays a finished run's
+saved planes through the same chain without a GPU. On the same pixels it agrees with the
+render's own display to within 2 codes on 13 of 14 flight frames.
+
+**The first stills came back rolled, and nothing in the physics was wrong.** ADR 0128 ended on a
+principle — *the asset's frame is the stage's frame* — so the first driver authored a **Z-up**
+stage to match the archive and transformed nothing. `look_at_quaternion` builds an
+azimuth/elevation mount around a world up vector, and its default is the stage convention
+`(0, 1, 0)`; on a Z-up stage that levels the camera against an axis that is *horizontal*, rolling
+the horizon by whatever angle the geometry happens to give. Nothing raised, because a rolled
+camera is a valid camera. That was not the only thing it broke, only the visible one:
+`visible_sky.stage_direction`, the lat-long dome layout and the `DistantLight` all read the
+stage's +Y as up and its −Z as north, so the two halves of the frame pair would have shown
+differently lit skies.
+
+The stage is now the renderer's Y-up and the asset carries **one** rotation — computed from the
+scene config's own `world_frame: {up, north}` block by `asset_flight.world_frame_to_stage`, not
+typed as a `rotateX 90`. The sign of a hand-written axis swap is a coin flip and a mirrored mount
+renders a completely convincing aircraft facing the wrong way; a determinant of −1 is refused
+rather than guessed, and a scene already authored in stage axes mounts with the identity and pays
+nothing. This is not a weakening of ADR 0128, whose prohibition is on an *undeclared* transform:
+this one is declared, in the config, by the block the thermal solver already reads.
+
+**The pair is the check.** Infrared and visible come out of the same capture on the same pixel
+grid (ADR 0073), so the companion is usable as evidence rather than as decoration — and it had to
+be, because the asset's 41 prims are all named `GeometryNode_<n>` and nothing says which way the
+aircraft faces. The nose was measured from the archive: the gimbal camera body sits **53 mm** and
+its lens **55 mm** toward −Y of the airframe's centroid, and `Green_light` sits **64 mm** the
+other way — DJI puts red status LEDs on the front arms and green on the rear ones, so a green lamp
+behind the centre of mass is the tail. Three independent parts agreeing, then confirmed by eye in
+the visible frame.
+
+One limit stays: the **dome is baked once**, at mid-mission. The sun moves 7° across a 28-minute
+clip, which is less than a lat-long texel would show, and re-baking it 120 times would cost more
+than the render.
+
+**The solve reaches the pixels (`AI.2` closed).**
+
+```bash
+IRSIM_GPU=0 python.sh scripts/render_phantom4.py --track outbound \
+  --scene configs/scenes/phantom4_parts.yaml --asset phantom4_parts \
+  --weather fair_cumulus --weather-seed 7 --frames 120 --bridge-device cuda:0 --sky-clip
+```
+
+flies the same aircraft **straight out from 4 m to 80 m** at a held 16° of elevation — 183 px
+across down to 9 — and `IrCamera` now takes `mesh_fields=` beside its planar `SurfaceBinding`s, so
+`WM.3`'s `MeshPointBridge` asks each bound prim's own triangles for the closest point to every
+pixel. Measured over that clip: **4,756 pixels took a cell** of a 23,477-cell solve, and each
+propeller carries a gradient *across itself* — **1.33 to 2.28 K** against this camera's 50 mK
+NETD, which is 27 to 46 NETD of structure inside one part.
+
+It flies the **part-split** asset of `AI.5`, not the material groups the FBX ships with, so the
+readout carries **four** thermal nodes rather than three: `airframe`, `motor`, `esc` and
+`battery`, with 10, 4, 4 and 1 prims on them. Range is spaced geometrically, so the aircraft sheds
+the same fraction of its width every frame instead of collapsing in the first few and then
+crawling.
+
+Two things had to be true for any of it to work, and neither was. `MeshBinding.frame` names the
+Xform the asset is *mounted* by: the patch keeps calling the archive's coordinates `world`,
+because `scene_forcing` refuses a patch in a moving frame, and the first attempt — a `frame:` in
+the scene YAML — was correctly refused by exactly that check. Before it, every query landed
+outside the bridge's 7 mm gate and coverage was **zero with no error raised**. And
+`phantom4_parts.yaml` named `battery` as both a heat-source node and a §12.3 surface, which
+`AerialThermalBridge` refuses outright rather than resolving by precedence; the surface is now
+`battery_skin`, and until that rename the parts scene had never been rendered at all.
+
+**The sky is not the aircraft's stretch.** A grayscale ramp fitted to the aircraft's 16.6–34.7 °C
+clips the sky to black, and the infrared frame then looks empty beside a visible companion full of
+cumulus — which reads as a missing model rather than as a display choice. It is a display choice:
+in the same planes the clear sky is **245.9 K** and the cloud in front of it **286.1 K**, so
+weather-fx's 30 % cumulus is **40 K** of LWIR structure, marched by both bands from one
+`CloudField` (ADR 0076). `--sky-clip` writes the same frames a second time stretched to the whole
+scene, where the cloud is the subject and the aircraft is the part that saturates. Neither clip is
+an extra render and neither is more true than the other; what is true is the float32 plane both
+are quantised from.
+
+The clips are the look; the **frame** is the float32 planes beside them and their sidecar, written
+through the same `FrameWriter` every other driver uses, with the config and band hashes a frame has
+to be traceable by (ADR 0004, ADR 0068). `--plane-stride` thins what reaches disk without thinning
+the render and records itself in each sidecar, so a gap in the numbering is distinguishable from a
+render that died.
+
+**An aircraft is the opposite problem (ADR 0075).** `python.sh scripts/render_aircraft_pass.py
+--frames 300 --rgb` flies a light jet past the sensor at 150 m/s and films ten seconds in real
+time. Where a quadrotor's heat is four motors a sixteenth of its span across that you resolve and
+watch warm, a jet's is an exhaust nozzle a *fortieth* of its span across but hundreds of kelvin
+hot — a near-point source — and it is **hidden behind its own nacelle from the front**. So nothing
+about the target changes during the pass; **aspect** does, which is why a real aircraft's measured
+signature varies by a large factor around the clock and why rear-aspect detection ranges are the
+ones quoted. Counted off the instance-id plane at the same range either side of closest approach,
+a rear aspect shows several times more nozzle and a hottest pixel tens of kelvin warmer.
+
+Two pieces of physics had to be added for it. **Aerodynamic heating**: `airframe_solver` puts an
+unpowered skin at air temperature and justifies it by forced convection at flight speed, which is
+true at 20 m/s and false at 200 — a stagnating boundary layer takes the skin to its recovery
+temperature, 0.18 K above ambient at multirotor speed and 10 K at 150 m/s. Schema v4's `ram_skin`
+node names an **airspeed** and derives the rest against the shared weather's own air temperature.
+And **a mount that slews**: the aircraft flies its true track while the pedestal re-aims at it, for
+which `IrCamera.refresh_pose()` is not optional — the pose behind every pixel's ray is cached at
+`open()`, so without it the geometry follows the new aim while the sky stays at the old one, across
+a pass whose true elevation sweeps 11° → 37° → 11°.
+
+**Cloud is in the rendered background now (ADR 0076).** Against a sky background the dominant
+false alarm is a cloud edge, not sensor noise — warm, target-sized, and the *same polarity* as a
+drone, since both read warmer than a cold clear zenith. MS.3's field has existed since M7 and only
+the engine-free scene generator used it. The bridge now takes a `cloud_seed`, and the field is
+fixed to the **sky** rather than the image plane: an image-plane field travels with the sensor, so
+a slewing mount carries its clouds along and a tracked target never crosses an edge. It also
+corrects ADR 0073, which called the background "clear-sky only" — `SkyModel.radiance` always
+carried the uniform blend, the *expectation* over the field, so this replaces a mean with a
+realisation and **the mean is preserved** (~0.2 % across seeds). Coverage is exact over the sky and
+not over a frame: one elevation ring measured 0.0195 against a whole-sky 0.0500, which is precisely
+what makes cloud clutter rather than texture.
+
+**Moving targets smear now (ADR 0077).** `mtf_motion` had been in the MTF cascade since M5 and
+**nothing ever called it**, so every frame was sharp however fast the scene crossed it — with the
+aircraft stage sweeping the boresight at 34 °/s against a 0.049° pixel, that is 11 pixels of
+unmodelled blur per frame, and it is one of the clearest tells separating real thermal video of a
+moving target from synthetic. The smear is **spatially varying**, because under a tracking mount
+the target is still on the focal plane while the sky sweeps past and one kernel serves neither.
+The integration duty is where the detector families part: a microbolometer has no integration
+window (`integration_time_ms` is `None` for one) so it smears over the whole frame, while a cooled
+photon detector integrates briefly and is sharper — §16's "lateral motion smears LWIR, not cooled
+MWIR". Held to the cascade term it implements: within **0.015** of `|sinc(s·f)|` across the sweep.
+
+**A spinning rotor is a veil, not geometry (ADR 0081).** ADR 0077 claimed propellers would be the
+smear operator's job. They are not: a blade tip at 3000 rpm does **112 m/s**, sweeping 109 pixels
+of *circular* arc per bolometer frame and wrapping the disc 1.7 times, where that operator averages
+along a straight segment with at most 65 taps. So the disc is computed as what the detector
+actually reports — the **time average of an intermittent opaque occluder**, composited in radiance
+(`alpha L_blade + (1-alpha) L_behind`), because blending apparent temperatures instead reads a 3 %
+veil of 290 K blade over a 230 K sky as 231.9 K where the radiance blend gives 233.1 K, hiding the
+disc rather than showing it. **One formula, both detector families:** coverage is a running mean
+over the angle swept during the integration, so a bolometer's whole-frame window (300° = 1.67 blade
+spacings) draws a smooth banded annulus and a 2 ms cooled integration (36°) resolves two arcs five
+times as bright — with **the same total**, because a running mean cannot move the mean of a periodic
+function. Tilt enters only as the projected area of a pitched plate, which makes coverage *exactly*
+tilt-invariant until the disc is within `pitch` of edge-on; the first version asserted the opposite
+and the rasteriser caught it. The disc reaches the focal plane through the **lens oracle** rather
+than an `f·R/Z` stand-in — `disc_ellipse` measures both semi-axes from projected rim points, so an
+8 m off-axis barrel lens shrinking the disc 4.3 % and pulling it 17 px inward is seen, not missed;
+the residual (the conic is assumed centred with perpendicular axes) is **measured at 0.079 px** at
+20 m, falling as range². On the frame the veil **composites rather than injects an excess**: MS.6's
+point-target form carries a `sky_beyond` term because a sub-pixel target occults a sky column the
+plane does not separately hold, but by stage 2c the plane already has the right background at every
+pixel — sky over some of the disc, the aircraft's own arm over the rest — so one blend handles both,
+lifting over cold sky and *dipping* over a warm arm in the same pass. **The quadrotor now carries
+four**, above its motor bells, and authors nothing to do it — no prim, no mesh, no material.
+Occlusion is a plane intersection rather than a range comparison, because the disc spans 0.36 m in
+depth at 20 m and the shortcut would draw 18 px of arm on the wrong side of the aircraft. Two traps
+worth naming: the sweep is taken over the **detector's** frame, not the time-lapse's six-second
+capture interval, which would otherwise turn three hundred revolutions into a plausible annulus
+with the banding physics quietly deleted; and rpm follows throttle by a **square root**, since
+thrust goes as rpm² and the profile's `u` is a fraction of maximum thrust — reading it linearly
+spins a hovering aircraft 40 % slow and moves which regime its discs are filmed in. One honest
+asymmetry: the discs are in the infrared frame and **not** in the companion visible frame, which
+RTX renders from stage geometry there is none of. Measured in sim: **6444 pixels change, peaking at
++10.1 K**, and the disc is brightest at its *root* because local solidity rises inward as the
+circumference shrinks while the chord does not — 3.2 % at three-quarter radius, 19 % just outside
+the bell. The first render found what no unit test had: sky carries `distance_m = 0` in the
+G-buffer, not `inf`, so reading it as a distance put a surface at the camera and occluded every
+pixel of the frame. The test used `inf` — what the AOV reports before the adapter translates it —
+and passed. Note too that at the demo's target-spanned display (18–62 °C) a 273 K disc clips to
+black with the sky: **real in radiance, absent from the picture**. `--span-c -15 40` shows it, 45
+display codes deep.
+
+**Targets below one pixel are injected, not rendered.** A 0.35 m quadrotor at 500 m is 0.82 of a
+Boson pixel, and a rasteriser gives a phase-dependent fraction of its flux (ADR 0071), so those
+prims are hidden and MS.6's analytic excess is injected in their place -- one path or the other,
+never both, guarded by `IrCamera.check_no_double_count()`. Measured in sim: the excess survives
+the whole chain to 5 %, lands within half a pixel of where the renderer draws the same object, and
+shows that the usual `tau(R)/R^2` shorthand under-predicts longer ranges by 33 % over 400-3200 m,
+because what a target occults is the sky column beyond it.
+
+Bands configured: **LWIR** (`flir_boson_640_lwir`, estimated VOx response — ADR 0013) · **SWIR** (`example_swir_ingaas_640`, estimated InGaAs response — M11.1) · **MWIR** (`example_mwir_insb_640`, cooled InSb at 77 K, `regime: mixed` — M11.5) · **NIR** (`example_nir_si_1280`, 1280×1024 silicon CMOS at 0.75–1.0 µm, response generated from silicon's own band-edge absorption rather than drawn — M11.9). Their self-emission at 300 K spans **seventeen orders of magnitude** (NIR/LWIR = 5.2e-17, SWIR/LWIR = 4.2e-9, MWIR/LWIR = 4.1e-2), and none of them culls emission: NIR's own 300 → 900 K gain is 1.4e14. `tests/unit/test_tier3_multiband.py` (M11.8) runs all three against each other: at noon a glass facet's solar glint saturates a 14-bit ADC over a window **0.51° wide in LWIR, 3.72° in MWIR and 18.6° in SWIR** — the operational form of "MWIR glints and LWIR does not", and a 36× spread in how much of a scene one reflection ruins. At 03:00 with no sun, MWIR and LWIR agree about which facet is hotter (rank correlation > 0.9): both are reading self-emission. And the architecture claim, asserted rather than asserted-in-prose: `planck.py`, `band_integration.py`, `band_average.py`, `lut.py`, `lut_files.py`, `encoding.py` and `band.py` are **byte-for-byte what M1.11 left**, when LWIR was the only band there was. `make luts` builds both tables from the same command, and adding the SWIR band needed no change to any kernel: `tests/unit/test_band_scalability.py` parametrises over every sensor YAML and additionally refuses to let **any** module under `src/irsim` contain a band name — in a string or an identifier — or a nominal band edge written as a wavelength. `AT.4` inverted that guard from a positive list of six packages to deny-by-default (140 of 146 modules guarded, up from 72), because the old shape made the exemption an *omission*: `materials`, `io`, `thermal` and `validation` were unguarded despite having **zero** offences all along, and a package renamed in the list scanned nothing and passed. The remaining six carve-outs live in `BAND_AWARE`, a path → (ceiling, reason) constant that is itself tested — each entry must exist, must still have an offence, and must not have grown. Five of the six were physics (an LWIR-only sky depression, the solar/thermal crossover) or a schema field already written into YAML; one was not — `BAND_CLASSES`, the atmosphere's spectral-class tables, which made a fifth band a code change (ADR 0092). **`AT.10` paid that debt** (ADR 0113): one wavelength-ordered, gap-free `ATMOSPHERE_LADDER` spanning 0.35–14.5 µm, from which a band's classes are *derived* by intersecting its own span — its nominal range **and** its response, since either alone has been wrong here. The carve-out is down from **seven offences to two** (the Koschmieder identifiers, the same photopic definition `extinction.py` carries), and a test now refuses any carve-out that enumerates the band registry, which is what made that table a second registry whatever it was called. It also fixed a measured error: NIR resolved the 0.94 µm water band at ×10 while SWIR's window swallowed 0.90–0.98 µm at ×0.5, so one sky was modelled two ways twenty times apart depending on which camera looked at it. Deriving from the ladder moves **16.9 %** of the InGaAs band out of `window` and costs SWIR **6.5 % of its transmittance at 5 km** — with the 200 m anchor exact, which is why no test caught it: the model is pinned where it was measured and wrong where it is extrapolated. LWIR and NIR are bit-identical, MWIR within one ulp (its classes now come back in wavelength order), and the holes at 1.80–2.00 and 6.00–7.00 µm — the 1.9 and 6.3 µm water bands, which belonged to no class at all — are filled.
+
+---
+
+## Quick start
+
+```bash
+# The project interpreter is Isaac Sim's bundled Python (docs/decisions/0002); any CPython >= 3.10
+# works for the engine-free core. Every make target honours PYTHON=.
+export PYTHON=/home/hunter/IsaacSim/_build/linux-x86_64/release/python.sh
+make install
+make check        # lint + typecheck + unit tests — must be green before any commit
+```
+
+Isaac Sim is **not** required for anything in `src/irsim/` or `tests/unit/`. Requires NumPy ≥ 2.0.
+
+Interpreter matrix (ADR 0002): the Isaac Sim interpreter (CPython 3.12) locally for everything
+including integration tests; plain CPython 3.10 and 3.12 in CI (`.github/workflows/check.yml`, no GPU,
+no Isaac). `make ci` reproduces the CI job locally in a `.venv-ci` built from `python3.10`.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `make install` | Editable install + dev dependencies |
+| `make test` | Unit + golden tests, fast tier only (no GPU); the commit gate is `make check` |
+| `make test-all` | Adds integration tests: the `gpu` ones need only Warp and a CUDA device, the rest need Isaac Sim (ADR 0014 addendum) |
+| `make lint` / `make fmt` | ruff check / ruff format |
+| `make typecheck` | mypy on `src/irsim`, `src/irsim_isaac`, `src/irsim_eval` and `src/irsim_viewer` |
+| `make check` | lint + typecheck + test + test-slow + the roadmap queue check (`next_step.py --check`) — the commit gate |
+| `make ci` | The CI job locally: plain CPython 3.10 venv + `make check` (no GPU, no Isaac) |
+| `make luts` | Regenerate band LUTs from configs and spectral data into `data/lut/` (gitignored; loader detects stale bundles, ADR 0012) |
+| `make golden-update` | Regenerate golden reference arrays deliberately (ADR 0004) |
+| `make site` | Build the project site into `_site/` (gitignored): every document, the module and configuration catalogues measured from the tree, and a web-sized copy of whatever is in `outputs/` (ADR 0139) |
+| `make site-preview` | Build it and serve it on `http://localhost:8000` |
+| `make site-publish` | Commit the build onto the `gh-pages` branch, one commit, no history; prints the `git push` command rather than pushing |
+| `make viewer RUN=outputs` | Open rendered frames in the browser; click a pixel to read every saved plane under it (true temperature, part, range, radiance, DN…). `RUN` is one render's folder or a folder of them (ADR 0154) |
+
+**Which GPU a render uses.** Every Isaac entry point — the six render drivers, the four probes and
+`audit_materials --stage` — boots through `irsim_isaac.env.simulation_app_config`, which pins the
+renderer to **GPU 0** and turns Kit's multi-GPU render graph off. Override with `IRSIM_GPU`:
+
+```bash
+IRSIM_GPU=1   python.sh scripts/render_car_ignition.py    # the other card
+IRSIM_GPU=all python.sh scripts/render_car_ignition.py    # Kit's own multi-GPU default
+```
+
+Indices are the ones `nvidia-smi` prints: the helper sets `CUDA_DEVICE_ORDER=PCI_BUS_ID`, because
+CUDA's own default is `FASTEST_FIRST` and reverses the two cards on this machine — so
+`CUDA_VISIBLE_DEVICES=0` selects the card it looks like it excludes. `CUDA_VISIBLE_DEVICES` cannot
+do this job anyway: Kit picks a *Vulkan* device, so a render launched under it still allocates on
+every card and dies with `ERROR_OUT_OF_DEVICE_MEMORY` when another one is busy.
+
+## Layout
+
+```
+src/irsim/          engine-free physics core (pure Python + NumPy); irsim.pipeline is the reference oracle (ADR 0018)
+src/irsim_isaac/    Isaac Sim glue — the only place engine imports are allowed
+src/irsim_viewer/   frame viewer: click a pixel of a rendered frame, read every saved plane (make viewer)
+tests/unit/         fast, no GPU, no Isaac Sim (default gate, with tests/golden)
+tests/conftest.py   synthetic G-buffer fixtures: ramp, uniform, two-material, grazing sphere,
+                    4x-supersampled 5.5° step edge, moving edge — the engine-free kernel test bed
+tests/integration/  needs the engine; auto-marked isaac, skipped cleanly when absent. The gpu-marked
+                    Warp equivalence tests need only Warp + CUDA and run with no Kit (ADR 0014 addendum)
+tests/golden/       regression fixtures: .npy + JSON sidecar with config hash (ADR 0004)
+configs/            sensor / material / atmosphere YAML
+data/               data root (`$IRSIM_DATA_DIR` overrides): spectra/responses/, n/k tables, LUTs, weather
+docs/               physics-model.md and ADRs
+site/               the project site's source: gallery.yaml (what to show) + assets/ (one stylesheet,
+                    one script). scripts/build_site.py renders it into the gitignored _site/
+```
+
+## Current limitations
+
+Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
+
+- **A small target against a cloudy sky still gets only a few dozen grey levels** (`SC.27`). The
+  Boson runs FLIR's factory-default AGC (`SC.22`) and the demo clips show the camera's own display
+  (`SC.24`), and the `phantom4_perpart` drone's hot parts get 19–32 of 256 codes, up from 2–3. A global AGC
+  cannot give a 0.6 % target most of the ramp in any case; that needs an ROI or local AGC, which a
+  real camera also has to be configured for. And no photon camera
+  auto-exposes (`SC.27`, S54): the NIR and SWIR configs are each one fixed integration time, valid
+  only near the light level they were written for. The float32 `apparent_t` and `radiance` planes
+  are unaffected; only the 8-bit display is.
+- **Every camera is in perfect focus at every range** (`OC` lane). There is no focus distance in
+  `OpticsSpec`, the optical PSF is one kernel applied to the whole plane independent of
+  `distance_m`, and the camera prim leaves `focusDistance` and `fStop` unset, so the RTX camera is a
+  pinhole. `mtf.py`'s cascade names `MTF_defocus`, but ADR 0059 folded it into the aberration
+  Gaussian and `SC.4` solved that Gaussian from an **in-focus** datasheet figure. The error is
+  negligible for the aerial lane — a Boson at 100 m is 0.02 waves — and reaches 1.9x the contrast at
+  Nyquist for a target at 10 m, or several pixels of blur for the 50 mm MWIR lens inside 40 m.
+- No 3-D conduction as a solid, but the two halves of it: a patch conducts in its plane from its material's k and δ (`PT.11`, ADR 0102) and through its thickness as an N-layer stack (`PT.12`, ADR 0103), with an adiabatic back by default and §6.4's R₂d/T_deep from `back:` when a scene declares one (`PT.15`). A panel's back can also be a **cabin** (`PT.15`, ADR 0106): one air-and-trim node solved with its panels on the same operator. The engine bay is a solved four-node network (`TC.5`, ADR 0100) and the exhaust line a solved gas stream in a wall (`TC.7`, ADR 0105); brakes and tyres are still §6.6 schedules. A `PlanarThermalField`
+  (ADR 0087) gives a surface a temperature *field* rather than one value, but its cells are still
+  independent §6.1 facets: heat spreads across a panel only insofar as the *forcing* spreads, not by
+  lateral conduction within the skin. What *does* spread across a panel is the forcing: ADR 0088's
+  configuration factor puts an engine bay's heat onto the bonnet above it as a computed falloff,
+  and a warm body onto the ground below it -- single-bounce, isothermal over the radiating
+  rectangle, and parallel surfaces only. The ground's three radiators (underbody, engine-bay floor,
+  exhaust) are nested regions of one floor pan, not disjoint bodies, so their view factors are
+  clamped to sum to at most 1 per cell (ADR 0090) rather than partitioned -- correct in total, but
+  an approximation of which radiator "owns" a cell where their footprints overlap.
+- **No hot-gas absorption in SWIR or NIR** (`PH.5`, ADR 0098 addendum). RadCal *sets* CO₂ to zero
+  above 1.75 µm and H₂O above 1.08 µm -- sound for fire heat transfer, unsound for a short-wave
+  camera, where real overtone bands live. The generator records how much of each band falls inside
+  the model's support (MWIR and LWIR 1.00; **SWIR 0.78 for H₂O and 0.00 for CO₂; NIR 0.00 for
+  both**) and the loader **refuses** anything below 0.99 rather than handing back zeros, because a
+  zeroed table renders a flame as a transparent one and nothing downstream can tell. A SWIR or NIR
+  flame therefore raises an error naming HITEMP, which is what would lift this.
+- **A field is spun up with its scene present, single-bounce** (`PT.7`). The car demo's road and
+  bonnet are integrated through the scene's `spin_up_hours` with the car's sky occlusion, cold
+  radiators and shadow, so frame 0 carries the ~4.5 K patch a car parked all night makes under a
+  clear sky (under 0.3 K under overcast). The exchange with a grey body counts one reflection
+  (ADR 0088 addendum), not the series; a second bounce is under 2 % for ε ≥ 0.85.
+- **A mesh field is a generated primitive, and no render driver passes one yet** (ADR 0110, which
+  supersedes ADR 0087's curved-geometry limitation but not its planar patch). ADR 0087's projection
+  onto a plane covers a road, a bonnet, a roof or a deck and recorded a wheel, a tyre, an exhaust
+  pipe or a mast as a permanent limit. `WM.1`–`WM.3` lifted it — a Warp closest-point query
+  *derives* the (face, u, v) from the position AOV instead of having the renderer transport it —
+  and `WM.7` made it reachable: a surface's `mesh:` block (schema v14) puts cells on a cylinder or
+  a sphere, and `quad_flight_mesh.yaml` flies the aerial mission with its arms as tubes, **15.4 K**
+  between a sunlit crown and an underside on air. `WM.4` then traced what each cell can see, so
+  the convex-geometry assumption is gone: the beam is a ray test against the scene's occluders and
+  the mesh's own triangles, and the sky view is `PT.21`'s dome per cell rather than the tilt's
+  open-sky `(1 + n·up)/2`. `WM.6` let the cells conduct to each other (ADR 0112). Two limits
+  remain. The shape is **generated
+  from the config**, not read from an imported asset's triangles, because the engine-free core may
+  not import `pxr` (`scripts/probe_warp_prim.py` measured what ingest takes: triangulating quads,
+  applying the local-to-world transform, and that an analytic gprim exposes no points at all).
+  `AI.2` wired `MeshPointBridge` into `IrCamera`, so a rendered frame reads the field per pixel
+  on every prim a scene binds; a prim with no `MeshBinding` still renders at its node's single
+  temperature.
+  On a mesh the sample is also piecewise constant and the normal is its face's, never a vertex's;
+  smoothing across faces is still `WM.4`'s deferral, `k` is one isotropic number per material, and
+  `film:`, `water:`, `layers:` and `back:` are refused on a mesh rather than silently ignored.
+- **A surface's granularity tier is authored, never chosen for it** (ADR 0111). Four tiers: one
+  facet per prim, cells on a plane (ADR 0087), cells on a mesh (ADR 0110), and a network node,
+  which is a *mass* and not a surface. There is no per-material tier — DIRSIG's default — because
+  one material is shared by surfaces at different orientations under different shade. Nothing
+  selects a tier by range or by pixel footprint, and a surface with no `patch:` or `mesh:` gets
+  one temperature **silently**: the difference between "this surface is uniform" and "nobody got
+  round to it" is not in the config. Cell size is set by the material's own smoothing length
+  `L = √(kδ/h)` — 9 mm on carbon fibre, 49 mm on asphalt, **145 mm on a painted aircraft skin**,
+  which therefore cannot carry a fine thermal pattern however many cells a scene spends. The
+  arms are cut at 5.9 mm, a deliberate over-resolution for the picture's sake: since `WM.6` gave a
+  mesh lateral conduction (ADR 0112) that costs time rather than being wrong. A mesh carries a
+  **second** authoring rule with it — a tube's rings should be about **1.4×** its circumferential
+  arc, because the two-point flux between cells is exact at that shape and carries only three
+  quarters of the conductivity it should for long thin quads. The arms shipped at 12.7 : 1 until
+  that was measured.
+- Band-averaged atmosphere (Beer-Lambert). Valid under ~500 m; not for airborne work. Measured
+  (ADR 0048): a grey γ_B fitted over 0–300 m over-attenuates a two-level LWIR band by 1.7 % at 500 m
+  and 8.7 % at 1 km, and a MWIR band with an opaque CO₂ notch by 18 % at 500 m and 42 % at 1 km.
+  The layered exponential-sum model (ADR 0071) removes that error and supplies the sky, but its class
+  multipliers are ESTIMATED (two calibrated to R13) and it carries no scattered sunlight.
+- Emissivity is grey within a band.
+- Reflections are approximate — sky-view-factor blending, not full path tracing.
+- No polarisation, no atmospheric turbulence.
+- NETD is anchored to datasheet values, not predicted from first principles.
+- Weather is prescribed; there is no coupling back from the scene to the atmosphere.
+- No IR camera is available: validation uses public datasets (all 8-bit so far, lossy-coded, some through an
+  unknown ISP), so absolute radiometry (SITF, NETD) is checked for self-consistency only, and the
+  target-vs-range behaviour is validated by data only to ~200 m — 0.5–5 km is modelled, not measured
+  (ADR 0003). **Measured, not assumed (ME.2b):** 8 bits alone put a 0.289-code floor under every
+  noise statistic, which on a clip at σ_TVH = 1.5 codes leaves only the temporal white term
+  measurable; and x264 at CRF 18 — a high-quality setting — removes 95 % of that term. Noise
+  numbers from a lossy public set are therefore lower bounds and are reported as such, never as
+  targets the simulator is tuned to hit.
+  The bench that would change this is written down and waiting: `docs/validation/tier2-bench-protocol.md`
+  fixes the procedure, the file layout and the tolerances **in advance** (M12.4), and the four Tier 2
+  comparisons skip with the path they looked for until a CSV appears there.
+- Clouds, slant-path atmosphere beyond 500 m and point-target radiometry are additions the physics
+  specification does not cover; each carries its own ADR and error statement.
+- **Thermal shadow is per cell but hard-edged and world-frame only (ADR 0095).** A scene's occluders shade
+  the direct beam on its world-frame patches with no penumbra (`PT.22`), no bounced light and no moving
+  occluder (`PT.9`) -- which is why the rendered point-wise aerial scene moves its *camera* and
+  holds its aircraft still (ADR 0123): a flying airframe would have to author its patches in its
+  own prim's frame and would lose every occluder, and with them the 27 K across one arm; the sky
+  view per cell (ADR 0104) is an isotropic dome, no Perez split; a surface
+  without a patch keeps its `shaded` flag. The edge is hard unless a scene sets `penumbra_rays:`
+  (`PT.22`, ADR 0107), and occluders are authored as rectangles: the ray adapter takes meshes, but
+  where a scene's triangles come from waits on `WM.4` / `IG.2`.
+- **An unmapped prim is marked in both branches, and a marked frame is not a measurement**
+  (`IG.17`, ADR 0047). `debug_unmapped` is on by default: a prim carrying no material resolution
+  joins the background mask, the *display* branch paints it magenta, and since `IG.17` the
+  radiometric branch writes **NaN** over it on `radiance` and `apparent_t`. Until then the second
+  half was missing, and `SE.2` measured the cost on the maritime stage: the sea, rendered without
+  being declared as background, came back at **200.1 K** across 72 % of the frame -- the band
+  LUT's own floor, in range, in kelvin, reading as cold water while the mask beside it looked
+  entirely correct. NaN rather than a sentinel kelvin, because every sentinel is a number
+  something downstream averages into a believable frame temperature. `dn16` keeps its integer
+  count: a sensor count has no NaN to carry. The limitation that remains is the ordinary one --
+  a frame with unmapped geometry is unusable over those pixels, and `debug_unmapped=False` raises
+  instead, which is what a production run should set.
+- **In the reflective bands the ground and the clouds are lit by one-bounce stand-ins (`AT.20`,
+  ADR 0153, S55).** Until this step the ground only glowed, which is nothing in NIR and SWIR: a
+  white underside rendered black, and SWIR clouds read exactly the clear sky. The ground now
+  reflects the weather's own DNI and DHI through its library material's band reflectance
+  (`environment.ground.material`, e.g. `soil_dry`, ρ_SWIR 0.26). A cloud base returns the two-stream
+  R(τ, μ0) of that irradiance, the same expression the visible dome uses, so the pair agree. A
+  downward-facing surface's environment goes from 9e-8 to 13.4 W m⁻² sr⁻¹ in SWIR, and deck clouds
+  from 1.0× to 13× the clear sky. The approximations are flagged: the ground is Lambertian and
+  unshadowed, droplet absorption is ignored (a thick SWIR cloud is somewhat too bright), and a
+  cloud base is drawn as a reflector rather than by diffuse transmission. LWIR is bit-identical.
+  Not yet seen in an in-engine render.
+- **No cast shadows in the reflective bands (ADR 0084).** The Isaac render path now supplies the
+  M11.2 illumination bundle — without it every render was emission only, which is right to 0.35 %
+  for LWIR and *black* for NIR — but `shadow` is 1 everywhere, so the only shadowing is
+  self-shadowing through max(0, n·s). Exact for an aerial scene, optimistic on the shaded side of a
+  vessel, wrong for a street. The renderer supplies no working occlusion AOV to do better with.
+- In-sim the renderer supplies no ambient occlusion and no working motion vectors (ADR 0014
+  addendum, measured on 6.1.0-rc.26, re-measured and pinned by a test in M2.4 -- all three AO
+  annotator names still return nothing, and an all-zero buffer would not count as delivering).
+  The sky-view factor is therefore the unoccluded geometric form -- exact under an open sky,
+  optimistic in a street -- and the image-plane velocity is synthesised from the per-prim transforms
+  (`IG.6`) rather than read from the renderer's motion AOV, which stays unverified (`IG.5`).
+- **A third-party asset renders (AI.2).** `scripts/render_phantom4.py` films the prepared DJI
+  Phantom 4 Pro in LWIR -- 41 prims, 2.49 M triangles, 41/41 materials resolved **inside Kit** --
+  and `scripts/probe_isaac_asset.py` re-measures ADR 0128's CPU-side claims with Kit's own
+  OpenUSD. Since `AI.2` the mesh solve reaches the pixels: `IrCamera` takes `mesh_fields=`, and
+  on the part-split asset **4,756 pixels took a cell** of a 23,477-cell solve across its 9 bound
+  prims. What a scene does not bind still renders at its node's one temperature, and the camera
+  must look **up** at the aircraft, since with no ground plane a downward ray samples the sky
+  model below the horizon and returns near-air temperature.
+- **Most of an imported mesh cannot carry a temperature, and now something says so** (`AI.3`,
+  ADR 0137). `prep_asset.py` measures the prepared archive against two budgets. Affordability is
+  gated at 1,300,000 faces and 200,000 per prim, from `GT.7`'s cost measurement. Usefulness is
+  reported: a cell holds one temperature, and two cells closer than `sqrt(alpha x tick)` cannot
+  hold different ones, so across `configs/materials/` the floor at a 60 s tick runs from **1.11 mm**
+  on the slowest material to **71 mm** on bare aluminium. The Phantom 4 is **1,532,656 faces**
+  against the budget with **77 %** of them below the floor — one prim carries 100,926 faces over
+  2.7 cm², a **73 µm** cell. It is therefore refused by default (`--allow-over-budget` overrides,
+  `--dissolve-deg` fixes). Decimating to a per-material target edge length is not built.
+- **An imported asset's thermal mesh is not its render mesh, and decimation must preserve area**
+  (ADR 0132). The solver's geometry is a planar-dissolved copy sized to the physics -- collapse
+  decimation removed 37 % of the Phantom 4's area, which is 37 % of its emitted signal -- and the
+  prep tool refuses to write an archive whose area moved. Self-occlusion tracing is a scene's
+  decision, not a default: it costs cells x faces per tick, 248 s for one 3,320-cell prim, so a
+  scene over the budget is refused rather than left to run for hours. `self_occluding: false`
+  falls back to the analytic (1 + cos beta)/2 sky view, honest for an airframe in free air and
+  wrong for the gimbal that genuinely sits in the body's shadow.
+- **A mesh whose faces carry several materials renders as one of them** (`AI.4`, ADR 0128
+  addendum). The instance-id plane carries one id per prim (ADR 0014) and the material table is
+  indexed by it, so one prim is one material however many `materialBind` subsets the asset
+  authors. The walk now reads subsets — `walk_stage(expand_subsets=True)` gives an audit one
+  record per face group, and `StageWalk.subset_meshes` names every mesh whose render will be
+  incomplete — and `AI.6` splits such a mesh, so the limitation is now one an asset opts into by
+  not being prepared. What this closes is the silence: a facade of glass, precast concrete and
+  metal cladding
+  was previously read from Blender's slot-0 mesh binding and became entirely glass, worth
+  **1.59 K** of apparent temperature on the concrete at 300 K under a 250 K sky — 32 NETD, and no
+  error anywhere. `tests/unit/data/subset_building.usda` is the committed fixture that runs the
+  branch; before it, no asset in this repository had a subset at all.
+- **One prim per material is a preparation step, not a property of an asset** (`AI.6`).
+  `prep_asset.py --emit-material-split` writes a sibling asset whose prims are one per material,
+  measured and named engine-free by `irsim.io.asset_material_split` and regrouped in Blender on
+  the CPU. It is opt-in because it changes an asset's prim paths and scene configs are authored
+  against those, so an asset that has not been through it still renders a multi-material mesh as
+  one material. What the pass buys is an **area**, not a count: on the committed fixture 35.7 % of
+  14 m² rendered as the wrong material before the split, and on the Phantom 4 the figure is 0.0 %
+  — it is grouped by material already, 41 prims to 41, which is exactly why this branch went
+  unexercised for so long.
+- **An imported asset supplies material identity and geometry, and nothing thermal** (ADR 0128).
+  No asset format carries thickness, interior-vs-exterior classification, sky view factors or heat
+  sources, so those stay authored by hand — `configs/assets/<name>.yaml` holds optical truth only.
+  Imported assets are also grouped by *material*, not by function: the committed Phantom 4 has
+  31,068 disconnected shells across 41 prims, one of which is "all the white plastic". That is
+  acceptable because the ADR 0110 mesh field solves per cell rather than per prim, but it means no
+  prim in such an asset is a *part*, so nothing can be bound to "the top shell" by name.
+- **A model arrives from a link gated, but not yet judged** (`AI.8`, ADR 0150).
+  `scripts/fetch_sketchfab.py` automates the fetch — UID from any link shape, licence gated
+  *before* download (CC0/BY/BY-SA shareable; ND/NC/Standard/Editorial and anything unrecognised
+  quarantined under `3d_models/quarantine/`), glTF only because the API never serves the source
+  FBX, attribution and sha256-pinned provenance written where they travel with the asset. What
+  stays judgement is everything after: `scale_to_metres` against a published dimension, the
+  functional parts, the material map. The `ingest-asset` checklist (`AI.9`) drives that half.
+- **A rendered imported asset is per pixel only where a scene binds it** (`AI.2`). `IrCamera`
+  now takes `mesh_fields=`, so `MeshPointBridge` — which turns a world position into a cell on a
+  real mesh, measured to 0.13 µm by `WM.1` — reaches the picture at last. What reaches it is what
+  the scene lists: `phantom4_parts.yaml` binds **9 of the asset's 19 part prims** (the battery,
+  four motor mounts, four propellers), which is 23,477 cells and **4,756 pixels** at their
+  widest. The ten unbound prims — the shells and arms, the aircraft's whole silhouette — still
+  render at their node's single temperature, so most of what an eye sees in that clip is still
+  per prim. Binding them is a scene edit and a cell budget, not a code change. Every run of
+  `render_phantom4.py` writes the pixel count and the widest gradient into its own
+  `summary.json` rather than leaving either to be inferred from the picture.
+- **Synthesised weather is a diurnal model, not a forecast.** With `--weather`, the surface
+  meteorology is one sinusoid, one afternoon lag and a dew-point floor, with wind, cover,
+  visibility and precipitation held constant across the series because a single weather-fx state
+  carries one of each. It will not reproduce a frontal passage, a sea breeze or a nocturnal jet;
+  a scene that needs one of those needs a measured file. The diurnal swing, the regime weights and
+  the turbidity-to-visibility curve are **estimated** for a mid-latitude site, not a climatology.
+- **The visible sky's photometry is a look, not a measurement.** weather-fx returns sky luminance
+  in cd/m2 and the dome's *intensity* carries an auto-exposure, because the sky moves six decades
+  between noon and a moonless night and no fixed intensity survives that. Only the infrared
+  outputs are in units; brightness in the companion frame is a display choice.
+- **The mount rotation is carried by the binding, not by the patch** (ADR 0133, `AI.2`). An
+  imported asset's patches are authored in the archive's own frame and the render stage is the
+  project's Y-up, with one rotation between them. The first `MeshPointBridge` render found this
+  the expensive way: every query missed the 7 mm closest-point gate and **not one pixel** took a
+  cell, with no error raised, because a query in the wrong frame is simply a query that finds
+  nothing. The fix is `MeshBinding.frame`, naming the Xform the asset is mounted by, because the
+  patch itself may not move — `scene_forcing` refuses a non-`world` patch frame, shadow in a
+  moving frame needing a pose the patch does not carry. Mounting is a rendering fact, so it lives
+  on the binding. A scene that mounts an asset and forgets the field still reads as coverage 0
+  rather than as an exception.
+- **The camera is not in the weather** (`SC.16`, physics-model §9.5). Nothing under
+  `src/irsim/detector`, `isp` or `noise` reads wind, so a camera flown at 8.5 m/s drifts exactly
+  as much as one sitting in still air. Published UAV measurement puts that at **−1.02 to
+  +3.86 °C of bias across 0.8–8.5 m/s** [R44] — some seventy times this camera's NETD, and larger
+  than most of what the noise chain models carefully. The drift *path* already exists (ADR 0016,
+  ADR 0021); it is simply never driven.
+- **The camera has no emissivity setting** (`SC.15`, physics-model §11.5). The pipeline emits
+  apparent temperature and stops. A real radiometric core applies an operator-set emissivity, a
+  reflected temperature and an assumed atmosphere, and reports something else — assuming 0.95 on a
+  true 0.90 surface reads **2.04 K low** at 300 K and 2.98 K low at 330 K. Until `SC.15`,
+  `outputs.apparent_temperature` is standing in for a measured temperature it is not.
+- **Emissivity is a per-band scalar of an unstated surface finish** (`AT.17`, `XD.13`,
+  physics-model §4.5). All 21 materials carry `ESTIMATED` and only one uses a spectral curve;
+  §16.2 has no NIR or SWIR column at all. Surface state is the property that decides
+  ε — anodised aluminium is 0.834–0.856 against polished 0.04 — and no material file names it yet.
+  ε is also temperature-independent here, which is inside the authored uncertainty below ~600 K
+  and is not for plumes and fire. What *is* held is that pigment colour stays out of the
+  thermal bands (`GT.9`): the paints share one ε in MWIR and LWIR and differ in
+  `solar_absorptivity`, with a control that they still differ in NIR.
+
+## Contributing
+
+Read `CLAUDE.md` first — it defines the non-negotiables (engine-free core, checked in both directions by
+`tests/unit/test_layering.py`, float32 everywhere
+temperature flows, noise in radiance space, Kirchhoff closure) and the per-step workflow.
+
+Every step: `make check` green → this report's status updated → CHANGELOG entry → a one-line README
+note if the step added a user-visible feature → ADR if a decision was made → one commit.
+
+**Shipped work points at a commit.** Each row of `docs/roadmap.md`'s shipped ledger carries the hash
+of the last commit that *claimed* one of that milestone's steps, and
+`tests/unit/test_shipped_ledger.py` checks that the hash **resolves in this repository** — a 7-hex
+string of the right shape and the wrong value reads as evidence, which is worse than the `pending` it
+replaced. The point is recoverability: one hash per row is where to start a `git log` after this file
+gets overwritten again.
+
+**A ledger nobody can audit goes stale.** Two more guards, in the same spirit. `docs/spec-issues.md`
+carries a **status** on each of its sixty rows — `ADR NNNN`, `code — <step>`, or `open` — and
+`tests/unit/test_spec_issue_status.py` checks that every ADR a status names exists, that no row is
+`open` while the ADR its own resolution names is already written, and that the summary paragraph's
+counts are the table's own. That paragraph previously read "Everything else is open" while fifty-six
+of the sixty rows had shipped. And a material's `transmittance_per_band` must either match the
+Beer-Lambert transmittance of its own n/k table or declare `transmittance_derivation: "authored:
+<issue>"` naming an open spec issue — `tests/unit/test_transmittance_derivation.py`. Glass takes the
+second branch: its table is a fused-silica proxy that supplies angular shape, not magnitude.
+
+**An ADR you cite must exist.** `tests/unit/test_adr_citations.py` walks every `ADR NNNN` in `src/`,
+`tests/`, `docs/`, `scripts/` and `configs/` and fails if the file is missing — including the compound
+forms (`ADRs 0031, 0058`, `ADR 0053/0054`, `ADR 0025 and 0023`), which twenty citations use. A
+citation pointing at an unwritten file is worse than none: it tells a reader the reasoning exists and
+sends them to look for it. Forward-allocating a number in a docstring is therefore not a way to defer
+writing the record. A deliberately unresolvable mention — prose about an ADR that never existed — goes
+in that file's `PHANTOMS` allowlist with its reason, and a second test deletes the entry's excuse once
+the text or the ADR changes.
+
+**Several people work in one tree at once.** Commit named paths, never `git add -A`: a blanket add
+stages whoever else had `TECHNICAL_REPORT.md`, `README.md`, `CHANGELOG.md` or `docs/roadmap.md` open, and their prose lands in
+your commit under your message. For shared files, `scripts/stage_own_hunk.sh` stages your edit alone —
+it three-way merges your change onto HEAD, so a change someone else *committed* meanwhile is a no-op
+rather than a conflict:
+
+```bash
+export STAGE_OWN_HUNK_ID=my-session          # snapshots are keyed by this; make it unique
+scripts/stage_own_hunk.sh snapshot TECHNICAL_REPORT.md CHANGELOG.md   # immediately BEFORE you edit
+# ... edit ...
+make stage FILES="TECHNICAL_REPORT.md CHANGELOG.md"    # stages your diff only, then promptly after
+git commit -m ...
+```
+
+Snapshot late and stage promptly: the snapshot is the only record of what the file looked like before
+you touched it, so an *uncommitted* edit someone makes inside that window is attributed to you. `make
+stage` prints the hunks it staged for exactly that reason, and refuses (with an explanation) if the
+result still isn't safe to commit. The same refusal runs as a pre-commit hook
+(`.pre-commit-config.yaml`; install once with `pre-commit install`), so a plain `git add` on one of
+these shared files is caught even if `make stage` is skipped. Also remember `make check` lints and
+type-checks the whole tree, so an uncommitted error in your files turns everyone's gate red.

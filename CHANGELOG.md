@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **The README is a public front page; the engineering record moved to `TECHNICAL_REPORT.md`.**
+  The README now opens on the site's hero clip as a GIF, then highlights, a short "What's new"
+  list, a quick start and links (media under `docs/media/`, all web-sized). The status table,
+  limitations, commands and contributing notes moved verbatim to `TECHNICAL_REPORT.md`, which the
+  site's Status page, `test_readme_status_table.py` and the shared-file guard now read. The
+  `ship-step` skill and CLAUDE.md now send technical detail to the report and allow the README one
+  plain-language bullet only for a user-visible feature.
+
 ### Added
 - **A frame viewer for debugging renders** (ADR 0154). `make viewer RUN=outputs` opens a local
   page: click a frame to drop a coloured marker and read every saved plane under that pixel, with

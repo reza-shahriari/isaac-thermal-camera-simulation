@@ -1,6 +1,6 @@
 ---
 name: ship-step
-description: The completion checklist for finishing any unit of work in this repo — running the check gate, updating README status and CHANGELOG, writing an ADR when a decision was made, and committing with the project's Conventional Commits format. Use this skill EVERY time a piece of work is finished, before committing, and whenever the user says "commit this", "that's done", "next step", "ship it", or asks to wrap up. Do not reconstruct the process from memory — the README and CHANGELOG updates are the parts most often skipped and they are what keep a multi-person project legible.
+description: The completion checklist for finishing any unit of work in this repo — running the check gate, updating the technical report (TECHNICAL_REPORT.md) and CHANGELOG, adding a one-line feature note to the README only when the step is user-visible, writing an ADR when a decision was made, and committing with the project's Conventional Commits format. Use this skill EVERY time a piece of work is finished, before committing, and whenever the user says "commit this", "that's done", "next step", "ship it", or asks to wrap up. Do not reconstruct the process from memory — the technical-report and CHANGELOG updates are the parts most often skipped and they are what keep a multi-person project legible.
 ---
 
 # Shipping a step
@@ -34,15 +34,30 @@ it without saying so in the commit body.
 - [ ] Randomness seeded
 - [ ] Unit suite still runs in under 30 s
 
-**3. README**
+**3. Technical report**
 
-Update `README.md` — specifically:
-- the **status table** (which components exist, and at what validation tier)
+All technical detail goes into `TECHNICAL_REPORT.md` — never into `README.md`. Update:
+- the **status table** (which components exist, and at what validation tier), keeping each Notes
+  cell to what the component does and how it is verified
 - anything the change makes untrue (commands, layout, requirements, supported bands)
 - the **Current limitations** section if the change added or removed one
 
-This is the step most often skipped. A README that lags the code by three weeks is worse than no README,
+This is the step most often skipped. A report that lags the code by three weeks is worse than none,
 because people trust it.
+
+**3b. README — only for a user-visible feature**
+
+`README.md` is the public front page: a hero GIF, a few highlights, a short **What's new** list, a
+quick start and links. It is written for someone deciding whether to use the project, not for
+someone working on it. Do **not** put status rows, ADR numbers, step IDs, measurements, caveats or
+implementation detail there.
+
+If — and only if — the step adds something a user would notice (a new capability, band, scene
+type, camera preset, tool), add **one plain-language bullet** at the top of **What's new**, e.g.
+`- **Sunlit NIR and SWIR** — the ground reflects the sun and clouds scatter it.` Keep the list to
+about five bullets; drop the oldest. If the feature has a good render, add a web-sized image or GIF
+(a few MB at most) under `docs/media/` and show it in the relevant **Highlights** block. Refactors,
+fixes, tests, docs and internal plumbing do not touch the README at all.
 
 **4. CHANGELOG**
 
@@ -104,12 +119,12 @@ Body should say **what physics it implements** and **what the verification showe
 reviewer nothing they could not read from the diff.
 
 Several sessions share this working tree. Never `git add -A`: a blanket add stages whoever else has
-`README.md`, `CHANGELOG.md` or `docs/roadmap.md` open, and their prose lands in your commit under your
+`TECHNICAL_REPORT.md`, `README.md`, `CHANGELOG.md` or `docs/roadmap.md` open, and their prose lands in your commit under your
 message — this has actually happened, more than once. Stage named paths instead:
 
 ```bash
 git add path/to/your_module.py tests/unit/test_your_module.py   # files only you touched
-make stage FILES="README.md CHANGELOG.md docs/roadmap.md"       # the three shared files, if you
+make stage FILES="TECHNICAL_REPORT.md CHANGELOG.md docs/roadmap.md"   # the shared files, if you
                                                                   # touched them and snapshotted first
 git commit -F <message-file>     # or -m with a heredoc; keep the body
 ```
@@ -120,12 +135,12 @@ a change someone else *committed* meanwhile is a no-op instead of getting overwr
 commit). It only works if you snapshotted the files *before* editing them:
 
 ```bash
-scripts/stage_own_hunk.sh snapshot README.md CHANGELOG.md docs/roadmap.md   # before you edit
+scripts/stage_own_hunk.sh snapshot TECHNICAL_REPORT.md CHANGELOG.md docs/roadmap.md   # before you edit
 ```
 
 The same check runs as a pre-commit hook (`.pre-commit-config.yaml`, install once with
 `pre-commit install`) so a plain `git add` on a shared file is refused even if this step is skipped.
-Full detail: README.md's Contributing section.
+Full detail: TECHNICAL_REPORT.md's Contributing section.
 
 Do not `git push` unless asked — the user may want to review or amend first.
 
@@ -142,5 +157,6 @@ Say so in the conversation rather than committing, if:
 ## Quick version
 
 ```
-make check  →  README status  →  CHANGELOG entry  →  ADR if a decision  →  make site  →  commit
+make check  →  TECHNICAL_REPORT status  →  CHANGELOG entry  →  README one-liner (user-visible only)
+           →  ADR if a decision  →  make site  →  commit
 ```

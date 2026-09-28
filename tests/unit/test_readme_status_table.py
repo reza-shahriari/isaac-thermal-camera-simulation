@@ -1,4 +1,7 @@
-"""RP.1 — the README status table is a table, and stays one.
+"""RP.1 — the status table (TECHNICAL_REPORT.md) is a table, and stays one.
+
+The table lived in README.md until 2026-09-28, when the README became a short public front page
+and the engineering record moved to TECHNICAL_REPORT.md.
 
 The status table is the first thing a new reader looks at, and four of its fifteen rows had lost
 their **State** cell to pasted changelog prose: the state token had been pushed to the end of a
@@ -20,7 +23,7 @@ import pathlib
 import re
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-README = REPO / "README.md"
+README = REPO / "TECHNICAL_REPORT.md"
 
 #: The four tokens the table is allowed to say, plus an optional parenthetical fidelity level.
 STATE = re.compile(r"^(🟢 done|🟡 partial|⬜ not started|🔴 blocked)(\s*\([^)]*\))?$")
@@ -86,7 +89,7 @@ def test_the_state_cell_holds_a_state_and_nothing_else() -> None:
         if not STATE.match(cells[1])
     ]
     assert not broken, "\n".join(
-        f"  README.md:{n} {name}: State cell is {length} chars, starts {text!r}"
+        f"  TECHNICAL_REPORT.md:{n} {name}: State cell is {length} chars, starts {text!r}"
         for n, name, length, text in broken
     )
 
@@ -98,7 +101,7 @@ def test_the_tier_cell_holds_a_tier() -> None:
         if not TIER.match(cells[2])
     ]
     assert not broken, "\n".join(
-        f"  README.md:{n} {name}: Tier cell is {text!r}" for n, name, text in broken
+        f"  TECHNICAL_REPORT.md:{n} {name}: Tier cell is {text!r}" for n, name, text in broken
     )
 
 

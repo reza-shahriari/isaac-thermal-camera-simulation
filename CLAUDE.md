@@ -145,7 +145,10 @@ Work in small, complete steps. A step is done only when **all six** of these are
 2. **Tests** exist and pass. New physics needs a test that would fail if the physics were wrong —
    not a test that merely calls the function. See the `ir-sim-testing` skill.
 3. **`make check` is green.**
-4. **`README.md` is updated** — the status table, and anything the change makes untrue.
+4. **`TECHNICAL_REPORT.md` is updated** — the status table, limitations, and anything the change
+   makes untrue. `README.md` is the public front page and is *not* where technical detail goes: it
+   gets one plain-language "What's new" bullet (and an image or GIF if one helps) only when the step
+   adds a user-visible feature. See the `ship-step` skill.
 5. **`CHANGELOG.md` has an entry** under `## [Unreleased]`.
 6. **The site shows it** — `make site` (ADR 0139). Modules, tests, ADRs, configs, scripts and
    documents are picked up automatically *from their docstrings*, so the work is writing those;
@@ -200,7 +203,7 @@ around Isaac Sim 6.0, which is recent.
 | `isaac-sim-spg` | Anything touching Isaac Sim, AOVs, SPG kernels, Warp |
 | `ingest-asset` | A model link or a 3D file (plus its real-life name) → licence-gated, part-decomposed, material-mapped library entry |
 | `ir-sim-testing` | Writing tests, tolerances, golden data, validation tiers |
-| `ship-step` | Finishing any step — README, CHANGELOG, git |
+| `ship-step` | Finishing any step — technical report, CHANGELOG, README feature note, git |
 | `present-on-the-site` | Anything worth showing reaching the project site — renders, tests, reports |
 
 ---

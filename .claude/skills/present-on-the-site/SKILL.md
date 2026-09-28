@@ -30,7 +30,7 @@ These need nothing from you beyond doing the work well, because the build measur
 | A document in `docs/` | a rendered page under Physics, Plan or Evidence | the same |
 | A config in `configs/` | a row in the **Configuration catalogue**, with its headline comment | `site_survey.config_catalogue` |
 | A script in `scripts/` | a row on **Commands**, with its usage block | `site_survey.script_catalogue` |
-| A CHANGELOG or README edit | the Changelog and Status pages | rendered, not copied |
+| A CHANGELOG or TECHNICAL_REPORT.md edit | the Changelog and Status pages | rendered, not copied |
 
 So: **write the docstring**. A module, a test file or a script with no docstring publishes an em dash
 where its explanation should be, and that is now visible to everyone rather than only to the next

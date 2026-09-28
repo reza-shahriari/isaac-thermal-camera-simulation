@@ -3,7 +3,7 @@
 # commit lands rather than after. Install once per clone: `pre-commit install`.
 #
 # This does not replace `scripts/stage_own_hunk.sh snapshot`/`stage` — the hook can only detect a
-# clobber that already happened at commit time; the script is what avoids it. See README.md's
+# clobber that already happened at commit time; the script is what avoids it. See TECHNICAL_REPORT.md's
 # Contributing section and the `ship-step` skill.
 repos:
   - repo: local
@@ -11,9 +11,9 @@ repos:
       - id: stage-own-hunk-guard
         name: guard shared-file commits against whole-file clobbers
         description: >-
-          Refuses to commit README.md, CHANGELOG.md or docs/roadmap.md unless the staged content
+          Refuses to commit README.md, TECHNICAL_REPORT.md, CHANGELOG.md or docs/roadmap.md unless the staged content
           is what `scripts/stage_own_hunk.sh stage` would have produced for this session.
         entry: scripts/stage_own_hunk.sh check
         language: script
-        files: ^(README\.md|CHANGELOG\.md|docs/roadmap\.md)$
+        files: ^(README\.md|TECHNICAL_REPORT\.md|CHANGELOG\.md|docs/roadmap\.md)$
         pass_filenames: true

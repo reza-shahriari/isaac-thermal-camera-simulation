@@ -46,7 +46,7 @@ next:
 	$(PYTHON) scripts/next_step.py
 	@$(PYTHON) scripts/next_step.py --write
 
-# Stage your own edit to a shared file (README.md, CHANGELOG.md, docs/roadmap.md) without pulling
+# Stage your own edit to a shared file (TECHNICAL_REPORT.md, README.md, CHANGELOG.md, docs/roadmap.md) without pulling
 # in another session's in-flight prose (RP.3). Snapshot BEFORE editing:
 #   scripts/stage_own_hunk.sh snapshot README.md CHANGELOG.md docs/roadmap.md
 # then, before committing:

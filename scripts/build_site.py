@@ -11,8 +11,8 @@ The site is static, has no build dependency outside this repository, and is publ
 `_site/` to the `gh-pages` branch (`make site-publish`). It is built from three kinds of source:
 
 1. **The documents that already exist** — `docs/physics-model.md`, the roadmap, every ADR, the
-   validation reports, the changelog, README and CLAUDE.md. Rendered, not duplicated: the site
-   cannot drift from them because it has no copy of them.
+   validation reports, the changelog, the technical report and CLAUDE.md. Rendered, not
+   duplicated: the site cannot drift from them because it has no copy of them.
 2. **The repository itself** — the module map, the configuration catalogue and the numbers on the
    front page are measured at build time (`scripts/site_survey.py`).
 3. **The renders** — `site/gallery.yaml` names the frames and clips worth showing and
@@ -78,12 +78,12 @@ DOCUMENTS: list[tuple[str, str, str, str, str]] = [
         "Every step that shipped, with the measurement that justified it.",
     ),
     (
-        "README.md",
+        "TECHNICAL_REPORT.md",
         "status/",
         "Status",
         "Start",
-        "The subsystem status table: what is implemented, what it is verified against, and "
-        "what is not.",
+        "The technical report: every subsystem's status, what it is verified against, what is "
+        "not, and the known limitations.",
     ),
     (
         "CLAUDE.md",

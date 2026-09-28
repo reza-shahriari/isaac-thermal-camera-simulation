@@ -4,7 +4,7 @@
 # Why this exists
 # ---------------
 # This repo is worked on by several sessions in ONE working tree, not in separate worktrees, so
-# README.md, CHANGELOG.md and docs/roadmap.md usually hold somebody else's in-flight prose as well
+# TECHNICAL_REPORT.md, CHANGELOG.md and docs/roadmap.md usually hold somebody else's in-flight prose as well
 # as yours. `git add README.md` stages the file, which means it stages their paragraph too, and it
 # lands in your commit under your message. That has already happened here more than once.
 #
@@ -125,7 +125,7 @@ cmd_check() {
         if [ ! -f "$before" ]; then
             echo "stage_own_hunk check: $f is staged with no snapshot for session '$SESSION_ID'." >&2
             echo "  Run 'scripts/stage_own_hunk.sh snapshot $f' before editing shared files, then" >&2
-            echo "  'scripts/stage_own_hunk.sh stage $f' before committing -- see README Contributing." >&2
+            echo "  'scripts/stage_own_hunk.sh stage $f' before committing -- see TECHNICAL_REPORT.md Contributing." >&2
             rc=1
             continue
         fi

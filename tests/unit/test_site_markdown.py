@@ -106,7 +106,8 @@ def test_fenced_code_keeps_its_language_and_escapes_its_body() -> None:
 
 
 def corpus() -> list[Path]:
-    paths = [REPO / "README.md", REPO / "CLAUDE.md", REPO / "CHANGELOG.md"]
+    names = ["README.md", "TECHNICAL_REPORT.md", "CLAUDE.md", "CHANGELOG.md"]
+    paths = [REPO / name for name in names]
     paths += sorted(REPO.joinpath("docs").rglob("*.md"))
     return [p for p in paths if p.is_file()]
 

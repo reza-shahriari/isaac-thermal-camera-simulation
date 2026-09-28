@@ -29,7 +29,7 @@ Three patterns that meet the bar:
    displacement law. A datasheet NETD figure. These anchor the model to reality rather than to itself.
 
 Everything else — smoke tests, shape assertions, does-not-crash — is fine to have, but it is not
-verification and should not be counted as such in the README status table.
+verification and should not be counted as such in the TECHNICAL_REPORT.md status table.
 
 ## Tolerances in physical units
 

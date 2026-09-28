@@ -173,7 +173,7 @@ Respect the geometry budget's verdict (AI.3): over-budget means decimate or desc
 * a contact-sheet render is welcome (CPU is enough for this); binding the asset into a scene
   and rendering it in Isaac Sim (`configs/scenes/phantom4_perpart.yaml` is the template) is the
   *next* step's work, not this skill's;
-* finish with the `ship-step` skill: README status, CHANGELOG, roadmap row, one commit. Remind the
+* finish with the `ship-step` skill: technical-report status, a README "What's new" line for the new asset, CHANGELOG, roadmap row, one commit. Remind the
   owner which directories to upload to the cloud drive (`3d_models/<name>/`,
   `data/assets/<name>*/`) — and that quarantined assets are excluded from that too.
 
