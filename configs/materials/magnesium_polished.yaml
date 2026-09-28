@@ -1,0 +1,27 @@
+# Magnesium polished: Freshly machined magnesium: cast drone and camera housings before they oxidise or are painted.
+#
+# Written by scripts/import_material_spectra.py (roadmap XD.13) -- edit the script, not this file.
+# The emissivity is a curve computed from published optical constants (data/nk/magnesium.csv, whose
+# source block names the paper) and the solar absorptivity is computed from the same curve under
+# the AM1.5 direct spectrum (irsim.materials.spectra.solar_absorptance). This is the POLISHED
+# state: the lower bound of this metal's emissivity. A real part in service is rougher and more
+# oxidised, and both raise it (section 4.5); that is a different material, not this one.
+schema_version: 2
+material:
+  name: magnesium_polished
+  source: literature
+  surface_treatment: polished
+  reference: "Optical constants: 1) H.-J. Hagemann, W. Gudat, and C. Kunz. Optical constants from the far infrared to the x-ray region: Mg, Al, Cu, Ag, Au, Bi, C, and Al2O3. J. Opt. Soc. Am. 65, 742-744 (1975) 2) H.-J. Hagemann, W. Gudat, and C. Kunz. DESY report SR-74/7 (1974) via RefractiveIndex.INFO (CC0), data/nk/magnesium.csv. Thermal: pure magnesium, Incropera, DeWitt, Bergman & Lavine, Fundamentals of Heat and Mass Transfer, Table A.1 (300 K)"
+  description: "Freshly machined magnesium: cast drone and camera housings before they oxidise or are painted"
+  thermal:
+    density_kg_m3: 1740
+    specific_heat_j_kgk: 1024
+    conductivity_w_mk: 156
+    thickness_m: 0.002   # ESTIMATED: a typical part
+    solar_absorptivity: 0.057   # computed from the curve, not typed
+  optical:
+    spectral_emissivity: spectra/materials/magnesium_polished.csv
+    roughness_per_band: {nir: 0.02, swir: 0.02, mwir: 0.01, lwir: 0.01}   # ESTIMATED, polished
+    # Level A from the same table the curve came from: a metal's emissivity RISES toward grazing,
+    # which only Fresnel on n and k represents (section 4.2).
+    angular_model: {type: fresnel, n_k_file: nk/magnesium.csv}

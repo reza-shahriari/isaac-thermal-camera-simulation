@@ -1,0 +1,19 @@
+# A micro gas turbine of the 100 N class. AI.12.
+schema_version: 1
+component:
+  name: small_turbine
+  kind: turbine
+  description: 100 N micro turbojet, kerosene, 1.1 kg
+  mass_kg: 1.1
+  specific_heat_j_kgk: 500.0          # Inconel and steel hot section, aluminium intake
+  rated_power_in_w: 250000.0          # fuel flow ~0.35 kg/min x 43 MJ/kg
+  efficiency: 0.05                    # propulsive work over fuel power at static thrust
+  dissipation_rated_w: 237500.0       # almost all of the fuel power leaves as hot exhaust
+  dissipation_idle_w: 60000.0
+  heats: [exhaust_line, case]
+  material: rusted_steel
+  status: ESTIMATED
+  source: >-
+    JetCat P100-RX class catalogue figures: 100 N thrust, 1.08 kg, ~350 g/min kerosene at full
+    thrust; the 5 % efficiency is the static propulsive fraction of the fuel power for a micro
+    turbojet (Kamps, Model Jet Engines). Estimates; the exhaust carries the rest.

@@ -1,0 +1,19 @@
+# A small two-stroke UAV engine, 50 cc class. AI.12 (ground and fixed-wing use; TC.13 aerial).
+schema_version: 1
+component:
+  name: piston_engine
+  kind: piston_engine
+  description: 50 cc single-cylinder two-stroke, air-cooled, 3.5 kW shaft
+  mass_kg: 2.0
+  specific_heat_j_kgk: 600.0          # aluminium head and crankcase, steel liner and crank
+  rated_power_in_w: 14000.0           # fuel power: 3.5 kW shaft at 25 % thermal efficiency
+  efficiency: 0.25
+  dissipation_rated_w: 10500.0        # everything that is not shaft work: cooling fins and exhaust
+  dissipation_idle_w: 1500.0
+  heats: [cylinder_head, crankcase, exhaust_line]
+  material: bare_aluminium
+  status: ESTIMATED
+  source: >-
+    Small two-stroke thermal efficiency of 20-28 % (Heywood, Internal Combustion Engine
+    Fundamentals, ch. 15 for the class) and 2 kg dry mass for 50 cc UAV engines (DA-50 class
+    catalogue figures). Estimates for the class, not a measurement of one engine.

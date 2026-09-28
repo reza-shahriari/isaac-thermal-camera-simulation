@@ -170,22 +170,60 @@ def test_the_winding_warms_the_can_before_the_arm_and_the_can_lags_its_throttle(
     assert stored - start == pytest.approx(6.0 * 600.0, rel=1e-6)
 
 
-def test_a_hidden_part_without_capacity_is_refused_until_the_library_exists() -> None:
-    parts = _parts().model_copy(
+def _only_component(component: str) -> PartsConfig:
+    return _parts().model_copy(
         update={
             "hidden_parts": [
                 HiddenPartSpec(
                     name="winding",
                     centre_m=WINDING_CENTRE,
                     size_m=(0.02, 0.02, 0.012),
-                    component="motor",
+                    component=component,
                 )
             ]
         }
     )
+
+
+def test_a_hidden_part_with_only_a_component_takes_its_numbers_from_the_library() -> None:
+    """AI.12: `component: brushless_motor` and nothing else is a 46 J/K node dissipating the
+    library's 60 W at full duty; without a library, or naming a component it lacks, refused."""
+    from irsim.config.components import load_component_library
+
+    lib = load_component_library()
+    parts = _only_component("brushless_motor")
+    solve = build_full_solve(
+        "quad",
+        parts,
+        _mesh_fields(),
+        load_joint_table(),
+        t0_s=0.0,
+        tick_s=5.0,
+        gap_m=0.02,
+        components=lib,
+    )
+    motor = lib["brushless_motor"]
+    assert solve.coupled.field.properties.heat_capacity_j_m2_k[-1] == pytest.approx(
+        motor.capacity_j_k
+    )
+    winding = solve.coupled.members[-1]
+    assert float(winding.forcing_at(0.0).q_internal_w_m2) == pytest.approx(
+        motor.dissipation_rated_w
+    )
     with pytest.raises(ValueError, match="no mass_kg / specific_heat_j_kgk"):
         build_full_solve(
             "quad", parts, _mesh_fields(), load_joint_table(), t0_s=0.0, tick_s=5.0, gap_m=0.02
+        )
+    with pytest.raises(ValueError, match="unknown component"):
+        build_full_solve(
+            "quad",
+            _only_component("warp_core"),
+            _mesh_fields(),
+            load_joint_table(),
+            t0_s=0.0,
+            tick_s=5.0,
+            gap_m=0.02,
+            components=lib,
         )
 
 

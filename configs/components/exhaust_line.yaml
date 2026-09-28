@@ -1,0 +1,19 @@
+# The exhaust line of a small piston engine: pipe and silencer. AI.12; PH.14 marches its gas.
+schema_version: 1
+component:
+  name: exhaust_line
+  kind: exhaust
+  description: steel pipe and silencer carrying a 50 cc engine's exhaust
+  mass_kg: 1.5
+  specific_heat_j_kgk: 500.0          # mild steel
+  rated_power_in_w: 4000.0            # exhaust enthalpy handed to the line at rated power
+  efficiency: 0.0                     # the line does no work: all of it is heat to the pipe and out
+  dissipation_rated_w: 4000.0
+  dissipation_idle_w: 600.0
+  heats: [floor_pan, exhaust_tip]
+  material: rusted_steel
+  status: ESTIMATED
+  source: >-
+    About 30 % of a small two-stroke's fuel power leaves in the exhaust (Heywood, ch. 15) and
+    roughly a third of that reaches the line's walls over its length; masses from a weighed
+    small-engine silencer and pipe. Estimates.

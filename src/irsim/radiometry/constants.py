@@ -19,6 +19,9 @@ H_PLANCK: Final[float] = 6.62607015e-34  # J s      (exact)
 C_LIGHT: Final[float] = 2.99792458e8  # m s^-1   (exact)
 K_BOLTZMANN: Final[float] = 1.380649e-23  # J K^-1   (exact)
 Q_E: Final[float] = 1.602176634e-19  # C        (exact)
+# Vacuum permittivity, F m^-1 (CODATA 2018; measured since the 2019 SI). Used where a metal's
+# optics meet its DC conductivity: the Hagen-Rubens emissivity 2*sqrt(2*EPSILON_0*omega*rho).
+EPSILON_0: Final[float] = 8.8541878128e-12
 
 # --- Derived, in the project's practical units ------------------------------
 # Planck first radiation constant for spectral RADIANCE (energy form):

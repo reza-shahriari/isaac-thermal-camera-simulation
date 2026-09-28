@@ -233,6 +233,11 @@ def load_asset_mapping(
         from irsim.config.joints import load_joint_table
 
         asset.parts.check_joints(load_joint_table())
+    if asset.parts is not None and any(h.component for h in asset.parts.hidden_parts):
+        # AI.12: a hidden part's component must be one the library describes
+        from irsim.config.components import load_component_library
+
+        asset.parts.check_components(load_component_library())
     if known_materials is not None:
         unknown = asset.targets - set(known_materials)
         if unknown:

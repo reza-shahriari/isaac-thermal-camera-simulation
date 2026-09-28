@@ -1,0 +1,27 @@
+# Gold polished: Gold: plated contacts and gold-coated reflectors, the lowest-emissivity metal in the library.
+#
+# Written by scripts/import_material_spectra.py (roadmap XD.13) -- edit the script, not this file.
+# The emissivity is a curve computed from published optical constants (data/nk/gold.csv, whose
+# source block names the paper) and the solar absorptivity is computed from the same curve under
+# the AM1.5 direct spectrum (irsim.materials.spectra.solar_absorptance). This is the POLISHED
+# state: the lower bound of this metal's emissivity. A real part in service is rougher and more
+# oxidised, and both raise it (section 4.5); that is a different material, not this one.
+schema_version: 2
+material:
+  name: gold_polished
+  source: literature
+  surface_treatment: polished
+  reference: "Optical constants: R. L. Olmon, B. Slovick, T. W. Johnson, D. Shelton, S.-H. Oh, G. D. Boreman, M. B. Raschke. Optical dielectric function of gold. Phys. Rev. B 86, 235147 (2012) (See Supplemental Material) (Evaporated gold.) via RefractiveIndex.INFO (CC0), data/nk/gold.csv. Thermal: pure gold, Incropera, DeWitt, Bergman & Lavine, Fundamentals of Heat and Mass Transfer, Table A.1 (300 K)"
+  description: "Gold: plated contacts and gold-coated reflectors, the lowest-emissivity metal in the library"
+  thermal:
+    density_kg_m3: 19300
+    specific_heat_j_kgk: 129
+    conductivity_w_mk: 317
+    thickness_m: 0.0005   # ESTIMATED: a typical part
+    solar_absorptivity: 0.149   # computed from the curve, not typed
+  optical:
+    spectral_emissivity: spectra/materials/gold_polished.csv
+    roughness_per_band: {nir: 0.02, swir: 0.02, mwir: 0.01, lwir: 0.01}   # ESTIMATED, polished
+    # Level A from the same table the curve came from: a metal's emissivity RISES toward grazing,
+    # which only Fresnel on n and k represents (section 4.2).
+    angular_model: {type: fresnel, n_k_file: nk/gold.csv}

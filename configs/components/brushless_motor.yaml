@@ -1,0 +1,21 @@
+# A small-multirotor brushless outrunner (the Phantom 4's 2312S-class motor). AI.12.
+# Numbers ESTIMATED: DJI publishes no mass or efficiency for the 2312S; the figures are the
+# class's (T-Motor / EMAX 2212-2312 data sheets list 52-60 g and 78-85 % peak efficiency).
+schema_version: 1
+component:
+  name: brushless_motor
+  kind: motor
+  description: 2312-class brushless outrunner, 800 KV, as fitted to a 1.4 kg quadrotor
+  mass_kg: 0.058
+  specific_heat_j_kgk: 800.0          # copper windings in an aluminium bell: 385 / 900 J/kg/K by mass
+  rated_power_in_w: 300.0             # electrical input at full throttle, per motor
+  efficiency: 0.80                    # shaft power over electrical input at the rating
+  dissipation_rated_w: 60.0           # 300 W x (1 - 0.80): copper and iron loss into the bell
+  dissipation_idle_w: 0.0
+  heats: [motor, motor_mount]
+  material: bare_aluminium
+  status: ESTIMATED
+  source: >-
+    Class figures, not this motor's: T-Motor MN2212 / EMAX MT2213 data sheets give 52-60 g and
+    78-85 % peak efficiency; the Phantom 4 hovers on about 45 W per motor and 300 W is the
+    full-throttle input its 15.2 V pack can supply. Every number here is an engineering estimate.

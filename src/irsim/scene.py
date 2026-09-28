@@ -1382,12 +1382,14 @@ def _build_full_objects(
     thermal = spec.thermal
     if thermal is None or not thermal.objects:
         return {}
+    from irsim.config.components import load_component_library
     from irsim.config.joints import load_joint_table
     from irsim.thermal.full_solve import build_full_solve
     from irsim.thermal.hold import hold_from_s
     from irsim.thermal.object_exchange import ExchangeBody, ObjectExchange
 
     table = load_joint_table()
+    components = load_component_library()
     out: dict[str, FullObject] = {}
     for obj in thermal.objects:
         asset = assets[obj.name]
@@ -1422,6 +1424,7 @@ def _build_full_objects(
             duty=duty,
             gap_m=obj.contact_gap_m if obj.contact_gap_m is not None else 2.0 * obj.cell_m,
             exchange=exchange,
+            components=components,
         )
         hold = hold_from_s(t0_s, True if obj.evolve is None else obj.evolve, obj.freeze_at_s)
         if hold is not None:

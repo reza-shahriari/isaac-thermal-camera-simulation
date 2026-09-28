@@ -18,8 +18,9 @@ day-night cycles in 252 s. So 10^6 cells is affordable and 10^5 is comfortable. 
 one temperature. Two cells closer together than the distance heat diffuses laterally in one solver
 tick cannot hold different temperatures -- conduction erases the difference within the step. That
 distance is ``sqrt(alpha * dt)``, and across this project's whole material library it ranges from
-**1.1 mm** for the slowest material (`etics_render`, alpha = 2.06e-8 m2/s) to **71 mm** for the
-fastest (`bare_aluminium`, 8.44e-5) at a 60-second tick. So a cell finer than about a millimetre
+**1.1 mm** for the slowest material (`etics_render`, alpha = 2.06e-8 m2/s) to **102 mm** for the
+fastest (`silver_polished`, 1.74e-4) at a 60-second tick -- 71 mm on the aluminium an airframe is
+made of. So a cell finer than about a millimetre
 cannot carry an independent temperature for *any* material this project knows about.
 
 Measured on the Phantom 4, one prim carries 100,926 faces over 2.7 cm2 -- a mean cell edge of
@@ -59,10 +60,11 @@ __all__ = [
 #: k = 0.037 W/m/K, rho = 900 kg/m3, c = 2000 J/kg/K). It sets the floor, because no material in
 #: the library smears a temperature difference over *less* distance than this one.
 SLOWEST_DIFFUSIVITY_M2_S = 2.056e-8
-#: And the fastest (``bare_aluminium``: k = 205, rho = 2700, c = 900). Present for the report,
-#: which quotes both ends: on a painted aluminium panel, cells closer than 71 mm are already one
+#: And the fastest (``silver_polished``: k = 429, rho = 10500, c = 235). Present for the report,
+#: which quotes both ends. Aluminium (8.44e-5, 71 mm at the reference tick) is the one that
+#: matters on an airframe: on a painted aluminium panel, cells closer than 71 mm are already one
 #: temperature, so the Phantom 4's shell is over-resolved by three orders of magnitude, not one.
-FASTEST_DIFFUSIVITY_M2_S = 8.436e-5
+FASTEST_DIFFUSIVITY_M2_S = 1.7386e-4
 #: The solver tick the floor is quoted at. Shorter ticks resolve finer differences; this is the
 #: coarsest of the intervals the drivers in ``scripts/`` actually use, so it is the generous end.
 REFERENCE_TICK_S = 60.0

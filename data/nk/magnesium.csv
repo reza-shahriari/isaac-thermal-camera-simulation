@@ -1,0 +1,35 @@
+# Complex refractive index of magnesium, n(lambda) + i k(lambda), 0.248-24.8 um.
+#
+# source: 1) H.-J. Hagemann, W. Gudat, and C. Kunz. Optical constants from the far infrared to the x-ray region: Mg, Al, Cu, Ag, Au, Bi, C, and Al2O3. J. Opt. Soc. Am. 65, 742-744 (1975) 2) H.-J. Hagemann, W. Gudat, and C. Kunz. DESY report SR-74/7 (1974)
+#   Retrieved 2026-09-28 from
+#   https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/Mg/nk/Hagemann.yml
+#   (RefractiveIndex.INFO database, public domain / CC0 1.0), converted by
+#   scripts/import_material_spectra.py and truncated to 0.248-24.8 um; values otherwise unmodified.
+#   MEASURED and compiled: magnesium's optical constants from the far infrared to the X-ray region, assembled from published measurements.
+#
+# Check values interpolated from this table: n(1.55 um) = 8.269000, k = 15.5;
+#   n(10.0 um) = 20.955298, k = 42.298. Normal-incidence Fresnel emissivity at 10.0 um: 0.03691.
+# Columns: wavelength in MICROMETRES, then n, then k.
+wavelength_um,n,k
+0.248,0.111,2
+0.31,0.132,2.63
+0.4133,0.184,3.66
+0.6199,0.382,5.74
+0.8266,0.791,7.96
+1.24,2.997,12.8
+1.378,4.776,14.5
+1.55,8.269,15.5
+1.771,11.2,10.2
+1.907,8.809,8.98
+2.066,6.056,9.33
+2.254,4.194,12.2
+2.48,4.509,14.7
+2.755,5.056,16.8
+3.1,6.069,19.5
+3.542,7.519,22.2
+4.133,9.516,25.1
+4.959,12.3,28.8
+6.199,15.2,32.6
+8.266,18.9,37.6
+12.4,23.8,48.8
+24.8,30.3,60.2

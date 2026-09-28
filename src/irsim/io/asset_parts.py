@@ -257,6 +257,45 @@ class HiddenPartSpec(_Frozen):
         a, b, c = self.size_m
         return 2.0 * (a * b + b * c + c * a)
 
+    def resolved_capacity_j_k(self, components: Any = None) -> float:
+        """``m · c_p`` from this part's own numbers, else from its component (AI.12).
+
+        The part's own ``mass_kg`` and ``specific_heat_j_kgk`` override the component's one at
+        a time; a part with neither and no component -- or a component the library does not
+        have -- is refused, because a source with no thermal inertia is the instantaneous node
+        ADR 0072 is being retired for.
+        """
+        comp = self._component(components)
+        mass = self.mass_kg if self.mass_kg is not None else (comp.mass_kg if comp else None)
+        c_p = (
+            self.specific_heat_j_kgk
+            if self.specific_heat_j_kgk is not None
+            else (comp.specific_heat_j_kgk if comp else None)
+        )
+        if mass is None or c_p is None:
+            raise ValueError(
+                f"hidden part {self.name!r} has no mass_kg / specific_heat_j_kgk and no component "
+                "to take them from"
+            )
+        return float(mass) * float(c_p)
+
+    def resolved_dissipation_w(self, duty: float, components: Any = None) -> float:
+        """Heat at ``duty``: the part's own ``dissipation_w × duty``, else the component's curve."""
+        if self.dissipation_w is not None:
+            return float(self.dissipation_w) * min(max(float(duty), 0.0), 1.0)
+        comp = self._component(components)
+        return float(comp.dissipation_w(duty)) if comp is not None else 0.0
+
+    def _component(self, components: Any) -> Any:
+        if self.component is None:
+            return None
+        if components is None:
+            return None
+        try:
+            return components[self.component]
+        except KeyError as exc:
+            raise ValueError(f"hidden part {self.name!r}: {exc.args[0]}") from None
+
     @property
     def capacity_j_k(self) -> float | None:
         """``m · c_p`` when both are authored here, else ``None`` (the component's, AI.12)."""
@@ -315,6 +354,11 @@ class PartsConfig(_Frozen):
             if h.name.lower() == name.lower():
                 return h
         raise KeyError(f"{name!r} is not a hidden part; hidden: {list(self.hidden_names)}")
+
+    def check_components(self, components: Any) -> None:
+        """Refuse a hidden part whose component the library does not have (AI.12)."""
+        for h in self.hidden_parts:
+            h._component(components)
 
     def check_joints(self, table: Any) -> None:
         """Refuse a contact whose joint the table does not have (a `JointTable`)."""

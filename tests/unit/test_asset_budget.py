@@ -76,14 +76,15 @@ def test_the_conduction_length_refuses_a_nonsense_argument():
             conduction_length_m(*bad)
 
 
-def test_the_floor_is_a_millimetre_and_the_ceiling_is_seven_centimetres():
+def test_the_floor_is_a_millimetre_and_the_ceiling_is_ten_centimetres():
     """Both ends matter. The floor is the point past which no material can use the geometry; the
-    ceiling says an aluminium panel is already one temperature over most of its own width."""
+    ceiling (polished silver, the best conductor in the library) says a metal part is one
+    temperature over most of its own width."""
     floor = MIN_CELL_EDGE_M
     assert floor == pytest.approx(conduction_length_m(SLOWEST_DIFFUSIVITY_M2_S, REFERENCE_TICK_S))
     assert 0.001 < floor < 0.0013
     fastest = conduction_length_m(FASTEST_DIFFUSIVITY_M2_S, REFERENCE_TICK_S)
-    assert 0.06 < fastest < 0.08
+    assert 0.09 < fastest < 0.11
 
 
 def test_the_two_diffusivities_bracket_the_material_library():

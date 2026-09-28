@@ -76,6 +76,7 @@ def build_full_solve(
     gap_m: float,
     exchange: Any = None,
     keep_ticks: int | None = None,
+    components: Any = None,
 ) -> FullSolve:
     """One coupled solve for an object: its shown parts, hidden parts and contacts.
 
@@ -87,9 +88,11 @@ def build_full_solve(
     cells must stand to share a contact; ``exchange`` is an `ObjectExchange` over the shown
     parts in this order, or ``None``.
 
-    A hidden part without ``mass_kg`` and ``specific_heat_j_kgk`` is refused here: the
-    component library (AI.12) that would supply them does not exist yet, and a node without
-    capacity is the instantaneous source this step retires.
+    ``components`` is the component library (AI.12): a hidden part takes the mass, specific
+    heat and dissipation curve of the component it names wherever it does not author its own,
+    so an ESC in an asset is ``component: esc`` and nothing more. A hidden part with neither
+    its own numbers nor a component is refused: a node without capacity is the instantaneous
+    source this step retires.
     """
     duty_fn = duty if duty is not None else constant_duty()
     shown = [p.name for p in parts.parts if p.name in mesh_fields]
@@ -117,18 +120,14 @@ def build_full_solve(
 
     lumped: list[LumpedMember] = []
     for h in parts.hidden_parts:
-        capacity = h.capacity_j_k
-        if capacity is None:
-            raise ValueError(
-                f"object {name!r}: hidden part {h.name!r} has no mass_kg / specific_heat_j_kgk; "
-                "give both (the component library, AI.12, is not here yet)"
-            )
-        watts = float(h.dissipation_w or 0.0)
+        try:
+            capacity = h.resolved_capacity_j_k(components)
+        except ValueError as exc:
+            raise ValueError(f"object {name!r}: {exc}") from None
 
-        def forcing(t_s: float, _w: float = watts) -> FacetForcing:
-            return FacetForcing(
-                t_air_k=initial_mean, h_w_m2_k=0.0, q_internal_w_m2=_w * duty_fn(t_s)
-            )
+        def forcing(t_s: float, _h: Any = h) -> FacetForcing:
+            watts = _h.resolved_dissipation_w(duty_fn(t_s), components)
+            return FacetForcing(t_air_k=initial_mean, h_w_m2_k=0.0, q_internal_w_m2=watts)
 
         lumped.append(LumpedMember(h.name, float(capacity), forcing, initial_mean))
     hidden_names = {h.name for h in parts.hidden_parts}

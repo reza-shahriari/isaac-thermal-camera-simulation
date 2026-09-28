@@ -1,0 +1,18 @@
+# The flight controller and its IMU / receiver stack. AI.12.
+schema_version: 1
+component:
+  name: flight_controller
+  kind: controller
+  description: flight controller board with IMU, receiver and lighting drivers
+  mass_kg: 0.020
+  specific_heat_j_kgk: 900.0
+  rated_power_in_w: 1.5               # all of it becomes heat: a controller does no work
+  efficiency: 0.0
+  dissipation_rated_w: 1.5
+  dissipation_idle_w: 1.5
+  heats: [shell_lower]
+  material: abs_plastic_white
+  status: ESTIMATED
+  source: >-
+    Board draw of 1-2 W is typical of flight-controller stacks with an IMU and a receiver
+    (manufacturer notes for Pixhawk-class boards); mass weighed on comparable boards. Estimates.

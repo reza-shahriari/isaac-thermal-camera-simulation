@@ -1,0 +1,18 @@
+# A 20-30 A brushless ESC board inside an arm. AI.12.
+schema_version: 1
+component:
+  name: esc
+  kind: esc
+  description: 20-30 A three-phase MOSFET bridge on a 30 x 20 mm board
+  mass_kg: 0.012
+  specific_heat_j_kgk: 900.0          # FR4 and aluminium heat spreader
+  rated_power_in_w: 300.0             # the motor's full-throttle input passes through it
+  efficiency: 0.97                    # switching plus conduction loss of a modern bridge
+  dissipation_rated_w: 9.0            # 300 W x 0.03
+  dissipation_idle_w: 0.2             # gate drivers and logic, armed
+  heats: [arms]
+  material: abs_plastic_white
+  status: ESTIMATED
+  source: >-
+    Typical small-multirotor ESC efficiency of 95-98 % at rated current (manufacturer notes for
+    BLHeli-class 20-30 A boards); mass from weighed hobby ESCs of that rating. Estimates.

@@ -1,0 +1,27 @@
+# Titanium polished: Polished titanium: airframe fittings, exhaust parts, fasteners.
+#
+# Written by scripts/import_material_spectra.py (roadmap XD.13) -- edit the script, not this file.
+# The emissivity is a curve computed from published optical constants (data/nk/titanium.csv, whose
+# source block names the paper) and the solar absorptivity is computed from the same curve under
+# the AM1.5 direct spectrum (irsim.materials.spectra.solar_absorptance). This is the POLISHED
+# state: the lower bound of this metal's emissivity. A real part in service is rougher and more
+# oxidised, and both raise it (section 4.5); that is a different material, not this one.
+schema_version: 2
+material:
+  name: titanium_polished
+  source: literature
+  surface_treatment: polished
+  reference: "Optical constants: A. D. Rakić, A. B. Djurišic, J. M. Elazar, M. L. Majewski. Optical properties of metallic films for vertical-cavity optoelectronic devices. Appl. Opt. 37, 5271-5283 (1998) (Fit of experimental data from several sources to Lorentz-Drude (LD) model.) via RefractiveIndex.INFO (CC0), data/nk/titanium.csv. Thermal: pure titanium, Incropera, DeWitt, Bergman & Lavine, Fundamentals of Heat and Mass Transfer, Table A.1 (300 K)"
+  description: "Polished titanium: airframe fittings, exhaust parts, fasteners"
+  thermal:
+    density_kg_m3: 4500
+    specific_heat_j_kgk: 522
+    conductivity_w_mk: 21.9
+    thickness_m: 0.001   # ESTIMATED: a typical part
+    solar_absorptivity: 0.401   # computed from the curve, not typed
+  optical:
+    spectral_emissivity: spectra/materials/titanium_polished.csv
+    roughness_per_band: {nir: 0.02, swir: 0.02, mwir: 0.01, lwir: 0.01}   # ESTIMATED, polished
+    # Level A from the same table the curve came from: a metal's emissivity RISES toward grazing,
+    # which only Fresnel on n and k represents (section 4.2).
+    angular_model: {type: fresnel, n_k_file: nk/titanium.csv}

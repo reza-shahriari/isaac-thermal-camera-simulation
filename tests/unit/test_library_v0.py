@@ -164,7 +164,7 @@ def test_bare_metal_is_the_other_row_that_breaks_naive_simulators(library) -> No
     assert aluminium.band_properties("lwir").reflectance == pytest.approx(0.91, abs=1e-9)
     assert angular_level(aluminium) == "A", "a metal needs Fresnel; Level B cannot rise with angle"
     mirrors = [n for n in library.names if library[n].band_properties("lwir").emissivity <= 0.2]
-    assert sorted(mirrors) == ["aluminium_polished", "bare_aluminium"], mirrors
+    assert {"aluminium_polished", "bare_aluminium"} <= set(mirrors), mirrors
     for name in mirrors:
         assert library[name].spec.surface_treatment in ("polished", "oxidised"), name
         assert angular_level(library[name]) == "A", name

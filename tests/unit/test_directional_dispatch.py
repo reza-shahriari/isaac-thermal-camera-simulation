@@ -198,7 +198,16 @@ def test_the_bare_metals_are_the_only_materials_whose_emissivity_rises_with_angl
         limb = float(_dispatch(material, "lwir", np.float32(COS_70), boson))
         if limb > centre:
             rising.append(name)
-    assert sorted(rising) == ["aluminium_polished", "bare_aluminium"], rising
+    # XD.13 added the polished metals of scripts/import_material_spectra.py, so the set is a rule
+    # rather than a list: exactly the bare metals -- a polished or oxidised surface on Fresnel.
+    bare_metals = [
+        n
+        for n in library.names
+        if library[n].spec.surface_treatment in ("polished", "oxidised")
+        and angular_level(library[n]) == "A"
+    ]
+    assert sorted(rising) == sorted(bare_metals), rising
+    assert {"aluminium_polished", "bare_aluminium", "copper_polished"} <= set(rising)
     assert "aluminium_anodised" not in rising
     aluminium = library["bare_aluminium"]
     assert float(_dispatch(aluminium, "lwir", np.float32(1.0), boson)) == pytest.approx(

@@ -21,13 +21,21 @@ from irsim.radiometry.band_average import (
     band_average,
     tabulated,
 )
+from irsim.radiometry.solar import SolarSpectrum
 from irsim.radiometry.spectral_response import SpectralResponse
+
+#: The wavelengths a solar absorptance is averaged over. Ground-level sunlight carries about 98 % of
+#: its energy between these two; outside them the atmosphere has already taken it (below 0.3 µm,
+#: ozone) or there is almost nothing left to take (beyond 4 µm).
+SOLAR_RANGE_UM = (0.3, 4.0)
 
 __all__ = [
     "PropertySpectrum",
     "load_property_spectrum",
     "band_effective",
     "weighting_for_fpa",
+    "solar_absorptance",
+    "SOLAR_RANGE_UM",
 ]
 
 
@@ -137,3 +145,34 @@ def band_effective(
 ) -> float:
     """Free-function spelling of :meth:`PropertySpectrum.band_effective`."""
     return curve.band_effective(response, t_ref_k, form)
+
+
+def solar_absorptance(
+    absorptance: PropertySpectrum,
+    solar: SolarSpectrum,
+    range_um: tuple[float, float] = SOLAR_RANGE_UM,
+) -> float:
+    """The fraction of sunlight an opaque surface absorbs: ∫α(λ)E(λ)dλ / ∫E(λ)dλ (§5.4, §6.2).
+
+    For an opaque surface Kirchhoff holds wavelength by wavelength, α(λ) = ε(λ) = 1 − ρ(λ), so the
+    curve passed in is the surface's spectral emissivity (or one minus its reflectance). This is
+    the number ``thermal.solar_absorptivity`` stands for, and for a material that authors a
+    spectral curve it is *computed* from that curve instead of being typed next to it.
+
+    ``solar`` is normally the AM1.5 direct-normal table. That table is modelled (ADR 0064) and is
+    trusted to a few percent above 0.7 µm only; in the visible its shape can be off by more, which
+    moves the *weights* of this average and not the curve. The average is refused when the curve
+    does not reach across ``range_um``, for the same reason band averages are: an extrapolated
+    edge biases silently.
+    """
+    lo, hi = range_um
+    s_lo, s_hi = absorptance.support_um
+    if s_lo > lo or s_hi < hi:
+        raise ValueError(
+            f"{absorptance.path.name} covers {s_lo}-{s_hi} um; a solar absorptance needs "
+            f"{lo}-{hi} um"
+        )
+    grid = solar.wavelength_um[(solar.wavelength_um >= lo) & (solar.wavelength_um <= hi)]
+    e = np.interp(grid, solar.wavelength_um, solar.values)
+    a = np.interp(grid, absorptance.wavelength_um, absorptance.values)
+    return float(np.trapezoid(a * e, grid) / np.trapezoid(e, grid))

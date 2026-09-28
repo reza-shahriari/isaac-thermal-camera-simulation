@@ -1,0 +1,19 @@
+# The Phantom 4's intelligent flight battery. AI.12.
+schema_version: 1
+component:
+  name: lipo_pack
+  kind: battery
+  description: 4S LiPo, 5350 mAh, 15.2 V, 81.3 Wh, in its moulded case
+  mass_kg: 0.462                      # MEASURED: DJI's published pack mass
+  specific_heat_j_kgk: 1000.0         # pouch lithium cells, 900-1100 J/kg/K in the literature
+  rated_power_in_w: 200.0             # discharge at hover, the pack's working point
+  efficiency: 0.957                   # 1 - I^2 R / P with R ~ 50 mOhm for the pack at 13 A
+  dissipation_rated_w: 8.7            # (200 / 15.2)^2 x 0.05
+  dissipation_idle_w: 0.0
+  heats: [battery, shell_lower]
+  material: abs_plastic_white
+  status: ESTIMATED
+  source: >-
+    Mass, capacity and voltage from DJI's Phantom 4 specifications (MEASURED); the pack
+    resistance (~50 mOhm) and the 200 W hover draw are estimates from the 81.3 Wh / ~25 min
+    endurance and typical 4S pouch-cell impedance; specific heat from cell-level literature.
