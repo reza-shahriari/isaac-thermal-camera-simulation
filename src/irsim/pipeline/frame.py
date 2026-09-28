@@ -188,7 +188,15 @@ def _scene_radiance_from_signal(
         return config.calibration.radiance_from_signal(signal)
     assert isinstance(fpa, PhotonParams)
     n_e = signal.astype(np.float64) / 2**fpa.bit_depth * fpa.well_capacity_e
-    phi_q = n_e / (fpa.quantum_efficiency * fpa.integration_time_s)
+    # SC.30: `PhotonDetector.electrons` adds the dark and cold-shield background electrons
+    # (§9.1, ADR 0066) and this inversion took the total as signal, so the MWIR InSb config read
+    # a 300 K blackbody as 303.5 K. A calibrated camera's offset removes exactly this pedestal:
+    # its mean is known (it is what a dark frame measures), only its shot noise survives.
+    detector = config.detector
+    budget = getattr(detector, "budget", None)
+    if budget is not None:
+        n_e = n_e - (float(budget.dark_electrons) + float(budget.background_electrons))
+    phi_q = np.maximum(n_e, 0.0) / (fpa.quantum_efficiency * fpa.integration_time_s)
     return invert_optics(phi_q, config.sensor.sensor, lb_housing_cal)
 
 
