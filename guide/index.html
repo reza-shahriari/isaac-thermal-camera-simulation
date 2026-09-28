@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>Working agreement</h1>
-  <p class="subtitle">The non-negotiables, the repository layout and what counts as a finished step.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md on GitHub</a>
-</div>
+<div class="page-head"><h1>Working agreement</h1><p class="subtitle">The non-negotiables, the repository layout and what counts as a finished step.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#what-this-project-is">What this project is</a></li>
 <li class="toc-2"><a href="#non-negotiables">Non-negotiables</a></li>
 <li class="toc-3"><a href="#1-the-physics-core-is-engine-free">1. The physics core is engine-free</a></li>
@@ -115,6 +112,9 @@ src/irsim_isaac/        # Isaac Sim glue — the ONLY place engine imports are a
   spg/                  # empty on purpose: the .cu / .cu.lua / .usda assets are blocked on one
                          # capability question, written down in its README (DC.1)
 
+src/irsim_viewer/       # frame viewer (`make viewer`): click a rendered pixel, read every saved plane.
+                         # Reads files only through `source.FrameSource` -- a new layout is a new source
+
 tests/
   conftest.py           # synthetic G-buffer fixtures (ramp, uniform, two-material, grazing sphere,
                          # supersampled step edge, moving edge) — the engine-free kernel test bed
@@ -158,7 +158,7 @@ make golden-update # regenerate golden reference arrays deliberately (never to s
 <li><strong>Code</strong> implements one coherent piece, with a docstring citing the physics-model section.</li>
 <li><strong>Tests</strong> exist and pass. New physics needs a test that would fail if the physics were wrong — not a test that merely calls the function. See the <code>ir-sim-testing</code> skill.</li>
 <li><strong><code>make check</code> is green.</strong></li>
-<li><strong><code>README.md</code> is updated</strong> — the status table, and anything the change makes untrue.</li>
+<li><strong><code>TECHNICAL_REPORT.md</code> is updated</strong> — the status table, limitations, and anything the change makes untrue. <code>README.md</code> is the public front page and is <em>not</em> where technical detail goes: it gets one plain-language "What's new" bullet (and an image or GIF if one helps) only when the step adds a user-visible feature. See the <code>ship-step</code> skill.</li>
 <li><strong><code>CHANGELOG.md</code> has an entry</strong> under <code>## [Unreleased]</code>.</li>
 <li><strong>The site shows it</strong> — <code>make site</code> (ADR 0139). Modules, tests, ADRs, configs, scripts and documents are picked up automatically <em>from their docstrings</em>, so the work is writing those; a render or a clip has to be named in <code>site/gallery.yaml</code> by hand. Everything that can be presented belongs there — not debug output. See the <code>present-on-the-site</code> skill.</li>
 </ol>
@@ -187,8 +187,10 @@ Round-trip error &lt; 1 mK across the full range (tests/unit/test_planck.py).</c
 <tr><td><code>thermal-solver</code></td><td>Surface temperature, energy balance, weather, vehicle heat sources</td></tr>
 <tr><td><code>sensor-noise-chain</code></td><td>Detector models, NETD, 3D noise, NUC/FFC, AGC and the ISP</td></tr>
 <tr><td><code>isaac-sim-spg</code></td><td>Anything touching Isaac Sim, AOVs, SPG kernels, Warp</td></tr>
+<tr><td><code>ingest-asset</code></td><td>A model link or a 3D file (plus its real-life name) → licence-gated, part-decomposed, material-mapped library entry</td></tr>
+<tr><td><code>low2high</code></td><td>A model whose geometry is too coarse (game/phone-game) or too heavy (CAD, STEP/IGES) for the camera — measure facets, smooth/subdivide/redesign up, or tessellate/decimate down</td></tr>
 <tr><td><code>ir-sim-testing</code></td><td>Writing tests, tolerances, golden data, validation tiers</td></tr>
-<tr><td><code>ship-step</code></td><td>Finishing any step — README, CHANGELOG, git</td></tr>
+<tr><td><code>ship-step</code></td><td>Finishing any step — technical report, CHANGELOG, README feature note, git</td></tr>
 <tr><td><code>present-on-the-site</code></td><td>Anything worth showing reaching the project site — renders, tests, reports</td></tr>
 </tbody></table></div>
 <hr>
@@ -201,7 +203,7 @@ Round-trip error &lt; 1 mK across the full range (tests/unit/test_planck.py).</c
 <p><strong>Team context.</strong> Several people work on this. Write for a reader who was not in the conversation where the decision was made — hence the ADRs and the physics-model citations.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

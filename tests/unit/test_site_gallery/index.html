@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site gallery — irsim</title>
+<meta name="description" content="The gallery&#x27;s media cache, which decides what gets re-encoded and what gets republished.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Site gallery</h1><p class="subtitle">The gallery's media cache, which decides what gets re-encoded and what gets republished.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py" target="_blank" rel="noopener">tests/unit/test_site_gallery.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>make site</code> re-encodes 55 clips and stills from <code>outputs/</code>, so it caches. The cache is the part worth testing: every stale answer it gives is published, and a published clip that does not match the manifest is worse than a missing one, because nothing about the page says it is wrong.</p>
+<p>The failure this pins actually happened. A build that changed the encoder defaults and added per-item overrides in one go left a 29 MB, 1280-pixel clip on disk under a cache entry claiming 720 pixels; every later build trusted the entry, skipped the re-encode, and republished the file the manifest no longer described.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py" target="_blank" rel="noopener">tests/unit/test_site_gallery.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py#L32" target="_blank" rel="noopener">a recorded encode is fresh</a><br><code>test_a_recorded_encode_is_fresh</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py#L38" target="_blank" rel="noopener">changed settings are not fresh</a><br><code>test_changed_settings_are_not_fresh</code></td><td>A CRF or a resolution edited in the manifest leaves the source untouched.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py#L46" target="_blank" rel="noopener">a newer source is not fresh</a><br><code>test_a_newer_source_is_not_fresh</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py#L52" target="_blank" rel="noopener">an encoded file that changed underneath is not fresh</a><br><code>test_an_encoded_file_that_changed_underneath_is_not_fresh</code></td><td>The one that bit: the entry was right and the file on disk was not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py#L60" target="_blank" rel="noopener">a missing file is not fresh</a><br><code>test_a_missing_file_is_not_fresh</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_site_gallery.py#L67" target="_blank" rel="noopener">the cache survives a round trip and a corrupt file</a><br><code>test_the_cache_survives_a_round_trip_and_a_corrupt_file</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

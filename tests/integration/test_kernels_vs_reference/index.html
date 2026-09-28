@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Kernels vs reference</h1>
-  <p class="subtitle">Roadmap M10.4: the CPU-vs-GPU equivalence harness, parametrised over (stage, fixture, device).</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py" target="_blank" rel="noopener">tests/integration/test_kernels_vs_reference.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Kernels vs reference</h1><p class="subtitle">Roadmap M10.4: the CPU-vs-GPU equivalence harness, parametrised over (stage, fixture, device).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py" target="_blank" rel="noopener">tests/integration/test_kernels_vs_reference.py on GitHub</a></div>
 
 <article class="prose">
 <p>Every Warp stage registers its (CPU oracle, GPU twin) pair in <code>irsim_isaac.pipeline.warp_stages.EQUIVALENCE_STAGES</code>; this file runs both on the same synthetic G-buffers from tests/conftest.py and demands agreement within the ir-sim-testing budget for a GPU kernel against its CPU reference: ≤ 1e-4 relative, and ≤ 5 mK when the radiance error is expressed through dL_B/dT at the pixel's temperature (one tenth of the tightest NETD modelled). The CPU reference is the oracle (ADR 0018); a disagreement is a kernel bug until proven otherwise.</p>
@@ -72,7 +69,7 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L318" target="_blank" rel="noopener">sky pixels bypass the atmosphere bit identically</a><span class="tag">parametrize</span><br><code>test_sky_pixels_bypass_the_atmosphere_bit_identically</code></td><td>ADR 0050: a sky pixel already carries the whole column to space, so stage 2 must not attenuate it again. Bit-identical, not merely close -- the CPU returns the input array.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L339" target="_blank" rel="noopener">every atmosphere path matches its oracle</a><span class="tag">parametrize</span><span class="tag">parametrize</span><br><code>test_every_atmosphere_path_matches_its_oracle</code></td><td>The three branches <code>atmosphere_stage</code> can take: one grey term, the constant-tau L1 fallback, and MS.1's multi-term sum. A single kernel serves all three because Sum w_k = 1 makes the per-term path radiance collapse to (1 - tau) L_air.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L376" target="_blank" rel="noopener">step edge psf then box matches the cpu to 1e5</a><span class="tag">parametrize</span><br><code>test_step_edge_psf_then_box_matches_the_cpu_to_1e5</code></td><td>M10.5's tight case: the optical PSF on the 4x grid <em>then</em> the block mean, in that order, across a 373/293 K edge where the blur has the most to do. A GPU path that downsampled first would still look plausible and would lose the sub-pixel edge profile MS.5 measures.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L394" target="_blank" rel="noopener">vignetting and self emission come from the host</a><span class="tag">parametrize</span><br><code>test_vignetting_and_self_emission_come_from_the_host</code></td><td>cos^4 across the field and Phi_self at the corner, against <code>irsim.optics</code> directly: the kernel may scale and add, it may not own the aperture factor (non-negotiable #5).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L394" target="_blank" rel="noopener">vignetting and self emission come from the host</a><span class="tag">parametrize</span><br><code>test_vignetting_and_self_emission_come_from_the_host</code></td><td>RI across the field and the field-weighted housing term (ADR 0145), against <code>irsim.optics</code> directly: the kernel may scale and add, it may not own the aperture factor (non-negotiable #5).</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L419" target="_blank" rel="noopener">a warmer housing raises apparent temperature exactly as the cpu does</a><span class="tag">parametrize</span><br><code>test_a_warmer_housing_raises_apparent_temperature_exactly_as_the_cpu_does</code></td><td>Phi_self is why a shutterless camera drifts (§8.2, §11.2). A 1 K housing step must move the apparent temperature by the same amount on both paths, or the GPU drift is not the CPU's drift and every NUC/FFC test written against the oracle stops meaning anything.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L484" target="_blank" rel="noopener">twenty frame step tracks the cpu iir</a><span class="tag">parametrize</span><br><code>test_twenty_frame_step_tracks_the_cpu_iir</code></td><td>The membrane lag is the one stage with memory, so an agreement measured on a single frame proves nothing: the CPU adopts its input on frame 1 and so does the GPU. Drive a flux step through twenty frames, where a wrong alpha, a stale state or a state reset each show up as a growing divergence rather than a constant offset.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_kernels_vs_reference.py#L505" target="_blank" rel="noopener">the first frame of a step covers alpha of it</a><span class="tag">parametrize</span><br><code>test_the_first_frame_of_a_step_covers_alpha_of_it</code></td><td>1 - e^{-dt/tau} = 0.8755 at 60 Hz and tau_th = 8 ms. §9.2's "smears over roughly 0.6 frames" is tau/dt, not the extent of the smear (spec issue S8) -- one frame already covers 88 % of a step, and this pins the number the kernel actually applies.</td></tr>
@@ -82,7 +79,7 @@
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

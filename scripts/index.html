@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,12 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Commands</h1>
-  <p class="subtitle">Every script in the repository, with the first line of its own docstring.</p>
-  
-</div>
+<div class="page-head"><h1>Commands</h1><p class="subtitle">Every script in the repository, with the first line of its own docstring.</p></div>
 
 <article class="prose">
 <p>Everything this repository can be asked to do from a shell. The render drivers need Isaac Sim and a GPU; everything else is engine-free and runs on any CPython with the dev extras installed.</p>
 <div class='table-wrap'><table><thead><tr><th>command</th><th>what it does</th></tr></thead><tbody>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/agc_band_grid.py" target="_blank" rel="noopener">agc_band_grid.py</a></td><td>One aircraft, every band, every AGC: a grid of what each camera would show (SC.25, ADR 0149).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/audit_materials.py" target="_blank" rel="noopener">audit_materials.py</a></td><td>Audit the thermal-material coverage of an asset from an engine-free prim dump (M7.17).<pre><code>python scripts/audit_materials.py prims.json [--rules configs/materials/mapping.yaml]
                                                  [--asset phantom4]
                                                  [--threshold 0.95] [--band lwir]</code></pre></td></tr>
@@ -73,6 +71,9 @@ python scripts/build_site.py --outputs DIR   # a different render tree ($IRSIM_O
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/fetch_nk_tables.py" target="_blank" rel="noopener">fetch_nk_tables.py</a></td><td>Fetch the MEASURED complex-refractive-index tables from refractiveindex.info (roadmap M7.5).<pre><code>python scripts/fetch_nk_tables.py --out data/nk            # every table below
 python scripts/fetch_nk_tables.py --out data/nk --only glass</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/fetch_radcal_tables.py" target="_blank" rel="noopener">fetch_radcal_tables.py</a></td><td>Fetch RadCal's tabulated narrow-band absorption data out of the FDS source (roadmap PH.5).<pre><code>python scripts/fetch_radcal_tables.py --out data/spectra/radcal</code></pre></td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/fetch_sketchfab.py" target="_blank" rel="noopener">fetch_sketchfab.py</a></td><td>Fetch a Sketchfab model from a shared link, through the licence gate, into <code>3d_models/</code>.<pre><code>python scripts/fetch_sketchfab.py https://sketchfab.com/3d-models/&lt;slug&gt;-&lt;uid&gt;
+python scripts/fetch_sketchfab.py &lt;uid&gt; --dry-run
+python scripts/fetch_sketchfab.py &lt;link&gt; --real-name &quot;DJI Mavic 3&quot;</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/fetch_validation_data.py" target="_blank" rel="noopener">fetch_validation_data.py</a></td><td>Roadmap ME.1: obtain, verify and hash the public validation sets (ADR 0003).<pre><code>python scripts/fetch_validation_data.py --list
 python scripts/fetch_validation_data.py --render-readme
 python scripts/fetch_validation_data.py --plan
@@ -91,6 +92,8 @@ python scripts/generate_matched_scenario.py --priors          # what is matched,
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/generate_response_curves.py" target="_blank" rel="noopener">generate_response_curves.py</a></td><td>Generate the modelled detector spectral-response curves (roadmap M11.1, M11.5).<pre><code>python scripts/generate_response_curves.py --out data/spectra/responses</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/generate_solar_spectra.py" target="_blank" rel="noopener">generate_solar_spectra.py</a></td><td>Generate the solar spectral irradiance files M11.3 needs (docs/decisions/0064).<pre><code>python scripts/generate_solar_spectra.py --out data/spectra/solar</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/generate_weather.py" target="_blank" rel="noopener">generate_weather.py</a></td><td>Regenerate the committed synthetic weather sample (M6.2, ADR 0032).<pre><code>python scripts/generate_weather.py [--out data/weather/clear_midlat_summer_48h.csv]</code></pre></td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/mesh_facets.py" target="_blank" rel="noopener">mesh_facets.py</a></td><td>Report whether a model's curves are fine enough for the camera: facet angles per mesh.<pre><code>python scripts/mesh_facets.py model.glb
+python scripts/mesh_facets.py x.meshes.npz --range-m 2 --ifov-mrad 1.36</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/next_step.py" target="_blank" rel="noopener">next_step.py</a></td><td>What to do next, computed from <code>docs/roadmap.md</code> rather than written into it.<pre><code>python scripts/next_step.py              # the one step to start now
 python scripts/next_step.py --queue 20   # the next 20, in order
 python scripts/next_step.py --lane PT    # restrict to one lane
@@ -100,6 +103,7 @@ python scripts/next_step.py --json       # the whole order, for tooling</code></
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/parked_car_cabin.py" target="_blank" rel="noopener">parked_car_cabin.py</a></td><td>The cabin reference scene, engine-free: a parked car and the air behind its panels (PT.15).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/prep_asset.py" target="_blank" rel="noopener">prep_asset.py</a></td><td>Prepare a third-party 3D asset for the simulator: rescale, convert to USD, audit its materials.<pre><code>python scripts/prep_asset.py --asset phantom4
 python scripts/prep_asset.py --asset phantom4 --source 3d_models/phantom4.fbx         --out-dir data/assets</code></pre></td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/probe_cloud_volume.py" target="_blank" rel="noopener">probe_cloud_volume.py</a></td><td>Does a cloud volume load on this build, and does it reach any AOV? (AT.13, ADR 0140)</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/probe_isaac_asset.py" target="_blank" rel="noopener">probe_isaac_asset.py</a></td><td>Probe: does a prepared third-party asset load in Isaac Sim, and does its mapping resolve there?</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/probe_isaac_camera.py" target="_blank" rel="noopener">probe_isaac_camera.py</a></td><td>Roadmap M10.9a: record which lens-distortion schemas this build carries, and their defaults.</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/probe_isaac_environment.py" target="_blank" rel="noopener">probe_isaac_environment.py</a></td><td>Roadmap M2.1 + M2.2 gate spike: boot Isaac Sim headless, record the environment, author the temperature-ramp scene, read back every candidate AOV in the real-time and path-traced modes.</td></tr>
@@ -110,9 +114,12 @@ python scripts/prep_asset.py --asset phantom4 --source 3d_models/phantom4.fbx   
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/quad_flight_mesh.py" target="_blank" rel="noopener">quad_flight_mesh.py</a></td><td>The quadrotor's arms as tubes, engine-free (WM.7).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/quad_flight_pointwise.py" target="_blank" rel="noopener">quad_flight_pointwise.py</a></td><td>The aerial scenario, regenerated point-wise and engine-free (PT.9).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/radcal.py" target="_blank" rel="noopener">radcal.py</a></td><td>RadCal's CO2 and H2O narrow-band absorption coefficients, ported to NumPy (roadmap PH.5).</td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/redisplay_planes.py" target="_blank" rel="noopener">redisplay_planes.py</a></td><td>Re-display a finished render's saved float32 planes through a corrected display chain (SC.24).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/reference_statistics.py" target="_blank" rel="noopener">reference_statistics.py</a></td><td>Roadmap ME.5: measure the public reference sets and write the bands the simulator must land in.<pre><code>python scripts/reference_statistics.py --list
 python scripts/reference_statistics.py --set halmstad_drone_detection
 python scripts/reference_statistics.py --set halmstad_drone_detection --limit 20</code></pre></td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/register_local_asset.py" target="_blank" rel="noopener">register_local_asset.py</a></td><td>Register a 3D file the owner handed over — the second front door beside a Sketchfab link.<pre><code>python scripts/register_local_asset.py ~/Downloads/mavic.fbx --real-name &quot;DJI Mavic 3&quot;
+python scripts/register_local_asset.py drone.zip --real-name &quot;DJI Mavic 3&quot;         --license by --author &quot;some_artist&quot; --origin-url https://example.com/model</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_aerial_demo.py" target="_blank" rel="noopener">render_aerial_demo.py</a></td><td>Roadmap M10.19: render the phase-1 aerial demo stage through <code>IrCamera</code> and export the frames.</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_aircraft_pass.py" target="_blank" rel="noopener">render_aircraft_pass.py</a></td><td>Roadmap M10.21: film a light jet flying a low pass, in LWIR (ADR 0075).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/render_car_ignition.py" target="_blank" rel="noopener">render_car_ignition.py</a></td><td>Roadmap MP.4b: film a cold car starting its engine, in LWIR, with a per-pixel temperature field.</td></tr>
@@ -126,9 +133,11 @@ python scripts/reference_statistics.py --set halmstad_drone_detection --limit 20
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/site_layout.py" target="_blank" rel="noopener">site_layout.py</a></td><td>The shell every page of the project site is poured into: nav, table of contents, styling.</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/site_markdown.py" target="_blank" rel="noopener">site_markdown.py</a></td><td>Markdown to HTML, with no dependency outside the standard library.</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/site_survey.py" target="_blank" rel="noopener">site_survey.py</a></td><td>The pages of the site that are measured from the repository rather than written by hand.</td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/tessellate_step.py" target="_blank" rel="noopener">tessellate_step.py</a></td><td>Tessellate a STEP/IGES CAD model into glTF, keeping the part tree and converting to metres.<pre><code>python scripts/tessellate_step.py model.step --out model.glb --angle-deg 5 --chord-mm 0.05</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/train_detector.py" target="_blank" rel="noopener">train_detector.py</a></td><td>Roadmap ME.7: train a small detector under one of §15's four transfer protocols.<pre><code>python scripts/train_detector.py --protocol real_to_real --real &lt;dir&gt; --out runs/r2r
 python scripts/train_detector.py --protocol synthetic_to_real --real &lt;dir&gt; --synthetic &lt;dir&gt;</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/validate_atmosphere_band_average.py" target="_blank" rel="noopener">validate_atmosphere_band_average.py</a></td><td>Quantify the grey-band (single gamma_B) atmosphere approximation error (ADR 0048, M8.7).<pre><code>python scripts/validate_atmosphere_band_average.py</code></pre></td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/validate_sky_flat.py" target="_blank" rel="noopener">validate_sky_flat.py</a></td><td>Tier 4 sky-flat bench: the radial bowl of a featureless sky, rendered and real (SC.20).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/validate_sky_r13.py" target="_blank" rel="noopener">validate_sky_r13.py</a></td><td>Sky apparent temperature vs elevation from the layered atmosphere against the R13 anchors.<pre><code>python scripts/validate_sky_r13.py</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/validate_thermal_diurnal.py" target="_blank" rel="noopener">validate_thermal_diurnal.py</a></td><td>Plot the M6.13 facet scene's 24 h diurnal curves, for the manual half of the Tier 3 pass.<pre><code>python scripts/validate_thermal_diurnal.py --out outputs/thermal_diurnal.png</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/validation_report.py" target="_blank" rel="noopener">validation_report.py</a></td><td>Roadmap ME.6: the Tier 4 acceptance report. Exits non-zero when a target is exceeded.<pre><code>python scripts/validation_report.py --real &lt;dir&gt; --synthetic &lt;dir&gt;
@@ -136,10 +145,11 @@ python scripts/validation_report.py --self-test</code></pre></td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/wall_half_in_sun.py" target="_blank" rel="noopener">wall_half_in_sun.py</a></td><td>The R1 reference scene, engine-free: one building's faces at their own temperatures (PT.20).</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/publish_site.sh" target="_blank" rel="noopener">publish_site.sh</a></td><td>Publish the built site to the <code>gh-pages</code> branch.  scripts/publish_site.sh            # commit _site/ onto gh-pages, locally; print the push command scripts/publish_site.sh --push     # ... and push it to origin</td></tr>
 <tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/stage_own_hunk.sh" target="_blank" rel="noopener">stage_own_hunk.sh</a></td><td>Stage only your own changes to a file several people are editing at once.  Why this exists --------------- This repo is worked on by several sessions in ONE working tree, not in separate worktrees, so</td></tr>
+<tr><td class="nowrap"><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/scripts/viewer.sh" target="_blank" rel="noopener">viewer.sh</a></td><td>Open the frame viewer on rendered frames: click a pixel, read everything saved under it. Usage: scripts/viewer.sh [folder] [--port N]   (folder defaults to outputs/; <code>make viewer</code> calls this) Finds a Python that can run it by itself -- $PYTHON, then Isaac Sim's python.sh, then python3 -- so nobody has to remember an interpreter path to look at a picture. Guide: docs/frame-viewer.md</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

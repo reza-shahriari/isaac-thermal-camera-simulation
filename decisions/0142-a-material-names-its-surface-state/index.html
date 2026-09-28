@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0142 — A material file names its surface state, and the field has no default — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>0142 — A material file names its surface state, and the field has no default</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0142-a-material-names-its-surface-state.md" target="_blank" rel="noopener">docs/decisions/0142-a-material-names-its-surface-state.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p>Date: 2026-09-24 <strong>Status:</strong> Accepted Roadmap: AT.17 (§4.5)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>§4.5 is unambiguous: emissivity is a property of the <em>surface</em>, not of the substance under it. One measurement campaign on aluminium window profiles reports <strong>0.834–0.856</strong> normal total emissivity for anodised exterior surfaces and <strong>0.055–0.82</strong> across untreated all-aluminium cavities in the same frames [R39] — one metal, one paper, a fifteen-fold spread. Polished aluminium is 0.04 at 8 µm; rough wrought iron is 0.94 against 0.28 polished [R47]. Oxidation dominates and roughness comes second.</p>
+<p>The library did not carry that. <code>configs/materials/bare_aluminium.yaml</code> opened with the words <em>"Bare / polished aluminium"</em> and held ε_LWIR = 0.09, which is an <strong>oxidised</strong> surface: the two states are 0.04 and 0.09, a factor of 2.25 in the single term that decides whether a surface reports its own temperature or the sky's. Nothing could see the contradiction, because neither number had a state written beside it. §16.2's own note says as much — <em>"these are surface states, unwritten"</em> — and no code enforced it.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong><code>surface_treatment</code> is a required field on every material, with no default.</strong> Material schema goes to v2.</p>
+<p>The vocabulary is §4.5's own list — <code>polished</code>, <code>machined</code>, <code>oxidised</code>, <code>anodised</code>, <code>painted</code>, <code>sandblasted</code>, <code>weathered</code> — plus two:</p>
+<ul>
+<li><strong><code>as_manufactured</code></strong> for substances that leave the works in the state they keep: a moulded plastic, a woven fabric, a cast tyre, float glass.</li>
+<li><strong><code>natural</code></strong> for substances nobody treated at all: skin, snow, soil, water, a leaf.</li>
+</ul>
+<p>Both are still <em>states</em> and still have to be chosen. The alternative — making the field optional, or allowing a free string — puts a blank on exactly the materials whose state is least obvious, which is the failure this ADR exists to end.</p>
+<p><strong><code>bare_aluminium</code> keeps its name.</strong> It is referenced by scene configs, asset maps, the material probe stage and some thirty tests, so renaming it is a change to <em>those</em> rather than to this library, and a rename is not what makes the file correct. What makes it correct is that it now declares <code>oxidised</code> and says so in its description. Two siblings hold the other two states: <code>aluminium_polished</code> (0.04) and <code>aluminium_anodised</code> (0.845, the midpoint of [R39]'s range).</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p><strong>The library demonstrates the rule instead of violating it.</strong> The three aluminium files differ only in surface state: ρ, c_p and k are identical, because those belong to the metal, and ε spans 0.805, because that belongs to the surface. A file copied from one to another without changing its optics fails a test rather than becoming a plausible new material.</p>
+<p><strong>One real physical distinction becomes expressible.</strong> <code>aluminium_anodised</code> <em>falls</em> toward grazing where the two bare metals rise, because its emitting surface is micrometres of oxide — a rough dielectric — over the same metal, so it takes Level B where they take Level A (Fresnel). A library keyed on substance cannot hold that; one keyed on surface state can, and <code>tests/unit/test_directional_dispatch.py</code> asserts the whole committed set either way.</p>
+<p><strong>A schema bump costs the 21 committed files one line each</strong>, and any material authored outside this repository fails to load until it names a state. That is the intended cost: a v1 file is one whose surface is unstated, and loading it silently would be the same defect under a version number.</p>
+<p><strong>What this does not fix.</strong> §4.5 (b) is about anodic <em>film thickness</em> — ε ≈ 0.15 at 1 µm of film, 0.45 at 2 µm, 0.91 above about 15 µm [R40] — and that stays unobtainable, because no mesh carries a film thickness and <code>thermal.thickness_m</code> is §6.1's heat-capacity parameter that nothing optical may read. The state is authored; the film is never solved. Nor does naming a state make a value a measurement: every §16.2 row remains literature or ESTIMATED, now with its surface written down.</p>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A second substance in this library needs more than one state — painted steel against rusted steel is the obvious next pair — or when a spectral library covering all four bands [R41][R42] replaces the §16.2 rows, at which point the state becomes the key the spectra are looked up by rather than an annotation beside them.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

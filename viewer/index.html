@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame viewer — irsim</title>
+<meta name="description" content="Click a pixel of a rendered frame and read its true temperature, part, range and what the camera measured -- how to start it and read it.">
+<link rel="stylesheet" href="../assets/style.css">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../">Overview</a></li>
+<li><a href="../gallery/">Demo gallery</a></li>
+<li class="here"><a href="./">Frame viewer</a></li>
+<li><a href="../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../physics/">Physics model</a></li>
+<li><a href="../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../roadmap/">Roadmap</a></li>
+<li><a href="../decisions/">Decision log</a></li>
+<li><a href="../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../tests/">The test suite</a></li>
+<li><a href="../validation/">Validation</a></li>
+<li><a href="../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../code/">Code map</a></li>
+<li><a href="../configs/">Configuration catalogue</a></li>
+<li><a href="../scripts/">Commands</a></li>
+<li><a href="../guide/">Working agreement</a></li>
+<li><a href="../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>Frame viewer</h1><p class="subtitle">Click a pixel of a rendered frame and read its true temperature, part, range and what the camera measured -- how to start it and read it.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/frame-viewer.md" target="_blank" rel="noopener">docs/frame-viewer.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#start-it">Start it</a></li>
+<li class="toc-2"><a href="#use-it">Use it</a></li>
+<li class="toc-2"><a href="#what-the-numbers-mean">What the numbers mean</a></li>
+<li class="toc-2"><a href="#runs-marked-camera-only">Runs marked &quot;camera only&quot;</a></li>
+<li class="toc-2"><a href="#clips">Clips</a></li>
+<li class="toc-2"><a href="#when-something-is-off">When something is off</a></li>
+<li class="toc-2"><a href="#for-developers">For developers</a></li></ul></nav>
+<article class="prose">
+<p>Open a rendered frame, click on it, and see what is really at that pixel: the true surface temperature, which part it is, how far away it is, and what the camera measured there. Use it to debug a render. When a motor looks too cold or the sky too bright, click it and compare the numbers.</p>
+<p><img src="../docs/media/viewer/overview.png" alt="The frame viewer: the image on the left, the readouts of every clicked point on the right" loading="lazy"></p>
+<h2 id="start-it">Start it<a class="anchor" href="#start-it" aria-label="permalink">#</a></h2>
+<p>From the repository folder:</p>
+<pre><code class="language-bash">make viewer</code></pre>
+<p>Your browser opens on the viewer. That is all. It finds the right Python by itself and needs nothing installed beyond what the project already uses. Stop it with <strong>Ctrl+C</strong> in the terminal.</p>
+<p>To open one render, or a different folder of renders:</p>
+<pre><code class="language-bash">make viewer RUN=outputs/phantom4_perpart_truth</code></pre>
+<p>If the browser does not open, go to the address the terminal prints, normally <code>http://127.0.0.1:8765/</code>.</p>
+<h2 id="use-it">Use it<a class="anchor" href="#use-it" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Pick a run</strong> from the menu at the top left. The newest run is listed first.</li>
+<li><strong>Click the image.</strong> A coloured marker appears with a small box beside it. The panel on the right lists everything saved for that pixel.</li>
+<li><strong>Click again</strong> for another marker, in another colour. Add as many as you need to compare points, for example a motor, the shell and the sky behind them.</li>
+<li><strong>Remove a marker</strong> with its <strong>×</strong> in the right panel, or remove them all with <strong>clear all</strong>.</li>
+<li><strong>Move through a clip</strong> with <strong>◀ ▶</strong>, the slider or the arrow keys, or press <strong>play</strong>. The markers stay where you put them and their numbers update for each frame.</li>
+</ol>
+<p><img src="../docs/media/viewer/markers.png" alt="Several markers on one drone, each in its own colour" loading="lazy"></p>
+<div class='table-wrap'><table>
+<thead><tr><th>Do this</th><th>To</th></tr></thead>
+<tbody>
+<tr><td>click</td><td>add a marker</td></tr>
+<tr><td>drag</td><td>move the image</td></tr>
+<tr><td>mouse wheel</td><td>zoom in and out</td></tr>
+<tr><td><strong>f</strong></td><td>fit the image to the window again</td></tr>
+<tr><td><strong>←</strong> / <strong>→</strong></td><td>previous / next frame</td></tr>
+<tr><td>space</td><td>play / pause</td></tr>
+<tr><td><strong>h</strong> or <strong>? help</strong></td><td>show the instructions in the right panel</td></tr>
+</tbody></table></div>
+<p>The <strong>image</strong> menu changes what you look at: the camera's display image, the visible-light companion, or any saved data plane drawn in gray. A click always reads every plane, whichever one is on screen.</p>
+<p>To share a view, copy the address bar. The link reopens the same run and frame with the same markers.</p>
+<h2 id="what-the-numbers-mean">What the numbers mean<a class="anchor" href="#what-the-numbers-mean" aria-label="permalink">#</a></h2>
+<p><img src="../docs/media/viewer/side-panel.png" alt="The readout for one marker" loading="lazy"></p>
+<div class='table-wrap'><table>
+<thead><tr><th>Row</th><th>What it is</th></tr></thead>
+<tbody>
+<tr><td><code>temperature_k</code></td><td>The <strong>true</strong> surface temperature at the pixel's centre, as the thermal model computed it. For the sky, the sky's apparent temperature.</td></tr>
+<tr><td><code>apparent_t</code></td><td>The temperature the <strong>camera</strong> reports. It differs from the true value because of emissivity, reflected sky, the atmosphere and lens blur. That difference is often exactly what you are debugging.</td></tr>
+<tr><td><code>part_id</code></td><td>Which part of the model the pixel belongs to, for example <code>motor_rear_left</code>. <code>(sky / no geometry)</code> means the ray hit nothing.</td></tr>
+<tr><td><code>node_id</code></td><td>Which thermal node heats that part. The row below it gives that node's temperature from the frame's metadata.</td></tr>
+<tr><td><code>material_id</code></td><td>The material, for example <code>aircraft_aluminium_painted</code>.</td></tr>
+<tr><td><code>distance_m</code></td><td>Distance from the camera, in metres. Empty (<code>nan</code>) for the sky.</td></tr>
+<tr><td><code>radiance</code></td><td>The in-band radiance reaching the camera.</td></tr>
+<tr><td><code>dn16</code></td><td>The raw number the camera's ADC produced.</td></tr>
+<tr><td><code>display8</code>, <code>rgb</code></td><td>The pixel's colour in the display image and in the visible-light companion.</td></tr>
+</tbody></table></div>
+<p>The panel shows temperatures in both kelvin and °C. The <strong>frame metadata</strong> section at the bottom lists the frame's own facts: time, range, and every node's temperature.</p>
+<p><strong>At edges, true and apparent temperature disagree on purpose.</strong> A pixel on an object's outline sees part object and part sky. The camera value mixes them, while the true value describes only the point at the pixel's centre.</p>
+<h2 id="runs-marked-camera-only">Runs marked "camera only"<a class="anchor" href="#runs-marked-camera-only" aria-label="permalink">#</a></h2>
+<p><img src="../docs/media/viewer/run-picker.png" alt="The run menu, with runs marked full data and camera only" loading="lazy"></p>
+<p>The run menu marks each run <strong>full data</strong> or <strong>camera only</strong>. A camera-only run was rendered before frames saved the scene truth. It still opens and a click shows what the camera measured, but not the true temperature, part or distance. Render it again with any of the render scripts to get full data (ADR 0154).</p>
+<h2 id="clips">Clips<a class="anchor" href="#clips" aria-label="permalink">#</a></h2>
+<p><img src="../docs/media/viewer/frames.png" alt="Stepping through a clip with the markers held in place" loading="lazy"></p>
+<p>A clip shows only the frames whose data was saved. If a render thinned its saved frames with <code>--plane-stride 8</code>, the viewer shows every 8th frame and says <em>every 8th</em> next to the frame name.</p>
+<h2 id="when-something-is-off">When something is off<a class="anchor" href="#when-something-is-off" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th>You see</th><th>Why</th><th>What to do</th></tr></thead>
+<tbody>
+<tr><td>A yellow warning on a marker</td><td>One saved plane has a different size from the image, so the pixel had to be estimated.</td><td>Treat that row with care. The other rows are exact.</td></tr>
+<tr><td>"Camera data only" banner</td><td>The run predates the truth planes.</td><td>Re-render it, or pick a run marked full data.</td></tr>
+<tr><td><code>viewer: no Python here can import irsim_viewer</code></td><td>No interpreter with NumPy and PyYAML was found.</td><td>Run <code>make viewer PYTHON=/path/to/IsaacSim/.../python.sh</code>.</td></tr>
+<tr><td>"Address already in use"</td><td>A viewer is already running.</td><td>Use the open tab, or start another with <code>scripts/viewer.sh outputs --port 8766</code>.</td></tr>
+</tbody></table></div>
+<h2 id="for-developers">For developers<a class="anchor" href="#for-developers" aria-label="permalink">#</a></h2>
+<p>The viewer lives in <code>src/irsim_viewer/</code> and reads files only through one interface, <code>FrameSource</code> in <code>src/irsim_viewer/source.py</code>. A new file type takes one registered reader. A different data layout, such as a Warp buffer dump, takes one new source class. The page and the server stay unchanged. The design and its trade-offs are in <a href="../decisions/0154-a-frame-viewer-reads-scene-truth-beside-the-camera/">ADR 0154</a>.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../assets/site.js"></script>
+</body>
+</html>

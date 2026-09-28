@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boson default agc — irsim</title>
+<meta name="description" content="The Boson runs its factory-default AGC (§11.3, spec issue S52, `SC.22`, ADR 0152).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Boson default agc</h1><p class="subtitle">The Boson runs its factory-default AGC (§11.3, spec issue S52, `SC.22`, ADR 0152).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_boson_default_agc.py" target="_blank" rel="noopener">tests/unit/test_boson_default_agc.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>flir_boson_640_lwir.yaml</code> selected global plateau equalisation at a plateau FLIR does not ship, which on a cluttered sky is full histogram equalisation: the drone got 2-3 grey codes. [R51] p. 5 publishes the factory values ("Current Camera Values": Information-Based on, Plateau 7, Linear Percent 20, Max Gain 1.38, Detail Headroom 12, DDE 0.95, Smoothing Factor 1250). The config now carries them, and these tests pin three things: that it does, what that buys a small target, and that the switch touches the display branch only -- the raw DN and the radiometry are bit-identical.</p>
+<p><code>halmstad_boson_320.yaml</code> is deliberately not moved: its <code>linear</code> is the dataset recorder's Y16 → 8-bit conversion, not a Boson AGC, and the test says so.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_boson_default_agc.py" target="_blank" rel="noopener">tests/unit/test_boson_default_agc.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_boson_default_agc.py#L56" target="_blank" rel="noopener">the boson 640 carries flir s published defaults</a><br><code>test_the_boson_640_carries_flir_s_published_defaults</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_boson_default_agc.py#L68" target="_blank" rel="noopener">the halmstad 320 keeps its recorder s linear map</a><br><code>test_the_halmstad_320_keeps_its_recorder_s_linear_map</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_boson_default_agc.py#L72" target="_blank" rel="noopener">the default gives a small target its parts where the old config gave it one shade</a><br><code>test_the_default_gives_a_small_target_its_parts_where_the_old_config_gave_it_one_shade</code></td><td>The phantom4-shaped synthetic frame: 2 codes → 37 measured, parts in temperature order.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_boson_default_agc.py#L93" target="_blank" rel="noopener">the switch is display only</a><span class="tag">slow</span><br><code>test_the_switch_is_display_only</code></td><td>dn16, radiance and apparent_t are bit-identical under either ISP; display8 is not.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

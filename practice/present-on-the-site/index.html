@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../">Overview</a></li>
 <li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
 <li><a href="../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>present-on-the-site</h1>
-  <p class="subtitle">How work in this repository reaches the public project site (the GitHub Pages site built by `make site`) — what is published automatically, what has to be added by hand to `site/gallery.yaml`, the rules for captions and media encoding, and the line between something worth presenting and debug output. Use this skill whenever a step produces something a reader outside the conversation would want to see — a render, a clip, a validation report, a new test file, a new module, a new scene or sensor config — and whenever the user says "put this on the site", "update the site", "publish", or asks why something is or is not on it. Run through it as part of finishing a step, before the commit.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/.claude/skills/present-on-the-site/SKILL.md" target="_blank" rel="noopener">.claude/skills/present-on-the-site/SKILL.md on GitHub</a>
-</div>
+<div class="page-head"><h1>present-on-the-site</h1><p class="subtitle">How work in this repository reaches the public project site (the GitHub Pages site built by `make site`) — what is published automatically, what has to be added by hand to `site/gallery.yaml`, the rules for captions and media encoding, and the line between something worth presenting and debug output. Use this skill whenever a step produces something a reader outside the conversation would want to see — a render, a clip, a validation report, a new test file, a new module, a new scene or sensor config — and whenever the user says "put this on the site", "update the site", "publish", or asks why something is or is not on it. Run through it as part of finishing a step, before the commit.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/.claude/skills/present-on-the-site/SKILL.md" target="_blank" rel="noopener">.claude/skills/present-on-the-site/SKILL.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#what-is-already-automatic">What is already automatic</a></li>
 <li class="toc-2"><a href="#what-you-have-to-add-by-hand-renders">What you have to add by hand: renders</a></li>
 <li class="toc-3"><a href="#the-rules-for-that-entry">The rules for that entry</a></li>
@@ -79,7 +76,7 @@
 <tr><td>A document in <code>docs/</code></td><td>a rendered page under Physics, Plan or Evidence</td><td>the same</td></tr>
 <tr><td>A config in <code>configs/</code></td><td>a row in the <strong>Configuration catalogue</strong>, with its headline comment</td><td><code>site_survey.config_catalogue</code></td></tr>
 <tr><td>A script in <code>scripts/</code></td><td>a row on <strong>Commands</strong>, with its usage block</td><td><code>site_survey.script_catalogue</code></td></tr>
-<tr><td>A CHANGELOG or README edit</td><td>the Changelog and Status pages</td><td>rendered, not copied</td></tr>
+<tr><td>A CHANGELOG or TECHNICAL_REPORT.md edit</td><td>the Changelog and Status pages</td><td>rendered, not copied</td></tr>
 </tbody></table></div>
 <p>So: <strong>write the docstring</strong>. A module, a test file or a script with no docstring publishes an em dash where its explanation should be, and that is now visible to everyone rather than only to the next reader of the file. The first paragraph is what the site shows in a table; the rest becomes the body of its page.</p>
 <p>A test's own docstring is the "what it asserts" column. <code>test_the_bonnet_is_a_gradient</code> with no docstring tells a reader the name and nothing else; one sentence saying <em>6.3 K across one prim after thirty minutes, which is 127 NETD of structure</em> is the evidence the project claims to have.</p>
@@ -137,7 +134,7 @@
 <p><code>_site/</code> is generated and gitignored, and so is every file in it. If a page is wrong, the fix is in <code>scripts/build_site.py</code>, <code>scripts/site_survey.py</code>, <code>scripts/site_gallery.py</code>, <code>site/gallery.yaml</code> or <code>site/assets/</code>, with a test in <code>tests/unit/test_site_build.py</code> or <code>tests/unit/test_site_markdown.py</code> if the failure could recur. The Markdown renderer is ours (<code>scripts/site_markdown.py</code>): if a document uses a construct it does not support, the corpus test fails rather than the site quietly publishing the raw syntax.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

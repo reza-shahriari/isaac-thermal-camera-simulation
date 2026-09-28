@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketchfab fetch — irsim</title>
+<meta name="description" content="The licence gate fails towards quarantine, and provenance survives a round trip (AI.8).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Sketchfab fetch</h1><p class="subtitle">The licence gate fails towards quarantine, and provenance survives a round trip (AI.8).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py" target="_blank" rel="noopener">tests/unit/test_sketchfab_fetch.py on GitHub</a></div>
+
+<article class="prose">
+<p>The gate is the one piece of this pipeline whose failure no image would ever reveal: a CC-BY-NC model committed to a public library <em>renders identically</em> to a CC-BY one. So these tests pin the legal semantics — exactly three licence slugs may ever be shareable, everything unknown quarantines — rather than exercising code paths. ADR 0150.</p>
+<p class='made-by'>19 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py" target="_blank" rel="noopener">tests/unit/test_sketchfab_fetch.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L65" target="_blank" rel="noopener">uid is found in every link shape</a><span class="tag">parametrize</span><br><code>test_uid_is_found_in_every_link_shape</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L69" target="_blank" rel="noopener">uid is the last hex run not the first</a><br><code>test_uid_is_the_last_hex_run_not_the_first</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L83" target="_blank" rel="noopener">a link without a uid is refused</a><span class="tag">parametrize</span><br><code>test_a_link_without_a_uid_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L92" target="_blank" rel="noopener">the three permissive licences are shareable</a><span class="tag">parametrize</span><br><code>test_the_three_permissive_licences_are_shareable</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L97" target="_blank" rel="noopener">every other known licence quarantines with a reason</a><span class="tag">parametrize</span><br><code>test_every_other_known_licence_quarantines_with_a_reason</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L104" target="_blank" rel="noopener">the shareable set is exactly cc0 by and by sa</a><br><code>test_the_shareable_set_is_exactly_cc0_by_and_by_sa</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L119" target="_blank" rel="noopener">an unknown licence is never shareable</a><span class="tag">parametrize</span><br><code>test_an_unknown_licence_is_never_shareable</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L125" target="_blank" rel="noopener">a label without a slug still gates correctly both ways</a><br><code>test_a_label_without_a_slug_still_gates_correctly_both_ways</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L133" target="_blank" rel="noopener">a shareable model plans into the library tree</a><br><code>test_a_shareable_model_plans_into_the_library_tree</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L140" target="_blank" rel="noopener">an nd model plans into quarantine</a><br><code>test_an_nd_model_plans_into_quarantine</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L146" target="_blank" rel="noopener">a view only model is a named problem not a crash</a><br><code>test_a_view_only_model_is_a_named_problem_not_a_crash</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L160" target="_blank" rel="noopener">asset names obey the usd identifier grammar</a><span class="tag">parametrize</span><br><code>test_asset_names_obey_the_usd_identifier_grammar</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L170" target="_blank" rel="noopener">provenance round trips through yaml</a><br><code>test_provenance_round_trips_through_yaml</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L184" target="_blank" rel="noopener">attribution carries the four required elements</a><br><code>test_attribution_carries_the_four_required_elements</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L199" target="_blank" rel="noopener">the real name names the asset over the page title</a><br><code>test_the_real_name_names_the_asset_over_the_page_title</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L209" target="_blank" rel="noopener">the real name travels in provenance and attribution</a><br><code>test_the_real_name_travels_in_provenance_and_attribution</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L224" target="_blank" rel="noopener">a local file with no stated licence is quarantined</a><br><code>test_a_local_file_with_no_stated_licence_is_quarantined</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L238" target="_blank" rel="noopener">a local file with a stated permissive licence is shareable</a><br><code>test_a_local_file_with_a_stated_permissive_licence_is_shareable</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sketchfab_fetch.py#L254" target="_blank" rel="noopener">records written before real name existed still load</a><br><code>test_records_written_before_real_name_existed_still_load</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

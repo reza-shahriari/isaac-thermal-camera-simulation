@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0148 — The FFC is an offset snapshot on the shutter — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0148 — The FFC is an offset snapshot on the shutter</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0148-the-ffc-is-an-offset-snapshot-on-the-shutter.md" target="_blank" rel="noopener">docs/decisions/0148-the-ffc-is-an-offset-snapshot-on-the-shutter.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-26 Roadmap: SC.18. Spec: <code>docs/physics-model.md</code> §11.2 ("The shutter is a radiance reference, not a reset button", revised 2026-09-26). Builds on <a href="../0145-the-housing-is-seen-through-the-field/">ADR 0145</a>; amends the residual of <a href="../0053-fpa-temperature-split-between-detector-and-nuc/">ADR 0053</a> in one place, its reference level.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>After ADR 0145 a housing that drifts away from its calibration temperature shades a uniform scene radially. A real camera does not show that shading forever: it closes its shutter every few minutes and re-measures its offsets. What it shows <em>between</em> shutter events is the bowl a public clear-sky frame has. The chain modelled the shutter only as a scheduler: <code>FfcController</code> froze the frame, reset ΔT_FPA and redrew the white residual fields. Nothing looked at the shutter, so the display flat field stayed the factory one whatever the housing did, and the residual's gain term multiplied the whole signal -- including the pedestal a shutter measurement removes.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A radial residual field with a fitted amplitude.</strong> Adds the bowl without the mechanism; its sign and its dependence on scene temperature would both have to be authored.</li>
+<li><strong>Re-run the factory two-point calibration at every FFC.</strong> Wrong physics: a shutter gives one point, not two, so a camera cannot refresh its gains in the field.</li>
+<li><strong>A one-point offset update on a computed shutter frame.</strong> At each event, compute the noiseless frame the closed shutter produces (<code>shutter_flux</code>: the shutter fills each pixel's cone at L_B(T_shutter), the housing is seen out of cone as in ADR 0145) and move the display offset so that frame reads uniform (<code>TwoPointNuc.refreshed</code>). Keep the frame as the residual's reference, so a gain error acts on signal minus shutter.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3. The shutter is taken at T_FPA (it sits beside the focal plane; the Boson publishes no separate shutter temperature) and against the frame's housing. A shuttered core also takes one at power-up, since that is when a real camera first flat-fields; <code>FfcController.fires_on</code> still never freezes frame 0. <code>SensorChain</code> owns the snapshot (<code>shutter_dn</code>, <code>display_nuc</code>), <code>run_frame</code> computes it and displays through the refreshed offset. <code>NucResidual.apply</code> takes the shutter frame as <code>reference_dn</code> and computes ref + g (x − ref) + o. The Warp residual kernel takes the same plane, zeros by default.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li><p><strong>The bowl is the §11.2 closed form.</strong> After a shutter event a uniform scene is flat; as the housing drifts it grows as (1/τ)(1/RI − 1) ΔL_h toward the corners -- a housing that cooled since the event leaves a bright centre. On the Boson 640 corner:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>housing since the FFC</th><th>300 K scene</th><th>230 K sky</th></tr></thead>
+<tbody>
+<tr><td>−0.5 K</td><td>−142 mK</td><td>−361 mK</td></tr>
+<tr><td>−2 K</td><td>−563 mK</td><td>−1446 mK</td></tr>
+</tbody></table></div>
+<p><code>tests/unit/test_shutter_reference.py</code> pins the closed form to 5 % and monotonic in radius.</p></li>
+<li><strong>The factory calibration's housing mismatch is gone after the first frame.</strong> A coupled housing far from <code>t_housing_cal_k</code> no longer shades the display from the start.</li>
+<li><strong>The gain residual is now zero at the shutter's own signal</strong> and largest on a scene far from it: a 250 K sky carries more than ten times the gain residual of a 300 K scene with the shutter near 300 K. The old form did the opposite. The noise-budget test now scales that term by rms(signal − shutter).</li>
+<li><strong>Display only for the offset.</strong> The radiometric branch still inverts with the calibration housing (ADR 0021): a radiometric camera that uses its shutter for absolute calibration is a different model and is not built.</li>
+<li><strong>Error introduced.</strong> The shutter frame is noiseless; a real camera averages a few frames, so its offset carries a small temporal-noise imprint this model does not. The frames held during the freeze are displayed through the new offset although they were captured under the old one, a difference of one housing drift over the few hundred milliseconds of the freeze. T_shutter = T_FPA exactly: a shutter that lags the FPA would add a uniform radiometric bias, invisible in the display.</li>
+<li><strong>Engine.</strong> The Warp residual kernel changed; the device pipeline does not launch it yet, and its device test was not run.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A camera config needs a shutter temperature apart from the FPA, or the radiometric branch is asked to use the shutter for absolute calibration.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

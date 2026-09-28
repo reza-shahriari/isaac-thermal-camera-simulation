@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0147 — Information-based equalisation approximates the Boson&#x27;s default AGC — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0147 — Information-based equalisation approximates the Boson&#x27;s default AGC</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0147-information-based-equalisation-approximates-the-boson-default-agc.md" target="_blank" rel="noopener">docs/decisions/0147-information-based-equalisation-approximates-the-boson-default-agc.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-26</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>Every camera config selects global plateau equalisation (ADR 0028), and §11.3 used to call it "what most thermal cores actually use". On the <code>phantom4_perpart</code> clip it gave the drone <strong>3 of 256</strong> grey levels for parts spanning 15 → 38 °C (spec issue S52). The camera's own <code>display8</code> shows the same thing, so this is not only a problem in the demo script.</p>
+<p>That is correct plateau behaviour. The plateau clips a bin only when one DN value holds more than <code>plateau · N</code> of the frame. A cloud-clutter sky spreads over thousands of DN, never reaches the plateau, and the operator becomes full histogram equalisation: each object gets grey shades in proportion to its area. FLIR's application note says the same ("an image with 60 % sky will devote 60 % of the available 8 bit shades to the sky") and names the <strong>Information-Based Equalization</strong> mode, blended by <strong>Linear Percent</strong>, as the Boson's factory default [R51]. FLIR describes that operator only qualitatively and publishes no equations and no default for its weighting.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Lower the plateau.</strong> This does nothing on a cluttered sky. With 55 000 occupied bins the plateau only engages below about 2·10⁻⁵, and it then becomes a min–max linear stretch, which gives the drone no more than its share of the temperature range.</li>
+<li><strong>Local (tiled) plateau, <code>plateau_local</code>.</strong> It already exists and gives the drone more shades, but it is not what a Boson does by default. Making it the default would tune the simulator for a nice-looking picture instead of for the camera.</li>
+<li><strong>An approximation of FLIR's documented operator</strong> (chosen). Split the frame with a 5×5 bilateral filter whose range sigma stands for the Smoothing Factor. Plateau-clip the low-pass histogram. Add a second histogram, each bin's summed |high-pass|, scaled by <code>info_weight</code>. Blend the result with the linear map by <code>linear_percent</code>. Add the high-pass back at the transfer's local slope, with <code>detail_headroom</code> reserved at each end.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3 goes in as <code>agc: information_based</code> in <code>irsim.isp.information</code>, plus <code>linear_percent</code> on <code>plateau_equalization</code>. Both are <strong>opt-in</strong>. No config changes its default in this step, so no golden array or ISP hash moves: a new field at its default value is left out of the hash. <code>SC.22</code> moves the Boson configs to the new mode and regenerates the goldens on purpose.</p>
+<p><code>dde_gain</code> keeps its meaning (the extra gain on the high-pass). Under <code>information_based</code> the high-pass is added back inside the AGC at gain <code>1 + dde_gain</code>, and the separate R3 unsharp mask is skipped so the detail is not boosted twice.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>On a synthetic frame shaped like <code>phantom4_perpart</code>, the target goes from <strong>≤ 3</strong> codes under plateau to <strong>≥ 25</strong> codes with <code>linear_percent = 0.3</code>, and its four parts come out in temperature order. On the real frame 96 it goes from 3 to 30.</li>
+<li><strong>Error that cannot be bounded yet.</strong> <code>info_weight</code> (default 1.0), the reading of the Smoothing Factor as a range sigma in this core's DN, and the 5×5 window are guesses. The operator has the right structure, but it is not a fitted Boson. Until a Tier 4 fit against public footage exists, nothing may claim that an <code>information_based</code> image matches a real Boson frame for frame.</li>
+<li>A global operator's ceiling does not change. With a sky spanning −47 … +14 °C, a drone at 15 … 38 °C cannot get most of the ramp from any global mapping. More than that needs ROI or local AGC, which a real camera also has to be configured for.</li>
+<li>The operator is spatial, so it cannot be one lookup table. The Warp display path (<code>build_agc_table</code>) keeps raising for it until a device port is written. The demo renders run the CPU branch.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A public Boson clip with a small target against the sky is available (the <code>XD</code> lane). Fit <code>info_weight</code> and the range sigma so the rendered and real code distributions on the target match.</li>
+<li>FLIR publishes the operator, or a Boson SDK dump shows its histogram.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

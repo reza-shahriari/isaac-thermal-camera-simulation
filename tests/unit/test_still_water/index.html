@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Still water</h1>
-  <p class="subtitle">PH.3 — still water: lakes, ponds and puddles.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py" target="_blank" rel="noopener">tests/unit/test_still_water.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Still water</h1><p class="subtitle">PH.3 — still water: lakes, ponds and puddles.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py" target="_blank" rel="noopener">tests/unit/test_still_water.py on GitHub</a></div>
 
 <article class="prose">
 <p>Five claims, and a sixth that is the point of the row. The conductive sublayer over standing water is 0.7–3.6 mm across 0.8–8.2 m/s of wind. On a clear calm night the skin sits between 0.1 and 0.5 K below the bulk; on a cloudy humid night the sign flips, because the flux that reverses lands <em>in</em> the sublayer — a skin that only ever cools cannot produce it, and the sea's does not try. Water's Fresnel emissivity and reflectance close to 1 at every angle, and an off-nadir look at a puddle mixes in a cold sky, so it reads several kelvin below its own kinetic temperature. And a puddle is a <strong>region of a road's patch</strong>: the same prim, the same solve, water's mass, optics and film on the cells inside it and the road's numbers bit for bit outside.</p>
@@ -70,12 +67,12 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L134" target="_blank" rel="noopener">the offset scales with the flux and thins with the wind</a><br><code>test_the_offset_scales_with_the_flux_and_thins_with_the_wind</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L156" target="_blank" rel="noopener">kirchhoff closes on water at every angle</a><span class="tag">slow</span><br><code>test_kirchhoff_closes_on_water_at_every_angle</code></td><td>ε + ρ = 1 for an opaque dielectric, from nadir to grazing, to 1e-12.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L171" target="_blank" rel="noopener">a puddle reads colder than its own temperature off nadir under a clear sky</a><span class="tag">slow</span><br><code>test_a_puddle_reads_colder_than_its_own_temperature_off_nadir_under_a_clear_sky</code></td><td>A puddle at the road's kinetic temperature, 293 K, under the shipped clear-sky model.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L229" target="_blank" rel="noopener">a puddle is a region of the road and reads cold on a hot afternoon</a><span class="tag">slow</span><br><code>test_a_puddle_is_a_region_of_the_road_and_reads_cold_on_a_hot_afternoon</code></td><td>One prim, one patch, one solve: 20 mm of water over half of it. The wet cells carry water's optics and the mixed layer's mass on top of the road's, and a film to evaporate; the dry cells are the road exactly. Measured on the 14:00 scene: the puddle opens 3.8 K below the road because it lags the afternoon, and is 11.0 K below an hour later once the latent term is running, having lost 0.85 kg m-2 of its 20.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L268" target="_blank" rel="noopener">the schema takes water only where it can put it</a><br><code>test_the_schema_takes_water_only_where_it_can_put_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L231" target="_blank" rel="noopener">a puddle is a region of the road and reads cold on a hot afternoon</a><span class="tag">slow</span><br><code>test_a_puddle_is_a_region_of_the_road_and_reads_cold_on_a_hot_afternoon</code></td><td>One prim, one patch, one solve: 20 mm of water over half of it. The wet cells carry water's optics and the mixed layer's mass on top of the road's, and a film to evaporate; the dry cells are the road exactly. Measured on the 14:00 scene: the puddle opens 3.8 K below the road because it lags the afternoon, and is 11.0 K below an hour later once the latent term is running, having lost 0.85 kg m-2 of its 20.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_still_water.py#L270" target="_blank" rel="noopener">the schema takes water only where it can put it</a><br><code>test_the_schema_takes_water_only_where_it_can_put_it</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

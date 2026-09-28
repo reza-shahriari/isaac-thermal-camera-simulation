@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sunlit environment — irsim</title>
+<meta name="description" content="A reflective band sees the sun off the ground and in the clouds (S55, `AT.20`, ADR 0153).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Sunlit environment</h1><p class="subtitle">A reflective band sees the sun off the ground and in the clouds (S55, `AT.20`, ADR 0153).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py" target="_blank" rel="noopener">tests/unit/test_sunlit_environment.py on GitHub</a></div>
+
+<article class="prose">
+<p>The four-band Phantom 4 render found it: in SWIR the white ABS shell (ρ 0.78) rendered <strong>black</strong> against the sky while its RGB companion was white, and the SWIR sky had no clouds. Both came from the environment being thermal only. The ground half of L_env was L_B(T_ground), ~0 in NIR/SWIR, so a downward-facing surface (V_s → 0) reflected nothing. And an opaque cloud swapped the column's thermal emission for its own, ~0 there too, so a cloud pixel read exactly the clear sky.</p>
+<p>These tests pin the fix to closed forms. With a response that covers the whole solar spectrum both band fractions are 1, so a V_s = 0 panel must read ρ · albedo · GHI / π, the acceptance taken literally, from the weather's own DNI and DHI and the site's own sun. They also pin the cloud base to the visible dome's own expression, the night to exact zero, and LWIR to its old value bit for bit.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py" target="_blank" rel="noopener">tests/unit/test_sunlit_environment.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L130" target="_blank" rel="noopener">a downward facing white panel reads rho albedo ghi over pi</a><br><code>test_a_downward_facing_white_panel_reads_rho_albedo_ghi_over_pi</code></td><td>The acceptance: V_s = 0, ρ · albedo · GHI / π through the band's solar fractions, to 5 %.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L145" target="_blank" rel="noopener">without the ground material the same panel is black</a><br><code>test_without_the_ground_material_the_same_panel_is_black</code></td><td>The red half: a ground that reflects nothing leaves the underside at its thermal floor.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L156" target="_blank" rel="noopener">the band takes its own share of the beam and of the sky</a><br><code>test_the_band_takes_its_own_share_of_the_beam_and_of_the_sky</code></td><td>E_B = f_dir DNI sin(el) + f_diff DHI, and NIR's share of the beam beats its share of the blue sky (Rayleigh λ⁻⁴): a band is not lit by a fixed fraction of GHI.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L173" target="_blank" rel="noopener">night is exactly dark</a><br><code>test_night_is_exactly_dark</code></td><td>A real night -- sun down, no diffuse light in the weather -- is 0.0, not a small number.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L184" target="_blank" rel="noopener">below the horizon the beam is cut and the weather s diffuse is kept</a><br><code>test_below_the_horizon_the_beam_is_cut_and_the_weather_s_diffuse_is_kept</code></td><td>The weather is the authority on DHI (twilight is real); only the beam needs the sun up.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L192" target="_blank" rel="noopener">a cloud base is the visible dome s expression in this band</a><br><code>test_a_cloud_base_is_the_visible_dome_s_expression_in_this_band</code></td><td>R(τ, μ0) · E / π: the dome's <code>_cloud_base</code> with the band's irradiance in place of the luminous one, so the two bands light a cloud with the same shape.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L209" target="_blank" rel="noopener">the uniform cloud uses the preset depth or the dome s base albedo</a><br><code>test_the_uniform_cloud_uses_the_preset_depth_or_the_dome_s_base_albedo</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L224" target="_blank" rel="noopener">swir clouds are brighter than the clear sky beside them</a><br><code>test_swir_clouds_are_brighter_than_the_clear_sky_beside_them</code></td><td>The deck in SWIR at noon: cloudy rays outshine clear ones. Without sunlight they did not -- an opaque cloud replaced the column's thermal emission with its own, both ~0 here.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L245" target="_blank" rel="noopener">lwir is bit identical whatever the ground is made of</a><br><code>test_lwir_is_bit_identical_whatever_the_ground_is_made_of</code></td><td>An emissive band has no skylight, so neither term exists: the environment and the cloud field come out the same bits with the ground material named or removed.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L271" target="_blank" rel="noopener">an albedo without the sun is refused</a><br><code>test_an_albedo_without_the_sun_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_sunlit_environment.py#L282" target="_blank" rel="noopener">every shipped environment names a ground the library has</a><br><code>test_every_shipped_environment_names_a_ground_the_library_has</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

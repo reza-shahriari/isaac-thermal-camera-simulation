@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>Physics model</h1>
-  <p class="subtitle">The specification every equation in the code cites. It is the source of truth, not a summary.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/physics-model.md" target="_blank" rel="noopener">docs/physics-model.md on GitHub</a>
-</div>
+<div class="page-head"><h1>Physics model</h1><p class="subtitle">The specification every equation in the code cites. It is the source of truth, not a summary.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/physics-model.md" target="_blank" rel="noopener">docs/physics-model.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#table-of-contents">Table of contents</a></li>
 <li class="toc-2"><a href="#1-what-real-means-here-and-the-fidelity-ladder">1. What &quot;real&quot; means here, and the fidelity ladder</a></li>
 <li class="toc-2"><a href="#2-the-master-equation">2. The master equation</a></li>
@@ -70,6 +67,7 @@
 <li class="toc-3"><a href="#42-angular-dependence--the-thing-that-makes-it-look-right">4.2 Angular dependence — the thing that makes it look right</a></li>
 <li class="toc-3"><a href="#43-specular-vs-diffuse-in-the-thermal-ir">4.3 Specular vs diffuse in the thermal IR</a></li>
 <li class="toc-3"><a href="#44-semi-transparent-materials">4.4 Semi-transparent materials</a></li>
+<li class="toc-3"><a href="#45-surface-state--the-property-a-material-file-must-name">4.5 Surface state — the property a material file must name</a></li>
 <li class="toc-2"><a href="#5-scene-radiance-the-thermal-rendering-equation">5. Scene radiance: the thermal rendering equation</a></li>
 <li class="toc-3"><a href="#51-the-general-form">5.1 The general form</a></li>
 <li class="toc-3"><a href="#52-the-two-regime-split">5.2 The two-regime split</a></li>
@@ -98,6 +96,7 @@
 <li class="toc-3"><a href="#92-microbolometers--uncooled-lwir">9.2 Microbolometers — uncooled LWIR</a></li>
 <li class="toc-3"><a href="#93-the-datasheet-facing-figures-of-merit">9.3 The datasheet-facing figures of merit</a></li>
 <li class="toc-3"><a href="#94-netd">9.4 NETD</a></li>
+<li class="toc-3"><a href="#95-the-camera-is-in-the-weather-too">9.5 The camera is in the weather too</a></li>
 <li class="toc-2"><a href="#10-noise">10. Noise</a></li>
 <li class="toc-3"><a href="#101-physical-sources">10.1 Physical sources</a></li>
 <li class="toc-3"><a href="#102-the-3d-noise-model--use-this-not-a-single-sigma">10.2 The 3D noise model — use this, not a single sigma</a></li>
@@ -108,6 +107,7 @@
 <li class="toc-3"><a href="#112-two-point-nuc">11.2 Two-point NUC</a></li>
 <li class="toc-3"><a href="#113-agc--dynamic-range-compression">11.3 AGC / dynamic range compression</a></li>
 <li class="toc-3"><a href="#114-polarity-and-palette">11.4 Polarity and palette</a></li>
+<li class="toc-3"><a href="#115-radiometric-retrieval--what-the-camera-believes-about-varepsilon">11.5 Radiometric retrieval — what the camera believes about $\varepsilon$</a></li>
 <li class="toc-2"><a href="#12-band-specialisation-one-core-four-cameras">12. Band specialisation: one core, four cameras</a></li>
 <li class="toc-3"><a href="#121-what-changes-per-band">12.1 What changes per band</a></li>
 <li class="toc-3"><a href="#122-configuration-schema">12.2 Configuration schema</a></li>
@@ -218,6 +218,8 @@ $$</div>
 <tr><td>$A_d$</td><td>detector active area</td><td>m²</td></tr>
 <tr><td>$\theta_{ij}$</td><td>field angle of pixel $(i,j)$</td><td>rad</td></tr>
 <tr><td>$\Phi_{\text{self}}$</td><td>self-emission of optics/housing reaching the pixel</td><td>W</td></tr>
+<tr><td>$\mathrm{RI}_{ij}$</td><td>relative illumination of pixel $(i,j)$: $\cos^4\theta_{ij}$ × measured mechanical vignetting</td><td>–</td></tr>
+<tr><td>$T_{\text{shutter}}$</td><td>temperature of the flat-field shutter at the last FFC</td><td>K</td></tr>
 <tr><td>$g_{ij}, o_{ij}$</td><td>per-pixel gain and offset (post-NUC residual)</td><td>–</td></tr>
 <tr><td>$\mathcal{S}$</td><td>detector transfer (photoelectrons or bolometer response)</td><td>–</td></tr>
 <tr><td>$\mathcal{Q}$</td><td>quantisation</td><td>–</td></tr>
@@ -324,6 +326,23 @@ $$</div>
 <h3 id="44-semi-transparent-materials">4.4 Semi-transparent materials<a class="anchor" href="#44-semi-transparent-materials" aria-label="permalink">#</a></h3>
 <p>Glass is opaque in LWIR ($\varepsilon\approx0.85$–0.92) but <strong>transparent in SWIR and NIR</strong>. A windshield in LWIR shows the windshield's own temperature; in SWIR it shows the driver. Encode as a per-band triple $(\varepsilon,\rho,\tau)$ with $\varepsilon+\rho+\tau=1$, handling $\tau&gt;0$ as a second ray in the SWIR/NIR path. Make sure the material schema can express this from day one — retrofitting it is painful, and it is one of the headline capabilities of multi-band simulation.</p>
 <hr>
+<h3 id="45-surface-state--the-property-a-material-file-must-name">4.5 Surface state — the property a material file must name<a class="anchor" href="#45-surface-state--the-property-a-material-file-must-name" aria-label="permalink">#</a></h3>
+<p>$\varepsilon$ is a property of the <em>surface</em>, not of the substance underneath it. One measurement campaign on aluminium window profiles reports <strong>0.834–0.856</strong> normal total emissivity for anodised exterior surfaces and <strong>0.055–0.82</strong> across untreated all-aluminium cavities in the same frames [R39] — one metal, one paper, a fifteen-fold spread. Polished aluminium is 0.04 at 8 µm [R39]; rough wrought iron is 0.94 against 0.28 polished [R47]. Oxidation dominates, roughness comes second, and both raise $\varepsilon$.</p>
+<p><strong>So "aluminium" is not a material specification.</strong> A material file must name the substance <em>and</em> its surface state — polished, machined, oxidised, anodised, painted, sandblasted, weathered — and cite the state its $\varepsilon$ was measured on. The §16.2 values are surface states that were never written down.</p>
+<p>Two things look like they should predict $\varepsilon$, and do not:</p>
+<p><strong>(a) Visible colour does not.</strong> Paint emissivity is essentially independent of pigment colour from roughly 2–12 µm; a flat white coating routinely exceeds a gloss black one, because gloss and binder chemistry matter where colour does not. Black and white automotive paint therefore carry the <strong>same</strong> $\varepsilon$ per band and differ only in $\alpha_{\text{sol}}$ (§6.2), which is where colour genuinely acts. The folk rule "the duller and blacker a material is, the higher its emissivity" is half right: the <em>duller</em> half is roughness and is real; the <em>blacker</em> half is a visible-band intuition that does not survive into the thermal infrared. An author who "corrects" the library toward it makes the model worse, so the library holds this as a test rather than as a comment.</p>
+<p><strong>(b) Thickness does not, above a knee.</strong> Emitted radiation escapes from a layer of depth $d_{1/e}=\lambda/(4\pi k)$, so once a body is a few of those thick, adding more changes nothing at all. Computed from this project's own $n/k$ tables, 99 % of the emission leaving a surface comes from the top:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>material</th><th>LWIR (10 µm)</th><th>MWIR (4 µm)</th><th>SWIR (1.5 µm)</th></tr></thead>
+<tbody>
+<tr><td>aluminium</td><td>0.04 µm</td><td>0.04 µm</td><td>0.04 µm</td></tr>
+<tr><td>paint (PMMA proxy)</td><td>86 µm</td><td>333 µm</td><td>158 mm</td></tr>
+<tr><td>glass (fused silica)</td><td>44 µm</td><td>24 mm</td><td>transparent</td></tr>
+<tr><td>water</td><td>72 µm</td><td>318 µm</td><td>2.4 mm</td></tr>
+</tbody></table></div>
+<p>A 55 cm slab and a 57 cm slab are optically identical for every one of them. The exception is a genuinely thin film: an anodic oxide on aluminium gives $\varepsilon\approx0.15$ at 1 µm of film, 0.45 at 2 µm and 0.91 above about 15 µm [R40]. That dependence is real and steep — and it is unobtainable, because no mesh carries a film thickness. <strong>Author it as a named surface state; never solve it from a thickness.</strong> <code>thermal.thickness_m</code> is the heat-capacity parameter of §6.1, and nothing optical may read it.</p>
+<p><strong>Temperature.</strong> $\varepsilon$ varies with temperature too — metals rising roughly in proportion to $T$, non-metals falling. That is a lookup $\varepsilon(\lambda,T)$ and not a circularity, since §6 produces $T$ without needing it. Below ~600 K the variation is smaller than the uncertainty the authored values already carry and is ignored here; at plume and fire temperatures it is not (Appendix A).</p>
+<hr>
 <a id="5-scene-radiance"></a>
 <h2 id="5-scene-radiance-the-thermal-rendering-equation">5. Scene radiance: the thermal rendering equation<a class="anchor" href="#5-scene-radiance-the-thermal-rendering-equation" aria-label="permalink">#</a></h2>
 <h3 id="51-the-general-form">5.1 The general form<a class="anchor" href="#51-the-general-form" aria-label="permalink">#</a></h3>
@@ -359,6 +378,7 @@ $$</div>
 T_{\text{sky}}(\theta_{\text{zen}}) = T_{\text{air}} - \Delta T_{\text{clear}}\cdot\big(1-\text{cloud}\big)\cdot\cos^{q}(\theta_{\text{zen}})
 $$</div>
 <p>Practical LWIR values: $\Delta T_{\text{clear}}\approx 55$–$70$ K at zenith for a dry clear sky, dropping toward 5–10 K under thick overcast or high humidity; $q\approx0.5$–$1.0$. Under overcast, $T_{\text{sky}}\to T_{\text{air}}$ and the reflected term nearly vanishes — which is exactly why thermal images look "flat" on cloudy days. That behaviour falling out of your model for free is a good sanity check.</p>
+<p><strong>In a reflective band the ground and the cloud are lit, not only warm</strong> (spec issue S55). The ground's own emission $L_B(T_{\text{ground}})$ is all of $L_{\text{ground}}$ in LWIR and next to nothing in NIR and SWIR, where a sunlit ground returns $L_{\text{ground}} = L_B(T_{\text{ground}}) + \rho_{B,\text{ground}}\,E_B/\pi$ with $E_B = f_{\text{dir}}\,\text{DNI}\sin h + f_{\text{diff}}\,\text{DHI}$, the weather's own irradiance through the band's shares of the beam and of the (Rayleigh-blue) sky. Leave it out and every downward-facing surface, $V_s \to 0$, reflects nothing: a white underside renders black against a bright sky. A cloud likewise scatters sunlight. Seen from below, its base is drawn as a Lambertian reflector $R(\tau,\mu_0)\,E_B/\pi$ with the two-stream $R$ the visible companion uses, so the two bands agree about which clouds are bright. Otherwise an opaque cloud in SWIR swaps the column's thermal emission for its own, both near zero, and the clouds vanish (ADR 0153).</p>
 <p><strong>(b) Low-resolution irradiance cubemap (L2.5).</strong> Render a 32×32×6 cubemap of scene band-radiance (including sky) from a few probe positions, prefilter into an irradiance map. This gets you building/vehicle self-heating reflections without full path tracing. Cheap, and it is what makes urban thermal scenes stop looking synthetic.</p>
 <p><strong>(c) Path-trace in the radiance domain (L3).</strong> Let the renderer do it, with materials whose emission is $\varepsilon B(T)$ and whose BRDF is the IR BRDF. Correct, and expensive.</p>
 <h3 id="54-the-solar-term-mwirswirnir">5.4 The solar term (MWIR/SWIR/NIR)<a class="anchor" href="#54-the-solar-term-mwirswirnir" aria-label="permalink">#</a></h3>
@@ -521,6 +541,23 @@ $$</div>
 \Phi_{\text{self}} \approx A_d\,\Omega_{\text{eff}}\,\big(1-\tau_{\text{opt}}\big)\,L_B\!\left(T_{\text{housing}}\right)
 $$</div>
 <p>with $\Omega_{\text{eff}} = \pi/(4F^2+1)$. Because $T_{\text{housing}}$ drifts, this term is the physical origin of <strong>shutterless drift</strong> and the reason cameras need periodic flat-field correction (§11.2). Model it and you get NUC behaviour for free; skip it and you have to fake NUC drift with an arbitrary random walk.</p>
+<p><strong>Where the housing radiation lands on the array — the field dependence.</strong> The single-lens form above is one number for the whole array, and a featureless scene shows that to be wrong. A pixel at field angle $\theta_{ij}$ sees the aperture as the projected solid angle $\Omega_{\text{eff}}\,\mathrm{RI}_{ij}$, where $\mathrm{RI}_{ij}$ is the relative illumination of §8.1 ($\cos^4\theta_{ij}$ times the measured mechanical vignetting). The rest of its Lambertian hemisphere, projected solid angle $\pi - \Omega_{\text{eff}}\mathrm{RI}_{ij}$, is the inside of the camera. So for a uniform scene of in-band radiance $L_{\text{scene}}$ the power on pixel $(i,j)$ is</p>
+<div class="math-block">$$
+\Phi_{ij} = A_d\,\Omega_{\text{eff}}\,\mathrm{RI}_{ij}\Big[\tau_{\text{opt}}L_{\text{scene}} + (1-\tau_{\text{opt}})L_B(T_{\text{lens}})\Big]
+          + A_d\big(\pi - \Omega_{\text{eff}}\mathrm{RI}_{ij}\big)L_B(T_{\text{housing}})
+$$</div>
+<p>and with $T_{\text{lens}} = T_{\text{housing}}$, which is the single-lens simplification,</p>
+<div class="math-block">$$
+\Phi_{ij} = A_d\,\pi\,L_B(T_{\text{housing}})
+          + A_d\,\Omega_{\text{eff}}\,\mathrm{RI}_{ij}\,\tau_{\text{opt}}\Big[L_{\text{scene}} - L_B(T_{\text{housing}})\Big]
+$$</div>
+<p>An uncooled detector measures the scene <strong>relative to its own housing</strong>, and the relative illumination multiplies that <em>difference</em>, not the scene radiance [R48, R49]. Three consequences:</p>
+<ul>
+<li>A uniform scene warmer than the housing is brightest on axis; one colder — a clear sky sits tens of kelvin below any housing — is darkest on axis. The vignetting of §8.1 must therefore be applied to $L_{\text{scene}} - L_B(T_{\text{housing}})$, never to $L_{\text{scene}}$ alone: applying $\cos^4$ to the scene and adding a uniform self-emission term gets the sign of the shading wrong for every scene colder than the camera.</li>
+<li>The pedestal $A_d\pi L_B(T_{\text{housing}})$ is the term the flat-field correction removes, and its drift between shutter events is what the §11.2 residual is made of. It is not white noise: it is smooth and radial, because the out-of-cone weight $\pi - \Omega_{\text{eff}}\mathrm{RI}_{ij}$ grows toward the corners.</li>
+<li>In a cooled system the cold shield replaces the out-of-cone housing view with the cold-shield term of §9.1 (<code>cold_shield_efficiency</code>), and only the in-cone bracket survives; the field dependence then lives in the residual cold-shield leakage instead.</li>
+</ul>
+<p>A real reference frame of nothing but clear sky, from an uncooled 640×512 core, shows exactly this: a smooth, radially symmetric bowl centred on the optical axis and spanning the whole frame, with the column striping of §10.2 running straight through it, stretched to full contrast by the AGC because the scene itself has no contrast to offer. Any simulator whose uniform scene comes out uniform is missing this term.</p>
 <p>Related effect worth modelling if you care about realism: <strong>narcissus</strong> — the detector seeing its own cold reflection in the optics, producing a soft dark blob near image centre that shifts with focus and temperature. A radially symmetric multiplicative field with a slowly drifting amplitude reproduces it convincingly.</p>
 <h3 id="83-mtf-cascade">8.3 MTF cascade<a class="anchor" href="#83-mtf-cascade" aria-label="permalink">#</a></h3>
 <p>System MTF is the product of independent contributions:</p>
@@ -583,7 +620,7 @@ S_n = S_{n-1} + \big(S^{\text{ideal}}_n - S_{n-1}\big)\big(1-e^{-\Delta t/\tau_{
 $$</div>
 <p>Two lines of code, and it is one of the strongest "this is a real uncooled camera" cues you can add. Most simulators omit it.</p>
 <p><strong>FPA temperature coupling.</strong> Bolometer response depends on the FPA's own temperature. In a TEC-less core this drifts with ambient and self-heating, which is the source of shutterless-camera drift. NETD depends not only on intrinsic material properties and ROIC design but also on operational parameters including integration time, bias conditions and frame rate, which influence responsivity, noise spectral density, thermal time constant effects and saturation behaviour — and FPA temperature can itself be treated as an optimisation parameter [R25].</p>
-<p>Model as: $\text{gain}(T_{\text{FPA}}), \text{offset}(T_{\text{FPA}})$ as low-order polynomials, with $T_{\text{FPA}}$ driven by its own lumped thermal model from ambient plus power dissipation.</p>
+<p>Model as: $\text{gain}(T_{\text{FPA}}), \text{offset}(T_{\text{FPA}})$ as low-order polynomials, with $T_{\text{FPA}}$ driven by its own lumped thermal model from ambient plus power dissipation. §9.5 gives that thermal model, and the term it must not omit.</p>
 <h3 id="93-the-datasheet-facing-figures-of-merit">9.3 The datasheet-facing figures of merit<a class="anchor" href="#93-the-datasheet-facing-figures-of-merit" aria-label="permalink">#</a></h3>
 <p><strong>Responsivity</strong> $\mathcal{R} = V_{\text{out}}/\Phi$ [V/W]. <strong>NEP</strong> $= V_n/\mathcal{R}$ [W] — the power giving SNR = 1. <strong>Specific detectivity</strong></p>
 <div class="math-block">$$
@@ -611,6 +648,18 @@ $$</div>
 <li>Now the <em>spatial and spectral</em> structure of the noise is physical, and its <em>magnitude</em> matches the real device.</li>
 </ol>
 <p>This is what makes a simulator both physical and matched to a specific camera. Note that NETD derivations differ in whether target and atmosphere temperatures are treated as independent; a modified systematic approach that decouples them applies across a wider range of target temperatures and atmospheric conditions [R27]. If you compare against published NETD numbers, check which convention was used.</p>
+<hr>
+<h3 id="95-the-camera-is-in-the-weather-too">9.5 The camera is in the weather too<a class="anchor" href="#95-the-camera-is-in-the-weather-too" aria-label="permalink">#</a></h3>
+<p>§9.2 leaves $T_{\text{FPA}}$ to "its own lumped thermal model from ambient plus power dissipation". On anything that moves — a drone, a vehicle, a mast in wind — that model is missing its largest term: <strong>forced convection over the camera body</strong>.</p>
+<p>The effect is measurable and it is not small. A UAV-borne LWIR camera hovering 15–20 min over fixed targets, checked against calibrated ground radiometers, shows its bias move from <strong>−1.02 °C to +3.86 °C as wind rises from 0.8 to 8.5 m s⁻¹</strong> [R44]. The ground reference sees the same surfaces at the same time, so wind-driven changes in the <em>true</em> surface temperature cancel in that difference and what remains is the instrument. An independent study of the same class of camera finds wind lowering the image mean by about 5.5 °C, raising its spatial standard deviation and deepening vignetting, with 20–40 min of warm-up before the core is stable at all [R45]; a third correlates measured temperature directly with FPA temperature and corrects on it [R46].</p>
+<p>Model it as a second lumped-capacitance node — the physics of §6.4 applied to the camera instead of to the scene:</p>
+<div class="math-block">$$
+C_{\text{cam}}\frac{dT_{\text{cam}}}{dt}
+= P_{\text{diss}} + \alpha_{\text{cam}}Q_{\text{sol}} - h_c(v)\,A_{\text{cam}}\big(T_{\text{cam}}-T_{\text{air}}\big)
+$$</div>
+<p>with $h_c(v)$ the same forced-convection correlation §6.2 uses for surfaces, $T_{\text{FPA}}$ following $T_{\text{cam}}$ through a first-order lag, and §11.2's existing drift term converting $(T_{\text{FPA}}-T_{\text{FPA}}^{\text{cal}})$ into apparent scene temperature. Nothing downstream is new: the shutterless-drift path already exists and is simply never driven.</p>
+<p><strong>One weather object, extended to the camera.</strong> $T_{\text{air}}$, $v$ and $Q_{\text{sol}}$ come from the <em>same</em> weather series that drives §6 and §7. A scene must not fly a camera through still air while its surfaces are being wind-cooled.</p>
+<p><strong>Fidelity, stated plainly.</strong> The airflow field around a particular airframe is not computable in this model. $h_c(v)A_{\text{cam}}$ is one lumped coefficient fitted to a published bias-versus-wind curve that was measured on a different airframe, in a different attitude, looking down rather than up. It reproduces the <strong>sign, the order of magnitude and the time constant</strong>, and it is wrong in detail — a Level-B empirical fit in the sense of §4.2, and it must be switchable off. It earns its place anyway: at +3.86 °C the effect is some seventy times a Boson's NETD, larger than most of what §10 models carefully, and a simulator that omits it renders drone footage that is rock-steady in a way real drone footage never is.</p>
 <hr>
 <a id="10-noise"></a>
 <h2 id="10-noise">10. Noise<a class="anchor" href="#10-noise" aria-label="permalink">#</a></h2>
@@ -654,6 +703,7 @@ $$</div>
 <li><strong>Dead</strong> (stuck low), <strong>hot</strong> (stuck high), <strong>flickering</strong> (random telegraph noise), <strong>blinking</strong> (intermittent).</li>
 <li>Typical: 0.05–0.5% of pixels, clustered slightly (use a Poisson cluster process, not uniform).</li>
 <li>Cameras replace them with neighbour interpolation, which leaves a <strong>detectable smoothed footprint</strong>. Simulate the defect <em>and</em> the replacement — the replacement artefact is what a detector actually sees.</li>
+<li>The replacement map is a <strong>calibration-time artefact</strong>. The camera interpolates over the defect map it was shipped with, so a pixel that fails afterwards is not on the map and reaches the output as an isolated stuck-high or stuck-low pixel. A single bright dot in an otherwise featureless sky frame is usually this, and a sky-target detector must be trained on frames that contain it. Simulate two populations: factory defects (replaced, smoothed footprint) and late defects (not replaced).</li>
 </ul>
 <hr>
 <a id="11-signal-chain"></a>
@@ -663,7 +713,8 @@ $$</div>
 <pre><code>raw DN → bad-pixel replace → NUC (2-pt gain/offset) → temporal filter
        → [radiometric linearisation → T_app]  (radiometric mode)
        → AGC / DRC → gamma → polarity → palette → 8-bit output</code></pre>
-<p>Note the fork: a <strong>radiometric</strong> camera exposes the linear branch (calibrated $T_{\text{app}}$ per pixel); a <strong>non-radiometric</strong> core exposes only the AGC branch. Emit both — perception stacks usually consume the 8-bit AGC image, while your validation needs the linear one.</p>
+<p>Note the fork: a <strong>radiometric</strong> camera exposes the linear branch (calibrated $T_{\text{app}}$ per pixel); a <strong>non-radiometric</strong> core exposes only the AGC branch. Emit both — perception stacks usually consume the 8-bit AGC image, while your validation needs the linear one. §11.5 continues the radiometric branch past $T_{\text{app}}$ to the number the camera actually reports.</p>
+<p><strong>The raw DN must hold the coldest scene.</strong> A microbolometer's DN is referenced to the shutter, $\mathrm{DN} \propto \Phi_{\text{scene}} - \Phi_{\text{shutter}}$ plus a mid-scale pedestal, so the low end of the 14-bit range sits far below any natural scene: zero radiance is still on scale. A camera datasheet's "scene dynamic range" (e.g. −40 °C … +140 °C high gain) is the range over which the radiometry is <em>specified</em>, not an ADC floor. A model that puts DN 0 at the lower end of the datasheet range clips every clear sky colder than it — the zenith sky in dry air reads −50 … −70 °C in LWIR — to a single code, which erases the sky's structure from the display branch and, worse, hands the AGC one enormous histogram bin. The ADC transfer's lower bound must lie below the coldest sky the scene can produce (spec issue S53).</p>
 <h3 id="112-two-point-nuc">11.2 Two-point NUC<a class="anchor" href="#112-two-point-nuc" aria-label="permalink">#</a></h3>
 <div class="math-block">$$
 \mathrm{DN}^{\text{corr}}_{ij} = G_{ij}\big(\mathrm{DN}_{ij}-O_{ij}\big),\qquad
@@ -677,6 +728,24 @@ $$</div>
 <li>residual non-uniformity growing between shutter events (flat-field correction, FFC);</li>
 <li>the FFC event itself: a shutter closes, the image freezes for 0.5–1 s, then the pattern resets.</li>
 </ul>
+<p><strong>The shutter is a radiance reference, not a reset button.</strong> At the FFC the shutter fills each pixel's cone at $L_B(T_{\text{shutter}})$ while the out-of-cone housing view of §8.2 is unchanged, so the offset snapshot is</p>
+<div class="math-block">$$
+O_{ij} = \mathcal{S}\Big[A_d\,\Omega_{\text{eff}}\mathrm{RI}_{ij}\,L_B(T_{\text{shutter}})
+       + A_d\big(\pi-\Omega_{\text{eff}}\mathrm{RI}_{ij}\big)L_B\!\big(T^{\text{FFC}}_{\text{housing}}\big)\Big]
+$$</div>
+<p>Subtract it from the §8.2 power at a later time $t$, apply the factory gain $G_{ij}$ (ideally $1/\mathrm{RI}_{ij}$), and what remains on a uniform scene is three terms:</p>
+<div class="math-block">$$
+\mathrm{DN}^{\text{corr}}_{ij} \propto
+\underbrace{\Omega_{\text{eff}}\Big[\tau_{\text{opt}}L_{\text{scene}} + (1-\tau_{\text{opt}})L_B(T_{\text{housing}}) - L_B(T_{\text{shutter}})\Big]}_{\text{uniform: the signal}}
++\underbrace{\Big(\tfrac{\pi}{\mathrm{RI}_{ij}} - \Omega_{\text{eff}}\Big)\Big[L_B\big(T_{\text{housing}}(t)\big) - L_B\big(T^{\text{FFC}}_{\text{housing}}\big)\Big]}_{\text{radial: housing drift since the FFC}}
++\underbrace{\big(1 - G_{ij}\mathrm{RI}_{ij}\big)\,\Omega_{\text{eff}}\,\tau_{\text{opt}}\Big[L_{\text{scene}} - L_B(T_{\text{shutter}})\Big]}_{\text{radial: gain-map error}}
+$$</div>
+<p>What this predicts, and a clear-sky reference frame confirms:</p>
+<ul>
+<li>The residual after an FFC is a <strong>smooth radial bowl</strong>, not a white per-pixel field. Its depth is the housing's radiance change since the event, weighted by $\pi/\mathrm{RI}_{ij} - \Omega_{\text{eff}}$, so it is deepest in the corners: a housing that has <em>cooled</em> since the shutter closed (a camera carried outside, or a lens radiating to a cold sky) darkens the corners and leaves a bright centre; one that has warmed does the opposite. The white $(T_{\text{FPA}} - T^{\text{cal}}_{\text{FPA}})$ bullet above is a different, multiplicative mechanism — pixel responsivity drift [R50] — and stays.</li>
+<li>A scene far from the shutter temperature multiplies any gain-map error. The clear sky is the extreme case, which makes it both the worst scene for non-uniformity and the right Tier 4 scene for measuring it: point the camera at nothing and the residual is all that is left.</li>
+<li>$T_{\text{shutter}}$ is a state, not a constant. The shutter sits beside the FPA and follows it with its own lag [R49]; when it is not at the housing temperature the uniform term carries a radiometric bias that a two-point NUC cannot see.</li>
+</ul>
 <p>That freeze is a real behavioural artefact that a perception stack must survive. Simulating it is worth more than another decimal place of radiometry. Some cameras avoid it: shutterless approaches process consecutive scene and internal-shutter images to stabilise response [R32], and scene-based methods estimate fixed-pattern noise from pixel-sized translations of the FPA, requiring neither shutter nor elaborate calibration and being invariant to noise magnitude and robust to unknown camera and inter-scene movement [R33]. If you model a shutterless core, use a slow-drift + scene-based-correction residual instead of periodic freezes.</p>
 <h3 id="113-agc--dynamic-range-compression">11.3 AGC / dynamic range compression<a class="anchor" href="#113-agc--dynamic-range-compression" aria-label="permalink">#</a></h3>
 <p>A 14–16 bit radiometric image must become 8 bits. The mapping choice changes the image drastically and <strong>is part of the sensor model</strong>, not a display detail.</p>
@@ -686,10 +755,41 @@ y = \mathrm{clip}\!\left(\frac{x - x_{p_{\text{lo}}}}{x_{p_{\text{hi}}} - x_{p_{
 $$</div>
 <p>with $p_{\text{lo}},p_{\text{hi}}$ typically 0.5% / 99.5%.</p>
 <p><strong>Plateau equalisation (what most thermal cores actually use):</strong> histogram equalisation with the per-bin count clipped at a plateau value $P$ before integrating the CDF. Low $P$ → approaches linear; high $P$ → full HE. This is the algorithm behind the characteristic thermal "look."</p>
+<p><strong>$P$ only clips a histogram with a spike.</strong> $P$ is a fraction of $N_{\text{pixels}}$ per bin (FLIR's default is 7 % [R51]), so it limits a bin only when one DN value holds more than that share of the frame — a <em>uniform</em> background such as a clear sky a few counts wide. A background that is itself spread over thousands of DN (cumulus clutter spanning 60 K at ~170 DN/K) never reaches the plateau, and the operator degenerates to full HE: grey shades are handed out in proportion to pixel count. A small target then gets the share of the ramp that it has of the frame. FLIR says it in so many words: "an image with 60 % sky will devote 60 % of the available 8 bit shades to the sky" [R51]. Measured on this repository's Phantom 4 clip (spec issue S52), a drone covering 0.6 % of the frame received <strong>three</strong> of 256 grey levels for a 15 → 38 °C spread of part temperatures. That is correct plateau behaviour; it is the wrong operator to call the camera's default.</p>
+<p><strong>Information-based equalisation (a Boson's factory default).</strong> The frame is split into a low-pass image $x_{LP}$ (an edge-preserving smoother; FLIR's control is a range sigma, <em>Smoothing Factor</em>) and $x_{HP} = x - x_{LP}$. Plateau equalisation runs on $x_{LP}$, and the histogram is then re-weighted so that bins holding high-pass content receive more shades:</p>
+<div class="math-block">$$
+h(b) = \min\big(h_{LP}(b),\,P N\big) + \beta_{\text{info}}\,\frac{\sum_b \min(h_{LP}, PN)}{\sum_{i}|x_{HP,i}|}\sum_{i\in b}|x_{HP,i}|
+$$</div>
+<p>so a textured target on a smooth sky earns shades in proportion to its detail, not its area. $\beta_{\text{info}}$ (the relative weight of the information histogram) is <strong>not published</strong>; FLIR describes the weighting only qualitatively, so the form above is a flagged approximation of a proprietary operator, and its free parameter must be fitted to public footage before it is called a Boson (Tier 4). The high-pass layer is added back after the mapping at the local slope of the transfer, $y = \mathrm{LUT}(x_{LP}) + g_{\text{DDE}}\,\mathrm{LUT}'(x_{LP})\,x_{HP}$, which is what DDE means on this core: detail is shown at the gain of its surroundings, and <em>Detail Headroom</em> reserves $h$ of the range at each end so that $g_{\text{DDE}}\,x_{HP}$ does not rail.</p>
+<p><strong>Linear Percent.</strong> Every equalising mode is blended with the min–max linear map, $\mathrm{LUT} = (1-\lambda)\,\mathrm{LUT}_{\text{eq}} + \lambda\,\mathrm{LUT}_{\text{lin}}$. $\lambda$ restores the ordering of <em>how much</em> hotter one object is than another (FLIR's example: a stove and a person both "hot" under pure HE), at the price of shades spent on empty DN [R51]. On a sky scene it is also what spreads a drone's motors away from its shell.</p>
 <p><strong>Why it matters for automotive:</strong> a hot exhaust entering frame collapses contrast on everything else, because AGC is global. That failure mode is real, is a genuine hazard for perception, and only appears in simulation if you model AGC. Add ROI-weighted and locally-adaptive variants as options.</p>
+<p><strong>The families are shared; the parameters are the camera.</strong> Across vendors the uncooled-core AGC is one construction with differently named controls: a high clip (plateau) and a <strong>low clip</strong> — a constant added to every occupied bin, so a sparsely populated temperature keeps a floor of shades — in the Lepton family [R52]; Linear Percent, tail rejection and a <strong>max gain</strong> capping the transfer's slope in the Boson family [R51]; auto-gain with a "maximal allowed stretching" and an equalisation strength in InGaAs SWIR cores [R53]; CLAHE-style local equalisation in the literature for the rest. Model the families (linear, global plateau, local tiled, detail-weighted) and the shared controls (linear percent, low clip, max gain), and express a specific camera as a parameter set of them. Max gain matters most for the sky lane: a clear sky a few DN wide is the blandest scene there is, and uncapped equalisation stretches its noise across the whole ramp.</p>
+<p><strong>A Boson's factory values are published.</strong> [R51] p. 5 shows them in the camera's own control panel: Information-Based on, Plateau 7 %, Linear Percent 20 %, Max Gain 1.38, Detail Headroom 12, DDE 0.95, Smoothing Factor 1250, Tail Rejection 0, ACE 0.97, Damping 85. A Boson config carries these, not values tuned for a picture (ADR 0152 maps each one and lists the three that do not map).</p>
+<p><strong>A band's display chain follows its detector.</strong> In the emissive bands the scene radiance moves by a small factor between night and noon, so exposure is fixed and the display work is the AGC. In the reflective bands (NIR, SWIR) it moves by five to six decades, and the camera is exposure-driven like a visible camera: <strong>auto-exposure</strong> sets the integration time and switches gain modes, and only then does a lighter AGC run [R53]. A silicon NIR sensor's display is the visible-camera chain — black level, linear stretch, display gamma — not a bolometer's equaliser. Do not give a reflective-band camera an uncooled LWIR core's ISP.</p>
 <p><strong>Digital detail enhancement (DDE):</strong> high-pass boost added back over the compressed image. Model as unsharp mask with a configurable gain — it is why real thermal images look "crunchy."</p>
 <h3 id="114-polarity-and-palette">11.4 Polarity and palette<a class="anchor" href="#114-polarity-and-palette" aria-label="permalink">#</a></h3>
 <p>White-hot / black-hot inversion, plus colour LUTs (Ironbow, Rainbow, Lava, Arctic). Trivial, but expose them: many downstream models are sensitive to palette, and mismatched palette between training and deployment is a classic silent failure.</p>
+<hr>
+<h3 id="115-radiometric-retrieval--what-the-camera-believes-about-varepsilon">11.5 Radiometric retrieval — what the camera believes about $\varepsilon$<a class="anchor" href="#115-radiometric-retrieval--what-the-camera-believes-about-varepsilon" aria-label="permalink">#</a></h3>
+<p>The radiometric branch of §11.1 produces apparent temperature, $T_{\text{app}}=L_B^{-1}(L)$: the temperature of the blackbody that would emit the measured radiance. A real radiometric camera does not stop there. It applies operator-set parameters — an emissivity, a reflected (background) temperature, an atmospheric transmittance and temperature — and inverts [R43]</p>
+<div class="math-block">$$
+W_{\text{tot}}=\varepsilon\,\tau_{\text{atm}}W_{\text{obj}}
++(1-\varepsilon)\,\tau_{\text{atm}}W_{\text{refl}}
++(1-\tau_{\text{atm}})W_{\text{atm}}
+$$</div>
+<p>for $W_{\text{obj}}$, reporting $T_{\text{meas}}=L_B^{-1}(W_{\text{obj}})$.</p>
+<p><strong>Those parameters are the camera's beliefs, not the scene's truth</strong> — the structure §11.2 already uses for the housing temperature. Set them equal to the truth and the retrieval returns the kinetic temperature; set them wrong and the error is the product. Computed in this project's own Boson band, for a 300 K target against a 250 K background:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>true $\varepsilon$</th><th>camera assumes</th><th>error in $T_{\text{meas}}$</th></tr></thead>
+<tbody>
+<tr><td>0.90</td><td>0.90</td><td>0, by construction</td></tr>
+<tr><td>0.90</td><td>0.89</td><td>+0.43 K</td></tr>
+<tr><td>0.90</td><td>0.95</td><td>−2.04 K</td></tr>
+<tr><td>0.85</td><td>0.95</td><td>−4.11 K</td></tr>
+<tr><td>0.09</td><td>0.95</td><td>−43.7 K</td></tr>
+</tbody></table></div>
+<p>The error grows with target-to-background contrast: the same 0.95-on-0.90 mistake costs −2.98 K on a 330 K target. Note that 0.01 of emissivity error is already 0.43 K, some nine times a Boson's NETD — while the common rule of thumb that it costs "about 1 % of the reading" would predict ≈ 3 K here, overstating it sevenfold by ignoring how steep $\partial L/\partial T$ is in the LWIR (§3.4).</p>
+<p><strong>Emit both.</strong> $T_{\text{app}}$ is what the radiance says; $T_{\text{meas}}$ is what an operator would read off the screen. They differ by exactly the quantity this section is about, and a simulator that reports only one of them cannot be used to study measurement error at all.</p>
 <hr>
 <a id="12-band-specialisation"></a>
 <h2 id="12-band-specialisation-one-core-four-cameras">12. Band specialisation: one core, four cameras<a class="anchor" href="#12-band-specialisation-one-core-four-cameras" aria-label="permalink">#</a></h2>
@@ -1110,6 +1210,7 @@ end</code></pre>
 <tr><td>Snow</td><td>0.99</td><td>0.98</td><td>0.15</td><td>300</td><td>2100</td><td>0.20</td></tr>
 </tbody></table></div>
 <p>Glass and bare metal are the two rows most likely to break naïve simulators — glass because of the band transition (§4.4), aluminium because $\varepsilon=0.09$ means it is a mirror, not a surface.</p>
+<p><strong>These are surface states, unwritten.</strong> Each row is one surface condition of the named substance and the table does not say which — see §4.5. "Bare aluminium" at $\varepsilon=0.09$ is an <em>oxidised</em> surface: polished aluminium is 0.04 and anodised 0.834–0.856 [R39], a span this single row cannot represent. The two paint rows carrying equal $\varepsilon$ and differing only in $\alpha_{\text{sol}}$ is correct and deliberate (§4.5a), not an oversight. Treat the table as starting values for one unstated finish each, and replace them from a spectral library that covers all four bands [R41][R42] rather than by editing numbers in place.</p>
 <h3 id="163-physical-constants">16.3 Physical constants<a class="anchor" href="#163-physical-constants" aria-label="permalink">#</a></h3>
 <div class='table-wrap'><table>
 <thead><tr><th>Constant</th><th>Value</th></tr></thead>
@@ -1146,6 +1247,11 @@ end</code></pre>
 <ul>
 <li>[R1] ter Heerdt, Keustermans, De Boi, Vanlanduit, <em>A Unified Complex-Fresnel Model for Physically Based Long-Wave Infrared Imaging and Simulation</em>, J. Imaging 12(1):33, Jan 2026. <a href="https://doi.org/10.3390/jimaging12010033" target="_blank" rel="noopener">https://doi.org/10.3390/jimaging12010033</a> — complex-IOR Fresnel with branch-safe $A/B$ reformulation; Kirchhoff emissivity; LWIR validation against a heated K9 sphere. <strong>Most directly useful single paper for your material model.</strong></li>
 <li>[R2] Willers et al., <em>Signature Modelling and Radiometric Rendering Equations in Infrared Scene Simulation Systems</em>, SPIE. <a href="https://www.researchgate.net/publication/253464716" target="_blank" rel="noopener">https://www.researchgate.net/publication/253464716</a> — compares OSSIM/OSMOSIS and DIRSIG rendering equations; the "one spectral scene, many bandpasses" architecture.</li>
+<li>[R39] Gustavsen &amp; Berdahl, <em>Spectral emissivity of anodized aluminum and the thermal transmittance of aluminum window frames</em>, LBNL. <a href="https://www.osti.gov/biblio/835335" target="_blank" rel="noopener">https://www.osti.gov/biblio/835335</a> — normal spectral emissivity measured 4.5–40 µm: anodised 0.834–0.856, untreated all-aluminium cavities 0.055–0.82, polished 0.04 at 8 µm. <strong>The measurement behind §4.5.</strong></li>
+<li>[R40] <em>A Study on the Infrared Radiation Properties of Anodized Aluminum</em>, J. Korean Inst. Surface Engineering. <a href="https://koreascience.kr/article/JAKO200211921391533.page" target="_blank" rel="noopener">https://koreascience.kr/article/JAKO200211921391533.page</a> — $\varepsilon$ against anodic film thickness: 0.15 at 1 µm, 0.45 at 2 µm, 0.91 above ~15 µm.</li>
+<li>[R47] <em>Spectral emissivity of oxidized and roughened metal surfaces</em>, Int. J. Heat and Mass Transfer. <a href="https://www.sciencedirect.com/science/article/abs/pii/S0017931017325802" target="_blank" rel="noopener">https://www.sciencedirect.com/science/article/abs/pii/S0017931017325802</a> — roughness and oxidation both raise $\varepsilon$, oxidation dominating.</li>
+<li>[R41] Meerdink, Hook, Roberts &amp; Abbott, <em>The ECOSTRESS spectral library version 1.0</em>, Remote Sensing of Environment, 2019. <a href="https://www.sciencedirect.com/science/article/abs/pii/S0034425719302081" target="_blank" rel="noopener">https://www.sciencedirect.com/science/article/abs/pii/S0034425719302081</a> — 3400+ spectra over <strong>0.35–15.4 µm</strong>, i.e. all four bands in one curve; ~72 man-made entries; free at <a href="https://speclib.jpl.nasa.gov" target="_blank" rel="noopener">https://speclib.jpl.nasa.gov</a>. Reflectance in percent, wavelength in µm.</li>
+<li>[R42] MODIS UCSB Emissivity Library. <a href="https://icess.eri.ucsb.edu/modis/EMIS/html/em.html" target="_blank" rel="noopener">https://icess.eri.ucsb.edu/modis/EMIS/html/em.html</a> — 123 laboratory emissivity spectra, 3–14 µm; emissivity directly rather than reflectance.</li>
 <li>[R20] SPIE Optipedia, <em>Detector Footprint Modulation Transfer Function</em>. <a href="https://spie.org/publications/spie-publication-resources/optipedia-free-optics-information/tt52_21_detector_footprint_mtf" target="_blank" rel="noopener">https://spie.org/publications/spie-publication-resources/optipedia-free-optics-information/tt52_21_detector_footprint_mtf</a></li>
 </ul>
 <p><strong>DIRSIG / thermal modelling</strong></p>
@@ -1185,6 +1291,10 @@ end</code></pre>
 <li>[R30] <em>Exploring Video Denoising in Thermal Infrared Imaging: Physics-Inspired Noise Generator</em>, ResearchGate 380032672 — temporal stripe noise modelling.</li>
 <li>[R31] <em>Infrared Focal Plane Array Characterization by Means of a Blackbody Radiator</em>, ResearchGate 220843421 — NETD and correctability via two-point calibration.</li>
 <li>[R32] Pust, <em>Radiometric calibration of infrared imagers using an internal shutter as an equivalent external blackbody</em>.</li>
+<li>[R43] FLIR, <em>The Ultimate Infrared Handbook for R&amp;D Professionals</em>. <a href="http://www.flirmedia.com/MMC/THG/Brochures/T559243/T559243_EN.pdf" target="_blank" rel="noopener">http://www.flirmedia.com/MMC/THG/Brochures/T559243/T559243_EN.pdf</a> — the measurement equation §11.5 inverts.</li>
+<li>[R44] <em>Quantifying Within-Flight Variation in Land Surface Temperature from a UAV-Based Thermal Infrared Camera</em>, Drones 7(10):617, 2023. <a href="https://doi.org/10.3390/drones7100617" target="_blank" rel="noopener">https://doi.org/10.3390/drones7100617</a> — bias −1.02 → +3.86 °C over 0.8–8.5 m s⁻¹ of wind, against calibrated Apogee SI-111 ground truth. <strong>The anchor for §9.5.</strong></li>
+<li>[R45] <em>A Case Study of Vignetting Nonuniformity in UAV-Based Uncooled Thermal Cameras</em>, Drones 6(12):394, 2022. <a href="https://doi.org/10.3390/drones6120394" target="_blank" rel="noopener">https://doi.org/10.3390/drones6120394</a> — wind lowers image mean ~5.5 °C and deepens vignetting; 20–40 min warm-up to stability.</li>
+<li>[R46] <em>Removing temperature drift and temporal variation in thermal infrared images of a UAV uncooled thermal infrared imager</em>, ISPRS J. Photogrammetry and Remote Sensing, 2023. <a href="https://www.sciencedirect.com/science/article/abs/pii/S0924271623002265" target="_blank" rel="noopener">https://www.sciencedirect.com/science/article/abs/pii/S0924271623002265</a> — measured temperature correlated with FPA temperature.</li>
 <li>[R33] Ness, Oved, Kakon (RAFAEL), <em>Derivative Based Focal Plane Array Nonuniformity Correction</em>, arXiv. <a href="https://arxiv.org/pdf/1702.06118" target="_blank" rel="noopener">https://arxiv.org/pdf/1702.06118</a></li>
 <li>[R19] Low-radiance IR airborne calibration reference (US 9,234,796) — worked optics self-emission decomposition. <a href="https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9234796" target="_blank" rel="noopener">https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/9234796</a></li>
 <li>[R37] <em>Resonant Anti-Reflection Metasurface for Infrared Transmission Optics</em>, arXiv 2306.05405 — practical Boson slant-edge MTF setup. <a href="https://arxiv.org/pdf/2306.05405" target="_blank" rel="noopener">https://arxiv.org/pdf/2306.05405</a></li>
@@ -1200,6 +1310,12 @@ end</code></pre>
 <ul>
 <li>[R24] FLIR, <em>Boson Thermal Imaging Core</em> datasheet. <a href="https://groupgets-files.s3.amazonaws.com/boson/documents/Boson%20datasheet,%20102-2013-40,%20Rev%20340.pdf" target="_blank" rel="noopener">https://groupgets-files.s3.amazonaws.com/boson/documents/Boson%20datasheet,%20102-2013-40,%20Rev%20340.pdf</a></li>
 <li>[R38] Teledyne FLIR Boson 640 product listings (NETD grades, lens options, frame rates). <a href="https://www.oemcameras.com/products/20640a032-htm" target="_blank" rel="noopener">https://www.oemcameras.com/products/20640a032-htm</a></li>
+<li>[R48] H. Budzier, G. Gerlach, <em>Calibration of uncooled thermal infrared cameras</em>, J. Sens. Sens. Syst. 4, 187–197, 2015. <a href="https://jsss.copernicus.org/articles/4/187/2015/" target="_blank" rel="noopener">https://jsss.copernicus.org/articles/4/187/2015/</a> — radiometric camera model of a microbolometer core: the detector signal is the scene radiance relative to the housing, with the lens, housing and shutter as radiance terms.</li>
+<li>[R49] C. Tempelhahn, H. Budzier, V. Krause, G. Gerlach, <em>Shutter-less calibration of uncooled infrared cameras</em>, J. Sens. Sens. Syst. 5, 9–16, 2016. <a href="https://jsss.copernicus.org/articles/5/9/2016/" target="_blank" rel="noopener">https://jsss.copernicus.org/articles/5/9/2016/</a> — the housing and shutter radiation as explicit, temperature-measured terms; the field-dependent share of the housing seen by each pixel.</li>
+<li>[R50] P. W. Nugent, J. A. Shaw, N. J. Pust, <em>Correcting for focal-plane-array temperature dependence in microbolometer infrared cameras lacking thermal stabilization</em>, Opt. Eng. 52(6), 061304, 2013. <a href="https://doi.org/10.1117/1.OE.52.6.061304" target="_blank" rel="noopener">https://doi.org/10.1117/1.OE.52.6.061304</a> — responsivity and offset drift as functions of FPA temperature, the multiplicative mechanism distinct from the housing pedestal.</li>
+<li>[R51] FLIR, <em>FLIR Camera Adjustments — Boson Application Note</em>, 102-2013-100-01 Rev 220, June 2018. <a href="https://tesscorn-thermalimaging.com/wp-content/uploads/2024/08/Boson-CameraAdjustments-AppNote-2.pdf" target="_blank" rel="noopener">https://tesscorn-thermalimaging.com/wp-content/uploads/2024/08/Boson-CameraAdjustments-AppNote-2.pdf</a> — the Boson's AGC: plateau value as a fraction of the ROI's pixels per bin (default 7 %), Information-Based Equalization as the factory default mode, Linear Percent, Tail Rejection, Max Gain, Damping Factor, DDE and Detail Headroom.</li>
+<li>[R52] FLIR, <em>Lepton Software Interface Description Document (IDD)</em>, 110-0144-04. <a href="https://cdn.sparkfun.com/assets/0/6/d/2/e/16465-FLIRLepton-SoftwareIDD.pdf" target="_blank" rel="noopener">https://cdn.sparkfun.com/assets/0/6/d/2/e/16465-FLIRLepton-SoftwareIDD.pdf</a> — AGC HEQ: clip limit high (bin population cap), clip limit low (constant added to every non-zero bin), linear percent, dampening factor (IIR), ROI.</li>
+<li>[R53] Xenics, <em>Smart onboard image enhancement algorithms for SWIR day and night vision camera</em>, 2015. <a href="https://www.researchgate.net/publication/283861475_Smart_onboard_image_enhancement_algorithms_for_SWIR_day_and_night_vision_camera" target="_blank" rel="noopener">https://www.researchgate.net/publication/283861475_Smart_onboard_image_enhancement_algorithms_for_SWIR_day_and_night_vision_camera</a> — auto-exposure positions the histogram by integration time and switches gain and read-out modes; auto-gain and histogram equalisation follow, with a maximal allowed stretching and equalisation strength.</li>
 </ul>
 <p><strong>Related open work</strong></p>
 <ul>
@@ -1217,10 +1333,13 @@ end</code></pre>
 <li><strong>No turbulence.</strong> Scintillation and image dancing over long hot paths are unmodelled. Irrelevant under 500 m, significant beyond ~2 km.</li>
 <li><strong>NETD is anchored, not predicted.</strong> §9.4 calibrates noise magnitude to a datasheet number rather than deriving it from first principles. That is a deliberate and defensible choice — but it means the model cannot predict the NETD of a detector that doesn't exist yet.</li>
 <li><strong>Weather is prescribed, not simulated.</strong> Wind, humidity and cloud come from a data file. There is no coupling back from the scene to the atmosphere.</li>
+<li><strong>Emissivity is temperature-independent.</strong> $\varepsilon(\lambda)$ is authored once per material; the real quantity is $\varepsilon(\lambda,T)$, metals rising with $T$ and non-metals falling (§4.5). Below ~600 K the error sits inside the authored values' own uncertainty; for plumes and fire it does not.</li>
+<li><strong>The sensor's environmental coupling is an empirical fit.</strong> §9.5 reproduces the sign, magnitude and time constant of wind-driven camera drift from a lumped coefficient anchored on published UAV measurements [R44][R45]. It is not a thermal model of any particular airframe and must not be quoted as one.</li>
+<li><strong>Surface state is authored, not derived.</strong> Emissivity depends on finish, and on coating thickness in the thin-film regime (§4.5b); neither is recoverable from a mesh. The library names a state and cites it — there is no model here that predicts $\varepsilon$ from geometry.</li>
 </ol>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="./">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

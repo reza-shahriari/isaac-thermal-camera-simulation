@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colour does not set emissivity — irsim</title>
+<meta name="description" content="GT.9 — pigment colour moves the reflective bands and the sun, never the thermal bands.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Colour does not set emissivity</h1><p class="subtitle">GT.9 — pigment colour moves the reflective bands and the sun, never the thermal bands.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_colour_does_not_set_emissivity.py" target="_blank" rel="noopener">tests/unit/test_colour_does_not_set_emissivity.py on GitHub</a></div>
+
+<article class="prose">
+<p>A widely repeated rule of thumb says "the duller and blacker a material is, the higher its emissivity". Half of it is real: roughness and oxidation raise emissivity, and measurement bears that out. The other half is a visible-band intuition that does not survive into the thermal infrared — paint emissivity is essentially independent of pigment colour over roughly 2–12 µm, and a flat white coating routinely exceeds a gloss black one (docs/physics-model.md §4.5a).</p>
+<p>This library already gets it right: <code>car_paint_black</code> and <code>car_paint_white</code> carry the same ε in MWIR and LWIR and differ in <code>solar_absorptivity</code>, which is where colour genuinely acts. Nothing held that, though — it was a property of the numbers somebody typed, so an author reading the folk rule could have "corrected" it and made the model worse with every test still green.</p>
+<p>The test is written so that it cannot pass by asserting that colour never matters: it also requires the two paints to differ <em>strongly</em> in NIR, where colour is exactly what the band sees, and it prices both mistakes in kelvin rather than asserting that a YAML field is unchanged.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_colour_does_not_set_emissivity.py" target="_blank" rel="noopener">tests/unit/test_colour_does_not_set_emissivity.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_colour_does_not_set_emissivity.py#L43" target="_blank" rel="noopener">every paint shares one thermal emissivity</a><br><code>test_every_paint_shares_one_thermal_emissivity</code></td><td>The invariant. A pigment may not move MWIR or LWIR emissivity at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_colour_does_not_set_emissivity.py#L51" target="_blank" rel="noopener">the same paints differ strongly where colour is what the band sees</a><br><code>test_the_same_paints_differ_strongly_where_colour_is_what_the_band_sees</code></td><td>The control, without which the test above would pass on a library of identical materials.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_colour_does_not_set_emissivity.py#L65" target="_blank" rel="noopener">colour acts through solar absorptivity and it is worth tens of kelvin</a><br><code>test_colour_acts_through_solar_absorptivity_and_it_is_worth_tens_of_kelvin</code></td><td>Where the colour goes instead — and why the split is not cosmetic.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_colour_does_not_set_emissivity.py#L89" target="_blank" rel="noopener">the folk rule would cost kelvin in the thermal bands</a><br><code>test_the_folk_rule_would_cost_kelvin_in_the_thermal_bands</code></td><td>What the invariant is protecting, priced.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

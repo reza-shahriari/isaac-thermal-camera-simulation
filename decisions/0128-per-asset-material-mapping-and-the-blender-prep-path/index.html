@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../">Overview</a></li>
 <li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
 <li><a href="../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,16 +53,13 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>ADR 0128 — Per-asset material mapping, and Blender as the CPU-side asset toolchain</h1>
-  
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0128-per-asset-material-mapping-and-the-blender-prep-path.md" target="_blank" rel="noopener">docs/decisions/0128-per-asset-material-mapping-and-the-blender-prep-path.md on GitHub</a>
-</div>
+<div class="page-head"><h1>ADR 0128 — Per-asset material mapping, and Blender as the CPU-side asset toolchain</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0128-per-asset-material-mapping-and-the-blender-prep-path.md" target="_blank" rel="noopener">docs/decisions/0128-per-asset-material-mapping-and-the-blender-prep-path.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
 <li class="toc-2"><a href="#options-considered">Options considered</a></li>
 <li class="toc-2"><a href="#decision">Decision</a></li>
 <li class="toc-2"><a href="#consequences">Consequences</a></li>
-<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-ai4-2026-09-24-the-subset-path-now-runs-and-the-two-readings-are-different">Addendum (AI.4, 2026-09-24): the subset path now runs, and the two readings are different</a></li></ul></nav>
 <article class="prose">
 <p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23 Extends <a href="../0047-material-mapping-defaults-and-coverage/">ADR 0047</a> (its "Revisit when" clause named this file). Evidence: <code>docs/research/2026-09-23-asset-ingestion-survey.md</code>.</p>
 <h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
@@ -111,9 +109,19 @@
 </ul>
 <h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
 <p>An asset arrives whose meshes carry real <code>materialBind</code> subsets (the prep tool handles them; no committed asset exercises that path yet), or when per-asset files start carrying thermal rather than optical truth — at which point the schema needs a section, not more top-level keys.</p>
+<h2 id="addendum-ai4-2026-09-24-the-subset-path-now-runs-and-the-two-readings-are-different">Addendum (<code>AI.4</code>, 2026-09-24): the subset path now runs, and the two readings are different<a class="anchor" href="#addendum-ai4-2026-09-24-the-subset-path-now-runs-and-the-two-readings-are-different" aria-label="permalink">#</a></h2>
+<p>"Revisit when an asset arrives whose meshes carry real <code>materialBind</code> subsets" was written with the prep tool's branch already in place and nothing to run it against. One arrived in the form of a committed fixture rather than a purchase: <code>tests/unit/data/subset_building.usda</code>, a building whose facade is <em>one</em> mesh carrying glass, precast concrete and metal cladding, with Blender's slot-0 mesh binding authored beside the subsets exactly as this ADR describes.</p>
+<p>Running it found that the prep tool was not the only reader. <code>irsim_isaac.pipeline.materials_usd</code>, the walker the render drivers and the audit both use inside Kit, did not look at subsets at all — so the rule "the subsets win" held on the CPU prep path and was silently reversed in the engine.</p>
+<p>The two readers want different answers, and that is the decision recorded here rather than a bug to fix by making them agree:</p>
+<ul>
+<li><strong>An audit asks what the asset is.</strong> One record per subset, the mesh-level binding ignored and <em>reported</em>. <code>walk_stage(..., expand_subsets=True)</code>, which <code>scripts/audit_materials.py</code> now uses.</li>
+<li><strong>A render driver asks what can be transported.</strong> The instance-id plane carries one id per prim (ADR 0014) and the material table is indexed by it, so one prim can only be one material. The default stays one record per prim, and <code>StageWalk.subset_meshes</code> names every mesh for which that answer is incomplete.</li>
+</ul>
+<p>Measured on the fixture, through the Boson's own band LUT with a 300 K wall under a 250 K sky: reading the mesh binding maps the precast concrete as glass, worth <strong>1.59 K</strong> of apparent temperature — 32 NETD — and the cladding as glass, worth <strong>0.80 K</strong>. Neither raises anything; the wall simply becomes a different substance.</p>
+<p>What is <em>not</em> fixed here is the transport half. Until a multi-material mesh is split into one prim per face group, a scene containing one renders it as a single material, and the audit's coverage figure will describe an asset the renderer cannot reproduce. The walk reports it rather than averaging it, because a stated gap is repairable and a quiet one is not.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

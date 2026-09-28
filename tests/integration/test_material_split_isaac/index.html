@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material split isaac — irsim</title>
+<meta name="description" content="The whole `AI.6` pass on the committed fixture: Blender splits it, Kit reads the result.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Material split isaac</h1><p class="subtitle">The whole `AI.6` pass on the committed fixture: Blender splits it, Kit reads the result.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_split_isaac.py" target="_blank" rel="noopener">tests/integration/test_material_split_isaac.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>AI.4</code> left a gap it could only report: the audit reads <code>materialBind</code> subsets, the renderer binds one material per prim (ADR 0014), and so a three-material wall renders as one substance while the coverage figure says 100 %. This test is the closure of that gap end to end -- <code>scripts/prep_asset.py</code> regroups the geometry in Blender, on the CPU, booting no Kit, and the production stage walk then reads the output inside Kit and finds nothing left to report.</p>
+<p>Two processes are involved for the reason ADR 0128 gives: Blender's interpreter carries a complete OpenUSD and none of this project's dependencies, and Kit carries the renderer and no <code>bpy</code>. The plan that passes between them is a file, and it is the same file a prep run writes.</p>
+<p>Skipped without Blender; the Isaac half is skipped without Isaac Sim like every test here.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_split_isaac.py" target="_blank" rel="noopener">tests/integration/test_material_split_isaac.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_split_isaac.py#L80" target="_blank" rel="noopener">the plan measures what leaving the mesh whole would cost</a><br><code>test_the_plan_measures_what_leaving_the_mesh_whole_would_cost</code></td><td>Blender's own per-face material indices, planned engine-free.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_split_isaac.py#L96" target="_blank" rel="noopener">the split asset has one prim per material and nothing left to report</a><br><code>test_the_split_asset_has_one_prim_per_material_and_nothing_left_to_report</code></td><td>The claim <code>AI.6</code> exists for, read by the production walk inside Kit.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_split_isaac.py#L119" target="_blank" rel="noopener">every face survives the regrouping</a><br><code>test_every_face_survives_the_regrouping</code></td><td>Geometry is moved, not rebuilt, so the face count must be conserved exactly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_material_split_isaac.py#L138" target="_blank" rel="noopener">the materials themselves come through</a><br><code>test_the_materials_themselves_come_through</code></td><td>Faces move with Blender's <code>separate</code>, which carries the slots and UVs with them.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

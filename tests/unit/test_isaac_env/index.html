@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,11 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Isaac env</h1>
-  <p class="subtitle">Engine-availability probes and, in particular, how Warp is found (ADR 0014 addendum).</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py" target="_blank" rel="noopener">tests/unit/test_isaac_env.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Isaac env</h1><p class="subtitle">Engine-availability probes and, in particular, how Warp is found (ADR 0014 addendum).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py" target="_blank" rel="noopener">tests/unit/test_isaac_env.py on GitHub</a></div>
 
 <article class="prose">
 <p>Warp ships as the <code>omni.warp.core</code> Kit extension. Kit normally puts it on <code>sys.path</code>, which is why ADR 0014 first recorded it as reachable only from inside a running Kit; it is an ordinary Python package in the build's extension cache, so <code>ensure_warp_on_path</code> can reach it from a bare interpreter. These tests are engine-free: the extension cache is faked in <code>tmp_path</code>, so they say the same thing on a laptop with no Isaac Sim as on the workstation.</p>
-<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py" target="_blank" rel="noopener">tests/unit/test_isaac_env.py</a>.</p>
+<p class='made-by'>18 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py" target="_blank" rel="noopener">tests/unit/test_isaac_env.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L28" target="_blank" rel="noopener">isaac root prefers the env var python sh exports</a><br><code>test_isaac_root_prefers_the_env_var_python_sh_exports</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L37" target="_blank" rel="noopener">warp extension path globs the cache and ignores entries without the package</a><br><code>test_warp_extension_path_globs_the_cache_and_ignores_entries_without_the_package</code></td><td>—</td></tr>
@@ -70,17 +67,20 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L83" target="_blank" rel="noopener">force no warp wins over a findable extension</a><br><code>test_force_no_warp_wins_over_a_findable_extension</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L95" target="_blank" rel="noopener">force no isaac makes the probe answer false</a><br><code>test_force_no_isaac_makes_the_probe_answer_false</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L101" target="_blank" rel="noopener">this isaac build really does carry an importable warp</a><span class="tag">skipif</span><br><code>test_this_isaac_build_really_does_carry_an_importable_warp</code></td><td>The finding itself, on whatever build is installed: the extension is on disk and the probe reports Warp available without Kit ever having been started.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L111" target="_blank" rel="noopener">the default config pins the first gpu and turns multi gpu off</a><br><code>test_the_default_config_pins_the_first_gpu_and_turns_multi_gpu_off</code></td><td>The owner works on the second card; a render that spreads onto it takes their memory.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L120" target="_blank" rel="noopener">the gpu index means the one nvidia smi prints</a><br><code>test_the_gpu_index_means_the_one_nvidia_smi_prints</code></td><td>CUDA's own default order is FASTEST_FIRST, which reverses the two cards on this machine.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L131" target="_blank" rel="noopener">an explicit device order is left alone</a><br><code>test_an_explicit_device_order_is_left_alone</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L138" target="_blank" rel="noopener">the env var selects another card</a><span class="tag">parametrize</span><br><code>test_the_env_var_selects_another_card</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L144" target="_blank" rel="noopener">all hands the choice back to kit</a><span class="tag">parametrize</span><br><code>test_all_hands_the_choice_back_to_kit</code></td><td>Not the same as pinning every card: Kit's own multi-GPU default is what it gets back.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L152" target="_blank" rel="noopener">a nonsense gpu is refused rather than silently defaulted</a><br><code>test_a_nonsense_gpu_is_refused_rather_than_silently_defaulted</code></td><td>Defaulting would render on whichever card, and only nvidia-smi would ever say which.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L161" target="_blank" rel="noopener">a caller can still override</a><br><code>test_a_caller_can_still_override</code></td><td><code>render_car_ignition</code> needs <code>RayTracedLighting</code>; the GPU choice must survive that.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L108" target="_blank" rel="noopener">force no openvdb makes the probe answer false</a><br><code>test_force_no_openvdb_makes_the_probe_answer_false</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L114" target="_blank" rel="noopener">an override without the module is not accepted</a><br><code>test_an_override_without_the_module_is_not_accepted</code></td><td>A directory that merely exists is not an OpenVDB: the probe must look for the module, or a caller gets a clean <code>sys.path</code> entry and an ImportError three frames later.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L124" target="_blank" rel="noopener">this isaac build really does carry an importable openvdb</a><span class="tag">skipif</span><br><code>test_this_isaac_build_really_does_carry_an_importable_openvdb</code></td><td><strong>The finding ADR 0127 got wrong.</strong> It recorded that there is no OpenVDB writer in this environment, and the whole hand-built NanoVDB path followed from that. <code>omni.volume</code> ships one; it is simply not importable until the shared libraries it names are preloaded and its directory is on <code>sys.path</code>, which is what Kit would otherwise have done.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L141" target="_blank" rel="noopener">the default config pins the first gpu and turns multi gpu off</a><br><code>test_the_default_config_pins_the_first_gpu_and_turns_multi_gpu_off</code></td><td>The owner works on the second card; a render that spreads onto it takes their memory.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L150" target="_blank" rel="noopener">the gpu index means the one nvidia smi prints</a><br><code>test_the_gpu_index_means_the_one_nvidia_smi_prints</code></td><td>CUDA's own default order is FASTEST_FIRST, which reverses the two cards on this machine.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L161" target="_blank" rel="noopener">an explicit device order is left alone</a><br><code>test_an_explicit_device_order_is_left_alone</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L168" target="_blank" rel="noopener">the env var selects another card</a><span class="tag">parametrize</span><br><code>test_the_env_var_selects_another_card</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L174" target="_blank" rel="noopener">all hands the choice back to kit</a><span class="tag">parametrize</span><br><code>test_all_hands_the_choice_back_to_kit</code></td><td>Not the same as pinning every card: Kit's own multi-GPU default is what it gets back.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L182" target="_blank" rel="noopener">a nonsense gpu is refused rather than silently defaulted</a><br><code>test_a_nonsense_gpu_is_refused_rather_than_silently_defaulted</code></td><td>Defaulting would render on whichever card, and only nvidia-smi would ever say which.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_isaac_env.py#L191" target="_blank" rel="noopener">a caller can still override</a><br><code>test_a_caller_can_still_override</code></td><td><code>render_car_ignition</code> needs <code>RayTracedLighting</code>; the GPU choice must survive that.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

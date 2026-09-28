@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Decision log — irsim</title>
-<meta name="description" content="137 architecture decision records.">
+<meta name="description" content="153 architecture decision records.">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,11 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Decision log</h1>
-  <p class="subtitle">137 architecture decision records.</p>
-  
-</div>
+<div class="page-head"><h1>Decision log</h1><p class="subtitle">153 architecture decision records.</p></div>
 
 <article class="prose">
 <p>Every choice with consequences that outlive its commit — including the approximations taken on purpose, which is what a reader six months later cannot reconstruct.</p>
-<p class="filterline"><input id="table-filter" type="search" placeholder="Filter 137 decisions…" aria-label="Filter decisions"></p>
+<p class="filterline"><input id="table-filter" type="search" placeholder="Filter 153 decisions…" aria-label="Filter decisions"></p>
 <div class='table-wrap'><table class="filterable adr"><thead><tr><th>#</th><th>decision</th><th>status</th><th>date</th></tr></thead><tbody>
 <tr data-status="accepted"><td class="nowrap">0001</td><td><a href="0001-record-architecture-decisions/">Record architecture decisions</a></td><td>Accepted</td><td class="nowrap">(fill in)</td></tr>
 <tr data-status="accepted"><td class="nowrap">0002</td><td><a href="0002-dependency-floors-and-interpreter/">Dependency floors and the project interpreter</a></td><td>Accepted</td><td class="nowrap">2026-09-10</td></tr>
@@ -199,10 +196,26 @@
 <tr data-status="accepted"><td class="nowrap">0137</td><td><a href="0137-an-assets-mesh-is-budgeted-by-what-conduction-can-resolve/">An asset&#x27;s mesh is budgeted twice: by what we can afford, and by what conduction can resolve</a></td><td>Accepted</td><td class="nowrap">2026-09-24</td></tr>
 <tr data-status="accepted"><td class="nowrap">0138</td><td><a href="0138-an-asset-is-decomposed-into-parts-by-connected-component/">An imported asset is decomposed into functional parts by connected component, and the parts are data</a></td><td>Accepted</td><td class="nowrap">2026-09-24</td></tr>
 <tr data-status="accepted"><td class="nowrap">0139</td><td><a href="0139-the-project-site-is-generated-from-the-repository/">The project site is generated from the repository, and carries web-sized renders</a></td><td>Accepted</td><td class="nowrap">2026-09-24</td></tr>
+<tr data-status="accepted"><td class="nowrap">0140</td><td><a href="0140-openvdb-ships-with-isaac-sim-and-volumes-still-do-not-render/">OpenVDB ships with Isaac Sim, and volumes still do not render</a></td><td>Accepted. The cloud deck is written with the OpenVDB that ships inside Isaac Sim</td><td class="nowrap">2026-09-24</td></tr>
+<tr data-status="accepted"><td class="nowrap">0141</td><td><a href="0141-the-front-page-is-a-front-door/">The front page is a front door, and its renders are named in the gallery manifest</a></td><td>Accepted</td><td class="nowrap">2026-09-24</td></tr>
+<tr data-status="accepted"><td class="nowrap">0142</td><td><a href="0142-a-material-names-its-surface-state/">A material file names its surface state, and the field has no default</a></td><td>Accepted</td><td class="nowrap">—</td></tr>
+<tr data-status="accepted"><td class="nowrap">0143</td><td><a href="0143-a-demo-scene-gives-every-part-its-own-node/">A capability scene gives every part its own thermal node, and the scene decides the granularity</a></td><td>Accepted</td><td class="nowrap">—</td></tr>
+<tr data-status="accepted"><td class="nowrap">0144</td><td><a href="0144-a-vdb-cloud-renders-as-a-volume-box-with-the-density-as-a-texture/">A VDB cloud renders in the path tracer, as a volume box with the grid as its texture</a></td><td>Accepted. Supersedes the conclusion of [ADR 0140](0140-openvdb-ships-with-isaac-sim-and-volumes-still-do-not-render.md)</td><td class="nowrap">2026-09-26</td></tr>
+<tr data-status="accepted"><td class="nowrap">0145</td><td><a href="0145-the-housing-is-seen-through-the-field/">The housing is seen through the field, referenced to the optical axis</a></td><td>Accepted</td><td class="nowrap">2026-09-26</td></tr>
+<tr data-status="accepted"><td class="nowrap">0146</td><td><a href="0146-a-cloud-in-the-infrared-has-one-base-a-dry-adiabatic-temperature-and-its-own-march/">A cloud in the infrared has one base, a dry-adiabatic temperature, and the band&#x27;s own march</a></td><td>Accepted. Amends [ADR 0070](0070-cloud-clutter-model.md) (the base temperature law)</td><td class="nowrap">2026-09-26</td></tr>
+<tr data-status="accepted"><td class="nowrap">0147</td><td><a href="0147-information-based-equalisation-approximates-the-boson-default-agc/">Information-based equalisation approximates the Boson&#x27;s default AGC</a></td><td>Accepted</td><td class="nowrap">2026-09-26</td></tr>
+<tr data-status="accepted"><td class="nowrap">0148</td><td><a href="0148-the-ffc-is-an-offset-snapshot-on-the-shutter/">The FFC is an offset snapshot on the shutter</a></td><td>Accepted</td><td class="nowrap">2026-09-26</td></tr>
+<tr data-status="accepted"><td class="nowrap">0149</td><td><a href="0149-agc-is-a-set-of-vendor-neutral-families-and-a-band-follows-its-detector/">AGC is a set of vendor-neutral families, and a band&#x27;s display follows its detector</a></td><td>Accepted</td><td class="nowrap">2026-09-26</td></tr>
+<tr data-status="accepted"><td class="nowrap">0150</td><td><a href="0150-assets-arrive-from-a-link-through-a-licence-gate/">Assets arrive from a link through a licence gate</a></td><td>Accepted</td><td class="nowrap">—</td></tr>
+<tr data-status="accepted"><td class="nowrap">0151</td><td><a href="0151-the-adc-floor-is-zero-scene-radiance/">The ADC floor is zero scene radiance</a></td><td>Accepted</td><td class="nowrap">2026-09-27</td></tr>
+<tr data-status="accepted"><td class="nowrap">0152</td><td><a href="0152-the-boson-ships-flir-s-factory-agc-values/">The Boson config ships FLIR&#x27;s factory AGC values</a></td><td>Accepted</td><td class="nowrap">2026-09-27</td></tr>
+<tr data-status="accepted"><td class="nowrap">0153</td><td><a href="0153-a-reflective-band-sees-the-sun-off-the-ground-and-in-the-cloud/">A reflective band sees the sun off the ground and in the cloud</a></td><td>Accepted</td><td class="nowrap">2026-09-27</td></tr>
+<tr data-status="accepted"><td class="nowrap">0154</td><td><a href="0154-a-frame-viewer-reads-scene-truth-beside-the-camera/">A frame viewer reads the scene truth beside the camera, through a swappable source</a></td><td>Accepted</td><td class="nowrap">2026-09-27</td></tr>
+<tr data-status="accepted"><td class="nowrap">0155</td><td><a href="0155-geometry-is-fit-for-the-camera-when-no-edge-misses-its-curve-by-half-a-pixel/">Geometry is fit for the camera when no edge misses its curve by half a pixel</a></td><td>Accepted</td><td class="nowrap">—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

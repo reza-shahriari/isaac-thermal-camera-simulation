@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adc floor — irsim</title>
+<meta name="description" content="The ADC floor holds the coldest sky (docs/physics-model.md §11.1, spec issue S53, `SC.23`).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Adc floor</h1><p class="subtitle">The ADC floor holds the coldest sky (docs/physics-model.md §11.1, spec issue S53, `SC.23`).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py" target="_blank" rel="noopener">tests/unit/test_adc_floor.py on GitHub</a></div>
+
+<article class="prose">
+<p>A bolometer's DN 0 used to sit at the datasheet's −40 °C (<code>RADIOMETRIC_RANGE_K</code>), so every scene colder than that read one code: up to two thirds of a <code>phantom4_perpart</code> LWIR frame, and one enormous bin for the AGC. ADR 0151 moves DN 0 to <strong>zero scene radiance</strong>. The roadmap row asked for the band LUT's 200 K; the preset walk below is why that was not enough -- the layered model puts a clear winter zenith sky well under L_B(200 K), in every preset.</p>
+<p>Each test fails if the floor goes back up: to −40 °C (the red reproduction and the gain ratio), to 200 K (the preset walk), or anywhere a round trip or the ceiling would notice.</p>
+<p class='made-by'>6 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py" target="_blank" rel="noopener">tests/unit/test_adc_floor.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py#L69" target="_blank" rel="noopener">the floor is zero radiance and the datasheet range is unchanged</a><br><code>test_the_floor_is_zero_radiance_and_the_datasheet_range_is_unchanged</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py#L75" target="_blank" rel="noopener">a minus 60 c sky quantises to one code only under the old floor</a><br><code>test_a_minus_60_c_sky_quantises_to_one_code_only_under_the_old_floor</code></td><td>Red reproduction: the pre-SC.23 transfer maps the whole cold sky to DN 0.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py#L91" target="_blank" rel="noopener">the coldest modelled zenith sky stays on scale</a><br><code>test_the_coldest_modelled_zenith_sky_stays_on_scale</code></td><td>Walk every shipped atmosphere preset through a cold-to-warm, dry-to-humid weather grid.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py#L125" target="_blank" rel="noopener">zero radiance is dn zero and the gain moves by the closed form</a><br><code>test_zero_radiance_is_dn_zero_and_the_gain_moves_by_the_closed_form</code></td><td>Φ is affine in scene radiance at the centre, so moving DN 0 from L_B(233.15 K) to zero rescales the gain by exactly (L_top − L_233) / (L_top − 0).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py#L142" target="_blank" rel="noopener">the top code still sits at the top of the range</a><br><code>test_the_top_code_still_sits_at_the_top_of_the_range</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_adc_floor.py#L151" target="_blank" rel="noopener">dn round trips to apparent temperature inside half an lsb</a><br><code>test_dn_round_trips_to_apparent_temperature_inside_half_an_lsb</code></td><td>Every scene the LUT holds: DN16 → T_app lands within half a code of the truth.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

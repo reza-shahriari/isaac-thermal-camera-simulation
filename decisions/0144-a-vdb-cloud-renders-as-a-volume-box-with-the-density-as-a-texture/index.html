@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0144 — A VDB cloud renders in the path tracer, as a volume box with the grid as its texture — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0144 — A VDB cloud renders in the path tracer, as a volume box with the grid as its texture</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0144-a-vdb-cloud-renders-as-a-volume-box-with-the-density-as-a-texture.md" target="_blank" rel="noopener">docs/decisions/0144-a-vdb-cloud-renders-as-a-volume-box-with-the-density-as-a-texture.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#what-was-measured">What was measured</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-rejected">Alternatives rejected</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Supersedes the conclusion of <a href="../0140-openvdb-ships-with-isaac-sim-and-volumes-still-do-not-render/">ADR 0140</a> ("volumes still do not render"); its writer decision stands. <strong>Date:</strong> 2026-09-26 Roadmap: AT.13 (reopened and closed), unblocks AT.14.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0140 concluded that nothing volumetric renders through a Replicator render product on this build, on the strength of a control: a cube carrying <code>OmniVolumeDensity</code> and no file was "as invisible as the grid". Re-run on 2026-09-26 with the A6000 available, that control turned out to be wrong twice over, and the conclusion with it.</p>
+<ol>
+<li><strong>The control stage contained the cube.</strong> <code>--cube</code> built it into the "without" scene as well, so the probe differenced the cube against itself and read zero. The 24 September cube frame, opened today, shows a lit foggy block with the sun reflected on its face and its shadow on the backdrop. A procedural volume rendered fine; the probe could not see it.</li>
+<li><strong>The material's inputs did not exist.</strong> <code>author_cloud_volume</code> set <code>densityMultiplier</code>, <code>scattering_scale</code>, <code>absorption_scale</code> and <code>albedo</code>. <code>OmniVolumeDensity.mdl</code> in the Kit kernel declares <code>volume_density_texture</code>, <code>volume_albedo</code>, <code>volume_density_scale</code> and <code>directional_bias</code>. A <code>UsdShade</code> input the MDL does not declare is dropped without a warning, so the VDB file was never named to the material at all — the field relationship on the <code>UsdVol.Volume</code> is not what RTX reads.</li>
+</ol>
+<h2 id="what-was-measured">What was measured<a class="anchor" href="#what-was-measured" aria-label="permalink">#</a></h2>
+<p>Eleven path-traced runs, 640×480, 64 spp, each differenced against a control frame <em>and</em> a repeat of the control (the noise floor). The columns that decide:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>stage under test</th><th>isVolume</th><th>ptvol on</th><th>bounces</th><th>texture</th><th>result</th></tr></thead>
+<tbody>
+<tr><td><code>UsdVol.Volume</code> + OpenVDB field (ADR 0140's)</td><td>—</td><td>no</td><td>3</td><td>—</td><td>nothing, at 12 or 200 settle steps</td></tr>
+<tr><td>same, with the file also on the texture input</td><td>—</td><td>yes</td><td>3</td><td>file</td><td>nothing</td></tr>
+<tr><td>NanoVDB variant</td><td>—</td><td>yes</td><td>3</td><td>—</td><td>nothing</td></tr>
+<tr><td>unit cube × 4800, <code>OmniVolumeDensity</code>, no file</td><td>no</td><td>yes</td><td>3</td><td>—</td><td>glass block: writes depth on 81 % of the frame, sun highlight on its face</td></tr>
+<tr><td>same</td><td>yes</td><td>yes</td><td>3</td><td>—</td><td>black, no depth</td></tr>
+<tr><td>same</td><td>yes</td><td>yes</td><td>32</td><td>—</td><td>invisible (the interior is empty; the black was bounce starvation through two glass faces)</td></tr>
+<tr><td>unit cube scaled to the grid bounds</td><td>yes</td><td>yes</td><td>32</td><td>file</td><td>whole frame darkens <strong>40×</strong> in linear HDR, backdrop below the cloud included; identical at 0.1× and 0.01× density</td></tr>
+<tr><td><strong>mesh box at the grid bounds, no transform</strong></td><td><strong>yes</strong></td><td><strong>yes</strong></td><td><strong>32</strong></td><td><strong>file</strong></td><td><strong>the cloud</strong>: lit tops, flat bases, self-shadowing, a shadow on the backdrop; HDR 99.9th percentile 2.12 against the control's 0.92; depth unchanged</td></tr>
+</tbody></table></div>
+<p>The scaled-cube row is the informative failure: the density texture is sampled in the prim's <strong>local</strong> frame, so a unit cube scaled by 5200 magnifies the grid 5200-fold and the camera is inside cloud everywhere. That is why no density scale could change it.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong><code>author_cloud_volume</code> authors the recipe that renders</strong>: a <code>UsdGeom.Mesh</code> box with its vertices at the grid's world bounds and no xform ops, <code>primvars:isVolume = true</code>, <code>OmniVolumeDensity</code> with the <code>.vdb</code> on <code>volume_density_texture</code>, the albedo on <code>volume_albedo</code>, the multiplier on <code>volume_density_scale</code>, the phase on <code>directional_bias</code>, and the material connected through <code>mdl:surface</code>, <code>mdl:displacement</code> and <code>mdl:volume</code>. The <code>UsdVol.Volume</code> form is gone from the authoring path; it never rendered here.</li>
+<li><p><strong>The render settings are part of the recipe.</strong> <code>/rtx/pathtracing/ptvol/enabled</code> must be on, and <code>/rtx/pathtracing/maxBounces</code> (default 3 on this app) raised — 32 was used; the UI allows</p>
+<ol>
+<li><code>scripts/probe_cloud_volume.py</code> carries them as <code>VOLUME_SETTINGS</code> and <code>--pt-bounces</code>.</li>
+</ol>
+<p>A driver that turns <code>--cloud-volume</code> on has to set the same.</p></li>
+<li><strong>The probe's control is a control.</strong> <code>build_stage(None, …)</code> builds nothing under test, whatever mode was asked for; and the probe captures <code>HdrColor</code> with auto-exposure off, because a bright volume in one corner pulls the LDR exposure down over the whole frame and the difference then reports a darker backdrop where only the cloud changed.</li>
+<li><strong>ADR 0140's writer decision stands.</strong> OpenVDB from <code>omni.volume</code> is still the writer; only its rendering verdict is superseded.</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The visible band can have a cloud with an inside, parallax and a shadow on the scene, rendered by the path tracer from the same grid the infrared band marches. AT.14 is unblocked.</li>
+<li><strong>A volume writes no depth.</strong> <code>distance_to_camera</code> behind the cloud is the backdrop's in every run. Occlusion of an aircraft by cloud in a band computed from AOVs therefore still comes from this project's own march, which is the split AT.14 has to keep.</li>
+<li>The path-traced cloud is path-traced: 64 spp at 640×480 is visibly noisy in the shadowed base, and a 1280-px frame at a useful sample count is a per-frame cost the real-time dome bake does not have. The dome stays the real-time path; the volume is the path-tracing one.</li>
+<li>The probe's global-fog setting (<code>globalVolumetricEffects/enabled</code>) is on in every run and shows as a haze with crepuscular rays under the cloud. It is a setting the scene can turn off; it is noted so the frame is not read as the cloud's own scattering.</li>
+<li><code>scripts/render_quad_outbound.py --cloud-volume</code> still writes a NanoVDB and authors through this function; switching it to <code>write_openvdb</code> and setting the render settings is the next step, with a frame to prove it.</li>
+</ul>
+<h2 id="alternatives-rejected">Alternatives rejected<a class="anchor" href="#alternatives-rejected" aria-label="permalink">#</a></h2>
+<p><strong>Keep the <code>UsdVol.Volume</code> prim and search for the setting that makes it render.</strong> Five variants of it produced nothing, including one with the file also on the texture input. The Composer recipe renders; the prim type is not worth the search until NVIDIA says it should work.</p>
+<p><strong>Report the LDR difference as before.</strong> It would have called the scaled-cube frame "loaded" (99 % of pixels changed) and hidden that the change was exposure. The HDR means are what showed the darkening reached the backdrop.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

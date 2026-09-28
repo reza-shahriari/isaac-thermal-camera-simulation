@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0155 — Geometry is fit for the camera when no edge misses its curve by half a pixel — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head"><h1>0155 — Geometry is fit for the camera when no edge misses its curve by half a pixel</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0155-geometry-is-fit-for-the-camera-when-no-edge-misses-its-curve-by-half-a-pixel.md" target="_blank" rel="noopener">docs/decisions/0155-geometry-is-fit-for-the-camera-when-no-edge-misses-its-curve-by-half-a-pixel.md on GitHub</a></div>
+
+<article class="prose">
+<p>Date: 2026-09-28 <strong>Status:</strong> Accepted Roadmap: AI.10</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The asset library (ADR 0150) takes models from two worlds that fail in opposite directions. Game and phone-game models approximate curves with a few flat facets. Mechanical models carry exact CAD surfaces (STEP/IGES, which Blender cannot open) or a tessellation dense enough to cost millions of triangles the camera cannot resolve. The owner wants one skill, <code>low2high</code>, that moves a model either way, and is willing to go as far as redesigning parts through the Blender MCP when smoothing is not enough (2026-09-28).</p>
+<p>A facet matters more here than in a visible-only renderer. Directional emissivity and the reflected-sky term follow the surface normal (§4.3, §8), so each facet of a coarse hub reports its own apparent temperature and the hub renders as bands. That is a structure a detector trained on these frames can learn, and real footage never shows it. At the silhouette a facet is a polygon corner against the sky.</p>
+<p>So both directions need one yardstick, and it must not be an impression.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong>The criterion is each edge's own silhouette error against half a pixel.</strong> Two facets of width <code>w</code> meeting at angle θ are chords of a circle of radius <code>w / (2 sin(θ/2))</code>, and each misses its arc by <code>(w/2)·tan(θ/4)</code>. That is exactly <code>r(1 − cos(θ/2))</code>, and the test suite checks the identity to 1e-9. An edge is faceted when that exceeds half the pixel footprint <code>R·IFOV/2</code> at the closest range the scene flies the object, and it is below the crease angle (60° by default, a stated heuristic: a hex nut and a 6-segment cylinder are the same polygon).</p>
+<p>This replaced a first design that used one fixed angle (10°). On the Phantom 4 that design flagged 36 of 41 meshes of a 2.49 M-triangle product model, because an 8-sided 1 mm screw head has the same angle as an 8-sided fuselage. The per-edge criterion needs no radius. It lets sub-pixel detail stay as coarse as it likes, and it gives the right answer at both ends:</p>
+<div class='table-wrap'><table>
+<thead><tr><th>model</th><th>faces</th><th>faceted at 2 m, 1.36 mrad</th></tr></thead>
+<tbody>
+<tr><td>Phantom 4 as authored</td><td>2,486,459</td><td><strong>0 of 41</strong> meshes (also 0 at 0.5 m)</td></tr>
+<tr><td>the same, decimated to phone-game density</td><td>~100 k</td><td><strong>39–40 of 41</strong></td></tr>
+</tbody></table></div>
+<p>The fixed angle survives only as a fallback when no scene is given, and it is labelled as a list of candidates, not a verdict.</p>
+<p><strong>It measures the render mesh, never the thermal archive.</strong> Planar dissolve (ADR 0132) merges near-flat faces on purpose and would read as faceted. The render geometry is measured from the <code>.glb</code> or from <code>prep_asset.py --emit-mesh --dissolve-deg 0</code>. Smoothing up never lifts the thermal budget (AI.3): the two meshes keep separate budgets.</p>
+<p><strong>STEP/IGES go through OpenCascade, installed, not written.</strong> <code>cadquery-ocp</code> (the kernel under FreeCAD and CadQuery) is an optional <code>cad</code> extra. Only <code>scripts/tessellate_step.py</code> uses it, in whatever interpreter it is installed into, and nothing in <code>src/irsim</code> imports it. Tolerances come from the scene (chord = half a pixel at closest range), and the CAD part tree survives as glTF node names, in metres. Measured: names preserved, extent right to 0.1 mm, and the requested angle bounds every facet on a curved part (4 tests, skipped where the extra is absent).</p>
+<p><strong>The upward ladder stops at the lowest rung that passes.</strong> Normals, then subdivision with creases, then displacement from the model's own maps, then redesign through the Blender MCP from references of the real object. Redesigned geometry is recorded as <code>ESTIMATED — redesigned</code> with its reference URLs, the same flag a guessed material carries.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>"Is it smooth enough?" has a number and a scene attached to it, in both directions, and "we subdivided it" is checkable against it.</li>
+<li>The verdict depends on the scene. An asset that passes for the aerial lane's 2 m may fail for a 0.3 m close-up, and the report says so rather than averaging it away.</li>
+<li>The crease heuristic cannot tell a designed polygon from a coarse curve. A hex part below 60° can be flagged, and the skill confirms faceted parts by rendering them.</li>
+<li>The OpenCascade test does not run in the default gate. It was run in an environment with the extra installed; GT-lane CI work could add the extra to a job.</li>
+<li>The GLB reader measures per mesh without applying node transforms. That is exact under rigid motion and uniform scale, and wrong under a non-uniform node scale, which is rare in CAD and game exports and named in the reader's docstring.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

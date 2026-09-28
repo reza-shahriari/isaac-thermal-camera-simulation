@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../">Overview</a></li>
 <li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
 <li><a href="../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,12 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>0089 — §6.6&#x27;s vehicle heat sources need their own solver kind, not the aerial one</h1>
-  
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0089-vehicle-heat-sources-reachable-from-a-scene.md" target="_blank" rel="noopener">docs/decisions/0089-vehicle-heat-sources-reachable-from-a-scene.md on GitHub</a>
-</div>
+<div class="page-head"><h1>0089 — §6.6&#x27;s vehicle heat sources need their own solver kind, not the aerial one</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0089-vehicle-heat-sources-reachable-from-a-scene.md" target="_blank" rel="noopener">docs/decisions/0089-vehicle-heat-sources-reachable-from-a-scene.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
 <li class="toc-2"><a href="#decision">Decision</a></li>
 <li class="toc-2"><a href="#consequences">Consequences</a></li>
-<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li>
+<li class="toc-2"><a href="#addendum-tc8-2026-09-24-the-trace-arrives-and-a-parked-car-has-cold-wheels">Addendum (TC.8, 2026-09-24): the trace arrives, and a parked car has cold wheels</a></li></ul></nav>
 <article class="prose">
 <p>Date: 2026-09-15 <strong>Status:</strong> Accepted Roadmap: MP.4a (§6.6)</p>
 <h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
@@ -82,9 +80,17 @@
 <p><strong>Schema cost.</strong> <code>SCENE_SCHEMA_VERSION</code> goes to 6 and the five committed demo configs are bumped with it; <code>MIN_SCENE_SCHEMA_VERSION</code> stays at 4, so every older file still loads.</p>
 <h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
 <p>A scene needs a driving vehicle, at which point the tyre and brake models want to be driven from a <code>VehicleState</code> trace (speed, braking) rather than from a duty fraction — the trace type already exists and <code>SourceHistory.step</code> already takes one.</p>
+<h2 id="addendum-tc8-2026-09-24-the-trace-arrives-and-a-parked-car-has-cold-wheels">Addendum (<code>TC.8</code>, 2026-09-24): the trace arrives, and a parked car has cold wheels<a class="anchor" href="#addendum-tc8-2026-09-24-the-trace-arrives-and-a-parked-car-has-cold-wheels" aria-label="permalink">#</a></h2>
+<p>"Revisit when a scene needs a driving vehicle" is now. <code>irsim.thermal.drive_cycle</code> walks a <code>VehicleState</code> trace and drives the two models this ADR told scenes not to reach through <code>vehicle_source</code>: the brake disc as an energy deposit and the tyre as a relation in speed. Until it, <code>brake_temperature_rise_k</code> and <code>tyre_delta_t_k</code> had <strong>no caller outside their own unit tests</strong>, so no frame this project has rendered has ever contained a warm brake.</p>
+<p>Three decisions worth recording, because each has a plausible alternative:</p>
+<p><strong>1. The integration still exists once.</strong> <code>SourceHistory</code> gained <code>step_to_target</code>, and its old <code>step</code> is now that method with a load-derived target. A tyre's target is not a duty fraction, so the alternative was a second exact-exponential step inside the drive cycle — which is the second copy of §6.6 this ADR's Decision section exists to prevent.</p>
+<p><strong>2. The disc cools across the interval before the deposit lands.</strong> The deposit is the work done arriving at the sample; the cooling is what happened on the way there. Depositing first and then cooling the sum lets a hard stop lose part of its own energy to a constant it has not yet spent, and makes the answer depend on the trace's sample spacing — the property the exact-exponential step exists to remove.</p>
+<p><strong>3. A parked car has cold wheels, and §6.6 does not say so.</strong> <code>tyre_delta_t_k</code> returns its lower bound, +10 K, at zero speed, because §6.6's "+10 … +35 K, rises with speed" describes a <em>rolling</em> tyre and its bottom end is a tyre rolling slowly. Tyre heating is flexing work, so a stationary tyre has no source at all. The drive cycle therefore targets <strong>zero</strong> when the vehicle is stopped and lets the tyre forget over its own τ_cool of 1800 s: a car that has just pulled up has warm tyres and one that parked an hour ago does not. Reading the relation literally at v = 0 would give every car in every car park a +10 K wheel — a feature a detector would learn and no camera sees. This is a departure from §6.6 as written and is recorded here rather than left in the code.</p>
+<p>The front/rear split is <code>FRONT_AXLE_BRAKE_FRACTION = 0.65</code>, ESTIMATED like every other number in §6.6's table. It matters to a picture rather than to a total: the front discs run nearly twice as hot as the rear, and an even split would render four identical wheels.</p>
+<p>Measured on the demo car: forty minutes at 27 m/s puts the tyre <strong>28.1 K</strong> over ambient, and the arch liner 0.12 m above the tread receives <strong>285.9 W/m²</strong> against the door's <strong>0.11 W/m²</strong> — some 23.8 K against 0.01 K through an ESTIMATED panel conductance. One stop from 30 m/s deposits <strong>162 K</strong> into an 8 kg disc (ADR 0038's own figure) and four times that from 60 m/s.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

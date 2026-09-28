@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0153 — A reflective band sees the sun off the ground and in the cloud — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0153 — A reflective band sees the sun off the ground and in the cloud</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0153-a-reflective-band-sees-the-sun-off-the-ground-and-in-the-cloud.md" target="_blank" rel="noopener">docs/decisions/0153-a-reflective-band-sees-the-sun-off-the-ground-and-in-the-cloud.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-27 Roadmap: AT.20. Spec: <code>docs/physics-model.md</code> §5.3 ("In a reflective band the ground and the cloud are lit"), spec issue S55. Extends <a href="../0086-scattered-sunlight-sky/">ADR 0086</a> (the isotropic skylight) and <a href="../0045-reflected-environment-term/">ADR 0045</a> (the environment term). Mirrors the visible dome's cloud base and terrain (<a href="../0073-visible-companion-environment-dome/">ADR 0073</a>).</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The four-band Phantom 4 render exposed two gaps in NIR and SWIR.</p>
+<ol>
+<li><strong>The underside was black.</strong> L_env = V_s L_sky,eff + (1 − V_s) L_B(T_ground). The ground half is thermal emission only, ~1e-15 of the sunlit value in NIR. So a downward-facing surface reflected nothing, and the white ABS shell (ρ_SWIR 0.78) rendered black beside a white RGB companion.</li>
+<li><strong>The sky had no clouds.</strong> ADR 0086's skylight is added to the clear column, and the deck blend swaps only the column's <em>thermal</em> emission for the cloud's. Both are ~0 in SWIR, so a cloud pixel read the clear sky's value to 1.0000 of the median.</li>
+</ol>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>Per-band albedo authored in each environment preset.</strong> Simple, but it duplicates numbers the material library already holds, and a new band means editing every preset.</li>
+<li><strong>The ground names a library material, and its albedo is that material's Kirchhoff-closed band reflectance</strong> (chosen). Bands stay data (CLAUDE.md), closure is guaranteed (#4), and a surface of the same material elsewhere in the scene reflects the same number.</li>
+<li><strong>A diffuse-transmission cloud model</strong> (T_total − e^(−τ/μ0) from the two-stream). This is more correct from below: thick cores come out darker than their edges. But it disagrees with the visible companion, which draws the base as R(τ, μ0) × GHI/π. The owner checks each IR frame against its RGB pair and treats disagreement as a defect, so the bands must share one model until both move together.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>environment.ground.material</code> (optional) names the ground's library material. <code>SkyModel</code> takes <code>site=</code> and <code>ground_albedo=</code>, and <code>Scene.from_config</code> supplies them for every band that has a skylight. ρ_B comes from <code>load_material(...).band_properties(band).reflectance</code>.</li>
+<li><code>DiffuseSkylight</code> gains <code>per_dni</code>: the band's share of the ground-level direct spectrum (unweighted), beside ADR 0086's Rayleigh-weighted <code>per_dhi</code>. The band's horizontal irradiance is <code>E_B = per_dni · DNI · sin h + π · per_dhi · DHI</code>, using the weather's own DNI and DHI and the site's sun (<code>solar_terms_at</code>, the function every other solar term uses).</li>
+<li><strong>Ground:</strong> L_ground = L_B(T_ground) + ρ_B E_B/π.</li>
+<li><strong>Cloud:</strong> the cloud's source radiance gains R(τ_col, μ0) E_B/π, with the same <code>cloud_reflectance</code> the dome uses. A marched deck uses each ray's own depth brought to the vertical (τ_ray sin el); the uniform blend uses the preset's <code>optical_depth</code>, or <code>CLOUD_BASE_ALBEDO</code> = 0.55 (the dome's value, now one constant) for a <code>tau</code> preset.</li>
+<li>Every term needs the skylight, and an emissive band has none (<code>skylight_for_sensor</code> returns <code>None</code>), so <strong>LWIR is bit-identical</strong>. MWIR (<code>mixed</code>) gains the terms, as it physically should.</li>
+<li>The shipped presets: <code>clear_dry</code> and <code>overcast</code> use <code>soil_dry</code>, <code>humid</code> and <code>scattered_cumulus</code> use <code>vegetation_leaf</code>, and <code>sea_clear_day</code> uses <code>water</code>.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<p>Measured at 45 N at midsummer noon, DNI 650 / DHI 140 W m⁻², the <code>clear_dry</code> ground (<code>test_sunlit_environment.py</code>, 11 cases):</p>
+<ul>
+<li><strong>V_s = 0 environment:</strong> NIR 7.8e-16 → <strong>8.55</strong> W m⁻² sr⁻¹, SWIR 9.2e-8 → <strong>13.4</strong>. The underside now reads 0.99× (NIR) and 0.91× (SWIR) of the topside instead of zero. A 0.78 panel reads ρ · albedo · E_B/π against a numpy-only oracle, well inside the 5 % the roadmap asked for.</li>
+<li><strong>Deck clouds against clear sky, median:</strong> NIR 1.00 → <strong>6.7×</strong>, SWIR 1.00 → <strong>13.2×</strong>. A thin edge is dimmer than a deep core, which is the dome's texture.</li>
+<li>A real night (sun down, DHI 0) is exactly 0.0. Below the horizon the beam is cut and the weather's own DHI is kept, because twilight is real and the weather is the authority on it.</li>
+</ul>
+<p>Known and flagged:</p>
+<ul>
+<li>R ignores droplet absorption, so a thick SWIR cloud is somewhat too bright (single-scattering albedo ~0.99 near 1.6 µm).</li>
+<li>A base drawn as a reflector of R is the dome's convention, not diffuse transmission (option 3).</li>
+<li>τ_ray sin el underestimates the column where a ray leaves a tower through its side.</li>
+<li>The ground is Lambertian, flat and unshadowed, with no terrain geometry. A sea ground is a diffuse reflector here and its glint is not modelled.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>The visible dome moves to diffuse transmission (option 3), after which both bands move together; a measured SWIR cloud reflectance or single-scattering albedo is available; or the ground gains geometry (<code>AT.8</code>, a second-hit ray).</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

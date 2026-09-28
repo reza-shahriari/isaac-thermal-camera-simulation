@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phantom4 perpart — irsim</title>
+<meta name="description" content="Every part of the Phantom 4 carries its own temperature history (`phantom4_perpart.yaml`).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Phantom4 perpart</h1><p class="subtitle">Every part of the Phantom 4 carries its own temperature history (`phantom4_perpart.yaml`).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py" target="_blank" rel="noopener">tests/unit/test_phantom4_perpart.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>phantom4_parts.yaml</code> gives the decomposition of ADR 0138 four thermal nodes, so its four motors read identically at every instant. A viewer cannot tell that from a simulator unable to do better, which is what the per-part scene exists to refute. These tests pin the three claims the scene makes, on the scene's own solvers, engine-free:</p>
+<ul>
+<li><strong>Nineteen parts, no two on the same node.</strong> <code>render_phantom4.target_for_part</code> resolves each part of <code>configs/assets/phantom4_parts.yaml</code> against the scene's target names, and every part lands on a different node or on its own mesh surface -- the scene, not the driver's map, decides how fine the nodes are.</li>
+<li><strong>Same-kind parts differ, the way a flight makes them differ.</strong> In the right-hand orbit the left pair runs hotter than the right pair by more than 4 K (eighty NETDs on a Boson); in the left-hand orbit the mirror; in cruise the rear pair leads the front.</li>
+<li><strong>They converge again.</strong> Landed and idle, the four motors are within 0.1 K of each other: the differences were the mission, not four different models.</li>
+</ul>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py" target="_blank" rel="noopener">tests/unit/test_phantom4_perpart.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py#L71" target="_blank" rel="noopener">every part of the asset resolves to its own node or surface</a><br><code>test_every_part_of_the_asset_resolves_to_its_own_node_or_surface</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py#L91" target="_blank" rel="noopener">a part the scene never heard of falls to the airframe</a><br><code>test_a_part_the_scene_never_heard_of_falls_to_the_airframe</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py#L100" target="_blank" rel="noopener">same kind parts differ the way the flight makes them differ</a><br><code>test_same_kind_parts_differ_the_way_the_flight_makes_them_differ</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py#L122" target="_blank" rel="noopener">the motors converge again once landed</a><br><code>test_the_motors_converge_again_once_landed</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_phantom4_perpart.py#L130" target="_blank" rel="noopener">each propeller follows its own motor</a><br><code>test_each_propeller_follows_its_own_motor</code></td><td>The four propellers' speed schedules are not copies: each tracks its station's throttle.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

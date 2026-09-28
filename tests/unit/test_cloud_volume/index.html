@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloud volume — irsim</title>
+<meta name="description" content="The cloud deck written as a volume the renderer can load (AT.13, ADR 0140).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Cloud volume</h1><p class="subtitle">The cloud deck written as a volume the renderer can load (AT.13, ADR 0140).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py" target="_blank" rel="noopener">tests/unit/test_cloud_volume.py on GitHub</a></div>
+
+<article class="prose">
+<p>These are the checks that do not need a renderer. What a written grid <em>looks like</em> to RTX is not knowable here and is <code>scripts/probe_cloud_volume.py</code>'s job; what is knowable here is that the file is a valid OpenVDB, that it carries the field the infrared band marches, and that a voxel lands where the deck says it does -- a volume in the wrong place renders perfectly and is wrong.</p>
+<p class='made-by'>5 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py" target="_blank" rel="noopener">tests/unit/test_cloud_volume.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py#L30" target="_blank" rel="noopener">the written file is an openvdb a stranger can read</a><br><code>test_the_written_file_is_an_openvdb_a_stranger_can_read</code></td><td>Not "Warp reads back what Warp wrote". The format's own library, in a fresh read, with the name a <code>UsdVol.Volume</code> field relationship binds by.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py#L47" target="_blank" rel="noopener">the volume is sparse which is the whole reason for the format</a><br><code>test_the_volume_is_sparse_which_is_the_whole_reason_for_the_format</code></td><td>A cumulus deck is mostly clear air. If the empty space were stored the grid would be seven times the size and a finer voxel would stop being affordable -- which is the thing that makes a good-looking cloud reachable at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py#L58" target="_blank" rel="noopener">a voxel lands where the deck puts it</a><br><code>test_a_voxel_lands_where_the_deck_puts_it</code></td><td><strong>The failure this exists for is silent.</strong> A volume with the wrong transform renders beautifully, in the wrong place -- underground, or a kilometre to one side -- and nothing in the frame says which. So the grid's own index-to-world map is checked against the deck's geometry rather than against the array that was handed to it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py#L83" target="_blank" rel="noopener">the grid carries the field the infrared band marches</a><br><code>test_the_grid_carries_the_field_the_infrared_band_marches</code></td><td>One deck, two consumers (ADR 0127). The volume the path tracer renders has to be a <em>sampling</em> of <code>density_at</code>, not a second cloud that resembles it -- if these two ever disagree the bands disagree about where the cloud is, which is the defect the whole design exists to make impossible.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_cloud_volume.py#L115" target="_blank" rel="noopener">a clear sky writes an empty grid rather than failing</a><br><code>test_a_clear_sky_writes_an_empty_grid_rather_than_failing</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirror by guess — irsim</title>
+<meta name="description" content="AT.18 — a name glob may not decide that a surface is a mirror.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Mirror by guess</h1><p class="subtitle">AT.18 — a name glob may not decide that a surface is a mirror.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mirror_by_guess.py" target="_blank" rel="noopener">tests/unit/test_mirror_by_guess.py on GitHub</a></div>
+
+<article class="prose">
+<p>Emissivity is a property of the <em>surface state</em>, not of the substance (docs/physics-model.md §4.5), and the two are not recoverable from each other: an asset whose material is called "Metal" may be polished, anodised or painted, and the published spread for one aluminium runs 0.055–0.856. The cost of choosing wrong is not symmetric. Reading a matte housing as polished replaces the part's own temperature with the sky's, and the sky in LWIR is tens of kelvin colder than anything on an airframe; reading a polished trim ring as matte costs a few tenths.</p>
+<p>So the rule is about <em>who</em> is allowed to say it, not about which answer is likelier: a semantic class or a name glob is an inference from what somebody called a thing, while a per-asset map or a prim override is a statement about that asset. Only the second may reach a mirror.</p>
+<p>This is a physics test, not a lint: the first case measures what the mistake costs through the band LUT rather than asserting that a YAML field changed.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mirror_by_guess.py" target="_blank" rel="noopener">tests/unit/test_mirror_by_guess.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mirror_by_guess.py#L59" target="_blank" rel="noopener">guessing polished metal costs thirty eight kelvin</a><br><code>test_guessing_polished_metal_costs_thirty_eight_kelvin</code></td><td>The measurement AT.18 exists for.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mirror_by_guess.py#L87" target="_blank" rel="noopener">no guessing route in the shipped rules reaches a mirror</a><br><code>test_no_guessing_route_in_the_shipped_rules_reaches_a_mirror</code></td><td>The invariant, over the rules the project actually ships.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mirror_by_guess.py#L105" target="_blank" rel="noopener">the audit fails a guessed mirror and passes an asserted one</a><br><code>test_the_audit_fails_a_guessed_mirror_and_passes_an_asserted_one</code></td><td>The gate, on rules built to break it — the audit must catch rather than merely pass.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mirror_by_guess.py#L136" target="_blank" rel="noopener">guessed mirrors names the rule that fired</a><br><code>test_guessed_mirrors_names_the_rule_that_fired</code></td><td>The report has to say <em>why</em>, or the fix is a search rather than an edit.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

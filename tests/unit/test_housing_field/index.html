@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Housing field — irsim</title>
+<meta name="description" content="SC.17: the housing is seen through the field, not added as one number (§8.2, ADR 0145).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Housing field</h1><p class="subtitle">SC.17: the housing is seen through the field, not added as one number (§8.2, ADR 0145).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py" target="_blank" rel="noopener">tests/unit/test_housing_field.py on GitHub</a></div>
+
+<article class="prose">
+<p>A pixel at field angle θ sees the aperture as the projected solid angle Ω_eff RI_ij and the inside of the camera over the rest of its hemisphere. With lens and housing at one temperature the power on a uniform scene, referenced to the optical axis, is</p>
+<p>Φ_ij = A_d Ω_eff [L_h + τ_opt RI_ij (L_scene − L_h)]</p>
+<p>so the relative illumination multiplies the scene <em>minus</em> the housing. Every test here would fail on the pre-SC.17 form Φ = A_d Ω_eff [τ RI L_scene + (1 − τ) L_h], which darkens the corners of every scene, including one at the housing temperature.</p>
+<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py" target="_blank" rel="noopener">tests/unit/test_housing_field.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L74" target="_blank" rel="noopener">the shading has the sign of scene minus housing</a><span class="tag">parametrize</span><br><code>test_the_shading_has_the_sign_of_scene_minus_housing</code></td><td>Colder than a 300 K housing (a clear sky), the corners are brighter; warmer, darker.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L81" target="_blank" rel="noopener">a scene at the housing temperature is not shaded</a><br><code>test_a_scene_at_the_housing_temperature_is_not_shaded</code></td><td>An isothermal enclosure: every pixel sees 300 K whichever way it looks.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L88" target="_blank" rel="noopener">the shading depth is the closed form</a><br><code>test_the_shading_depth_is_the_closed_form</code></td><td>Corner minus centre is A_d Ω_eff τ (RI_corner − RI_centre)(L_scene − L_h), exactly.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L102" target="_blank" rel="noopener">on axis power is the single lens form exactly</a><br><code>test_on_axis_power_is_the_single_lens_form_exactly</code></td><td>With RI = 1 (cos⁴ off, no map) the new term is the old A_d Ω_eff (1 − τ) L_h to 1e-12, so no on-axis number the project has measured -- the 87 mK/K housing sensitivity, NETD -- moves.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L117" target="_blank" rel="noopener">the change from the old form is the out of cone housing view</a><br><code>test_the_change_from_the_old_form_is_the_out_of_cone_housing_view</code></td><td>New − old = A_d Ω_eff τ (1 − RI_ij) L_h: the housing a pixel sees in place of scene.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L134" target="_blank" rel="noopener">round trip is exact everywhere at the calibration housing</a><br><code>test_round_trip_is_exact_everywhere_at_the_calibration_housing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L142" target="_blank" rel="noopener">a drifted housing reads back as a radial shading</a><br><code>test_a_drifted_housing_reads_back_as_a_radial_shading</code></td><td>The camera inverts with its <em>calibration</em> housing. A housing 1 K warmer adds A_d Ω_eff (1 − τ RI) ΔL_h, which reads back as ΔL_h (1 − τ RI)/(τ RI), deepest in the corners. The old scalar form gives (1 − τ)/(τ RI) instead: at a corner RI of 0.8 that is a third of the new value, so the closed form below separates the two.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L167" target="_blank" rel="noopener">a measured map is loaded from the config and deepens the shading</a><br><code>test_a_measured_map_is_loaded_from_the_config_and_deepens_the_shading</code></td><td><code>optics.vignetting_map</code> was a schema key nothing read. It now multiplies cos⁴ into RI.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L201" target="_blank" rel="noopener">a missing map file is an error naming it</a><br><code>test_a_missing_map_file_is_an_error_naming_it</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L210" target="_blank" rel="noopener">the map loader refuses float16 and the wrong grid</a><br><code>test_the_map_loader_refuses_float16_and_the_wrong_grid</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_housing_field.py#L220" target="_blank" rel="noopener">relative illumination outside 0 1 is refused</a><br><code>test_relative_illumination_outside_0_1_is_refused</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

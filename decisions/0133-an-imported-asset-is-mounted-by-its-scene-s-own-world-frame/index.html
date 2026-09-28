@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../">Overview</a></li>
 <li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
 <li><a href="../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,12 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>ADR 0133 — An imported asset is mounted by its scene&#x27;s own world frame, and it flies</h1>
-  
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0133-an-imported-asset-is-mounted-by-its-scene-s-own-world-frame.md" target="_blank" rel="noopener">docs/decisions/0133-an-imported-asset-is-mounted-by-its-scene-s-own-world-frame.md on GitHub</a>
-</div>
+<div class="page-head"><h1>ADR 0133 — An imported asset is mounted by its scene&#x27;s own world frame, and it flies</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0133-an-imported-asset-is-mounted-by-its-scene-s-own-world-frame.md" target="_blank" rel="noopener">docs/decisions/0133-an-imported-asset-is-mounted-by-its-scene-s-own-world-frame.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
 <li class="toc-2"><a href="#options-considered">Options considered</a></li>
 <li class="toc-2"><a href="#decision">Decision</a></li>
-<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#addendum-ai2-2026-09-24-the-mount-reaches-the-mesh-bridge-through-the-binding">Addendum (AI.2, 2026-09-24): the mount reaches the mesh bridge through the binding</a></li></ul></nav>
 <article class="prose">
 <p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-23 Extends <a href="../0128-per-asset-material-mapping-and-the-blender-prep-path/">ADR 0128</a> (the asset pipeline) and <a href="../0073-visible-companion-environment-dome/">ADR 0073</a> (the companion visible frame). Roadmap: <code>AI.2</code>.</p>
 <h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
@@ -86,9 +84,19 @@
 <li>The infrared frame and the companion visible frame come out of one capture on one pixel grid, which makes the companion usable as a check on the infrared rather than as decoration. The nose direction of this asset was determined from the archive (the gimbal, its lens, and DJI's green rear LEDs) and <strong>confirmed in the companion frame</strong>; there is no other way to check it, because the asset's prims are all named <code>GeometryNode_&lt;n&gt;</code>.</li>
 <li>Option 1 remains open and is the right answer for a <em>second</em> imported convention. What this ADR buys is that the driver does not have to be rewritten when it lands: the rotation is already a named function with tests, and making it the identity is all that changes.</li>
 </ul>
+<h2 id="addendum-ai2-2026-09-24-the-mount-reaches-the-mesh-bridge-through-the-binding">Addendum (<code>AI.2</code>, 2026-09-24): the mount reaches the mesh bridge through the <em>binding</em><a class="anchor" href="#addendum-ai2-2026-09-24-the-mount-reaches-the-mesh-bridge-through-the-binding" aria-label="permalink">#</a></h2>
+<p>This ADR settled how an asset is mounted on the stage. It did not say how the object that queries the asset's triangles learns about that mount, because when it was written nothing queried them from a render: <code>MeshPointBridge</code> existed and <code>IrCamera</code> had no way to take one.</p>
+<p>Wiring it up (<code>mesh_fields=</code>) made the omission expensive in the least helpful way available. <code>TriangleMeshPatch.frame</code> is a <em>name</em>, and the thermal core refuses any value but <code>"world"</code>: <code>scene_forcing</code> needs a pose to put a shadow in a moving frame and the patch does not carry one, which is the same constraint behind this ADR's "the camera moves, the aircraft stands still". So the patch keeps calling the archive's coordinates <code>world</code> — and the render stage is Y-up with the aircraft flying a track, which means a world position handed to the bridge is nowhere near the archive coordinates the mesh is expressed in. Every closest-point query fell outside <code>DEFAULT_MAX_DISTANCE_M</code> (7 mm), coverage came back <strong>zero for every prim, and nothing raised</strong>: a query in the wrong frame is not an error, it is a query that finds nothing.</p>
+<p>The first fix attempted was a <code>frame:</code> key in the scene YAML, and the core refused it. That refusal is correct and is the decision this addendum records:</p>
+<p><strong>Mounting is a rendering fact, so it is expressed on <code>MeshBinding</code>, not on the patch.</strong> <code>MeshBinding.frame</code> names the prim whose local frame world points are transformed into before they are queried, defaulting to the patch's own <code>frame</code> so nothing that already worked changes. <code>MeshPointBridge</code> groups its bindings by that name and <code>IrCamera._world_from_local</code> unions the frames both bridges ask for, so the planar and mesh paths resolve their poses through one mechanism.</p>
+<p>Consequences:</p>
+<ul>
+<li>A scene that mounts an asset and forgets to say so still reads as coverage 0 rather than as an exception. That is a real trap and the reason the count is written into every run's <code>summary.json</code>: a render that silently falls back to per-prim temperatures looks fine.</li>
+<li>The thermal core keeps its invariant — one frame, named <code>world</code> — and gains no knowledge of stages, tracks or Xforms. The engine-free side of this repository still solves the same scene with no renderer present.</li>
+</ul>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

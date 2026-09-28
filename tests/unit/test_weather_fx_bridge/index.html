@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,11 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Weather fx bridge</h1>
-  <p class="subtitle">The seam between this project and the isaac-weather-fx submodule.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py" target="_blank" rel="noopener">tests/unit/test_weather_fx_bridge.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Weather fx bridge</h1><p class="subtitle">The seam between this project and the isaac-weather-fx submodule.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py" target="_blank" rel="noopener">tests/unit/test_weather_fx_bridge.py on GitHub</a></div>
 
 <article class="prose">
 <p>The submodule owns where the cloud is; this project owns what the cloud radiates. The tests here are about the <em>joint</em> between the two, which is where a silent disagreement would live: a rotated azimuth convention, an emission height measured from the wrong datum, a band ratio applied twice. Each of those produces a picture that looks like weather.</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py" target="_blank" rel="noopener">tests/unit/test_weather_fx_bridge.py</a>. The whole file is marked <code>skipif(not weather_fx_available()</code>.</p>
+<p class='made-by'>14 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py" target="_blank" rel="noopener">tests/unit/test_weather_fx_bridge.py</a>. The whole file is marked <code>skipif(not weather_fx_available()</code>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L39" target="_blank" rel="noopener">both projects place a direction the same way</a><br><code>test_both_projects_place_a_direction_the_same_way</code></td><td><strong>The silent one.</strong> If the two conventions differ the whole cloud field is rotated about the observer: the infrared band puts cloud where the visible band puts sky, and every frame still looks like a sky. Checked against weather-fx's own vector, not against a copy of it.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L54" target="_blank" rel="noopener">the same convention is the one the visible dome uses</a><br><code>test_the_same_convention_is_the_one_the_visible_dome_uses</code></td><td><code>irsim_isaac.visible_sky.stage_direction</code> is what bakes the companion frame's sky, so it has to be the third member of the same agreement. Imported lazily: it is engine glue, but the function itself is pure numpy.</td></tr>
@@ -72,10 +69,14 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L115" target="_blank" rel="noopener">the base comes from the dew point spread</a><br><code>test_the_base_comes_from_the_dew_point_spread</code></td><td>125 m per kelvin, so a scene states a temperature and a humidity rather than a height.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L123" target="_blank" rel="noopener">the cover that comes back is the one that was asked for</a><br><code>test_the_cover_that_comes_back_is_the_one_that_was_asked_for</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L128" target="_blank" rel="noopener">a missing submodule says how to fix it rather than failing to import</a><br><code>test_a_missing_submodule_says_how_to_fix_it_rather_than_failing_to_import</code></td><td>The failure a new checkout meets first, so the message has to carry the command.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L162" target="_blank" rel="noopener">the adaptive march agrees with a dense reference to the detector s noise</a><br><code>test_the_adaptive_march_agrees_with_a_dense_reference_to_the_detector_s_noise</code></td><td>One sample per grid pitch is enough: against a 2048-step march of the same field the emissivity differs by under 0.01 at the 99th percentile and the emission level by under a level, which at the preset lapse is under 0.4 K of cloud temperature.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L177" target="_blank" rel="noopener">the march s error is less banded than the one it replaces</a><br><code>test_the_march_s_error_is_less_banded_than_the_one_it_replaces</code></td><td>The defect this replaces: weather-fx's jitter is a smooth function of the direction, so neighbouring pixels' quadrature errors share a sign and print as rings. Measured on the shipped decks the lag-one correlation of its residual along a row is 0.84-0.90; this march's is 0.4-0.56 at the same step count, and what remains is the edge structure both share, not the sampling. Both numbers are pinned, as a bound on ours and a margin over theirs.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L204" target="_blank" rel="noopener">the step count follows the longest crossing</a><br><code>test_the_step_count_follows_the_longest_crossing</code></td><td>A shallow ray crosses more slab than a steep one and gets more samples for it, two per grid pitch, between the floor and the cap.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_weather_fx_bridge.py#L216" target="_blank" rel="noopener">the ray hash is not smooth in the direction</a><br><code>test_the_ray_hash_is_not_smooth_in_the_direction</code></td><td>Adjacent pixels get unrelated offsets; the hash is deterministic.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

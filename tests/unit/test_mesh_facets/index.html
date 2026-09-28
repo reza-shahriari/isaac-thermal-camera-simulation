@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mesh facets — irsim</title>
+<meta name="description" content="Facet angles are exact on analytic shapes, and the resolvable angle follows the sagitta (AI.10).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Mesh facets</h1><p class="subtitle">Facet angles are exact on analytic shapes, and the resolvable angle follows the sagitta (AI.10).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py" target="_blank" rel="noopener">tests/unit/test_mesh_facets.py on GitHub</a></div>
+
+<article class="prose">
+<p>Every number here is geometry with a closed form: an N-segment cylinder's side edges are exactly 360/N degrees, its cap edges exactly 90°, a chord's miss is r(1 − cos α/2). A metric that is wrong by a weld, a winding or a band boundary gets one of them wrong. ADR 0155.</p>
+<p class='made-by'>17 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py" target="_blank" rel="noopener">tests/unit/test_mesh_facets.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L59" target="_blank" rel="noopener">an n segment cylinder has side edges of exactly 360 over n</a><span class="tag">parametrize</span><br><code>test_an_n_segment_cylinder_has_side_edges_of_exactly_360_over_n</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L67" target="_blank" rel="noopener">a glTF style split mesh measures the same as a welded one</a><br><code>test_a_glTF_style_split_mesh_measures_the_same_as_a_welded_one</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L75" target="_blank" rel="noopener">a flipped face does not change the measured angle</a><br><code>test_a_flipped_face_does_not_change_the_measured_angle</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L86" target="_blank" rel="noopener">the diagonal of a flat quad is zero degrees</a><br><code>test_the_diagonal_of_a_flat_quad_is_zero_degrees</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L95" target="_blank" rel="noopener">a low poly 8 segment cylinder is faceted and a 72 segment one is not</a><br><code>test_a_low_poly_8_segment_cylinder_is_faceted_and_a_72_segment_one_is_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L102" target="_blank" rel="noopener">a cube is all crease and passes</a><br><code>test_a_cube_is_all_crease_and_passes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L106" target="_blank" rel="noopener">the fraction is by edge length not by count</a><br><code>test_the_fraction_is_by_edge_length_not_by_count</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L120" target="_blank" rel="noopener">sagitta has its closed form</a><br><code>test_sagitta_has_its_closed_form</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L125" target="_blank" rel="noopener">the resolvable angle puts the sagitta at exactly half a pixel</a><br><code>test_the_resolvable_angle_puts_the_sagitta_at_exactly_half_a_pixel</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L131" target="_blank" rel="noopener">closer or finer cameras demand finer facets</a><br><code>test_closer_or_finer_cameras_demand_finer_facets</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L136" target="_blank" rel="noopener">a curve under half a pixel needs no facets</a><br><code>test_a_curve_under_half_a_pixel_needs_no_facets</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L140" target="_blank" rel="noopener">bad inputs are refused</a><br><code>test_bad_inputs_are_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L183" target="_blank" rel="noopener">a glb mesh split into primitives is measured as one welded solid</a><br><code>test_a_glb_mesh_split_into_primitives_is_measured_as_one_welded_solid</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L198" target="_blank" rel="noopener">a file that is not a glb is refused</a><br><code>test_a_file_that_is_not_a_glb_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L209" target="_blank" rel="noopener">an edge knows its sagitta without being told the radius</a><span class="tag">parametrize</span><br><code>test_an_edge_knows_its_sagitta_without_being_told_the_radius</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L218" target="_blank" rel="noopener">a coarse screw head passes where a coarse fuselage fails</a><br><code>test_a_coarse_screw_head_passes_where_a_coarse_fuselage_fails</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_mesh_facets.py#L230" target="_blank" rel="noopener">a designed crease is never faceted whatever its size</a><br><code>test_a_designed_crease_is_never_faceted_whatever_its_size</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

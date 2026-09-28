@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0151 — The ADC floor is zero scene radiance — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0151 — The ADC floor is zero scene radiance</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0151-the-adc-floor-is-zero-scene-radiance.md" target="_blank" rel="noopener">docs/decisions/0151-the-adc-floor-is-zero-scene-radiance.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-27 Roadmap: SC.23. Spec: <code>docs/physics-model.md</code> §11.1 ("The raw DN must hold the coldest scene"), spec issue S53. Amends the pipeline default range of <a href="../0021-nuc-level-and-sitf-route/">ADR 0021</a> at its lower end; the upper end, the housing-at-calibration inversion and the two routes stand.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0021 sized the bolometer's DN gain so that blackbodies at −40 °C and +200 °C (<code>RADIOMETRIC_RANGE_K</code>) span the ADC, which put DN 0 at −40 °C. That is a datasheet's <em>specified</em> range, not a converter floor: a real core references its DN to the shutter and adds a mid-scale pedestal, so zero radiance is still on scale. The model's version clipped every scene colder than −40 °C to one code. In the saved <code>phantom4_perpart</code> planes that is up to <strong>66 %</strong> of a frame (frame 56), and the AGC then sees one bin holding most of the image.</p>
+<p>The roadmap row proposed moving DN 0 to the band LUT's floor, 200 K. Measured before coding, that is not low enough. On the Boson response the layered model's zenith sky falls below L_B(200 K) whenever the air is at or below 0 °C, in every shipped preset. <code>us_standard_clear</code> at 15 °C and 20 % RH gives 210 K. The coldest case walked (haze preset, −40 °C air, 2 % RH) has L = 1.38 W m⁻² sr⁻¹ against L_B(200 K) = 5.56. A dry winter zenith reading −80 °C or colder in 8–14 µm is also what field measurements report, so the model is not the thing to fix.</p>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>DN 0 at the LUT's 200 K.</strong> Clears <code>phantom4_perpart</code> (coldest pixel 226 K) and keeps DN and LUT on one floor, but clips any winter sky. It fails §11.1 on the next cold scene.</li>
+<li><strong>Extend the LUT below 200 K and put DN 0 there.</strong> Moves the problem to a new number and regenerates every LUT bundle for it.</li>
+<li><strong>DN 0 at zero scene radiance.</strong> No scene can go below it. The DN of a sky colder than 200 K is still correct and distinct; only its <em>apparent temperature</em> clamps at the LUT floor, flagged by <code>radiance_out_of_range</code> as before (ADR 0011).</li>
+<li><strong>A pedestal below zero radiance</strong>, as real cores carry. Faithful to the hardware, but it spends codes on radiance no scene produces, and nothing downstream reads the offset.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Option 3. <code>ADC_FLOOR_RADIANCE = 0.0</code> in <code>irsim.pipeline.core</code>. <code>PipelineConfig.from_sensor</code> builds a bolometer's calibration with <code>RadiometricCalibration.from_radiance_range(sensor, lut, 0.0, L_B(T_top), T_cal)</code>. <code>from_scene_range</code> now delegates to that and is otherwise unchanged. The pixel still receives a positive flux at zero scene radiance, because the housing fills the rest of its view, so the transfer's offset stays non-negative.</p>
+<p><code>RADIOMETRIC_RANGE_K</code> keeps its value and now means only what its name says: the span the radiometry is specified over. Its top is still the ADC's top code, the gain states still replace that top (ADR 0116), and the flat field's two bench blackbodies still sit at its ends. <code>adc_floor_radiance=None</code> restores the pre-SC.23 transfer, so the old clip can be reproduced.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>Every bolometer DN moves. The gain falls by exactly (L_top − L_233)/L_top: the Boson's DN/K at 300 K goes from <strong>177.95 to 170.33</strong> (−4.3 %), 5.9 mK a code on a 16-bit converter, still a ninth of a 50 mK NETD. No kelvin-denominated quantity moves: noise and the NUC residual are converted through the transfer (<code>dn_per_kelvin</code>).</li>
+<li>The DN16 route now round-trips inside half a code across the whole LUT: ≤ <strong>9.5 mK</strong> from 200.3 to 470 K, where it was 33 K out at 200 K.</li>
+<li>Goldens regenerated deliberately. Every bolometer <code>dn16</code> moves (~2 500 DN, the offset) and <code>display8</code> by up to 9 codes. The float <code>radiance</code> and <code>apparent_t</code> planes move by at most <strong>0.06 mK</strong>, float32 round-off through a different gain. The one exception is a <em>late dead pixel</em> in the sensor-chain golden (SC.19 leaves it in the image). It read 233.12 K because DN 0 meant −40 °C, and now reads the LUT's 200 K clamp. A dead pixel is not a −40 °C scene, so the new value is the honest one. Photon cameras have no calibration of this kind and are bit-identical.</li>
+<li><code>tests/unit/test_adc_floor.py</code> walks every atmosphere preset through a cold-to-humid weather grid and requires both that the coldest zenith sky sits more than 100 DN above zero and that at least one sky falls under L_B(200 K). Moving the floor back to 200 K fails the first clause. If the second one fails, this ADR's premise has changed.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<p>A camera's published DN-to-radiance calibration gives a real pedestal and scale (then option 4, with its numbers), or a photon FPA gains an ADC transfer referenced to scene temperature.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

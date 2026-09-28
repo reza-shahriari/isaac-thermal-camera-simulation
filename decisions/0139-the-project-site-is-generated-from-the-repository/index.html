@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../">Overview</a></li>
 <li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
 <li><a href="../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main has-toc">
-<div class="page-head">
-  <h1>ADR 0139 — The project site is generated from the repository, and carries web-sized renders</h1>
-  
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0139-the-project-site-is-generated-from-the-repository.md" target="_blank" rel="noopener">docs/decisions/0139-the-project-site-is-generated-from-the-repository.md on GitHub</a>
-</div>
+<div class="page-head"><h1>ADR 0139 — The project site is generated from the repository, and carries web-sized renders</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0139-the-project-site-is-generated-from-the-repository.md" target="_blank" rel="noopener">docs/decisions/0139-the-project-site-is-generated-from-the-repository.md on GitHub</a></div>
 <nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
 <li class="toc-2"><a href="#options-considered">Options considered</a></li>
 <li class="toc-2"><a href="#decision">Decision</a></li>
@@ -81,7 +78,7 @@
 <p>Specifics worth recording:</p>
 <ul>
 <li><strong>The gallery is a committed manifest over uncommitted media.</strong> <code>site/gallery.yaml</code> names the frames and clips worth showing and says what each one demonstrates; the files themselves come from <code>$IRSIM_OUTPUTS</code> (default <code>outputs/</code>). An entry the checkout cannot supply is listed on the page rather than dropped, so a reader can tell the difference between "not modelled" and "not rendered here". No <code>.npy</code> plane is ever published.</li>
-<li><strong>Everything is re-encoded.</strong> H.264 CRF 34 capped at 720 px, <code>+faststart</code>, no audio; stills to WebP. Measured on this checkout: 436.8 MB of source renders become 20.6 MB, and the whole site is 25 MB. The sensor grain survives, which matters — it is the model's output, not an artefact.</li>
+<li><strong>Everything is re-encoded</strong>, at the source's own resolution up to 1280 px, H.264 CRF 23, <code>+faststart</code>, no audio; stills to WebP. Measured on this checkout: 436.8 MB of source renders become 38.5 MB, and the whole site is 46 MB against the ~1 GB Pages publishes. The first version of this capped at 720 px and CRF 34, which is right for the four reflective-band clips whose content is mostly sensor grain and wrong for everything else: it halved each panel of a 1280 × 512 side-by-side comparison and then blurred what was left. Those four clips now carry <code>max_width: 720</code> and <code>crf: 34</code> as per-item overrides — the aggressive setting belongs on the items that need it, not on the default. The grain survives either way, which matters: it is the model's output, not a compression artefact.</li>
 <li><strong>Maths is passed through, not rendered.</strong> <code>$…$</code> and <code>$$…$$</code> spans are extracted before any inline pass so that <code>\tau_{\text{opt}}</code> cannot be mangled into emphasis by its own underscores, and KaTeX typesets them in the browser.</li>
 <li><strong>Every URL is relative.</strong> Project pages are served from <code>/&lt;repo&gt;/</code>, where a root-absolute link 404s while working perfectly in a local preview. A test asserts no built page contains one.</li>
 <li><strong>Everything presentable is published, and the docstring is the publication.</strong> The owner's rule is that anything a reader outside the conversation would be better off seeing belongs on the site, and only debug output does not. So the test suite is published <em>in full</em> — a page per test file, every test listed with what it asserts — rather than counted, because in this project a frame that is wrong by 20 K looks exactly as convincing as one that is right, and the assertions are the only evidence there is. The same reasoning puts <code>scripts/</code> and the project's own skills on the site. The cost is that a missing docstring is now a blank cell on a public page rather than a private annoyance, which is the intended pressure; <code>tests/unit/test_site_build.py</code> holds the floor by failing if any test file has no module docstring.</li>
@@ -96,7 +93,7 @@
 <p>A second person needs to publish, or the site needs to update on every push — at that point the document half could be built in CI and the media half published from a machine that has the renders, and the two merged; or when the corpus starts wanting a Markdown construct the renderer does not have, and adding it costs more than a dependency would.</p>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

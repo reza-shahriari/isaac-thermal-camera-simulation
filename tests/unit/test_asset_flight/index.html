@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,15 +53,11 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Asset flight</h1>
-  <p class="subtitle">The mount rotation and the flight path of an imported asset (AI.2).</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py" target="_blank" rel="noopener">tests/unit/test_asset_flight.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Asset flight</h1><p class="subtitle">The mount rotation and the flight path of an imported asset (AI.2).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py" target="_blank" rel="noopener">tests/unit/test_asset_flight.py on GitHub</a></div>
 
 <article class="prose">
 <p>Both are geometry a render driver would otherwise carry inline, and both fail silently: a mirrored mount gives a convincing aircraft facing the wrong way, and a path that dips below the observer's horizon puts near-air-temperature ground behind a warm target instead of cold sky.</p>
-<p class='made-by'>11 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py" target="_blank" rel="noopener">tests/unit/test_asset_flight.py</a>.</p>
+<p class='made-by'>16 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py" target="_blank" rel="noopener">tests/unit/test_asset_flight.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L19" target="_blank" rel="noopener">the stage s own frame needs no rotation</a><br><code>test_the_stage_s_own_frame_needs_no_rotation</code></td><td>A scene already authored in stage axes must mount as the identity, not as a near-identity.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L25" target="_blank" rel="noopener">a z up enu asset lands with its up on y and its north on minus z</a><br><code>test_a_z_up_enu_asset_lands_with_its_up_on_y_and_its_north_on_minus_z</code></td><td>—</td></tr>
@@ -73,10 +70,15 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L83" target="_blank" rel="noopener">the range swings by more than two to one</a><br><code>test_the_range_swings_by_more_than_two_to_one</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L89" target="_blank" rel="noopener">the aircraft never drops below the observer s horizon</a><br><code>test_the_aircraft_never_drops_below_the_observer_s_horizon</code></td><td>Below the horizon the background stops being sky, which is the whole scene's premise.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L96" target="_blank" rel="noopener">the nose follows the velocity it is derived from</a><br><code>test_the_nose_follows_the_velocity_it_is_derived_from</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L117" target="_blank" rel="noopener">the outbound run spans exactly the range band it was given</a><br><code>test_the_outbound_run_spans_exactly_the_range_band_it_was_given</code></td><td>Phase 0 is <code>near_m</code> and phase 1 is <code>far_m</code>, to the bit, with nothing overshooting between.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L132" target="_blank" rel="noopener">the target shrinks at a constant rate rather than in a rush</a><br><code>test_the_target_shrinks_at_a_constant_rate_rather_than_in_a_rush</code></td><td>Equal steps in phase are equal <em>ratios</em> in range, so the aircraft loses the same fraction of its width every frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L150" target="_blank" rel="noopener">the elevation is held so the background stays sky</a><br><code>test_the_elevation_is_held_so_the_background_stays_sky</code></td><td>The aircraft climbs to hold its elevation angle, measured from the position it returns.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L168" target="_blank" rel="noopener">the nose points where the aircraft is going which is away</a><br><code>test_the_nose_points_where_the_aircraft_is_going_which_is_away</code></td><td>Yaw is zero -- the departure aspect -- and it agrees with the velocity it claims to follow.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_flight.py#L191" target="_blank" rel="noopener">a track that would film the wrong thing is refused</a><span class="tag">parametrize</span><br><code>test_a_track_that_would_film_the_wrong_thing_is_refused</code></td><td>Zero or inverted range, and an elevation on the horizon or straight up, all raise.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

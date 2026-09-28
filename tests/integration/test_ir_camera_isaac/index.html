@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Ir camera isaac</h1>
-  <p class="subtitle">Roadmap M10.9a-ii: the camera closed against the renderer -- the lens, then a whole frame.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py" target="_blank" rel="noopener">tests/integration/test_ir_camera_isaac.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Ir camera isaac</h1><p class="subtitle">Roadmap M10.9a-ii: the camera closed against the renderer -- the lens, then a whole frame.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py" target="_blank" rel="noopener">tests/integration/test_ir_camera_isaac.py on GitHub</a></div>
 
 <article class="prose">
 <p>Two things need the engine and nothing else does.</p>
@@ -72,15 +69,15 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L273" target="_blank" rel="noopener">the pinhole model cannot explain the barrel render</a><br><code>test_the_pinhole_model_cannot_explain_the_barrel_render</code></td><td>Reprojecting the distorted render through a zero-coefficient lens must fail, and badly.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L288" target="_blank" rel="noopener">distorted grid reprojects within the budget</a><br><code>test_distorted_grid_reprojects_within_the_budget</code></td><td>The row's criterion: coeffs [−0.28, 0.09, 0, 0, 0] reproject through the config model to better than 0.2 px.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L353" target="_blank" rel="noopener">outputs have the declared dtypes and the native shape</a><br><code>test_outputs_have_the_declared_dtypes_and_the_native_shape</code></td><td>§12.2: float32 radiance, float32 apparent T, uint16 DN, RGBA8 -- at the detector grid.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L367" target="_blank" rel="noopener">no plane is float16 anywhere</a><br><code>test_no_plane_is_float16_anywhere</code></td><td>CLAUDE.md #2 at the engine boundary: 0.25 K spacing against a 50 mK NETD.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L387" target="_blank" rel="noopener">high emissivity prims read back their authored temperature</a><br><code>test_high_emissivity_prims_read_back_their_authored_temperature</code></td><td>A near-black surface radiates itself, so T_app is its own temperature within a few kelvin.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L402" target="_blank" rel="noopener">the aluminium prims show their environment instead of themselves</a><br><code>test_the_aluminium_prims_show_their_environment_instead_of_themselves</code></td><td>eps = 0.09 is a mirror: <code>Trim</code> and <code>Window</code> read nearly alike despite 27 K between them.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L429" target="_blank" rel="noopener">the unmapped prim is painted magenta in the display branch only</a><br><code>test_the_unmapped_prim_is_painted_magenta_in_the_display_branch_only</code></td><td>ADR 0047: a prim nobody mapped is loud in the picture and untouched in the radiometry.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L442" target="_blank" rel="noopener">the clock advances so a sequence is a sequence</a><br><code>test_the_clock_advances_so_a_sequence_is_a_sequence</code></td><td>Each capture moves render time by one frame period; the FFC and the drift depend on it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L378" target="_blank" rel="noopener">no plane is float16 anywhere</a><br><code>test_no_plane_is_float16_anywhere</code></td><td>CLAUDE.md #2 at the engine boundary: 0.25 K spacing against a 50 mK NETD.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L398" target="_blank" rel="noopener">high emissivity prims read back their authored temperature</a><br><code>test_high_emissivity_prims_read_back_their_authored_temperature</code></td><td>A near-black surface radiates itself, so T_app is its own temperature within a few kelvin.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L413" target="_blank" rel="noopener">the aluminium prims show their environment instead of themselves</a><br><code>test_the_aluminium_prims_show_their_environment_instead_of_themselves</code></td><td>eps = 0.09 is a mirror: <code>Trim</code> and <code>Window</code> read nearly alike despite 27 K between them.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L440" target="_blank" rel="noopener">the unmapped prim is painted magenta in the display branch only</a><br><code>test_the_unmapped_prim_is_painted_magenta_in_the_display_branch_only</code></td><td>ADR 0047: a prim nobody mapped is loud in the picture and untouched in the radiometry.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/integration/test_ir_camera_isaac.py#L453" target="_blank" rel="noopener">the clock advances so a sequence is a sequence</a><br><code>test_the_clock_advances_so_a_sequence_is_a_sequence</code></td><td>Each capture moves render time by one frame period; the FFC and the drift depend on it.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

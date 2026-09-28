@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>low2high — irsim</title>
+<meta name="description" content="Make a 3D model&#x27;s geometry fit for synthetic RGB–IR imagery, in whichever direction it needs — a low-poly game or phone-game model up to smooth, faithful geometry (normals, subdivi">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../../decisions/">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>low2high</h1><p class="subtitle">Make a 3D model's geometry fit for synthetic RGB–IR imagery, in whichever direction it needs — a low-poly game or phone-game model up to smooth, faithful geometry (normals, subdivision, displacement, and redesigning parts in Blender through the MCP when nothing less will do), or a heavy mechanical/CAD model (STEP, IGES, or dense OBJ/FBX) down to a tessellation the renderer can carry. Use this skill whenever a model looks faceted or blocky, is "low poly" or "game-ready", comes from CAD or mechanical engineering, arrives as .step/.stp/.iges/.igs, is too heavy to render, or when the facet report fails. It runs after the ingest-asset skill has the model's parts, and it measures before and after every change rather than judging by eye.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/.claude/skills/low2high/SKILL.md" target="_blank" rel="noopener">.claude/skills/low2high/SKILL.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#0-where-this-sits">0. Where this sits</a></li>
+<li class="toc-2"><a href="#1-measure-and-look">1. Measure, and look</a></li>
+<li class="toc-2"><a href="#2-down-cad-and-over-dense-meshes">2. Down: CAD and over-dense meshes</a></li>
+<li class="toc-2"><a href="#3-up-the-low-to-high-ladder">3. Up: the low-to-high ladder</a></li>
+<li class="toc-2"><a href="#4-check-the-pair-then-hand-back">4. Check the pair, then hand back</a></li>
+<li class="toc-2"><a href="#when-to-stop-and-ask">When to stop and ask</a></li></ul></nav>
+<article class="prose">
+<p>Models arrive at two extremes, and both image wrongly:</p>
+<ul>
+<li><strong>game / phone-game models</strong> approximate curves with a handful of flat facets and fake the rest with a normal map. A facet is a step in the surface normal: a shading stripe in the RGB companion, and in the IR a step in directional emissivity and reflected sky — a smooth motor hub renders as bands of different apparent temperature, a structure a detector trained on our frames will learn and real footage never shows;</li>
+<li><strong>mechanical / CAD models</strong> carry exact curves (STEP/IGES) or a tessellation of them dense enough to cost millions of triangles the camera cannot resolve.</li>
+</ul>
+<p>The skill moves each part of a model up or down a ladder until it passes <strong>one measurement</strong>, the same in both directions (ADR 0155):</p>
+<pre><code class="language-bash">python scripts/mesh_facets.py &lt;model.glb | x.meshes.npz&gt; --range-m &lt;closest range&gt; --ifov-mrad &lt;pixel&gt;</code></pre>
+<p>An edge is faceted when its own silhouette error — how far its facets stand off the curve they approximate, <code>(w/2)·tan(θ/4)</code> — exceeds <strong>half a pixel at the closest range the scene flies the object</strong>. No radius to guess, and sub-pixel detail may stay as coarse as it likes: measured on the Phantom 4, the 2.49 M-triangle original has <strong>0 of 41</strong> meshes faceted at 2 m on a 1.36 mrad sensor, and the same model decimated to phone-game density (~100 k faces) has <strong>40 of 41</strong>. Without <code>--range-m/--ifov-mrad</code> the report falls back to an angle band that also flags harmless small details: a list of candidates, not a verdict. Always give it the scene.</p>
+<p>Take the range and IFOV from the scene config and sensor YAML the asset is for; with no scene yet, use the closest range in the lane (aerial demos fly 2–6 m) and the finest sensor in <code>configs/sensors/</code>.</p>
+<p><strong>Two meshes, two budgets.</strong> Everything here improves the <strong>render</strong> mesh. The thermal solver's copy is still planar-dissolved to its own budget by <code>prep_asset.py</code> (ADR 0132, AI.3) — smooth pictures must not make the heat solve slow. So measure the render geometry (<code>prep_asset.py --emit-mesh --dissolve-deg 0</code>, or the <code>.glb</code> itself), never the default thermal archive, whose deliberately merged faces read as faceted.</p>
+<h2 id="0-where-this-sits">0. Where this sits<a class="anchor" href="#0-where-this-sits" aria-label="permalink">#</a></h2>
+<p>After <code>ingest-asset</code> has fetched or registered the model and decomposed it into named parts (its steps 1–6), before the export (its step 7). Work on the part-split scene — <strong>one object per part, object name = part name, material slots untouched</strong> — so the material map and every scene binding still find their keys after the geometry changes. Record everything in a <code>geometry:</code> comment block at the top of <code>configs/assets/&lt;name&gt;.yaml</code>, the way <code>phantom4.yaml</code> records its scale reasoning: per part, the rung reached, the facet numbers before and after, and for any redesign the references it was built from.</p>
+<h2 id="1-measure-and-look">1. Measure, and look<a class="anchor" href="#1-measure-and-look" aria-label="permalink">#</a></h2>
+<ol>
+<li>Facet report with the scene's range and IFOV (above). Keep the output; it is the "before".</li>
+<li>A before picture of the worst parts: Blender through the MCP (<code>render_viewport_to_path</code>, <code>get_screenshot_of_area_as_image</code>), or <code>blender --background</code> with Cycles on the CPU.</li>
+<li>Decide the direction per part: <strong>faceted → go up (§3)</strong>, <strong>over the render budget → go down (§2)</strong>, both fine → leave it alone. A model can need both (a fine CAD body with a coarse imported fastener).</li>
+</ol>
+<h2 id="2-down-cad-and-over-dense-meshes">2. Down: CAD and over-dense meshes<a class="anchor" href="#2-down-cad-and-over-dense-meshes" aria-label="permalink">#</a></h2>
+<p><strong>STEP / IGES</strong> — Blender cannot open them. Tessellate with OpenCascade (the optional <code>cad</code> extra: <code>pip install cadquery-ocp</code> into any Python ≥ 3.10):</p>
+<pre><code class="language-bash">python scripts/tessellate_step.py part.step --out part.glb --angle-deg &lt;a&gt; --chord-mm &lt;c&gt;</code></pre>
+<p>Choose the tolerances from the scene, not by habit: <code>--chord-mm</code> = half the pixel footprint at the closest range (1.36 mrad × 2 m / 2 = 1.36 mm), and <code>--angle-deg</code> from <code>irsim.io.mesh_facets.max_facet_angle_deg(r, range, ifov)</code> for the smallest radius that matters. The CAD assembly tree's <strong>part names come through as glTF node names</strong> and the file's unit is converted to metres, so the part decomposition and the scale are usually free — verify both anyway (one published dimension, as ever). Then register the <code>.glb</code> with <code>scripts/register_local_asset.py</code> and continue in <code>ingest-asset</code>.</p>
+<p><strong>Dense OBJ / FBX from CAD</strong> — check the unit first (CAD exports are usually millimetres: <code>scale_to_metres: 0.001</code>). Reduce only what is over budget, and only in ways the facet report confirms: planar dissolve first (removes coplanar faces, costs no silhouette), then a collapse decimate per part at the ratio that keeps <code>mesh_facets</code> passing at the scene's range — re-measure after every pass. Hidden internals (fasteners inside a housing) can leave the render mesh, but keep any that carry heat as parts for the thermal side: a battery nobody sees still warms the shell.</p>
+<p>CAD rarely carries appearance — often one grey for everything — so materials still come from the real-object research in <code>ingest-asset</code>, not from the file.</p>
+<h2 id="3-up-the-low-to-high-ladder">3. Up: the low-to-high ladder<a class="anchor" href="#3-up-the-low-to-high-ladder" aria-label="permalink">#</a></h2>
+<p>Climb only as far as the report requires, part by part, re-measuring after each rung. Every rung keeps the part's name, its material slots and its published dimensions.</p>
+<p><strong>Rung 1 — normals.</strong> Mark the real creases (designed edges: a flange, a chamfer) as sharp; smooth everything else (smooth by angle, weighted normals). This removes the shading bands inside a surface in both bands — the IR banding in particular — but not the polygon at the silhouette. Cheap and always first.</p>
+<p><strong>Rung 2 — subdivision.</strong> Subdivision Surface with the rung-1 creases carried as crease weights (or support loops) so designed edges stay sharp, level 1–2, then apply. Subdivision <strong>shrinks</strong> convex shapes toward their control cage: re-measure the part's extent against the published dimension and against the before, and fix a shrink with creases, not with a rescale that would move the other parts. Keep the whole asset within the render budget.</p>
+<p><strong>Rung 3 — displacement from the model's own maps.</strong> Many game models carry their real detail in a normal or height map. Turn the height map into geometry (Displace modifier on a subdivided part, strength matched to the map's authored scale), or keep it as a normal map where the geometry would exceed the budget. Detail from the asset's own maps is the artist's intent, not an invention.</p>
+<p><strong>Rung 4 — redesign, through the Blender MCP.</strong> When the part is too crude for any of the above (a propeller that is two flat quads, a hub with six sides and no bolt circle), rebuild it:</p>
+<ol>
+<li>Gather references for the <strong>real</strong> object: manufacturer drawings and spec sheets, product photos from several views, teardown images. The real name from <code>ingest-asset</code> is the search key. Save the URLs.</li>
+<li>Model the part in Blender through the MCP (<code>execute_blender_code</code> for bpy: curves, bevels, booleans, arrays, screw modifiers — prefer operators, inspect before changing, per the MCP's own rules), matching the published dimensions and the reference silhouettes. Build it in the part's local frame so it drops into the same position.</li>
+<li>Replace the low-poly object with the rebuilt one <strong>under the same object name, with the same material slots</strong>, and delete the old one.</li>
+<li>Compare: a render from the reference photo's viewpoint beside the photo (<code>render_viewport_to_path</code>, <code>get_screenshot_of_area_as_image</code>), and the facet report.</li>
+<li>Record it: a redesigned part is <strong>estimated geometry</strong>. In the <code>geometry:</code> block write <code>ESTIMATED — redesigned</code>, what was rebuilt, and the reference URLs. Nothing downstream may treat redesigned geometry as the author's measurement.</li>
+</ol>
+<p>Redesign only what the camera will resolve. A 3 mm bolt head is sub-pixel at every range the aerial lane flies; do not spend a redesign on it.</p>
+<h2 id="4-check-the-pair-then-hand-back">4. Check the pair, then hand back<a class="anchor" href="#4-check-the-pair-then-hand-back" aria-label="permalink">#</a></h2>
+<ul>
+<li><code>mesh_facets.py</code> passes at the scene's range and IFOV — paste the before/after lines into the <code>geometry:</code> block.</li>
+<li>The part-split asset still covers every part (<code>prep_asset.py --emit-parts</code> coverage ≥ 0.95), the material audit still passes, and the extents still match the published dimensions.</li>
+<li><strong>Look at the RGB–IR pair.</strong> The RGB companion is the reference for the IR frame: any facet banding, shrink or seam visible in one band and not the other is a defect. Render the pair with the project's Isaac Sim driver when the A6000 is free (<code>nvidia-smi</code> first, <code>IRSIM_GPU=0</code>); a Blender CPU turntable is enough for the RGB side while iterating.</li>
+<li>Return to <code>ingest-asset</code> step 7 to export <code>.blend</code> + <code>.usdc</code> + <code>.fbx</code> from the refined scene, and ship with <code>ship-step</code>.</li>
+</ul>
+<h2 id="when-to-stop-and-ask">When to stop and ask<a class="anchor" href="#when-to-stop-and-ask" aria-label="permalink">#</a></h2>
+<ul>
+<li>A redesign would need information no reference provides (an interior the photos never show) — say which part and what is missing rather than inventing it.</li>
+<li>Subdivision shrink or a redesign moves a published dimension by more than a few percent and creases do not recover it.</li>
+<li>The render budget cannot be met without the facet report failing at the scene's range — the scene may need a closer-range variant of the asset, which is a decision, not a tweak.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

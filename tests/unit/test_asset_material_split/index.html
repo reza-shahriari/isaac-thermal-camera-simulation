@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asset material split — irsim</title>
+<meta name="description" content="One prim per material: the arithmetic that decides the split and names its pieces (`AI.6`).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Asset material split</h1><p class="subtitle">One prim per material: the arithmetic that decides the split and names its pieces (`AI.6`).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py" target="_blank" rel="noopener">tests/unit/test_asset_material_split.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>AI.4</code> taught the stage walk to read <code>materialBind</code> subsets, which made the <em>audit</em> true about a multi-material mesh. The render stayed wrong, and by construction: the instance-id plane carries one id per prim (ADR 0014), so one prim is one material whatever the asset says. The repair is to regroup the geometry, and this module is the engine-free half of it -- what the pieces are called, and how much area a render gets wrong without them.</p>
+<p>The geometry work is Blender's and is exercised end to end in <code>tests/integration/test_material_split_isaac.py</code> on the committed fixture. What is here needs neither Blender nor Kit.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py" target="_blank" rel="noopener">tests/unit/test_asset_material_split.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L48" target="_blank" rel="noopener">a three material mesh becomes three prims</a><br><code>test_a_three_material_mesh_becomes_three_prims</code></td><td>The count, and the areas that go with it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L60" target="_blank" rel="noopener">the number that justifies the split is an area not a count</a><br><code>test_the_number_that_justifies_the_split_is_an_area_not_a_count</code></td><td>Two thirds of the facade renders as the wrong substance without it.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L78" target="_blank" rel="noopener">the dominant slot is the first one used not the largest</a><br><code>test_the_dominant_slot_is_the_first_one_used_not_the_largest</code></td><td>Blender writes the <em>first</em> slot as the mesh-level binding, and that is what a slot-0 reader gets (ADR 0128). Calling the largest slot dominant would understate the error on exactly the asset that needs the split most.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L99" target="_blank" rel="noopener">a single material mesh is one prim and costs nothing</a><br><code>test_a_single_material_mesh_is_one_prim_and_costs_nothing</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L108" target="_blank" rel="noopener">a slot no face uses becomes no prim</a><br><code>test_a_slot_no_face_uses_becomes_no_prim</code></td><td>An asset's slot table is longer than the materials it paints with, and an empty prim is geometry the renderer pays for and nobody sees.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L121" target="_blank" rel="noopener">piece names do not repeat a prefix the material already carries</a><br><code>test_piece_names_do_not_repeat_a_prefix_the_material_already_carries</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L128" target="_blank" rel="noopener">two pieces may not share a name</a><br><code>test_two_pieces_may_not_share_a_name</code></td><td>Two prims with one name is how geometry disappears on export.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L156" target="_blank" rel="noopener">usd identifiers are derived here rather than by an exporter</a><span class="tag">parametrize</span><br><code>test_usd_identifiers_are_derived_here_rather_than_by_an_exporter</code></td><td>A scene config is authored against a prim path, so the path has to be one we chose.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L187" target="_blank" rel="noopener">a malformed mesh is refused rather than planned</a><span class="tag">parametrize</span><br><code>test_a_malformed_mesh_is_refused_rather_than_planned</code></td><td>Every one of these renders a plausible building made of the wrong things.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_asset_material_split.py#L208" target="_blank" rel="noopener">both blender passes carry the scale and the source</a><br><code>test_both_blender_passes_carry_the_scale_and_the_source</code></td><td>The two halves of the split talk through argv and files, across a process boundary.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

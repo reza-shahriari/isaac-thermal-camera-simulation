@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drive cycle — irsim</title>
+<meta name="description" content="A driving vehicle&#x27;s wheels: the brake deposit and the tyre relation, driven from a trace.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Drive cycle</h1><p class="subtitle">A driving vehicle's wheels: the brake deposit and the tyre relation, driven from a trace.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py" target="_blank" rel="noopener">tests/unit/test_drive_cycle.py on GitHub</a></div>
+
+<article class="prose">
+<p>Roadmap <code>TC.8</code>; docs/physics-model.md §6.6; ADR 0038 (brakes are an energy deposit), ADR 0089 (the vehicle source solver and its "revisit when"), ADR 0088 (a radiator facing a panel).</p>
+<p><code>brake_temperature_rise_k</code> and <code>tyre_delta_t_k</code> have been in <code>irsim.thermal.vehicle</code> since M6.14 with <strong>no caller outside their own unit tests</strong>, so no frame this project has rendered has ever contained a warm brake. These tests drive both from a <code>VehicleState</code> trace and then check the one thing a picture depends on: that the arch above a tyre ends up measurably warmer than the door beside it, which is the feature a thermal camera actually reads on a car that has been driven.</p>
+<p class='made-by'>12 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py" target="_blank" rel="noopener">tests/unit/test_drive_cycle.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L46" target="_blank" rel="noopener">a stop deposits adr 0038s number and twice the speed deposits four times it</a><br><code>test_a_stop_deposits_adr_0038s_number_and_twice_the_speed_deposits_four_times_it</code></td><td>The reason brakes are arithmetic and not a schedule.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L57" target="_blank" rel="noopener">the trace puts that energy into the discs split across the axles</a><br><code>test_the_trace_puts_that_energy_into_the_discs_split_across_the_axles</code></td><td>One stop, four corners: the front discs take roughly twice the rear ones.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L80" target="_blank" rel="noopener">lifting off is not braking</a><br><code>test_lifting_off_is_not_braking</code></td><td>A trace that slows without the brake puts nothing in the discs.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L95" target="_blank" rel="noopener">a disc forgets a stop over its own time constant</a><br><code>test_a_disc_forgets_a_stop_over_its_own_time_constant</code></td><td>Only the cool-down is a time constant (ADR 0038), and it is the brake row's 300 s.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L105" target="_blank" rel="noopener">a parked car has cold tyres however long it waits</a><br><code>test_a_parked_car_has_cold_tyres_however_long_it_waits</code></td><td>§6.6's +10 K floor describes a tyre rolling slowly, not one standing still.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L124" target="_blank" rel="noopener">the tyre follows its history and not its current speed</a><br><code>test_the_tyre_follows_its_history_and_not_its_current_speed</code></td><td>A 20-30 minute constant means a frame shows where the car has <em>been</em>.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L141" target="_blank" rel="noopener">the axle split comes from the corners own name</a><span class="tag">parametrize</span><br><code>test_the_axle_split_comes_from_the_corners_own_name</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L145" target="_blank" rel="noopener">a corner whose axle cannot be read is refused</a><br><code>test_a_corner_whose_axle_cannot_be_read_is_refused</code></td><td>Guessing would silently put the front axle's energy on a rear disc.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L151" target="_blank" rel="noopener">corners may not claim more than the whole cars braking energy</a><br><code>test_corners_may_not_claim_more_than_the_whole_cars_braking_energy</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L173" target="_blank" rel="noopener">after a drive the arch above the tyre is warmer than the door beside it</a><br><code>test_after_a_drive_the_arch_above_the_tyre_is_warmer_than_the_door_beside_it</code></td><td><code>TC.8</code>'s criterion, and the reason the wheel sources are worth wiring at all.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L212" target="_blank" rel="noopener">the demo cars wheel radiators pair with the drive cycles corners by name</a><br><code>test_the_demo_cars_wheel_radiators_pair_with_the_drive_cycles_corners_by_name</code></td><td>Pairing by index would put the front-left disc's temperature on another corner.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_drive_cycle.py#L227" target="_blank" rel="noopener">a tread radiator faces up into its arch and a disc faces outboard</a><br><code>test_a_tread_radiator_faces_up_into_its_arch_and_a_disc_faces_outboard</code></td><td>Geometry, because a rectangle facing the wrong way heats the road instead of the car.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

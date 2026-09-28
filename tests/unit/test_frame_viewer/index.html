@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frame viewer — irsim</title>
+<meta name="description" content="The frame viewer (irsim_viewer): a click reads the right pixel of every plane, and says so.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Frame viewer</h1><p class="subtitle">The frame viewer (irsim_viewer): a click reads the right pixel of every plane, and says so.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py" target="_blank" rel="noopener">tests/unit/test_frame_viewer.py on GitHub</a></div>
+
+<article class="prose">
+<p>A debugging tool that shows a neighbouring pixel's temperature is worse than none, because the number looks right. So the tests pin the pixel mapping (same grid, supersampled, non-nesting), that each plane's value comes back exact and with its unit and legend name, that the server answers over real HTTP, and that the data layer is swappable -- a source that is not files at all drives the same server unchanged.</p>
+<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py" target="_blank" rel="noopener">tests/unit/test_frame_viewer.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L65" target="_blank" rel="noopener">pixel mapping is exact for nesting grids and flagged otherwise</a><br><code>test_pixel_mapping_is_exact_for_nesting_grids_and_flagged_otherwise</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L76" target="_blank" rel="noopener">a click reads every plane at that pixel with units and names</a><br><code>test_a_click_reads_every_plane_at_that_pixel_with_units_and_names</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L94" target="_blank" rel="noopener">a click outside the image is refused</a><br><code>test_a_click_outside_the_image_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L100" target="_blank" rel="noopener">a plane off the image grid is read but warned about</a><br><code>test_a_plane_off_the_image_grid_is_read_but_warned_about</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L110" target="_blank" rel="noopener">runs are discovered by their sidecars</a><br><code>test_runs_are_discovered_by_their_sidecars</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L119" target="_blank" rel="noopener">a new container is one registered reader</a><br><code>test_a_new_container_is_one_registered_reader</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L163" target="_blank" rel="noopener">the server answers the page over http</a><br><code>test_the_server_answers_the_page_over_http</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L188" target="_blank" rel="noopener">a run without truth planes is flagged camera only</a><br><code>test_a_run_without_truth_planes_is_flagged_camera_only</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L195" target="_blank" rel="noopener">a float plane is stretched for display only</a><br><code>test_a_float_plane_is_stretched_for_display_only</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_frame_viewer.py#L204" target="_blank" rel="noopener">the viewer imports no engine or gui toolkit</a><br><code>test_the_viewer_imports_no_engine_or_gui_toolkit</code></td><td>—</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

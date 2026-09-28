@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0141 — The front page is a front door, and its renders are named in the gallery manifest — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0141 — The front page is a front door, and its renders are named in the gallery manifest</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0141-the-front-page-is-a-front-door.md" target="_blank" rel="noopener">docs/decisions/0141-the-front-page-is-a-front-door.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-the-wipe-may-be-pointed-at-and-why-it-is-not-pointed-at-the-headline-clip">What the wipe may be pointed at, and why it is not pointed at the headline clip</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-24</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0139 built the site and got the depth right: 457 pages, the specification, 139 decision records, every test with what it asserts, the module and configuration catalogues measured from the tree at build time. What it did not get right was the first screen. The front page opened with three paragraphs of prose, a counter row and one clip, while the eighteen sections of the gallery — the same drone through four bands, a vessel departing, a car warming the metal around its engine — sat one click away and were the only things on the site a reader can judge without taking the project's word for anything.</p>
+<p>The owner asked whether the site should stay technical or be made beautiful. It is a false choice: the depth is the differentiator and nothing about it needs to go. What was missing was a lobby in front of it.</p>
+<p>Two constraints from ADR 0139 still hold and rule out the obvious answer of adopting a template. The generator <em>measures the repository at build time</em>, which no off-the-shelf theme does; and the renders are not in git, so the page has to be built on the machine that has <code>outputs/</code>. A theme swap would trade both for nicer chrome.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p>Four changes to the generator, no new dependency, no framework, one stylesheet and one script as before.</p>
+<p><strong>The hero is full bleed and carries the title.</strong> <code>Page.hero</code> replaces the standard title block for a page that sets it, and the front page sets it: the render runs edge to edge with <code>&lt;h1&gt;</code> over it behind a two-axis scrim. The scrim is not decoration. These frames are grayscale, their brightness is the sensor model's business, and several of them carry a telemetry readout burnt into the top left — exactly where a title goes.</p>
+<p><strong>Three demonstration blocks come before the prose.</strong> The band strip (one scene, four bands, four up), the point-wise headline clip, and a wipe. Show first, explain second: the signal chain, the counters and the plan now follow them rather than preceding them.</p>
+<p><strong>The gallery opens with a thumbnail of every section</strong> and no longer floats a contents list beside it. Eighteen titles in a list is not how anyone finds the section they were sent for; eighteen of the sections' own first frames is.</p>
+<p><strong>Which renders appear is declared in <code>site/gallery.yaml</code>, not in the page builder.</strong> The manifest already owned the hero for this reason. It now owns the band strip, the headline clip and the wipe pair too, and <code>GalleryBuilder.front()</code> resolves them against media the sections have already paid to encode, so the front page adds no bytes of its own. Every one of them must also be named by a section, which a test asserts: a front page showing something the site explains nowhere is how a demo reel starts to diverge from the work.</p>
+<h2 id="what-the-wipe-may-be-pointed-at-and-why-it-is-not-pointed-at-the-headline-clip">What the wipe may be pointed at, and why it is not pointed at the headline clip<a class="anchor" href="#what-the-wipe-may-be-pointed-at-and-why-it-is-not-pointed-at-the-headline-clip" aria-label="permalink">#</a></h2>
+<p>The obvious subject for a before/after wipe is <code>pointwise_flight/quad_pointwise_vs_objectwise.mp4</code>, since the point-wise claim is the project's headline. It cannot be. That file is a single 926 × 460 composite of two 463-wide panels, and <strong>the panels carry different burnt-in annotations</strong> — the left owns the run header, and each owns its own footer readout. Wiping between them puts <code>OBJECT-WISE — whole aircraft 26.2 C</code> over an image that is mostly point-wise. That is not a nicer way to make the argument, it is a wrong one, and the script that produced the composite is no longer in <code>scripts/</code>, so splitting it into two bare panels is not a small change.</p>
+<p>So the wipe has a rule, and <code>tests/unit/test_site_build.py</code> enforces it: <strong>both halves must be stills, and both must come from the same gallery section.</strong> Stills, because two clips under a wipe drift out of sync and end up comparing different instants as well as different physics. One section, because that is what makes them one scene under one change. Today it is the flat-field pair, which satisfies it exactly.</p>
+<p>The headline clip is instead shown whole, full width, with the two solvers named in HTML above their own halves — and without <code>controls</code>, because Chrome draws its control bar precisely over the readout that is the clip's evidence.</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The front page costs nothing extra to serve. Every asset on it was already encoded for a gallery section, and the band strip is poster frames with hover-to-play: the SWIR clip alone is 5.7 MB re-encoded, and four autoplaying clips would be about 7 MB spent before a reader has scrolled.</li>
+<li>A checkout with no renders drops each block rather than publishing an empty frame, so the commit gate — which builds with <code>media=False</code> — still exercises the page.</li>
+<li>Without JavaScript the wipe sits at half and reads as a static split comparison, which is what it is. Everything else on the page is CSS.</li>
+<li>Changing what the project opens with is now a manifest edit, not a code change.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

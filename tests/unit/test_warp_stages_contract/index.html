@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Warp stages contract</h1>
-  <p class="subtitle">Roadmap M10.4, engine-free half: the Warp stage module imports without Warp, refuses what the CPU oracle refuses, and keys its device tables by content (so an identical table is never re-uploaded and a rebuilt one always is). The kernel itself is compared to the oracle in `tests/integration/test_kernels_vs_reference.py`.</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py" target="_blank" rel="noopener">tests/unit/test_warp_stages_contract.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Warp stages contract</h1><p class="subtitle">Roadmap M10.4, engine-free half: the Warp stage module imports without Warp, refuses what the CPU oracle refuses, and keys its device tables by content (so an identical table is never re-uploaded and a rebuilt one always is). The kernel itself is compared to the oracle in `tests/integration/test_kernels_vs_reference.py`.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py" target="_blank" rel="noopener">tests/unit/test_warp_stages_contract.py on GitHub</a></div>
 
 <article class="prose">
 <p class='made-by'>20 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py" target="_blank" rel="noopener">tests/unit/test_warp_stages_contract.py</a>.</p>
@@ -71,20 +68,20 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L146" target="_blank" rel="noopener">tau override is carried as a constant and ignores distance</a><br><code>test_tau_override_is_carried_as_a_constant_and_ignores_distance</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L161" target="_blank" rel="noopener">atmosphere terms refuse an inconsistent set</a><br><code>test_atmosphere_terms_refuse_an_inconsistent_set</code></td><td>—</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L171" target="_blank" rel="noopener">validate distance mirrors the oracle</a><br><code>test_validate_distance_mirrors_the_oracle</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L184" target="_blank" rel="noopener">optics terms take every scalar from irsim optics</a><br><code>test_optics_terms_take_every_scalar_from_irsim_optics</code></td><td>Non-negotiable #5 in its positive form: the aperture factor the kernel is handed is the one <code>irsim.optics.aperture</code> computes, and Phi_self is <code>self_emission_power</code>'s value.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L201" target="_blank" rel="noopener">optics terms refuse an even sided psf</a><br><code>test_optics_terms_refuse_an_even_sided_psf</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L209" target="_blank" rel="noopener">the kernel source never recomputes the aperture factor</a><br><code>test_the_kernel_source_never_recomputes_the_aperture_factor</code></td><td>M10.5 asks for this explicitly. <code>tests/unit/test_aperture_guard.py</code> already walks every module in src/irsim_isaac; this points the same scanner at the kernel file by name, so the failure names stage 3 rather than "some module" if a future edit inlines pi/(4F^2+1).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L220" target="_blank" rel="noopener">equivalence registry covers every landed stage</a><br><code>test_equivalence_registry_covers_every_landed_stage</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L265" target="_blank" rel="noopener">bolometer terms are the oracle transfer and alpha</a><br><code>test_bolometer_terms_are_the_oracle_transfer_and_alpha</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L281" target="_blank" rel="noopener">photon terms fold the transfer into three scalars</a><br><code>test_photon_terms_fold_the_transfer_into_three_scalars</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L293" target="_blank" rel="noopener">detector terms refuse an impossible set</a><br><code>test_detector_terms_refuse_an_impossible_set</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L302" target="_blank" rel="noopener">validate flux mirrors the detector guards</a><br><code>test_validate_flux_mirrors_the_detector_guards</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L315" target="_blank" rel="noopener">the device state is owned by the pipeline state</a><br><code>test_the_device_state_is_owned_by_the_pipeline_state</code></td><td>ADR 0052 again, on the device side: one owner so a cold start clears everything at once.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L328" target="_blank" rel="noopener">stage four is registered against its oracle</a><br><code>test_stage_four_is_registered_against_its_oracle</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L184" target="_blank" rel="noopener">optics terms take every scalar from irsim optics</a><br><code>test_optics_terms_take_every_scalar_from_irsim_optics</code></td><td>Non-negotiable #5 in its positive form: the aperture factor the kernel is handed is the one <code>irsim.optics.aperture</code> computes, and the housing power is <code>housing_power_axis</code>'s value (ADR 0145: the kernel subtracts L_h before scaling by RI, then adds A_d Omega_eff L_h).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L203" target="_blank" rel="noopener">optics terms refuse an even sided psf</a><br><code>test_optics_terms_refuse_an_even_sided_psf</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L211" target="_blank" rel="noopener">the kernel source never recomputes the aperture factor</a><br><code>test_the_kernel_source_never_recomputes_the_aperture_factor</code></td><td>M10.5 asks for this explicitly. <code>tests/unit/test_aperture_guard.py</code> already walks every module in src/irsim_isaac; this points the same scanner at the kernel file by name, so the failure names stage 3 rather than "some module" if a future edit inlines pi/(4F^2+1).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L222" target="_blank" rel="noopener">equivalence registry covers every landed stage</a><br><code>test_equivalence_registry_covers_every_landed_stage</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L267" target="_blank" rel="noopener">bolometer terms are the oracle transfer and alpha</a><br><code>test_bolometer_terms_are_the_oracle_transfer_and_alpha</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L283" target="_blank" rel="noopener">photon terms fold the transfer into three scalars</a><br><code>test_photon_terms_fold_the_transfer_into_three_scalars</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L295" target="_blank" rel="noopener">detector terms refuse an impossible set</a><br><code>test_detector_terms_refuse_an_impossible_set</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L304" target="_blank" rel="noopener">validate flux mirrors the detector guards</a><br><code>test_validate_flux_mirrors_the_detector_guards</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L317" target="_blank" rel="noopener">the device state is owned by the pipeline state</a><br><code>test_the_device_state_is_owned_by_the_pipeline_state</code></td><td>ADR 0052 again, on the device side: one owner so a cold start clears everything at once.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_warp_stages_contract.py#L330" target="_blank" rel="noopener">stage four is registered against its oracle</a><br><code>test_stage_four_is_registered_against_its_oracle</code></td><td>—</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

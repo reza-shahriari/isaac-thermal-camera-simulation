@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0149 — AGC is a set of vendor-neutral families, and a band&#x27;s display follows its detector — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0149 — AGC is a set of vendor-neutral families, and a band&#x27;s display follows its detector</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0149-agc-is-a-set-of-vendor-neutral-families-and-a-band-follows-its-detector.md" target="_blank" rel="noopener">docs/decisions/0149-agc-is-a-set-of-vendor-neutral-families-and-a-band-follows-its-detector.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-26</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0147 approximated one camera's default AGC, the FLIR Boson's. That raised two questions that matter more than which Boson setting is right:</p>
+<ol>
+<li><p><strong>Do other cameras do something fundamentally different?</strong> Reading more than one vendor's documentation, they don't. The uncooled LWIR cores all build on one 14-bit → 8-bit histogram and differ in which controls they expose and what they call them:</p>
+<ul>
+<li>FLIR Boson [R51]: plateau value, Linear Percent, tail rejection, max gain, damping, ACE, Information-Based Equalization, DDE.</li>
+<li>FLIR Lepton (its Software IDD): HEQ with a <strong>high clip limit</strong> (the plateau), a <strong>low clip limit</strong> (a constant added to every occupied bin), a Linear Percent defined differently from the Boson's, damping and an ROI.</li>
+<li>Xenics and Sensors Unlimited SWIR cores: auto-gain and histogram equalisation with a "maximal allowed stretching" (a max gain) and an equalisation strength.</li>
+<li>Most of the rest (InfiRay, HIKMICRO, Teledyne DALSA) publish nothing, and the literature describes CLAHE-style local equalisation for them.</li>
+</ul>
+<p>The algorithm <em>families</em> are shared. The parameters and some proprietary weighting are not.</p></li>
+<li><p><strong>Is AGC the same across bands?</strong> Not quite, and the difference sits in front of the AGC:</p>
+<ul>
+<li><strong>Emissive bands (LWIR, MWIR)</strong> see a scene whose radiance changes by a factor of a few between night and noon, so exposure is fixed (an MWIR camera picks an integration time) and all the display work is in the AGC.</li>
+<li><strong>Reflective bands (NIR, SWIR)</strong> see sunlight, which changes by five to six decades between noon and starlight. Their cameras are exposure-driven like a visible camera: auto-exposure sets the integration time (and switches gain modes), then a comparatively light AGC runs.</li>
+<li>A silicon NIR sensor's display is the visible-camera chain: black level, linear stretch, display gamma. It is not a bolometer's equaliser.</li>
+</ul>
+<p>Every sensor config in this repository, including <code>example_nir_si_1280.yaml</code>, carried the Boson's <code>isp</code> block copied verbatim: plateau 0.012, DDE, gamma 1.</p></li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong>The <code>isp.agc</code> modes are families, not cameras.</strong> <code>linear</code>, <code>plateau_equalization</code>, <code>plateau_local</code> (tiled, CLAHE construction), <code>information_based</code> (detail-weighted) and <code>none</code>. A specific camera is a <strong>parameter set</strong> in its sensor YAML.</li>
+<li><p><strong>The controls shared across vendors are config fields on every equalising mode:</strong></p>
+<ul>
+<li><code>linear_percent</code> (ADR 0147).</li>
+<li><code>clip_limit_low</code>: the Lepton low clip, a fraction of N added to every occupied bin.</li>
+<li><code>max_gain</code>: a cap in display codes per DN. When it binds, the occupied range is centred on mid-grey.</li>
+</ul>
+<p>Each is zero by default, and zero is the old operator bit for bit. At its default a field is also left out of both the config hash and the ISP hash.</p></li>
+<li><strong>The Lepton family's own Linear Percent is not added as a separate field.</strong> It adds a fraction of N to every non-zero bin, which is <code>clip_limit_low</code> by another name. One control, one name.</li>
+<li><strong>The NIR config gets a visible-camera display:</strong> <code>agc: linear</code>, <code>gamma: 2.2</code>, no DDE. SWIR keeps histogram equalisation, because its vendors document it on-board.</li>
+<li><strong>Auto-exposure for photon detectors is a separate step (<code>SC.27</code>).</strong> It changes the detector, not the display. Until it exists, a reflective-band scene is valid only near the exposure its config was written for.</li>
+<li><strong>The device (Warp) AGC refuses any of these controls</strong> rather than silently dropping them. It had been ignoring <code>linear_percent</code> since ADR 0147, and that gap is now closed with an error.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The user selects an AGC with <code>isp.agc</code> in the sensor YAML, or with <code>--agc</code> in <code>scripts/redisplay_planes.py</code>. <code>--agc all</code> renders every family on the same frames.</li>
+<li><p>Measured, and held by <code>tests/unit/test_agc_vendor_controls.py</code>:</p>
+<ul>
+<li><strong>Clear sky with a 0.6 % target:</strong> the low clip at 10⁻³ takes the target from ≤ 3 to ≥ 20 codes, with its parts in order.</li>
+<li><strong>Bland 33 DN sky:</strong> <code>max_gain = 1.25</code> cuts the noise from all 256 codes to ≤ 43, centred on mid-grey.</li>
+<li><strong>Cluttered sky:</strong> the low clip barely helps, because every bin is dense.</li>
+</ul></li>
+<li><strong>The NIR golden moved on its display only.</strong> <code>nir_frame_display8</code> changed by up to 71 codes; <code>nir_frame_dn16</code> and <code>nir_frame_radiance</code> are bit-identical.</li>
+<li><strong>Error not bounded:</strong> no camera's actual parameter values are fitted. The families are right, but the numbers in each YAML stay ESTIMATED until a Tier 4 comparison against public footage.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A public clip from a named camera is fitted (the <code>XD</code> lane). Its fitted parameters become that camera's preset.</li>
+<li><code>SC.27</code> lands auto-exposure. The NIR and SWIR display parameters then need re-checking at the exposures it chooses.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

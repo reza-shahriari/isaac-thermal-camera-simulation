@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,30 +53,31 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Material ids</h1>
-  <p class="subtitle">Engine-free tests for instance-id → material-id transport (roadmap M10.2, ADR 0047).</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py" target="_blank" rel="noopener">tests/unit/test_material_ids.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Material ids</h1><p class="subtitle">Engine-free tests for instance-id → material-id transport (roadmap M10.2, ADR 0047).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py" target="_blank" rel="noopener">tests/unit/test_material_ids.py on GitHub</a></div>
 
 <article class="prose">
 <p>The property that matters is that ids are <em>decoded</em>, never <em>interpolated</em>. A pixel on the boundary between material 0 and material 7 is one or the other; a blended 3 or 4 is a different substance with a different emissivity, and the resulting image looks entirely plausible. These tests assert that no value outside the authored set can ever appear, that a miss keeps the loud UNMAPPED sentinel instead of a convenient default, and that the magenta overlay touches display pixels only.</p>
-<p class='made-by'>10 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py" target="_blank" rel="noopener">tests/unit/test_material_ids.py</a>.</p>
+<p class='made-by'>15 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py" target="_blank" rel="noopener">tests/unit/test_material_ids.py</a>.</p>
 <div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L38" target="_blank" rel="noopener">ids decode exactly on every pixel</a><br><code>test_ids_decode_exactly_on_every_pixel</code></td><td>Every pixel gets the authored id; nothing in between ever appears.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L52" target="_blank" rel="noopener">an edge between two materials never blends</a><br><code>test_an_edge_between_two_materials_never_blends</code></td><td>The 0/7 boundary must not produce 3 or 4 -- the failure this transport exists to avoid.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L64" target="_blank" rel="noopener">supersampled ids downsample by nearest not by mean</a><br><code>test_supersampled_ids_downsample_by_nearest_not_by_mean</code></td><td>A 4x supersampled id block decimates to one of its members, never to their average.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L76" target="_blank" rel="noopener">an unresolved prim keeps the unmapped sentinel</a><br><code>test_an_unresolved_prim_keeps_the_unmapped_sentinel</code></td><td>A prim the resolver missed must not acquire a plausible default emissivity.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L88" target="_blank" rel="noopener">an id with no label is unmapped and strict mode raises</a><br><code>test_an_id_with_no_label_is_unmapped_and_strict_mode_raises</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L96" target="_blank" rel="noopener">background is unmapped but is not a mapping miss</a><br><code>test_background_is_unmapped_but_is_not_a_mapping_miss</code></td><td>Sky pixels carry id 0 and must not be counted as a forgotten prim (M0.6 contract).</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L108" target="_blank" rel="noopener">labels to paths handles both payload shapes</a><br><code>test_labels_to_paths_handles_both_payload_shapes</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L116" target="_blank" rel="noopener">magenta paints the mask and nothing else</a><br><code>test_magenta_paints_the_mask_and_nothing_else</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L129" target="_blank" rel="noopener">overlay refuses a non rgba8 image</a><br><code>test_overlay_refuses_a_non_rgba8_image</code></td><td>—</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L139" target="_blank" rel="noopener">material id plane refuses a float id plane</a><br><code>test_material_id_plane_refuses_a_float_id_plane</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L40" target="_blank" rel="noopener">ids decode exactly on every pixel</a><br><code>test_ids_decode_exactly_on_every_pixel</code></td><td>Every pixel gets the authored id; nothing in between ever appears.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L54" target="_blank" rel="noopener">an edge between two materials never blends</a><br><code>test_an_edge_between_two_materials_never_blends</code></td><td>The 0/7 boundary must not produce 3 or 4 -- the failure this transport exists to avoid.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L66" target="_blank" rel="noopener">supersampled ids downsample by nearest not by mean</a><br><code>test_supersampled_ids_downsample_by_nearest_not_by_mean</code></td><td>A 4x supersampled id block decimates to one of its members, never to their average.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L78" target="_blank" rel="noopener">an unresolved prim keeps the unmapped sentinel</a><br><code>test_an_unresolved_prim_keeps_the_unmapped_sentinel</code></td><td>A prim the resolver missed must not acquire a plausible default emissivity.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L90" target="_blank" rel="noopener">an id with no label is unmapped and strict mode raises</a><br><code>test_an_id_with_no_label_is_unmapped_and_strict_mode_raises</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L98" target="_blank" rel="noopener">background is unmapped but is not a mapping miss</a><br><code>test_background_is_unmapped_but_is_not_a_mapping_miss</code></td><td>Sky pixels carry id 0 and must not be counted as a forgotten prim (M0.6 contract).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L110" target="_blank" rel="noopener">labels to paths handles both payload shapes</a><br><code>test_labels_to_paths_handles_both_payload_shapes</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L118" target="_blank" rel="noopener">magenta paints the mask and nothing else</a><br><code>test_magenta_paints_the_mask_and_nothing_else</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L131" target="_blank" rel="noopener">overlay refuses a non rgba8 image</a><br><code>test_overlay_refuses_a_non_rgba8_image</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L141" target="_blank" rel="noopener">material id plane refuses a float id plane</a><br><code>test_material_id_plane_refuses_a_float_id_plane</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L157" target="_blank" rel="noopener">an unmapped pixel carries nan rather than a number in range</a><br><code>test_an_unmapped_pixel_carries_nan_rather_than_a_number_in_range</code></td><td>The failure being repaired is a <em>plausible</em> value, not an obviously broken one.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L173" target="_blank" rel="noopener">the marking is the one value a mean cannot swallow</a><br><code>test_the_marking_is_the_one_value_a_mean_cannot_swallow</code></td><td>A sentinel kelvin would be averaged into a believable frame temperature; NaN is not.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L188" target="_blank" rel="noopener">one bad sample marks the whole native pixel</a><br><code>test_one_bad_sample_marks_the_whole_native_pixel</code></td><td>Ids are never interpolated, so a 2x2 block may cover two prims.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L202" target="_blank" rel="noopener">an unsupersampled mask passes through unchanged</a><br><code>test_an_unsupersampled_mask_passes_through_unchanged</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_material_ids.py#L207" target="_blank" rel="noopener">a mask that does not fit its plane is refused</a><br><code>test_a_mask_that_does_not_fit_its_plane_is_refused</code></td><td>Silently marking the wrong pixels would be worse than the bug being fixed.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

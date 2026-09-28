@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0146 — A cloud in the infrared has one base, a dry-adiabatic temperature, and the band&#x27;s own march — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0146 — A cloud in the infrared has one base, a dry-adiabatic temperature, and the band&#x27;s own march</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0146-a-cloud-in-the-infrared-has-one-base-a-dry-adiabatic-temperature-and-its-own-march.md" target="_blank" rel="noopener">docs/decisions/0146-a-cloud-in-the-infrared-has-one-base-a-dry-adiabatic-temperature-and-its-own-march.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-was-measured">What was measured</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-rejected">Alternatives rejected</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. Amends <a href="../0070-cloud-clutter-model/">ADR 0070</a> (the base temperature law) and <a href="../0130-a-cumulus-has-a-size-and-a-shape-and-both-bands-march-it/">ADR 0130</a> (how the infrared band integrates the shared field). <strong>Date:</strong> 2026-09-26 Roadmap: AT.19.</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>The owner's judgement of the infrared clouds was that they are almost always brighter than they should be, and smooth and blurred in a way no real LWIR footage shows. Both were measured on the <code>phantom4_weather</code> clip and its frames.</p>
+<p><strong>Brighter.</strong> The clip's cloud read 17 °C in the apparent-temperature plane while the weather-fx state that drew it said 12.9 °C air. Rebuilt on the CPU, the same field under the same state gives an opaque cloud at <strong>8.5 °C</strong> (base 600 m, base temperature 9.0 °C) and a clear sky at −40 °C. Under the scene's <em>CSV</em> weather instead — 26.3 °C air, RH 0.41 — the sky model puts irsim's own lifting condensation level at <strong>1792 m</strong> and the cloud at <strong>17.0 °C</strong>, and the airframe node at 26.3 °C, which is the frame to the decimal. The clip was rendered on 23 September, one day before <code>AT.16</code> made weather-fx's series the scene's weather; it is the two-weather defect ADR 0136 closed, never re-rendered. Two things underneath it are still wrong in today's code:</p>
+<ol>
+<li><strong>Two bases.</strong> <code>radiance_field_from_deck</code> took the emission heights from the deck's own base (600 m) but the base <em>temperature</em> and the air in front of it from a second LCL computed from the weather (1792 m in that run). Geometry and temperature agreed only while both came from one state.</li>
+<li><strong>The wrong lapse to the base.</strong> ADR 0070 lapsed the surface air to the base at the atmosphere preset's environmental rate, 6.5 K/km. The base is the LCL of <em>surface</em> air, which got there by cooling dry-adiabatically at g/c_p = 9.76 K/km; Espy's 125 m/K rule for the LCL is that rate minus the dew-point lapse, inverted, and at the base the parcel meets its dew point to 0.1 K (a test now says so). The environmental rate overwarms the base by 3.3 K per kilometre — 2 K at 600 m, 6 K at 1.8 km — always toward a brighter cloud. Inside the cloud the parcel is saturated and the moist rate, which 6.5 K/km is close to, stays.</li>
+</ol>
+<p><strong>Smooth and blurred.</strong> With one weather the cloud sits mid-grey against a black sky — the physics — but the shapes are soft, and the 64-step march printed structure of its own: against a 512-step reference the frame differs by <strong>3.6 K at the 99th percentile</strong>, in concentric rings. weather-fx's march offsets its samples by a jitter that is a <em>smooth</em> function of the ray direction, so neighbouring pixels' errors share a sign (lag-one correlation of the residual along a row: <strong>0.84–0.90</strong>). The remaining softness is the field itself: 60 m voxels read trilinearly, 30 % of cloudy pixels in the 0.1–0.9 emissivity fringe; that is the shared array and is not this band's to change.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>One base.</strong> <code>SkyModel.radiance_field_from_deck</code> takes the base temperature and the slant path to the base at <code>deck.base_m</code>. <code>cloud_base_temperature_k</code> and <code>_cloud_path</code> accept a base; the LCL from the weather remains the default for the plane-parallel blend, and equals the deck's base whenever the deck was built from the same weather.</li>
+<li><strong>Dry-adiabatic to the base.</strong> <code>DRY_ADIABATIC_LAPSE_K_PER_M = 9.761e-3</code> and <code>DEW_POINT_LAPSE_K_PER_M = 1.8e-3</code> join <code>irsim.radiometry.constants</code> with their sources; <code>SkyModel.cloud_base_temperature_k</code> uses the former. The preset's lapse is kept for the emission level <em>inside</em> the cloud.</li>
+<li><strong>The infrared band marches the shared array with its own quadrature.</strong> <code>WeatherFxDeck.march</code> no longer calls weather-fx's march: it samples <code>CloudField.density</code> on a <strong>uniform, stratified</strong> path with <strong>two samples per grid pitch</strong> along the longest ray in the array (Nyquist for a trilinear field), each ray offset by a hash of its own direction, rays dropped once opaque. ADR 0130's "same march, same fidelity" becomes "same array; each band at its own quadrature", because the dome is baked once and read through a texel's blur while the infrared frame is read per pixel, and the two want different sampling.</li>
+<li><strong>The plane-parallel blend carries the range too.</strong> <code>SkyModel.radiance(θ)</code> -- the expectation over the field that the sea, the tilt LUTs and the uniform sky use -- was <code>(1 − cε) L_clear + cε L_B(T_base)</code>, the base read through no air at all. It is now ADR 0126's <code>L_clear + cε τ(θ) (L_B(T_base) − L_beyond(θ))</code>, identical to the old form when the base is at the surface (τ = 1, <code>L_beyond</code> = the clear column) and different when it is not: a grazing ray no longer reads a 1.2 km base through seventy kilometres of air it cannot see through. The dry lapse made this visible -- a 1.2 km base under 288 K air is 276 K, colder than the clear horizon, and the range-free blend made an overcast <em>sea</em> widen its reflected profile instead of flattening it. <code>effective_radiance</code>, a tilt integral, keeps the flux form.</li>
+</ol>
+<h2 id="what-was-measured">What was measured<a class="anchor" href="#what-was-measured" aria-label="permalink">#</a></h2>
+<div class='table-wrap'><table>
+<thead><tr><th></th><th>weather-fx march</th><th>this march</th></tr></thead>
+<tbody>
+<tr><td>band-emissivity error, p99, real deck, 311 steps</td><td>0.0025</td><td><strong>0.0018</strong></td></tr>
+<tr><td>same, test deck, 156 steps</td><td>0.0068</td><td>0.0089</td></tr>
+<tr><td>lag-one correlation of the residual along a row</td><td>0.84–0.90</td><td><strong>0.39–0.56</strong></td></tr>
+<tr><td>640×512 frame, real deck, 18–44° elevation</td><td>3.8 s at 64 steps</td><td>10.1 s at 311 steps</td></tr>
+<tr><td>opaque cumulus, 12.9 °C air, 600 m base</td><td>8.5 °C (env. lapse: 9.0 °C base)</td><td><strong>7.1 °C</strong> (dry: 7.1 °C base; the in-cloud cooling and the path warming balance)</td></tr>
+<tr><td>a 1.5 km base at 273.5 K through 2.3 km of 288 K air at 40°</td><td>—</td><td>reads 276.6 K: the range term of ADR 0126, now visible</td></tr>
+</tbody></table></div>
+<p>Tests: <code>tests/unit/test_cloud_base_law.py</code> (the parcel meets its dew point at the base; the sky model lapses dry-adiabatically; a marched deck is read at its own base) and the march tests in <code>tests/unit/test_weather_fx_bridge.py</code> (agreement with a 2048-step reference; less banded than what it replaces; the step count follows the longest crossing; the hash is not smooth).</p>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A cumulus reads about 2 K colder than before at a typical base, more for a high one, and the sky, the surfaces and the cloud can no longer be integrated from two weathers by construction.</li>
+<li>The infrared march costs about 2.5× what it did per frame, spent where the picture is read.</li>
+<li><strong>What this does not fix:</strong> the shapes. The blobby, soft cloud is the 60 m grid, shared by both bands, and sharpening it means detail at sample time in weather-fx's field — the item its own roadmap lists as "a cheaper march so a finer grid is affordable". That is the next step, and it is a change to the shared array, not to either band.</li>
+<li>Under an overcast sky a sea seen from 20 m reflects the near-horizon sky, which now reads within a few kelvin of the air rather than at the base, so the reflected profile flattens to what the emissivity alone leaves; <code>test_sea_surface</code> states the new fraction and why.</li>
+<li><code>test_cloud_clutter</code> pinned ADR 0070's 6.5 K/km and now pins g/c_p; its "uniform at every elevation" claim is made where it is exact (a saturated base at zero range) and its lifted base is asserted to read between the base and the air, warmer toward the horizon. The altostratus anchor in <code>test_cloud_optical_depth</code> (a 2.4 km base in a standard atmosphere, 271.6 K) is a stratiform cloud whose base is <em>not</em> the LCL of surface air and keeps the explicit environmental lapse it was always evaluated with.</li>
+<li>The <code>phantom4_weather</code> clip is re-rendered on today's code, so the site stops showing the two-weather frame.</li>
+</ul>
+<h2 id="alternatives-rejected">Alternatives rejected<a class="anchor" href="#alternatives-rejected" aria-label="permalink">#</a></h2>
+<p><strong>Patch weather-fx's jitter instead.</strong> It is the right change for that project too, but the two bands want different quadratures anyway, and a submodule pin is a heavier dependency for a per-frame accuracy question than a forty-line march over an array the seam already exposes.</p>
+<p><strong>Keep the environmental lapse and call 2 K within the envelope.</strong> It is not within a 50 mK NETD, it is systematic, and it is in the direction the owner sees.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

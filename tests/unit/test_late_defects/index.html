@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Late defects — irsim</title>
+<meta name="description" content="SC.19: defects that appear after calibration are not replaced (§10.4).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Late defects</h1><p class="subtitle">SC.19: defects that appear after calibration are not replaced (§10.4).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py" target="_blank" rel="noopener">tests/unit/test_late_defects.py on GitHub</a></div>
+
+<article class="prose">
+<p>A camera interpolates over the defect map it was shipped with. A pixel that fails afterwards is not on it, so it reaches the output as an isolated stuck pixel -- the lone bright dot in a real clear-sky frame. Before SC.19 the replacement ran on the exact defect mask and no stuck pixel ever reached the image.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py" target="_blank" rel="noopener">tests/unit/test_late_defects.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L47" target="_blank" rel="noopener">the late fraction does not move a single defect</a><br><code>test_the_late_fraction_does_not_move_a_single_defect</code></td><td>Late flags are drawn after everything else, so positions and classes are bit-identical -- turning the feature on does not silently give the camera a different focal plane.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L57" target="_blank" rel="noopener">the late share is the configured fraction</a><br><code>test_the_late_share_is_the_configured_fraction</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L66" target="_blank" rel="noopener">replacement leaves out exactly the late defects</a><br><code>test_replacement_leaves_out_exactly_the_late_defects</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L75" target="_blank" rel="noopener">a late flag on a good pixel is refused</a><br><code>test_a_late_flag_on_a_good_pixel_is_refused</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L112" target="_blank" rel="noopener">a late hot pixel reaches the output and a factory one does not</a><br><code>test_a_late_hot_pixel_reaches_the_output_and_a_factory_one_does_not</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L133" target="_blank" rel="noopener">with no late defects nothing stuck survives</a><br><code>test_with_no_late_defects_nothing_stuck_survives</code></td><td>The pre-SC.19 behaviour is still there: fraction 0 means every defect is replaced.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_late_defects.py#L143" target="_blank" rel="noopener">no late defects hashes as the pre v12 camera</a><br><code>test_no_late_defects_hashes_as_the_pre_v12_camera</code></td><td>Spelling out <code>bad_pixel_late_fraction: 0</code> describes the camera every golden before SC.19 was written against, so it must hash the same as leaving the key out.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

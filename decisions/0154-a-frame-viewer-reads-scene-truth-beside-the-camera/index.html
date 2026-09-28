@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0154 — A frame viewer reads the scene truth beside the camera, through a swappable source — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0154 — A frame viewer reads the scene truth beside the camera, through a swappable source</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0154-a-frame-viewer-reads-scene-truth-beside-the-camera.md" target="_blank" rel="noopener">docs/decisions/0154-a-frame-viewer-reads-scene-truth-beside-the-camera.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#options-considered">Options considered</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#revisit-when">Revisit when</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted <strong>Date:</strong> 2026-09-27</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>When a rendered frame looks wrong, the question is almost always about a point: <em>what is this pixel?</em> Which part is it, what temperature did the solver give it, how far away is it, and what did the camera report? Until now a frame's sidecar (<code>irsim.io.dataset</code>) carried only what the camera said: <code>radiance</code>, <code>apparent_t</code>, <code>dn16</code>, <code>display8</code>. The truth behind them (surface temperature, instance id, material id, range) lived in the G-buffer and was discarded after every frame. Answering "why is the motor 3 K cold here" meant writing a one-off script against a live Kit session.</p>
+<p>There were three constraints:</p>
+<ul>
+<li><strong>No GUI toolkit in the environment.</strong> The project interpreter is Isaac Sim's bundled Python. Installing Qt into it risks the Kit install, for a debugging tool.</li>
+<li><strong>The data layout will change.</strong> Planes are <code>.npy</code> today. A Warp/CUDA path may write packed buffers, or serve planes straight from device memory. The viewer must not have to be rewritten when that happens.</li>
+<li><strong>A wrong pixel is worse than none.</strong> A click that reads a neighbouring pixel's temperature looks exactly like a correct one.</li>
+</ul>
+<h2 id="options-considered">Options considered<a class="anchor" href="#options-considered" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>A Qt / Tk desktop app.</strong> Needs a toolkit the Isaac interpreter does not have (Tk is absent from the source build). Rejected on the environment constraint.</li>
+<li><strong>A Jupyter / matplotlib notebook.</strong> Interactive clicking needs widget extensions, which are more dependencies. It is also awkward for stepping through a clip with markers held in place.</li>
+<li><strong>A local web page served by the standard library.</strong> <code>http.server</code> plus NumPy, one HTML file with no framework, opened in the browser the user already has. Nothing to install.</li>
+</ol>
+<p>For the truth planes, there were two choices of what one pixel's value should be:</p>
+<ol>
+<li><strong>The mean of the <code>k x k</code> supersamples.</strong> Meaningless for ids: the mean of two part ids is a third part that is not in the scene (ADR 0014).</li>
+<li><strong>The sample nearest the pixel centre, for every plane.</strong> One surface point, described consistently by all five planes.</li>
+</ol>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ul>
+<li><strong><code>src/irsim_viewer/</code></strong>, a package separate from the physics core. It imports the core (for the PNG codec), never the reverse, and never the engine. It is started with <code>make viewer RUN=...</code>.</li>
+<li><strong>The data layer is the swap point</strong> (<code>irsim_viewer.source</code>). The server and page talk only to a <code>FrameSource</code> protocol: <code>frames</code>, <code>metadata</code>, <code>planes</code>, <code>read_plane</code>. A new file container is one <code>register_plane_reader(suffix, fn)</code>. A new layout is one class plus <code>register_source_factory</code>. A test drives the server from an in-memory source with no files, to keep that promise honest.</li>
+<li><strong>Truth planes on the detector grid</strong> (<code>irsim.io.truth</code>, <code>IrCamera.truth()</code>): <code>temperature_k</code>, <code>distance_m</code> (NaN for sky), <code>material_id</code>, <code>part_id</code> and <code>node_id</code>. Each is the <strong>centre sample</strong> of its supersample block, and ids are named in a new sidecar field, <code>legends</code>. All five render drivers that use <code>FrameWriter</code> write them.</li>
+<li><strong>Pixel mapping is explicit.</strong> When a plane's grid differs from the image clicked, a grid that nests is mapped exactly, with a note. A grid that does not nest is read with a <strong>warning</strong> shown on the marker.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A render now answers "what is this pixel" from disk. The viewer joins a pixel's <code>node_id</code> name with the frame's <code>node_temperatures_k</code>, so the per-pixel mesh-cell temperature and its node's lumped temperature sit side by side.</li>
+<li><strong>The error the centre sample introduces:</strong> on a silhouette the camera's pixel mixes surface and sky, while the truth planes report only the surface under the centre. That is intended, since it is exactly the comparison a debugger needs, but it means <code>temperature_k</code> and <code>apparent_t</code> are not expected to agree at edges.</li>
+<li>Disk cost is about 4.6 MB more per frame at 640x512: two float32 planes, plus three uint16 planes that compress well as PNG. <code>plane_stride</code> still thins it.</li>
+<li><code>part_id</code> is named by the prim's <strong>leaf</strong> name. Two prims with the same leaf name under different parents share a label.</li>
+</ul>
+<h2 id="revisit-when">Revisit when<a class="anchor" href="#revisit-when" aria-label="permalink">#</a></h2>
+<ul>
+<li>A render path writes planes somewhere other than per-frame files (a Warp buffer dump, a database). Add a <code>FrameSource</code>; the rest should not change.</li>
+<li>Someone needs the mean over the pixel instead of the centre truth. Add a second plane rather than changing this one.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

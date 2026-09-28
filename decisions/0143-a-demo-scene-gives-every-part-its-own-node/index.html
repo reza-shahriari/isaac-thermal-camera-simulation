@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0143 — A capability scene gives every part its own thermal node, and the scene decides the granularity — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head"><h1>0143 — A capability scene gives every part its own thermal node, and the scene decides the granularity</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0143-a-demo-scene-gives-every-part-its-own-node.md" target="_blank" rel="noopener">docs/decisions/0143-a-demo-scene-gives-every-part-its-own-node.md on GitHub</a></div>
+
+<article class="prose">
+<p>Date: 2026-09-26 <strong>Status:</strong> Accepted Roadmap: AI.7 (§6.6, §12.3)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0138 split the imported Phantom 4 into nineteen functional parts so that a temperature could name hardware. The scene that flies it, <code>phantom4_parts.yaml</code>, then gave those nineteen parts <strong>four</strong> thermal nodes — airframe, motor, ESC, battery — and the render driver carried the part → node map as a hard-coded table. Physically that was defensible: the four motors share one §6.6 model and one throttle history, so they <em>are</em> the same temperature in that scene.</p>
+<p>Shown as a clip, it reads as the opposite. Four motors at one temperature, four ESCs at one temperature and a single "airframe" value on every shell, arm and leg look exactly like a simulator that assigns one temperature per category, which is the defect that drove the project's owner off the previous simulator (the per-point requirement, ADR 0110) and which a capability demonstration exists to refute. The owner's words on seeing the four-node proposal: <em>"i want to have per-part temperature, as its a test i want to see the simulation capabilities."</em></p>
+<p>Two things stood in the way. The driver's map hard-wired the granularity, so a finer scene could not be expressed without editing Python. And the parts that make up most of the silhouette — shells, arms, gimbal — carry 150–220 k faces each in the prepared archive, and the mesh solver puts a cell on every face (ADR 0132, ADR 0137), so mesh-solving them is a cell budget the current archive does not have.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<ol>
+<li><strong>The scene is the authority on node granularity.</strong> <code>render_phantom4.target_for_part</code> tries the part's <em>own name</em> first, then an ordered list of kind-level candidates (<code>esc_front_left</code> before <code>esc</code>, <code>arms</code> before <code>airframe</code>), and takes the first one the scene defines. The same driver and the same asset therefore give four nodes on <code>phantom4_parts.yaml</code> and fifteen on <code>phantom4_perpart.yaml</code>. Only targets are candidates, never §12.3 surfaces: a surface already reaches the pixels through its cells, and the readout legend draws every mapped name.</li>
+</ol>
+<ol>
+<li><p><strong><code>phantom4_perpart.yaml</code> gives the nineteen parts nineteen temperatures</strong>, by three mechanisms of different fidelity, each stated in the file:</p>
+<ul>
+<li>four motor nodes and four ESC nodes on four <strong>different throttle histories</strong> — rear pair loaded in nose-down cruise, outer pair in a banked orbit, upwind pair hovering in a wind. The asymmetries are 6–12 % of throttle; at 45 K × u² that is 4–7 K between motors, eighty to a hundred and forty NETDs on the Boson;</li>
+<li>nine <strong>mesh-solved surfaces</strong> as before (battery skin, four mounts, four propellers), with each propeller's boundary-layer speed now derived from <em>its own</em> motor's throttle;</li>
+<li>six <strong>lumped airframe-family nodes</strong> (shell_upper, shell_lower, arms, landing_gear, gimbal, camera_lens) as <code>T_air + offset</code>, with ESTIMATED offsets that say what sits behind each surface — gimbal motors, an image sensor, sun on a white shell.</li>
+</ul></li>
+</ol>
+<ol>
+<li><p><strong>The airframe family is lumped on purpose, and that is the fidelity skipped.</strong> A mesh solve of the shells is the physically right answer (a sun-lit upper shell carries a gradient, ADR</p>
+<ol>
+<li>and is a scene edit away once the thermal archive is decimated to what conduction can</li>
+</ol>
+<p>resolve (ADR 0137 measured 77 % of the Phantom 4's faces as finer than that floor). Until then an offset per part is honest about being a per-part <em>value</em>, not a field, and the readout says which parts are which.</p></li>
+</ol>
+<ol>
+<li><strong>A third display clip, plateau-equalised over the whole run.</strong> The aircraft-stretched and sky-stretched clips of AI.2 each hide half the scene. <code>--agc-clip</code> builds one §11.3 plateau LUT over every frame of the run and applies it to each, so the cumulus and the motors share one frame the way a real camera shows them, without the per-frame rescaling that would cancel the warm-up being filmed. Display only; the float32 planes are untouched (ADR 0068).</li>
+</ol>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>A capability demonstration of this asset now shows same-kind parts diverging and converging with the mission, and <code>tests/unit/test_phantom4_perpart.py</code> pins that on the scene's own solvers, engine-free: rear pair over front pair in cruise, outer pair in each orbit, all four within 0.1 K once landed.</li>
+<li>The offsets in the airframe family are numbers someone chose. They are labelled ESTIMATED in the scene and must not be read as a thermal model of a gimbal; a Tier 4 fit against public aerial IR would replace them, or a decimated archive would make them unnecessary.</li>
+<li>The readout legend carries fifteen rows on a 512-row frame. That is its capacity; a scene with more nodes than that needs a legend that pages or groups, not a taller frame.</li>
+<li><code>TARGET_BY_PART</code> is now a map of candidate tuples and its docstring says so; any driver that copies the old <code>dict[str, str]</code> form is copying the wrong thing.</li>
+</ul>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>

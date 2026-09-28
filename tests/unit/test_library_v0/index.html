@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../../../">Overview</a></li>
 <li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
 <li><a href="../../../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Library v0</h1>
-  <p class="subtitle">M7.9 — the fifteen §16.2 materials, with provenance, and what separates the bands (§16.2, §12.3).</p>
-  <a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py" target="_blank" rel="noopener">tests/unit/test_library_v0.py on GitHub</a>
-</div>
+<div class="page-head"><h1>Library v0</h1><p class="subtitle">M7.9 — the fifteen §16.2 materials, with provenance, and what separates the bands (§16.2, §12.3).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py" target="_blank" rel="noopener">tests/unit/test_library_v0.py on GitHub</a></div>
 
 <article class="prose">
 <p>The §16.2 table gives ε_LWIR, ε_MWIR, α_sol and the three thermal properties, and nothing about NIR or SWIR. Every NIR/SWIR value in the library is therefore ESTIMATED and labelled so — but two of them are not guesses at all, and they are the reason a multi-band library is worth having:</p>
@@ -77,13 +74,13 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L130" target="_blank" rel="noopener">snow swings further between adjacent bands than anything else</a><br><code>test_snow_swings_further_between_adjacent_bands_than_anything_else</code></td><td>ε 0.15 in NIR and 0.90 in SWIR — the snow/cloud discriminator, as a material property.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L146" target="_blank" rel="noopener">glass shows itself in lwir and what is behind it in swir</a><br><code>test_glass_shows_itself_in_lwir_and_what_is_behind_it_in_swir</code></td><td>§4.4's headline, and the row §16.2 says is most likely to break a naïve simulator.</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L154" target="_blank" rel="noopener">bare metal is the other row that breaks naive simulators</a><br><code>test_bare_metal_is_the_other_row_that_breaks_naive_simulators</code></td><td>§16.2: "aluminium because ε = 0.09 means it is a mirror, not a surface".</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L165" target="_blank" rel="noopener">the wet and dry soil pair differ where it matters</a><br><code>test_the_wet_and_dry_soil_pair_differ_where_it_matters</code></td><td>The pair exists so a scene can show what rain does to a surface's diurnal behaviour.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L177" target="_blank" rel="noopener">the paint pair differ only where they should</a><br><code>test_the_paint_pair_differ_only_where_they_should</code></td><td>Black and white paint are the same in the thermal bands and opposite in the solar ones — which is why a white car and a black car look identical in LWIR and nothing alike at noon.</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L193" target="_blank" rel="noopener">water carries the only measured optical constants in the library</a><br><code>test_water_carries_the_only_measured_optical_constants_in_the_library</code></td><td>And it is the one material a maritime scene stands on, which is why it gets Level A.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L178" target="_blank" rel="noopener">the wet and dry soil pair differ where it matters</a><br><code>test_the_wet_and_dry_soil_pair_differ_where_it_matters</code></td><td>The pair exists so a scene can show what rain does to a surface's diurnal behaviour.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L190" target="_blank" rel="noopener">the paint pair differ only where they should</a><br><code>test_the_paint_pair_differ_only_where_they_should</code></td><td>Black and white paint are the same in the thermal bands and opposite in the solar ones — which is why a white car and a black car look identical in LWIR and nothing alike at noon.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_library_v0.py#L206" target="_blank" rel="noopener">water carries the only measured optical constants in the library</a><br><code>test_water_carries_the_only_measured_optical_constants_in_the_library</code></td><td>And it is the one material a maritime scene stands on, which is why it gets Level A.</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

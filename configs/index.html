@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
 <h2>Physics</h2><ul>
@@ -52,11 +53,7 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head">
-  <h1>Configuration catalogue</h1>
-  <p class="subtitle">Cameras, scenes, materials and atmospheres — the data the simulator is driven by.</p>
-  
-</div>
+<div class="page-head"><h1>Configuration catalogue</h1><p class="subtitle">Cameras, scenes, materials and atmospheres — the data the simulator is driven by.</p></div>
 
 <article class="prose">
 <p>Everything the simulator renders is named by one of these files. Bands are data rather than code: adding a camera is a new file here, not an edit to the radiance kernel.</p>
@@ -71,7 +68,7 @@
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/sensors/halmstad_boson_320.yaml" target="_blank" rel="noopener">halmstad_boson_320.yaml</a></td><td>FLIR Breach PTQ-136 -- the camera behind the Halmstad reference set (roadmap M12.1).</td></tr>
 </tbody></table></div>
 <h2 id="scenes">configs/scenes</h2>
-<p>A scene is a config, not code: geometry, weather, mission and what the camera does. 19 file(s).</p>
+<p>A scene is a config, not code: geometry, weather, mission and what the camera does. 21 file(s).</p>
 <div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
 </tr></thead><tbody>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/aircraft_pass_clear_noon.yaml" target="_blank" rel="noopener">aircraft_pass_clear_noon.yaml</a></td><td>A light business jet flying a low pass in front of a ground sensor, clear midday.</td></tr>
@@ -81,11 +78,13 @@
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/parked_car_cabin.yaml" target="_blank" rel="noopener">parked_car_cabin.yaml</a></td><td>The cabin reference scene: a parked car whose panels lose heat into the air behind them.</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/phantom3_outbound_pointwise.yaml" target="_blank" rel="noopener">phantom3_outbound_pointwise.yaml</a></td><td>A **DJI Phantom 3** filmed from the ground as it flies out, under broken cumulus, with the</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/phantom4_parts.yaml" target="_blank" rel="noopener">phantom4_parts.yaml</a></td><td>A **DJI Phantom 4 Pro** hovering in clear midday air, solved point-wise on the triangles of a</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/phantom4_perpart.yaml" target="_blank" rel="noopener">phantom4_perpart.yaml</a></td><td>A **DJI Phantom 4 Pro** in which **every part has its own temperature and its own history**.</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/phantom4_pointwise.yaml" target="_blank" rel="noopener">phantom4_pointwise.yaml</a></td><td>A **DJI Phantom 4 Pro** hovering in clear midday air, solved point-wise on the triangles of a</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/quad_flight_clear_noon.yaml" target="_blank" rel="noopener">quad_flight_clear_noon.yaml</a></td><td>A heavy-lift quadrotor flying a 30-minute mission on a clear midday. Schema: irsim.config.scene</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/quad_flight_mesh.yaml" target="_blank" rel="noopener">quad_flight_mesh.yaml</a></td><td>The quadrotor&#x27;s arms as **tubes**, not flat patches: the same 30-minute mission, with the two</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/quad_flight_pointwise.yaml" target="_blank" rel="noopener">quad_flight_pointwise.yaml</a></td><td>The aerial scenario, regenerated point-wise: the same 30-minute quadrotor mission as</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/quad_outbound_pointwise.yaml" target="_blank" rel="noopener">quad_outbound_pointwise.yaml</a></td><td>The aerial scenario as a **rendered** scene: a ground camera films one quadrotor flying out from</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/sky_only.yaml" target="_blank" rel="noopener">sky_only.yaml</a></td><td>SC.20: nothing but sky. The Tier 4 reference scene for the radial shading a camera leaves on a</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/sky_target_clear_day.yaml" target="_blank" rel="noopener">sky_target_clear_day.yaml</a></td><td>Phase-1 scene: a small aerial target against a clear mid-latitude summer sky.</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/thermal_facet_scene.yaml" target="_blank" rel="noopener">thermal_facet_scene.yaml</a></td><td>The §6.13 facet scene: one weather, seven surfaces, nothing moving.</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/vessel_departure_clear_day.yaml" target="_blank" rel="noopener">vessel_departure_clear_day.yaml</a></td><td>A vessel getting under way and steaming out to the horizon, filmed from a fixed shore mount.</td></tr>
@@ -95,13 +94,15 @@
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/wet_road_noon.yaml" target="_blank" rel="noopener">wet_road_noon.yaml</a></td><td>One object, two states: a road watered on half its width, at 14:00 on a clear June day, with a</td></tr>
 </tbody></table></div>
 <h2 id="materials">configs/materials</h2>
-<p>Spectral material library. ε + ρ + τ = 1 holds in every band, to 1e-6. 22 file(s).</p>
+<p>Spectral material library. ε + ρ + τ = 1 holds in every band, to 1e-6. 24 file(s).</p>
 <div class='table-wrap'><table><thead><tr><th>file</th><th>what it is</th>
 </tr></thead><tbody>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/abs_plastic_white.yaml" target="_blank" rel="noopener">abs_plastic_white.yaml</a></td><td>White ABS: the moulded shell of a consumer quadrotor. Section 16.2 (LWIR/MWIR/thermal); the</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/aircraft_aluminium_painted.yaml" target="_blank" rel="noopener">aircraft_aluminium_painted.yaml</a></td><td>Painted aircraft-aluminium skin -- fixed-wing fuselage and wing panels. Optically this is the</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/aluminium_anodised.yaml" target="_blank" rel="noopener">aluminium_anodised.yaml</a></td><td>Anodised aluminium: the same metal again, with an anodic oxide grown on it -- and a near-black</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/aluminium_polished.yaml" target="_blank" rel="noopener">aluminium_polished.yaml</a></td><td>Polished aluminium: the same metal as `bare_aluminium` with the oxide taken off, and a mirror</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/asphalt_dry.yaml" target="_blank" rel="noopener">asphalt_dry.yaml</a></td><td>Dry asphalt: rough, high-emissivity dielectric -- Level C is adequate (section 4.2).</td></tr>
-<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/bare_aluminium.yaml" target="_blank" rel="noopener">bare_aluminium.yaml</a></td><td>Bare / polished aluminium: a mirror in the thermal IR (epsilon 0.09), shows the sky, not itself.</td></tr>
+<tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/bare_aluminium.yaml" target="_blank" rel="noopener">bare_aluminium.yaml</a></td><td>Bare **oxidised** aluminium: a mirror in the thermal IR (epsilon 0.09), shows the sky, not itself.</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/car_paint_black.yaml" target="_blank" rel="noopener">car_paint_black.yaml</a></td><td>Black automotive paint on a thin steel panel -- the docs/physics-model.md section 12.3 example</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/car_paint_white.yaml" target="_blank" rel="noopener">car_paint_white.yaml</a></td><td>White automotive paint on a thin steel panel. Section 16.2 (LWIR/MWIR/thermal); the NIR/SWIR</td></tr>
 <tr><td class='nowrap'><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/materials/carbon_fibre.yaml" target="_blank" rel="noopener">carbon_fibre.yaml</a></td><td>Bare / clear-coated carbon-fibre laminate -- arms, booms and frame plates of a racing or</td></tr>
@@ -173,7 +174,7 @@
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-24 07:44 UTC from <code>900c03f</code>. The physics specification is
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

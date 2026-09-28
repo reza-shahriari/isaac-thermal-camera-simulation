@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agc vendor controls — irsim</title>
+<meta name="description" content="SC.25 — the equalisation controls every thermal core has under some name (§11.3, ADR 0149).">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Agc vendor controls</h1><p class="subtitle">SC.25 — the equalisation controls every thermal core has under some name (§11.3, ADR 0149).</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py" target="_blank" rel="noopener">tests/unit/test_agc_vendor_controls.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>plateau_equalization</code> used to have one knob, the high clip. Real cores expose a small, shared set of controls around the same histogram: the Lepton family's <em>low clip limit</em> (a floor of shades for every occupied bin), and the <em>max gain</em> that FLIR's Boson and Xenics' SWIR cores both document (a cap on how far a bland scene may be stretched). Each test below builds the scene the vendor documentation describes the control <em>for</em>, and asserts that the control does that job, so the test fails if the control is wired but does nothing, or does the wrong thing.</p>
+<p class='made-by'>7 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py" target="_blank" rel="noopener">tests/unit/test_agc_vendor_controls.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L52" target="_blank" rel="noopener">the low clip gives a small target on a clear sky its shades back</a><br><code>test_the_low_clip_gives_a_small_target_on_a_clear_sky_its_shades_back</code></td><td>A clear sky's ~30 bins hold 99.4 % of the pixels and none reaches a 7 % plateau, so plain equalisation leaves the target ≤ 3 codes. A low clip of 1e-3·N per occupied bin gives each of the target's ~120 occupied bins a floor: ≥ 20 codes, parts in temperature order.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L66" target="_blank" rel="noopener">a zero low clip is the old table bit for bit</a><br><code>test_a_zero_low_clip_is_the_old_table_bit_for_bit</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L75" target="_blank" rel="noopener">max gain stops a bland sky being stretched across its noise</a><br><code>test_max_gain_stops_a_bland_sky_being_stretched_across_its_noise</code></td><td>Uncapped, 33 DN of sky noise fills all 256 codes; capped at 1.25 codes/DN it spans no more than 1.25 × 33 + 2 codes and sits on mid-grey.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L87" target="_blank" rel="noopener">max gain that never binds changes nothing</a><br><code>test_max_gain_that_never_binds_changes_nothing</code></td><td>A scene spanning ~13 000 DN never asks for more than a fraction of a code per DN.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L96" target="_blank" rel="noopener">limit gain refuses a negative cap</a><br><code>test_limit_gain_refuses_a_negative_cap</code></td><td>—</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L121" target="_blank" rel="noopener">every agc mode is selectable from the config</a><span class="tag">parametrize</span><br><code>test_every_agc_mode_is_selectable_from_the_config</code></td><td>The user-facing selector is <code>isp.agc</code>: each mode runs to an RGBA8 frame, and the target is never darker than the clear sky around it (every mode is monotone in DN).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_agc_vendor_controls.py#L132" target="_blank" rel="noopener">the device agc refuses what it has no port of</a><br><code>test_the_device_agc_refuses_what_it_has_no_port_of</code></td><td>The Warp table has only the plain modes. A control it would silently drop is refused, before any device is touched, rather than rendered differently from the CPU oracle.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

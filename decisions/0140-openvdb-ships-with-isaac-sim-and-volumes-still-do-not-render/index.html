@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADR 0140 — OpenVDB ships with Isaac Sim, and volumes still do not render — irsim</title>
+<meta name="description" content="">
+<link rel="stylesheet" href="../../assets/style.css">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../">Overview</a></li>
+<li><a href="../../gallery/">Demo gallery</a></li>
+<li><a href="../../viewer/">Frame viewer</a></li>
+<li><a href="../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../physics/">Physics model</a></li>
+<li><a href="../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../roadmap/">Roadmap</a></li>
+<li><a href="../">Decision log</a></li>
+<li><a href="../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../tests/">The test suite</a></li>
+<li><a href="../../validation/">Validation</a></li>
+<li><a href="../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../code/">Code map</a></li>
+<li><a href="../../configs/">Configuration catalogue</a></li>
+<li><a href="../../scripts/">Commands</a></li>
+<li><a href="../../guide/">Working agreement</a></li>
+<li><a href="../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main has-toc">
+<div class="page-head"><h1>ADR 0140 — OpenVDB ships with Isaac Sim, and volumes still do not render</h1><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/decisions/0140-openvdb-ships-with-isaac-sim-and-volumes-still-do-not-render.md" target="_blank" rel="noopener">docs/decisions/0140-openvdb-ships-with-isaac-sim-and-volumes-still-do-not-render.md on GitHub</a></div>
+<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul><li class="toc-2"><a href="#context">Context</a></li>
+<li class="toc-2"><a href="#decision">Decision</a></li>
+<li class="toc-2"><a href="#what-the-renders-said">What the renders said</a></li>
+<li class="toc-2"><a href="#consequences">Consequences</a></li>
+<li class="toc-2"><a href="#alternatives-rejected">Alternatives rejected</a></li></ul></nav>
+<article class="prose">
+<p><strong>Status:</strong> Accepted. The cloud deck is written with the OpenVDB that ships inside Isaac Sim rather than with a hand-stamped NanoVDB. <strong>Volume rendering still produces nothing</strong> through Replicator's render-product path on this build — and now it is known that this is true of <em>any</em> volume, not of our file. ADR 0127's diagnosis is superseded. <strong>Date:</strong> 2026-09-24 Roadmap: AT.13 (§5.3 a)</p>
+<h2 id="context">Context<a class="anchor" href="#context" aria-label="permalink">#</a></h2>
+<p>ADR 0127 put the cloud deck in the stage as a <code>UsdVol.Volume</code> so the path tracer could integrate the same field the infrared band marches. It never rendered. Two causes were found and fixed — the bundled Warp stamps NanoVDB <strong>32.8</strong> where the renderer's IndeX plugin wants <strong>32.7</strong>, and <code>warp.Volume.save_to_nvdb</code> leaves <code>voxelCount</code>, <code>nodeCount</code> and <code>tileCount</code> at zero — and a third was not, so <code>--cloud-volume</code> has been off by default since.</p>
+<p>All of that rested on one sentence: <em>"There is no OpenVDB writer in this environment — no <code>pyopenvdb</code> on any interpreter here."</em></p>
+<p><strong>That sentence is wrong.</strong> Isaac Sim's <code>omni.volume</code> extension ships <code>openvdb.cpython-312-*.so</code> (OpenVDB 12, file format 224), <code>nanovdb.cpython-312-*.so</code>, <code>libopenvdb.so.12</code> and a <code>carb.volume</code> binding with <code>create_from_dense</code> and <code>save_volume</code>. They are simply not importable until someone does what Kit would otherwise have done: preload the shared libraries the extension module names but carries no RPATH for, and put the directory on <code>sys.path</code>. Both are three lines.</p>
+<p>So the deck was being voxelised through a CUDA-only Warp path, written to a format by a library that does not own it, patched byte-wise in two places, and refused — when the format's own writer was on disk the whole time.</p>
+<h2 id="decision">Decision<a class="anchor" href="#decision" aria-label="permalink">#</a></h2>
+<p><strong><code>irsim_isaac.env.ensure_openvdb_on_path</code> makes OpenVDB importable</strong>, mirroring <code>ensure_warp_on_path</code> (ADR 0014): <code>$IRSIM_OPENVDB_PATH</code> overrides, otherwise the extension cache is globbed for <code>omni.volume</code>. Preloading opens shared libraries and imports nothing, so it starts no Kit application and is safe on a machine with no GPU.</p>
+<p><strong><code>irsim_isaac.cloud_volume.write_openvdb</code> is the writer.</strong> A named grid, fog-volume class, a linear transform written as a matrix rather than composed from operations, <code>addStatsMetadata</code> for the counts the renderer complained were zero, and a write tolerance so the empty air is <em>absent</em> rather than stored as 1e-30. It needs no GPU and no Kit — where the NanoVDB path needed a CUDA device to write a file — so it runs on the unit gate and has five tests there, including one that checks a voxel's world position against the deck's own geometry (a volume with the wrong transform renders beautifully, underground, and nothing in the frame says so) and one that samples the grid against <code>CloudDeck.density_at</code>, which is ADR 0127's one-field-two-consumers rule made testable.</p>
+<p><code>write_nanovdb</code> stays. Its two fixes are correct and a <code>.nvdb</code> is still what Warp reads back fastest. It is no longer what a renderer is handed.</p>
+<p><strong><code>scripts/probe_cloud_volume.py</code> is AT.13's probe.</strong> A backdrop, a cloud in front of it, a camera looking through, and <strong>the scene rendered twice — once with the volume and once without</strong>. A volume that failed to load and a volume that is invisible to an annotator produce the same array as no volume at all, and nothing in a single frame separates either from a cloud that is merely thin.</p>
+<h2 id="what-the-renders-said">What the renders said<a class="anchor" href="#what-the-renders-said" aria-label="permalink">#</a></h2>
+<p>Every combination, 640×480, 24 spp, backdrop confirmed 100 % in frame, cloud prim valid with a non-empty world bound:</p>
+<div class='table-wrap'><table>
+<thead><tr><th><code>/rtx/rendermode</code></th><th>volume</th><th>LdrColor changed</th><th>noise floor</th><th>verdict</th></tr></thead>
+<tbody>
+<tr><td><code>PathTracing</code></td><td>OpenVDB grid</td><td>0.000</td><td>0.000</td><td><strong>nothing</strong></td></tr>
+<tr><td><code>PathTracing</code></td><td>cube, procedural MDL, no file</td><td>0.000</td><td>0.000</td><td><strong>nothing</strong></td></tr>
+<tr><td><code>RaytracedLighting</code></td><td>OpenVDB grid</td><td>0.131</td><td>0.081</td><td>below noise</td></tr>
+<tr><td><code>RaytracedLighting</code></td><td>cube, procedural MDL, no file</td><td>0.492</td><td>0.472</td><td>below noise</td></tr>
+</tbody></table></div>
+<p>In <code>PathTracing</code> the render is deterministic — two captures of an identical stage are <em>byte</em> identical — and the volume changes <strong>nothing at all</strong>. That rules out "it rendered faintly".</p>
+<p><strong>The cube is the finding.</strong> It carries <code>OmniVolumeDensity</code> at a constant density and no VDB file of any kind, and it is as invisible as the grid is. So this was never about NanoVDB versions, file metadata, the writer, or our cloud: <strong>no volume renders here</strong>, whatever it is made of.</p>
+<p>Everything else checks out, which is what makes the result usable as a bug report:</p>
+<ul>
+<li><code>OmniVolumeDensity.mdl</code> <strong>resolves</strong>, to <code>packman-repo/chk/kit-kernel/110.3.0*/mdl/core/Volume/OmniVolumeDensity.mdl</code>.</li>
+<li><code>omni.volume</code> and <code>omni.index</code> are already enabled; <code>carb.volume.plugin</code> loads; <code>libusd_usdVol</code> and <code>libusd_usdVolImaging</code> load. (<code>omni.hydra.index</code> refuses to enable.)</li>
+<li><code>/rtx/rendermode</code> reads back as set, and <code>/rtx/pathtracing/volumesAOV</code>, <code>/rtx/pathtracing/maxVolumeBounces</code> and <code>/rtx/raytracing/globalVolumetricEffects/enabled</code> are on.</li>
+<li>The volume prim has an authored <code>extent</code> — <strong>added here</strong>, and necessary: <code>UsdVol.Volume</code> is boundable with no points to fall back on, so without it there is no bounding box and the prim is culled. That is a second silent failure, and it was in the path before this.</li>
+</ul>
+<h2 id="consequences">Consequences<a class="anchor" href="#consequences" aria-label="permalink">#</a></h2>
+<ul>
+<li>The visible band's cloud stays the dome baking the deck as a sheet. Nothing regressed; what changed is that the reason is now known and is not ours.</li>
+<li><strong>AT.14's premise is not yet testable.</strong> Whether a volume reaches <code>distance_to_camera</code> — which decides whether cloud can occlude an aircraft in a band computed from AOVs — cannot be answered while no volume renders. <code>distance_to_camera</code> was unchanged in all four runs, but so was everything else.</li>
+<li>The question to put to NVIDIA is now sharp: <em>on Kit 110.3 / Isaac Sim 6.1, does a <code>UsdVol.Volume</code> or a procedural MDL volume render through an <code>omni.replicator.core</code> render product, in any rendermode?</em> It is reproducible in one command.</li>
+<li>Next worth trying, in order: the <strong>interactive viewport's</strong> own capture rather than a Replicator render product; <code>omni.hydra.index</code> (it refused to enable, and the RTX Scientific path is the one the docs put VDB under); and an app <code>.kit</code> that enables volume support at boot rather than a runtime <code>set_extension_enabled_immediate</code>.</li>
+</ul>
+<h2 id="alternatives-rejected">Alternatives rejected<a class="anchor" href="#alternatives-rejected" aria-label="permalink">#</a></h2>
+<p><strong>Keep chasing the NanoVDB header.</strong> The cube settles it: a volume with no file at all behaves identically, so no amount of work on the file was going to change the outcome. This is the value of a control, and ADR 0127 did not have one.</p>
+<p><strong>Call it "volumes are Path Tracing only" and move on.</strong> The documentation does say that, and the measurement says the path-traced frames are byte-identical with and without. Repeating the documentation over the top of a measurement that contradicts it is how a wrong belief survives.</p>
+<p><strong>Detect the volume by rendering once.</strong> The first version of this probe did, with a threshold of 1e-3 of full scale, and reported that 43 % of the frame changed between two real-time captures of a stage with no volume in it — denoiser churn, read as a cloud. The noise floor is now measured by rendering the empty scene a second time, and a claim has to beat it by 3x.</p>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <a href="../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../assets/site.js"></script>
+</body>
+</html>
