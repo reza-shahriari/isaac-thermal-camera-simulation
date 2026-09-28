@@ -15,13 +15,15 @@ What it does, and what it measured on the last run:
    which it recognises as centimetres. Scaled, it is 0.4105 × 0.4637 × 0.2067 m.
 2. Loads the hand-written map ([step 4](04-existing-asset.md)): 100 % coverage. The one
    mirror-like material flagged is the chrome trim, chosen on purpose.
-3. Adds the flight battery inside the body as a hidden part ([step 7](07-hidden-parts.md)), laid
-   fore and aft, then finds the connections ([step 6](06-connections.md)): 103 contacts and 87
-   facing pairs in 9.9 s.
+3. Adds the flight battery from the component library inside the body
+   ([step 7](07-hidden-parts.md)), turned to lie fore and aft, then finds the connections
+   ([step 6](06-connections.md)): 102 contacts and 87 facing pairs in 9.9 s.
 4. Saves `phantom4_thermal_demo.blend`. It opens in the thermal view with the sidebar out and the
    connections shown.
-5. With `--export-scratch`, exports into a scratch copy of the repository and runs the project's
-   audit: 41/41 parts mapped.
+5. With `--export-scratch`, exports into a scratch copy of the repository, the battery included
+   as a guide prim, and runs the project's audit: 41/41 parts mapped. (The audit reads the model
+   back through Blender, which leaves guide prims out, so the battery is not among the 41; making
+   the project's own tools read hidden parts is roadmap row AI.11.)
 6. With `--render`, draws the pictures in this tutorial on the CPU.
 
 ![The model as it looks, and its LWIR emissivity with the hand-written map](images/phantom4_look_and_emissivity.webp)

@@ -4,7 +4,8 @@
    scenes will use.
 2. Click **Export to irsim**. It writes:
    - `3d_models/<name>/<name>.usdc`: the parts, one USD prim per object. (`3d_models/` is not
-     committed.)
+     committed.) The hidden parts are in it too, marked `purpose = "guide"`: you can select and
+     move them in Isaac Sim, and no camera renders them.
    - `3d_models/<name>/<name>.blend`: a copy of your file, so you can come back and edit.
    - `configs/assets/<name>.yaml`: the asset's material map. **Commit this file.**
    - `3d_models/<name>/<name>.structure.yaml`, if there are any: the contacts, facing pairs and

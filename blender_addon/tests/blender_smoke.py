@@ -214,7 +214,11 @@ def ui_checks(ctx) -> None:
         filter_name="", bitflag_filter_item=1 << 30, use_filter_sort_alpha=True
     )
     flags, order = ui.PartsList.filter_items(lister, ctx, ctx.scene, "objects")
-    meshes = sum(1 for ob in ctx.scene.objects if ob.type == "MESH" and not ob.hide_render)
+    meshes = sum(
+        1
+        for ob in ctx.scene.objects
+        if ob.type == "MESH" and not ob.hide_render and not ob.irsim_component.is_hidden_part
+    )
     check(
         sum(1 for f in flags if f) == meshes and len(order) == len(flags),
         "the parts list shows exactly the renderable meshes",
@@ -249,14 +253,15 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
       down. a and b face each other fully, b hides c from a, and c looks down onto b's back;
     * ``far``, a cube 10 m away, connected to nothing.
     """
-    from irsim_thermal import export, scene_stats, ui
+    from irsim_thermal import export, hidden_parts, scene_stats, ui
+    from mathutils import Vector
 
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.delete()
     ctx.scene.irsim_connections.clear()
     ctx.scene.irsim.touch_gap_m = ctx.scene.irsim.facing_gap_m = 0.0
     block = add("cube", "block", size=1.0)
-    add("cube", "lid", location=(0.0, 0.0, 0.75), size=0.5)
+    lid = add("cube", "lid", location=(0.0, 0.0, 0.75), size=0.5)
     add("plane", "plate_a", location=(3.0, 0.0, 0.0), size=1.0)
     plate_b = add("plane", "plate_b", location=(3.0, 0.0, 0.2), size=1.0)
     plate_c = add("plane", "plate_c", location=(3.0, 0.0, 0.4), size=1.0)
@@ -308,7 +313,7 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
     i_ab = connections_list.index(ab)
     bpy.ops.irsim.set_connection_status(index=i_contact, status="CONFIRMED")
     bpy.ops.irsim.set_connection_status(index=i_ab, status="REJECTED")
-    contact.joint = "bolted_ferrous_new"
+    connection(ctx, "block", "lid", "CONTACT").joint = "bolted_ferrous_new"
     n_before = len(ctx.scene.irsim_connections)
     bpy.ops.irsim.find_connections()
     after = {(frozenset((c.a.name, c.b.name)), c.kind): c for c in ctx.scene.irsim_connections}
@@ -348,16 +353,75 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
     engine = ctx.scene.objects.get("engine_block")
     check(result == {"FINISHED"} and engine is not None, "a hidden part is added, named safely")
     check(
-        engine.irsim_component.is_hidden_part and engine.hide_render and engine.parent == block,
-        "it is marked hidden, never rendered, and moves with the part it is inside",
+        engine.irsim_component.is_hidden_part
+        and engine.display_type == "SOLID"
+        and engine.show_in_front
+        and not engine.hide_render
+        and engine.parent == block,
+        "it is a solid drawn in front of the shell, and moves with the part it is inside",
     )
-    centre, size = __import__("irsim_thermal.hidden_parts", fromlist=["x"]).world_box(engine)
+    centre, size = hidden_parts.world_box(engine)
     check(
         centre.length < 1e-6 and all(abs(v - 0.3) < 1e-6 for v in size),
         "it sits in the middle of the block, at the size asked for",
     )
     parts = scene_stats.part_objects(ctx)
     check(engine not in parts, "it is not a part the USD exports")
+    # One from the component library: at its real size, in the middle of the part selected.
+    select_only(lid)
+    check(
+        bpy.ops.irsim.add_component(
+            component="drone_battery",
+            part_name="battery pack",
+            material="abs_plastic_white",
+            mass_kg=0.468,
+            heat_idle_w=0.5,
+            heat_rated_w=25.0,
+        )
+        == {"FINISHED"},
+        "a component is added from the library",
+    )
+    pack = ctx.scene.objects.get("battery_pack")
+    pack_centre, pack_size = hidden_parts.world_box(pack)
+    check(
+        pack is not None
+        and pack.irsim_component.is_hidden_part
+        and pack.irsim_component.kind == "BATTERY"
+        and pack.parent == lid
+        and all(abs(a - b) < 1e-4 for a, b in zip(pack_size, (0.14, 0.07, 0.04), strict=True))
+        and (pack_centre - Vector((0.0, 0.0, 0.75))).length < 1e-6,
+        f"at its real size {tuple(round(v, 4) for v in pack_size)} m, inside the lid, a battery",
+    )
+    # The whole library: every entry has its file, the menu is grouped, and each one arrives at
+    # its catalog size along its catalog axis.
+    entries = hidden_parts.catalog()
+    menu = hidden_parts._component_items(None, ctx)
+    categories = list(dict.fromkeys(e["category"] for e in entries))
+    check(
+        len(entries) >= 90
+        and [label for ident, label, _ in menu if not ident] == categories
+        and len([i for i in menu if i[0]]) == len(entries),
+        f"{len(entries)} library components with their files, under {len(categories)} headings",
+    )
+    wrong = []
+    for e in entries:
+        ob = hidden_parts.import_component(ctx, e["file"])
+        ctx.view_layer.update()
+        _, got = hidden_parts.world_box(ob)
+        s = e["size_m"]
+        axis = e.get("axis", "X")
+        want = s if e["shape"] == "box" else [s[0] if a == axis else max(s[1:]) for a in "XYZ"]
+        if any(abs(a - b) > 1e-4 * max(want) for a, b in zip(got, want, strict=True)):
+            wrong.append(f"{e['file']} {tuple(round(v, 4) for v in got)}")
+        bpy.data.objects.remove(ob)
+    check(not wrong, "every library component arrives at its catalog size: " + ", ".join(wrong))
+    # A hidden part made by the first version (a wireframe marked not to render) is brought back.
+    pack.display_type, pack.hide_render = "WIRE", True
+    bpy.ops.irsim.show_hidden_parts()
+    check(
+        pack.display_type == "SOLID" and not pack.hide_render,
+        "'Show hidden parts' makes an old wireframe one solid and exportable again",
+    )
     kinds = {(i.kind, i.name) for i in ctx.scene.irsim.issues}
     check(("HIDDEN", "engine_block") in kinds, "the checklist asks for its mass")
     engine.irsim_component.mass_kg = 80.0
@@ -373,6 +437,31 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
     check(
         (frozenset(("block", "engine_block")), "FACING") in found,
         "the finder sees the hidden engine facing the block around it",
+    )
+
+    # The viewport draws only the selected parts' connections, unless asked for all.
+    from irsim_thermal import overlay
+
+    ctx.scene.irsim.active_connection_index = -1
+    select_only(ctx.scene.objects["plate_b"])
+    with_b = sum(1 for c in ctx.scene.irsim_connections if "plate_b" in (c.a.name, c.b.name))
+    shown = len(overlay.segments(ctx))
+    ctx.scene.irsim.connections_of_selected = False
+    everything = len(overlay.segments(ctx))
+    check(
+        shown == with_b and everything == len(ctx.scene.irsim_connections) and shown < everything,
+        f"lines for the selected part only ({shown} of {everything}), or all when asked",
+    )
+    ctx.scene.irsim.connections_of_selected = True
+    import types
+
+    lister = types.SimpleNamespace(
+        filter_name="", bitflag_filter_item=1 << 30, use_filter_sort_alpha=False
+    )
+    flags, _ = ui.ConnectionsList.filter_items(lister, ctx, ctx.scene, "irsim_connections")
+    check(
+        sum(1 for f in flags if f) == with_b,
+        f"the list, too, narrows to the selected part's {with_b} connections",
     )
 
     # Every panel draws with all of it in place.
@@ -398,14 +487,20 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
     check("reviewed: false" in text, "...marked as unreviewed")
     check("name: engine_block" in text and "mass_kg: 80.0" in text, "the hidden part is written")
     usd = repo / "3d_models" / "smoke_structure" / "smoke_structure.usdc"
-    from pxr import Usd
+    from pxr import Usd, UsdGeom
 
     stage = Usd.Stage.Open(str(usd))  # kept: a stage freed mid-traversal expires its prims
-    names = {p.GetName() for p in stage.Traverse()}
+    purposes = {p.GetName(): UsdGeom.Imageable(p).ComputePurpose() for p in stage.Traverse()}
     del stage  # an open layer would stop the next export writing the same file
-    check("engine_block" not in names and "block" in names, "the hidden part is not in the USD")
+    check(
+        purposes.get("engine_block") == UsdGeom.Tokens.guide
+        and purposes.get("battery_pack") == UsdGeom.Tokens.guide,
+        "the hidden parts are in the USD as guides, which no camera renders",
+    )
+    check(purposes.get("block") == UsdGeom.Tokens.default_, "the ordinary parts are not")
 
-    contact.joint = "welded_magic"
+    # Looked up again: a reference held across changes to the list may point at freed memory.
+    connection(ctx, "block", "lid", "CONTACT").joint = "welded_magic"
     ctx.scene.irsim.replace_export = True
     before = usd.stat().st_mtime_ns
     try:
@@ -414,6 +509,14 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
     except RuntimeError as exc:
         check("not in joints.yaml" in str(exc), "a joint the table lacks is refused")
     check(usd.stat().st_mtime_ns == before, "...before anything is written")
+
+
+def connection(ctx, a: str, b: str, kind: str):
+    """The connection between ``a`` and ``b``, looked up afresh."""
+    for c in ctx.scene.irsim_connections:
+        if c.kind == kind and {c.a.name, c.b.name} == {a, b}:
+            return c
+    raise KeyError((a, b, kind))
 
 
 def types_ns(ui):

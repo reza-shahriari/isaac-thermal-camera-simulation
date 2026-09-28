@@ -41,7 +41,9 @@ class PartsList(UIList):
         else:
             flags = [self.bitflag_filter_item] * len(objects)
         flags = [
-            f if (ob.type == "MESH" and not ob.hide_render) else 0
+            f
+            if (ob.type == "MESH" and not ob.hide_render and not ob.irsim_component.is_hidden_part)
+            else 0
             for f, ob in zip(flags, objects, strict=True)
         ]
         order = helper.sort_items_by_name(objects, "name") if self.use_filter_sort_alpha else []
@@ -123,10 +125,19 @@ class ConnectionsList(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
         row = layout.row(align=True)
         row.active = item.status != "REJECTED"
-        row.label(text=_connection_text(item), icon=self.KIND_ICONS[item.kind])
+        # With the list narrowed to the active part's connections, the other part is the news.
+        ob = context.active_object
+        if ob is not None and ob in (item.a, item.b) and _narrowed(context):
+            other = item.b if item.a == ob else item.a
+            text = other.name if other is not None else "(gone)"
+        else:
+            text = _connection_text(item)
+        split = row.split(factor=0.66, align=True)
+        split.label(text=text, icon=self.KIND_ICONS[item.kind])
+        tail = split.row(align=True)
         # A facing pair's two areas differ (a small part sees much of a big one, not the reverse).
-        row.label(text=_area_text(max(item.area_m2, item.area_ba_m2)))
-        row.label(text="", icon=self.STATUS_ICONS[item.status])
+        tail.label(text=_area_text(max(item.area_m2, item.area_ba_m2)))
+        tail.label(text="", icon=self.STATUS_ICONS[item.status])
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)
@@ -140,6 +151,12 @@ class ConnectionsList(UIList):
             ]
         else:
             flags = [self.bitflag_filter_item] * len(items)
+        if _narrowed(context):
+            selected = set(context.selected_objects)
+            flags = [
+                f if (c.a in selected or c.b in selected) else 0
+                for f, c in zip(flags, items, strict=True)
+            ]
         order = (
             helper.sort_items_helper(
                 [(i, _connection_text(c)) for i, c in enumerate(items)], key=lambda x: x[1]
@@ -148,6 +165,11 @@ class ConnectionsList(UIList):
             else []
         )
         return flags, order
+
+
+def _narrowed(context) -> bool:
+    """Whether lists and lines show only the selected parts' connections just now."""
+    return context.scene.irsim.connections_of_selected and bool(context.selected_objects)
 
 
 class _Base:
@@ -317,11 +339,14 @@ class HiddenPartsPanel(_Base, Panel):
     def draw(self, context):
         layout = self.layout
         settings = context.scene.irsim
-        layout.label(text="Parts the model lacks: an engine, a battery, a motor", icon="INFO")
+        layout.label(text="Parts the model lacks", icon="INFO")
         layout.template_list(
             "IRSIM_UL_hidden", "", context.scene, "objects", settings, "active_hidden_index", rows=3
         )
-        layout.operator("irsim.add_hidden_part", text="Add hidden part...", icon="ADD")
+        row = layout.row(align=True)
+        row.operator("irsim.add_component", text="Add from library...", icon="ASSET_MANAGER")
+        row.operator("irsim.add_hidden_part", text="Add a box...", icon="MESH_CUBE")
+        layout.operator("irsim.show_hidden_parts", icon="HIDE_OFF")
         ob = context.active_object
         if ob is None or not ob.irsim_component.is_hidden_part:
             return
@@ -344,7 +369,7 @@ class HiddenPartsPanel(_Base, Panel):
             icon="MATERIAL" if thermal else "ERROR",
         )
         if ob.parent is not None:
-            box.label(text=f"Inside {ob.parent.name}, and moves with it", icon="LINKED")
+            box.label(text=f"Inside {ob.parent.name}", icon="LINKED")
 
 
 class ConnectionsPanel(_Base, Panel):
@@ -358,17 +383,20 @@ class ConnectionsPanel(_Base, Panel):
         settings = context.scene.irsim
         connections = context.scene.irsim_connections
         col = layout.column(align=True)
-        col.prop(settings, "touch_gap_m")
-        col.prop(settings, "facing_gap_m")
+        col.prop(settings, "touch_gap_m", text="Touching within (0 = auto)")
+        col.prop(settings, "facing_gap_m", text="Facing within (0 = auto)")
         col.prop(settings, "samples")
         row = layout.row(align=True)
         row.operator("irsim.find_connections", icon="VIEWZOOM")
         row.prop(settings, "show_connections", text="", icon="HIDE_OFF")
+        layout.prop(settings, "connections_of_selected")
         if not len(connections):
             layout.label(text="Nothing found yet", icon="INFO")
             op = layout.operator("irsim.add_connection", text="Connect the two selected")
             op.kind = "CONTACT"
             return
+        if settings.last_search:
+            layout.label(text=settings.last_search, icon="INFO")
         found = sum(1 for c in connections if c.status == "FOUND")
         layout.label(
             text=f"{len(connections)} connections, {found} to review",
@@ -384,10 +412,10 @@ class ConnectionsPanel(_Base, Panel):
             rows=5,
         )
         row = layout.row(align=True)
-        op = row.operator("irsim.add_connection", text="Connect selected", icon="ADD")
+        op = row.operator("irsim.add_connection", text="Connect", icon="ADD")
         op.kind = "CONTACT"
         if found:
-            row.operator("irsim.confirm_all_connections", icon="CHECKMARK")
+            row.operator("irsim.confirm_all_connections", text="Confirm all", icon="CHECKMARK")
         index = settings.active_connection_index
         if not 0 <= index < len(connections):
             return
@@ -404,8 +432,8 @@ class ConnectionsPanel(_Base, Panel):
             joint = context.window_manager.irsim_joints.get(c.joint)
             if joint is not None:
                 box.label(
-                    text=f"{joint.h_c_w_m2_k:,.0f} W/m²K ({joint.status.lower()}), "
-                    f"{joint.h_c_w_m2_k * c.area_m2:.3g} W/K over this area"
+                    text=f"{joint.h_c_w_m2_k:,.0f} W/m²K → {joint.h_c_w_m2_k * c.area_m2:.3g} W/K",
+                    icon="CHECKMARK" if joint.status == "MEASURED" else "QUESTION",
                 )
         else:
             col.prop(c, "area_ba_m2")

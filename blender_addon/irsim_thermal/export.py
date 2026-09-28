@@ -3,7 +3,9 @@
 What the export writes, all inside the repository the add-on is pointed at:
 
 * ``3d_models/<name>/<name>.usdc`` -- the parts, one prim per Blender object, with their materials
-  bound by name (Blender's own USD exporter, ``UsdPreviewSurface`` for the RGB companion).
+  bound by name (Blender's own USD exporter, ``UsdPreviewSurface`` for the RGB companion). The
+  hidden parts are in it too, each marked ``purpose = "guide"``: a prim that can be selected and
+  moved in Isaac Sim but that no camera renders (:mod:`.hidden_parts`).
 * ``3d_models/<name>/<name>.blend`` -- a copy of the working file, so the assignment can be
   reopened and edited later (the add-on's data lives on the materials inside it).
 * ``configs/assets/<name>.yaml`` -- the asset map, written and re-loaded by the bridge with the
@@ -60,6 +62,25 @@ def _bound_material_names(usd_path: pathlib.Path) -> set[str]:
         if material:
             names.add(material.GetPrim().GetName())
     return names
+
+
+def mark_guides(usd_path: pathlib.Path, names: set[str]) -> set[str]:
+    """Mark the prims named ``names`` ``purpose = "guide"`` and save; returns the names found.
+
+    Blender writes an object as an Xform holding its mesh, both under the object's name once the
+    names are made safe; both are marked, and anything beneath inherits it.
+    """
+    from pxr import Usd, UsdGeom
+
+    stage = Usd.Stage.Open(str(usd_path))
+    found: set[str] = set()
+    for prim in stage.Traverse():
+        if prim.GetName() in names and prim.IsA(UsdGeom.Imageable):
+            UsdGeom.Imageable(prim).CreatePurposeAttr(UsdGeom.Tokens.guide)
+            found.add(prim.GetName())
+    stage.GetRootLayer().Save()
+    del stage  # an open layer would stop a later export writing the same file
+    return found
 
 
 def _rename(ids, renames: dict[str, str]) -> list[str]:
@@ -205,9 +226,10 @@ class ExportAsset(Operator):
             out_dir.mkdir(parents=True, exist_ok=True)
 
             previous = (list(context.selected_objects), context.view_layer.objects.active)
+            written = [ob for ob in parts + hidden if ob.visible_get()]
             for ob in context.scene.objects:
-                ob.select_set(ob in parts and ob.visible_get())
-            off = [ob.name for ob in parts if not ob.visible_get()]
+                ob.select_set(ob in written)
+            off = [ob.name for ob in parts + hidden if not ob.visible_get()]
             if off:
                 self.report({"WARNING"}, f"Hidden in the viewport, not exported: {off}")
             bpy.ops.wm.usd_export(
@@ -226,7 +248,16 @@ class ExportAsset(Operator):
                 ob.select_set(ob in previous[0])
             context.view_layer.objects.active = previous[1]
 
-            used = scene_stats.used_materials([ob for ob in parts if ob.visible_get()])
+            guides = {ob.name for ob in hidden if ob.visible_get()}
+            missing = guides - mark_guides(usd_path, guides)
+            if missing:
+                self.report(
+                    {"ERROR"},
+                    f"Hidden parts missing from the USD, so not marked as guides: "
+                    f"{sorted(missing)}. Nothing was written to configs/assets.",
+                )
+                return {"CANCELLED"}
+            used = scene_stats.used_materials(written)
             mapping = {m.name: m.irsim_material for m in used if m.irsim_material}
             bound = _bound_material_names(usd_path)
             lowered = {k.lower() for k in mapping}
@@ -352,6 +383,7 @@ def structure_payload(context, name: str, exported, hidden) -> dict | None:
                     "rated": float(f"{comp.heat_rated_w:.6g}"),
                 },
                 "values": {"source": comp.values_source.lower(), "reference": comp.reference},
+                "usd": "a prim of its own in the exported USD, purpose guide: never rendered",
                 "area_m2": _area(ob),
             }
         )

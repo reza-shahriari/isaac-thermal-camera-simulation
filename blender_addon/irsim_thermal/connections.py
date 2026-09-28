@@ -238,37 +238,49 @@ def merge(connections, found: list[dict], objects: dict[str, bpy.types.Object], 
     * a *confirmed*, *rejected* or *added* entry is never dropped or re-proposed, and a confirmed
       or rejected one gets the new measurement;
     * a new entry starts as *found*, a contact with the table's dry default joint.
+
+    No Python reference to an entry is held across a ``remove`` or an ``add``: Blender may move a
+    collection's items when it changes, and writing through an old reference then writes into
+    freed memory (a crash, found by the smoke test). So entries are always looked up again by
+    index, and every update to an existing entry happens before any new one is added.
     """
-    kept = {}
     for index in reversed(range(len(connections))):
-        c = connections[index]
-        if c.status == "FOUND":
+        if connections[index].status == "FOUND":
             connections.remove(index)
-        elif c.a is not None and c.b is not None:
-            kept[_key(c.a.name, c.b.name, c.kind)] = c
-    added = updated = 0
+
+    def key_of(c) -> tuple | None:
+        return None if c.a is None or c.b is None else _key(c.a.name, c.b.name, c.kind)
+
+    existing = {key_of(c): i for i, c in enumerate(connections) if key_of(c) is not None}
+    new_records = []
+    updated = 0
     for record in found:
-        key = _key(record["a"], record["b"], record["kind"])
-        c = kept.get(key)
-        if c is None:
-            c = connections.add()
-            c.a, c.b = objects[record["a"]], objects[record["b"]]
-            c.kind = record["kind"]
-            c.status = "FOUND"
-            if c.kind == "CONTACT" and DEFAULT_JOINT in joints:
-                c.joint = DEFAULT_JOINT
-            added += 1
-        elif c.status == "ADDED":
-            continue
-        else:
+        index = existing.get(_key(record["a"], record["b"], record["kind"]))
+        if index is None:
+            new_records.append(record)
+        elif connections[index].status != "ADDED":
+            _measure(connections[index], record)
             updated += 1
-        swapped = c.a.name != record["a"]
-        c.area_m2 = record["area_ba"] if swapped and "area_ba" in record else record["area"]
-        c.area_ba_m2 = record["area"] if swapped else record.get("area_ba", 0.0)
-        c.gap_m = record.get("gap", 0.0)
-        c.point_a = tuple(record["pb"] if swapped else record["pa"])
-        c.point_b = tuple(record["pa"] if swapped else record["pb"])
-    return {"added": added, "updated": updated}
+    for record in new_records:
+        connections.add()
+        c = connections[len(connections) - 1]
+        c.a, c.b = objects[record["a"]], objects[record["b"]]
+        c.kind = record["kind"]
+        c.status = "FOUND"
+        if c.kind == "CONTACT" and DEFAULT_JOINT in joints:
+            c.joint = DEFAULT_JOINT
+        _measure(c, record)
+    return {"added": len(new_records), "updated": updated}
+
+
+def _measure(c, record: dict) -> None:
+    """Write a search's measurement onto a connection, whichever way round it stores its parts."""
+    swapped = c.a.name != record["a"]
+    c.area_m2 = record["area_ba"] if swapped and "area_ba" in record else record["area"]
+    c.area_ba_m2 = record["area"] if swapped else record.get("area_ba", 0.0)
+    c.gap_m = record.get("gap", 0.0)
+    c.point_a = tuple(record["pb"] if swapped else record["pa"])
+    c.point_b = tuple(record["pa"] if swapped else record["pb"])
 
 
 def _after_change(context: bpy.types.Context) -> None:
@@ -304,6 +316,9 @@ class FindConnections(Operator):
             found,
             {ob.name: ob for ob in objects},
             context.window_manager.irsim_joints,
+        )
+        context.scene.irsim.last_search = (
+            f"Used: touch {1000 * touch:.2g} mm, face {100 * facing:.2g} cm"
         )
         scene_stats.refresh(context)
         _after_change(context)
@@ -341,7 +356,8 @@ class AddConnection(Operator):
                 c.status = "ADDED"
                 self.report({"INFO"}, f"{a.name} / {b.name} was already listed; marked as yours")
                 return {"FINISHED"}
-        c = connections.add()
+        connections.add()
+        c = connections[len(connections) - 1]
         c.a, c.b, c.kind, c.status = a, b, self.kind, "ADDED"
         touch, facing = gaps_for(context, connectable_objects(context))
         a_centre = np.array([*a.matrix_world.translation])

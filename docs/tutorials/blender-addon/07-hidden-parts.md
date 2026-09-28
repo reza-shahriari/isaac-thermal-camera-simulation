@@ -1,39 +1,60 @@
 # Add the parts you cannot see
 
 A downloaded model is a skin. A car has no engine, and a drone shell has no battery. But a thermal
-camera sees exactly the heat those parts make, through the shell. A **hidden part** is a box put
-where the real thing sits, which carries what the solver needs to know about it.
+camera sees exactly the heat those parts make, through the shell. A **hidden part** is a real object
+put where the real thing sits, which carries what the solver needs to know about it.
 
-## Add one
+![The Phantom 4 with its battery, flight controller, video transmitter and four speed controllers added; the battery selected](images/hidden_parts_panel.webp)
+
+## Add one from the library
 
 1. Select the part it sits inside, for example the car body or the drone's shell.
-2. In **Hidden parts**, click **Add hidden part…** and fill in:
-   - **Name** and **What is it** (battery, electric motor, piston engine, turbine, exhaust…).
-   - **Size**: it starts at a quarter of the selected part; change it here or later with `S`.
-   - **Material**: what its outside is made of, from the library.
-   - **Mass**, **Heat at idle** and **Heat at full load**. The heat is what it gives off, which
-     for an engine is the fuel's power minus the useful work.
-   - **Numbers are** *estimated*, *published* or *measured*, and a **Reference** saying where they
-     came from, or what they were estimated from.
-3. Click **Add**. The box appears in the middle of the selected part, drawn as an orange wireframe
-   in front of everything, and it moves with that part.
+2. In **Hidden parts**, click **Add from library…** and pick a component. The menu has 97, in
+   twelve groups: drones (batteries, motors, speed controllers, boards, an onboard computer),
+   fixed-wing drones, aircraft (jet engines from a business jet's to a wide-body's, turboprop,
+   piston engine, exhaust duct, APU, fuel tank, wheel brakes...), helicopters, cars, electric
+   cars, trucks and buses, motorcycles, trains, ships and boats, **people and animals** (a driver
+   or passenger is a heat source inside a vehicle too), and buildings and equipment. The dialog
+   shows what the one you picked stands for and its size.
+3. Give it a **material** from the library, its **Mass**, its **Idle heat** and **Max heat** (the
+   heat it gives off, which for an engine is the fuel's power minus the useful work), whether those
+   **Numbers are** *estimated*, *published* or *measured*, and a **Reference** saying where they came
+   from.
+4. Click **Add**. It arrives at its real size, in the middle of the selected part, and moves with
+   that part.
 
-Move it with `G`, turn it with `R` and resize it with `S`, like any object. Select it to edit its
-numbers in the **Hidden parts** section.
+For now each library component is a **placeholder**, a box, a cylinder or a cone at a typical
+size. The files are in
+[`blender_addon/irsim_thermal/components/`](../../../blender_addon/irsim_thermal/components/README.md),
+with a table of every one: replace one with a detailed model of your own (keep its name, metres
+and centre) and everything placed from it can use the real shape. To add a component the library
+lacks, add one line to its `catalog.json` and run the script that README names; it builds the
+placeholder and never overwrites a model you put in.
 
-The Phantom 4 demo adds its flight battery this way. The mass is DJI's published 468 g. The heat,
-up to 25 W at full climb, is estimated from the current through the pack's internal resistance,
-and the reference says so.
+**Add a box…** does the same with a plain box of any size, for something the library does not have.
+
+Move a hidden part with `G`, turn it with `R` and resize it with `S`, like any object. It is drawn
+solid, with an outline, **in front of the shell**, so it is always visible and easy to grab.
+Select it to edit its numbers in the **Hidden parts** section. If one ever seems to have
+disappeared, **Show hidden parts** brings every one back into view.
+
+The Phantom 4 in the picture has seven: the flight battery (DJI's published 468 g; up to 25 W
+estimated from the current through the pack's internal resistance), the flight controller, the
+video transmitter, and a speed controller in each arm, turned to lie along it. Every heat figure
+there is an estimate, and each one says so.
 
 ## What happens to it
 
-- It is **not** exported as geometry, so the RGB companion never shows a box inside the shell,
-  and it does not count towards the material coverage.
-- It **is** a part for the connection finder. On the Phantom 4 the battery touches the middle
-  shell over 29 cm² and faces 64 cm² of it across the gap. That is the path by which its heat
-  reaches the outside.
-- Its box, material and numbers are exported beside the model ([step 9](09-export.md)).
-- The checklist asks for anything missing: a material, a mass, or full-load heat below idle.
+- **It is in the exported USD**, as a prim of its own that you can select and move in Isaac Sim.
+  It is marked `purpose = "guide"`, which Isaac Sim's cameras skip: tested on 2026-09-28, a guide
+  cube is absent from both the colour image and the depth, so neither the RGB companion nor the
+  infrared camera shows a box inside the shell.
+- It does not count towards the material coverage.
+- It **is** a part for the connection finder ([step 6](06-connections.md)): the battery's contacts
+  and facing pairs with the shell around it are the path by which its heat reaches the outside.
+- Its material, mass and heat are also written beside the model ([step 9](09-export.md)), where the
+  simulator will read them once the asset format carries them (roadmap row AI.11).
+- The checklist asks for anything missing: a material, a mass, or a max heat below the idle heat.
 
-A library of ready-made components with cited numbers is planned (roadmap row AI.12). Until then
-the numbers are yours, which is why the add-on asks where they came from.
+A library of components with cited numbers is planned (roadmap row AI.12). Until then the numbers
+are yours, which is why the add-on asks where they came from.

@@ -36,7 +36,7 @@ import sys
 import time
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 HERE = pathlib.Path(__file__).resolve()
 ADDON_ROOT = HERE.parents[1]
@@ -46,8 +46,8 @@ FBX = REPO / "3d_models" / "phantom4.fbx"
 #: The flight battery the model lacks. Mass: DJI's published 468 g for the Phantom 4 Pro
 #: Intelligent Flight Battery. Size and heat are estimates, and say so.
 BATTERY = {
+    "component": "drone_battery",
     "part_name": "battery",
-    "kind": "BATTERY",
     "material": "abs_plastic_white",
     "mass_kg": 0.468,
     "heat_idle_w": 0.5,
@@ -58,7 +58,6 @@ BATTERY = {
         "about 40 mOhm: ~10 A in hover (150 W at 15.2 V) gives 4 W, 25 A at full climb 25 W"
     ),
 }
-BATTERY_SIZE_M = (0.14, 0.07, 0.04)  # estimated to fit the battery bay; long side fore-aft
 
 #: What ADR 0128 measured the old global glob doing to this asset: `*metal*` -> bare_aluminium.
 OLD_GLOB_METAL = ("Metal_Matte", "_DJI_Phantom_4_ProMetal_Matte", "metal_radial")
@@ -183,14 +182,16 @@ def add_structure(ctx, parts, summary: dict) -> None:
         if any(s.material and "camera" in s.material.name for s in ob.material_slots)
     )
     ahead = hidden_parts.world_box(gimbal)[0] - centre
-    long_x = abs(ahead.x) >= abs(ahead.y)
-    summary["forward_axis"] = "x" if long_x else "y"
-    box = BATTERY_SIZE_M if long_x else (BATTERY_SIZE_M[1], BATTERY_SIZE_M[0], BATTERY_SIZE_M[2])
+    yaw = math.atan2(ahead.y, ahead.x)
+    summary["forward_yaw_deg"] = round(math.degrees(yaw), 1)
     for ob in ctx.selected_objects:
         ob.select_set(False)
     body.select_set(True)
     ctx.view_layer.objects.active = body
-    bpy.ops.irsim.add_hidden_part(size=box, **BATTERY)
+    # From the component library, at its real size, then turned to lie fore and aft.
+    bpy.ops.irsim.add_component(**BATTERY)
+    battery = ctx.scene.objects["battery"]
+    battery.matrix_world = Matrix.Translation(centre) @ Matrix.Rotation(yaw, 4, "Z")
     summary["battery_inside"] = body.name
     t0 = time.perf_counter()
     bpy.ops.irsim.find_connections()
@@ -244,16 +245,13 @@ def render_structure(ctx, out: pathlib.Path, samples: int) -> None:
     battery = ctx.scene.objects["battery"]
     for mat in bpy.data.materials:
         _ghost(mat)
-    solid = battery.copy()
-    solid.data = battery.data.copy()
-    solid.hide_render = False
-    solid.irsim_component.is_hidden_part = False
-    solid.data.materials.clear()
-    solid.data.materials.append(_emission("demo_battery", (1.0, 0.35, 0.05, 1.0), 2.0))
-    ctx.collection.objects.link(solid)
+    kept = list(battery.data.materials)
+    battery.data.materials.clear()
+    battery.data.materials.append(_emission("demo_battery", (1.0, 0.35, 0.05, 1.0), 2.0))
     radius = 0.0008
     # No connection is selected in the picture: every contact is its cross, none its lines.
     ctx.scene.irsim.active_connection_index = -1
+    ctx.scene.irsim.connections_of_selected = False
     lines = []
     for points, colour, _ in overlay.segments(ctx):
         curve = bpy.data.curves.new("demo_line", "CURVE")
@@ -269,8 +267,11 @@ def render_structure(ctx, out: pathlib.Path, samples: int) -> None:
         ctx.collection.objects.link(ob)
         lines.append(ob)
     render(out / "phantom4_structure.png", samples)
-    for ob in [solid, *lines]:
+    for ob in lines:
         bpy.data.objects.remove(ob)
+    battery.data.materials.clear()
+    for mat in kept:
+        battery.data.materials.append(mat)
 
 
 def scratch_repo(root: pathlib.Path) -> pathlib.Path:

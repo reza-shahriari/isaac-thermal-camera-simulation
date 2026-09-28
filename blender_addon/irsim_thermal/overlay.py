@@ -4,6 +4,8 @@ Each connection is drawn where it was found: a contact as a small orange cross w
 touch, a facing pair as a blue line from the middle of the area that looks across to the middle of
 where it lands. A rejected connection is drawn faint. The one selected in the list is drawn white
 and thicker, with lines to the middle of each of its two parts, so it is clear which two they are.
+By default only the selected parts' connections are drawn (all of them when nothing is selected):
+a real model has hundreds.
 Nothing is drawn unless *Show in viewport* is ticked, and nothing is ever drawn in a render.
 """
 
@@ -49,9 +51,13 @@ def segments(context) -> list[tuple[list, tuple, float]]:
     of each of its parts: drawn for all of them, a model with a hundred contacts is a web.
     """
     out = []
-    active = context.scene.irsim.active_connection_index
+    settings = context.scene.irsim
+    active = settings.active_connection_index
+    selected = set(context.selected_objects) if settings.connections_of_selected else set()
     for index, c in enumerate(context.scene.irsim_connections):
         if c.a is None or c.b is None:
+            continue
+        if selected and index != active and c.a not in selected and c.b not in selected:
             continue
         colour = COLOURS[c.kind]
         width = 2.0
@@ -59,7 +65,7 @@ def segments(context) -> list[tuple[list, tuple, float]]:
             colour = (*colour[:3], FAINT)
         (ca, da), (cb, db) = _box(c.a), _box(c.b)
         if c.kind == "CONTACT":
-            points = _cross(tuple(c.point_a), 0.06 * min(da, db))
+            points = _cross(tuple(c.point_a), 0.04 * min(da, db))
         else:
             points = [tuple(c.point_a), tuple(c.point_b)]
         if index == active:

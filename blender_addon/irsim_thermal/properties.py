@@ -222,13 +222,13 @@ class IrsimComponent(PropertyGroup):
         name="Mass", description="Its mass: it sets how slowly it warms up", min=0.0, unit="MASS"
     )
     heat_idle_w: FloatProperty(
-        name="Heat at idle",
+        name="Idle heat",
         description="Heat it gives off when running lightly (W)",
         min=0.0,
         unit="POWER",
     )
     heat_rated_w: FloatProperty(
-        name="Heat at full load",
+        name="Max heat",
         description="Heat it gives off at its rated load (W): input power minus useful work",
         min=0.0,
         unit="POWER",
@@ -325,6 +325,18 @@ class IrsimSceneSettings(PropertyGroup):
         default=3000,
         min=100,
         max=100000,
+    )
+    last_search: StringProperty(
+        description="The distances the last connection search used, as the panel shows them"
+    )
+    connections_of_selected: BoolProperty(
+        name="Only the selected parts'",
+        description=(
+            "List and draw only the connections of the selected parts (and draw the one picked "
+            "in the list); with nothing selected, all of them. A model has hundreds"
+        ),
+        default=True,
+        update=_redraw_overlay,
     )
     show_connections: BoolProperty(
         name="Show in viewport",
