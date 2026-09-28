@@ -241,6 +241,10 @@ class ThermalNetwork:
     _t_s: float = field(init=False, repr=False)
     _links: tuple[Link, ...] = field(init=False, repr=False)
     _last_k: NDArray[np.float64] | None = field(init=False, repr=False, default=None)
+    #: TC.12 (ADR 0158): free-node index -> (hold from, held value or None until reached).
+    _hold: dict[int, tuple[float, float | None]] = field(
+        init=False, repr=False, default_factory=dict
+    )
 
     def __post_init__(self) -> None:
         nodes = list(self.nodes)
@@ -390,6 +394,21 @@ class ThermalNetwork:
 
     # -- the step ---------------------------------------------------------------------------------
 
+    def hold(self, name: str, hold_from_s: float) -> None:
+        """Freeze the free node ``name`` from ``hold_from_s`` on (TC.12, ADR 0158).
+
+        For every tick starting at or after the hold the node is given an infinite capacity in
+        the solve and written back to its held value, so within the same tick its links still
+        carry heat exactly and its neighbours see a boundary at that temperature.
+        """
+        if name not in self._index or self._index[name] >= self.n_free:
+            raise KeyError(f"{name!r} is not a free node; free nodes: {self._names[: self.n_free]}")
+        self._hold[self._index[name]] = (float(hold_from_s), None)
+
+    def held_indices(self) -> list[int]:
+        """The free nodes held at the network's current time."""
+        return [i for i, (start, _) in self._hold.items() if self._t_s >= start - 1e-9]
+
     def advance(self, t_s: float, dt_s: float) -> NDArray[np.float64]:
         """Backward Euler from ``t_s`` to ``t_s + dt_s``; returns the free-node temperatures.
 
@@ -412,9 +431,17 @@ class ThermalNetwork:
         l_ff = lap[:n_free, :n_free]
         l_fb = lap[:n_free, n_free:]
         c_dt = self._capacity / float(dt_s)
+        held = self.held_indices()
+        for i in held:
+            start, value = self._hold[i]
+            if value is None:
+                self._hold[i] = (start, float(self._state[i]))
+            c_dt[i] = 1e300  # a boundary for this solve: its links conduct, it does not move
         matrix = np.diag(c_dt) + l_ff
         rhs = c_dt * self._state + self.imposed_w(t1) - l_fb @ self._fixed_at(t1)
         self._state = np.asarray(np.linalg.solve(matrix, rhs), dtype=np.float64)
+        for i in held:
+            self._state[i] = self._hold[i][1]  # exactly, not to 1e-300
         self._t_s = t1
         self._last_k = k
         return np.asarray(self._state.copy())
@@ -433,4 +460,10 @@ class ThermalNetwork:
         stored = float(np.sum(self._capacity * (self._state - np.asarray(before)) / dt_s))
         power = self.link_power_w()
         into_fixed = float(np.sum(power[self.n_free :]))
-        return stored - (float(np.sum(self.imposed_w(self._t_s))) - into_fixed)
+        # a held node is a boundary too: what its links carry into it left the free system
+        held = [i for i in self.held_indices()]
+        into_held = float(np.sum(power[held])) if held else 0.0
+        imposed_on_held = float(np.sum(self.imposed_w(self._t_s)[held])) if held else 0.0
+        return stored - (
+            float(np.sum(self.imposed_w(self._t_s))) - imposed_on_held - into_fixed - into_held
+        )

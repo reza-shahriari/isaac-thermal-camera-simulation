@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Evolve or freeze, per object (`TC.12`).** `evolve: false` holds a surface, target or network node at its spun-up state; `freeze_at_s: t` solves it to a chosen moment and holds it from then on -- a warm engine at night, kept warm while the camera films -- and the scene's own `thermal.evolve` / `freeze_at_s` cover everything else. A held object still radiates to its neighbours. Scene schema v19. ADR 0158.
 - **Heat exchange between objects, as one scene switch (`TC.10`).** `thermal.object_exchange: true` makes every patched and meshed surface in a scene trade longwave with every other by traced view factors, net of the sky each hides -- a parked car leaves its shape on the asphalt at night with no hand-placed rectangle. Off, or absent (every scene written so far), nothing changes. Scene schema v18. ADR 0157.
 - **View factors between any two bodies (`TC.9`).** `irsim.thermal.view_factors` traces the radiation view factor between arbitrary meshes, occlusion included, and reports the sky each face still sees; checked against Howell's closed forms to 1 % and against reciprocity and closed-enclosure identities. Geometry only for now -- heat exchange between objects follows in `TC.10`. ADR 0156.
 - **Tutorials, as a folder of pages on the site.** `docs/tutorials/` holds one folder per tutorial

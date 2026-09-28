@@ -56,7 +56,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 18  # v18: `thermal.object_exchange:` (ADR 0157,
+SCENE_SCHEMA_VERSION = 19  # v19: `evolve:` / `freeze_at_s:` per object and per
+# scene (ADR 0158, TC.12); v18: `thermal.object_exchange:` (ADR 0157,
 # TC.10); v17: a surface's `temperature_map:` /
 # `parameter_maps:` (PT.13); v16 a surface mesh
 # read from a prepared asset archive (ADR 0132,
@@ -179,6 +180,20 @@ class TargetSpec(_Frozen):
     section: str | None = None
     #: ``exhaust`` only: the gas cone it blows, in world coordinates (schema v15, `PH.6`).
     plume: PlumeSpec | None = None
+    #: TC.12 (schema v19, ADR 0158): ``evolve: false`` holds this object at its spun-up state
+    #: from t₀; ``freeze_at_s: t`` solves it to ``t`` seconds after the scene start and holds it
+    #: from then on. Unset, the scene's own ``thermal.evolve`` / ``thermal.freeze_at_s`` apply.
+    evolve: bool | None = None
+    freeze_at_s: float | None = Field(default=None, ge=0.0)
+
+    @model_validator(mode="after")
+    def _one_hold_at_a_time(self) -> TargetSpec:
+        if self.evolve is False and self.freeze_at_s is not None:
+            raise ValueError(
+                f"{self.name!r}: `evolve: false` and `freeze_at_s:` say two different things "
+                "(held from t0, or held from t); keep one"
+            )
+        return self
 
     @model_validator(mode="after")
     def _fields_for_solver(self) -> TargetSpec:
@@ -736,6 +751,20 @@ class SurfaceSpec(_Frozen):
     temperature_map: TemperatureMapSpec | None = None
     #: PT.13: rasters that vary a material parameter across the cells the solver then runs on.
     parameter_maps: list[ParameterMapSpec] = Field(default_factory=list)
+    #: TC.12 (schema v19, ADR 0158): ``evolve: false`` holds this object at its spun-up state
+    #: from t₀; ``freeze_at_s: t`` solves it to ``t`` seconds after the scene start and holds it
+    #: from then on. Unset, the scene's own ``thermal.evolve`` / ``thermal.freeze_at_s`` apply.
+    evolve: bool | None = None
+    freeze_at_s: float | None = Field(default=None, ge=0.0)
+
+    @model_validator(mode="after")
+    def _one_hold_at_a_time(self) -> SurfaceSpec:
+        if self.evolve is False and self.freeze_at_s is not None:
+            raise ValueError(
+                f"{self.name!r}: `evolve: false` and `freeze_at_s:` say two different things "
+                "(held from t0, or held from t); keep one"
+            )
+        return self
 
     @model_validator(mode="after")
     def _film_needs_a_patch(self) -> SurfaceSpec:
@@ -875,6 +904,20 @@ class NodeSpec(_Frozen):
     #: a solved target. One-way: the target is not cooled by what hangs off it.
     follows: dict[str, str] | None = None
     initial_k: float | None = Field(default=None, gt=0.0)
+    #: TC.12 (schema v19, ADR 0158): ``evolve: false`` holds this object at its spun-up state
+    #: from t₀; ``freeze_at_s: t`` solves it to ``t`` seconds after the scene start and holds it
+    #: from then on. Unset, the scene's own ``thermal.evolve`` / ``thermal.freeze_at_s`` apply.
+    evolve: bool | None = None
+    freeze_at_s: float | None = Field(default=None, ge=0.0)
+
+    @model_validator(mode="after")
+    def _one_hold_at_a_time(self) -> NodeSpec:
+        if self.evolve is False and self.freeze_at_s is not None:
+            raise ValueError(
+                f"{self.name!r}: `evolve: false` and `freeze_at_s:` say two different things "
+                "(held from t0, or held from t); keep one"
+            )
+        return self
 
     @model_validator(mode="after")
     def _one_kind(self) -> NodeSpec:
@@ -1049,6 +1092,35 @@ class ThermalSceneSpec(_Frozen):
     #: hides, stepped in lockstep. Off -- the default, and every scene written before the key
     #: existed -- leaves each field the separate solve it was, bit for bit.
     object_exchange: bool = False
+    #: TC.12 (schema v19, ADR 0158): the scene's own hold, taken by every surface, target and
+    #: node that does not set its own. ``evolve: false`` holds everything at its spun-up
+    #: state; ``freeze_at_s: t`` holds everything from ``t`` seconds after the start.
+    evolve: bool = True
+    freeze_at_s: float | None = Field(default=None, ge=0.0)
+
+    @model_validator(mode="after")
+    def _holds_are_on_solved_surfaces(self) -> ThermalSceneSpec:
+        """A hold on what is not solved is a contradiction, refused by name."""
+        if self.evolve is False and self.freeze_at_s is not None:
+            raise ValueError("thermal: `evolve: false` and `freeze_at_s:` say two different things")
+        panels = {p.surface for p in self.cabin.panels} if self.cabin is not None else set()
+        for s in self.surfaces:
+            if s.evolve is None and s.freeze_at_s is None:
+                continue
+            if s.temperature_map is not None:
+                raise ValueError(
+                    f"surface {s.name!r}: a hold on a prescribed `temperature_map:` surface -- "
+                    "it is not solved, so there is nothing to freeze"
+                )
+            if s.name in panels:
+                raise ValueError(
+                    f"surface {s.name!r}: a cabin panel is solved with its cabin (PT.15) and "
+                    "cannot be held on its own; hold the scene instead"
+                )
+        for n in self.nodes:
+            if (n.evolve is not None or n.freeze_at_s is not None) and n.fixed is not None:
+                raise ValueError(f"node {n.name!r}: a fixed node is already a boundary")
+        return self
 
     @model_validator(mode="after")
     def _exchange_members_are_plain_solved_surfaces(self) -> ThermalSceneSpec:

@@ -248,6 +248,18 @@ class FacetSolver:
     def temperatures_k(self) -> NDArray[np.float64]:
         return np.asarray(self._state.copy())
 
+    def hold(self, mask: Any, temperatures_k: Any) -> None:
+        """Write ``temperatures_k`` back into the facets ``mask`` selects (TC.12, ADR 0158).
+
+        The field calls this after a step for the facets that are frozen: the solve ran for
+        every facet and the held ones are put back where they were, so a held facet is a
+        boundary its neighbours conduct to and not a facet that stopped being solved.
+        """
+        m = np.asarray(mask, dtype=bool)
+        if m.shape != (self.properties.n_facets,):
+            raise ValueError("mask is one flag per facet")
+        self._state[m] = np.asarray(temperatures_k, dtype=np.float64)[m]
+
     @property
     def film_kg_m2(self) -> NDArray[np.float64] | None:
         """The water film per facet, kg m⁻² (a 0.2 mm film is 0.2 kg m⁻²), or ``None``."""

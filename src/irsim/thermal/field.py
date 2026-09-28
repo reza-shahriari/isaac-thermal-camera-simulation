@@ -93,6 +93,11 @@ class ThermalField:
         self.t0_s = float(t0_s)
         self.keep_ticks = keep_ticks
         self.on_tick = on_tick
+        #: TC.12 (ADR 0158): the absolute time from which the field -- or, as an ``(n_facets,)``
+        #: array, each facet -- stops evolving. ``None`` (or ``inf`` per facet) never holds.
+        #: Ticks whose start is at or after the hold copy the state forward: the clock keeps
+        #: running, the ring, the hash and the hook keep seeing ticks, and no solve is taken.
+        self.hold_from_s: Any = None
         self._solver = FacetSolver(
             properties, initial_k, conduction=conduction, film_kg_m2=film_kg_m2
         )
@@ -142,10 +147,26 @@ class ThermalField:
         """The oldest tick still held: the start of the window a query can be answered in."""
         return self._ticks[0].t_s
 
+    def _held_at(self, start: float) -> NDArray[np.bool_] | None:
+        """Which facets are held for the tick starting at ``start``; ``None`` when none is."""
+        if self.hold_from_s is None:
+            return None
+        hold = np.asarray(self.hold_from_s, dtype=np.float64)
+        held = np.broadcast_to(start >= hold - 1e-12, (self.properties.n_facets,))
+        return np.asarray(held) if held.any() else None
+
     def _extend_to(self, t_s: float) -> None:
         while self._ticks[-1].t_s < t_s - 1e-12:
             start = self._ticks[-1].t_s
+            held = self._held_at(start)
+            if held is not None and held.all():
+                # TC.12: every facet frozen -- the same state again, no forcing, no solve
+                self._push(start + self.tick_s, self._solver.temperatures_k)
+                continue
+            before = self._solver.temperatures_k
             self._solver.advance(self.forcing_at(start), self.tick_s)
+            if held is not None:
+                self._solver.hold(held, before)
             self._push(start + self.tick_s, self._solver.temperatures_k)
 
     def advance_to(self, t_s: float) -> None:

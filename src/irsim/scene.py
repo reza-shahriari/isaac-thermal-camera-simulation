@@ -783,6 +783,7 @@ class Scene:
             spec, build, patches, world_frame, occluders, data_dir
         )
         mesh_fields = _build_mesh_fields(spec, build, meshes, world_frame, occluders)
+        _apply_holds(spec, t0_s, targets, network, surface_fields, mesh_fields, build.field)
         exchange = None
         if spec.thermal is not None and spec.thermal.object_exchange:
             exchange = _join_object_exchange(
@@ -1226,6 +1227,59 @@ def _mapped_properties(surface: Any, patch: Any, cells: Any, data_dir: Any) -> A
         for m in surface.parameter_maps
     ]
     return apply_parameter_maps(cells, patch, entries)
+
+
+def _apply_holds(
+    spec: SceneSpec,
+    t0_s: float,
+    targets: dict[str, Any],
+    network: Any,
+    surface_fields: Mapping[str, Any],
+    mesh_fields: Mapping[str, Any],
+    per_prim_field: Any = None,
+) -> None:
+    """`evolve:` / `freeze_at_s:` per object and per scene (TC.12, ADR 0158).
+
+    An object's own setting wins; unset, it takes the scene's; unset there too, it evolves. A
+    target is wrapped by `HeldSolver`, a field holds on its own tick -- the surface's own cell
+    field and its facet of the per-prim field alike, so the two answers a scene gives for one
+    surface agree -- and a network node becomes a boundary at its held value. Unset
+    everywhere, nothing here touches anything.
+    """
+    from irsim.thermal.hold import HeldSolver, hold_from_s
+
+    thermal = spec.thermal
+    scene_hold = None
+    if thermal is not None:
+        scene_hold = hold_from_s(t0_s, thermal.evolve, thermal.freeze_at_s)
+
+    def own(obj: Any) -> float | None:
+        if obj.evolve is None and obj.freeze_at_s is None:
+            return scene_hold
+        return hold_from_s(t0_s, True if obj.evolve is None else obj.evolve, obj.freeze_at_s)
+
+    for t in spec.targets:
+        hold = own(t)
+        if hold is not None and t.name in targets:
+            targets[t.name] = HeldSolver(targets[t.name], hold)
+    if thermal is None:
+        return
+    per_facet = np.full(len(thermal.surfaces), np.inf)
+    for i, s in enumerate(thermal.surfaces):
+        hold = own(s)
+        if hold is None:
+            continue
+        per_facet[i] = hold
+        fld = surface_fields.get(s.name, mesh_fields.get(s.name))
+        if fld is not None and hasattr(fld, "field"):
+            fld.field.hold_from_s = hold
+    if per_prim_field is not None and np.isfinite(per_facet).any():
+        per_prim_field.hold_from_s = per_facet
+    if network is not None:
+        for n in thermal.nodes:
+            hold = own(n)
+            if hold is not None and n.fixed is None:
+                network.hold(n.name, hold)
 
 
 def _join_object_exchange(
