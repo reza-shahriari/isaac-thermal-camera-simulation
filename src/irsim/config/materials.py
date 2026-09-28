@@ -96,8 +96,20 @@ class ThermalSpec(_Frozen):
     density_kg_m3: float = Field(gt=0.0)
     specific_heat_j_kgk: float = Field(gt=0.0)
     conductivity_w_mk: float = Field(gt=0.0)
+    #: PT.26: the in-plane conductivity a lateral operator needs. A laminate conducts along its
+    #: fibres ten times better than through its thickness (CFRP: ~7 against 0.8 W/m/K), and
+    #: `conductivity_w_mk` is the through-thickness value the slab solver wants. ``None`` is
+    #: isotropic: the same number, which is every material written before this field existed.
+    conductivity_inplane_w_mk: float | None = Field(default=None, gt=0.0)
     thickness_m: float = Field(gt=0.0)
     solar_absorptivity: Fraction
+
+    @property
+    def inplane_conductivity_w_mk(self) -> float:
+        """k along the surface: the in-plane value when authored, else the through-thickness one."""
+        if self.conductivity_inplane_w_mk is not None:
+            return float(self.conductivity_inplane_w_mk)
+        return float(self.conductivity_w_mk)
 
     @property
     def heat_capacity_j_m2_k(self) -> float:

@@ -1160,7 +1160,7 @@ def _build_mesh_fields(
         # which ADR 0111 measured as 26 % too much on the quadrotor's carbon arms.
         thermal = build.materials[i].spec.thermal
         conduction = (
-            mesh_lateral_operator(mesh, thermal.conductivity_w_mk, thermal.thickness_m)
+            mesh_lateral_operator(mesh, thermal.inplane_conductivity_w_mk, thermal.thickness_m)
             if s.lateral_conduction
             else None
         )
@@ -1311,7 +1311,10 @@ def _build_surface_fields(
         thermal = build.materials[i].spec.thermal
         conduction = None
         if s.lateral_conduction:
-            conduction = lateral_operator(patch, thermal.conductivity_w_mk, thermal.thickness_m)
+            # PT.26: along the surface, the laminate's in-plane k, not the through-thickness one.
+            conduction = lateral_operator(
+                patch, thermal.inplane_conductivity_w_mk, thermal.thickness_m
+            )
         if s.layers > 1:
             # PT.12: the material's thickness cut into N slices, one coupled solve (ADR 0103).
             from irsim.thermal.layers import LayerStack, layered_field

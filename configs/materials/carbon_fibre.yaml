@@ -14,7 +14,9 @@ material:
   thermal:
     density_kg_m3: 1600
     specific_heat_j_kgk: 1050
-    conductivity_w_mk: 0.80    # through-thickness (in-plane is ~10x higher and is not what a slab solver uses)
+    conductivity_w_mk: 0.80    # through-thickness, what the slab solver uses
+    conductivity_inplane_w_mk: 7.0   # PT.26: along the fibres, what the lateral operator uses. ESTIMATED from
+                                     # quasi-isotropic CFRP laminate data (in-plane 5–10 W/m/K vs 0.5–0.8 through)
     thickness_m: 0.0015
     solar_absorptivity: 0.90
   optical:

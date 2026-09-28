@@ -50,14 +50,17 @@ def _crown_and_underside(field, t: float) -> tuple[float, float]:  # type: ignor
 @pytest.mark.slow
 def test_an_arm_carries_a_gradient_around_its_circumference(scene) -> None:  # type: ignore[no-untyped-def]
     """The measurement the row exists for. On the pad at a 61° sun the crown of a 30 mm carbon
-    tube runs 11 K over its underside, and both are cells of one solve on one prim. The patched
+    tube runs 3 K over its underside, and both are cells of one solve on one prim. The patched
     scene beside it gives each arm one value across its whole width.
 
     The numbers are smaller than `WM.7` first reported them and more correct: `WM.4` traces the
     motor pod's shadow onto the arm's outer end, `WM.6` lets the tube conduct round itself,
-    which the fin equation says must cost a quarter of an unconducted gradient, and `PT.24`
-    gives the underside the sunlit ground's reflected quarter of the GHI (soil_dry, albedo
-    0.25), lifting it 8.5 K over the air it used to be pinned to."""
+    which the fin equation says must cost a quarter of an unconducted gradient, `PT.24` gives
+    the underside the sunlit ground's reflected quarter of the GHI (soil_dry, albedo 0.25),
+    lifting it 8.5 K over the air it used to be pinned to, and `PT.26` conducts round the tube
+    with the laminate's in-plane 7 W/m/K instead of the through-thickness 0.8: the fin length
+    √(kδ/h) is 26 mm against a 24 mm quarter-circumference, so the crown-to-underside step goes
+    10.9 → 3.3 K and the underside, fed by the crown, rises another 2 K."""
     t = scene.t0_s + PAD_S
     air = float(scene.weather.at(t).t_air_k)
     assert set(scene.meshes) == {"arm_n", "arm_e"}
@@ -67,10 +70,10 @@ def test_an_arm_carries_a_gradient_around_its_circumference(scene) -> None:  # t
         field = scene.mesh_fields[name]
         field.advance_to(t)
         crown, underside = _crown_and_underside(field, t)
-        assert crown - underside > 9.0, (name, crown, underside)  # 10.9 K and 11.2 K measured
-        assert 6.0 < underside - air < 11.0, (name, underside, air)  # 8.5 K and 8.8 K measured
+        assert crown - underside > 2.5, (name, crown, underside)  # 3.3 K and 3.4 K measured
+        assert 8.0 < underside - air < 13.0, (name, underside, air)  # 10.4 K and 11.0 K measured
         cells = np.asarray(field.temperature_at(t), dtype=np.float64)
-        assert float(np.ptp(cells)) > 18.0  # 20.8 K measured, crown to shaded end (PT.24)
+        assert float(np.ptp(cells)) > 10.0  # 13.0 K measured, crown to shaded end (PT.26)
 
 
 @pytest.mark.slow
@@ -101,11 +104,12 @@ def test_the_crown_is_the_side_that_faces_the_sun_and_not_the_other_one() -> Non
         for lo, hi in zip(edges[:-1], edges[1:], strict=True)
     ]
     assert np.all(np.diff(means) > 0.0), means
-    # 10.9 K between the bin facing straight down and the bin facing straight up, measured. It
+    # 3.3 K between the bin facing straight down and the bin facing straight up, measured. It
     # was 27 K before `WM.4` traced the motor pod's shadow onto the arm's outer end and `WM.6`
-    # let the tube conduct round itself, and 15.3 K before `PT.24` lit the underside with the
-    # ground's reflected sun.
-    assert means[-1] - means[0] > 9.0, means
+    # let the tube conduct round itself, 15.3 K before `PT.24` lit the underside with the
+    # ground's reflected sun, and 10.9 K before `PT.26` conducted round the tube at the
+    # laminate's in-plane conductivity.
+    assert means[-1] - means[0] > 2.5, means
 
 
 @pytest.mark.slow
@@ -144,7 +148,7 @@ def test_the_mission_drives_the_tube_as_it_drives_the_deck() -> None:
     cruise = scene.t0_s + CRUISE_S
     field.advance_to(cruise)
     crown_cruise = _crown_and_underside(field, cruise)[0] - float(scene.weather.at(cruise).t_air_k)
-    assert crown_pad > 14.0, crown_pad  # 16.4 K above air, measured
+    assert crown_pad > 12.0, crown_pad  # 13.7 K above air, measured (16.4 K before PT.26)
     assert crown_cruise < 12.0, crown_cruise  # 8.5 K above air, measured
 
 
@@ -158,7 +162,7 @@ def test_a_mesh_surface_opens_the_scene_with_its_gradient_already_grown() -> Non
     t = scene.t0_s
     field = scene.mesh_fields["arm_n"]
     opening = np.asarray(field.temperature_at(t), dtype=np.float64)
-    assert float(np.ptp(opening)) > 18.0, float(np.ptp(opening))  # 20.8 K measured (PT.24)
+    assert float(np.ptp(opening)) > 10.0, float(np.ptp(opening))  # 13.0 K measured (PT.26)
 
 
 # --- the bar: it reaches pixels ----------------------------------------------------------------
@@ -186,7 +190,7 @@ def test_the_scene_binds_its_meshes_to_prims_and_the_bridge_paints_them(scene) -
     plane = np.full(points.shape[0], 300.0, dtype=np.float32)
     out = bridge.apply(plane, ids, {"3": "/World/Quad/arm_n"}, points, t)
     assert float(np.ptp(plane)) == 0.0
-    assert float(np.ptp(out)) > 18.0  # 20.8 K measured (PT.24)
+    assert float(np.ptp(out)) > 10.0  # 13.0 K measured (PT.26)
     assert bridge.last_coverage["/World/Quad/arm_n"] == ids.size
 
 

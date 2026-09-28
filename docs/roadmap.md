@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `TC.9` is phase P, size L, and unblocks 3 other step(s).
 
-#### Then, in order — 90 open steps
+#### Then, in order — 89 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`TC.9`** | TC | P | L | 3 | ready |
-| 2 | **`PT.26`** | PT | P | S | — | ready |
-| 3 | **`TC.10`** | TC | P | M | — | `TC.9` |
-| 4 | **`TC.12`** | TC | P | M | — | ready |
-| 5 | **`AI.11`** | AI | A | M | 4 | ready |
-| 6 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
-| 7 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
-| 8 | **`PT.28`** | PT | A | S | 1 | ready |
-| 9 | **`SC.32`** | SC | A | S | 1 | ready |
-| 10 | **`AT.27`** | AT | A | S | — | ready |
-| 11 | **`AT.28`** | AT | A | S | — | `PT.28` |
-| 12 | **`EV.15`** | EV | A | S | — | ready |
-| 13 | **`IG.18`** | IG | A | S | — | ready |
-| 14 | **`IG.19`** | IG | A | S | — | ready |
-| 15 | **`SC.31`** | SC | A | S | — | ready |
+| 2 | **`TC.10`** | TC | P | M | — | `TC.9` |
+| 3 | **`TC.12`** | TC | P | M | — | ready |
+| 4 | **`AI.11`** | AI | A | M | 4 | ready |
+| 5 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
+| 6 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
+| 7 | **`PT.28`** | PT | A | S | 1 | ready |
+| 8 | **`SC.32`** | SC | A | S | 1 | ready |
+| 9 | **`AT.27`** | AT | A | S | — | ready |
+| 10 | **`AT.28`** | AT | A | S | — | `PT.28` |
+| 11 | **`EV.15`** | EV | A | S | — | ready |
+| 12 | **`IG.18`** | IG | A | S | — | ready |
+| 13 | **`IG.19`** | IG | A | S | — | ready |
+| 14 | **`SC.31`** | SC | A | S | — | ready |
+| 15 | **`SC.34`** | SC | A | S | — | ready |
 
-…and 75 more — `python scripts/next_step.py --queue 40`.
+…and 74 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -426,7 +426,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.23 | ✅ **done.** The chain was right. `IG.2`'s two branches were built with `replace(base_state)`, which copies the *reference* to `PipelineState.buffers`, so both drove **one** membrane IIR with alternating inputs. `buffers` is now `init=False`, so `replace` cannot share it. | **Measured.** The shortfall is α/(2−α) = **0.778545** at 60 Hz and τ = 8 ms, against 0.778546 measured in sim — six figures. Frame 1 gives α itself. An engine-free twin carries the shared state as its negative control; the in-sim `xfail` is off and the law holds at all four ranges. | — | M | A |
 | PT.24 | ✅ **done.** `SceneSurfaceForcing.ground_temperature_k` / `ground_albedo` from the preset's `ground:` (air, fixed, SST -- the render path's rule) and the ground material's 1 − α_sol, on the tilt's ground share (1 − cos β)/2 in every forcing. `sky_target_clear_day` keeps Newton (test_scene's probe). | **Measured.** Tilt 0 bit-identical. Tilt-180 plate over ground at T_air + 20 K: Q_LW↓ +134 W/m², +8.2 K by the hand balance to 0.2 K; albedo 0.25 adds exactly 0.25·GHI to a belly, nothing to a deck (`test_ground_view.py`). Quad belly on the pad: T_air → T_air + 8.5 K. | — | M | A |
 | PT.25 | ✅ **done** (re-scoped). `FacetForcing.free_convection_c` + `effective_h`: the solver takes max(h_forced, c·ΔT^{1/3}) at its own state; the guard adds ∂Q_L/∂T. The 5 + 4v^0.8 default stays: convective-only correlations run 2.8 + 3.0v to 7.4 + 4.0v and bracket it, so S56 is recorded, not applied. | **Measured.** A facet 60 K over still air gets 5.88 not 5.0; below 37 K bit-identical, as is every producer without the field. Wet leaf at 10 m/s: bound 35 → 16 s, a 20 s step raises. `test_facet_convection_guard.py`, `test_convection.py`. | — | S | P |
-| PT.26 | **In-plane conduction uses in-plane conductivity.** `lateral_operator` and `mesh_lateral_operator` take `conductivity_w_mk`, the through-thickness value (carbon 0.8; in-plane ~7). Add `conductivity_inplane_w_mk` to the material schema, default = k, used by both. | Diffusion length over 300 s goes 12 → 35 mm for carbon; the arm's shadow terminator spans ~3 cells, not 1; k_inplane = k is bit-identical. | — | S | P |
+| PT.26 | ✅ **done.** `ThermalSpec.conductivity_inplane_w_mk` (optional; `inplane_conductivity_w_mk` falls back to k) feeds `lateral_operator`, `mesh_lateral_operator` and `car_demo`'s surface helper; `carbon_fibre.yaml` authors 7.0 (ESTIMATED). | **Measured.** Link conductances scale by 7.0/0.8 to 1e-12; √(αt) at 300 s 12 → 35 mm on carbon; k_inplane unset is bit-identical (`test_inplane_conductivity.py`). Mesh arm crown−underside 10.9 → 3.3 K, span 20.8 → 13.0 K (fin length 26 mm vs 24 mm quarter-tube); outbound arm span 26.2 → 20.3 K. | — | S | P |
 | PT.27 | **Ground defaults to a layered slab with a deep boundary.** Ground materials run as one lumped node with an adiabatic back; damping depths (0.08–0.14 m) exceed the authored thicknesses, so the diurnal wave reflects. Default ≥ 3 layers with `back: {deep_temperature_k: ambient}` for soil, asphalt, concrete. | Concrete 0.10 m: amplitude 11.7 K, lag 1.3 h against the semi-infinite solution (5 %), not 15.1 K / 2.5 h; the 47 K swing pinned in `test_tier3_thermal.py:171` falls into band. | — | S | C |
 | PT.28 | **A target has an altitude.** `site.altitude_m` reaches nothing thermal and `aerial.py` uses the surface T_air for every target. Per-target `altitude_agl_m`: T_air(z) = T_air − Γz, speed of sound at T(z), convection at ρ(z); the column below it is AT.28. | −3.3 K at 500 m AGL, −20 K at 3 km, Γ from the atmosphere preset; z = 0 bit-identical; the ram-skin recovery uses a(z). | — | S | A |
 | PT.16 | **Make `HeatTraceLayer` reachable** (ADR 0039, M6.16). §6.6 calls heat traces a signature phenomenon of the band, and the sim-to-real literature says detectors trained on synthetic data lacking them are confused by them — so this is an evaluation deliverable, not a nicety. | A rendered frame shows the trace ghost at the authored offset and amplitude; the overlay is absent bit-identically when unbound. Red today: `irsim.thermal.traces` is imported only by its own unit test. | PT.15 | M | C |

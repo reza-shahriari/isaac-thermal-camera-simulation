@@ -735,7 +735,7 @@ def _surface_thermal(
             )
         thermal = material.spec.thermal
         conductivity_w_mk = (
-            thermal.conductivity_w_mk if conductivity_w_mk is None else conductivity_w_mk
+            thermal.inplane_conductivity_w_mk if conductivity_w_mk is None else conductivity_w_mk
         )
         thickness_m = thermal.thickness_m if thickness_m is None else thickness_m
     return properties, float(conductivity_w_mk), float(thickness_m)
