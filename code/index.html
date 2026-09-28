@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../tutorials/">Tutorials</a></li>
 <li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
@@ -58,7 +59,7 @@
 <article class="prose">
 <p>Every module under <code>src/</code>, its own one-line docstring, and the sections of the physics specification it cites. The layering rule that keeps the first column engine-free is not a convention here — <code>tests/unit/test_layering.py</code> fails the build if <code>irsim</code> imports an engine module.</p>
 <h2 id="irsim">irsim</h2>
-<p>the engine-free physics core — pure Python and NumPy, no engine import anywhere. 191 modules, 44,675 lines.</p>
+<p>the engine-free physics core — pure Python and NumPy, no engine import anywhere. 191 modules, 44,721 lines.</p>
 <div class='table-wrap'><table><thead><tr><th>module</th><th>what it is</th>
 <th>spec §</th><th>lines</th></tr></thead><tbody>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/__init__.py" target="_blank" rel="noopener">irsim</a></td><td>irsim — engine-free physics core for a multi-band infrared camera simulator.</td><td class='nowrap'>—</td><td>9</td></tr>
@@ -167,14 +168,14 @@
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/detector.py" target="_blank" rel="noopener">irsim.pipeline.detector</a></td><td>Stage 4 on the plane dict: pixel power → the ideal detector signal, through the membrane lag.</td><td class='nowrap'>§9.1, §9.2, §13.4, §15</td><td>112</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/environment.py" target="_blank" rel="noopener">irsim.pipeline.environment</a></td><td>The reflected environment term of stage 1 (§5.3 a, §4.1, ADR 0045).</td><td class='nowrap'>§4.1, §5.3, §13.7</td><td>92</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/flat_field.py" target="_blank" rel="noopener">irsim.pipeline.flat_field</a></td><td>Calibrate the camera's own flat-field correction from two synthetic blackbodies (§11.2).</td><td class='nowrap'>§11.1, §11.2</td><td>97</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/frame.py" target="_blank" rel="noopener">irsim.pipeline.frame</a></td><td><code>run_frame</code>: the whole CPU reference chain for one frame (docs/physics-model.md §13.4).</td><td class='nowrap'>§9.2, §11.1, §11.2, §12.2, §13.4, §15</td><td>406</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/frame.py" target="_blank" rel="noopener">irsim.pipeline.frame</a></td><td><code>run_frame</code>: the whole CPU reference chain for one frame (docs/physics-model.md §13.4).</td><td class='nowrap'>§8.3, §9.1, §9.2, §11.1, §11.2, §12.2</td><td>429</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/gas_slab.py" target="_blank" rel="noopener">irsim.pipeline.gas_slab</a></td><td>A gas slab in radiance space: hot gas and soot as a volumetric emitter in a surface pipeline.</td><td class='nowrap'>§2, §7.5, §8.1, §8.3</td><td>449</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/gas_tables.py" target="_blank" rel="noopener">irsim.pipeline.gas_tables</a></td><td>Reading the committed hot-gas absorption tables (roadmap PH.5).</td><td class='nowrap'>§8.1, §8.3, §12.1</td><td>168</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/illumination.py" target="_blank" rel="noopener">irsim.pipeline.illumination</a></td><td>The illumination bundle stage 1 reflects: one units tag, three incident terms, one gate.</td><td class='nowrap'>§5.2, §5.3, §5.4, §5.5, §12.1, §12.2</td><td>175</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/night.py" target="_blank" rel="noopener">irsim.pipeline.night</a></td><td>The night term of stage 1: airglow and moonlight as one incident band radiance (§5.5).</td><td class='nowrap'>§5.2, §5.5</td><td>141</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/optics.py" target="_blank" rel="noopener">irsim.pipeline.optics</a></td><td>Stage 3 on the plane dict — the adaptor <code>irsim.optics.stage.apply_optics</code> is reached through.</td><td class='nowrap'>§8.1, §8.2, §8.3, §13.4, §16</td><td>77</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/plume.py" target="_blank" rel="noopener">irsim.pipeline.plume</a></td><td>Stage 2d — an exhaust plume composited per pixel onto the k× radiance plane (roadmap PH.6).</td><td class='nowrap'>§6.6, §8.1, §8.3, §13.4</td><td>521</td></tr>
-<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/point_target.py" target="_blank" rel="noopener">irsim.pipeline.point_target</a></td><td>Point-target radiometry: analytic injection of targets smaller than one native pixel (MS.6).</td><td class='nowrap'>§2, §8.1, §8.3</td><td>176</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/point_target.py" target="_blank" rel="noopener">irsim.pipeline.point_target</a></td><td>Point-target radiometry: analytic injection of targets smaller than one native pixel (MS.6).</td><td class='nowrap'>§2, §8.1, §8.3</td><td>199</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/radiance.py" target="_blank" rel="noopener">irsim.pipeline.radiance</a></td><td>Stage 1 — band radiance from the G-buffer: L = ε₀ L_B(T) + (1 − ε₀) L_env.</td><td class='nowrap'>§4.2, §5.1, §13.4, §13.5, §16.4</td><td>156</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/rotor_veil.py" target="_blank" rel="noopener">irsim.pipeline.rotor_veil</a></td><td>Stage 2c — rotor discs composited onto the k× radiance plane (ADR 0081).</td><td class='nowrap'>§8.3, §13.4</td><td>168</td></tr>
 <tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/src/irsim/pipeline/sensor_chain.py" target="_blank" rel="noopener">irsim.pipeline.sensor_chain</a></td><td>The M9 sensor chain: every piece of camera imperfection, in §11.1's order (M9.8).</td><td class='nowrap'>§8.2, §9.2, §10.3, §10.4, §11.1, §11.2</td><td>338</td></tr>
@@ -326,13 +327,13 @@
 <p>The gate is <code>make check</code>: ruff, mypy <code>--strict</code>, and the unit and golden suites, none of which need a GPU or Isaac Sim. Integration tests are marked <code>@pytest.mark.isaac</code> and skipped by default.</p>
 <div class='table-wrap'><table><thead><tr><th>suite</th><th>files</th>
 <th>test functions</th><th>what it covers</th></tr></thead><tbody>
-<tr><td><code>tests/unit</code></td><td>284</td><td>2979</td><td>fast, engine-free; the developer loop and the commit gate</td></tr>
+<tr><td><code>tests/unit</code></td><td>289</td><td>2997</td><td>fast, engine-free; the developer loop and the commit gate</td></tr>
 <tr><td><code>tests/golden</code></td><td>9</td><td>28</td><td>regression fixtures: reference arrays with stated tolerances</td></tr>
 <tr><td><code>tests/integration</code></td><td>18</td><td>145</td><td>needs a running Isaac Sim; marked `isaac` and skipped by default</td></tr>
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

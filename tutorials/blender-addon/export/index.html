@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export it to irsim — irsim</title>
+<meta name="description" content="Step 9 of 11 · Infrared materials in Blender">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../">Tutorials</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../../tests/">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head"><h1>Export it to irsim</h1><p class="subtitle">Step 9 of 11 · Infrared materials in Blender</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/tutorials/blender-addon/09-export.md" target="_blank" rel="noopener">docs/tutorials/blender-addon/09-export.md on GitHub</a></div>
+
+<article class="prose">
+<ol>
+<li>Type an <strong>Asset name</strong> (lower case with underscores, for example <code>mavic3</code>). This is the name scenes will use.</li>
+<li><p>Click <strong>Export to irsim</strong>. It writes:</p>
+<ul>
+<li><code>3d_models/&lt;name&gt;/&lt;name&gt;.usdc</code>: the parts, one USD prim per object. (<code>3d_models/</code> is not committed.)</li>
+<li><code>3d_models/&lt;name&gt;/&lt;name&gt;.blend</code>: a copy of your file, so you can come back and edit.</li>
+<li><code>configs/assets/&lt;name&gt;.yaml</code>: the asset's material map. <strong>Commit this file.</strong></li>
+<li><code>3d_models/&lt;name&gt;/&lt;name&gt;.structure.yaml</code>, if there are any: the contacts, facing pairs and hidden parts. Rejected connections are left out, and unreviewed ones are marked <code>reviewed: false</code>. It sits beside the model until the asset format has a place for it (roadmap row AI.11).</li>
+</ul>
+<p>Names that USD would change (spaces, dots) are renamed first, and the message lists them. That way the <code>.blend</code>, the USD and the YAML all say the same thing.</p></li>
+<li>Click <strong>Run irsim audit</strong>. This runs the project's own <code>scripts/prep_asset.py</code> on the export in the background. Blender stays usable, and the result appears under the button and in a text block called <code>irsim_audit_&lt;name&gt;.log</code> (open it in Blender's Text Editor). <em>passed</em> means every part resolves to a library material.</li>
+</ol>
+<p>Before anything is written, everything is checked: the coverage, the name, and every connection and hidden part (a joint that is not in the table, a contact larger than its parts, a hidden part without a mass). If anything is refused, nothing is written.</p>
+<p>Exporting again under the same name needs <strong>Replace earlier export</strong>. The add-on never overwrites an asset config that was written by hand, or files in <code>3d_models/</code> that it did not write. Choose another name instead.</p>
+<h2 id="what-happens-next">What happens next<a class="anchor" href="#what-happens-next" aria-label="permalink">#</a></h2>
+<p>The asset config is what the rest of irsim reads. <code>scripts/prep_asset.py --asset &lt;name&gt; --emit-mesh</code> prepares the thermal mesh archive that scenes solve on, and <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/configs/scenes/phantom4_parts.yaml" target="_blank" rel="noopener"><code>configs/scenes/phantom4_parts.yaml</code></a> shows how a scene binds an asset's parts by name.</p>
+<nav class="tutorial-steps"><a class="prev" href="../check/">← Check the model and its size</a><a class="up" href="../">All steps</a><a class="next" href="../phantom4/">See it all on a real model →</a></nav>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

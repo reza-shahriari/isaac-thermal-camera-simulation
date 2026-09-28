@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li class="here"><a href="./">Overview</a></li>
 <li><a href="gallery/">Demo gallery</a></li>
+<li><a href="tutorials/">Tutorials</a></li>
 <li><a href="viewer/">Frame viewer</a></li>
 <li><a href="status/">Status</a></li>
 </ul>
@@ -102,23 +103,23 @@
 <h2 id="by-the-numbers">The repository, counted at build time</h2>
 <div class="numbers">
 <div class='number'><b>245</b><span>modules in <code>src/</code></span></div>
-<div class='number'><b>3,152</b><span>test functions, none needing a GPU</span></div>
+<div class='number'><b>3,170</b><span>test functions, none needing a GPU</span></div>
 <div class='number'><b>153</b><span>decision records</span></div>
 <div class='number'><b>65</b><span>configuration files</span></div>
 <div class='number'><b>74</b><span>specification sections cited by the code</span></div>
-<div class='number'><b>131/203</b><span>roadmap steps shipped</span></div>
+<div class='number'><b>136/228</b><span>roadmap steps shipped</span></div>
 </div>
 <h2 id="where-it-is">Where the plan is</h2>
 <p>Phases run repair &rarr; point-wise physics &rarr; aerial &rarr; maritime &rarr; ground &rarr; cross-cutting; the order is the owner's, recorded in ADR 0003.</p>
 <div class="bars">
 <div class="bar"><span class="bar-label">phase 0</span><span class="bar-track"><span class="bar-fill" style="width:100%"></span></span><span class="bar-value">15/15</span></div>
-<div class="bar"><span class="bar-label">phase P</span><span class="bar-track"><span class="bar-fill" style="width:90%"></span></span><span class="bar-value">36/40</span></div>
-<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:94%"></span></span><span class="bar-value">44/47</span></div>
-<div class="bar"><span class="bar-label">phase B</span><span class="bar-track"><span class="bar-fill" style="width:75%"></span></span><span class="bar-value">9/12</span></div>
-<div class="bar"><span class="bar-label">phase C</span><span class="bar-track"><span class="bar-fill" style="width:53%"></span></span><span class="bar-value">10/19</span></div>
-<div class="bar"><span class="bar-label">phase X</span><span class="bar-track"><span class="bar-fill" style="width:24%"></span></span><span class="bar-value">17/70</span></div>
+<div class="bar"><span class="bar-label">phase P</span><span class="bar-track"><span class="bar-fill" style="width:84%"></span></span><span class="bar-value">36/43</span></div>
+<div class="bar"><span class="bar-label">phase A</span><span class="bar-track"><span class="bar-fill" style="width:74%"></span></span><span class="bar-value">49/66</span></div>
+<div class="bar"><span class="bar-label">phase B</span><span class="bar-track"><span class="bar-fill" style="width:69%"></span></span><span class="bar-value">9/13</span></div>
+<div class="bar"><span class="bar-label">phase C</span><span class="bar-track"><span class="bar-fill" style="width:50%"></span></span><span class="bar-value">10/20</span></div>
+<div class="bar"><span class="bar-label">phase X</span><span class="bar-track"><span class="bar-fill" style="width:24%"></span></span><span class="bar-value">17/71</span></div>
 </div>
-<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>TC.9</code> <span class='lane'>Thermal coupling</span> <strong>View factors between any two parts, by ray casting.</strong> ADR 0088's closed form is parallel rectangles only and raises on anything else, so a downloaded car cannot radiate onto the road and a battery cannot warm the shell around it. A NumPy</li><li><code>TC.10</code> <span class='lane'>Thermal coupling</span> <strong>Heat exchange between objects, as one scene switch.</strong> <code>thermal.object_exchange: true</code> couples every solved surface and node to what it sees — longwave by TC.9's factors, net of the sky each hides (ADR 0088's rule, any shape) — so a car wa</li><li><code>TC.12</code> <span class='lane'>Thermal coupling</span> <strong>Evolve or freeze, per object and per scene.</strong> <code>evolve: false</code> holds an object at its spun-up state; <code>freeze_at_s: t</code> solves it to t and holds it from then on — a warm engine at night, kept warm while the camera films. Frozen objects still</li><li><code>AI.11</code> <span class='lane'>Asset ingestion</span> <strong>An asset's parts carry their contacts and hidden parts.</strong> <code>configs/assets/&lt;name&gt;.yaml</code> gains <code>contacts:</code> (two parts, a joint from <code>joints.yaml</code>, an area) and <code>hidden_parts:</code> (an AI.12 component placed by a box, with overrides). Engine-fre</li><li><code>TC.11</code> <span class='lane'>Thermal coupling</span> <strong>A scene's main object, fully solved.</strong> <code>solve: full</code> builds the target's thermal model from its asset: every part a node or mesh field with its material's mass, heat in watts, conduction across AI.11's contacts, radiation between facing p</li></ol>
+<h3 id="do-next">Next, in order</h3><ol class="queue"><li><code>TC.9</code> <span class='lane'>Thermal coupling</span> <strong>View factors between any two parts, by ray casting.</strong> ADR 0088's closed form is parallel rectangles only and raises on anything else, so a downloaded car cannot radiate onto the road and a battery cannot warm the shell around it. A NumPy</li><li><code>AT.24</code> <span class='lane'>Atmosphere, sky and materials</span> <strong>Band quadrature that cannot step off the support.</strong> <code>quadrature_grid</code> pads one node past the response when the interval count is odd, so Simpson straddles a cliff where R ends non-zero (+33 % at 300 K on an odd-count top-hat; `class_weigh</li><li><code>PT.25</code> <span class='lane'>Point-wise surface temperature</span> <strong>The forced-convection floor is convective only.</strong> <code>ConvectionParams</code> a = 5, b = 4 tracks Jürges' 5.7 + 3.8v, fitted to total plate loss with radiation in, while the balance adds εσT⁴ itself; h_free uses a fixed 300 K (`scene_forcing.py:15</li><li><code>PT.26</code> <span class='lane'>Point-wise surface temperature</span> <strong>In-plane conduction uses in-plane conductivity.</strong> <code>lateral_operator</code> and <code>mesh_lateral_operator</code> take <code>conductivity_w_mk</code>, the through-thickness value (carbon 0.8; in-plane ~7). Add <code>conductivity_inplane_w_mk</code> to the material schema, defa</li><li><code>TC.10</code> <span class='lane'>Thermal coupling</span> <strong>Heat exchange between objects, as one scene switch.</strong> <code>thermal.object_exchange: true</code> couples every solved surface and node to what it sees — longwave by TC.9's factors, net of the sky each hides (ADR 0088's rule, any shape) — so a car wa</li></ol>
 <p><a href="roadmap/">The whole plan &rarr;</a></p>
 <h2 id="read-next">Read next</h2>
 <div class="cards">
@@ -132,7 +133,7 @@
 </div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
   <a href="physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

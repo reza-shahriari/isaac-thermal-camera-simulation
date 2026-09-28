@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Find the connections between parts — irsim</title>
+<meta name="description" content="Step 6 of 11 · Infrared materials in Blender">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../">Tutorials</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../../tests/">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head"><h1>Find the connections between parts</h1><p class="subtitle">Step 6 of 11 · Infrared materials in Blender</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/tutorials/blender-addon/06-connections.md" target="_blank" rel="noopener">docs/tutorials/blender-addon/06-connections.md on GitHub</a></div>
+
+<article class="prose">
+<p>Heat moves between parts in two ways that matter here: <strong>through a contact</strong>, where two parts touch (a motor bolted to an arm), and <strong>across a gap by radiation</strong>, where they only look at each other (an engine and the bonnet above it). irsim's solver needs to know both, and a downloaded model says neither. The <strong>Connections</strong> section finds them for you to review.</p>
+<h2 id="find">Find<a class="anchor" href="#find" aria-label="permalink">#</a></h2>
+<p>Open <strong>Connections</strong> and click <strong>Find connections</strong>. The three settings above the button are usually right as they are:</p>
+<ul>
+<li><strong>Touching within</strong>: surfaces closer than this count as touching. <code>0</code> means 0.2 % of the model's size, at least half a millimetre. Downloaded parts are placed by eye, so a motor sitting "on" an arm is often a fraction of a millimetre off it, or into it.</li>
+<li><strong>Facing within</strong>: parts that look straight at each other across less than this count as facing. <code>0</code> means 10 % of the model's size.</li>
+<li><strong>Samples per part</strong>: more is slower and more exact. The default, 3000, measures a contact to a few per cent.</li>
+</ul>
+<p>On the Phantom 4, with a battery added inside it (<a href="../hidden-parts/">step 7</a>), the search takes about 10 seconds over 2.5 million faces. It finds 103 contacts and 87 facing pairs.</p>
+<p><img src="../../../docs/tutorials/blender-addon/images/phantom4_structure.webp" alt="The Phantom 4 see-through: the hidden battery in orange, contacts as orange crosses, facing pairs as blue lines" loading="lazy"></p>
+<p>Tick the eye button beside <strong>Find connections</strong> to see them in the viewport, as in the picture: each contact is a small <strong>orange cross</strong> where the two parts touch, and each facing pair is a <strong>blue line</strong> across the gap. The connection selected in the list is drawn <strong>white</strong>, with lines to the middle of its two parts, so you can see which two they are.</p>
+<h2 id="review">Review<a class="anchor" href="#review" aria-label="permalink">#</a></h2>
+<p>Everything the finder proposes starts as <strong>found</strong> (a question mark in the list). For each one:</p>
+<ul>
+<li><strong>Select</strong> selects its two parts in the viewport.</li>
+<li><strong>Confirm</strong> keeps it. <strong>Reject</strong> rules it out: it is not exported, and a new search will not propose it again.</li>
+<li>For a contact, choose the <strong>Joint</strong>: how the two parts are held together. The joints come from the project's measured table (<code>configs/thermal/joints.yaml</code>); a new bolted steel joint conducts about twelve times better than the dry default, and the box shows what that means over this contact's area in W/K.</li>
+<li>The <strong>Area</strong> can be typed over if you know better.</li>
+<li><strong>Confirm all found</strong> accepts everything you have not reviewed.</li>
+</ul>
+<p><strong>Connect selected</strong> adds a connection the finder missed: select the two parts and click it. A contact added this way is measured if the parts touch; if they do not, type its area.</p>
+<p>Running <strong>Find connections</strong> again after you edit the model updates what it found, but never changes your decisions: a confirmed connection stays confirmed with the joint you chose, and a rejected one stays out.</p>
+<h2 id="what-it-is-and-what-it-is-not">What it is, and what it is not<a class="anchor" href="#what-it-is-and-what-it-is-not" aria-label="permalink">#</a></h2>
+<p>A contact's area is measured by scattering points over each part and counting the ones that lie against the other part, straight across and roughly parallel. A facing pair's area is the part of one surface whose outward direction reaches the other part first. That tells you <strong>which</strong> parts exchange heat by radiation; how much is a <em>view factor</em>, which the physics project will compute itself (roadmap row TC.9). In the same way, irsim does not use any of these connections yet: the asset format that will carry them is roadmap row AI.11. Until then they are saved in the <code>.blend</code> and exported beside the model (<a href="../export/">step 9</a>).</p>
+<nav class="tutorial-steps"><a class="prev" href="../new-material/">← Add a material the library lacks</a><a class="up" href="../">All steps</a><a class="next" href="../hidden-parts/">Add the parts you cannot see →</a></nav>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photon radiometric offset — irsim</title>
+<meta name="description" content="SC.30 -- the photon-FPA radiometric branch removes its own pedestal.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../tutorials/">Tutorials</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Photon radiometric offset</h1><p class="subtitle">SC.30 -- the photon-FPA radiometric branch removes its own pedestal.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_photon_radiometric_offset.py" target="_blank" rel="noopener">tests/unit/test_photon_radiometric_offset.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>PhotonDetector.electrons</code> adds the dark and cold-shield background electrons (§9.1, ADR 0066), and <code>run_frame</code>'s inversion took the whole count as signal. Every uncooled camera in this repository was unaffected (η_cs = 1, background 0, dark small against a 300 K LWIR scene), which is why the existing photon round trip in <code>test_run_frame.py</code> passed: it stands an LWIR table in for MWIR. On the MWIR InSb config as shipped -- η_cs = 0.90, 2 ms integration, 8.5 Me⁻ well -- the pedestal is 3.3e5 e⁻ against 3.3e6 of signal, and a 300 K blackbody read <strong>303.5 K</strong>.</p>
+<p>A calibrated camera subtracts the pedestal's mean (a dark frame measures it); only its shot noise survives, which the noise budget already carries. docs/physics-model.md §9.1, §11.5; ADR 0021, ADR 0066; roadmap SC.1, SC.30.</p>
+<p class='made-by'>2 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_photon_radiometric_offset.py" target="_blank" rel="noopener">tests/unit/test_photon_radiometric_offset.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_photon_radiometric_offset.py#L61" target="_blank" rel="noopener">the pedestal is large enough to matter</a><br><code>test_the_pedestal_is_large_enough_to_matter</code></td><td>The test below is only a test if the offset is not zero: on this camera it is a tenth of the 300 K signal, so an inversion that keeps it cannot land within 10 mK.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_photon_radiometric_offset.py#L70" target="_blank" rel="noopener">a blackbody reads its own temperature through the photon chain</a><span class="tag">parametrize</span><br><code>test_a_blackbody_reads_its_own_temperature_through_the_photon_chain</code></td><td>Round trip through the ideal chain: within 10 mK, where before the fix 300 K read 303.5 K.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

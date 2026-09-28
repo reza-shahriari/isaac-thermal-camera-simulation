@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Point target background — irsim</title>
+<meta name="description" content="AT.22 -- a sub-pixel target subtracts the pixel it sits in, not a clear sky.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../tutorials/">Tutorials</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Point target background</h1><p class="subtitle">AT.22 -- a sub-pixel target subtracts the pixel it sits in, not a clear sky.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_point_target_background.py" target="_blank" rel="noopener">tests/unit/test_point_target_background.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>excess_radiance</code> under an atmosphere subtracted the clear column beyond R whatever the pixel held. Over a clear-sky pixel that is the same number; over cloud, sea, terrain or another target it is not, and a sub-pixel drone in front of cloud clutter (MS.3) came out about twice as bright over its background as it should be. The fix is the blend <code>rotor_veil</code> already argues for:</p>
+<p>ΔL = φ [ τ_B(R) L_t + L_path(R) − L_pixel ].</p>
+<p>docs/physics-model.md §5.1, §7.1; ADR 0071, ADR 0081; roadmap MS.6, AT.22.</p>
+<p class='made-by'>4 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_point_target_background.py" target="_blank" rel="noopener">tests/unit/test_point_target_background.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_point_target_background.py#L64" target="_blank" rel="noopener">over a clear sky pixel the two forms agree</a><br><code>test_over_a_clear_sky_pixel_the_two_forms_agree</code></td><td>The pixel-aware form reduces to the per-class clear-column form when the pixel holds the clear column: what every existing scene had, so their frames do not move.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_point_target_background.py#L80" target="_blank" rel="noopener">over a cloud pixel the excess is what replaces the pixel</a><br><code>test_over_a_cloud_pixel_the_excess_is_what_replaces_the_pixel</code></td><td>Measured before the fix: over a cloud pixel at 38.66 W/m²/sr with the clear sky at 17.92, a φ = 0.278 target at 700 m was 2× too bright (+5.8 W/m²/sr). Now the excess is the hand value, and it is smaller than the clear-sky excess by φ (L_cloud − L_clear).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_point_target_background.py#L114" target="_blank" rel="noopener">the grey atmosphere keeps its own column</a><br><code>test_the_grey_atmosphere_keeps_its_own_column</code></td><td>The grey L1 model's path radiance tends to L_B(T_air) while its sky pixels come from the <code>SkyModel</code> (ADR 0050): not one column, so the pixel cannot say what lies beyond R and the clear-column form stays, whatever the pixel holds (spec issue S28; <code>AT.5</code>).</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_point_target_background.py#L130" target="_blank" rel="noopener">injection reads the pixel under the target</a><br><code>test_injection_reads_the_pixel_under_the_target</code></td><td>On the plane, the excess over a bright pixel is smaller than over a dark one by exactly φ times the difference, and the frame sum is the excess (flux conserved).</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

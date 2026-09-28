@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The test suite — irsim</title>
-<meta name="description" content="3,152 tests across 311 files — every one listed, with what it asserts.">
+<meta name="description" content="3,170 tests across 316 files — every one listed, with what it asserts.">
 <link rel="stylesheet" href="../assets/style.css">
 <link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
@@ -27,6 +27,7 @@
 <h2>Start</h2><ul>
 <li><a href="../">Overview</a></li>
 <li><a href="../gallery/">Demo gallery</a></li>
+<li><a href="../tutorials/">Tutorials</a></li>
 <li><a href="../viewer/">Frame viewer</a></li>
 <li><a href="../status/">Status</a></li>
 </ul>
@@ -53,13 +54,13 @@
 </ul>
 </nav>
 <main id="content" class="main wide">
-<div class="page-head"><h1>The test suite</h1><p class="subtitle">3,152 tests across 311 files — every one listed, with what it asserts.</p></div>
+<div class="page-head"><h1>The test suite</h1><p class="subtitle">3,170 tests across 316 files — every one listed, with what it asserts.</p></div>
 
 <article class="prose">
-<p>Nobody has intuition for what a correct thermal image looks like — a frame that is wrong by 20 K looks exactly as convincing as one that is right. That is why this project carries 3,152 tests across 311 files, and why a test here is expected to <em>fail if the physics were wrong</em> rather than merely to call the function. Each file below links to its own page, where every test is listed with what it asserts.</p>
-<p class="filterline"><input id="table-filter" type="search" placeholder="Filter 311 test files…" aria-label="Filter test files"></p>
+<p>Nobody has intuition for what a correct thermal image looks like — a frame that is wrong by 20 K looks exactly as convincing as one that is right. That is why this project carries 3,170 tests across 316 files, and why a test here is expected to <em>fail if the physics were wrong</em> rather than merely to call the function. Each file below links to its own page, where every test is listed with what it asserts.</p>
+<p class="filterline"><input id="table-filter" type="search" placeholder="Filter 316 test files…" aria-label="Filter test files"></p>
 <h2 id="unit">Unit — <code>tests/unit</code></h2>
-<p>Fast, engine-free, and the half of the commit gate that runs on every change. No GPU, no Isaac Sim, no network. 284 files, 2,979 tests.</p>
+<p>Fast, engine-free, and the half of the commit gate that runs on every change. No GPU, no Isaac Sim, no network. 289 files, 2,997 tests.</p>
 <div class='table-wrap'><table class="filterable suite"><thead><tr><th>file</th><th>what it guards</th><th>cites</th><th>tests</th></tr></thead><tbody>
 <tr><td><a href="unit/test_adc_floor/">test_adc_floor.py</a></td><td>The ADC floor holds the coldest sky (docs/physics-model.md §11.1, spec issue S53, <code>SC.23</code>).</td><td>§11.1, ADR 0151</td><td>6</td></tr>
 <tr><td><a href="unit/test_adr_citations/">test_adr_citations.py</a></td><td>RP.4 — every <code>ADR NNNN</code> citation in the repository resolves to a file that exists.</td><td>ADR 0042, ADR 0079, ADR 0078, ADR 0053</td><td>7</td></tr>
@@ -237,6 +238,7 @@
 <tr><td><a href="unit/test_phantom4_orientation/">test_phantom4_orientation.py</a></td><td>Which way the imported Phantom 4 is facing, and why it is not a matter of opinion.</td><td>ADR 0138</td><td>5</td></tr>
 <tr><td><a href="unit/test_phantom4_perpart/">test_phantom4_perpart.py</a></td><td>Every part of the Phantom 4 carries its own temperature history (<code>phantom4_perpart.yaml</code>).</td><td>ADR 0138</td><td>5</td></tr>
 <tr><td><a href="unit/test_photon_detector/">test_photon_detector.py</a></td><td>Ideal photon-detector transfer (M3.8): independent quadrature, the 17/5 aperture identity, saturation without wrap, exact quantisation points, and the MWIR order of magnitude.</td><td>M3.8</td><td>6</td></tr>
+<tr><td><a href="unit/test_photon_radiometric_offset/">test_photon_radiometric_offset.py</a></td><td>SC.30 -- the photon-FPA radiometric branch removes its own pedestal.</td><td>§9.1, ADR 0066, §11.5, ADR 0021</td><td>2</td></tr>
 <tr><td><a href="unit/test_photon_response/">test_photon_response.py</a></td><td>PhotonDetector.response (M4.7, ADR 0026): Poisson statistics in electron space, Arrhenius dark current, the two-blackbody NETD bench against the anchor and the M4.5 prediction, seeded replay, saturation and dtype gates.</td><td>M4.7, ADR 0026, M4.5</td><td>6</td></tr>
 <tr><td><a href="unit/test_pipeline_radiance/">test_pipeline_radiance.py</a></td><td>Stage 1, emission-only band radiance (M3.6, ADR 0018): closed-form blackbody, grey-body apparent temperature through the LUT inverse, per-pixel material lookup, and the dtype/sentinel guards.</td><td>M3.6, ADR 0018</td><td>7</td></tr>
 <tr><td><a href="unit/test_planck/">test_planck.py</a></td><td>Analytic identity tests for Planck's law.</td><td>—</td><td>25</td></tr>
@@ -244,6 +246,7 @@
 <tr><td><a href="unit/test_png/">test_png.py</a></td><td>The stdlib PNG codec (M5.7): valid signature and chunks, a decodable payload, an exact read-back.</td><td>M5.7</td><td>4</td></tr>
 <tr><td><a href="unit/test_point_bridge/">test_point_bridge.py</a></td><td>MP.3 — the per-pixel temperature lookup, on synthetic G-buffers and no renderer.</td><td>M2.4, §13.1, §13.3, ADR 0087</td><td>22</td></tr>
 <tr><td><a href="unit/test_point_target/">test_point_target.py</a></td><td>Point-target injection (MS.6): 1/R^2 with tau = 1, tau(R)/R^2 with the atmosphere and the exact per-class identity, zero excess at the sky-beyond radiance, flux conservation over a sub-pixel sweep, handoff continuity in the phase mean, the rasteriser's measured error, the F-number ratio 3.4, and the whole chain.</td><td>—</td><td>8</td></tr>
+<tr><td><a href="unit/test_point_target_background/">test_point_target_background.py</a></td><td>AT.22 -- a sub-pixel target subtracts the pixel it sits in, not a clear sky.</td><td>§5.1, §7.1, ADR 0071, ADR 0081</td><td>4</td></tr>
 <tr><td><a href="unit/test_prep_asset_side_exports/">test_prep_asset_side_exports.py</a></td><td>The library's side artefacts ride the existing Blender passes (AI.9, ADR 0150).</td><td>ADR 0150</td><td>3</td></tr>
 <tr><td><a href="unit/test_projection/">test_projection.py</a></td><td>Lens projection (M10.9a): frame conventions, the OpenCV model, and the inverse.</td><td>M10.9a, §8.4, ADR 0015</td><td>20</td></tr>
 <tr><td><a href="unit/test_quad_outbound/">test_quad_outbound.py</a></td><td>The outbound quadrotor stage, engine-free (PT.9/IG.2, ADR 0123).</td><td>ADR 0123, ADR 0087, ADR 0060</td><td>17</td></tr>
@@ -256,6 +259,7 @@
 <tr><td><a href="unit/test_readme_status_table/">test_readme_status_table.py</a></td><td>RP.1 — the status table (TECHNICAL_REPORT.md) is a table, and stays one.</td><td>—</td><td>5</td></tr>
 <tr><td><a href="unit/test_reference_statistics/">test_reference_statistics.py</a></td><td>ME.5: the reference report's arithmetic, on synthetic input.</td><td>—</td><td>13</td></tr>
 <tr><td><a href="unit/test_reflected_environment/">test_reflected_environment.py</a></td><td>Reflected environment term (M7.13): the isothermal enclosure identity for every emissivity and sky-view factor, the sky-view-factor formula against a cosine-weighted Monte Carlo, the cold-roof drop under a clear sky vs overcast, bare aluminium colder than paint, and the Scene plumbing.</td><td>M7.13</td><td>5</td></tr>
+<tr><td><a href="unit/test_render_drivers_flat_field/">test_render_drivers_flat_field.py</a></td><td>SC.29 -- every render driver is shutter-referenced, and retries without the flat field.</td><td>§8.2, §11.2, ADR 0053, M9.12</td><td>3</td></tr>
 <tr><td><a href="unit/test_render_multiband/">test_render_multiband.py</a></td><td>The multi-band driver's bookkeeping (M10.24).</td><td>M10.24</td><td>13</td></tr>
 <tr><td><a href="unit/test_rendered_airframes/">test_rendered_airframes.py</a></td><td>Every rendered airframe against the scene config that describes it (PT.9, ADR 0123/0124).</td><td>ADR 0123</td><td>10</td></tr>
 <tr><td><a href="unit/test_roadmap_phase_table/">test_roadmap_phase_table.py</a></td><td>Revision 6 — the roadmap's phase-plan table says what the step rows say.</td><td>—</td><td>5</td></tr>
@@ -266,6 +270,8 @@
 <tr><td><a href="unit/test_rotor_veil/">test_rotor_veil.py</a></td><td>A spinning rotor as a time-averaged veil (§8.3, §9.2; ADR 0074, ADR 0077).</td><td>§8.3, §9.2, ADR 0074, ADR 0077</td><td>37</td></tr>
 <tr><td><a href="unit/test_rotor_veil_injection/">test_rotor_veil_injection.py</a></td><td>Stage 2c: rotor veils composited onto the k× radiance plane (ADR 0081).</td><td>ADR 0081</td><td>18</td></tr>
 <tr><td><a href="unit/test_run_frame/">test_run_frame.py</a></td><td>run_frame (M3.11): output dtypes and omit-not-zero flags, DN monotone over blackbodies, apparent T equal to kinetic T for ε = 1, and the supersampled G-buffer contract.</td><td>M3.11</td><td>7</td></tr>
+<tr><td><a href="unit/test_run_frame_motion_smear/">test_run_frame_motion_smear.py</a></td><td>SC.28 -- within-frame motion smear reaches <code>run_frame</code>, not only the stage beside it.</td><td>M5, ADR 0077, §8.3, §9.2</td><td>3</td></tr>
+<tr><td><a href="unit/test_run_frame_slant_path/">test_run_frame_slant_path.py</a></td><td>AT.21 -- the per-pixel slant path reaches <code>run_frame</code>, not only the stage beside it.</td><td>§7.4, §5.3, ADR 0071</td><td>3</td></tr>
 <tr><td><a href="unit/test_scene/">test_scene.py</a></td><td>Scene builder (M6.17): the weather is loaded once and the same object reaches every consumer; no consumer constructor takes a file; two weather objects cannot coexist; the T_air used for path radiance equals the T_air used for convection at every timestamp.</td><td>M6.17</td><td>5</td></tr>
 <tr><td><a href="unit/test_scene_occluders/">test_scene_occluders.py</a></td><td>PT.18 — occluders and daylight in the config path: a wall half in sun, from YAML alone.</td><td>ADR 0087, §5.4, §6.1, ADR 0095</td><td>13</td></tr>
 <tr><td><a href="unit/test_scene_patch_spec/">test_scene_patch_spec.py</a></td><td>PT.2 — a point-wise surface is declarable in a scene config, not only in Python.</td><td>§6.1, §12.3, ADR 0087</td><td>10</td></tr>
@@ -281,7 +287,7 @@
 <tr><td><a href="unit/test_shutter_reference/">test_shutter_reference.py</a></td><td>SC.18: the FFC snapshots the shutter and the housing; the residual is radial (§11.2).</td><td>§11.2</td><td>6</td></tr>
 <tr><td><a href="unit/test_shutter_signature/">test_shutter_signature.py</a></td><td>Reading the shutter off the frames (ME.3a, ADR 0068).</td><td>ADR 0068</td><td>9</td></tr>
 <tr><td><a href="unit/test_signal_path/">test_signal_path.py</a></td><td>The signal-path vocabulary and what it refuses (XD.2).</td><td>§11.3, §15, ADR 0068</td><td>9</td></tr>
-<tr><td><a href="unit/test_site_build/">test_site_build.py</a><span class="tag">slow</span></td><td>The project site builds, and every link in it goes somewhere.</td><td>—</td><td>18</td></tr>
+<tr><td><a href="unit/test_site_build/">test_site_build.py</a><span class="tag">slow</span></td><td>The project site builds, and every link in it goes somewhere.</td><td>—</td><td>21</td></tr>
 <tr><td><a href="unit/test_site_gallery/">test_site_gallery.py</a></td><td>The gallery's media cache, which decides what gets re-encoded and what gets republished.</td><td>—</td><td>6</td></tr>
 <tr><td><a href="unit/test_site_markdown/">test_site_markdown.py</a></td><td>The site's Markdown renderer, against the constructs this repository's documents actually use.</td><td>§3.2</td><td>14</td></tr>
 <tr><td><a href="unit/test_sketchfab_fetch/">test_sketchfab_fetch.py</a></td><td>The licence gate fails towards quarantine, and provenance survives a round trip (AI.8).</td><td>ADR 0150</td><td>19</td></tr>
@@ -383,7 +389,7 @@
 </tbody></table></div>
 </article>
 <footer class="foot">
-  <p>Built 2026-09-28 09:22 UTC from <code>777fad5</code>. The physics specification is
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
   <a href="../physics/">docs/physics-model.md</a>; every figure on this site was generated by
   the code in the repository.</p>
 </footer>

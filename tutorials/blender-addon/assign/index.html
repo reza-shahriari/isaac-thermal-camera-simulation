@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assign materials — irsim</title>
+<meta name="description" content="Step 3 of 11 · Infrared materials in Blender">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../">Tutorials</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../../tests/">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main">
+<div class="page-head"><h1>Assign materials</h1><p class="subtitle">Step 3 of 11 · Infrared materials in Blender</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/tutorials/blender-addon/03-assign.md" target="_blank" rel="noopener">docs/tutorials/blender-addon/03-assign.md on GitHub</a></div>
+
+<article class="prose">
+<ol>
+<li>Click a part in the <strong>Parts</strong> list, or in the viewport. The box under the list shows its Blender materials and whether each one has an infrared material yet.</li>
+<li><p>In the <strong>Material library</strong>, click the material the part is really made of. The box below it shows:</p>
+<ul>
+<li><strong>ε / ρ / τ per band</strong>: how much the surface <strong>emits</strong>, <strong>reflects</strong> and <strong>transmits</strong> in NIR, SWIR, MWIR and LWIR. The three always add up to 1.</li>
+<li><strong>Solar absorptivity</strong>: how strongly sunlight heats it.</li>
+<li><strong>Heat capacity</strong>: how slowly it warms up and cools down.</li>
+<li>A red warning if LWIR ε is below 0.2 (mirror-like).</li>
+</ul></li>
+<li><p>Click one of:</p>
+<ul>
+<li><strong>Assign to selected parts</strong>: every face of the selected objects.</li>
+<li><strong>Assign to every part using '&lt;material&gt;'</strong>: every object that uses the active Blender material. Useful when a download's "white plastic" really is one material everywhere.</li>
+<li>In <strong>Edit Mode</strong>, <strong>Assign to selected faces</strong>: for a part made of two things, such as a wheel with a rubber tyre and a metal rim.</li>
+</ul></li>
+</ol>
+<p><strong>If two parts shared a Blender material</strong> and you give one of them a different infrared material, that part gets a copy of the material: same look, own infrared material, named <code>white_plastic__carbon_fibre</code>. The other part is not changed. Parts you did not select are never changed by an assignment.</p>
+<h2 id="the-thermal-view">The thermal view<a class="anchor" href="#the-thermal-view" aria-label="permalink">#</a></h2>
+<p><strong>Thermal view</strong> (the switch at the top) colours each part so that its brightness on screen is its LWIR emissivity: white emits, black is a mirror. Anything still unassigned shows in <strong>magenta</strong>. It changes only the viewport colours; switch it off and the model looks as before. A part with no material at all cannot be coloured and stays grey; the checklist lists it instead.</p>
+<p>This view is how a wrong material shows up. On the Phantom 4, an old automatic rule once made the motor housings polished aluminium (ε 0.09):</p>
+<p><img src="../../../docs/tutorials/blender-addon/images/phantom4_old_rule_and_map.webp" alt="Left: the old rule&#x27;s motors are black (mirror-like). Right: the hand-written map" loading="lazy"></p>
+<p>In the thermal view they turn black: a hot motor would have shown up as reflected sky. These pictures show <strong>emissivity, not temperature</strong>: they are the add-on's view, not a thermal image.</p>
+<nav class="tutorial-steps"><a class="prev" href="../parts/">← Open the model and make its parts real parts</a><a class="up" href="../">All steps</a><a class="next" href="../existing-asset/">Start from an existing asset →</a></nav>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

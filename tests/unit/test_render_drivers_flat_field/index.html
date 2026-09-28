@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render drivers flat field — irsim</title>
+<meta name="description" content="SC.29 -- every render driver is shutter-referenced, and retries without the flat field.">
+<link rel="stylesheet" href="../../../assets/style.css">
+<link rel="icon" href="../../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
+      integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV"
+      crossorigin="anonymous">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../../../"><span class="mark"></span>irsim</a>
+  <form class="search" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Search the project…" autocomplete="off"
+           aria-label="Search" data-index="../../../search.json">
+    <div id="results" class="results" hidden></div>
+  </form>
+  <a class="ghlink" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation" target="_blank" rel="noopener">GitHub</a>
+</header>
+<div class="shell">
+<nav class="sidebar" aria-label="Sections">
+<h2>Start</h2><ul>
+<li><a href="../../../">Overview</a></li>
+<li><a href="../../../gallery/">Demo gallery</a></li>
+<li><a href="../../../tutorials/">Tutorials</a></li>
+<li><a href="../../../viewer/">Frame viewer</a></li>
+<li><a href="../../../status/">Status</a></li>
+</ul>
+<h2>Physics</h2><ul>
+<li><a href="../../../physics/">Physics model</a></li>
+<li><a href="../../../spec-issues/">Spec issues</a></li>
+</ul>
+<h2>Plan</h2><ul>
+<li><a href="../../../roadmap/">Roadmap</a></li>
+<li><a href="../../../decisions/">Decision log</a></li>
+<li><a href="../../../changelog/">Changelog</a></li>
+</ul>
+<h2>Evidence</h2><ul>
+<li><a href="../../">The test suite</a></li>
+<li><a href="../../../validation/">Validation</a></li>
+<li><a href="../../../research/">Research</a></li>
+</ul>
+<h2>Reference</h2><ul>
+<li><a href="../../../code/">Code map</a></li>
+<li><a href="../../../configs/">Configuration catalogue</a></li>
+<li><a href="../../../scripts/">Commands</a></li>
+<li><a href="../../../guide/">Working agreement</a></li>
+<li><a href="../../../practice/">Working practice</a></li>
+</ul>
+</nav>
+<main id="content" class="main wide">
+<div class="page-head"><h1>Render drivers flat field</h1><p class="subtitle">SC.29 -- every render driver is shutter-referenced, and retries without the flat field.</p><a class="source" href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_render_drivers_flat_field.py" target="_blank" rel="noopener">tests/unit/test_render_drivers_flat_field.py on GitHub</a></div>
+
+<article class="prose">
+<p><code>render_phantom4.py</code> built its <code>PipelineConfig</code> bare while the other eight drivers enabled the two-point flat field and caught the <code>ValueError</code> a photon camera raises when the hot calibration point is outside its ADC. The Phantom 4 clips therefore showed the housing bowl §8.2 predicts and a Boson's FFC removes: on frame 96 the dn16 sky rose 3235 → 4465 DN from centre to corner while <code>apparent_t</code> stayed flat, and the AGC stretched that into 90 display codes of vignette.</p>
+<p><code>test_render_multiband.py</code> guards the drivers <code>render_multiband</code> sweeps; this walks <strong>every</strong> <code>scripts/render_*.py</code> so a new driver cannot repeat the omission. docs/physics-model.md §8.2, §11.2; ADR 0053; roadmap M9.12, SC.29.</p>
+<p class='made-by'>3 test(s) in <a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_render_drivers_flat_field.py" target="_blank" rel="noopener">tests/unit/test_render_drivers_flat_field.py</a>.</p>
+<div class='table-wrap'><table><thead><tr><th>test</th><th>what it asserts</th></tr></thead><tbody>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_render_drivers_flat_field.py#L35" target="_blank" rel="noopener">every render driver enables the flat field</a><span class="tag">parametrize</span><br><code>test_every_render_driver_enables_the_flat_field</code></td><td>A <code>from_sensor</code> call with no <code>flat_field_enabled</code> keyword is the un-shuttered picture.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_render_drivers_flat_field.py#L51" target="_blank" rel="noopener">every render driver retries without it</a><span class="tag">parametrize</span><br><code>test_every_render_driver_retries_without_it</code></td><td>The refusal a photon camera raises must produce a frame with no flat field, not no frame.</td></tr>
+<tr><td><a href="https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/tests/unit/test_render_drivers_flat_field.py#L72" target="_blank" rel="noopener">the phantom4 driver is among them</a><br><code>test_the_phantom4_driver_is_among_them</code></td><td>The one that was missing.</td></tr>
+</tbody></table></div>
+</article>
+<footer class="foot">
+  <p>Built 2026-09-28 11:30 UTC from <code>900fec5</code>. The physics specification is
+  <a href="../../../physics/">docs/physics-model.md</a>; every figure on this site was generated by
+  the code in the repository.</p>
+</footer>
+</main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
+        integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8"
+        crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4+/RRE05"
+        crossorigin="anonymous"></script>
+<script defer src="../../../assets/site.js"></script>
+</body>
+</html>

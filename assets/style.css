@@ -251,6 +251,15 @@ td.nowrap, th.nowrap { white-space: nowrap; }
           display: -webkit-box; -webkit-line-clamp: 5; line-clamp: 5;
           -webkit-box-orient: vertical; overflow: hidden; }
 
+/* ---- a tutorial step's way on: previous, contents, next --------------------------------- */
+.tutorial-steps { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 36px;
+                  border-top: 1px solid var(--line); padding-top: 18px; }
+.tutorial-steps a { flex: 1 1 200px; background: var(--surface); border: 1px solid var(--line);
+                    border-radius: var(--radius); padding: 10px 14px; }
+.tutorial-steps a:hover { text-decoration: none; border-color: var(--accent); }
+.tutorial-steps .up { flex: 0 1 auto; text-align: center; }
+.tutorial-steps .next { text-align: right; }
+
 
 /* ---- home: the three blocks a reader can judge by looking ------------------------------ */
 
