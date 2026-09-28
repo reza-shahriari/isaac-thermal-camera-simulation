@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Cameras by name, and a place for your own (`SC.32`).** `--sensor boson640` works everywhere a sensor file did; put your own camera YAML in `$IRSIM_SENSOR_DIR` and it loads by name, shadowing the shipped ones. Old sensor files keep loading: new fields default to the old behaviour, a version bump means a migrator, and an `extensions:` block is yours to fill. ADR 0159.
 - **Targets have an altitude (`PT.28`).** `altitude_agl_m` on a target puts it in the air up there -- colder by the preset's lapse rate, with the speed of sound and ram heating to match -- and the site's altitude now thins the air every surface convects with. Sea-level scenes are unchanged.
 - **Seven polished metals from published optical constants (`XD.13`, first half).** Copper, steel, chrome plating, titanium, gold, silver and magnesium, each with an emissivity curve computed from measured n and k across 0.3–16 µm and a solar absorptivity computed from that curve rather than typed; `scripts/import_material_spectra.py` regenerates them. These are the polished states, the lower bound of each metal.
 - **A library of hidden components (`AI.12`).** `configs/components/` describes a brushless motor, an ESC, a LiPo pack, a flight controller, a small piston engine, a micro turbine and an exhaust line -- mass, heat capacity, rated and idle heat, what each warms, and where every number came from. A hidden part in an asset can now just name its component.

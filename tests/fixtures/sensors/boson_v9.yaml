@@ -1,0 +1,137 @@
+# FROZEN FIXTURE, schema v9 (SC.32, ADR 0159): the Boson as written at v9. Never edit;
+# the test holds that it loads to the camera today's file describes, minus what later
+# versions added. A change that breaks this needs a migrator, not an edit here.
+schema_version: 9
+# FLIR Boson 640 (LWIR, uncooled VOx microbolometer).
+# The sensor in the FLIR ADK automotive module -- a good default target.
+# Schema: docs/physics-model.md §12.2
+#
+# Values marked ESTIMATED are literature/typical figures, not measurements from a
+# specific unit. Replace them before relying on results.
+
+sensor:
+  name: flir_boson_640_lwir
+  band:
+    lambda_min_um: 7.5
+    lambda_max_um: 13.5
+    spectral_response: spectra/responses/boson_vox.csv   # relative to data/; ESTIMATED until measured (M1.3)
+    regime: emissive                             # emissive | reflective | mixed
+
+  optics:
+    f_number: 1.0
+    focal_length_mm: 14.0                        # 32 deg HFOV variant
+    transmittance: 0.92                          # ESTIMATED (germanium + AR coat)
+    housing_temp_mode: coupled                   # fixed | ambient | coupled
+    housing_tau_s: 900.0                         # ESTIMATED -- body/lens assembly lag.
+                                                 # A ~40 g uncooled core in its housing
+                                                 # settles in ~15 min; no published figure.
+    housing_self_heating_k: 4.0                  # ESTIMATED -- steady rise above ambient
+                                                 # from the core's ~500 mW in still air.
+    cold_shield_efficiency: 1.0                  # n/a for uncooled
+    distortion:
+      model: brown_conrady
+      coeffs: [0.0, 0.0, 0.0, 0.0, 0.0]          # ESTIMATED -- calibrate
+    vignetting_cos4: true
+    mtf:
+      # MTF's second factor, DERIVED and not pasted (SC.4, ADR 0117). FLIR's Boson datasheet
+      # quotes 42 % nominal on-axis MTF at Nyquist for this lens, and that figure is the WHOLE
+      # lens -- diffraction included. Solving
+      #     MTF_diff(xi_N) * exp(-2 pi^2 sigma^2 xi_N^2) = 0.42
+      # at xi_N = 41.667 cyc/mm with lambda = 10.5 um and F/1.0 gives sigma = 1.654 um;
+      # `irsim.optics.mtf.aberration_sigma_for_mtf` is that solve, and a test re-runs it rather
+      # than trusting this comment. Diffraction alone would be 0.461 -- 10 % sharper than the
+      # lens FLIR actually sells, which is what this camera rendered until SC.4.
+      # The detector footprint is NOT in here: it is the supersample box filter's (ADR 0059).
+      aberration_sigma_um: 1.654
+
+  fpa:
+    type: bolometer
+    width: 640
+    height: 512
+    pitch_um: 12.0
+    fill_factor: 0.90                            # ESTIMATED
+    frame_rate_hz: 60
+    bit_depth: 16
+    thermal_time_constant_ms: 8.0                # [R24] Table/S5: "Nominally 8 msec". Was 10.0,
+                                                 # carried as ESTIMATED from the generic VOx 8-12 ms
+                                                 # range while the datasheet states the number (SC.3)
+    tcr_per_k: -0.021                            # ESTIMATED (typical VOx)
+
+  noise:
+    netd_mk_at_300k: 50.0                        # "professional" grade; 60 consumer, 40 industrial.
+                                                 # [R24] Table 13 publishes this as sigma_TVH, the
+                                                 # *random temporal* component, not a scalar NETD --
+                                                 # which is the convention ADR 0025 already assumes
+    ratios_3d:                                   # relative to sigma_TVH. **ESTIMATED, mostly.**
+      # [R24] Table 13 bounds exactly three of these seven, as acceptance-test limits at f/1.0
+      # lensless, high gain, 20 C camera, 30 C background, averager off, free-running:
+      #     grade         tvh       th (column)   tv (row)
+      #     industrial    < 40 mK   < 14 mK       < 14 mK
+      #     professional  < 50 mK   < 18 mK       < 18 mK
+      #     consumer      < 60 mK   < 21 mK       < 21 mK
+      # Every limit ratio is th/tvh = tv/tvh = 0.35, against the 0.05 configured below -- so this
+      # camera is modelled **7x more spatially uniform than FLIR guarantees**. That is compliant
+      # (2.5 mK against an 18 mK limit) and it is not a measurement: a ratio of two upper bounds
+      # is not the ratio of two typical values, so the limits cannot decide the number. vh, h, v
+      # and t are bounded by nothing published at all.
+      #
+      # This camera gets no field measurement, and that is a decision rather than a gap (open
+      # question 6). The public Halmstad set was recorded on a Boson **320**, so its decomposition
+      # belongs in `halmstad_boson_320.yaml`, where `SC.2` put it. Copying those ratios here would
+      # describe a camera nobody has measured: datasheet limits on this file, field measurements
+      # on that one, never mixed in one block.
+      tvh: 1.00
+      vh:  0.30
+      h:   0.15
+      v:   0.08
+      tv:  0.05
+      th:  0.05
+      t:   0.02
+    fpn_drift_tau_s: 120.0
+    bad_pixel_fraction: 0.0015
+    bad_pixel_cluster_lambda: 1.6
+                                                 # that failed after the factory map and are
+                                                 # never replaced. A public 640x512 clear-sky
+                                                 # frame shows one surviving hot pixel against
+                                                 # ~150 hot defects this map predicts
+
+  nuc:
+    mode: shuttered
+    ffc_interval_s: 300                          # [R24] S5: FFC Period factory default, "300
+                                                 # represents a 300 second (5 minute) maximum
+                                                 # time between successive FFC events". Was 180,
+                                                 # which matched no published default (SC.3;
+                                                 # ADR 0091 on the datasheet's self-contradiction)
+    ffc_freeze_ms: 700
+    residual_gain_ppm_per_k: 900                 # ESTIMATED
+    residual_offset_mk_per_k: 45                 # ESTIMATED
+
+  # The factory-default AGC (SC.22, ADR 0152), read off [R51] p. 5's "Current Camera Values" panel:
+  # Information-Based Mode on, Plateau 7, Linear Percent 20, Max Gain 1.38, Detail Headroom 12,
+  # DDE 0.95, Smoothing Factor 1250, Tail Rejection 0, ACE 0.97, Damping 85.
+  isp:
+    agc: information_based                       # [R51] "FLIR recommends the Information-Based
+                                                 # Equalization mode"; the panel shows it on
+    plateau: 0.07                                # [R51] Plateau Value 7 (% of pixels per bin)
+    linear_percent: 0.20                         # [R51] Linear Percent 20
+    max_gain: 1.38                               # [R51] Max Gain 1.38, display codes per count.
+                                                 # ESTIMATED: an irsim DN (5.9 mK at 300 K) is not
+                                                 # a Boson count, so the cap binds on blander
+                                                 # scenes than a Boson's does
+    detail_headroom: 0.047                       # [R51] Detail Headroom 12 of 0-127, i.e. 12/255
+                                                 # of the 8-bit range reserved at each end
+    clip_percentiles: [0.005, 0.995]             # `linear` mode only; FLIR's Tail Rejection 0
+                                                 # is the min-max map `linear_percent` blends in
+    gamma: 1.0                                   # [R51] ACE 0.97 not mapped: "ACE is implemented
+                                                 # differently in Boson" -- it is not a gamma
+    dde_gain: 0.0                                # [R51] DDE 0.95 is the high-pass gain; irsim adds
+                                                 # it back at 1 + dde_gain >= 1, so 0.0 is nearest
+                                                 # (5 % more detail than the Boson). Was 0.35
+    polarity: white_hot
+    palette: gray
+
+  outputs:
+    radiance_linear: true
+    apparent_temperature: true
+    dn_16: true
+    display_8: true

@@ -18,7 +18,7 @@ meaning of the individual fields.
 from __future__ import annotations
 
 import math
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -71,6 +71,11 @@ __all__ = [
 # 12: `noise.bad_pixel_late_fraction` (SC.19, §10.4): the share of the defect population that
 # appeared after the factory map was made and so is never replaced. Defaults to 0, which is the
 # pre-v12 camera (every defect on the map).
+# The compatibility rule (SC.32, ADR 0159): a new field is optional with a default that *is* the
+# pre-existing behaviour, so it needs no version bump; `schema_version` moves only for a breaking
+# rename and then ships a migrator in `irsim.config.catalogue.MIGRATIONS`; `sensor.extensions:`
+# holds user data untouched. `tests/fixtures/sensors/boson_v*.yaml` are frozen at every past
+# version and must keep loading to the same camera.
 SCHEMA_VERSION = 12
 #: The oldest version this loader still accepts. v9 added `fidelity:` as an **optional** block whose
 #: default is full fidelity, so every v8 document is a valid v9 document and describes exactly the
@@ -610,6 +615,10 @@ class SensorSpec(_Frozen):
     isp: IspSpec
     outputs: OutputsSpec
     fidelity: FidelitySpec = FULL_FIDELITY
+    #: SC.32 (ADR 0159): whatever a user keeps beside the camera -- a serial number, a mount, a
+    #: tool's own settings -- carried through load and dump untouched and never validated. The
+    #: only key a stranger may add without a schema change; a typo elsewhere is still refused.
+    extensions: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def quantity(self) -> Literal["lb", "lb_q"]:

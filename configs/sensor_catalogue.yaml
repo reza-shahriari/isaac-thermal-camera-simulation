@@ -1,0 +1,11 @@
+# The camera catalogue's short names (SC.32, ADR 0159): `--sensor boson640` is
+# `configs/sensors/flir_boson_640_lwir.yaml`; it lives beside
+# the sensors directory, not in it, so nothing that globs the cameras mistakes it for one. A file's own stem always works without an entry
+# here; this table only adds the names people actually type. A user's own directory
+# (`$IRSIM_SENSOR_DIR`) is searched first and may shadow any of these by file name.
+aliases:
+  boson640: flir_boson_640_lwir
+  boson320: halmstad_boson_320
+  mwir640: example_mwir_insb_640
+  swir640: example_swir_ingaas_640
+  nir1280: example_nir_si_1280

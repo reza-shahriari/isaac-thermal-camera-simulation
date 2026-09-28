@@ -106,16 +106,28 @@ def _resolve_paths(sensor: dict[str, Any], data_dir: pathlib.Path) -> None:
 
 
 def load_sensor_config(
-    path: str | os.PathLike[str], data_dir: str | os.PathLike[str] | None = None
+    path: str | os.PathLike[str],
+    data_dir: str | os.PathLike[str] | None = None,
+    *,
+    sensor_dir: str | os.PathLike[str] | None = None,
 ) -> SensorConfig:
-    """Read a §12.2 YAML file, resolve its data paths against the data root, validate."""
-    path = pathlib.Path(path)
+    """Read a §12.2 YAML file, resolve its data paths against the data root, validate.
+
+    ``path`` may also be a camera's short name or file stem (SC.32): it is resolved through
+    the user's directory (``sensor_dir``, else ``$IRSIM_SENSOR_DIR``) and then the shipped
+    catalogue. A file written at an older ``schema_version`` is walked up to today's through
+    the registered migrators before validation, so it loads to the camera it always described.
+    """
+    from irsim.config.catalogue import migrate_sensor_document, resolve_sensor_path
+
+    path = resolve_sensor_path(path, sensor_dir)
     with path.open(encoding="utf-8") as fh:
         raw = yaml.safe_load(fh)
     if not isinstance(raw, dict) or "sensor" not in raw:
         raise ValueError(f"{path}: a sensor config needs a top-level 'sensor:' block")
     if not isinstance(raw["sensor"], dict):
         raise ValueError(f"{path}: 'sensor:' must be a mapping")
+    raw = migrate_sensor_document(raw)
     _resolve_paths(raw["sensor"], resolve_data_dir(data_dir))
     return SensorConfig.model_validate(raw)
 
@@ -237,8 +249,14 @@ def _dump_with_file_hashes(
 
 
 def config_hash(config: SensorConfig, data_dir: str | os.PathLike[str] | None = None) -> str:
-    """SHA-256 over the whole validated config; data files by content, not by path."""
-    return hashlib.sha256(_canonical(_dump_with_file_hashes(config, data_dir)).encode()).hexdigest()
+    """SHA-256 over the whole validated config; data files by content, not by path.
+
+    ``sensor.extensions`` is left out (SC.32, ADR 0159): it is user data beside the camera, not
+    the camera, and a serial number must not stale a golden or rebuild a LUT.
+    """
+    dumped = _dump_with_file_hashes(config, data_dir)
+    dumped["sensor"].pop("extensions", None)
+    return hashlib.sha256(_canonical(dumped).encode()).hexdigest()
 
 
 def band_hash(config: SensorConfig, data_dir: str | os.PathLike[str] | None = None) -> str:
