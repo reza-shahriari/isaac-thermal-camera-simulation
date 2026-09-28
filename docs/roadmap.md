@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `TC.9` is phase P, size L, and unblocks 3 other step(s).
 
-#### Then, in order — 91 open steps
+#### Then, in order — 90 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -204,7 +204,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`IG.19`** | IG | A | S | — | ready |
 | 15 | **`SC.31`** | SC | A | S | — | ready |
 
-…and 76 more — `python scripts/next_step.py --queue 40`.
+…and 75 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -424,7 +424,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.21 | ✅ **done.** `irsim.thermal.skyview`: a 145-patch Tregenza dome, each patch sub-sampled 3 × 4, gated by the beam's own `cell_shadow`, an open cell keeping `V_s` to the bit; patches under occluders get their factor and `CellForcing` scales diffuse solar and longwave down by it. Perez split deferred (ADR 0104). | **Measured.** Open sky 1.000; wall foot and overhang edge 0.5 within 0.01. Shaded asphalt, SVF 0.2 vs 0.9: swing ratio 1.25 (not ~2: one air temperature floors it), night minimum 3.2 K warmer; solar-only: minima within 0.05 K. R1 terminator 10.3 → 9.7 K. | PT.18 | M | P |
 | PT.22 | ✅ **done.** `irsim.thermal.raycast`: an `(origins, directions) → hit` protocol over `RectangleOccluders` (the oracle), a NumPy Möller–Trumbore `TriangleSoup`/`MeshOccluders` and `AnyOccluders`; the 0.53° disc on 1/7/19/37 concentric rays, outermost on the limb, as a sunlit fraction. Schema v11 `penumbra_rays:` (ADR 0107). | **Measured.** Box: rectangles = mesh cell-for-cell at 10–85°, and = trimesh. A neighbour block shades a wall its own mesh cannot. Ramp within 10 % of d·tan 0.53° at 0.5/2/6 m (18.0 vs 18.6 mm); binary gives zero width. | PT.21 | M | P |
 | PT.23 | ✅ **done.** The chain was right. `IG.2`'s two branches were built with `replace(base_state)`, which copies the *reference* to `PipelineState.buffers`, so both drove **one** membrane IIR with alternating inputs. `buffers` is now `init=False`, so `replace` cannot share it. | **Measured.** The shortfall is α/(2−α) = **0.778545** at 60 Hz and τ = 8 ms, against 0.778546 measured in sim — six figures. Frame 1 gives α itself. An engine-free twin carries the shared state as its negative control; the in-sim `xfail` is off and the law holds at all four ranges. | — | M | A |
-| PT.24 | **Down-facing skins see the ground, not the air.** Every forcing path hands `longwave_down` T_air as the surround and `solar_loading` has no albedo term, so a belly sits at T_air − 0.05 K all mission. Feed a scene-level ground temperature to the surround and add (1 − V_s)·α·albedo·GHI, per cell and per mesh cell; retire `newton, tau_s: 900` in `sky_target_clear_day.yaml`. | Red: the quad belly at noon equals T_air. Green: a tilt-180 carbon plate over ground at T_air + 20 K settles +5.6 K (pad) / +2.4 K (cruise) by the hand balance to 0.2 K. | — | M | A |
+| PT.24 | ✅ **done.** `SceneSurfaceForcing.ground_temperature_k` / `ground_albedo` from the preset's `ground:` (air, fixed, SST -- the render path's rule) and the ground material's 1 − α_sol, on the tilt's ground share (1 − cos β)/2 in every forcing. `sky_target_clear_day` keeps Newton (test_scene's probe). | **Measured.** Tilt 0 bit-identical. Tilt-180 plate over ground at T_air + 20 K: Q_LW↓ +134 W/m², +8.2 K by the hand balance to 0.2 K; albedo 0.25 adds exactly 0.25·GHI to a belly, nothing to a deck (`test_ground_view.py`). Quad belly on the pad: T_air → T_air + 8.5 K. | — | M | A |
 | PT.25 | ✅ **done** (re-scoped). `FacetForcing.free_convection_c` + `effective_h`: the solver takes max(h_forced, c·ΔT^{1/3}) at its own state; the guard adds ∂Q_L/∂T. The 5 + 4v^0.8 default stays: convective-only correlations run 2.8 + 3.0v to 7.4 + 4.0v and bracket it, so S56 is recorded, not applied. | **Measured.** A facet 60 K over still air gets 5.88 not 5.0; below 37 K bit-identical, as is every producer without the field. Wet leaf at 10 m/s: bound 35 → 16 s, a 20 s step raises. `test_facet_convection_guard.py`, `test_convection.py`. | — | S | P |
 | PT.26 | **In-plane conduction uses in-plane conductivity.** `lateral_operator` and `mesh_lateral_operator` take `conductivity_w_mk`, the through-thickness value (carbon 0.8; in-plane ~7). Add `conductivity_inplane_w_mk` to the material schema, default = k, used by both. | Diffusion length over 300 s goes 12 → 35 mm for carbon; the arm's shadow terminator spans ~3 cells, not 1; k_inplane = k is bit-identical. | — | S | P |
 | PT.27 | **Ground defaults to a layered slab with a deep boundary.** Ground materials run as one lumped node with an adiabatic back; damping depths (0.08–0.14 m) exceed the authored thicknesses, so the diurnal wave reflects. Default ≥ 3 layers with `back: {deep_temperature_k: ambient}` for soil, asphalt, concrete. | Concrete 0.10 m: amplitude 11.7 K, lag 1.3 h against the semi-infinite solution (5 %), not 15.1 K / 2.5 h; the 47 K swing pinned in `test_tier3_thermal.py:171` falls into band. | — | S | C |

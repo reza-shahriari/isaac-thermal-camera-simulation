@@ -22,6 +22,7 @@ docs/physics-model.md §6.1, §6.4, §6.6; ADR 0032, ADR 0037
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -29,6 +30,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
+from irsim.radiometry.constants import SIGMA_SB
 from irsim.thermal.convection import (
     DEFAULT_CONVECTION,
     ConvectionParams,
@@ -156,10 +158,59 @@ class SceneSurfaceForcing:
     orientations: tuple[SurfaceOrientation, ...]
     convection: ConvectionParams = DEFAULT_CONVECTION
     surface_temperature_k: float = 300.0
+    #: PT.24: what a surface sees below its own horizon. ``ground_temperature_k`` is a callable
+    #: ``t_s -> K`` (the environment preset's ground: air, a fixed value, the SST); ``None`` is
+    #: the air temperature, which every scene had until now and which put a quadrotor's belly
+    #: at T_air − 0.05 K through a noon whose ground was 20–30 K warmer. ``ground_albedo`` is the
+    #: ground's shortwave reflectance (1 − α_sol of the preset's ground material): the sunlit
+    #: ground returns albedo · GHI into the (1 − V_s) share of a down-facing surface's hemisphere.
+    ground_temperature_k: Callable[[float], float] | None = None
+    ground_albedo: float = 0.0
 
     def __post_init__(self) -> None:
         if not self.orientations:
             raise ValueError("a forcing model needs at least one surface")
+        if not 0.0 <= self.ground_albedo <= 1.0:
+            raise ValueError("ground_albedo must lie in [0, 1]")
+
+    def ground_longwave_w_m2(self, t_s: float, normals_enu: Any) -> NDArray[np.float64]:
+        """``(1 − cos β)/2 · σ (T_ground⁴ − T_air⁴)``: the ground's longwave over the air's (PT.24).
+
+        §6.1's non-sky hemisphere is split the way the shortwave term splits it: the share a
+        surface's tilt turns toward the ground, ``(1 − cos β)/2 = (1 − n_z)/2``, radiates at the
+        ground temperature; what occluders take from the sky beyond that is structure -- a
+        deckhouse over a deck, a pod over an arm -- and stays at the air temperature, which is
+        what :func:`longwave_down` already puts there. Zero when the preset's ground is the air
+        and for every up-facing surface, so both are bit-identical to the forcing before PT.24.
+        """
+        n = np.asarray(normals_enu, dtype=np.float64)
+        ground_view = 0.5 * (1.0 - n[..., 2])
+        if self.ground_temperature_k is None:
+            return np.zeros(ground_view.shape)
+        t_air = float(self.weather.at(t_s).t_air_k)
+        t_ground = float(self.ground_temperature_k(t_s))
+        if t_ground <= 0.0:
+            raise ValueError("ground_temperature_k must be positive kelvin")
+        return np.asarray(ground_view * SIGMA_SB * (t_ground**4 - t_air**4), dtype=np.float64)
+
+    def ground_shortwave_w_m2(self, sun: SolarTerms, normals_enu: Any) -> NDArray[np.float64]:
+        """``(1 − cos β)/2 · albedo · GHI``: sun reflected off the ground into a surface (PT.24).
+
+        The isotropic ground-reflected term of the tilted-surface model (Liu & Jordan 1963):
+        GHI = DNI cos θ_z + DHI on the horizontal ground, and ``(1 − cos β)/2 = (1 − n_z)/2`` is
+        the share of a surface's hemisphere below the horizon by its tilt alone. Deliberately
+        *not* ``1 − V_s``: what an occluder takes from a cell's sky is a wall, a pod or a
+        neighbour, not a second patch of sunlit ground, so the occluder-reduced sky view would
+        light an enclosed cell as if it stood on a mirror. Zero at night, zero for an up-facing
+        surface, and zero when the preset names no reflecting ground.
+        """
+        n = np.asarray(normals_enu, dtype=np.float64)
+        ground_view = 0.5 * (1.0 - n[..., 2])
+        if self.ground_albedo <= 0.0:
+            return np.zeros(ground_view.shape)
+        cos_zenith = max(0.0, float(sun.direction_enu[2]))
+        ghi = sun.dni_w_m2 * cos_zenith + sun.dhi_w_m2
+        return np.asarray(ground_view * self.ground_albedo * ghi, dtype=np.float64)
 
     @property
     def n_facets(self) -> int:
@@ -182,6 +233,7 @@ class SceneSurfaceForcing:
         # all solar in shade is the usual shortcut that renders shaded surfaces far too cold.
         shade = np.array([0.0 if o.shaded else 1.0 for o in self.orientations])
         q_solar = solar_loading(normals, sun.direction_enu, sun.dni_w_m2, sun.dhi_w_m2, v_s, shade)
+        q_solar = q_solar + self.ground_shortwave_w_m2(sun, normals)
 
         q_lw = longwave_down(
             sample.t_air_k,
@@ -189,7 +241,7 @@ class SceneSurfaceForcing:
             sample.cloud_fraction,
             v_s,
             sample.t_air_k,
-        )
+        ) + self.ground_longwave_w_m2(t_s, normals)
         speeds = np.array([o.speed_at(t_s) for o in self.orientations])
         # PT.25: the forced term only. Free convection used to be evaluated here at a fixed
         # `surface_temperature_k` (300 K) whatever the facet's own temperature was; the solver now
@@ -338,13 +390,15 @@ class CellForcing:
                 sun.dhi_w_m2,
                 v_s,
                 self.cell_visibility(t_s),
-            )
+            ) + self.surfaces.ground_shortwave_w_m2(sun, orientation.normal_enu())
         else:
             q_solar_cells = np.full(n, q_solar[i])
         if self.sky_view is not None and self.sky_view_longwave:
             # The longwave down through the cell's own share of the dome, the rest of the
-            # hemisphere at the air temperature -- the per-prim call with the cell's factor.
+            # hemisphere at the air temperature -- the per-prim call with the cell's factor --
+            # plus the ground's excess over the air on the tilt's own ground share (PT.24).
             sample = self.surfaces.weather.at(t_s)
+            normal = self.surfaces.orientations[self.index].normal_enu()
             q_lw_cells = np.asarray(
                 longwave_down(
                     sample.t_air_k,
@@ -352,7 +406,8 @@ class CellForcing:
                     sample.cloud_fraction,
                     self.sky_view,
                     sample.t_air_k,
-                ),
+                )
+                + self.surfaces.ground_longwave_w_m2(t_s, normal),
                 dtype=np.float64,
             )
         else:
@@ -528,7 +583,7 @@ class MeshCellForcing:
             sun.dhi_w_m2,
             self.sky_view,
             self.cell_visibility(t_s, sun),
-        )
+        ) + self.surfaces.ground_shortwave_w_m2(sun, self.normals_enu)
         if self.sky_view_longwave:
             sample = self.surfaces.weather.at(t_s)
             q_lw_cells = np.asarray(
@@ -538,7 +593,8 @@ class MeshCellForcing:
                     sample.cloud_fraction,
                     self.sky_view,
                     sample.t_air_k,
-                ),
+                )
+                + self.surfaces.ground_longwave_w_m2(t_s, self.normals_enu),
                 dtype=np.float64,
             )
         else:

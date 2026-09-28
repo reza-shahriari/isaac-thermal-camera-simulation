@@ -16,7 +16,7 @@ docs/physics-model.md §6.4, §7.3, §12.2
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -946,6 +946,45 @@ class _ThermalBuild:
     wrap: Any = _identity
 
 
+def _ground_view(
+    spec: SceneSpec, weather: WeatherSeries, library: Any
+) -> tuple[Callable[[float], float] | None, float]:
+    """What a surface sees below its horizon (PT.24): the environment preset's ground.
+
+    ``(ground_temperature_k, ground_albedo)`` for :class:`SceneSurfaceForcing`. The temperature
+    follows the preset's ``ground.mode`` exactly as the render path's
+    :func:`irsim.pipeline.environment.ground_temperature_k` does, so the thermal balance and the
+    reflected-environment term cannot disagree about the ground: ``air`` is ``None`` (the air
+    temperature, as before), ``fixed`` and ``sea`` are their one value. The albedo is the ground
+    material's shortwave reflectance ``1 − α_sol``; with no preset, or a preset naming no ground
+    material, there is no reflected sun. ``solver`` is not a thermal-side ground until TC.10
+    couples solved surfaces to each other and falls back to the air.
+    """
+    if spec.environment_preset is None:
+        return None, 0.0
+    environment = load_environment_preset(spec.environment_preset)
+    ground = environment.ground
+    temperature: Callable[[float], float] | None = None
+    if ground.mode == "fixed":
+        assert ground.fixed_temperature_k is not None
+        fixed = float(ground.fixed_temperature_k)
+        temperature = lambda t_s, fixed=fixed: fixed  # noqa: E731
+    elif ground.mode == "sea":
+        assert ground.bulk_sst_k is not None
+        sst = float(ground.bulk_sst_k)
+        temperature = lambda t_s, sst=sst: sst  # noqa: E731
+    albedo = 0.0
+    if ground.material is not None:
+        try:
+            albedo = 1.0 - float(library[ground.material].spec.thermal.solar_absorptivity)
+        except KeyError as exc:
+            raise ValueError(
+                f"environment {environment.name!r} names ground material {ground.material!r}, "
+                "which the library does not have"
+            ) from exc
+    return temperature, albedo
+
+
 def _build_thermal_field(
     spec: SceneSpec,
     weather: WeatherSeries,
@@ -985,10 +1024,13 @@ def _build_thermal_field(
     properties = FacetProperties.stack(
         [ThermalProperties.from_material(m, EPSILON_EVAL_K, data_dir=data_dir) for m in materials]
     )
+    ground_temperature_k, ground_albedo = _ground_view(spec, weather, library)
     forcing = SceneSurfaceForcing(
         weather=weather,
         latitude_deg=spec.site.latitude_deg,
         longitude_deg=spec.site.longitude_deg,
+        ground_temperature_k=ground_temperature_k,
+        ground_albedo=ground_albedo,
         orientations=tuple(
             SurfaceOrientation(
                 tilt_deg=s.tilt_deg,

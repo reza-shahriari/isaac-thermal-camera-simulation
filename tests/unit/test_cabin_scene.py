@@ -164,13 +164,15 @@ def test_the_cabin_makes_the_roof_hotter_than_the_same_paint_with_an_adiabatic_b
     bay behind it instead of the cabin. Measured +1.60 K at local noon -- smaller than ADR 0038's
     4.8 K because this saloon's only sun-facing panel is the roof, where ADR 0038's set had the
     bonnet too; the mechanism and its sign are the same, and the magnitude is what the geometry
-    gives.
+    gives. +2.24 K since PT.24: the vertical doors take (1 − cos 90°)/2 · 0.25 · GHI of sun
+    reflected off the `clear_dry` ground (about 110 W/m²) and the cabin behind the roof runs
+    warmer; the bonnet, at tilt 0, sees no ground and is unchanged.
     """
     t = scene.t0_s
     roof = float(np.mean(scene.surface_fields["roof"].temperature_at(t)))
     bonnet = float(np.mean(scene.surface_fields["bonnet"].temperature_at(t)))
     cabin = scene.surface_fields["cabin"].node_temperature_k("cabin")
-    assert roof - bonnet == pytest.approx(1.6, abs=0.4), (roof, bonnet)
+    assert roof - bonnet == pytest.approx(2.2, abs=0.4), (roof, bonnet)
     assert cabin > roof, "the air behind the panel must be the hotter of the two"
     # A sealed car in strong sun really does reach 60-80 C.
     assert 60.0 < cabin - 273.15 < 80.0, cabin - 273.15

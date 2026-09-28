@@ -285,14 +285,16 @@ def _span_k(scene: Scene, name: str, t_rel: float) -> float:
 
 
 def test_the_deck_and_the_belly_are_not_the_same_surface(scene: Scene) -> None:
-    """The headline of PT.9: one airframe, two temperatures, 29 K apart on the pad."""
+    """The headline of PT.9: one airframe, two temperatures, 21 K apart on the pad."""
     deck = _mean_c(scene, "deck", 0.0)
     belly = _mean_c(scene, "belly", 0.0)
-    assert deck - belly > 20.0, f"deck {deck:.2f} C, belly {belly:.2f} C"
-    # The belly sees no sky at all (tilt 180), so it sits within a couple of kelvin of the air --
-    # which is why a drone read from below is nothing like the same drone read from above.
+    assert deck - belly > 18.0, f"deck {deck:.2f} C, belly {belly:.2f} C"
+    # The belly sees no sky at all (tilt 180) but it does see the sunlit ground: `clear_dry`
+    # names soil_dry, whose albedo 0.25 returns a quarter of the GHI into the belly (PT.24), so
+    # it sits 8.5 K over the air rather than at it -- and still 21 K under the deck, which is
+    # why a drone read from below is nothing like the same drone read from above.
     air = float(scene.weather.at(scene.t0_s).t_air_k) - 273.15
-    assert abs(belly - air) < 2.0
+    assert 5.0 < belly - air < 12.0, (belly, air)
 
 
 def test_an_arm_carries_the_decks_own_shadow(scene: Scene) -> None:
@@ -301,9 +303,10 @@ def test_an_arm_carries_the_decks_own_shadow(scene: Scene) -> None:
         assert _span_k(scene, arm, 0.0) > 10.0, f"{arm} is flat; the occluders are not biting"
     # The deck is on top of everything and is shaded by nothing, so it is the control: a uniform
     # surface in the same frame, proving the span above is shadow and not solver noise.
-    # 1 mK, not zero: the field is stored float32, whose spacing at 330 K is 30 uK, and the
-    # arms' span is four orders of magnitude above this floor.
-    assert _span_k(scene, "deck", 0.0) < 1e-3
+    # 10 mK, not zero: the field is stored float32 (30 uK spacing at 330 K), and the motor pods
+    # cut a sliver of sky from the deck cells nearest them, whose (1 - V_s) share returns the
+    # ground's reflected sun (PT.24) -- 1.5 mK across the deck, three orders below the arms.
+    assert _span_k(scene, "deck", 0.0) < 1e-2
 
 
 def test_the_flight_collapses_the_decks_excess_over_air(scene: Scene) -> None:

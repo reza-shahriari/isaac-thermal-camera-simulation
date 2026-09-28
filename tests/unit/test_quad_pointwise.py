@@ -50,15 +50,17 @@ def _mean_c(scene: Scene, name: str, t: float) -> float:
 
 @pytest.mark.slow
 def test_one_airframe_carries_a_gradient_where_the_per_prim_scene_carries_none(scene) -> None:  # type: ignore[no-untyped-def]
-    """The deck at 55.5 C and the belly at 26.2 C are the same aircraft at the same instant: a
-    quadrotor seen from above is a hot carbon plate and seen from below it is air temperature.
-    Within one arm the spread is 29 K, because the deck's own shadow and the motor pods fall
-    across it. The per-prim scene's airframe is one number and its gradient is exactly zero."""
+    """The deck at 55.5 C and the belly at 34.8 C are the same aircraft at the same instant: a
+    quadrotor seen from above is a hot carbon plate and seen from below it is a plate warmed
+    only by what the ground reflects (PT.24: `clear_dry` names soil_dry, albedo 0.25, so the
+    belly takes a quarter of the GHI and sits 8.5 K over the air; before PT.24 it was pinned to
+    the air). Within one arm the spread is 24 K, because the deck's own shadow and the motor
+    pods fall across it. The per-prim scene's airframe is one number and its gradient is zero."""
     t = scene.t0_s + PAD_S
     air = float(scene.weather.at(t).t_air_k) - 273.15
     deck, belly = _mean_c(scene, "deck", t), _mean_c(scene, "belly", t)
-    assert deck - belly > 25.0, (deck, belly)
-    assert abs(belly - air) < 1.0, (belly, air)  # tilt 180: no sky, no sun, pinned to the air
+    assert deck - belly > 18.0, (deck, belly)
+    assert 5.0 < belly - air < 12.0, (belly, air)  # tilt 180: no sky, no beam, ground albedo only
     for arm in ("arm_n", "arm_e"):
         field = scene.surface_fields[arm]
         field.advance_to(t)
