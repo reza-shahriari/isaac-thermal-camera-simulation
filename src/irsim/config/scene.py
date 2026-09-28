@@ -56,7 +56,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 19  # v19: `evolve:` / `freeze_at_s:` per object and per
+SCENE_SCHEMA_VERSION = 20  # v20: `thermal.objects:` solved whole from an asset
+# (TC.11); v19: `evolve:` / `freeze_at_s:` per object and per
 # scene (ADR 0158, TC.12); v18: `thermal.object_exchange:` (ADR 0157,
 # TC.10); v17: a surface's `temperature_map:` /
 # `parameter_maps:` (PT.13); v16 a surface mesh
@@ -1068,10 +1069,65 @@ class SourceSpec(_Frozen):
         return self
 
 
+class ObjectSpec(_Frozen):
+    """A scene's main object, solved from its asset (TC.11, schema v20).
+
+    ``asset`` names the asset config (``configs/assets/<name>.yaml`` or a path) whose `parts:`
+    block carries the parts, contacts and hidden parts (AI.11); ``archive`` is the prepared
+    mesh archive the parts are read from (a name under ``data/assets`` or an ``.npz`` path),
+    defaulting to the asset's own name. ``solve: full`` is the only mode: every visible part a
+    mesh member with its material's capacity and conduction, every hidden part a lumped member
+    dissipating its rated watts times ``duty``, every contact a conductance, all in one implicit
+    step. A part's library material comes from the asset's material map through the part's own
+    mesh material, unless ``materials`` names one for it.
+    """
+
+    name: str = Field(min_length=1)
+    asset: str = Field(min_length=1)
+    archive: str | None = None
+    solve: Literal["full"] = "full"
+    cell_m: float = Field(default=0.01, gt=0.0)
+    #: How close two visible parts' cells must stand to share a contact; default twice the cell.
+    contact_gap_m: float | None = Field(default=None, gt=0.0)
+    materials: dict[str, str] = Field(default_factory=dict)
+    prim_root: str | None = None
+    self_occluding: bool = False
+    #: The duty every hidden part's dissipation is scaled by: 1 is rated, 0 is off. Piecewise
+    #: linear in seconds after the scene start, held at its ends; absent is rated throughout.
+    duty_s: list[float] | None = None
+    duty: list[float] | None = None
+    evolve: bool | None = None
+    freeze_at_s: float | None = Field(default=None, ge=0.0)
+
+    @model_validator(mode="after")
+    def _duty_is_a_schedule(self) -> ObjectSpec:
+        if (self.duty_s is None) != (self.duty is None):
+            raise ValueError(f"object {self.name!r}: duty_s and duty come together")
+        if self.duty_s is not None and self.duty is not None:
+            if len(self.duty_s) != len(self.duty) or len(self.duty) < 1:
+                raise ValueError(f"object {self.name!r}: duty_s and duty must match in length")
+            if any(d < 0.0 for d in self.duty):
+                raise ValueError(f"object {self.name!r}: duty cannot be negative")
+            if any(b <= a for a, b in zip(self.duty_s[:-1], self.duty_s[1:], strict=True)):
+                raise ValueError(f"object {self.name!r}: duty_s must increase")
+        if self.evolve is False and self.freeze_at_s is not None:
+            raise ValueError(
+                f"object {self.name!r}: `evolve: false` and `freeze_at_s:` say two things"
+            )
+        return self
+
+    def surface_name(self, part: str) -> str:
+        """The generated `SurfaceSpec` name of one part: ``<object>.<part>``."""
+        return f"{self.name}.{part}"
+
+
 class ThermalSceneSpec(_Frozen):
     """§12.3's thermal block: how the surfaces are solved, not what they are."""
 
     surfaces: list[SurfaceSpec] = Field(default_factory=list)
+    #: TC.11 (schema v20): objects solved whole from their assets; their parts are appended to
+    #: ``surfaces`` by the scene build, so nothing downstream learns a new concept.
+    objects: list[ObjectSpec] = Field(default_factory=list)
     spin_up_hours: float = Field(default=48.0, gt=0.0, le=336.0)
     tick_s: float = Field(default=1.0, gt=0.0, le=3600.0)
     #: What casts shadows on the patched surfaces (schema v8, PT.18). Empty is the v7 scene.
@@ -1128,7 +1184,9 @@ class ThermalSceneSpec(_Frozen):
         if not self.object_exchange:
             return self
         bodies = [s for s in self.surfaces if s.patch is not None or s.mesh is not None]
-        if len(bodies) < 2:
+        # TC.11: an object's parts are appended by the scene build and exchange inside their
+        # own solve, so a scene whose only bodies are an object's parts is not empty here
+        if len(bodies) < 2 and not self.objects:
             raise ValueError(
                 "object_exchange needs at least two surfaces with a `patch:` or a `mesh:` to "
                 f"exchange between; found {[s.name for s in bodies]}"

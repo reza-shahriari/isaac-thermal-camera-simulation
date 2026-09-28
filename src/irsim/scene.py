@@ -510,6 +510,9 @@ class Scene:
     #: TC.10: the exchange group every plain patch and mesh belongs to when
     #: ``thermal.object_exchange`` is on (ADR 0157); the fields above are then its proxies.
     object_exchange: Any = None
+    #: TC.11: objects solved whole from their assets, by name -- each a `FullObject` whose
+    #: parts' fields above are views of one coupled solve.
+    objects: Mapping[str, Any] = field(default_factory=dict)
     #: ``{surface name: library material}`` for the §12.3 surfaces (PT.6): what a driver reads
     #: for the numbers the per-prim stack does not keep (k, δ) and the object ADR 0043 makes the
     #: single source of ε.
@@ -760,6 +763,7 @@ class Scene:
                         0.0 if skylight is None else ground_reflectance(environment, band, data_dir)
                     ),
                 )
+        spec, object_assets = _expand_objects(spec)
         build = _build_thermal_field(spec, weather, t0_s, data_dir)
         patches, patch_prims = {}, {}
         meshes, mesh_prims = {}, {}
@@ -784,10 +788,12 @@ class Scene:
         )
         mesh_fields = _build_mesh_fields(spec, build, meshes, world_frame, occluders)
         _apply_holds(spec, t0_s, targets, network, surface_fields, mesh_fields, build.field)
+        objects = _build_full_objects(spec, build, meshes, mesh_fields, t0_s, object_assets)
         exchange = None
         if spec.thermal is not None and spec.thermal.object_exchange:
+            owned = {n for obj in objects.values() for n in obj.part_surfaces}
             exchange = _join_object_exchange(
-                spec, build, patches, meshes, surface_fields, mesh_fields
+                spec, build, patches, meshes, surface_fields, mesh_fields, exclude=owned
             )
         return cls(
             spec=spec,
@@ -807,6 +813,7 @@ class Scene:
             mesh_prims=mesh_prims,
             mesh_fields=mesh_fields,
             object_exchange=exchange,
+            objects=objects,
             world_frame=world_frame,
             occluders=occluders,
             network=network,
@@ -1282,6 +1289,149 @@ def _apply_holds(
                 network.hold(n.name, hold)
 
 
+@dataclass(frozen=True)
+class FullObject:
+    """One `thermal.objects:` entry as the scene solved it (TC.11)."""
+
+    name: str
+    solve: Any  # irsim.thermal.full_solve.FullSolve
+    part_surfaces: tuple[str, ...]  # the generated surface names, `<object>.<part>`
+    parts: Any  # the asset's PartsConfig
+
+    @property
+    def coupled(self) -> Any:
+        return self.solve.coupled
+
+    def node_temperature_k(self, hidden: str) -> float:
+        return float(self.solve.node_temperature_k(hidden))
+
+
+def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
+    """Append every object's visible parts to ``thermal.surfaces`` as mesh surfaces (TC.11).
+
+    Each part becomes ``SurfaceSpec(name=<object>.<part>, material=..., mesh={asset: archive,
+    prim: part, cell_m, ...})``, so the forcing, the spin-up, the per-cell mesh field and the
+    bridge all work exactly as for a hand-written mesh surface. The material is the object's
+    override for the part, else the asset map's entry for the part's own mesh material; a part
+    with neither is refused by name. Returns the spec and the loaded asset mappings by object.
+    """
+    thermal = spec.thermal
+    if thermal is None or not thermal.objects:
+        return spec, {}
+    from irsim.config.scene import MeshSpec, SurfaceSpec
+    from irsim.io.assets import load_asset_meshes
+    from irsim.materials.mapping import load_asset_mapping
+
+    surfaces = list(thermal.surfaces)
+    taken = {s.name for s in surfaces}
+    assets: dict[str, Any] = {}
+    for obj in thermal.objects:
+        asset = load_asset_mapping(obj.asset)
+        if asset.parts is None or not asset.parts.parts:
+            raise ValueError(f"object {obj.name!r}: asset {obj.asset!r} declares no parts")
+        archive = obj.archive if obj.archive is not None else asset.name
+        meshes = load_asset_meshes(archive)
+        for part in asset.parts.parts:
+            if part.name not in meshes:
+                raise ValueError(
+                    f"object {obj.name!r}: part {part.name!r} is not in archive {archive!r}; "
+                    f"prims: {sorted(meshes)}"
+                )
+            material = obj.materials.get(part.name) or asset.lookup(meshes[part.name].material_name)
+            if material is None:
+                raise ValueError(
+                    f"object {obj.name!r}: part {part.name!r} has no library material -- its mesh "
+                    f"material {meshes[part.name].material_name!r} is not in the asset's map and "
+                    "`materials:` names none for it"
+                )
+            name = obj.surface_name(part.name)
+            if name in taken:
+                raise ValueError(f"object {obj.name!r}: surface {name!r} already exists")
+            taken.add(name)
+            prim_path = (
+                None if obj.prim_root is None else f"{obj.prim_root}/{part.name}/{part.name}"
+            )
+            surfaces.append(
+                SurfaceSpec(
+                    name=name,
+                    material=material,
+                    tilt_deg=0.0,
+                    mesh=MeshSpec(
+                        asset=archive,
+                        prim=part.name,
+                        cell_m=obj.cell_m,
+                        self_occluding=obj.self_occluding,
+                        prim_path=prim_path,
+                    ),
+                )
+            )
+        assets[obj.name] = asset
+    new_thermal = thermal.model_copy(update={"surfaces": surfaces})
+    return spec.model_copy(update={"thermal": new_thermal}), assets
+
+
+def _build_full_objects(
+    spec: SceneSpec,
+    build: _ThermalBuild,
+    meshes: Mapping[str, Any],
+    mesh_fields: dict[str, Any],
+    t0_s: float,
+    assets: Mapping[str, Any],
+) -> dict[str, FullObject]:
+    """Replace each object's separate part fields by one coupled solve (TC.11)."""
+    thermal = spec.thermal
+    if thermal is None or not thermal.objects:
+        return {}
+    from irsim.config.joints import load_joint_table
+    from irsim.thermal.full_solve import build_full_solve
+    from irsim.thermal.hold import hold_from_s
+    from irsim.thermal.object_exchange import ExchangeBody, ObjectExchange
+
+    table = load_joint_table()
+    out: dict[str, FullObject] = {}
+    for obj in thermal.objects:
+        asset = assets[obj.name]
+        parts = asset.parts
+        names = {p.name: obj.surface_name(p.name) for p in parts.parts}
+        fields = {p: mesh_fields[n] for p, n in names.items()}
+        exchange = None
+        if thermal.object_exchange and len(fields) >= 2:
+            index = {s.name: i for i, s in enumerate(thermal.surfaces)}
+            bodies = [
+                ExchangeBody.from_mesh(
+                    p, fields[p].patch, float(build.properties.emissivity[index[names[p]]])
+                )
+                for p in names
+            ]
+            exchange = ObjectExchange(bodies)
+        duty = None
+        if obj.duty_s is not None and obj.duty is not None:
+            times = t0_s + np.asarray(obj.duty_s, dtype=np.float64)
+            values = np.asarray(obj.duty, dtype=np.float64)
+
+            def duty(t_s: float, _t: Any = times, _v: Any = values) -> float:
+                return float(np.interp(t_s, _t, _v))
+
+        solve = build_full_solve(
+            obj.name,
+            parts,
+            fields,
+            table,
+            t0_s=t0_s,
+            tick_s=thermal.tick_s,
+            duty=duty,
+            gap_m=obj.contact_gap_m if obj.contact_gap_m is not None else 2.0 * obj.cell_m,
+            exchange=exchange,
+        )
+        hold = hold_from_s(t0_s, True if obj.evolve is None else obj.evolve, obj.freeze_at_s)
+        if hold is not None:
+            solve.coupled.field.hold_from_s = hold
+        for p, n in names.items():
+            mesh_fields[n] = solve.field(p)
+        out[obj.name] = FullObject(obj.name, solve, tuple(names.values()), parts)
+    return out
+
+
 def _join_object_exchange(
     spec: SceneSpec,
     build: _ThermalBuild,
@@ -1289,6 +1439,7 @@ def _join_object_exchange(
     meshes: Mapping[str, Any],
     surface_fields: dict[str, Any],
     mesh_fields: dict[str, Any],
+    exclude: set[str] | None = None,
 ) -> Any:
     """`thermal.object_exchange: true` (TC.10, ADR 0157): every plain patch and mesh joins one
     :class:`~irsim.thermal.object_exchange.ObjectExchange`, and the scene's fields become its
@@ -1303,12 +1454,18 @@ def _join_object_exchange(
 
     assert spec.thermal is not None
     bodies = []
+    skip = exclude or set()
     for i, s in enumerate(spec.thermal.surfaces):
+        if s.name in skip:  # TC.11: an object's parts exchange inside their own solve
+            continue
         eps = float(build.properties.emissivity[i])
         if s.name in patches and s.name in surface_fields:
             bodies.append(ExchangeBody.from_planar(s.name, patches[s.name], eps))
         elif s.name in meshes and s.name in mesh_fields:
             bodies.append(ExchangeBody.from_mesh(s.name, meshes[s.name], eps))
+    if len(bodies) < 2:
+        # TC.11: the only bodies were an object's parts, which exchange inside their own solve
+        return None
     group = ObjectExchange(bodies)
     for body in bodies:
         if body.name in surface_fields:

@@ -38,7 +38,7 @@
 # forward cruise to T+570, right-hand orbit T+630..870, left-hand orbit T+930..1170, hover in a
 # wind from the front-left T+1230..1470, descent from T+1500, landed and idle at T+1680.
 
-schema_version: 19
+schema_version: 20
 scene:
   name: phantom4_perpart
   description: "A DJI Phantom 4 Pro whose nineteen parts each carry their own temperature history"

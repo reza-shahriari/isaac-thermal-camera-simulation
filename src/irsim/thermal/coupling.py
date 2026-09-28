@@ -478,7 +478,7 @@ class CoupledFields:
     def __init__(
         self,
         members: Sequence[FieldMember],
-        contactors: Sequence[Contactor] = (),
+        contactors: Sequence[Contactor | ExplicitContactor] = (),
         *,
         t0_s: float,
         tick_s: float = DEFAULT_TICK_S,
@@ -486,9 +486,18 @@ class CoupledFields:
         on_tick: Callable[[float, NDArray[np.float64]], None] | None = None,
         lumped: Sequence[LumpedMember] = (),
         lumped_links: Sequence[LumpedLink] = (),
+        exchange: Any = None,
+        exchange_members: Sequence[str] = (),
     ) -> None:
         if not members and not lumped:
             raise ValueError("a coupled solve needs at least one member")
+        # TC.11: radiation between members by TC.9's factors, added to q_internal from the
+        # start-of-tick state -- explicit and one tick lagged, as ADR 0157 argues is stable for
+        # a radiative coupling, inside the implicit conduction step.
+        self.exchange = exchange
+        self.exchange_members: tuple[str, ...] = tuple(exchange_members)
+        if (exchange is None) != (not self.exchange_members):
+            raise ValueError("exchange and exchange_members come together")
         members = tuple(members) + tuple(m.as_member() for m in lumped)
         self.lumped_names: tuple[str, ...] = tuple(m.name for m in lumped)
         names = [m.name for m in members]
@@ -592,6 +601,21 @@ class CoupledFields:
         self.fields: Mapping[str, PatchView] = {
             m.name: PatchView(self, m.patch, *self._slices[m.name]) for m in members
         }
+        if self.exchange is not None:
+            if tuple(self.exchange.names) != self.exchange_members:
+                raise ValueError(
+                    f"the exchange's bodies {self.exchange.names} must be exchange_members "
+                    f"{self.exchange_members}, in order"
+                )
+            for k, name in enumerate(self.exchange_members):
+                if name not in self._index:
+                    raise ValueError(f"exchange member {name!r} is not a member")
+                lo, hi = self._slices[name]
+                if hi - lo != self.exchange.bodies[k].n_cells:
+                    raise ValueError(
+                        f"exchange body {name!r} has {self.exchange.bodies[k].n_cells} cells, "
+                        f"the member {hi - lo}"
+                    )
 
     def _forcing(self, t_s: float) -> FacetForcing:
         """Every member's forcing at ``t_s``, concatenated cell for cell."""
@@ -604,6 +628,8 @@ class CoupledFields:
                 for f, m in zip(forcings, self.members, strict=True)
             ]
         )
+        if self.exchange is not None:
+            q_int = self._with_exchange(q_int, q_lw)
         return FacetForcing(
             t_air_k=t_air,
             h_w_m2_k=h,
@@ -612,6 +638,22 @@ class CoupledFields:
             q_internal_w_m2=q_int,
             emission_factor=leaves,
         )
+
+    def _with_exchange(
+        self, q_int: NDArray[np.float64], q_lw: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
+        """``q_internal`` plus what the exchange members radiate onto each other (TC.11)."""
+        state = self.field.latest_state_k
+        slices = [self._slices[name] for name in self.exchange_members]
+        temps = np.concatenate([state[lo:hi] for lo, hi in slices])
+        lw = np.concatenate([q_lw[lo:hi] for lo, hi in slices])
+        q = self.exchange.flux_w_m2(temps, lw)
+        out = np.array(q_int, dtype=np.float64)
+        at = 0
+        for lo, hi in slices:
+            out[lo:hi] += q[at : at + hi - lo]
+            at += hi - lo
+        return out
 
     @property
     def n_cells(self) -> int:
