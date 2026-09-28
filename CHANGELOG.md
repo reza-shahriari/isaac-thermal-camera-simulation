@@ -74,6 +74,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no name given, the skill infers one and says which. 5 new tests (38 in the file).
 
 ### Fixed
+- **Within-frame motion smear now runs on rendered frames (`SC.28`).** `run_frame` called the optics without the `motion_px` plane; only the Warp-equivalence stage passed it, so every frame ever rendered was sharp whatever crossed it. `run_frame` now matches `optics_stage` on the moving-edge fixture to 1e-6; frames without the plane are unchanged.
 - **The slant path now reaches every rendered pixel (`AT.21`).** `run_frame` called the layered atmosphere without the `elevation_rad` plane the Isaac camera writes, so resolved targets got the horizontal path while sky and point targets got the slant one. A 310 K target at 5 km, 45° was 1.14 K low. `run_frame` and `atmosphere_stage` now agree to < 10 mK; frames without the plane are unchanged.
 - **In NIR and SWIR the ground reflects the sun and the clouds scatter it** (`AT.20`, ADR 0153,
   S55). The environment's ground half was thermal only, so a downward-facing white shell rendered

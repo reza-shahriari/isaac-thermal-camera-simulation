@@ -46,6 +46,7 @@ from irsim.optics.thermal_defocus import effective_focus_distance_m, thermal_def
 from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.detector import bolometer_lag, lag_interval_s
+from irsim.pipeline.optics import motion_for_integration
 from irsim.pipeline.plume import ExhaustPlume, inject_plumes
 from irsim.pipeline.point_target import PointTarget, inject_point_targets
 from irsim.pipeline.radiance import band_radiance, stage_illumination
@@ -348,7 +349,17 @@ def run_frame(
             psf = None
         else:
             psf = config.defocus_bank.kernel_for(state.defocus_w020_um)
-    flux = apply_optics(radiance_ss, sensor, lb_housing_now, supersample=k, psf=psf)
+    # SC.28: the within-frame smear (§8.3 MTF_motion, ADR 0077). `optics_stage` passed the
+    # scaled `motion_px` plane from the day it existed; this call did not, so no rendered frame
+    # ever carried it: the Isaac camera synthesised the plane (IG.6), the entry point dropped it.
+    flux = apply_optics(
+        radiance_ss,
+        sensor,
+        lb_housing_now,
+        supersample=k,
+        psf=psf,
+        motion_px=motion_for_integration(planes, sensor),
+    )
     # stages 4-5 (detector noise, correlated noise)
     signal = _detector_signal(flux, config, state)
     # §11.1's post-ADC half, when a chain is attached: defects, replacement, the NUC residual, the

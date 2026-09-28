@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `TC.9` is phase P, size L, and unblocks 3 other step(s).
 
-#### Then, in order — 95 open steps
+#### Then, in order — 94 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -196,15 +196,15 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 6 | **`TC.12`** | TC | P | M | — | ready |
 | 7 | **`AI.11`** | AI | A | M | 4 | ready |
 | 8 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
-| 9 | **`SC.28`** | SC | A | S | 2 | ready |
-| 10 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
-| 11 | **`AT.22`** | AT | A | S | 1 | ready |
-| 12 | **`PT.28`** | PT | A | S | 1 | ready |
-| 13 | **`SC.29`** | SC | A | S | 1 | ready |
-| 14 | **`SC.32`** | SC | A | S | 1 | ready |
-| 15 | **`AT.27`** | AT | A | S | — | ready |
+| 9 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
+| 10 | **`AT.22`** | AT | A | S | 1 | ready |
+| 11 | **`PT.28`** | PT | A | S | 1 | ready |
+| 12 | **`SC.29`** | SC | A | S | 1 | ready |
+| 13 | **`SC.32`** | SC | A | S | 1 | ready |
+| 14 | **`AT.27`** | AT | A | S | — | ready |
+| 15 | **`AT.28`** | AT | A | S | — | `PT.28` |
 
-…and 80 more — `python scripts/next_step.py --queue 40`.
+…and 79 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -637,7 +637,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.25 | ✅ **done** (ADR 0149). The equalising modes gain the controls every vendor ships under some name: `clip_limit_low` (Lepton low clip) and `max_gain` (Boson, Xenics), beside `linear_percent`. Zero is the old operator; the Warp AGC refuses what it has no port of. | **Measured.** Clear sky + 0.6 % target: low clip 1e-3 lifts the target ≤ 3 → ≥ 20 codes, parts ordered. Bland 33 DN sky: `max_gain` 1.25 cuts noise from 256 codes to ≤ 43. Pre-SC.21 Boson ISP hash reproduced. 11 cases. | SC.21 | S | A |
 | SC.26 | ✅ **done** (ADR 0149, S54). The NIR silicon config drops the Boson's copied `isp` for a visible-camera display: `linear`, gamma 2.2, no DDE. SWIR keeps equalisation, which its vendors document on-board. | **Measured.** `nir_frame_display8` moves up to 71 codes; `nir_frame_dn16` and `nir_frame_radiance` bit-identical. | — | S | A |
 | SC.27 | **Auto-exposure for photon FPAs (§11.3, S54).** NIR/SWIR scene radiance spans five to six decades; every photon config is one fixed integration time. Add an AE loop (integration time and gain mode chosen from the previous frame's histogram, as `PipelineState`) for photon detectors; LWIR is untouched. | Red: a dusk NIR scene renders black at the noon exposure. Green: AE brings the median to its target within N frames from noon to dusk; the chosen time is in the frame sidecar; saturation < 1 %. | — | M | X |
-| SC.28 | **Wire within-frame motion smear into `run_frame`.** `frame.py:347` calls `apply_optics` without `motion_px`; only `optics_stage` passes it, reached by the Warp equivalence tests alone. `IrCamera` synthesises the plane (IG.6) and then drops it, so ADR 0077's smear has never run on a rendered frame. | Red: a 6 px/frame plane changes the flux by 0.0. Green: `run_frame` equals `optics_stage` to 1e-9 on the moving-edge fixture; zero motion is bit-identical. | — | S | A |
+| SC.28 | ✅ **done.** `run_frame` passes `motion_for_integration(planes, sensor)` to `apply_optics`, as `optics_stage` already did. The adapter's synthesised plane (IG.6) now reaches the frame it was made for. | **Measured.** On the moving-edge fixture `run_frame` equals `optics_stage` to 1e-6 of the peak flux; a 2 px/frame edge on the bolometer (duty 1) changes the edge pixels by > 1 % of the step where before it changed nothing; a zero plane and no plane are bit-identical. `test_run_frame_motion_smear.py`, red without the fix. | — | S | A |
 | SC.29 | **Every render is shutter-referenced.** `render_phantom4.py:680` alone builds `PipelineConfig.from_sensor` without `flat_field_enabled` or the sensor chain, so its clips show the un-flat-fielded housing bowl (sky corners +1230 DN, +90 display codes) that a Boson's FFC removes. Default the flat field on for a shuttered bolometer; fix the driver and its stale per-prim docstring. | Red: frame 96's dn16 sky rises 3235 → 4465 DN centre to corner. Green: the residual is inside ADR 0053's NUC budget; the other drivers are bit-identical. | — | S | A |
 | SC.30 | **The photon-FPA radiometric branch removes its offset.** `frame.py:189` inverts total electrons, but `PhotonDetector.electrons` added dark + cold-shield background, so MWIR InSb reads a 300 K blackbody as 303.5 K. Subtract the budget's dark and background electrons; drop the out-of-cone housing term for a cold-shielded FPA (`optics/stage.py:101`); fix the `g_th` default (74.5 mK floor over a 50 mK anchor). | A photon-path blackbody round trip within 10 mK at 250–350 K (no such test exists); the cooled camera's corner shading carries the lens-emission sign only. | — | S | A |
 | SC.31 | **The information histogram sees detail, not noise.** `information.py:261` weights bins by summed |x_HP| of a 5×5 residual; at σ_TVH = 8.5 DN the sky's noise owns > 99.9 % of the mass and a 3 px target at +20 °C gets 7 codes (90 noise-free). Threshold the detail measure at k·σ_TVH, or a local variance excess over the noise floor, before binning; test at the shipped `linear_percent` 0.2 with a 1–3 px target. | The 3 px target keeps ≥ 40 codes at the configured NETD; a noise-free frame is unchanged within 1 code; ADR 0152's note updated. | — | S | A |
