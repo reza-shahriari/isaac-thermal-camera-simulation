@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The frame viewer is one command and has a guide.** `make viewer` now finds a working Python
+  by itself (`scripts/viewer.sh`), lists the newest runs first, marks each *full data* or *camera
+  only*, and has a **? help** panel. `docs/frame-viewer.md` explains how to start and read it and
+  is on the site under Start, with screenshot placeholders in `docs/media/viewer/`. The site now
+  publishes images that a document shows, instead of linking them to GitHub.
 - **A licence (`LICENSE`): source-available, use-only, non-commercial.** Anyone may run irsim
   unmodified for personal, research and educational work. Modification, redistribution and commercial
   use need the copyright holder's written permission. Third-party data and models keep their own

@@ -86,6 +86,14 @@ DOCUMENTS: list[tuple[str, str, str, str, str]] = [
         "not, and the known limitations.",
     ),
     (
+        "docs/frame-viewer.md",
+        "viewer/",
+        "Frame viewer",
+        "Start",
+        "Click a pixel of a rendered frame and read its true temperature, part, range and what "
+        "the camera measured -- how to start it and read it.",
+    ),
+    (
         "CLAUDE.md",
         "guide/",
         "Working agreement",
@@ -137,7 +145,14 @@ class Resolver:
     in the repository (a module, a config, a script) becomes a link to it on GitHub, so following
     a citation from the physics model lands on the code that implements it. Anything else is left
     exactly as written.
+
+    An **image** in the repository is the exception: a GitHub page is not a picture, so an
+    `![...](docs/media/x.png)` in a document is published at its own repository path inside the
+    site and linked relatively. The files are collected in `images` and copied by the build.
     """
+
+    #: Suffixes published as files rather than linked to on GitHub.
+    IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
 
     def __init__(self, pages: dict[str, str], repo: pathlib.Path) -> None:
         self.pages = pages
@@ -146,6 +161,8 @@ class Resolver:
         #: references in the source documents, so the build reports them instead of quietly
         #: publishing a 404 -- a renamed ADR is the usual cause.
         self.unresolved: set[tuple[str, str]] = set()
+        #: Repository images a document shows, by repository path; `copy_images` publishes them.
+        self.images: set[str] = set()
 
     def for_page(self, source: str | None, url: str):  # -> Callable[[str], str]
         base = posixpath.dirname(source) if source else ""
@@ -158,6 +175,9 @@ class Resolver:
             target = posixpath.normpath(posixpath.join(base, path)) if path else source or ""
             if target in self.pages:
                 return relative(url, self.pages[target]) + fragment
+            if (self.repo / target).is_file() and target.lower().endswith(self.IMAGE_SUFFIXES):
+                self.images.add(target)
+                return relative(url, target)
             if (self.repo / target).exists():
                 return f"{GITHUB}/blob/main/{target}{fragment}"
             if path.endswith(".md"):
@@ -743,6 +763,7 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
 
     write_search(out, pages)
     copy_assets(repo, out)
+    copy_images(repo, out, resolver.images)
     (out / ".nojekyll").write_text("", encoding="utf-8")
 
     total = sum(f.stat().st_size for f in out.rglob("*") if f.is_file())
@@ -764,7 +785,7 @@ def build(out: pathlib.Path, outputs: pathlib.Path, *, media: bool = True) -> di
 def nav_groups(pages: list[Page]) -> list[NavGroup]:
     """The sidebar: one group per section, collections collapsed to their index."""
     wanted = {
-        "Start": ["", "gallery/", "status/"],
+        "Start": ["", "gallery/", "viewer/", "status/"],
         "Demos": [],
         "Physics": ["physics/", "spec-issues/"],
         "Plan": ["roadmap/", "decisions/", "changelog/"],
@@ -803,6 +824,14 @@ def write_search(out: pathlib.Path, pages: list[Page]) -> None:
             }
         )
     (out / "search.json").write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
+
+
+def copy_images(repo: pathlib.Path, out: pathlib.Path, images: set[str]) -> None:
+    """Publish the repository images the documents show, at their own repository paths."""
+    for rel in sorted(images):
+        target = out / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(repo / rel, target)
 
 
 def copy_assets(repo: pathlib.Path, out: pathlib.Path) -> None:

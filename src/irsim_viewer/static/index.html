@@ -20,7 +20,8 @@
   select, button, input { background: #262a2f; color: var(--text); border: 1px solid var(--line);
     border-radius: 4px; padding: 3px 7px; font: inherit; }
   button { cursor: pointer; } button:hover { border-color: var(--accent); }
-  input[type=range] { width: 220px; padding: 0; }
+  input[type=range] { width: 180px; padding: 0; }
+  #run { max-width: 300px; } #plane { max-width: 170px; }
   main { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
   #view { position: relative; overflow: hidden; background: #0c0d0f; cursor: crosshair; }
   #view.panning { cursor: grabbing; }
@@ -40,6 +41,10 @@
   .warn { color: var(--warn); padding: 3px 8px; }
   .err { color: var(--err); }
   .label { font-weight: 600; }
+  .help, .banner { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; }
+  .help ol { margin: 6px 0 6px 18px; padding: 0; } .help li { margin-bottom: 4px; }
+  .banner { border-color: var(--warn); color: var(--warn); }
+  .dim { color: var(--dim); }
 </style>
 </head>
 <body>
@@ -54,7 +59,8 @@
   <span id="frameName"></span>
   <span style="flex:1"></span>
   <button id="fit" title="fit image to view (f)">fit</button>
-  <button id="clear">clear all markers</button>
+  <button id="helpBtn" title="how to use (h)">? help</button>
+  <button id="clear" title="remove every marker">clear all</button>
 </header>
 <main>
   <div id="view"><canvas id="canvas"></canvas></div>
@@ -75,6 +81,7 @@ const canvas = $("canvas"), ctx = canvas.getContext("2d"), view = $("view");
 const state = {
   run: null, frames: [], index: 0, plane: null, img: null,
   zoom: 1, ox: 0, oy: 0,               // image pixel (0,0) is drawn at screen (ox, oy)
+  runs: {}, help: false,
   markers: [], nextId: 1, playing: null,
 };
 
@@ -101,11 +108,14 @@ const shortUnit = (u) => (u || "").split(" (")[0].split(" --")[0];
 // ?run=R&frame=F&plane=P&pts=x,y;x,y reopens a view with its markers -- a link to a problem pixel.
 async function loadRuns() {
   const { runs, root } = await api("/api/runs");
-  $("run").innerHTML = runs.map((r) => `<option>${r.name}</option>`).join("");
+  state.runs = Object.fromEntries(runs.map((r) => [r.name, r]));
+  $("run").innerHTML = runs.map((r) => `<option value="${esc(r.name)}">${esc(r.name)} — ${r.frames} frame${r.frames === 1 ? "" : "s"}${r.truth ? " · full data" : " · camera only"}</option>`).join("");
   $("status").textContent = `${runs.length} run(s) under ${root}`;
   if (!runs.length) return;
   const url = new URLSearchParams(location.search);
-  const run = runs.some((r) => r.name === url.get("run")) ? url.get("run") : runs[0].name;
+  // newest run first, preferring one that carries the scene truth
+  const run = runs.some((r) => r.name === url.get("run")) ? url.get("run")
+    : (runs.find((r) => r.truth) || runs[0]).name;
   $("run").value = run;
   await selectRun(run, url.get("plane"));
   const at = state.frames.findIndex((f) => f.name === url.get("frame"));
@@ -140,7 +150,7 @@ async function showFrame(i, refit = false) {
   const f = frame();
   const stride = f.metadata.plane_stride;
   $("frameName").textContent = `${f.name}  (${state.index + 1}/${state.frames.length}` +
-    (stride > 1 ? `, every ${stride}th rendered frame` : "") + ")";
+    (stride > 1 ? `, every ${stride}th` : "") + ")";
   const img = new Image();
   try {
     await new Promise((ok, fail) => {
@@ -257,13 +267,25 @@ function drawMarker(m, w, h, placed) {
 }
 
 // ---- side panel ----------------------------------------------------------------------------
+const HELP = `<div class="help"><b>How to use</b><ol>
+  <li><b>Pick a run</b> at top left. Runs marked <i>full data</i> know the true temperature, part and distance of every pixel.</li>
+  <li><b>Click</b> the image to drop a marker. The box on the image is a summary; every value is listed here.</li>
+  <li><b>Click again</b> for more markers, each in its own colour. <b>×</b> removes one, <i>clear all</i> removes them all.</li>
+  <li><b>◀ ▶</b>, the slider or the arrow keys change frame; <b>play</b> runs the clip. Markers stay where you put them.</li>
+  <li><b>Wheel</b> zooms, <b>drag</b> pans, <b>f</b> fits the image again.</li>
+  <li>The <i>image</i> menu swaps what you look at (display, visible RGB, or any data plane); clicks always read every plane.</li>
+  </ol><span class="dim">Copy the address bar to share this exact view with its markers.</span></div>`;
+
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function renderSide() {
   const f = frame();
   const parts = [];
-  if (!state.markers.length) parts.push(`<div class="hint">Click the image to read every saved plane at that pixel.
-    Each click adds a marker; markers stay put while you step through frames.</div>`);
+  if (state.run && state.runs[state.run] && !state.runs[state.run].truth) parts.push(`<div class="banner">
+    <b>Camera data only.</b> This run was rendered before frames saved the scene truth, so a click shows
+    what the camera measured but not the true temperature, part or distance. Re-render it, or pick a run
+    marked <i>full data</i>.</div>`);
+  if (!state.markers.length || state.help) parts.push(HELP);
   for (const m of state.markers) {
     let body = "";
     if (m.error) body = `<div class="warn err">${esc(m.error)}</div>`;
@@ -351,6 +373,7 @@ $("slider").oninput = (e) => { stop(); showFrame(Number(e.target.value)); };
 $("run").onchange = (e) => selectRun(e.target.value);
 $("plane").onchange = (e) => { state.plane = e.target.value; showFrame(state.index); };
 $("fit").onclick = fit;
+$("helpBtn").onclick = () => { state.help = !state.help; renderSide(); if (state.help) $("side").scrollTop = 0; };
 $("clear").onclick = () => { state.markers = []; renderSide(); draw(); };
 window.addEventListener("resize", draw);
 window.addEventListener("keydown", (e) => {
@@ -359,6 +382,7 @@ window.addEventListener("keydown", (e) => {
   else if (e.key === "ArrowRight") { stop(); showFrame(state.index + 1); }
   else if (e.key === " ") { e.preventDefault(); $("play").click(); }
   else if (e.key === "f") fit();
+  else if (e.key === "h") $("helpBtn").click();
 });
 
 loadRuns().catch((e) => { $("side").innerHTML = `<div class="warn err">${esc(e.message)}</div>`; });

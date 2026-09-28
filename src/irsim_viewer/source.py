@@ -162,6 +162,12 @@ class SidecarDirectorySource:
                 self._docs[path.stem] = doc
         self._order = sorted(self._docs, key=lambda f: (self._docs[f].get("frame_index", 0), f))
 
+    @property
+    def modified(self) -> float:
+        """When the newest sidecar was written (seconds since the epoch), for newest-first lists."""
+        stamps = [(self.directory / f"{frame}.json").stat().st_mtime for frame in self._order]
+        return max(stamps, default=0.0)
+
     @classmethod
     def recognise(cls, directory: pathlib.Path) -> SidecarDirectorySource | None:
         """The factory :func:`discover_sources` calls: a source if any sidecar is here."""

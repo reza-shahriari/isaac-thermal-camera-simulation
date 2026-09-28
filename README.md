@@ -72,7 +72,7 @@ Validated so far against physics identities and public thermal imagery — see t
 ## What's new
 
 - **Low-poly to high-poly, and CAD in** — game models get smoothed or rebuilt, STEP/CAD models get meshed, and a check confirms no facet is visible to the camera.
-- **Frame viewer** — click any pixel of a render and read the true temperature, part, range and radiance behind it (`make viewer`).
+- **Frame viewer** — click any pixel of a render and read the true temperature, part, range and radiance behind it. Run `make viewer`; [how to use it](docs/frame-viewer.md).
 - **Bring your own model** — share a model link or file with its real-life name and it becomes a library asset with real parts and materials.
 - **Sunlit NIR and SWIR** — the ground reflects the sun and clouds scatter it in the reflective bands.
 - **FLIR Boson 640 preset** — runs the camera's published factory-default gain control.
@@ -92,7 +92,7 @@ make check          # lint, type-check and the test suite — no GPU needed
 IRSIM_GPU=0 $PYTHON scripts/render_phantom4.py --frames 96
 
 # Inspect the frames: click a pixel to see what is behind it
-make viewer RUN=outputs
+make viewer
 ```
 
 Scenes live in [`configs/scenes/`](configs/scenes/), cameras in [`configs/sensors/`](configs/sensors/).

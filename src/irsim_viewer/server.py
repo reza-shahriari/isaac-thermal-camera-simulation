@@ -45,6 +45,9 @@ __all__ = ["ViewerApp", "make_server", "main", "display_png"]
 
 STATIC = pathlib.Path(__file__).resolve().parent / "static"
 
+#: Planes that make a run "full data": what was there, not only what the camera saw (ADR 0154).
+TRUTH_PLANES = frozenset({"temperature_k", "part_id", "node_id", "distance_m"})
+
 
 def display_png(plane: NDArray[Any]) -> bytes:
     """Encode a plane for looking at: uint8 as-is, anything else stretched 0.5-99.5 % to gray.
@@ -89,10 +92,26 @@ class ViewerApp:
             raise KeyError(f"no run {run!r} under {self.root}") from None
 
     def runs(self) -> dict[str, Any]:
-        return {
-            "root": str(self.root),
-            "runs": [{"name": n, "frames": len(s.frames())} for n, s in self.sources().items()],
-        }
+        """Every run, **newest first**, each flagged with whether it carries the scene truth.
+
+        A run rendered before the truth planes existed (ADR 0154) still opens, but a click on it
+        can only report what the camera said -- the page says so rather than let a missing
+        ``temperature_k`` look like a viewer fault.
+        """
+        rows: list[dict[str, Any]] = []
+        for name, source in self.sources().items():
+            frames = source.frames()
+            planes = source.planes(frames[0]) if frames else {}
+            rows.append(
+                {
+                    "name": name,
+                    "frames": len(frames),
+                    "truth": bool(TRUTH_PLANES & set(planes)),
+                    "modified": float(getattr(source, "modified", 0.0)),
+                }
+            )
+        rows.sort(key=lambda r: (-r["modified"], r["name"]))
+        return {"root": str(self.root), "runs": rows}
 
     def frames(self, run: str) -> dict[str, Any]:
         source = self.source(run)

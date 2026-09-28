@@ -87,10 +87,11 @@ site-publish: site
 
 # Click on rendered frames in a browser and read every saved plane under the pixel -- true surface
 # temperature, part, range, radiance, apparent temperature, ADC code (src/irsim_viewer). RUN is a
-# render's output folder or a folder of them. Standard library + NumPy: nothing to install.
+# render's output folder or a folder of them. `scripts/viewer.sh` finds a working interpreter on
+# its own, so plain `make viewer` works without PYTHON=. Guide: docs/frame-viewer.md.
 RUN ?= outputs
 viewer:
-	$(PYTHON) -m irsim_viewer $(RUN)
+	@PYTHON="$(filter-out python,$(PYTHON))" scripts/viewer.sh $(RUN)
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache dist build $(CI_VENV)

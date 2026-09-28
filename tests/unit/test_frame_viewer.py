@@ -166,7 +166,10 @@ def test_the_server_answers_the_page_over_http(tmp_path: pathlib.Path) -> None:
     port = server.server_address[1]
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        assert [r["name"] for r in _get(port, "/api/runs")["runs"]] == ["memory", "demo"]
+        runs = _get(port, "/api/runs")["runs"]
+        # newest first; a source that cannot say when it was written sorts last
+        assert [r["name"] for r in runs] == ["demo", "memory"]
+        assert all(r["truth"] for r in runs)  # both carry a truth plane
         assert b"<canvas" in _get(port, "/")
         frames = _get(port, "/api/frames?run=demo")["frames"]
         assert frames[0]["metadata"]["range_m"] == 4.5
@@ -180,6 +183,13 @@ def test_the_server_answers_the_page_over_http(tmp_path: pathlib.Path) -> None:
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_a_run_without_truth_planes_is_flagged_camera_only(tmp_path: pathlib.Path) -> None:
+    run = tmp_path / "old"
+    write_frame(run, _Outputs(0))  # the camera planes only, as every run before ADR 0154
+    (row,) = ViewerApp(tmp_path).runs()["runs"]
+    assert row["name"] == "old" and row["truth"] is False and row["modified"] > 0
 
 
 def test_a_float_plane_is_stretched_for_display_only(tmp_path: pathlib.Path) -> None:

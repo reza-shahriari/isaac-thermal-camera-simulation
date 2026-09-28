@@ -326,3 +326,17 @@ def test_the_gallery_opens_with_a_thumbnail_of_every_section(site: pathlib.Path)
     for section in manifest["sections"]:
         assert f'href="#{section["id"]}"' in page
     assert 'class="toc"' not in page
+
+
+def test_an_image_in_a_document_is_published_not_linked_to_github(site: pathlib.Path) -> None:
+    """A GitHub file page is not a picture: `![..](media/x.png)` must land in the site itself.
+
+    The frame viewer's guide is the case that forced it -- its screenshots are files in
+    `docs/media/viewer/`, and linked to GitHub they would render as broken images.
+    """
+    page = (site / "viewer" / "index.html").read_text(encoding="utf-8")
+    sources = re.findall(r'<img src="([^"]+)"', page)
+    assert sources, "the frame viewer guide shows no images"
+    for src in sources:
+        assert not src.startswith("http"), f"{src} points off-site"
+        assert (site / "viewer" / src).resolve().is_file(), f"{src} was not copied into the site"
