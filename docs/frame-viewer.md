@@ -83,7 +83,7 @@ the point at the pixel's centre.
 
 ## Runs marked "camera only"
 
-![The run menu, with runs marked full data and camera only](media/viewer/run-picker.png)
+![A run marked full data, a run marked camera only, and the banner the camera-only run shows](media/viewer/run-picker.png)
 
 The run menu marks each run **full data** or **camera only**. A camera-only run was rendered
 before frames saved the scene truth. It still opens and a click shows what the camera measured,
@@ -92,7 +92,11 @@ get full data (ADR 0154).
 
 ## Clips
 
-![Stepping through a clip with the markers held in place](media/viewer/frames.png)
+![Stepping through a clip with the markers held in place](media/viewer/frames.gif)
+
+The markers stay on the same pixels while the drone moves under them. In this clip marker #1
+starts on the rear-left motor at 36.3 °C and a few frames later reads a propeller at 15.1 °C.
+That is the point: you are watching a fixed spot in the picture, not following a part.
 
 A clip shows only the frames whose data was saved. If a render thinned its saved frames with
 `--plane-stride 8`, the viewer shows every 8th frame and says *every 8th* next to the frame name.

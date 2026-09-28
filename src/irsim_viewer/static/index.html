@@ -20,8 +20,8 @@
   select, button, input { background: #262a2f; color: var(--text); border: 1px solid var(--line);
     border-radius: 4px; padding: 3px 7px; font: inherit; }
   button { cursor: pointer; } button:hover { border-color: var(--accent); }
-  input[type=range] { width: 180px; padding: 0; }
-  #run { max-width: 300px; } #plane { max-width: 170px; }
+  input[type=range] { width: 140px; padding: 0; }
+  #run { max-width: 400px; } #plane { max-width: 150px; }
   main { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
   #view { position: relative; overflow: hidden; background: #0c0d0f; cursor: crosshair; }
   #view.panning { cursor: grabbing; }
@@ -109,7 +109,7 @@ const shortUnit = (u) => (u || "").split(" (")[0].split(" --")[0];
 async function loadRuns() {
   const { runs, root } = await api("/api/runs");
   state.runs = Object.fromEntries(runs.map((r) => [r.name, r]));
-  $("run").innerHTML = runs.map((r) => `<option value="${esc(r.name)}">${esc(r.name)} — ${r.frames} frame${r.frames === 1 ? "" : "s"}${r.truth ? " · full data" : " · camera only"}</option>`).join("");
+  $("run").innerHTML = runs.map((r) => `<option value="${esc(r.name)}">${esc(r.name)} · ${r.frames} fr · ${r.truth ? "full data" : "camera only"}</option>`).join("");
   $("status").textContent = `${runs.length} run(s) under ${root}`;
   if (!runs.length) return;
   const url = new URLSearchParams(location.search);
