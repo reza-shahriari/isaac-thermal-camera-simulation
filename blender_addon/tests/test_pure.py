@@ -2,7 +2,8 @@
 
 Each test is built on a case that has actually happened or that the owner raised: the Phantom 4
 arriving in centimetres (ADR 0128), a real 300 m ship that must not be flagged (2026-09-28), a
-Blender material shared by parts made of different things.
+Blender material shared by parts made of different things, a shell triangulated into one huge
+triangle beside many small ones (the connection finder's sampling).
 """
 
 import math
@@ -10,7 +11,7 @@ import re
 
 import numpy as np
 import pytest
-from irsim_thermal import coverage, naming, sizing
+from irsim_thermal import coverage, geometry, naming, sizing
 
 SAFE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -72,7 +73,17 @@ def test_a_split_copy_keeps_the_thermal_name_whole_within_blenders_limit() -> No
 
 @pytest.mark.parametrize(
     ("name", "default"),
-    [("Cube", True), ("Cube.003", True), ("Cylinder_12", True), ("battery", False)],
+    [
+        ("Cube", True),
+        ("Cube.003", True),
+        ("Cylinder_12", True),
+        ("GeometryNode_57", True),  # the Sketchfab Phantom 4, all 41 parts
+        ("Box001", True),
+        ("polySurface12", True),
+        ("battery", False),
+        ("motor_front_left", False),
+        ("Boxer_engine", False),
+    ],
 )
 def test_default_names_are_recognised(name: str, default: bool) -> None:
     assert naming.is_default_name(name) is default
@@ -200,3 +211,66 @@ def test_the_gate_is_the_pipelines_95_percent() -> None:
     assert coverage.summarize([a], {}).passes_gate
     b = coverage.part_stats("b", np.array([94.9, 5.1]), np.array([0, 1]), ["x", "y"], ["m", ""])
     assert not coverage.summarize([b], {}).passes_gate
+
+
+# --- the connection finder's sampling --------------------------------------------------------
+
+
+def unit_square_uneven() -> geometry.Surface:
+    """The unit square as two triangles of 0.49 m² above a strip of 100 slivers (y < 0.02)."""
+    xs = np.linspace(0.0, 1.0, 51)
+    verts = [(x, 0.0, 0.0) for x in xs] + [(x, 0.02, 0.0) for x in xs]
+    verts += [(0.0, 1.0, 0.0), (1.0, 1.0, 0.0)]  # 102, 103
+    tris = []
+    for i in range(50):
+        tris += [(i, i + 1, 52 + i), (i, 52 + i, 51 + i)]
+    tris += [(51, 101, 103), (51, 103, 102)]
+    return geometry.Surface(np.array(verts, dtype=float), np.array(tris))
+
+
+def test_the_uneven_square_really_is_a_unit_square() -> None:
+    s = unit_square_uneven()
+    areas, normals = s.areas_normals()
+    assert s.area == pytest.approx(1.0)
+    assert np.allclose(normals, [0.0, 0.0, 1.0])
+    assert areas.max() / areas.min() > 1000  # two huge triangles beside many slivers
+
+
+def test_samples_are_spread_by_area_not_by_triangle() -> None:
+    """100 of the 102 triangles hold 2 % of the area between them, so they get 2 % of the points."""
+    pts = geometry.sample(unit_square_uneven(), 20000, seed=7)
+    assert pts.area_each * len(pts) == pytest.approx(1.0)
+    in_strip = np.mean(pts.points[:, 1] < 0.02)
+    assert in_strip == pytest.approx(0.02, abs=0.004)
+    left_half = np.mean(pts.points[:, 0] < 0.5)
+    assert left_half == pytest.approx(0.5, abs=0.015)
+    assert np.all((pts.points >= -1e-12) & (pts.points <= 1.0 + 1e-12))
+
+
+def test_the_same_seed_finds_the_same_points() -> None:
+    a = geometry.sample(unit_square_uneven(), 100, seed=3)
+    b = geometry.sample(unit_square_uneven(), 100, seed=3)
+    assert np.array_equal(a.points, b.points)
+
+
+def test_a_contact_is_counted_only_parallel_and_straight_across() -> None:
+    up = np.array([[0.0, 0.0, 1.0]] * 5)
+    other = np.array([[0, 0, -1], [0, 0, -1], [1, 0, 0], [0, 0, -1], [0, 0, 1]], dtype=float)
+    offsets = np.array([[0, 0, 0.001], [0.001, 0, 0], [0, 0, 0.001], [0, 0, 0], [0, 0, 0.001]])
+    found = np.array([True, True, True, True, False])
+    # straight across a 1 mm gap: yes; the same distance sideways, to the edge of a box standing
+    # beside it: no; a wall at right angles: no; exactly on the other surface: yes; out of
+    # reach: no.
+    assert geometry.touching(found, up, other, offsets, 0.002).tolist() == [
+        True,
+        False,
+        False,
+        True,
+        False,
+    ]
+
+
+def test_default_gaps_follow_the_model_size_with_a_floor() -> None:
+    assert geometry.default_gaps(0.46) == pytest.approx((9.2e-4, 0.046))  # the Phantom 4
+    assert geometry.default_gaps(0.05)[0] == pytest.approx(5e-4)  # never below half a millimetre
+    assert geometry.default_gaps(4.5)[1] == pytest.approx(0.45)  # a car: its bonnet gap and more

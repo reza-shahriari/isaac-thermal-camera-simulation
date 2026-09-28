@@ -10,9 +10,16 @@
   records where the copy came from in ``irsim_origin``.
 * **On the scene** (``Scene.irsim``): the asset name, the size-guidance choices and the last
   checklist result -- things that belong to this model and should be saved with it.
-* **On the window manager** (``WindowManager.irsim_library``): the library as the bridge last
-  reported it. Never saved: the library lives in the repository, and a stale copy in a ``.blend``
-  would be a second library.
+* **On the scene** too: ``Scene.irsim_connections``, the contacts and facing pairs between parts,
+  each with who proposed it (the finder or the person) and whether the person has reviewed it.
+  A connection points at its two objects, so renaming a part keeps it; deleting one leaves a
+  connection the checklist reports.
+* **On each hidden part** (``Object.irsim_component``): what it is (motor, battery, engine...),
+  its mass and heat output, and where those numbers came from. A hidden part is a box mesh the
+  camera never sees -- the engine inside a downloaded car shell, the battery inside a drone.
+* **On the window manager** (``WindowManager.irsim_library``, ``irsim_joints``): the library and
+  the joint table as the bridge last reported them. Never saved: both live in the repository, and
+  a stale copy in a ``.blend`` would be a second library.
 """
 
 import bpy
@@ -21,6 +28,7 @@ from bpy.props import (
     CollectionProperty,
     EnumProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     PointerProperty,
     StringProperty,
@@ -51,6 +59,19 @@ def _select_active_part(self, context):
         other.select_set(False)
     ob.select_set(True)
     context.view_layer.objects.active = ob
+
+
+def _select_active_part_hidden(self, context):
+    """The hidden-parts list selects its row's object, like the parts list does."""
+    objects = context.scene.objects
+    index = self.active_hidden_index
+    if 0 <= index < len(objects) and context.mode == "OBJECT":
+        ob = objects[index]
+        for other in context.selected_objects:
+            other.select_set(False)
+        if ob.visible_get():
+            ob.select_set(True)
+        context.view_layer.objects.active = ob
 
 
 def _toggle_thermal_view(self, context):
@@ -100,11 +121,122 @@ class IrsimIssue(PropertyGroup):
             ("UNASSIGNED", "Unassigned", "Faces with no thermal material"),
             ("MIRROR", "Mirror-like", "LWIR emissivity below the mirror limit"),
             ("NAME", "Name", "A default or unsafe name"),
+            ("HIDDEN", "Hidden part", "A hidden part missing a material, a mass or its heat"),
+            ("CONNECTION", "Connection", "A connection to review, or one whose part is gone"),
             ("INFO", "Info", "For information"),
         ]
     )
     detail: StringProperty()
     area_m2: FloatProperty()
+
+
+def _redraw_overlay(self, context):
+    from . import overlay
+
+    overlay.on_toggle(self, context)
+
+
+class IrsimJoint(PropertyGroup):
+    """One entry of ``configs/thermal/joints.yaml`` (``name`` is the joint name)."""
+
+    h_c_w_m2_k: FloatProperty()
+    status: StringProperty()
+    source: StringProperty()
+
+
+CONNECTION_KINDS = [
+    ("CONTACT", "Contact", "The two parts touch: heat is conducted through a joint"),
+    ("FACING", "Facing", "The two parts look at each other across a gap: heat is radiated"),
+]
+
+CONNECTION_STATUS = [
+    ("FOUND", "Found", "Proposed by the connection finder, not reviewed yet"),
+    ("CONFIRMED", "Confirmed", "Reviewed and kept"),
+    ("REJECTED", "Rejected", "Reviewed and ruled out: not exported, and a new search keeps it out"),
+    ("ADDED", "Added by hand", "Added by a person"),
+]
+
+
+class IrsimConnection(PropertyGroup):
+    """A heat path between two parts, found or added, and the person's verdict on it."""
+
+    a: PointerProperty(type=bpy.types.Object, name="Part")
+    b: PointerProperty(type=bpy.types.Object, name="Other part")
+    kind: EnumProperty(name="Kind", items=CONNECTION_KINDS, default="CONTACT")
+    status: EnumProperty(name="Status", items=CONNECTION_STATUS, default="FOUND")
+    joint: StringProperty(
+        name="Joint",
+        description="How the two parts are joined: a contact conductance from "
+        "configs/thermal/joints.yaml",
+        default="",
+    )
+    area_m2: FloatProperty(
+        name="Area",
+        description=(
+            "Contact: the area where the parts touch. Facing: the area of the first part that "
+            "looks straight at the second"
+        ),
+        min=0.0,
+        precision=6,
+        unit="AREA",
+    )
+    area_ba_m2: FloatProperty(
+        name="Area back",
+        description="Facing: the area of the second part that looks straight at the first",
+        min=0.0,
+        precision=6,
+        unit="AREA",
+    )
+    gap_m: FloatProperty(
+        name="Gap", description="Facing: the mean distance across", min=0.0, unit="LENGTH"
+    )
+    point_a: FloatVectorProperty(size=3)
+    point_b: FloatVectorProperty(size=3)
+
+
+COMPONENT_KINDS = [
+    ("MOTOR", "Electric motor", "A brushless motor"),
+    ("ESC", "Speed controller", "An electronic speed controller"),
+    ("BATTERY", "Battery", "A battery pack"),
+    ("ELECTRONICS", "Electronics", "A flight controller, computer or radio"),
+    ("PISTON_ENGINE", "Piston engine", "A car, boat or light-aircraft engine"),
+    ("TURBINE", "Turbine", "A gas turbine or jet engine"),
+    ("EXHAUST", "Exhaust", "An exhaust pipe, silencer or catalyst"),
+    ("GEARBOX", "Gearbox", "A gearbox or drive train"),
+    ("OTHER", "Other", "Anything else that makes or stores heat"),
+]
+
+VALUE_SOURCES = [
+    ("ESTIMATED", "Estimated", "An engineering guess; say from what in the reference"),
+    ("PUBLISHED", "Published", "From a datasheet or a paper; give it as the reference"),
+    ("MEASURED", "Measured", "Measured on the real object"),
+]
+
+
+class IrsimComponent(PropertyGroup):
+    """What a hidden part is and how much heat it makes. Set only on hidden parts."""
+
+    is_hidden_part: BoolProperty(default=False)
+    kind: EnumProperty(name="What is it", items=COMPONENT_KINDS, default="OTHER")
+    mass_kg: FloatProperty(
+        name="Mass", description="Its mass: it sets how slowly it warms up", min=0.0, unit="MASS"
+    )
+    heat_idle_w: FloatProperty(
+        name="Heat at idle",
+        description="Heat it gives off when running lightly (W)",
+        min=0.0,
+        unit="POWER",
+    )
+    heat_rated_w: FloatProperty(
+        name="Heat at full load",
+        description="Heat it gives off at its rated load (W): input power minus useful work",
+        min=0.0,
+        unit="POWER",
+    )
+    values_source: EnumProperty(name="Numbers are", items=VALUE_SOURCES, default="ESTIMATED")
+    reference: StringProperty(
+        name="Reference", description="Where the numbers came from, or what they were guessed from"
+    )
 
 
 class IrsimSceneSettings(PropertyGroup):
@@ -168,8 +300,48 @@ class IrsimSceneSettings(PropertyGroup):
     last_export: StringProperty()
     audit_status: StringProperty()
 
+    active_connection_index: IntProperty()
+    active_hidden_index: IntProperty(update=_select_active_part_hidden)
+    touch_gap_m: FloatProperty(
+        name="Touching within",
+        description="Surfaces closer than this count as touching (0 = 0.2 % of the model)",
+        default=0.0,
+        min=0.0,
+        unit="LENGTH",
+    )
+    facing_gap_m: FloatProperty(
+        name="Facing within",
+        description=(
+            "Parts that look straight at each other across less than this count as facing "
+            "(0 = 10 % of the model)"
+        ),
+        default=0.0,
+        min=0.0,
+        unit="LENGTH",
+    )
+    samples: IntProperty(
+        name="Samples per part",
+        description="Points scattered on each part; more is slower and more exact",
+        default=3000,
+        min=100,
+        max=100000,
+    )
+    show_connections: BoolProperty(
+        name="Show in viewport",
+        description="Draw each connection as a line between its parts",
+        default=False,
+        update=_redraw_overlay,
+    )
 
-classes = (IrsimLibraryItem, IrsimIssue, IrsimSceneSettings)
+
+classes = (
+    IrsimLibraryItem,
+    IrsimIssue,
+    IrsimJoint,
+    IrsimConnection,
+    IrsimComponent,
+    IrsimSceneSettings,
+)
 
 
 def register():
@@ -189,6 +361,9 @@ def register():
         default="",
     )
     bpy.types.Scene.irsim = PointerProperty(type=IrsimSceneSettings)
+    bpy.types.Scene.irsim_connections = CollectionProperty(type=IrsimConnection)
+    bpy.types.Object.irsim_component = PointerProperty(type=IrsimComponent)
+    bpy.types.WindowManager.irsim_joints = CollectionProperty(type=IrsimJoint)
     bpy.types.WindowManager.irsim_library = CollectionProperty(type=IrsimLibraryItem)
     bpy.types.WindowManager.irsim_library_status = StringProperty(default="")
     bpy.types.WindowManager.irsim_library_hash = StringProperty(default="")
@@ -198,6 +373,9 @@ def unregister():
     del bpy.types.WindowManager.irsim_library_hash
     del bpy.types.WindowManager.irsim_library_status
     del bpy.types.WindowManager.irsim_library
+    del bpy.types.WindowManager.irsim_joints
+    del bpy.types.Object.irsim_component
+    del bpy.types.Scene.irsim_connections
     del bpy.types.Scene.irsim
     del bpy.types.Material.irsim_origin
     del bpy.types.Material.irsim_material

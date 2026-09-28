@@ -63,6 +63,13 @@ def load(context: bpy.types.Context) -> int:
             setattr(item, f"tau_{band}", float(values.get("transmittance", 0.0)))
         item.error = "; ".join(errors)
     wm = context.window_manager
+    wm.irsim_joints.clear()
+    for record in result.get("joints", []):
+        joint = wm.irsim_joints.add()
+        joint.name = record["name"]
+        joint.h_c_w_m2_k = float(record["h_c_w_m2_k"])
+        joint.status = record["status"]
+        joint.source = record["source"]
     wm.irsim_library_hash = result.get("library_hash", "")
     wm.irsim_library_status = f"{len(items)} materials from {result['material_dir']}"
     if previous and context.scene:

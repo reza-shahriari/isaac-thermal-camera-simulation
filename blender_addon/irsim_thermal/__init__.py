@@ -2,11 +2,13 @@
 
 A Blender add-on (extension) for the human half of asset ingestion: open a downloaded model, pick
 a part, choose what it is made of from the irsim material library -- or create a new material,
-checked by irsim before it is written -- and export the model with its asset map. Plan:
-``blender_addon/PLAN.md``; how to use it: ``blender_addon/TUTORIAL.md``.
+checked by irsim before it is written -- find and review which parts touch or face each other, add
+the parts the model lacks (an engine, a battery), and export the model with its asset map. Plan:
+``blender_addon/PLAN.md``; how to use it: ``docs/tutorials/blender-addon/``.
 
 Submodules are imported inside :func:`register` so that the pure-Python ones (``naming``,
-``sizing``, ``coverage``, ``bridge_client``) can be imported and tested without Blender.
+``sizing``, ``coverage``, ``geometry``, ``bridge_client``) can be imported and tested without
+Blender.
 """
 
 _MODULES = (
@@ -17,6 +19,9 @@ _MODULES = (
     "material_form",
     "asset_map",
     "export",
+    "hidden_parts",
+    "connections",
+    "overlay",
     "ui",
 )
 

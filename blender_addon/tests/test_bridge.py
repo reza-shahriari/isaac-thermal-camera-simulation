@@ -289,3 +289,117 @@ def test_reading_an_asset_that_does_not_exist_is_refused(tmp_path) -> None:
     for name in ("no_such_asset", "../materials/carbon_fibre"):
         result = call(tmp_path, "read-asset", {"name": name})
         assert not result["ok"] and result["kind"] == "missing", name
+
+
+# --- contacts, facing pairs and hidden parts -------------------------------------------------
+
+
+def test_the_library_read_carries_the_joint_table(tmp_path) -> None:
+    result = call(tmp_path, "library")
+    joints = {j["name"]: j for j in result["joints"]}
+    assert joints["dry_default"]["h_c_w_m2_k"] == 1000.0
+    assert joints["dry_default"]["status"] == "ESTIMATED"
+    assert joints["bolted_ferrous_new"]["status"] == "MEASURED"
+
+
+def structure(**overrides) -> dict:
+    payload = {
+        "name": "test_car",
+        "part_areas": {"body": 20.0, "floor_pan": 4.0, "bonnet": 1.5},
+        "contacts": [
+            {
+                "parts": ["engine", "floor_pan"],
+                "joint": "dry_default",
+                "area_m2": 0.05,
+                "reviewed": True,
+                "found_by": "finder",
+            },
+        ],
+        "facing": [
+            {
+                "parts": ["bonnet", "engine"],
+                "area_m2": [0.6, 0.4],
+                "gap_m": 0.08,
+                "reviewed": False,
+                "found_by": "finder",
+            },
+        ],
+        "hidden_parts": [
+            {
+                "name": "engine",
+                "kind": "piston_engine",
+                "material": "rusted_steel",
+                "inside": "body",
+                "area_m2": 1.9,
+                "box": {
+                    "centre_m": [1.2, 0.0, 0.5],
+                    "size_m": [0.6, 0.5, 0.5],
+                    "rotation_wxyz": [1.0, 0.0, 0.0, 0.0],
+                },
+                "mass_kg": 120.0,
+                "heat_w": {"idle": 4000.0, "rated": 60000.0},
+                "values": {
+                    "source": "estimated",
+                    "reference": "a 2 L petrol engine, 30 % efficient",
+                },
+            },
+        ],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def write_structure(tmp_path, payload) -> dict:
+    return call(tmp_path, "write-structure", payload, "--models-dir", str(tmp_path / "models"))
+
+
+def test_a_structure_is_written_beside_the_model_marked_as_the_add_ons(tmp_path) -> None:
+    result = write_structure(tmp_path, structure())
+    assert result["ok"], result
+    assert (result["contacts"], result["facing"], result["hidden_parts"]) == (1, 1, 1)
+    path = tmp_path / "models" / "test_car" / "test_car.structure.yaml"
+    text = path.read_text(encoding="utf-8")
+    assert bridge.MARKER in text.splitlines()[0]  # so a later export may replace it
+    import yaml
+
+    doc = yaml.safe_load(text)
+    assert doc["hidden_parts"][0]["mass_kg"] == 120.0
+    assert "area_m2" not in doc["hidden_parts"][0]  # used for the check, not a property
+    assert doc["contacts"][0]["joint"] == "dry_default"
+
+
+@pytest.mark.parametrize(
+    ("change", "says"),
+    [
+        (lambda p: p["contacts"][0].update(parts=["engine", "gearbox"]), "no part named"),
+        (lambda p: p["contacts"][0].update(joint="welded_magic"), "not in joints.yaml"),
+        (lambda p: p["contacts"][0].update(area_m2=5.0), "larger than the smaller part"),
+        (lambda p: p["contacts"][0].update(area_m2=0.0), "no contact area"),
+        (lambda p: p["hidden_parts"][0].update(mass_kg=0.0), "has no mass"),
+        (lambda p: p["hidden_parts"][0].update(material="unobtainium"), "not a library"),
+        (lambda p: p["hidden_parts"][0]["heat_w"].update(rated=10.0), "less heat at full load"),
+        (lambda p: p["facing"][0].update(parts=["bonnet", "bonnet"]), "to itself"),
+    ],
+)
+def test_what_the_asset_format_will_refuse_is_refused_and_nothing_is_written(
+    tmp_path, change, says
+) -> None:
+    """The refusals roadmap row AI.11 lists for its loader, plus the add-on's own two."""
+    payload = structure()
+    change(payload)
+    result = write_structure(tmp_path, payload)
+    assert not result["ok"] and result["kind"] == "invalid"
+    assert says in result["error"]
+    assert not (tmp_path / "models").exists()
+
+
+def test_a_structure_is_replaced_only_when_asked_and_never_one_written_by_hand(tmp_path) -> None:
+    assert write_structure(tmp_path, structure())["ok"]
+    again = write_structure(tmp_path, structure())
+    assert not again["ok"] and again["kind"] == "exists"
+    assert write_structure(tmp_path, structure(overwrite=True))["ok"]
+    path = tmp_path / "models" / "test_car" / "test_car.structure.yaml"
+    path.write_text("# measured on the real car\ncontacts: []\n", encoding="utf-8")
+    refused = write_structure(tmp_path, structure(overwrite=True))
+    assert not refused["ok"] and refused["kind"] == "handwritten"
+    assert path.read_text(encoding="utf-8").startswith("# measured on the real car")

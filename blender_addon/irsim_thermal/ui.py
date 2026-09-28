@@ -1,4 +1,4 @@
-"""The sidebar tab (View3D > Sidebar > irsim): parts, library, check and export."""
+"""The sidebar tab (View3D > Sidebar > irsim): parts, library, hidden parts, connections, export."""
 
 import bpy
 from bpy.types import Panel, UIList
@@ -63,7 +63,14 @@ class LibraryList(UIList):
 class IssuesList(UIList):
     bl_idname = "IRSIM_UL_issues"
 
-    ICONS = {"UNASSIGNED": "ERROR", "MIRROR": "LIGHT_SUN", "NAME": "SORTALPHA", "INFO": "INFO"}
+    ICONS = {
+        "UNASSIGNED": "ERROR",
+        "MIRROR": "LIGHT_SUN",
+        "NAME": "SORTALPHA",
+        "HIDDEN": "MESH_CUBE",
+        "CONNECTION": "LINKED",
+        "INFO": "INFO",
+    }
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
         row = layout.row(align=True)
@@ -71,6 +78,76 @@ class IssuesList(UIList):
         row.label(text=item.detail)
         op = row.operator("irsim.select_issue", text="", icon="RESTRICT_SELECT_OFF")
         op.name = item.name
+
+
+class HiddenList(UIList):
+    bl_idname = "IRSIM_UL_hidden"
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
+        comp = item.irsim_component
+        row = layout.row(align=True)
+        row.label(text=item.name, icon="MESH_CUBE")
+        row.label(text=f"{comp.heat_rated_w:.4g} W, {comp.mass_kg:.3g} kg")
+
+    def filter_items(self, context, data, propname):
+        objects = getattr(data, propname)
+        return [
+            self.bitflag_filter_item
+            if (ob.type == "MESH" and ob.irsim_component.is_hidden_part)
+            else 0
+            for ob in objects
+        ], []
+
+
+def _connection_text(c) -> str:
+    a = c.a.name if c.a else "(gone)"
+    b = c.b.name if c.b else "(gone)"
+    return f"{a} – {b}"
+
+
+def _area_text(m2: float) -> str:
+    return f"{m2 * 1e4:.3g} cm²" if m2 < 0.1 else f"{m2:.3g} m²"
+
+
+class ConnectionsList(UIList):
+    bl_idname = "IRSIM_UL_connections"
+
+    KIND_ICONS = {"CONTACT": "SNAP_FACE", "FACING": "LIGHT_SUN"}
+    STATUS_ICONS = {
+        "FOUND": "QUESTION",
+        "CONFIRMED": "CHECKMARK",
+        "REJECTED": "X",
+        "ADDED": "USER",
+    }
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
+        row = layout.row(align=True)
+        row.active = item.status != "REJECTED"
+        row.label(text=_connection_text(item), icon=self.KIND_ICONS[item.kind])
+        # A facing pair's two areas differ (a small part sees much of a big one, not the reverse).
+        row.label(text=_area_text(max(item.area_m2, item.area_ba_m2)))
+        row.label(text="", icon=self.STATUS_ICONS[item.status])
+
+    def filter_items(self, context, data, propname):
+        items = getattr(data, propname)
+        helper = bpy.types.UI_UL_list
+        if self.filter_name:
+            flags = [
+                self.bitflag_filter_item
+                if self.filter_name.lower() in _connection_text(c).lower()
+                else 0
+                for c in items
+            ]
+        else:
+            flags = [self.bitflag_filter_item] * len(items)
+        order = (
+            helper.sort_items_helper(
+                [(i, _connection_text(c)) for i, c in enumerate(items)], key=lambda x: x[1]
+            )
+            if self.use_filter_sort_alpha
+            else []
+        )
+        return flags, order
 
 
 class _Base:
@@ -231,6 +308,120 @@ class LibraryPanel(_Base, Panel):
             )
 
 
+class HiddenPartsPanel(_Base, Panel):
+    bl_idname = "IRSIM_PT_hidden"
+    bl_parent_id = "IRSIM_PT_main"
+    bl_label = "Hidden parts"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.irsim
+        layout.label(text="Parts the model lacks: an engine, a battery, a motor", icon="INFO")
+        layout.template_list(
+            "IRSIM_UL_hidden", "", context.scene, "objects", settings, "active_hidden_index", rows=3
+        )
+        layout.operator("irsim.add_hidden_part", text="Add hidden part...", icon="ADD")
+        ob = context.active_object
+        if ob is None or not ob.irsim_component.is_hidden_part:
+            return
+        comp = ob.irsim_component
+        box = layout.box()
+        box.use_property_split = True
+        box.label(text=ob.name, icon="MESH_CUBE")
+        box.prop(comp, "kind")
+        box.prop(ob, "dimensions", text="Size")
+        box.prop(comp, "mass_kg")
+        box.prop(comp, "heat_idle_w")
+        box.prop(comp, "heat_rated_w")
+        box.prop(comp, "values_source")
+        box.prop(comp, "reference")
+        thermal = sorted(
+            {s.material.irsim_material for s in ob.material_slots if s.material} - {""}
+        )
+        box.label(
+            text=f"Material: {', '.join(thermal)}" if thermal else "Material: assign one below",
+            icon="MATERIAL" if thermal else "ERROR",
+        )
+        if ob.parent is not None:
+            box.label(text=f"Inside {ob.parent.name}, and moves with it", icon="LINKED")
+
+
+class ConnectionsPanel(_Base, Panel):
+    bl_idname = "IRSIM_PT_connections"
+    bl_parent_id = "IRSIM_PT_main"
+    bl_label = "Connections"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.irsim
+        connections = context.scene.irsim_connections
+        col = layout.column(align=True)
+        col.prop(settings, "touch_gap_m")
+        col.prop(settings, "facing_gap_m")
+        col.prop(settings, "samples")
+        row = layout.row(align=True)
+        row.operator("irsim.find_connections", icon="VIEWZOOM")
+        row.prop(settings, "show_connections", text="", icon="HIDE_OFF")
+        if not len(connections):
+            layout.label(text="Nothing found yet", icon="INFO")
+            op = layout.operator("irsim.add_connection", text="Connect the two selected")
+            op.kind = "CONTACT"
+            return
+        found = sum(1 for c in connections if c.status == "FOUND")
+        layout.label(
+            text=f"{len(connections)} connections, {found} to review",
+            icon="QUESTION" if found else "CHECKMARK",
+        )
+        layout.template_list(
+            "IRSIM_UL_connections",
+            "",
+            context.scene,
+            "irsim_connections",
+            settings,
+            "active_connection_index",
+            rows=5,
+        )
+        row = layout.row(align=True)
+        op = row.operator("irsim.add_connection", text="Connect selected", icon="ADD")
+        op.kind = "CONTACT"
+        if found:
+            row.operator("irsim.confirm_all_connections", icon="CHECKMARK")
+        index = settings.active_connection_index
+        if not 0 <= index < len(connections):
+            return
+        c = connections[index]
+        box = layout.box()
+        box.label(text=_connection_text(c), icon=ConnectionsList.KIND_ICONS[c.kind])
+        col = box.column()
+        col.use_property_split = True
+        col.prop(c, "kind")
+        col.prop(c, "status")
+        col.prop(c, "area_m2")
+        if c.kind == "CONTACT":
+            col.prop_search(c, "joint", context.window_manager, "irsim_joints")
+            joint = context.window_manager.irsim_joints.get(c.joint)
+            if joint is not None:
+                box.label(
+                    text=f"{joint.h_c_w_m2_k:,.0f} W/m²K ({joint.status.lower()}), "
+                    f"{joint.h_c_w_m2_k * c.area_m2:.3g} W/K over this area"
+                )
+        else:
+            col.prop(c, "area_ba_m2")
+            col.prop(c, "gap_m")
+            box.label(text="Looking-at area, not a view factor (roadmap TC.9)", icon="INFO")
+        row = box.row(align=True)
+        op = row.operator("irsim.select_connection", text="Select", icon="RESTRICT_SELECT_OFF")
+        op.index = index
+        op = row.operator("irsim.set_connection_status", text="Confirm", icon="CHECKMARK")
+        op.index, op.status = index, "CONFIRMED"
+        op = row.operator("irsim.set_connection_status", text="Reject", icon="X")
+        op.index, op.status = index, "REJECTED"
+        op = row.operator("irsim.remove_connection", text="", icon="TRASH")
+        op.index = index
+
+
 class ExportPanel(_Base, Panel):
     bl_idname = "IRSIM_PT_export"
     bl_parent_id = "IRSIM_PT_main"
@@ -320,9 +511,13 @@ classes = (
     PartsList,
     LibraryList,
     IssuesList,
+    HiddenList,
+    ConnectionsList,
     MainPanel,
     PartsPanel,
     LibraryPanel,
+    HiddenPartsPanel,
+    ConnectionsPanel,
     ExportPanel,
 )
 

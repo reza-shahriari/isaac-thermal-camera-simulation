@@ -7,7 +7,8 @@ library, and every file it writes into the repository, goes through this script,
 ``irsim`` from the repository it is pointed at and uses the project's own loaders:
 
 * ``library``        -- every material, with ε/ρ/τ per band as ``Material.band_properties``
-                        derives them (so a spectral material shows its band-integrated values).
+                        derives them (so a spectral material shows its band-integrated values),
+                        and the joint table (``configs/thermal/joints.yaml``) a contact names.
 * ``check-material`` -- validate a draft exactly as the loader will, and return its derived bands.
 * ``write-material`` -- the same, then write ``configs/materials/<name>.yaml`` and reload the
                         whole library; a file that breaks the library is removed again.
@@ -16,6 +17,11 @@ library, and every file it writes into the repository, goes through this script,
 * ``write-asset``    -- validate and write ``configs/assets/<name>.yaml``
                         (``irsim.materials.mapping.AssetConfig``), then reload it with every target
                         checked against the library.
+* ``write-structure`` -- the contacts, facing pairs and hidden parts, checked against the parts,
+                        the joint table and the library, written to
+                        ``3d_models/<name>/<name>.structure.yaml``. The asset config has no
+                        place for them yet (roadmap row AI.11); when it has, the export moves them
+                        there and this file goes away.
 
 Protocol, so a banner on stdout can never be mistaken for a result::
 
@@ -155,7 +161,23 @@ def cmd_library(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> d
         "library_hash": library.content_hash(),
         "material_dir": str(material_dir),
         "materials": [_material_record(library[n], repo, band_ids) for n in sorted(library)],
+        "joints": _joint_records(),
     }
+
+
+def _joint_records() -> list[dict]:
+    from irsim.config.joints import load_joint_table
+
+    table = load_joint_table()
+    return [
+        {
+            "name": name,
+            "h_c_w_m2_k": spec.h_c_w_m2_k,
+            "status": spec.status,
+            "source": " ".join(spec.source.split()),
+        }
+        for name, spec in sorted(table.joints.items())
+    ]
 
 
 def _validated_material(
@@ -413,6 +435,117 @@ def cmd_write_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) 
     return {"ok": True, "file": str(target), "materials": dict(reloaded.materials)}
 
 
+def _structure_yaml(name: str, doc: dict) -> str:
+    import yaml
+
+    today = datetime.date.today().isoformat()
+    header = [
+        f"# {name}: contacts, facing pairs and hidden parts, from the {MARKER}",
+        f"# (blender_addon/irsim_thermal) on {today}.",
+        "#",
+        "# contacts:     two parts that touch; `joint` names configs/thermal/joints.yaml,",
+        "#               `area_m2` is the area where they touch.",
+        "# facing:       two parts that look straight at each other across `gap_m`; `area_m2`",
+        "#               is, for each, the area whose outward normal reaches the other. This is",
+        "#               not a view factor (roadmap TC.9).",
+        "# hidden_parts: parts the model does not have (an engine inside a car shell), each a box",
+        "#               in the model's frame, in metres, with its mass and heat output.",
+        "# `reviewed: false` marks what the finder proposed and nobody has looked at yet.",
+        "#",
+        "# The asset config has no place for these yet (roadmap AI.11). Until it has, this file",
+        "# sits beside the exported USD and nothing in irsim reads it.",
+    ]
+    body = yaml.safe_dump(doc, sort_keys=False, default_flow_style=None, allow_unicode=True)
+    return "\n".join(header) + "\n" + body
+
+
+def cmd_write_structure(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
+    """Check the connections and hidden parts the way AI.11's loader is specified to, then write.
+
+    With ``check_only`` it stops after the check: the export asks first, so a refusal arrives
+    before the USD or the asset config is written.
+
+    Refused, as the roadmap row lists: a contact naming a part that is not there, a joint not in
+    the table, a contact area larger than either part's area, a hidden part without a mass. Also
+    refused: a hidden part whose material is not in the library, or whose heat at full load is
+    below its heat at idle.
+    """
+    from irsim.config.joints import load_joint_table
+    from irsim.materials.library import MaterialLibrary
+
+    name = str(payload.get("name", ""))
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+        raise RefusalError(f"asset name {name!r} is not valid", kind="invalid")
+    part_areas = {str(k): float(v) for k, v in payload.get("part_areas", {}).items()}
+    hidden = list(payload.get("hidden_parts", []))
+    names = set(part_areas) | {str(h.get("name", "")) for h in hidden}
+    joints = load_joint_table().joints
+    library = MaterialLibrary.load(_material_dir(args, repo))
+    problems: list[str] = []
+
+    for h in hidden:
+        what = f"hidden part {h.get('name')!r}"
+        if not float(h.get("mass_kg", 0.0)) > 0.0:
+            problems.append(f"{what} has no mass")
+        if h.get("material") not in library.names:
+            problems.append(f"{what}: {h.get('material')!r} is not a library material")
+        heat = h.get("heat_w", {})
+        if float(heat.get("rated", 0.0)) < float(heat.get("idle", 0.0)):
+            problems.append(f"{what} makes less heat at full load than at idle")
+        if min(h.get("box", {}).get("size_m", [0.0])) <= 0.0:
+            problems.append(f"{what} has no size")
+        part_areas.setdefault(str(h.get("name", "")), float(h.get("area_m2", 0.0)))
+    for kind in ("contacts", "facing"):
+        for c in payload.get(kind, []):
+            a, b = (str(x) for x in c.get("parts", ("", "")))
+            what = f"{kind[:-1] if kind == 'contacts' else 'facing pair'} {a} / {b}"
+            missing = [x for x in (a, b) if x not in names]
+            if missing:
+                problems.append(f"{what}: no part named {missing}")
+                continue
+            if a == b:
+                problems.append(f"{what}: a part cannot be connected to itself")
+            if kind == "contacts":
+                if c.get("joint") not in joints:
+                    problems.append(f"{what}: joint {c.get('joint')!r} is not in joints.yaml")
+                area = float(c.get("area_m2", 0.0))
+                smaller = min(part_areas.get(a, 0.0), part_areas.get(b, 0.0))
+                if not area > 0.0:
+                    problems.append(f"{what}: no contact area")
+                elif area > smaller * 1.0001:
+                    problems.append(
+                        f"{what}: a contact of {area:.4g} m2 is larger than the smaller part "
+                        f"({smaller:.4g} m2)"
+                    )
+    if problems:
+        raise RefusalError("\n".join(problems), kind="invalid")
+    if payload.get("check_only"):
+        return {"ok": True, "checked": True}
+
+    models = pathlib.Path(args.models_dir) if args.models_dir else repo / "3d_models"
+    target = models / name / f"{name}.structure.yaml"
+    if target.exists():
+        if not _by_addon(target):
+            raise RefusalError(f"{target.name} was not written by the add-on", kind="handwritten")
+        if not payload.get("overwrite"):
+            raise RefusalError(f"{target.name} exists (from an earlier export)", kind="exists")
+    doc = {
+        "asset": name,
+        "contacts": list(payload.get("contacts", [])),
+        "facing": list(payload.get("facing", [])),
+        "hidden_parts": [{k: v for k, v in h.items() if k != "area_m2"} for h in hidden],
+    }
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(_structure_yaml(name, doc), encoding="utf-8")
+    return {
+        "ok": True,
+        "file": str(target),
+        "contacts": len(doc["contacts"]),
+        "facing": len(doc["facing"]),
+        "hidden_parts": len(doc["hidden_parts"]),
+    }
+
+
 COMMANDS = {
     "library": cmd_library,
     "check-material": cmd_check_material,
@@ -420,6 +553,7 @@ COMMANDS = {
     "list-assets": cmd_list_assets,
     "read-asset": cmd_read_asset,
     "write-asset": cmd_write_asset,
+    "write-structure": cmd_write_structure,
 }
 
 
@@ -431,6 +565,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--in", dest="payload", type=pathlib.Path, default=None)
     ap.add_argument("--material-dir", default=None, help="default: <repo>/configs/materials")
     ap.add_argument("--assets-dir", default=None, help="default: <repo>/configs/assets")
+    ap.add_argument("--models-dir", default=None, help="default: <repo>/3d_models")
     args = ap.parse_args(argv)
 
     repo = args.repo.expanduser().resolve()

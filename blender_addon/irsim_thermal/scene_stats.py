@@ -13,7 +13,17 @@ from .library_state import emissivity_lwir
 
 def part_objects(context: bpy.types.Context) -> list[bpy.types.Object]:
     """The parts: every mesh object in the scene that renders. The export writes exactly these."""
-    return [ob for ob in context.scene.objects if ob.type == "MESH" and not ob.hide_render]
+    return [
+        ob
+        for ob in context.scene.objects
+        if ob.type == "MESH" and not ob.hide_render and not ob.irsim_component.is_hidden_part
+    ]
+
+
+def hidden_parts(context: bpy.types.Context) -> list[bpy.types.Object]:
+    """The hidden parts (:mod:`.hidden_parts`): boxes the camera never sees."""
+    objects = context.scene.objects
+    return [ob for ob in objects if ob.type == "MESH" and ob.irsim_component.is_hidden_part]
 
 
 def _area_scale(ob: bpy.types.Object) -> float:
@@ -54,6 +64,15 @@ def world_extent(objects: list[bpy.types.Object]) -> tuple[float, float, float]:
     rotated parent chain and re-taking min/max inflates it -- the mistake that once turned the
     Phantom 4's 41 x 46 cm into 60 x 62 cm (``configs/assets/phantom4_parts.yaml``).
     """
+    lo, hi = world_bounds(objects)
+    if not np.all(np.isfinite(lo)):
+        return (0.0, 0.0, 0.0)
+    ext = hi - lo
+    return (float(ext[0]), float(ext[1]), float(ext[2]))
+
+
+def world_bounds(objects: list[bpy.types.Object]) -> tuple[np.ndarray, np.ndarray]:
+    """World-axis box ``(lo, hi)`` around the objects' vertices (infinite when there are none)."""
     lo = np.full(3, np.inf)
     hi = np.full(3, -np.inf)
     for ob in objects:
@@ -67,10 +86,7 @@ def world_extent(objects: list[bpy.types.Object]) -> tuple[float, float, float]:
         world = co.reshape(-1, 3).astype(np.float64) @ m[:3, :3].T + m[:3, 3]
         lo = np.minimum(lo, world.min(axis=0))
         hi = np.maximum(hi, world.max(axis=0))
-    if not np.all(np.isfinite(lo)):
-        return (0.0, 0.0, 0.0)
-    ext = hi - lo
-    return (float(ext[0]), float(ext[1]), float(ext[2]))
+    return lo, hi
 
 
 def used_materials(objects: list[bpy.types.Object]) -> set[bpy.types.Material]:
@@ -111,7 +127,8 @@ def refresh(context: bpy.types.Context) -> coverage.Summary:
         issue.area_m2 = part.unassigned_area_m2
         share = part.unassigned_area_m2 / part.total_area_m2 if part.total_area_m2 else 1.0
         materials = ", ".join(sorted(part.unassigned_by_material_m2))
-        issue.detail = f"{100.0 * share:.0f} % of it has no thermal material ({materials})"
+        # Material names first: the list row is narrow, and they are what tells you what it is.
+        issue.detail = f"{materials}: no thermal material ({100.0 * share:.0f} % of it)"
     for part_name, thermal, eps in result.mirror_parts:
         issue = settings.issues.add()
         issue.name = part_name
@@ -126,4 +143,31 @@ def refresh(context: bpy.types.Context) -> coverage.Summary:
             issue.name = ob.name
             issue.kind = "NAME"
             issue.detail = "a default name: rename the part to what it is, e.g. propeller_left"
+    for ob in hidden_parts(context):
+        comp = ob.irsim_component
+        missing = []
+        if not any(s.material and s.material.irsim_material for s in ob.material_slots):
+            missing.append("a material")
+        if comp.mass_kg <= 0.0:
+            missing.append("a mass")
+        if comp.heat_rated_w < comp.heat_idle_w:
+            missing.append("full-load heat at least its idle heat")
+        if missing:
+            issue = settings.issues.add()
+            issue.name = ob.name
+            issue.kind = "HIDDEN"
+            issue.detail = "hidden part needs " + ", ".join(missing)
+    connections = context.scene.irsim_connections
+    for c in connections:
+        if c.a is None or c.b is None:
+            issue = settings.issues.add()
+            issue.name = (c.a or c.b).name if (c.a or c.b) else "connection"
+            issue.kind = "CONNECTION"
+            issue.detail = "a connection lost one of its parts (deleted or joined): delete it"
+    unreviewed = sum(1 for c in connections if c.status == "FOUND")
+    if unreviewed:
+        issue = settings.issues.add()
+        issue.name = "Connections"
+        issue.kind = "CONNECTION"
+        issue.detail = f"{unreviewed} found by the finder and not reviewed yet"
     return result

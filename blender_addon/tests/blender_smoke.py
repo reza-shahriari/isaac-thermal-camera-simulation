@@ -174,7 +174,14 @@ def ui_checks(ctx) -> None:
         calls: list = []
         return types.SimpleNamespace(layout=FakeLayout(calls), **extra), calls
 
-    panels = (ui.MainPanel, ui.PartsPanel, ui.LibraryPanel, ui.ExportPanel)
+    panels = (
+        ui.MainPanel,
+        ui.PartsPanel,
+        ui.LibraryPanel,
+        ui.HiddenPartsPanel,
+        ui.ConnectionsPanel,
+        ui.ExportPanel,
+    )
     helpers = {"_details": ui.LibraryPanel._details, "_size": ui.ExportPanel._size}
     s = ctx.scene.irsim
     s.size_help, s.size_kind, s.known_dimension_m = True, "multirotor", 0.0
@@ -231,6 +238,192 @@ def ui_checks(ctx) -> None:
     me, calls = fake(repo_root="", python_path="", bl_rna=prefs.IrsimPreferences.bl_rna)
     prefs.IrsimPreferences.draw(me, ctx)
     check("operator" in calls, "the preferences draw")
+
+
+def structure_checks(ctx, repo: pathlib.Path) -> None:
+    """Connections and hidden parts, on shapes whose answers are known exactly.
+
+    * ``block`` (1 m cube) with ``lid`` (0.5 m cube) standing on it: one contact of 0.25 m², and
+      no facing pair between them (the lid's sides look sideways at nothing);
+    * three 1 m plates stacked 0.2 m apart, facing: ``plate_a`` up, ``plate_b`` and ``plate_c``
+      down. a and b face each other fully, b hides c from a, and c looks down onto b's back;
+    * ``far``, a cube 10 m away, connected to nothing.
+    """
+    from irsim_thermal import export, scene_stats, ui
+
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.delete()
+    ctx.scene.irsim_connections.clear()
+    ctx.scene.irsim.touch_gap_m = ctx.scene.irsim.facing_gap_m = 0.0
+    block = add("cube", "block", size=1.0)
+    add("cube", "lid", location=(0.0, 0.0, 0.75), size=0.5)
+    add("plane", "plate_a", location=(3.0, 0.0, 0.0), size=1.0)
+    plate_b = add("plane", "plate_b", location=(3.0, 0.0, 0.2), size=1.0)
+    plate_c = add("plane", "plate_c", location=(3.0, 0.0, 0.4), size=1.0)
+    for plate in (plate_b, plate_c):
+        plate.rotation_euler = (math.pi, 0.0, 0.0)
+    add("cube", "far", location=(10.0, 0.0, 0.0), size=0.5)
+    ctx.view_layer.update()
+
+    check(bpy.ops.irsim.find_connections() == {"FINISHED"}, "the connection finder runs")
+    found = {(frozenset((c.a.name, c.b.name)), c.kind): c for c in ctx.scene.irsim_connections}
+    contact = found.get((frozenset(("block", "lid")), "CONTACT"))
+    check(
+        contact is not None and abs(contact.area_m2 - 0.25) < 0.0125,
+        "the lid touches the block over 0.25 m² (found "
+        f"{contact.area_m2 if contact else 0:.4f}, 5 % allowed)",
+    )
+    check(contact is not None and contact.joint == "dry_default", "a found contact starts dry")
+    check(
+        (frozenset(("block", "lid")), "FACING") not in found,
+        "touching parts are not also listed as facing",
+    )
+    ab = found.get((frozenset(("plate_a", "plate_b")), "FACING"))
+    check(
+        ab is not None
+        and abs(ab.area_m2 - 1.0) < 0.05
+        and abs(ab.area_ba_m2 - 1.0) < 0.05
+        and abs(ab.gap_m - 0.2) < 0.002,
+        "plates a and b face each other fully across 0.2 m "
+        f"({ab.area_m2 if ab else 0:.3f} / {ab.area_ba_m2 if ab else 0:.3f} m², "
+        f"gap {ab.gap_m if ab else 0:.4f} m)",
+    )
+    check(
+        (frozenset(("plate_a", "plate_c")), "FACING") not in found,
+        "plate b hides plate c from plate a",
+    )
+    check(
+        (frozenset(("plate_b", "plate_c")), "FACING") in found,
+        "plate c looks down onto plate b's back",
+    )
+    check(not any("far" in key[0] for key in found), "the part 10 m away is connected to nothing")
+    check(
+        all(c.status == "FOUND" for c in ctx.scene.irsim_connections),
+        "everything found waits for review",
+    )
+
+    # The person's verdicts survive a new search.
+    connections_list = list(ctx.scene.irsim_connections)
+    i_contact = connections_list.index(contact)
+    i_ab = connections_list.index(ab)
+    bpy.ops.irsim.set_connection_status(index=i_contact, status="CONFIRMED")
+    bpy.ops.irsim.set_connection_status(index=i_ab, status="REJECTED")
+    contact.joint = "bolted_ferrous_new"
+    n_before = len(ctx.scene.irsim_connections)
+    bpy.ops.irsim.find_connections()
+    after = {(frozenset((c.a.name, c.b.name)), c.kind): c for c in ctx.scene.irsim_connections}
+    check(len(after) == n_before, "a second search neither adds nor loses a connection")
+    kept = after[(frozenset(("block", "lid")), "CONTACT")]
+    check(
+        kept.status == "CONFIRMED" and kept.joint == "bolted_ferrous_new",
+        "a confirmed contact stays confirmed, with the joint the person chose",
+    )
+    check(
+        after[(frozenset(("plate_a", "plate_b")), "FACING")].status == "REJECTED",
+        "a rejected pair stays rejected",
+    )
+
+    # A connection added by hand.
+    far = ctx.scene.objects["far"]
+    select_only(far, block)
+    check(bpy.ops.irsim.add_connection(kind="CONTACT") == {"FINISHED"}, "a contact is added")
+    added = ctx.scene.irsim_connections[ctx.scene.irsim.active_connection_index]
+    check(
+        added.status == "ADDED" and added.area_m2 == 0.0,
+        "by hand, with no area measured because the parts do not touch",
+    )
+    added.area_m2 = 0.01
+
+    # A hidden part.
+    select_only(block)
+    result = bpy.ops.irsim.add_hidden_part(
+        part_name="engine block",
+        kind="PISTON_ENGINE",
+        size=(0.3, 0.3, 0.3),
+        material="rusted_steel",
+        mass_kg=0.0,
+        heat_idle_w=1000.0,
+        heat_rated_w=5000.0,
+    )
+    engine = ctx.scene.objects.get("engine_block")
+    check(result == {"FINISHED"} and engine is not None, "a hidden part is added, named safely")
+    check(
+        engine.irsim_component.is_hidden_part and engine.hide_render and engine.parent == block,
+        "it is marked hidden, never rendered, and moves with the part it is inside",
+    )
+    centre, size = __import__("irsim_thermal.hidden_parts", fromlist=["x"]).world_box(engine)
+    check(
+        centre.length < 1e-6 and all(abs(v - 0.3) < 1e-6 for v in size),
+        "it sits in the middle of the block, at the size asked for",
+    )
+    parts = scene_stats.part_objects(ctx)
+    check(engine not in parts, "it is not a part the USD exports")
+    kinds = {(i.kind, i.name) for i in ctx.scene.irsim.issues}
+    check(("HIDDEN", "engine_block") in kinds, "the checklist asks for its mass")
+    engine.irsim_component.mass_kg = 80.0
+    scene_stats.refresh(ctx)
+    kinds = {(i.kind, i.name) for i in ctx.scene.irsim.issues}
+    check(("HIDDEN", "engine_block") not in kinds, "and stops asking once it has one")
+    check(
+        ("CONNECTION", "Connections") in kinds,
+        "the checklist says how many connections are unreviewed",
+    )
+    bpy.ops.irsim.find_connections()
+    found = {(frozenset((c.a.name, c.b.name)), c.kind): c for c in ctx.scene.irsim_connections}
+    check(
+        (frozenset(("block", "engine_block")), "FACING") in found,
+        "the finder sees the hidden engine facing the block around it",
+    )
+
+    # Every panel draws with all of it in place.
+    ctx.view_layer.objects.active = engine
+    ctx.scene.irsim.active_connection_index = 0
+    ui_checks(ctx)
+    me = types_ns(ui)
+    for conn in ctx.scene.irsim_connections:
+        ui.ConnectionsList.draw_item(me, ctx, me.layout, ctx.scene, conn, 0, None, "", 0)
+    ui.HiddenList.draw_item(me, ctx, me.layout, ctx.scene, engine, 0, None, "", 0)
+    check(True, "the connection and hidden-part rows draw")
+
+    # Export: the structure file beside the model, checked by the bridge.
+    select_only(*parts)
+    bpy.ops.irsim.assign(material="carbon_fibre", scope="PARTS")
+    ctx.scene.irsim.asset_name = "smoke_structure"
+    check(bpy.ops.irsim.export_asset() == {"FINISHED"}, "the model exports with its structure")
+    path = export.structure_path(repo, "smoke_structure")
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    check("joint: bolted_ferrous_new" in text, "the confirmed contact is written, with its joint")
+    check("parts: [plate_a, plate_b]" not in text, "the rejected pair is left out")
+    check("parts: [plate_b, plate_c]" in text, "an unreviewed pair is written...")
+    check("reviewed: false" in text, "...marked as unreviewed")
+    check("name: engine_block" in text and "mass_kg: 80.0" in text, "the hidden part is written")
+    usd = repo / "3d_models" / "smoke_structure" / "smoke_structure.usdc"
+    from pxr import Usd
+
+    stage = Usd.Stage.Open(str(usd))  # kept: a stage freed mid-traversal expires its prims
+    names = {p.GetName() for p in stage.Traverse()}
+    del stage  # an open layer would stop the next export writing the same file
+    check("engine_block" not in names and "block" in names, "the hidden part is not in the USD")
+
+    contact.joint = "welded_magic"
+    ctx.scene.irsim.replace_export = True
+    before = usd.stat().st_mtime_ns
+    try:
+        bpy.ops.irsim.export_asset()
+        check(False, "a joint the table lacks is refused")
+    except RuntimeError as exc:
+        check("not in joints.yaml" in str(exc), "a joint the table lacks is refused")
+    check(usd.stat().st_mtime_ns == before, "...before anything is written")
+
+
+def types_ns(ui):
+    import types
+
+    return types.SimpleNamespace(
+        layout=FakeLayout([]),
+        KIND_ICONS=ui.ConnectionsList.KIND_ICONS,
+        STATUS_ICONS=ui.ConnectionsList.STATUS_ICONS,
+    )
 
 
 def main() -> None:
@@ -599,6 +792,9 @@ def main() -> None:
         print("---- prep_asset output (tail) ----")
         print("\n".join(output.strip().splitlines()[-25:]))
         check(status == 0, f"scripts/prep_asset.py passes the exported asset (exit {status})")
+
+    # --- 11. connections and hidden parts --------------------------------------------------------
+    structure_checks(ctx, repo)
 
     print(f"\n{len(failures)} failure(s)")
     if failures:

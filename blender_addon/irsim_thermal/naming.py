@@ -36,9 +36,13 @@ MAX_NAME_BYTES = 63
 SPLIT_SEPARATOR = "__"
 
 _UNSAFE = re.compile(r"[^A-Za-z0-9_]")
+#: Names Blender, an exporter or a converter made up: Blender's primitives, 3ds Max's ``Box001``,
+#: Maya's ``pCube1`` and ``polySurface12``, and Sketchfab's glTF conversion, which calls every
+#: part of the DJI Phantom 4 ``GeometryNode_57``.
 _DEFAULT = re.compile(
     r"^(Cube|Sphere|UVSphere|Icosphere|Cylinder|Cone|Plane|Circle|Torus|Grid|Monkey|Suzanne|"
-    r"Mesh|Object|Material|Untitled|Default|mesh|object)(\.\d+|_\d+)?$"
+    r"Mesh|Object|Material|Untitled|Default|mesh|object|GeometryNode|Node|Shape|Box|Rectangle|"
+    r"Line|pCube|pCylinder|pSphere|pPlane|polySurface|defaultMaterial)(\.\d+|_\d+|\d+)?$"
 )
 
 

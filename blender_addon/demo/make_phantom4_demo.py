@@ -11,7 +11,9 @@ add-on's own operators, what a person would do by hand:
 2. *Apply scale* x0.01;
 3. *Load materials from an asset*: ``configs/assets/phantom4.yaml``, the hand-written map;
 4. *Check model*: coverage, mirror-like parts;
-5. switch on the thermal view and save ``phantom4_thermal_demo.blend``, which opens with the
+5. with ``--structure``: add the flight battery the model lacks, as a hidden part inside the
+   body shell, and run the connection finder over all 41 parts and the battery;
+6. switch on the thermal view and save ``phantom4_thermal_demo.blend``, which opens with the
    sidebar showing and the viewport shaded by LWIR emissivity.
 
 ``--render`` adds CPU (Cycles) pictures, framed on the aircraft: the model as it looks, then the
@@ -20,7 +22,8 @@ global ``*metal*`` rule produced (ADR 0128: motor housings as bare aluminium, ε
 show as mirrors), and the hand-written map. Those grey levels are **the LWIR emissivity of the
 assigned material, not a thermal image**. ``--export-scratch`` exports through the add-on into a
 scratch copy of the repository and runs ``scripts/prep_asset.py`` on the result, which checks the
-add-on on a 2.5-million-face asset.
+add-on on a 2.5-million-face asset. With ``--structure --render``, one more picture shows the shell
+see-through, the hidden battery inside it and every connection found, drawn as lines.
 """
 
 import argparse
@@ -39,6 +42,23 @@ HERE = pathlib.Path(__file__).resolve()
 ADDON_ROOT = HERE.parents[1]
 REPO = ADDON_ROOT.parent
 FBX = REPO / "3d_models" / "phantom4.fbx"
+
+#: The flight battery the model lacks. Mass: DJI's published 468 g for the Phantom 4 Pro
+#: Intelligent Flight Battery. Size and heat are estimates, and say so.
+BATTERY = {
+    "part_name": "battery",
+    "kind": "BATTERY",
+    "material": "abs_plastic_white",
+    "mass_kg": 0.468,
+    "heat_idle_w": 0.5,
+    "heat_rated_w": 25.0,
+    "values_source": "ESTIMATED",
+    "reference": (
+        "mass 468 g: DJI Phantom 4 Pro specification. Heat estimated as I^2 R in a 4S pack of "
+        "about 40 mOhm: ~10 A in hover (150 W at 15.2 V) gives 4 W, 25 A at full climb 25 W"
+    ),
+}
+BATTERY_SIZE_M = (0.14, 0.07, 0.04)  # estimated to fit the battery bay; long side fore-aft
 
 #: What ADR 0128 measured the old global glob doing to this asset: `*metal*` -> bare_aluminium.
 OLD_GLOB_METAL = ("Metal_Matte", "_DJI_Phantom_4_ProMetal_Matte", "metal_radial")
@@ -150,6 +170,109 @@ def open_viewports_on_the_thermal_view(parts) -> None:
                 space.region_3d.view_distance = 1.2
 
 
+def add_structure(ctx, parts, summary: dict) -> None:
+    """The battery inside the body, then the connection finder over everything."""
+    from irsim_thermal import hidden_parts, scene_stats
+
+    body = max(parts, key=lambda ob: scene_stats.part_stats(ob).total_area_m2)
+    centre, _ = hidden_parts.world_box(body)
+    # Fore-aft is towards the camera gimbal; the battery slides in from the back along it.
+    gimbal = next(
+        ob
+        for ob in parts
+        if any(s.material and "camera" in s.material.name for s in ob.material_slots)
+    )
+    ahead = hidden_parts.world_box(gimbal)[0] - centre
+    long_x = abs(ahead.x) >= abs(ahead.y)
+    summary["forward_axis"] = "x" if long_x else "y"
+    box = BATTERY_SIZE_M if long_x else (BATTERY_SIZE_M[1], BATTERY_SIZE_M[0], BATTERY_SIZE_M[2])
+    for ob in ctx.selected_objects:
+        ob.select_set(False)
+    body.select_set(True)
+    ctx.view_layer.objects.active = body
+    bpy.ops.irsim.add_hidden_part(size=box, **BATTERY)
+    summary["battery_inside"] = body.name
+    t0 = time.perf_counter()
+    bpy.ops.irsim.find_connections()
+    summary["find_connections_s"] = round(time.perf_counter() - t0, 1)
+    found = list(ctx.scene.irsim_connections)
+    summary["contacts"] = sum(1 for c in found if c.kind == "CONTACT")
+    summary["facing_pairs"] = sum(1 for c in found if c.kind == "FACING")
+    summary["battery_connections"] = sorted(
+        f"{c.kind.lower()} {c.b.name if c.a.name == 'battery' else c.a.name} "
+        f"{c.area_m2 * 1e4:.3g} cm2"
+        for c in found
+        if "battery" in (c.a.name, c.b.name)
+    )
+    ctx.scene.irsim.show_connections = True
+
+
+def _emission(name: str, colour, strength: float = 1.0) -> bpy.types.Material:
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+    out = tree.nodes.new("ShaderNodeOutputMaterial")
+    emit = tree.nodes.new("ShaderNodeEmission")
+    emit.inputs["Color"].default_value = colour
+    emit.inputs["Strength"].default_value = strength
+    tree.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+    return mat
+
+
+def _ghost(mat: bpy.types.Material) -> None:
+    """Make a material see-through, keeping a hint of its colour."""
+    tree = mat.node_tree
+    if tree is None:
+        return
+    tree.nodes.clear()
+    out = tree.nodes.new("ShaderNodeOutputMaterial")
+    mix = tree.nodes.new("ShaderNodeMixShader")
+    clear = tree.nodes.new("ShaderNodeBsdfTransparent")
+    diffuse = tree.nodes.new("ShaderNodeBsdfDiffuse")
+    diffuse.inputs["Color"].default_value = (0.8, 0.8, 0.82, 1.0)
+    mix.inputs["Fac"].default_value = 0.22
+    tree.links.new(clear.outputs[0], mix.inputs[1])
+    tree.links.new(diffuse.outputs[0], mix.inputs[2])
+    tree.links.new(mix.outputs[0], out.inputs["Surface"])
+
+
+def render_structure(ctx, out: pathlib.Path, samples: int) -> None:
+    """The shell see-through, the battery solid orange, contacts orange and facing pairs blue."""
+    from irsim_thermal import overlay
+
+    battery = ctx.scene.objects["battery"]
+    for mat in bpy.data.materials:
+        _ghost(mat)
+    solid = battery.copy()
+    solid.data = battery.data.copy()
+    solid.hide_render = False
+    solid.irsim_component.is_hidden_part = False
+    solid.data.materials.clear()
+    solid.data.materials.append(_emission("demo_battery", (1.0, 0.35, 0.05, 1.0), 2.0))
+    ctx.collection.objects.link(solid)
+    radius = 0.0008
+    # No connection is selected in the picture: every contact is its cross, none its lines.
+    ctx.scene.irsim.active_connection_index = -1
+    lines = []
+    for points, colour, _ in overlay.segments(ctx):
+        curve = bpy.data.curves.new("demo_line", "CURVE")
+        curve.dimensions = "3D"
+        curve.bevel_depth = radius
+        for i in range(0, len(points), 2):
+            spline = curve.splines.new("POLY")
+            spline.points.add(1)
+            for j, p in enumerate(points[i : i + 2]):
+                spline.points[j].co = (*p, 1.0)
+        curve.materials.append(_emission("demo_line", (*colour[:3], 1.0), 1.5))
+        ob = bpy.data.objects.new("demo_line", curve)
+        ctx.collection.objects.link(ob)
+        lines.append(ob)
+    render(out / "phantom4_structure.png", samples)
+    for ob in [solid, *lines]:
+        bpy.data.objects.remove(ob)
+
+
 def scratch_repo(root: pathlib.Path) -> pathlib.Path:
     if root.exists():
         shutil.rmtree(root)
@@ -168,6 +291,7 @@ def main() -> None:
     ap.add_argument("--render", action="store_true")
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--export-scratch", type=pathlib.Path, default=None)
+    ap.add_argument("--structure", action="store_true", help="add the battery, find connections")
     args = ap.parse_args(argv)
     if not FBX.exists():
         raise SystemExit(f"{FBX} is not here (it is git-ignored local data)")
@@ -216,6 +340,9 @@ def main() -> None:
         {f"{m.name} -> {m.irsim_material}" for m in scene_stats.used_materials(parts)}
     )
 
+    if args.structure:
+        add_structure(ctx, parts, summary)
+
     ctx.scene.irsim.thermal_view = True
     thermal_view.apply(ctx)
     open_viewports_on_the_thermal_view(parts)
@@ -252,6 +379,8 @@ def main() -> None:
         light_for_look()
         t0 = time.perf_counter()
         render(out / "phantom4_look.png", args.samples)
+        if args.structure:
+            render_structure(ctx, out, args.samples)
         states = {
             "1_unassigned": {},
             "2_old_metal_glob": {

@@ -9,6 +9,10 @@ What the export writes, all inside the repository the add-on is pointed at:
 * ``configs/assets/<name>.yaml`` -- the asset map, written and re-loaded by the bridge with the
   project's own ``AssetConfig`` and the library check, ``scale_to_metres: 1.0`` because the model
   is exported in metres.
+* ``3d_models/<name>/<name>.structure.yaml`` -- only when there are any: the contacts, facing
+  pairs and hidden parts (:mod:`.connections`, :mod:`.hidden_parts`), checked by the bridge. The
+  asset config has no place for them yet (roadmap AI.11). Rejected connections are left out;
+  ones nobody reviewed are written with ``reviewed: false``.
 
 ``3d_models/`` is git-ignored, so the geometry never lands in a commit; the YAML is the part meant
 to be reviewed and committed. Before anything is written, material and part names are made
@@ -69,7 +73,11 @@ def _rename(ids, renames: dict[str, str]) -> list[str]:
 
 
 def make_names_safe(parts) -> list[str]:
-    """Rename used materials, parts and their single-user meshes to USD-safe, map-safe names."""
+    """Rename used materials, parts and their single-user meshes to USD-safe, map-safe names.
+
+    ``parts`` includes the hidden parts: they are not in the USD, but the structure file names
+    them, and a contact between ``engine`` and ``floor_pan`` must name both the same way.
+    """
     used = scene_stats.used_materials(parts)
     notes = _rename(
         bpy.data.materials,
@@ -93,6 +101,10 @@ def make_names_safe(parts) -> list[str]:
         if me.users == 1 and me.name != ob.name:
             me.name = ob.name
     return notes
+
+
+def structure_path(repo: pathlib.Path, name: str) -> pathlib.Path:
+    return repo / "3d_models" / name / f"{name}.structure.yaml"
 
 
 def preflight(
@@ -123,7 +135,7 @@ def preflight(
                 "earlier export' to overwrite it."
             )
         return ""
-    clashes = [p.name for p in (usd_path, blend_path) if p.exists()]
+    clashes = [p.name for p in (usd_path, blend_path, structure_path(repo, name)) if p.exists()]
     if clashes:
         return (
             f"3d_models/{name}/ already holds {', '.join(clashes)}, which no export of this add-on "
@@ -176,16 +188,28 @@ class ExportAsset(Operator):
         view_was_on = settings.thermal_view
         if view_was_on:
             thermal_view.restore(context)
+        hidden = scene_stats.hidden_parts(context)
         try:
-            notes = make_names_safe(parts)
+            notes = make_names_safe(parts + hidden)
+            exported = [ob for ob in parts if ob.visible_get()]
+            structure = structure_payload(context, name, exported, hidden)
+            if structure is not None:
+                try:
+                    run_bridge(python, repo, "write-structure", {**structure, "check_only": True})
+                except BridgeError as exc:
+                    self.report(
+                        {"ERROR"},
+                        f"Nothing was exported; fix the connections or hidden parts:\n{exc}",
+                    )
+                    return {"CANCELLED"}
             out_dir.mkdir(parents=True, exist_ok=True)
 
             previous = (list(context.selected_objects), context.view_layer.objects.active)
             for ob in context.scene.objects:
                 ob.select_set(ob in parts and ob.visible_get())
-            hidden = [ob.name for ob in parts if not ob.visible_get()]
-            if hidden:
-                self.report({"WARNING"}, f"Hidden in the viewport, not exported: {hidden}")
+            off = [ob.name for ob in parts if not ob.visible_get()]
+            if off:
+                self.report({"WARNING"}, f"Hidden in the viewport, not exported: {off}")
             bpy.ops.wm.usd_export(
                 filepath=str(usd_path),
                 check_existing=False,
@@ -243,18 +267,101 @@ class ExportAsset(Operator):
                 else:
                     self.report({"ERROR"}, f"Asset config not written: {exc}")
                 return {"CANCELLED"}
+            written_structure = ""
+            if structure is not None:
+                structure["overwrite"] = True  # the asset config's own check above has decided
+                try:
+                    done = run_bridge(python, repo, "write-structure", structure)
+                except BridgeError as exc:  # checked above, so only a failure to write lands here
+                    self.report(
+                        {"ERROR"},
+                        f"The model and its materials were exported, but not its connections and "
+                        f"hidden parts:\n{exc}",
+                    )
+                    return {"CANCELLED"}
+                written_structure = (
+                    f" + {done['contacts']} contacts, {done['facing']} facing pairs, "
+                    f"{done['hidden_parts']} hidden parts"
+                )
+            else:
+                stale = structure_path(pathlib.Path(repo), name)
+                if stale.exists() and MARKER in stale.read_text(encoding="utf-8")[:200]:
+                    stale.unlink()  # an earlier export's, and this one has none
         finally:
             if view_was_on:
                 thermal_view.apply(context)
 
         settings.last_export = (
             f"{usd_path.relative_to(repo).as_posix()} + "
-            f"{pathlib.Path(result['file']).relative_to(repo).as_posix()}"
+            f"{pathlib.Path(result['file']).relative_to(repo).as_posix()}{written_structure}"
         )
         if notes:
             self.report({"WARNING"}, f"Renamed for USD: {'; '.join(notes)}")
         self.report({"INFO"}, f"Exported {name}: {settings.last_export}")
         return {"FINISHED"}
+
+
+def _area(ob: bpy.types.Object) -> float:
+    return float(scene_stats.part_stats(ob).total_area_m2)
+
+
+def structure_payload(context, name: str, exported, hidden) -> dict | None:
+    """The contacts, facing pairs and hidden parts to write, or ``None`` when there are none."""
+    names = {ob.name for ob in exported} | {ob.name for ob in hidden}
+    contacts, facing = [], []
+    for c in context.scene.irsim_connections:
+        if c.status == "REJECTED" or c.a is None or c.b is None:
+            continue
+        if c.a.name not in names or c.b.name not in names:
+            continue
+        record = {
+            "parts": sorted((c.a.name, c.b.name)),
+            "reviewed": c.status != "FOUND",
+            "found_by": "person" if c.status == "ADDED" else "finder",
+        }
+        if c.kind == "CONTACT":
+            record.update(joint=c.joint, area_m2=float(f"{c.area_m2:.6g}"))
+            contacts.append(record)
+        else:
+            by_name = {c.a.name: c.area_m2, c.b.name: c.area_ba_m2}
+            record.update(
+                area_m2=[float(f"{by_name[n]:.6g}") for n in record["parts"]],
+                gap_m=float(f"{c.gap_m:.6g}"),
+            )
+            facing.append(record)
+    if not (contacts or facing or hidden):
+        return None
+    from .hidden_parts import box_record
+
+    hidden_records = []
+    for ob in hidden:
+        comp = ob.irsim_component
+        thermals = sorted(
+            {s.material.irsim_material for s in ob.material_slots if s.material} - {""}
+        )
+        hidden_records.append(
+            {
+                "name": ob.name,
+                "kind": comp.kind.lower(),
+                "material": thermals[0] if thermals else "",
+                "inside": ob.parent.name if ob.parent is not None else None,
+                "box": box_record(ob),
+                "mass_kg": float(f"{comp.mass_kg:.6g}"),
+                "heat_w": {
+                    "idle": float(f"{comp.heat_idle_w:.6g}"),
+                    "rated": float(f"{comp.heat_rated_w:.6g}"),
+                },
+                "values": {"source": comp.values_source.lower(), "reference": comp.reference},
+                "area_m2": _area(ob),
+            }
+        )
+    return {
+        "name": name,
+        "part_areas": {ob.name: _area(ob) for ob in exported},
+        "contacts": sorted(contacts, key=lambda r: r["parts"]),
+        "facing": sorted(facing, key=lambda r: r["parts"]),
+        "hidden_parts": hidden_records,
+    }
 
 
 def _blender_executable() -> str:
