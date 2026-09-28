@@ -170,11 +170,16 @@ def test_lwir_and_nir_are_untouched_and_mwir_moves_by_a_rounding_error() -> None
     -- wavelength order rather than the order someone typed them -- so its sum runs in a different
     order and lands within one ulp. Anything larger than that would mean the ladder had changed a
     calibrated band, which it must not: ADR 0071's window multipliers are fitted to R13's sky.
+
+    **Re-pinned by AT.24.** The NIR values were produced by a quadrature grid that padded one
+    node past the nominal 0.75–1.0 µm band (an odd interval count at 0.01 µm) and so weighted its
+    classes on a cliff; the grid now ends on the band edge and is finer below 2 µm, which moved
+    the NIR class weights by 6e-4 and these pins with them. LWIR and MWIR are bit-identical.
     """
     atmosphere = _atmosphere()
     expected = {
         "lwir": (0.930057013277753, 0.599481209005659, 0.303552327459639),
-        "nir": (0.974267827601158, 0.529129262530538, 0.086541111389012),
+        "nir": (0.974267827601158, 0.528805583608480, 0.086486778159457),
         "mwir": (0.797018961895581, 0.361438188342700, 0.159372797288951),
     }
     for band, (near, mid, far) in expected.items():
@@ -191,6 +196,10 @@ def test_swir_stops_swallowing_the_point_nine_four_water_band() -> None:
     of the Planck-weighted band leaves `window`, and the band loses **6.5 %** of its transmittance
     at 5 km. The 200 m anchor is untouched, because the anchor solve re-fits to the grey preset at
     exactly that distance -- which is why no test caught this for so long.
+
+    **Re-pinned by AT.24**: the SWIR class weights are integrated on a grid that is now 0.0045 µm
+    rather than 0.01 µm below 2 µm (spec issue S58), which moved the 200 m value by 0.6 % and the
+    5 km value by 0.08 %; the 0.935 ratio and the 16.9 % weight are unchanged.
     """
     response = _responses()["swir"]
     classes = classes_for("swir", response)
@@ -201,12 +210,12 @@ def test_swir_stops_swallowing_the_point_nine_four_water_band() -> None:
 
     atmosphere = _atmosphere()
     assert float(atmosphere.transmittance("swir", 0.0, 200.0, 0.0)) == pytest.approx(
-        0.819930495196555, rel=1e-12
+        0.824515063844224, rel=1e-12
     )
     assert float(atmosphere.transmittance("swir", 0.0, 5000.0, 0.0)) == pytest.approx(
-        0.387690895559268, rel=1e-9
+        0.387987003431900, rel=1e-9
     )
-    before, after = 0.414804696154634, 0.387690895559268
+    before, after = 0.414804696154634, 0.387987003431900
     assert after / before == pytest.approx(0.935, abs=2e-3)
 
 

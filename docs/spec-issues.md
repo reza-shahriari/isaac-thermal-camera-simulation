@@ -15,10 +15,10 @@ update the status here in the same commit.
 | S2 | §6.1: absorbed solar `(1−α_sol)^c Q_sol` → `α_sol Q_sol` in the displayed balance | the prose two lines below already said so; M6.7's monotone-α test encodes it |
 | T4 | §12.2: `spectral_response: "responses/boson_vox.csv"` → `"spectra/responses/boson_vox.csv"` (relative to `data/`, µm, peak-normalised) | the path was stated four ways; M0.8's loader and ADR 0008 fix the layout as `data/spectra/responses/` |
 
-**Where the seventy-seven rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S56` and `S57` by the 2026-09-28 audit, `S50` by
+**Where the seventy-eight rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S56`–`S58` by the 2026-09-28 audit, `S50` by
 `AT.12`, `S51` by `OC.1`, `S52`–`S54` by the 2026-09-26 AGC diagnosis, `S55` by the four-band Phantom 4 render).
 The `status` column on each row is the ledger; this is its summary. **Forty-three** rows are carried
-by an ADR that exists, **twenty-three** by code with no ADR, and **eleven** are open: `S56` and `S57`, the convection floor and the humidity continuum found by the 2026-09-28 audit and owned by `PT.25` and `AT.27`, `S54`, the one-ISP-for-every-band defect found on 2026-09-26 and owned by `SC.27` (its siblings `S52`, the AGC, and `S53`, the ADC floor, closed with `SC.22` and `SC.23`, and `S55`, reflective-band lighting, with `AT.20`), and `S9`, `S15` and `S16` are edits
+by an ADR that exists, **twenty-four** by code with no ADR, and **eleven** are open: `S56` and `S57`, the convection floor and the humidity continuum found by the 2026-09-28 audit and owned by `PT.25` and `AT.27`, `S54`, the one-ISP-for-every-band defect found on 2026-09-26 and owned by `SC.27` (its siblings `S52`, the AGC, and `S53`, the ADC floor, closed with `SC.22` and `SC.23`, and `S55`, reflective-band lighting, with `AT.20`), and `S9`, `S15` and `S16` are edits
 to `docs/physics-model.md` that belong to the spec owner, **`S13` is open again** — see its row —
 and `S46`–`S49` are the gaps the 2026-09-18 audit found between the spec and the owner's
 requirements (participating media, snow, vegetation, people), each owned by a
@@ -26,7 +26,7 @@ roadmap row in phase P or C; `S41`, lateral conduction, shipped in
 `PT.11`, `S42`, part-to-part conduction, as the thermal network in `TC.2` and its schema in `TC.4`,
 `S43`, the solved engine, in `TC.5`, `S44`, the shadow term's provider, across `PT.18`,
 `PT.21` and `PT.22`, and `S45`, latent heat and the water body, across `PH.1` and `PH.3`, so
-sixty-six of the seventy-seven rows have shipped.
+sixty-seven of the seventy-eight rows have shipped.
 (`S8` is counted as code: its half of the fix shipped in M9.1 and only the spec's wording is left.)
 
 This paragraph used to read "Everything else is open", which had been wrong for months: it listed
@@ -122,6 +122,7 @@ cell exists, and no row may be `open` while the ADR its resolution names is alre
 | S55 | In a reflective band (NIR, SWIR) a target is lit wrongly from below and the clouds do not scatter. `environment_radiance` returns V_s L_sky,eff + (1 − V_s) **L_B(T_ground)**: the sky half carries the diffuse skylight (ADR 0086) but the ground half is the ground's *thermal* emission only, ~0 in NIR/SWIR, where a sunlit ground returns albedo × (DNI cos θ_sun + DHI)/π. A downward-facing surface (V_s ≈ 0) therefore reflects nothing: the Phantom 4's white ABS shell (ρ_SWIR 0.78) renders **black** against the sky while its RGB companion is white. And the weather-fx cloud deck is marched as a thermal emitter, so in SWIR the sky shows no cloud at all | Add ground-reflected sunlight to the environment term in reflective bands (ground albedo per band × the same weather's GHI, through the band's solar fraction), and a single-scattering cloud radiance for reflective bands — `AT.20` | ADR 0153 |
 | S56 | §6.2's forced-convection floor `h = 5 + 4 v^0.8` follows the Jürges/McAdams `5.7 + 3.8 v` family, which was fitted to a plate's **total** loss with radiation included, while §6.1 adds εσT⁴ separately; at 2.5 m/s the balance loses 13.3 instead of 10.3 W m⁻² K⁻¹ (Watmuff et al. 1977, convective only) | Use a convective-only correlation (2.8 + 3.0 v) or state that `a` is convective; evaluate h_free at the cell's own temperature — `PT.25` | open — `PT.25` |
 | S57 | §7.3 writes the humidity dependence as `γ = γ₀ + β w`, linear in absolute humidity; the 8–12 µm water-vapour continuum that dominates LWIR transmission is self-broadened and scales as `e·w` (≈ w²), so the linear fit anchored on the clear-dry row under-absorbs humid air | `γ = γ₀ + β₁ w + β₂ w²` refitted per band against the §7.2 rows and one humid anchor — `AT.27` | open — `AT.27` |
+| S58 | §3.2 (b) says "Simpson on a 0.01 µm grid is ample". In the Wien tail the integrand changes by e^{c₂Δλ/(λ²T)} per step -- a factor 2.4 per 0.01 µm at 0.75 µm and 300 K -- so the shipped NIR response was 28 mK from a converged quadrature (0.9 % at 200 K) and SWIR 4.7 mK; above 2 µm the claim holds | Cap the spacing at a fraction of the band's short edge (`FINE_GRID_FRACTION` = 0.005) and end the grid on the last sample rather than a padded node -- `AT.24`; the sentence in §3.2 is the spec owner's | code — `AT.24` · spec reword open |
 
 ---
 

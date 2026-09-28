@@ -182,6 +182,10 @@ def test_the_transmittance_golden_would_have_caught_at_10(
     `tau_SWIR(5 km)` went 0.4148 -> 0.3877 and **every golden array passed**, because all eight of
     them came from one LWIR config. This asserts the table holds the new value and that the old one
     is outside its tolerance -- which is what "a golden would have caught it" means.
+
+    Re-pinned by AT.24 (0.3877 -> 0.3880): the SWIR class weights are now integrated on a
+    0.0045 µm grid rather than 0.01 µm below 2 µm (spec issue S58), which moved the value by
+    0.08 % -- three hundred times the table's tolerance, so the table caught that too.
     """
     _cfg, lut, resp = bands["swir"]
     atmosphere = LayeredAtmosphere(
@@ -189,5 +193,5 @@ def test_the_transmittance_golden_would_have_caught_at_10(
     )
     now = float(atmosphere.transmittance("swir", 0.0, 5000.0, 0.0))
     before_at_10 = 0.414804696154634
-    assert now == pytest.approx(0.387690895559268, rel=1e-9)
+    assert now == pytest.approx(0.387987003431900, rel=1e-9)
     assert abs(now - before_at_10) > 1e-6 * 1000  # a thousand times the table's own tolerance

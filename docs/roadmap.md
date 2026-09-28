@@ -189,20 +189,20 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`TC.9`** | TC | P | L | 3 | ready |
-| 2 | **`AT.24`** | AT | P | S | — | ready |
-| 3 | **`PT.25`** | PT | P | S | — | ready |
-| 4 | **`PT.26`** | PT | P | S | — | ready |
-| 5 | **`TC.10`** | TC | P | M | — | `TC.9` |
-| 6 | **`TC.12`** | TC | P | M | — | ready |
-| 7 | **`AI.11`** | AI | A | M | 4 | ready |
-| 8 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
-| 9 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
-| 10 | **`PT.28`** | PT | A | S | 1 | ready |
-| 11 | **`SC.32`** | SC | A | S | 1 | ready |
-| 12 | **`AT.27`** | AT | A | S | — | ready |
-| 13 | **`AT.28`** | AT | A | S | — | `PT.28` |
-| 14 | **`EV.15`** | EV | A | S | — | ready |
-| 15 | **`IG.18`** | IG | A | S | — | ready |
+| 2 | **`PT.25`** | PT | P | S | — | ready |
+| 3 | **`PT.26`** | PT | P | S | — | ready |
+| 4 | **`TC.10`** | TC | P | M | — | `TC.9` |
+| 5 | **`TC.12`** | TC | P | M | — | ready |
+| 6 | **`AI.11`** | AI | A | M | 4 | ready |
+| 7 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
+| 8 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
+| 9 | **`PT.28`** | PT | A | S | 1 | ready |
+| 10 | **`SC.32`** | SC | A | S | 1 | ready |
+| 11 | **`AT.27`** | AT | A | S | — | ready |
+| 12 | **`AT.28`** | AT | A | S | — | `PT.28` |
+| 13 | **`EV.15`** | EV | A | S | — | ready |
+| 14 | **`IG.18`** | IG | A | S | — | ready |
+| 15 | **`IG.19`** | IG | A | S | — | ready |
 
 …and 77 more — `python scripts/next_step.py --queue 40`.
 
@@ -287,7 +287,7 @@ row says so and names the step that closes it.
 | **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`, `EV.15` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `AT.14`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
-| **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.10`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
+| **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
 **Dependency shape.** Phase 0 blocks nothing technically but blocks *knowing what is true*, and three
 sessions share this tree. `AT.1` and `SC.1` are the two critical-priority physics defects and are
@@ -584,7 +584,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.21 | ✅ **done.** `run_frame` passes `planes["elevation_rad"]` to `apply_layered_gbuffer`, as `atmosphere_stage` already did. One argument: the entry point every driver and `IrCamera` call skipped it while the sky and point-target paths took the slant column. | **Measured.** A 310 K target at 5 km, 45° through `run_frame` read **1.14 K low** with path radiance 60 % high against the stage; now the two agree to < 10 mK on a 0–60° plane, rows attenuate less as they steepen, and a frame without the plane is bit-identical. `test_run_frame_slant_path.py`, red without the fix. | — | S | A |
 | AT.22 | ✅ **done.** `excess_radiance` takes the pixel's post-stage-2 value and returns φ [τ_B(R) L_t + L_path(R) − L_pixel]; `inject_point_targets` reads it under every target. The grey L1 model keeps the clear-column form: its path and sky are not one column (S28, `AT.5`). | **Measured.** Over a cloud pixel 20 W/m²/sr above the clear sky a φ = 0.278 target at 700 m loses exactly φ·20 of excess; a target that looks like the cloud through its own air adds < 1e-9; over the clear column old and new agree to 1e-9. `test_point_target_background.py`, red without the fix. | — | S | A |
 | AT.23 | **The engine-free aerial builder lights and orients its surfaces.** `validation/aerial_scene.py` gives every surface V_s = 1 and n·v = 1 and writes no `l_sun`, `shadow_mask` or `sun_cos_incidence`, so a CPU render sees only sky reflection and no sun in any band. Carry tilt-derived V_s, a view angle and the solar planes from `SceneIllumination`. | A belly (tilt 180) reflects ground, not sky (≈ 3 K in LWIR on paint); a noon SWIR shell is sunlit; Isaac and CPU paths agree on the sky-target fixture to 0.1 K. | — | M | A |
-| AT.24 | **Band quadrature that cannot step off the support.** `quadrature_grid` pads one node past the response when the interval count is odd, so Simpson straddles a cliff where R ends non-zero (+33 % at 300 K on an odd-count top-hat; `class_weights`' nominal NIR band is that case); 0.01 µm is unconverged below 1.2 µm (NIR LUT −0.94 % at 200 K). Even count by shrinking dl; ln λ spacing below 2 µm. | Odd-count top-hat vs closed form ≤ 1e-6 at 200–1000 K; every shipped LUT vs a converged quadrature ≤ 0.1 mK at 200–600 K; `test_lut` gains an oracle that is not its own Simpson. | — | S | P |
+| AT.24 | ✅ **done.** `quadrature_grid` divides the support into an even number of intervals no wider than 0.01 µm nor `FINE_GRID_FRACTION` (0.5 %) of the short edge, ending on the last sample; the §3.2 sentence is spec issue S58. The ladder test's NIR and SWIR pins, produced by the padded grid, are re-pinned with the reason. | **Measured.** Odd-count 0.75–1.0 µm top-hat: +33 % → 3e-6 at 300 K, +54 % → 2e-5 at 200 K; vs a 20× finer quadrature NIR 28 → 2.6 mK, SWIR 4.7 → 0.21 mK, LWIR/MWIR bit-identical (0.53 / 0.11 mK). `test_band_integration.py`. | — | S | P |
 | AT.25 | **An angular model for oxidised, anodised and painted metal.** Level A scales the Fresnel shape by the authored magnitude and clips to 1, so `bare_aluminium` goes ε 0.09 → 1.0 at 89° and a 280 K skin against a 230 K sky brightens 236 → 280 K at the limb: a ring on every unpainted airframe. Model the excess as a thin dielectric film on a conductor, or fit an effective n, k reproducing ε_B(0); `test_material_table_angular.py:155` pins the artefact. | Bare Al ε(θ) peaks ≤ 0.3 at 80–85° and falls to 0 at 90°; hemispherical within 5 % of Drude; dielectrics bit-identical. | — | M | A |
 | AT.26 | **One emissivity for water.** `sea.py:334` uses the raw Fresnel band value (0.988 at nadir) while `water.yaml` gives 0.96 × shape: 0.9 K apart on the same sea. Decide (ADR) and make the sea model and the library consume the same number. | The sea model's nadir ε equals `MaterialTable`'s for `water` to 1e-6 in every band; a 290 K sea under a 250 K sky reads the same T_app by both routes to 1 mK. | — | S | B |
 | AT.27 | **Water-vapour continuum grows with w², not w.** `gamma_molecular` is γ₀ + βw; the 8–12 µm self-broadened continuum scales as e·w, so humid days under-absorb. Refit LWIR (and the MWIR wing) as γ₀ + β₁w + β₂w² against the §7.2 rows and one MODTRAN-class humid anchor; spec issue S57. | The clear-dry row reproduced as today; the tropical row's LWIR τ(200 m) lands in the §7.2 band without a per-preset fudge; ADR 0049's humid/fog ordering unchanged. | — | S | A |
@@ -840,6 +840,7 @@ of the silhouette still render at their node's one temperature.
 | GT.8 | **`--lane` answers with a startable step.** `next_step.py --lane PT` prints `PT.9` although it waits on `WM.3`; the single-head and `--queue` outputs gain the `waiting on` column the published block already has. | Red today: `--lane PT` names a blocked head. After: the head printed for a lane is its first step whose deps are all ticked, or the line says what it waits on; `test_roadmap_queue.py` gains a `--lane` case. | — | S | X |
 | GT.9 | ✅ **done.** `test_colour_does_not_set_emissivity.py`: the three sprayed topcoats share one ε in MWIR and LWIR to 1e-9, with a **control** that they must still differ ≥ 3× in NIR, so the test cannot pass on a library of identical materials. §4.5a. | **Measured.** The folk rule's modest 0.95/0.85 split would put two 320 K panels **5.26 K** apart under a 250 K sky — 105 × NETD, on paint alone — where the library gives 0. Colour's real channel is α_sol 0.94 vs 0.28, worth **24.3 K** of surface temperature at 800 W/m² and h = 15. 4 cases. | — | S | X |
 | GT.10 | **Tests that would catch the wiring defects.** Goldens use ε = 1 with no atmosphere or sky; `test_run_frame` never passes an atmosphere, elevation, motion or point target; `test_lut` uses the LUT's own Simpson; `test_convection` compares a formula with itself; `test_material_table_angular.py:155` pins the limb clip. Add a golden with ε < 1, sky, layered atmosphere and slant elevation; `run_frame`-vs-stage equivalence; converged and literature oracles. | Each of AT.21, AT.24, AT.25, SC.28 and PT.25 has a test red at its parent commit and green after, in the fast tier. | — | M | X |
+| GT.11 | **A LUT bundle knows which builder made it.** `make luts` for `AT.24` moved the gitignored MWIR bundle by a uniform 20 % though its grid did not change: an older builder had made it, the config and response hashes still matched, and the GT.2 multiband golden was recorded against it. Hash the builder's code inputs (grid rule, constants, Planck forms) into the sidecar and refuse a bundle whose hash differs. | A bundle built before a change to `quadrature_grid` is refused naming `make luts`; the multiband goldens say which builder hash they rest on. | — | S | X |
 
 ---
 

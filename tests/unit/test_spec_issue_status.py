@@ -43,7 +43,9 @@ WORDS = {
     21: "twenty-one",
     22: "twenty-two",
     23: "twenty-three",
+    24: "twenty-four",
     37: "thirty-seven",
+    67: "sixty-seven",
     39: "thirty-nine",
     40: "forty",
     41: "forty-one",
@@ -105,9 +107,10 @@ def test_the_file_still_holds_seventy_five_issues() -> None:
     `S52`/`S53` on 2026-09-26 for the AGC that starves a small target and the ADC floor that clips
     a cold sky, `S54` for the one thermal-core ISP every band inherited, and `S55` for
     reflective-band target lighting, and `S56`/`S57` on 2026-09-28 for the convection floor that
-    counts radiation twice and the humidity law that is linear where the continuum is not.
+    counts radiation twice and the humidity law that is linear where the continuum is not, and
+    `S58` for the 0.01 µm quadrature grid that is not ample below 2 µm.
     """
-    assert len(_rows()) == 77
+    assert len(_rows()) == 78
 
 
 def test_every_row_has_a_non_empty_status() -> None:
