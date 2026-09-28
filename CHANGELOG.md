@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **The `low2high` skill: a model's geometry made fit for the camera, in either direction**
+  (`AI.10`, ADR 0155). Game and phone-game models climb a ladder (normals → subdivision with
+  creases → displacement from their own maps → redesign through the Blender MCP, flagged
+  `ESTIMATED`); CAD models come down: `scripts/tessellate_step.py` meshes STEP/IGES through
+  OpenCascade (new optional `cad` extra, `cadquery-ocp`) with the part tree as node names, in
+  metres, at tolerances taken from the scene. Both directions answer to one measurement,
+  `scripts/mesh_facets.py` / `irsim.io.mesh_facets`: an edge is faceted when its own
+  silhouette error `(w/2)·tan(θ/4)` exceeds half a pixel at the closest range. The authored
+  Phantom 4 has 0 of 41 meshes faceted at 2 m on a 1.36 mrad sensor; decimated to phone-game
+  density, 40 of 41. A fixed-angle first design flagged 36 of the authored model's 41 and was
+  replaced.
+
+### Added
+
 ### Changed
 - **The README is a public front page; the engineering record moved to `TECHNICAL_REPORT.md`.**
   The README now opens on the site's hero clip as a GIF, then highlights, a short "What's new"

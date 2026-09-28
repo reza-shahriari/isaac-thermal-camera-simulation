@@ -75,7 +75,9 @@ so `--license` is the licence **the owner stated** (`cc0`, `by`, `by-sa`, …; t
 with no special case for files. If the owner mentioned a licence in passing, pass it; if they did
 not, register quarantined, keep going (local use is fine), and tell them in the final report that
 one flag re-registers it as shareable. A `.blend` is refused: export it to `.glb` in Blender first,
-so every asset enters through an importer that preserves material names.
+so every asset enters through an importer that preserves material names. A **STEP/IGES** CAD file
+is tessellated first (`scripts/tessellate_step.py`, the `low2high` skill §2) and the resulting
+`.glb` registered.
 
 ## 2. Identify the real object and search its specs, before opening Blender
 
@@ -153,6 +155,13 @@ Author the `parts:` block (schema `irsim.io.asset_parts.PartsConfig`): geometric
 first-match-wins, specific parts before the shells that enclose them, `coverage_threshold: 0.95`.
 Part names obey `^[A-Za-z_][A-Za-z0-9_]*$`, ASCII, unique — they become USD prim names and the
 keys every scene config binds by.
+
+## 6b. Make the geometry fit for the camera — the `low2high` skill
+
+Run `python scripts/mesh_facets.py <model> --range-m <closest> --ifov-mrad <pixel>` on the
+render geometry. If any part is faceted (typical of game and phone-game models) or the model is
+far over the render budget (typical of CAD), follow the `low2high` skill on the part-split scene
+before exporting. A model that passes needs nothing.
 
 ## 7. Export the library artefacts
 

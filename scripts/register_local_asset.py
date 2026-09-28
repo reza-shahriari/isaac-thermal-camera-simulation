@@ -85,6 +85,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     suffix = src.suffix.lower()
     if suffix == ".blend":
         ap.error("a .blend is not accepted: open it in Blender and export glTF (.glb) first")
+    if suffix in {".step", ".stp", ".iges", ".igs"}:
+        ap.error(
+            f"{suffix} is CAD, not a mesh: tessellate it first with "
+            f"scripts/tessellate_step.py {src.name} (the low2high skill), then register the .glb"
+        )
     if suffix not in MODEL_SUFFIXES | {".zip"}:
         ap.error(f"unsupported {suffix!r}; accepted: {sorted(MODEL_SUFFIXES | {'.zip'})}")
 

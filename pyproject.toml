@@ -45,6 +45,13 @@ ml = [
     "torch>=2.2",
     "torchvision>=0.17",
 ]
+# CAD import (roadmap AI.10, ADR 0155): OpenCascade, the kernel under FreeCAD and CadQuery, to
+# tessellate STEP/IGES models that Blender cannot open. **Optional and never imported by
+# `src/irsim`**: only `scripts/tessellate_step.py` uses it, in whatever interpreter it is
+# installed into, and its test skips without it.
+cad = [
+    "cadquery-ocp>=7.7",
+]
 # Engine-side extra: deliberately empty (ADR 0061). Isaac Sim ships NVIDIA Warp as the
 # `omni.warp.core` Kit extension (1.16.0 on the pinned build, ADR 0014); a pip `warp-lang` would
 # shadow it and make the equivalence harness pass against the wrong runtime. Warp code runs

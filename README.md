@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **Low-poly to high-poly, and CAD in** — game models get smoothed or rebuilt, STEP/CAD models get meshed, and a check confirms no facet is visible to the camera.
 - **Frame viewer** — click any pixel of a render and read the true temperature, part, range and radiance behind it (`make viewer`).
 - **Bring your own model** — share a model link or file with its real-life name and it becomes a library asset with real parts and materials.
 - **Sunlit NIR and SWIR** — the ground reflects the sun and clouds scatter it in the reflective bands.

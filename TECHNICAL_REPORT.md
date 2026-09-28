@@ -1042,6 +1042,16 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   FBX, attribution and sha256-pinned provenance written where they travel with the asset. What
   stays judgement is everything after: `scale_to_metres` against a published dimension, the
   functional parts, the material map. The `ingest-asset` checklist (`AI.9`) drives that half.
+- **Geometry is judged against the camera, not by eye** (`AI.10`, ADR 0155). The `low2high`
+  skill moves a model's render geometry up (normals, subdivision with creases, displacement
+  from its own maps, redesign through the Blender MCP flagged `ESTIMATED`) or down (STEP/IGES
+  tessellated through OpenCascade by `scripts/tessellate_step.py`, the optional `cad` extra;
+  dense CAD meshes decimated), and both directions answer to `scripts/mesh_facets.py`: an edge
+  is faceted when its own silhouette error `(w/2)·tan(θ/4)` exceeds half a pixel at the closest
+  range. The authored Phantom 4 has 0 of 41 meshes faceted at 2 m on a 1.36 mrad sensor; the
+  same model decimated to phone-game density, 40 of 41. Limits: the 60° crease threshold cannot
+  tell a designed hex from a coarse curve, the GLB reader ignores node transforms (exact except
+  under non-uniform scale), and the OpenCascade tests run only where the extra is installed.
 - **A rendered imported asset is per pixel only where a scene binds it** (`AI.2`). `IrCamera`
   now takes `mesh_fields=`, so `MeshPointBridge` — which turns a world position into a cell on a
   real mesh, measured to 0.13 µm by `WM.1` — reaches the picture at last. What reaches it is what

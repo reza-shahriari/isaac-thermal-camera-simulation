@@ -202,6 +202,7 @@ around Isaac Sim 6.0, which is recent.
 | `sensor-noise-chain` | Detector models, NETD, 3D noise, NUC/FFC, AGC and the ISP |
 | `isaac-sim-spg` | Anything touching Isaac Sim, AOVs, SPG kernels, Warp |
 | `ingest-asset` | A model link or a 3D file (plus its real-life name) → licence-gated, part-decomposed, material-mapped library entry |
+| `low2high` | A model whose geometry is too coarse (game/phone-game) or too heavy (CAD, STEP/IGES) for the camera — measure facets, smooth/subdivide/redesign up, or tessellate/decimate down |
 | `ir-sim-testing` | Writing tests, tolerances, golden data, validation tiers |
 | `ship-step` | Finishing any step — technical report, CHANGELOG, README feature note, git |
 | `present-on-the-site` | Anything worth showing reaching the project site — renders, tests, reports |
