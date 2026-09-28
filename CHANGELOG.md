@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **View factors between any two bodies (`TC.9`).** `irsim.thermal.view_factors` traces the radiation view factor between arbitrary meshes, occlusion included, and reports the sky each face still sees; checked against Howell's closed forms to 1 % and against reciprocity and closed-enclosure identities. Geometry only for now -- heat exchange between objects follows in `TC.10`. ADR 0156.
 - **Tutorials, as a folder of pages on the site.** `docs/tutorials/` holds one folder per tutorial
   and one page per step (`NN-name.md`, read in order); the site publishes it under Start ▸
   Tutorials, with each step linked to the one before and after it and the step number kept out
