@@ -28,16 +28,16 @@ wrong quarter with nothing to complain about. An earlier revision of this driver
 stage Z-up instead and aimed the camera with the default Y-up ``look_at_quaternion``: the picture
 came back rolled, the aircraft apparently pitched over, and nothing in the physics was wrong.
 
-**Temperature is per prim here, not per cell.** The scene's mesh fields are solved (234,923 cells)
-but `IrCamera` takes planar `SurfaceBinding`s only, and `MeshPointBridge` -- the object that turns
-a world position into a cell on a real mesh -- has never been driven by a render: its only driver,
-``scripts/quad_flight_mesh.py``, runs on a synthetic G-buffer. Wiring it into the camera is the
-remainder of `AI.2` and is called out in the summary this writes rather than papered over.
+**Temperature is per cell on the mesh (`AI.2`, closed).** The scene's mesh fields are solved and
+`IrCamera` takes them as ``mesh_fields=``: `MeshPointBridge` (WM.3) asks each bound prim's own
+triangles for the closest point to a pixel's world position and reads that cell. The binding
+names ``frame=ASSET_ROOT``, the Xform the asset is mounted by, so the solver keeps the archive's
+own Z-up coordinates and the mount rotation travels with the binding rather than with the solve.
+This paragraph used to say the opposite -- that the bridge had never been driven by a render --
+and stayed that way after the code moved (corrected by `SC.29`).
 
-The solver's frame stays the asset's. The scene's patches are authored in the archive's own
-Z-up coordinates and are *not* bound to the camera here, so the mount rotation moves the rendered
-aircraft and touches nothing the thermal solve depends on. The day a `MeshPointBridge` does reach
-the camera, that binding has to carry this rotation with it.
+**Shutter-referenced, like the camera (`SC.29`).** The flat field and the M9 chain are attached
+as in every other driver; ``--no-flat-field`` and ``--no-chain`` take them off again.
 """
 
 from __future__ import annotations
@@ -193,6 +193,13 @@ parser.add_argument(
         "where range is the only thing changing"
     ),
 )
+parser.add_argument(
+    "--no-flat-field",
+    action="store_true",
+    help="skip the two-point flat field (SC.29): the picture then carries the housing bowl a "
+    "real shuttered core removes",
+)
+parser.add_argument("--no-chain", action="store_true", help="ideal camera: no M9 sensor chain")
 parser.add_argument("--near-m", type=float, default=None, help="outbound: range at the start")
 parser.add_argument("--far-m", type=float, default=None, help="outbound: range at the end")
 parser.add_argument(
@@ -677,9 +684,42 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     )
     place(0.0)
 
-    pipeline = PipelineConfig.from_sensor(
-        sensor, table, lut, sky=scene.sky_models[band], atmosphere=scene.layered
-    )
+    # SC.29: shutter-referenced, like every other driver and like the camera. This driver alone
+    # built the pipeline bare, so every Phantom 4 clip carried the un-flat-fielded housing bowl
+    # (sky corners +1230 DN over the centre on frame 96, stretched to +90 display codes) that a
+    # Boson's FFC removes. The retry without the flat field is for a camera whose ADC cannot hold
+    # the hot calibration point (an InSb well at 366 K against ADR 0021's +200 C).
+    try:
+        pipeline = PipelineConfig.from_sensor(
+            sensor,
+            table,
+            lut,
+            sky=scene.sky_models[band],
+            atmosphere=scene.layered,
+            flat_field_enabled=not args.no_flat_field,
+        )
+    except ValueError as exc:
+        print(f"{sensor.sensor.name}: no flat field -- {exc}", file=sys.stderr)
+        pipeline = PipelineConfig.from_sensor(
+            sensor,
+            table,
+            lut,
+            sky=scene.sky_models[band],
+            atmosphere=scene.layered,
+            flat_field_enabled=False,
+        )
+    if not args.no_chain:
+        if pipeline.calibration is None:
+            print(
+                f"{sensor.sensor.name}: no M9 sensor chain -- a photon FPA has no radiometric "
+                "calibration to convert the NUC residual into DN (ADR 0056), and this camera is "
+                "shutterless. Defects and 3-D noise still apply.",
+                file=sys.stderr,
+            )
+        else:
+            from irsim.pipeline.sensor_chain import attach_sensor_chain
+
+            pipeline = attach_sensor_chain(pipeline, scene.weather, t0_s=scene.t0_s)
     cam = IrCamera(
         sensor,
         scene,
