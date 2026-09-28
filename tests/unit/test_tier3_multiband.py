@@ -471,6 +471,15 @@ BAND_KERNEL_MODULES = (
 #: is what an exclusion gives up. `constants.py` and `spectral_response.py` keep their own
 #: treatment below for historical reasons; new exceptions belong here.
 BASELINE_OVERRIDES: dict[str, tuple[str, str]] = {
+    "band_integration.py": (
+        "c974e25",
+        "AT.24 changed `quadrature_grid`, the one function every band's integral goes through: "
+        "the grid now ends on the response file's last sample with an even interval count, and "
+        "steps no wider than 0.5 % of the band's short edge, because the padded odd-count grid "
+        "integrated an exact 0.75-1.0 um top-hat 33 % high and the 0.01 um step sat 28 mK off a "
+        "converged NIR quadrature. The kernel still names no band and branches on none; adding a "
+        "band remains a config and a response file, which is the property the guard is for.",
+    ),
     "lut_files.py": (
         "877a1ce",
         "AT.2 added `load_band_response_for_config`, a band-agnostic sibling of "
