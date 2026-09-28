@@ -25,6 +25,15 @@ ADR 0094's IMEX scheme; each member is then a :class:`PatchView` over its slice,
 the point bridge needs (``patch``, ``advance_to``, ``sample_at``). Nothing in the integrator
 changes, and a coupled system with no contactor is the separate fields, bit for bit.
 
+Since TC.16 a member's patch may be a `TriangleMeshPatch` as well as a `PlanarPatch`: the
+only thing the coupled solve ever asked of a patch is ``n_cells`` and ``cell_area_m2``, and a
+mesh answers with an array where a grid answers with one number. Two more ways to join members
+come with it, because rectangle clipping cannot see a tube: an :class:`ExplicitContactor` is a
+conductance matrix built elsewhere -- by :func:`proximity_contactor`, which pairs the cells of
+two parts that stand within a gap of each other and spreads an authored contact area over them
+-- and a :class:`LumpedLink` may carry per-cell conductances, from :func:`footprint_conductances`,
+so a hidden part (AI.11) is bolted to the cells under its footprint and not to the whole skin.
+
 **Radiation between a body and a field** reuses ADR 0088's parallel-rectangle view factors
 (`spatial_sources`), read in both directions. From the cells' side, :class:`RadiationExchange`
 is the net flux `occluded_longwave_flux` already gives a bonnet under a bay or asphalt under a
@@ -57,12 +66,15 @@ from irsim.thermal.spatial_sources import (
 from irsim.thermal.surface_field import DEFAULT_KEEP_TICKS, PlanarPatch
 
 __all__ = [
+    "ExplicitContactor",
     "LumpedLink",
     "LumpedMember",
     "Contactor",
     "CoupledFields",
     "FieldMember",
     "PatchView",
+    "footprint_conductances",
+    "proximity_contactor",
     "RadiationExchange",
     "cell_overlap_areas",
     "contactor_conductances",
@@ -220,7 +232,7 @@ class FieldMember:
     """One patch in a coupled solve: its cells, their forcing, and its own lateral operator."""
 
     name: str
-    patch: PlanarPatch
+    patch: Any  # a PlanarPatch, or since TC.16 a TriangleMeshPatch
     properties: FacetProperties
     forcing_at: Callable[[float], FacetForcing]
     initial_k: Any
@@ -252,6 +264,94 @@ class Contactor:
             raise ValueError("a contactor joins two different members")
         if self.h_c_w_m2_k < 0.0:
             raise ValueError("a contact conductance cannot be negative")
+
+
+@dataclass(frozen=True)
+class ExplicitContactor:
+    """A contact whose conductances are already a matrix: ``(n_a, n_b)`` W/K, cell to cell.
+
+    For the geometries rectangle clipping cannot express -- a motor can on a mesh arm, a pack
+    on a shell -- built by :func:`proximity_contactor` (TC.16) or by hand in a test.
+    """
+
+    a: str
+    b: str
+    conductance_w_k: Any
+
+    def __post_init__(self) -> None:
+        if self.a == self.b:
+            raise ValueError("a contactor joins two different members")
+        k = sp.csr_matrix(self.conductance_w_k, dtype=np.float64)
+        if k.shape[0] == 0 or k.shape[1] == 0 or (k.data < 0.0).any():
+            raise ValueError("an explicit contactor is a non-negative (n_a, n_b) matrix")
+        object.__setattr__(self, "conductance_w_k", k)
+
+
+def _areas_of(patch: Any, n: int) -> NDArray[np.float64]:
+    """``(n,)`` cell areas: a grid's one number broadcast, a mesh's own array (TC.16)."""
+    return np.array(np.broadcast_to(np.asarray(patch.cell_area_m2, dtype=np.float64), (n,)))
+
+
+def proximity_contactor(
+    patch_a: Any,
+    patch_b: Any,
+    h_c_w_m2_k: float,
+    area_m2: float,
+    *,
+    gap_m: float,
+) -> Any:
+    """``(n_a, n_b)`` W/K between the cells of two parts that stand within ``gap_m`` (TC.16).
+
+    Every pair of cells whose centres lie within ``gap_m`` shares the contact, weighted by the
+    smaller of the two cell areas, and the weights are scaled so the whole matrix sums to
+    ``h_c · area_m2`` -- the authored footprint (AI.11's `ContactSpec`) is what conducts, not
+    however many cells happened to fall inside the gap. Refuses when no cell pair is that close:
+    two parts that do not touch cannot be bolted together by a number.
+    """
+    if h_c_w_m2_k < 0.0 or area_m2 <= 0.0 or gap_m <= 0.0:
+        raise ValueError("proximity_contactor needs h_c >= 0, area_m2 > 0 and gap_m > 0")
+    ca = np.asarray(patch_a.cell_centres(), dtype=np.float64)
+    cb = np.asarray(patch_b.cell_centres(), dtype=np.float64)
+    aa, ab = _areas_of(patch_a, ca.shape[0]), _areas_of(patch_b, cb.shape[0])
+    d2 = ((ca[:, None, :] - cb[None, :, :]) ** 2).sum(axis=-1)
+    i, j = np.nonzero(d2 <= gap_m * gap_m)
+    if i.size == 0:
+        raise ValueError(
+            f"no cell of one part lies within {gap_m} m of a cell of the other: the parts do "
+            "not touch, so there is nothing for a contact to conduct through"
+        )
+    w = np.minimum(aa[i], ab[j])
+    w = w / w.sum() * float(area_m2) * float(h_c_w_m2_k)
+    return sp.csr_matrix((w, (i, j)), shape=(ca.shape[0], cb.shape[0]))
+
+
+def footprint_conductances(
+    patch: Any, centre_m: Any, area_m2: float, h_c_w_m2_k: float
+) -> NDArray[np.float64]:
+    """``(n_cells,)`` W/K from a lumped part to the cells under its footprint (TC.16).
+
+    Cells are taken nearest-first from ``centre_m`` until their area reaches ``area_m2`` (the
+    last one pro rata), each conducting ``h_c × its share``; the sum is ``h_c · area_m2``
+    exactly. This is how a hidden part (AI.11) meets the skin it is bolted to.
+    """
+    if area_m2 <= 0.0 or h_c_w_m2_k < 0.0:
+        raise ValueError("footprint_conductances needs area_m2 > 0 and h_c >= 0")
+    centres = np.asarray(patch.cell_centres(), dtype=np.float64)
+    areas = _areas_of(patch, centres.shape[0])
+    order = np.argsort(((centres - np.asarray(centre_m, dtype=np.float64)) ** 2).sum(axis=1))
+    out = np.zeros(centres.shape[0])
+    remaining = float(area_m2)
+    for idx in order:
+        take = min(remaining, float(areas[idx]))
+        out[idx] = take * float(h_c_w_m2_k)
+        remaining -= take
+        if remaining <= 0.0:
+            break
+    if remaining > 1e-12 * float(area_m2):
+        raise ValueError(
+            f"the footprint ({area_m2} m2) is larger than the whole part ({areas.sum():.6g} m2)"
+        )
+    return out
 
 
 @dataclass(frozen=True)
@@ -308,18 +408,26 @@ class LumpedLink:
     field: str
     node: str
     h_w_m2_k: float
+    #: TC.16: per-cell conductances in W/K that replace ``h · A_cell`` -- a footprint from
+    #: :func:`footprint_conductances`, zero on the cells the part does not touch.
+    per_cell_w_k: Any = None
 
     def __post_init__(self) -> None:
         if self.field == self.node:
             raise ValueError("a lumped link joins a field to a different node")
         if self.h_w_m2_k < 0.0:
             raise ValueError("a lumped link's conductance cannot be negative")
+        if self.per_cell_w_k is not None:
+            arr = np.asarray(self.per_cell_w_k, dtype=np.float64)
+            if arr.ndim != 1 or (arr < 0.0).any():
+                raise ValueError("per_cell_w_k is a non-negative (n_cells,) array")
+            object.__setattr__(self, "per_cell_w_k", arr)
 
 
 class PatchView:
     """One member's slice of a :class:`CoupledFields`: what the point bridge and a test see."""
 
-    def __init__(self, coupled: CoupledFields, patch: PlanarPatch, start: int, stop: int) -> None:
+    def __init__(self, coupled: CoupledFields, patch: Any, start: int, stop: int) -> None:
         self._coupled = coupled
         self.patch = patch
         self._slice = slice(start, stop)
@@ -349,6 +457,8 @@ class PatchView:
         return np.asarray(self._coupled.field.temperature_at(t_s)[self._slice], dtype=np.float32)
 
     def temperature_image(self, t_s: float) -> NDArray[np.float32]:
+        if not hasattr(self.patch, "shape"):
+            raise AttributeError("a mesh member has no image; read temperature_at")
         return np.asarray(self.temperature_at(t_s).reshape(self.patch.shape), dtype=np.float32)
 
     def sample_at(
@@ -402,7 +512,7 @@ class CoupledFields:
                 for m in members
             ]
         )
-        areas = np.concatenate([np.full(m.patch.n_cells, m.patch.cell_area_m2) for m in members])
+        areas = np.concatenate([_areas_of(m.patch, m.patch.n_cells) for m in members])
         n = int(starts[-1])
         blocks: dict[tuple[int, int], Any] = {}
         for i, m in enumerate(members):
@@ -414,9 +524,27 @@ class CoupledFields:
                 if end not in self._index:
                     raise ValueError(f"contactor names unknown member {end!r}; known: {names}")
             i, j = self._index[c.a], self._index[c.b]
-            k_ab = contactor_conductances(
-                members[i].patch, members[j].patch, c.h_c_w_m2_k, gap_tolerance_m=c.gap_tolerance_m
-            )
+            if isinstance(c, ExplicitContactor):
+                k_ab = c.conductance_w_k
+                if k_ab.shape != (sizes[i], sizes[j]):
+                    raise ValueError(
+                        f"contactor {c.a!r}-{c.b!r}: matrix is {k_ab.shape}, the members have "
+                        f"{sizes[i]} and {sizes[j]} cells"
+                    )
+            else:
+                for idx in (i, j):
+                    if not isinstance(members[idx].patch, PlanarPatch):
+                        raise ValueError(
+                            f"contactor {c.a!r}-{c.b!r}: overlap clipping needs planar patches; "
+                            f"{members[idx].name!r} is a mesh -- use an ExplicitContactor "
+                            "(proximity_contactor)"
+                        )
+                k_ab = contactor_conductances(
+                    members[i].patch,
+                    members[j].patch,
+                    c.h_c_w_m2_k,
+                    gap_tolerance_m=c.gap_tolerance_m,
+                )
             self.contactor_conductances[(c.a, c.b)] = k_ab
             blocks[(i, j)] = k_ab if (i, j) not in blocks else blocks[(i, j)] + k_ab
             blocks[(j, i)] = k_ab.T if (j, i) not in blocks else blocks[(j, i)] + k_ab.T
@@ -427,7 +555,15 @@ class CoupledFields:
                     f"the node a lumped member; known {names}, lumped {list(self.lumped_names)}"
                 )
             i, j = self._index[link.field], self._index[link.node]
-            column = np.full((sizes[i], 1), link.h_w_m2_k * members[i].patch.cell_area_m2)
+            if link.per_cell_w_k is not None:
+                if link.per_cell_w_k.shape != (sizes[i],):
+                    raise ValueError(
+                        f"lumped link {link.field!r} -> {link.node!r}: per_cell_w_k has "
+                        f"{link.per_cell_w_k.shape[0]} entries, the field {sizes[i]} cells"
+                    )
+                column = link.per_cell_w_k.reshape(-1, 1)
+            else:
+                column = (link.h_w_m2_k * _areas_of(members[i].patch, sizes[i])).reshape(-1, 1)
             k_ab = sp.csr_matrix(column)
             self.contactor_conductances[(link.field, link.node)] = k_ab
             blocks[(i, j)] = k_ab if (i, j) not in blocks else blocks[(i, j)] + k_ab
@@ -483,9 +619,7 @@ class CoupledFields:
 
     @property
     def cell_areas_m2(self) -> NDArray[np.float64]:
-        return np.concatenate(
-            [np.full(m.patch.n_cells, m.patch.cell_area_m2) for m in self.members]
-        )
+        return np.concatenate([_areas_of(m.patch, m.patch.n_cells) for m in self.members])
 
     def advance_to(self, t_s: float) -> None:
         self.field.advance_to(t_s)
