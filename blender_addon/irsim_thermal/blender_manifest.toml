@@ -1,0 +1,20 @@
+schema_version = "1.0.0"
+
+id = "irsim_thermal"
+version = "0.1.0"
+name = "irsim Thermal Materials"
+tagline = "Give every part of a model its infrared material for irsim"
+maintainer = "irsim project"
+type = "add-on"
+
+tags = ["Material", "Import-Export", "Pipeline"]
+
+# Built and tested on 5.2 LTS, the version the irsim asset toolchain uses (ADR 0128).
+blender_version_min = "5.2.0"
+
+# The repository's own licence (LICENSE at its root: use-only, non-commercial). Whether an add-on
+# that imports bpy may carry it is the owner's question -- see blender_addon/PLAN.md.
+license = ["SPDX:LicenseRef-irsim-use-only"]
+
+[permissions]
+files = "Read the irsim material library and write asset files"

@@ -1,0 +1,18 @@
+{
+  "_about": "Typical size of the LARGEST dimension of each kind of object, in metres. Guidance only: the add-on never blocks on these, it uses them to recognise a unit mistake (a model off by exactly 10, 100, 1000, 2.54 or 0.3048) when the user asks for help. Rough public figures, deliberately wide; edit freely.",
+  "ranges": [
+    {"key": "multirotor", "label": "Drone (multirotor)", "min_m": 0.1, "max_m": 2.5, "note": "a palm-sized drone to a large agricultural one, propellers included"},
+    {"key": "fixed_wing_uav", "label": "Fixed-wing drone", "min_m": 0.5, "max_m": 25.0, "note": "wingspan, hand-launched to MALE class"},
+    {"key": "helicopter", "label": "Helicopter", "min_m": 6.0, "max_m": 35.0, "note": "rotor diameter or length"},
+    {"key": "light_aircraft", "label": "Light aircraft", "min_m": 6.0, "max_m": 20.0, "note": "wingspan"},
+    {"key": "airliner", "label": "Airliner / large aircraft", "min_m": 25.0, "max_m": 90.0, "note": "wingspan or length"},
+    {"key": "bird", "label": "Bird", "min_m": 0.08, "max_m": 3.5, "note": "wingspan"},
+    {"key": "person", "label": "Person", "min_m": 0.5, "max_m": 2.3, "note": "height, children included"},
+    {"key": "car", "label": "Car", "min_m": 2.5, "max_m": 6.5, "note": "length"},
+    {"key": "motorcycle", "label": "Motorcycle / bicycle", "min_m": 1.2, "max_m": 3.0, "note": "length"},
+    {"key": "truck_bus", "label": "Truck / bus", "min_m": 5.0, "max_m": 25.0, "note": "length"},
+    {"key": "small_boat", "label": "Small boat", "min_m": 2.0, "max_m": 20.0, "note": "length"},
+    {"key": "ship", "label": "Ship", "min_m": 15.0, "max_m": 460.0, "note": "length; the largest ships are about 400 m"},
+    {"key": "building", "label": "Building", "min_m": 3.0, "max_m": 850.0, "note": "largest dimension"}
+  ]
+}

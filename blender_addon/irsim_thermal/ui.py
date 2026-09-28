@@ -1,0 +1,335 @@
+"""The sidebar tab (View3D > Sidebar > irsim): parts, library, check and export."""
+
+import bpy
+from bpy.types import Panel, UIList
+
+from . import sizing
+from .properties import BANDS
+
+MIRROR = 0.2
+
+
+def _slot_summary(ob: bpy.types.Object) -> tuple[str, str]:
+    """``(text, icon)`` for a part's row, from its slots (cheap enough to run on every redraw)."""
+    thermals = [s.material.irsim_material if s.material else "" for s in ob.material_slots]
+    if not thermals or not any(thermals):
+        return "unassigned", "ERROR"
+    if not all(thermals):
+        return "partly assigned", "ERROR"
+    distinct = sorted(set(thermals))
+    if len(distinct) == 1:
+        return distinct[0], "CHECKMARK"
+    return f"{len(distinct)} materials", "CHECKMARK"
+
+
+class PartsList(UIList):
+    bl_idname = "IRSIM_UL_parts"
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
+        text, status = _slot_summary(item)
+        row = layout.row(align=True)
+        row.label(text=item.name, icon="MESH_DATA")
+        row.label(text=text, icon=status)
+
+    def filter_items(self, context, data, propname):
+        objects = getattr(data, propname)
+        helper = bpy.types.UI_UL_list
+        if self.filter_name:
+            flags = helper.filter_items_by_name(
+                self.filter_name, self.bitflag_filter_item, objects, "name"
+            )
+        else:
+            flags = [self.bitflag_filter_item] * len(objects)
+        flags = [
+            f if (ob.type == "MESH" and not ob.hide_render) else 0
+            for f, ob in zip(flags, objects, strict=True)
+        ]
+        order = helper.sort_items_by_name(objects, "name") if self.use_filter_sort_alpha else []
+        return flags, order
+
+
+class LibraryList(UIList):
+    bl_idname = "IRSIM_UL_library"
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
+        row = layout.row(align=True)
+        mark = "ERROR" if item.error else ("QUESTION" if item.source == "estimated" else "NONE")
+        row.label(text=item.name, icon=mark if mark != "NONE" else "MATERIAL")
+        sub = row.row()
+        sub.alert = item.eps_lwir < MIRROR
+        sub.label(text=f"ε {item.eps_lwir:.2f}")
+
+
+class IssuesList(UIList):
+    bl_idname = "IRSIM_UL_issues"
+
+    ICONS = {"UNASSIGNED": "ERROR", "MIRROR": "LIGHT_SUN", "NAME": "SORTALPHA", "INFO": "INFO"}
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
+        row = layout.row(align=True)
+        row.label(text=item.name, icon=self.ICONS.get(item.kind, "INFO"))
+        row.label(text=item.detail)
+        op = row.operator("irsim.select_issue", text="", icon="RESTRICT_SELECT_OFF")
+        op.name = item.name
+
+
+class _Base:
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "irsim"
+
+
+class MainPanel(_Base, Panel):
+    bl_idname = "IRSIM_PT_main"
+    bl_label = "irsim Thermal"
+
+    def draw(self, context):
+        layout = self.layout
+        wm = context.window_manager
+        settings = context.scene.irsim
+        row = layout.row(align=True)
+        if len(wm.irsim_library):
+            row.label(text=f"Library: {len(wm.irsim_library)} materials", icon="MATERIAL")
+            row.operator("irsim.refresh_library", text="", icon="FILE_REFRESH")
+        else:
+            col = layout.column()
+            col.operator("irsim.refresh_library", icon="IMPORT")
+            if wm.irsim_library_status:
+                col.label(text=wm.irsim_library_status[:120], icon="ERROR")
+            col.label(text="Repository and Python: Edit > Preferences > Add-ons", icon="INFO")
+        if settings.checked:
+            text = (
+                f"{settings.coverage:.0f} % assigned, "
+                f"{settings.unassigned_count} of {settings.part_count} parts to go"
+            )
+            layout.progress(factor=settings.coverage / 100.0, type="BAR", text=text)
+        layout.prop(settings, "thermal_view", icon="SHADING_SOLID")
+
+
+class PartsPanel(_Base, Panel):
+    bl_idname = "IRSIM_PT_parts"
+    bl_parent_id = "IRSIM_PT_main"
+    bl_label = "Parts"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.irsim
+        layout.template_list(
+            "IRSIM_UL_parts",
+            "",
+            context.scene,
+            "objects",
+            settings,
+            "active_part_index",
+            rows=6,
+        )
+        row = layout.row(align=True)
+        op = row.operator(
+            "irsim.select_parts", text="Select unassigned", icon="RESTRICT_SELECT_OFF"
+        )
+        op.which = "UNASSIGNED"
+        row.operator("irsim.check", text="Refresh", icon="FILE_REFRESH")
+
+        ob = context.active_object
+        if ob is None or ob.type != "MESH":
+            return
+        box = layout.box()
+        box.label(text=f"{ob.name}: its materials", icon="OBJECT_DATA")
+        if not ob.material_slots:
+            box.label(text="No materials: assigning one creates it", icon="INFO")
+        for slot in ob.material_slots:
+            mat = slot.material
+            row = box.row()
+            if mat is None:
+                row.label(text="(empty slot)", icon="BLANK1")
+                continue
+            row.label(text=mat.name, icon="MATERIAL")
+            if mat.irsim_material:
+                row.label(text=mat.irsim_material, icon="CHECKMARK")
+            else:
+                row.label(text="unassigned", icon="ERROR")
+
+
+class LibraryPanel(_Base, Panel):
+    bl_idname = "IRSIM_PT_library"
+    bl_parent_id = "IRSIM_PT_main"
+    bl_label = "Material library"
+
+    def draw(self, context):
+        layout = self.layout
+        wm = context.window_manager
+        settings = context.scene.irsim
+        if not len(wm.irsim_library):
+            layout.operator("irsim.refresh_library", icon="IMPORT")
+            return
+        layout.template_list(
+            "IRSIM_UL_library",
+            "",
+            wm,
+            "irsim_library",
+            settings,
+            "active_library_index",
+            rows=6,
+        )
+        index = settings.active_library_index
+        item = wm.irsim_library[index] if 0 <= index < len(wm.irsim_library) else None
+        if item is None:
+            return
+        self._details(layout.box(), item)
+
+        col = layout.column(align=True)
+        if context.mode == "EDIT_MESH":
+            op = col.operator("irsim.assign", text="Assign to selected faces", icon="FACESEL")
+            op.material, op.scope = item.name, "FACES"
+        else:
+            op = col.operator("irsim.assign", text="Assign to selected parts", icon="CHECKMARK")
+            op.material, op.scope = item.name, "PARTS"
+            ob = context.active_object
+            mat = ob.active_material if ob else None
+            if mat is not None:
+                op = col.operator("irsim.assign", text=f"Assign to every part using '{mat.name}'")
+                op.material, op.scope = item.name, "MATERIAL"
+            op = col.operator(
+                "irsim.select_parts", text="Select parts made of this", icon="RESTRICT_SELECT_OFF"
+            )
+            op.which, op.material = "USING", item.name
+        row = layout.row(align=True)
+        row.operator("irsim.new_material", text="New material...", icon="ADD")
+        op = row.operator("irsim.new_material", text="New from this...", icon="DUPLICATE")
+        op.start_from = item.name
+
+    @staticmethod
+    def _details(box, item) -> None:
+        box.label(text=item.description[:90] or item.name)
+        row = box.row()
+        row.label(text=f"Source: {item.source}")
+        row.label(text=f"Surface: {item.surface_treatment}")
+        if item.error:
+            box.label(text=item.error[:120], icon="ERROR")
+        grid = box.grid_flow(row_major=True, columns=5, even_columns=True, align=True)
+        grid.label(text="")
+        for band in BANDS:
+            grid.label(text=band.upper())
+        for what, label in (("eps", "ε"), ("rho", "ρ"), ("tau", "τ")):
+            grid.label(text=label)
+            for band in BANDS:
+                grid.label(text=f"{getattr(item, f'{what}_{band}'):.2f}")
+        col = box.column(align=True)
+        col.label(text=f"Solar absorptivity {item.solar_absorptivity:.2f}")
+        col.label(
+            text=(
+                f"Heat capacity {item.heat_capacity_j_m2_k:,.0f} J/m²K "
+                f"({item.thickness_m * 1000:.3g} mm thick)"
+            )
+        )
+        col.label(text=f"Conductivity {item.conductivity_w_mk:.3g} W/m·K")
+        if item.eps_lwir < MIRROR:
+            box.label(
+                text="Mirror-like in LWIR: shows reflections, not its temperature", icon="ERROR"
+            )
+
+
+class ExportPanel(_Base, Panel):
+    bl_idname = "IRSIM_PT_export"
+    bl_parent_id = "IRSIM_PT_main"
+    bl_label = "Check and export"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.irsim
+        layout.operator("irsim.check", icon="VIEWZOOM")
+        if settings.checked:
+            self._size(layout.box(), settings)
+            if len(settings.issues):
+                layout.label(text="To look at:")
+                layout.template_list(
+                    "IRSIM_UL_issues",
+                    "",
+                    settings,
+                    "issues",
+                    settings,
+                    "active_issue_index",
+                    rows=4,
+                )
+            else:
+                layout.label(text="Nothing left to fix", icon="CHECKMARK")
+
+        box = layout.box()
+        box.prop(settings, "asset_name")
+        box.prop(settings, "replace_export")
+        box.operator("irsim.export_asset", icon="EXPORT")
+        if settings.last_export:
+            box.label(text=settings.last_export, icon="FILE")
+        box.operator("irsim.run_audit", icon="CHECKBOX_HLT")
+        if settings.audit_status:
+            box.label(text=settings.audit_status)
+
+    @staticmethod
+    def _size(box, settings) -> None:
+        dims = (settings.size_x_m, settings.size_y_m, settings.size_z_m)
+        largest = max(dims)
+        box.label(
+            text=f"Size {dims[0]:.3g} x {dims[1]:.3g} x {dims[2]:.3g} m", icon="FULLSCREEN_ENTER"
+        )
+        box.label(text=sizing.comparison(largest))
+        box.prop(settings, "size_help")
+        if not settings.size_help:
+            return
+        box.prop(settings, "size_kind")
+        row = box.row()
+        row.prop(settings, "known_dimension_m")
+        row.prop(settings, "known_axis", text="")
+        factor = None
+        if settings.known_dimension_m > 0.0:
+            axis = {"X": 0, "Y": 1, "Z": 2}.get(settings.known_axis)
+            measured = largest if axis is None else dims[axis]
+            if measured > 0.0:
+                factor, why = sizing.scale_for_known(measured, settings.known_dimension_m)
+                box.label(
+                    text=f"Scale x{factor:.4g} makes it match" + (f" ({why})" if why else ""),
+                    icon="INFO",
+                )
+        elif settings.size_kind != "NONE":
+            ranges = {r.key: r for r in sizing.load_ranges()}
+            diagnosis = sizing.diagnose(largest, ranges[settings.size_kind])
+            icon = {"within": "CHECKMARK", "unit": "ERROR", "outside": "QUESTION"}
+            for i, chunk in enumerate(_wrap(diagnosis.message, 60)):
+                box.label(text=chunk, icon=icon[diagnosis.status] if i == 0 else "BLANK1")
+            factor = diagnosis.factor
+        if factor is not None and abs(factor - 1.0) > 1e-9:
+            op = box.operator("irsim.apply_scale", text=f"Apply scale x{factor:.4g}")
+            op.factor = factor
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    words, lines, line = text.split(), [], ""
+    for word in words:
+        if line and len(line) + 1 + len(word) > width:
+            lines.append(line)
+            line = word
+        else:
+            line = f"{line} {word}".strip()
+    if line:
+        lines.append(line)
+    return lines
+
+
+classes = (
+    PartsList,
+    LibraryList,
+    IssuesList,
+    MainPanel,
+    PartsPanel,
+    LibraryPanel,
+    ExportPanel,
+)
+
+
+def register():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+
+def unregister():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
