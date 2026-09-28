@@ -1,0 +1,78 @@
+irsim Use-Only, Non-Commercial Licence
+Version 1.0
+
+Copyright (c) 2026 Reza Shahriari. All rights reserved.
+
+This licence covers the software, source code, configuration files, documentation, images, videos
+and other material in this repository (the "Software"), except for third-party material described
+in section 6.
+
+1. PERMITTED USE
+
+   Subject to the conditions below, you may, free of charge:
+
+   (a) download, install and run the Software exactly as published; and
+   (b) use the Software, and the images, videos and data you generate by running it, for
+       personal, academic, research, educational or evaluation purposes that are
+       non-commercial.
+
+2. RESTRICTIONS
+
+   Unless the copyright holder gives you prior written permission, you may not:
+
+   (a) modify, adapt, translate or otherwise change the Software, or create derivative works
+       based on it;
+   (b) distribute, publish, sublicense, sell, rent or otherwise make the Software, or any
+       modified version or part of it, available to others. Linking to this repository is
+       allowed;
+   (c) use the Software, or anything generated with it, for commercial purposes. This includes
+       use in or for a product or service that is sold, licensed or offered for a fee, and use
+       within a for-profit organisation's operations, and it applies whether the use is direct or
+       indirect;
+   (d) remove or alter any copyright notice, this licence, or any attribution in the Software.
+
+   Forking this repository on GitHub, as GitHub's Terms of Service allow for public
+   repositories, grants no right beyond this licence. A fork may be viewed only. It may not be
+   modified, redistributed or used in breach of this section.
+
+3. ATTRIBUTION
+
+   Any publication, report or presentation that uses the Software, or its output, must credit
+   "irsim by Reza Shahriari" and link to
+   https://github.com/reza-shahriari/isaac-thermal-camera-simulation.
+
+4. CONTRIBUTIONS
+
+   The copyright holder does not accept unsolicited modifications. Bug reports and suggestions are
+   welcome through the repository's issue tracker. Anything submitted there may be used by the
+   copyright holder without obligation.
+
+5. OTHER PERMISSIONS
+
+   Commercial licences, permission to modify, and permission to redistribute may be available.
+   Contact the copyright holder through the repository.
+
+6. THIRD-PARTY MATERIAL
+
+   Some files in the repository, or files the Software downloads, are the work of third parties.
+   Examples are public datasets, spectral and optical-constant tables, and 3D models. Each
+   remains under its own licence, as recorded next to it. Nothing in this licence grants rights
+   to that material, and nothing in it restricts rights its own licence gives you.
+
+7. TERMINATION
+
+   Your rights under this licence end automatically if you breach any of its terms. On
+   termination you must stop using the Software and delete all copies in your possession.
+
+8. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+   ACCURACY AND NON-INFRINGEMENT. ITS OUTPUT IS A SIMULATION AND MUST NOT BE RELIED ON FOR
+   SAFETY-CRITICAL DECISIONS.
+
+9. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
+   THE SOFTWARE OR ITS USE.

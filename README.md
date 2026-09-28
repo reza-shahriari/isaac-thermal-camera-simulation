@@ -115,3 +115,9 @@ known limitations.
 | [Decisions](docs/decisions/) | why each significant choice was made |
 | [Roadmap](docs/roadmap.md) | what is next |
 | [Changelog](CHANGELOG.md) | every shipped step |
+
+## Licence
+
+irsim is **source-available, not open source**. You may download it and use it unmodified for
+personal, research and educational work. Modifying it, redistributing it and commercial use all need
+written permission. See [LICENSE](LICENSE).

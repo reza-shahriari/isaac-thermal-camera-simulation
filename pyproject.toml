@@ -7,6 +7,7 @@ name = "irsim"
 version = "0.1.0"
 description = "Physically-based multi-band infrared camera simulator"
 requires-python = ">=3.10"
+license = { file = "LICENSE" }
 dependencies = [
     "numpy>=2.0",  # np.trapezoid; Isaac Sim 6.0 ships 2.3 (docs/decisions/0002)
     "scipy>=1.11",

@@ -6,6 +6,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **A licence (`LICENSE`): source-available, use-only, non-commercial.** Anyone may run irsim
+  unmodified for personal, research and educational work. Modification, redistribution and commercial
+  use need the copyright holder's written permission. Third-party data and models keep their own
+  licences. The README says so in one paragraph, and `pyproject.toml` points at the file.
 - **The `low2high` skill: a model's geometry made fit for the camera, in either direction**
   (`AI.10`, ADR 0155). Game and phone-game models climb a ladder (normals → subdivision with
   creases → displacement from their own maps → redesign through the Blender MCP, flagged
