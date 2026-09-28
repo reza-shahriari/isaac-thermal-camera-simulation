@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `TC.9` is phase P, size L, and unblocks 3 other step(s).
 
-#### Then, in order — 96 open steps
+#### Then, in order — 95 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -198,13 +198,13 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 8 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
 | 9 | **`SC.28`** | SC | A | S | 2 | ready |
 | 10 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
-| 11 | **`AT.21`** | AT | A | S | 1 | ready |
-| 12 | **`AT.22`** | AT | A | S | 1 | ready |
-| 13 | **`PT.28`** | PT | A | S | 1 | ready |
-| 14 | **`SC.29`** | SC | A | S | 1 | ready |
-| 15 | **`SC.32`** | SC | A | S | 1 | ready |
+| 11 | **`AT.22`** | AT | A | S | 1 | ready |
+| 12 | **`PT.28`** | PT | A | S | 1 | ready |
+| 13 | **`SC.29`** | SC | A | S | 1 | ready |
+| 14 | **`SC.32`** | SC | A | S | 1 | ready |
+| 15 | **`AT.27`** | AT | A | S | — | ready |
 
-…and 81 more — `python scripts/next_step.py --queue 40`.
+…and 80 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -581,7 +581,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.18 | ✅ **done.** `*metal*`/`*alumin*` point at the matte entry and the `aircraft` class at painted skin; `*chrome*` is deleted, not redirected — `phantom4.yaml` settled its chrome from the shader's metallic 0.987, not the name. `audit(…, emissivity=)` fails a prim reaching ε < 0.2 by glob or class; only an asset map or an override may. | **Measured.** A 300 K housing under a 250 K sky reads **40.1 K** apart on a top-hat (38.0 K on the Boson response), **800 × NETD**, and the mirror reports the sky, not itself. Phantom 4 bare coverage 48.8 → **43.9 %**. 27 cases. | — | S | A |
 | AT.19 | ✅ **done.** The infrared cloud: **one base** (the deck's own, for temperature and path), **dry-adiabatic** to it (g/c_p; the preset's 6.5 K/km overwarmed a base 3.3 K/km), and **the band's own march** over the shared array (uniform, two samples per pitch, hashed jitter). The stale two-weather `phantom4_weather` clip re-rendered. ADR 0146. | **Measured**: the clip's 17 °C cloud reproduced from the CSV weather; one weather 8.5 °C, dry lapse **7.1 °C**; residual lag-one correlation **0.4–0.56** vs 0.84–0.90; ε error p99 0.0018; 10 s a frame. | AT.16, AT.15 | M | A |
 | AT.20 | ✅ **done** (ADR 0153). `ground.material` names a library material; in a sunlit band L_ground += ρ_B E_B/π, E_B = the weather's DNI·sin h + DHI through the band's two solar fractions (`per_dni`, `per_dhi`). Cloud bases gain R(τ, μ0) E_B/π, the dome's own form. In-engine render waits on a free A6000. | **Measured.** V_s = 0 panel = ρ·albedo·E_B/π vs a numpy oracle; SWIR env 9e-8 → 13.4, NIR 8e-16 → 8.55; deck clouds 1.0× → 13× (SWIR), 6.7× (NIR); night 0.0; LWIR bit-identical. `test_sunlit_environment.py`, 11 cases. | — | M | A |
-| AT.21 | **Wire the slant path into `run_frame`.** `frame.py:230` calls `apply_layered_gbuffer` without `planes["elevation_rad"]`, which `ir_camera.py:797` writes; only `atmosphere_stage` passes it. Every resolved pixel gets the horizontal path while sky and point targets get the slant one, so AT.1 is closed on no render path. | Red: a 310 K target at 5 km, 45° reads 1.14 K low, path radiance 60 % high against the stage. Green: `run_frame` equals `atmosphere_stage` to 1e-6 with a varying elevation plane; a horizontal plane is bit-identical. | — | S | A |
+| AT.21 | ✅ **done.** `run_frame` passes `planes["elevation_rad"]` to `apply_layered_gbuffer`, as `atmosphere_stage` already did. One argument: the entry point every driver and `IrCamera` call skipped it while the sky and point-target paths took the slant column. | **Measured.** A 310 K target at 5 km, 45° through `run_frame` read **1.14 K low** with path radiance 60 % high against the stage; now the two agree to < 10 mK on a 0–60° plane, rows attenuate less as they steepen, and a frame without the plane is bit-identical. `test_run_frame_slant_path.py`, red without the fix. | — | S | A |
 | AT.22 | **Sub-pixel targets subtract the pixel they sit in.** `point_target.py:166` uses the pixel's own radiance only without an atmosphere; with one it subtracts the clear column beyond R whatever the pixel holds — cloud, sea, terrain. Excess = φ·[τ L_t + L_path(R) − L_pixel] from the post-stage-2 plane, as the rotor veil already argues. | Red: over cloud (c = 0.4) a φ = 0.278 target at 700 m is 2× too bright (+5.8 W/m²/sr). Green: clear-sky background bit-identical; over cloud the excess equals the hand value to 1e-6; flux conserved. | — | S | A |
 | AT.23 | **The engine-free aerial builder lights and orients its surfaces.** `validation/aerial_scene.py` gives every surface V_s = 1 and n·v = 1 and writes no `l_sun`, `shadow_mask` or `sun_cos_incidence`, so a CPU render sees only sky reflection and no sun in any band. Carry tilt-derived V_s, a view angle and the solar planes from `SceneIllumination`. | A belly (tilt 180) reflects ground, not sky (≈ 3 K in LWIR on paint); a noon SWIR shell is sunlit; Isaac and CPU paths agree on the sky-target fixture to 0.1 K. | — | M | A |
 | AT.24 | **Band quadrature that cannot step off the support.** `quadrature_grid` pads one node past the response when the interval count is odd, so Simpson straddles a cliff where R ends non-zero (+33 % at 300 K on an odd-count top-hat; `class_weights`' nominal NIR band is that case); 0.01 µm is unconverged below 1.2 µm (NIR LUT −0.94 % at 200 K). Even count by shrinking dl; ln λ spacing below 2 µm. | Odd-count top-hat vs closed form ≤ 1e-6 at 200–1000 K; every shipped LUT vs a converged quadrature ≤ 0.1 mK at 200–600 K; `test_lut` gains an oracle that is not its own Simpson. | — | S | P |

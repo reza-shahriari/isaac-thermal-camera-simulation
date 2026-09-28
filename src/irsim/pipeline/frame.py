@@ -235,6 +235,10 @@ def run_frame(
             np.asarray(planes["distance_m"]),
             q,
             sky_mask=planes.get("sky_mask"),
+            # AT.21: the per-pixel slant path (AT.1). This call used to omit the plane, so every
+            # resolved pixel took the horizontal column while the sky and point-target paths
+            # beside it took the slant one -- `atmosphere_stage` passed it, `run_frame` did not.
+            elevation_rad=planes.get("elevation_rad"),
         )
     elif config.atmosphere is not None:
         atm_state = config.atmosphere.state(state.t_s)
