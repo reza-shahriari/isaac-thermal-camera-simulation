@@ -21,6 +21,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 ### Changed
+- **Roadmap: heat between objects becomes a switch, with the rows that reach it.** Eleven rows
+  record what a 2026-09-28 audit found missing and what the owner asked for: view factors between
+  any two parts by ray casting (`TC.9`), heat exchange between objects as one scene switch
+  (`TC.10`), a fully solved main object (`TC.11`), evolve or freeze per object and per scene
+  (`TC.12`), the Phantom 4 on the solved network once those land (`TC.13`), the car's body and
+  underbody solved (`TC.14`, `TC.15`), moving air (`PH.14`), and asset contacts, hidden parts and
+  component libraries (`AI.11`–`AI.13`). Owner's priority 9 states the requirement; the matching
+  limitations are in `TECHNICAL_REPORT.md`. No code changed.
 - **The README is a public front page; the engineering record moved to `TECHNICAL_REPORT.md`.**
   The README now opens on the site's hero clip as a GIF, then highlights, a short "What's new"
   list, a quick start and links (media under `docs/media/`, all web-sized). The status table,

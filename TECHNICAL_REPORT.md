@@ -868,6 +868,24 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   exhaust) are nested regions of one floor pan, not disjoint bodies, so their view factors are
   clamped to sum to at most 1 per cell (ADR 0090) rather than partitioned -- correct in total, but
   an approximation of which radiator "owns" a cell where their footprints overlap.
+- **Heat reaches a part only by the paths a scene wires by hand, and the demo drone wires none.**
+  In `phantom4_perpart.yaml` the motors, ESCs and pack are §6.6 nodes `T_air + ΔT_max·u²`
+  (ADR 0072) with no mass, so they are hot the instant the throttle rises and cold the instant it
+  falls: the hot motors of a just-landed drone cannot appear. The shell, arms, legs and gimbal are
+  `T_air` plus ESTIMATED offsets (ADR 0143); the motor mounts are solved as plastic with nothing
+  heating them; no link joins any two parts. The network that does this properly (`TC.2`–`TC.6`)
+  is used only by the car scenes, through hand-written `links:`. Roadmap: `TC.11`, then `TC.13`;
+  the drone is left as it is until the steps before it land.
+- **On the car, only the engine is solved.** `shell` and `glass` are held at exactly `T_air`,
+  which the scene's own note puts 5–8 K off on a clear night. The underbody and the exhaust run in
+  the ignition scenes are scripted §6.6 rows, not heated by the solved block beside them. `TC.7`'s
+  exhaust radiates into a floor pan held at body temperature, so the floor never warms. Nothing
+  carries heated air rearward, and there are no rear-mounted sources (lights, rear-window heater,
+  differential, EV drive). Roadmap: `TC.14`, `TC.15`, `PH.14`, `AI.13`.
+- **Realism has no switches.** Radiation between objects is computed for parallel rectangles only
+  (above), so a downloaded car cannot radiate onto the road it stands on. No scene switch turns
+  heat exchange between objects on or off, no object can be marked as not evolving, and no
+  temperature can be frozen at a chosen moment. Roadmap: `TC.9`, `TC.10`, `TC.12`.
 - **No hot-gas absorption in SWIR or NIR** (`PH.5`, ADR 0098 addendum). RadCal *sets* CO₂ to zero
   above 1.75 µm and H₂O above 1.08 µm -- sound for fire heat transfer, unsound for a short-wave
   camera, where real overtone bands live. The generator records how much of each band falls inside
