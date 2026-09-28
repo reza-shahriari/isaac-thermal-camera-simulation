@@ -45,11 +45,11 @@ mesh is not the render mesh), ADR 0137 (the geometry budget).
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 __all__ = [
     "Component",
@@ -199,6 +199,72 @@ class PartSpec(_Frozen):
     select: PartSelector = Field(default_factory=PartSelector)
 
 
+class ContactSpec(_Frozen):
+    """A thermal contact between two parts of one asset (AI.11).
+
+    ``joint`` names an entry of ``configs/thermal/joints.yaml`` (a contact conductance in
+    W m⁻² K⁻¹) and ``area_m2`` the footprint it acts over, so the conductance is
+    ``h_c · A`` -- the same form a scene's ``links:`` take (TC.4). Either end may be a visible
+    part or a hidden one. The joint's existence is checked against the table when the asset is
+    loaded, and the area against the parts' measured areas when the geometry is decomposed.
+    """
+
+    a: str = Field(min_length=1)
+    b: str = Field(min_length=1)
+    joint: str = Field(min_length=1)
+    area_m2: float = Field(gt=0.0)
+
+    @model_validator(mode="after")
+    def _two_different_parts(self) -> ContactSpec:
+        if self.a.lower() == self.b.lower():
+            raise ValueError(f"contact {self.a!r}: a part cannot touch itself")
+        return self
+
+
+class HiddenPartSpec(_Frozen):
+    """A part the camera never sees, placed by a box (AI.11): an ESC in an arm, a pack in a body.
+
+    ``component`` names an entry of the component library (AI.12), whose mass, heat capacity and
+    dissipation the fields here override; without a component the part must carry ``mass_kg``
+    itself, because a hidden part without mass is a heat source with no thermal inertia -- the
+    instantaneous node ADR 0072 is being retired for. Positions are in the asset's own frame,
+    in metres after ``scale_to_metres``, like every selector in the block.
+    """
+
+    name: str = Field(min_length=1)
+    centre_m: tuple[float, float, float]
+    size_m: tuple[float, float, float]
+    component: str | None = None
+    mass_kg: float | None = Field(default=None, gt=0.0)
+    specific_heat_j_kgk: float | None = Field(default=None, gt=0.0)
+    dissipation_w: float | None = Field(default=None, ge=0.0)
+    material: str | None = None
+    status: Literal["MEASURED", "ESTIMATED"] = "ESTIMATED"
+
+    @model_validator(mode="after")
+    def _has_mass_or_a_component(self) -> HiddenPartSpec:
+        if any(s <= 0.0 for s in self.size_m):
+            raise ValueError(f"hidden part {self.name!r}: every side of its box must be positive")
+        if self.mass_kg is None and self.component is None:
+            raise ValueError(
+                f"hidden part {self.name!r} has no mass: give `mass_kg:` or name a `component:` "
+                "that carries one"
+            )
+        return self
+
+    @property
+    def surface_area_m2(self) -> float:
+        a, b, c = self.size_m
+        return 2.0 * (a * b + b * c + c * a)
+
+    @property
+    def capacity_j_k(self) -> float | None:
+        """``m · c_p`` when both are authored here, else ``None`` (the component's, AI.12)."""
+        if self.mass_kg is None or self.specific_heat_j_kgk is None:
+            return None
+        return float(self.mass_kg) * float(self.specific_heat_j_kgk)
+
+
 class PartsConfig(_Frozen):
     """An asset's part decomposition: where its centre is, and what its parts are."""
 
@@ -208,6 +274,10 @@ class PartsConfig(_Frozen):
     centre: tuple[float, float, float] = (0.0, 0.0, 0.0)
     parts: list[PartSpec] = Field(default_factory=list)
     coverage_threshold: float = Field(default=DEFAULT_PART_COVERAGE, ge=0.0, le=1.0)
+    #: AI.11: what touches what, and what the camera never sees. Both empty is every asset
+    #: written before the fields existed, and loads unchanged.
+    contacts: list[ContactSpec] = Field(default_factory=list)
+    hidden_parts: list[HiddenPartSpec] = Field(default_factory=list)
 
     @field_validator("parts")
     @classmethod
@@ -216,6 +286,68 @@ class PartsConfig(_Frozen):
         if len(set(seen)) != len(seen):
             raise ValueError("duplicate part name in asset parts")
         return v
+
+    @model_validator(mode="after")
+    def _contacts_name_parts_that_exist(self) -> PartsConfig:
+        shown = {p.name.lower() for p in self.parts}
+        hidden = [h.name.lower() for h in self.hidden_parts]
+        if len(set(hidden)) != len(hidden):
+            raise ValueError("duplicate hidden part name in asset parts")
+        clash = shown & set(hidden)
+        if clash:
+            raise ValueError(f"hidden parts {sorted(clash)} share a name with a shown part")
+        known = shown | set(hidden)
+        for c in self.contacts:
+            for end in (c.a, c.b):
+                if end.lower() not in known:
+                    raise ValueError(
+                        f"contact {c.a!r}-{c.b!r} names {end!r}, which is neither a part nor a "
+                        f"hidden part; known: {sorted(known)}"
+                    )
+        return self
+
+    @property
+    def hidden_names(self) -> tuple[str, ...]:
+        return tuple(h.name for h in self.hidden_parts)
+
+    def hidden(self, name: str) -> HiddenPartSpec:
+        for h in self.hidden_parts:
+            if h.name.lower() == name.lower():
+                return h
+        raise KeyError(f"{name!r} is not a hidden part; hidden: {list(self.hidden_names)}")
+
+    def check_joints(self, table: Any) -> None:
+        """Refuse a contact whose joint the table does not have (a `JointTable`)."""
+        for c in self.contacts:
+            try:
+                table.joint(c.joint)
+            except KeyError as exc:
+                raise ValueError(f"contact {c.a!r}-{c.b!r}: {exc.args[0]}") from None
+
+    def check_contact_areas(self, area_by_part: Mapping[str, float]) -> None:
+        """Refuse a contact larger than either of its parts (AI.11).
+
+        A visible part's area is the one its geometry measured (``PartReport.area_by_part``); a
+        hidden part's is its box's. A part that measured no area at all is skipped here: the
+        report already names it as empty, and that is the fault to fix first.
+        """
+        lower = {k.lower(): float(v) for k, v in area_by_part.items()}
+        for c in self.contacts:
+            for end in (c.a, c.b):
+                key = end.lower()
+                area = lower.get(key)
+                if area is None:
+                    try:
+                        area = self.hidden(end).surface_area_m2
+                    except KeyError:
+                        continue
+                if area <= 0.0:
+                    continue
+                if c.area_m2 > area * (1.0 + 1e-9):
+                    raise ValueError(
+                        f"contact {c.a!r}-{c.b!r}: its area {c.area_m2:.6g} m2 is larger than "
+                        f"{end!r}'s whole surface ({area:.6g} m2)"
+                    )
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -359,6 +491,8 @@ def assign_parts(
         unassigned_area_m2=unassigned_area,
         unassigned_faces=unassigned_faces,
     )
+    if config.contacts:
+        config.check_contact_areas(area_by_part)
     return assignments, report
 
 

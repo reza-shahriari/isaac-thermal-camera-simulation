@@ -228,6 +228,11 @@ def load_asset_mapping(
     if not p.suffix and not p.exists():
         p = ASSETS_DIR / f"{p.name}.yaml"
     asset = AssetConfig.model_validate(yaml.safe_load(p.read_text(encoding="utf-8"))).asset
+    if asset.parts is not None and asset.parts.contacts:
+        # AI.11: a contact's joint must be one the table prices, or the conductance is a guess
+        from irsim.config.joints import load_joint_table
+
+        asset.parts.check_joints(load_joint_table())
     if known_materials is not None:
         unknown = asset.targets - set(known_materials)
         if unknown:

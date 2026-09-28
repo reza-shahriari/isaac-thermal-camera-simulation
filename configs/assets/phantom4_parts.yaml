@@ -147,6 +147,39 @@ asset:
     centre: [-0.0078, 0.4915, 0.0]
     coverage_threshold: 0.95
 
+    # --- AI.11: what touches what, and what the camera never sees ------------------------------
+    # Every number here is ESTIMATED from the airframe's published layout, not measured on this
+    # aircraft: a motor is bolted to its mount through a ~2 cm^2 boss, the mount sits on the arm
+    # over ~4 cm^2, the pack rests on the lower shell over its 88 x 78 mm face, and each ESC
+    # (a 30 x 20 x 6 mm board, ~12 g, ~2 W at hover) lies inside the arm beside its motor.
+    # `dry_default` is the joints table's unlubricated bolted-metal default (ADR 0097).
+    contacts:
+      - {a: motor_front_left, b: motor_mount_front_left, joint: dry_default, area_m2: 0.0002}
+      - {a: motor_mount_front_left, b: arms, joint: dry_default, area_m2: 0.0004}
+      - {a: esc_front_left, b: arms, joint: dry_default, area_m2: 0.0003}
+      - {a: motor_front_right, b: motor_mount_front_right, joint: dry_default, area_m2: 0.0002}
+      - {a: motor_mount_front_right, b: arms, joint: dry_default, area_m2: 0.0004}
+      - {a: esc_front_right, b: arms, joint: dry_default, area_m2: 0.0003}
+      - {a: motor_rear_left, b: motor_mount_rear_left, joint: dry_default, area_m2: 0.0002}
+      - {a: motor_mount_rear_left, b: arms, joint: dry_default, area_m2: 0.0004}
+      - {a: esc_rear_left, b: arms, joint: dry_default, area_m2: 0.0003}
+      - {a: motor_rear_right, b: motor_mount_rear_right, joint: dry_default, area_m2: 0.0002}
+      - {a: motor_mount_rear_right, b: arms, joint: dry_default, area_m2: 0.0004}
+      - {a: esc_rear_right, b: arms, joint: dry_default, area_m2: 0.0003}
+      - {a: battery, b: shell_lower, joint: dry_default, area_m2: 0.0069}
+      - {a: flight_controller, b: shell_lower, joint: dry_default, area_m2: 0.0004}
+    hidden_parts:
+      - {name: esc_front_left, centre_m: [0.044, 0.314, 0.030], size_m: [0.030, 0.020, 0.006], component: esc,
+         mass_kg: 0.012, specific_heat_j_kgk: 900.0, dissipation_w: 2.0, status: ESTIMATED}
+      - {name: esc_front_right, centre_m: [-0.185, 0.439, 0.030], size_m: [0.030, 0.020, 0.006], component: esc,
+         mass_kg: 0.012, specific_heat_j_kgk: 900.0, dissipation_w: 2.0, status: ESTIMATED}
+      - {name: esc_rear_left, centre_m: [0.17, 0.544, 0.030], size_m: [0.030, 0.020, 0.006], component: esc,
+         mass_kg: 0.012, specific_heat_j_kgk: 900.0, dissipation_w: 2.0, status: ESTIMATED}
+      - {name: esc_rear_right, centre_m: [-0.06, 0.669, 0.030], size_m: [0.030, 0.020, 0.006], component: esc,
+         mass_kg: 0.012, specific_heat_j_kgk: 900.0, dissipation_w: 2.0, status: ESTIMATED}
+      - {name: flight_controller, centre_m: [-0.0078, 0.4915, 0.030], size_m: [0.050, 0.050, 0.010],
+         component: flight_controller, mass_kg: 0.020, specific_heat_j_kgk: 900.0, dissipation_w: 1.5, status: ESTIMATED}
+
     parts:
       # --- the battery: 88 x 83 x 28 mm, against DJI's published 88 x 78 x 35 mm --------------
       # Modelled as an interior block, so it is never directly visible to the camera. That is
