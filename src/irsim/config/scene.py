@@ -56,7 +56,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 17  # v17: a surface's `temperature_map:` /
+SCENE_SCHEMA_VERSION = 18  # v18: `thermal.object_exchange:` (ADR 0157,
+# TC.10); v17: a surface's `temperature_map:` /
 # `parameter_maps:` (PT.13); v16 a surface mesh
 # read from a prepared asset archive (ADR 0132,
 # AI.2); v15 an
@@ -1043,6 +1044,39 @@ class ThermalSceneSpec(_Frozen):
     #: wide -- 9.3 mm per metre of standoff, which is sub-cell unless the cells are small and
     #: the occluder close. Each extra ray is another occluder pass per forcing evaluation.
     penumbra_rays: int = Field(default=1, ge=1, le=37)
+    #: Heat exchange between objects (schema v18, TC.10, ADR 0157): every plain patch and mesh
+    #: trades longwave with every other by traced view factors (TC.9), net of the sky each
+    #: hides, stepped in lockstep. Off -- the default, and every scene written before the key
+    #: existed -- leaves each field the separate solve it was, bit for bit.
+    object_exchange: bool = False
+
+    @model_validator(mode="after")
+    def _exchange_members_are_plain_solved_surfaces(self) -> ThermalSceneSpec:
+        """The exchange joins plain patches and meshes; anything else is refused by name."""
+        if not self.object_exchange:
+            return self
+        bodies = [s for s in self.surfaces if s.patch is not None or s.mesh is not None]
+        if len(bodies) < 2:
+            raise ValueError(
+                "object_exchange needs at least two surfaces with a `patch:` or a `mesh:` to "
+                f"exchange between; found {[s.name for s in bodies]}"
+            )
+        panels = {p.surface for p in self.cabin.panels} if self.cabin is not None else set()
+        for s in bodies:
+            why = None
+            if s.temperature_map is not None:
+                why = "a prescribed `temperature_map:` is not solved"
+            elif s.layers > 1:
+                why = "a layered surface is solved as one coupled stack (PT.12)"
+            elif s.name in panels:
+                why = "a cabin panel is solved with its cabin (PT.15)"
+            if why is not None:
+                raise ValueError(
+                    f"object_exchange: surface {s.name!r} cannot join the exchange -- {why}. "
+                    "Leaving it out silently would be a body that radiates nothing, so the "
+                    "scene is refused instead"
+                )
+        return self
 
     @model_validator(mode="after")
     def _penumbra_is_a_ring_count(self) -> ThermalSceneSpec:

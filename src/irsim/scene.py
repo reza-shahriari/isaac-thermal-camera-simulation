@@ -507,6 +507,9 @@ class Scene:
     #: ``{occluder name: rectangle}`` in world coordinates -- what casts shadows on the patched
     #: surfaces (PT.18). Empty for every scene before v8, and then nothing here changes.
     occluders: Mapping[str, ShadowRectangle] = field(default_factory=dict)
+    #: TC.10: the exchange group every plain patch and mesh belongs to when
+    #: ``thermal.object_exchange`` is on (ADR 0157); the fields above are then its proxies.
+    object_exchange: Any = None
     #: ``{surface name: library material}`` for the §12.3 surfaces (PT.6): what a driver reads
     #: for the numbers the per-prim stack does not keep (k, δ) and the object ADR 0043 makes the
     #: single source of ε.
@@ -776,6 +779,15 @@ class Scene:
             o.name: build_occluder(o)
             for o in (spec.thermal.occluders if spec.thermal is not None else ())
         }
+        surface_fields = _build_surface_fields(
+            spec, build, patches, world_frame, occluders, data_dir
+        )
+        mesh_fields = _build_mesh_fields(spec, build, meshes, world_frame, occluders)
+        exchange = None
+        if spec.thermal is not None and spec.thermal.object_exchange:
+            exchange = _join_object_exchange(
+                spec, build, patches, meshes, surface_fields, mesh_fields
+            )
         return cls(
             spec=spec,
             weather=weather,
@@ -789,12 +801,11 @@ class Scene:
             thermal_surfaces=build.names,
             patches=patches,
             patch_prims=patch_prims,
-            surface_fields=_build_surface_fields(
-                spec, build, patches, world_frame, occluders, data_dir
-            ),
+            surface_fields=surface_fields,
             meshes=meshes,
             mesh_prims=mesh_prims,
-            mesh_fields=_build_mesh_fields(spec, build, meshes, world_frame, occluders),
+            mesh_fields=mesh_fields,
+            object_exchange=exchange,
             world_frame=world_frame,
             occluders=occluders,
             network=network,
@@ -1215,6 +1226,42 @@ def _mapped_properties(surface: Any, patch: Any, cells: Any, data_dir: Any) -> A
         for m in surface.parameter_maps
     ]
     return apply_parameter_maps(cells, patch, entries)
+
+
+def _join_object_exchange(
+    spec: SceneSpec,
+    build: _ThermalBuild,
+    patches: Mapping[str, PlanarPatch],
+    meshes: Mapping[str, Any],
+    surface_fields: dict[str, Any],
+    mesh_fields: dict[str, Any],
+) -> Any:
+    """`thermal.object_exchange: true` (TC.10, ADR 0157): every plain patch and mesh joins one
+    :class:`~irsim.thermal.object_exchange.ObjectExchange`, and the scene's fields become its
+    proxies, so advancing any one of them advances them all from one snapshot per tick.
+
+    The bodies radiate from the side their patch or mesh faces, with the surface's own library
+    emissivity; the factors are traced once here, at build. The schema has already refused the
+    surfaces that cannot join (layered, cabin, prescribed), so a name found in neither field
+    dict is a bug, not a configuration.
+    """
+    from irsim.thermal.object_exchange import ExchangeBody, ObjectExchange
+
+    assert spec.thermal is not None
+    bodies = []
+    for i, s in enumerate(spec.thermal.surfaces):
+        eps = float(build.properties.emissivity[i])
+        if s.name in patches and s.name in surface_fields:
+            bodies.append(ExchangeBody.from_planar(s.name, patches[s.name], eps))
+        elif s.name in meshes and s.name in mesh_fields:
+            bodies.append(ExchangeBody.from_mesh(s.name, meshes[s.name], eps))
+    group = ObjectExchange(bodies)
+    for body in bodies:
+        if body.name in surface_fields:
+            surface_fields[body.name] = group.register(body.name, surface_fields[body.name])
+        else:
+            mesh_fields[body.name] = group.register(body.name, mesh_fields[body.name])
+    return group
 
 
 def _build_surface_fields(
