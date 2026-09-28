@@ -81,9 +81,21 @@ def excess_radiance(
     t_s: float,
     lut: BandLUT,
     quantity: Quantity = "lb",
-    background_radiance: float = 0.0,
+    background_radiance: float | None = None,
 ) -> float:
-    """ΔL averaged over the native pixel (band radiance units), per the module docstring."""
+    """ΔL averaged over the native pixel (band radiance units), per the module docstring.
+
+    ``background_radiance`` is what the pixel holds *after stage 2* -- sky, cloud, sea, terrain
+    or another target, each already carried through its own path. Given, the excess is
+
+        ΔL = φ [ τ_B(R) L_t + L_path(R) − L_pixel ],
+
+    the target replacing its share of the pixel with its own radiance seen through R of air (the
+    blend `rotor_veil` argues for). With ``None``, and always for the grey L1 model, the layered
+    branch falls back to the clear column beyond R -- the same number on a clear-sky pixel and
+    wrong on every other one (AT.22): over a cloud the old form subtracted a clear sky that was
+    not there and made a sub-pixel drone about twice as bright over its background as it should be.
+    """
     phi = fill_fraction(
         target.area_m2, target.range_m, sensor.optics.focal_length_mm * 1e-3, sensor.pixel_area_m2
     )
@@ -93,14 +105,25 @@ def excess_radiance(
             "(the point-target path is for phi < 1, ADR 0071)"
         )
     if atmosphere is None:
-        return phi * (target.radiance - background_radiance)
+        return phi * (target.radiance - (background_radiance or 0.0))
     if isinstance(atmosphere, LayeredAtmosphere):
         es = atmosphere.exponential_sum(band, t_s)
         tau_k = atmosphere.class_transmittances(band, t_s, target.range_m, target.elevation_rad)
+        if background_radiance is not None:
+            tau_band = float(np.dot(es.weights, tau_k))
+            path = atmosphere.path_radiance(
+                band, t_s, target.range_m, target.elevation_rad, quantity
+            )
+            return phi * (tau_band * target.radiance + path - background_radiance)
         beyond = atmosphere.sky_beyond_per_class(
             band, t_s, target.range_m, target.elevation_rad, quantity
         )
         return phi * float(np.dot(es.weights * tau_k, target.radiance - beyond))
+    # The grey L1 model keeps the clear-column form whatever the pixel holds. Its path radiance
+    # tends to L_B(T_air) while the sky pixels beside it come from `SkyModel` (ADR 0050), so the
+    # two are not one column and "what is beyond R" cannot be read off the pixel: at long range
+    # (L_pixel - L_path) / tau goes negative. That is the grey model's own inconsistency (spec
+    # issue S28, AT.5), not something a point target can repair.
     state = atmosphere.state(t_s)
     tau = float(np.exp(-state.gamma_per_m[band] * target.range_m))
     l_air = float(lut.lookup(np.float64(state.t_air_k), quantity)[()])
@@ -159,17 +182,17 @@ def inject_point_targets(
     supersample: int,
     background: NDArray[np.floating] | None = None,
 ) -> NDArray[np.floating]:
-    """Inject every target on the post-stage-2 k× radiance plane. With no atmosphere the
-    background the target occults is the plane's own value at the target's pixel."""
+    """Inject every target on the post-stage-2 k× radiance plane. The background the target
+    occults is the plane's own value at the target's pixel -- whatever is there (AT.22): it used
+    to be read only without an atmosphere, and with one the clear column beyond R stood in for
+    it, cloud, sea or terrain notwithstanding."""
     out: Any = radiance_ss
+    src = radiance_ss if background is None else background
+    k = int(supersample)
     for t in targets:
-        bg = 0.0
-        if atmosphere is None:
-            src = radiance_ss if background is None else background
-            k = int(supersample)
-            j = min(max(int(t.position_px[0] * k), 0), src.shape[1] - 1)
-            i = min(max(int(t.position_px[1] * k), 0), src.shape[0] - 1)
-            bg = float(src[i, j])
+        j = min(max(int(t.position_px[0] * k), 0), src.shape[1] - 1)
+        i = min(max(int(t.position_px[1] * k), 0), src.shape[0] - 1)
+        bg = float(src[i, j])
         d_l = excess_radiance(t, sensor, atmosphere, band, t_s, lut, quantity, bg)
         out = splat(out, d_l, t.position_px, supersample)
     return np.asarray(out, dtype=radiance_ss.dtype)
