@@ -104,9 +104,10 @@ def test_the_file_still_holds_seventy_five_issues() -> None:
     field's spectral-slope convention, `S51` by `OC.1` for §8.3's undefined `MTF_defocus`, and
     `S52`/`S53` on 2026-09-26 for the AGC that starves a small target and the ADC floor that clips
     a cold sky, `S54` for the one thermal-core ISP every band inherited, and `S55` for
-    reflective-band target lighting.
+    reflective-band target lighting, and `S56`/`S57` on 2026-09-28 for the convection floor that
+    counts radiation twice and the humidity law that is linear where the continuum is not.
     """
-    assert len(_rows()) == 75
+    assert len(_rows()) == 77
 
 
 def test_every_row_has_a_non_empty_status() -> None:

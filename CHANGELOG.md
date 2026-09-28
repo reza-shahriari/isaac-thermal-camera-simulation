@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Tutorials, as a folder of pages on the site.** `docs/tutorials/` holds one folder per tutorial
+  and one page per step (`NN-name.md`, read in order); the site publishes it under Start ▸
+  Tutorials, with each step linked to the one before and after it and the step number kept out
+  of the url, so inserting a step breaks no link. The build names any page its folder's
+  `README.md` does not list, and a test fails on it. The first tutorial, *Infrared materials in
+  Blender*, replaces the add-on's single `TUTORIAL.md`: eleven steps, from installing the add-on
+  to exporting, with pictures of the DJI Phantom 4 from its headless demo.
 - **The frame viewer is one command and has a guide.** `make viewer` now finds a working Python
   by itself (`scripts/viewer.sh`), lists the newest runs first, marks each *full data* or *camera
   only*, and has a **? help** panel. `docs/frame-viewer.md` explains how to start and read it and
@@ -30,6 +37,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 ### Changed
+- **Roadmap: eighteen rows from the 2026-09-28 audit.** Six subsystem audits of the physics core and the aerial lane found wiring defects that change every frame -- the slant path, motion smear and flat field never reach `run_frame` or the Phantom 4 driver -- and physics defects on the drone's belly, limb and motors. Each is now a step: `AT.21`-`AT.28`, `SC.28`-`SC.31`, `PT.24`-`PT.28`, `EV.14`-`EV.15`, `IG.18`, `GT.10`; spec issues `S56`, `S57`. Three more from the owner the same day: a camera catalogue with a forward-compatibility rule (`SC.32`), calibration loaded from the camera file (`SC.33`), and a visible companion that motion-blurs over the infrared exposure (`IG.19`).
 - **Roadmap: heat between objects becomes a switch, with the rows that reach it.** Eleven rows
   record what a 2026-09-28 audit found missing and what the owner asked for: view factors between
   any two parts by ray casting (`TC.9`), heat exchange between objects as one scene switch
