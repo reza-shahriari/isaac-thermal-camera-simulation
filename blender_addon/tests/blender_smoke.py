@@ -221,6 +221,13 @@ def ui_checks(ctx) -> None:
     material_form.NewMaterial.draw(me, ctx)
     check("prop" in calls, f"the new-material form draws ({len(calls)} calls)")
 
+    from irsim_thermal import asset_map
+
+    rna = bpy.ops.irsim.load_asset_map.get_rna_type()
+    me, calls = fake(asset="", overwrite=False, bl_rna=rna)
+    asset_map.LoadAssetMap.draw(me, ctx)
+    check("prop_search" in calls, "the load-from-asset dialog draws")
+
     me, calls = fake(repo_root="", python_path="", bl_rna=prefs.IrsimPreferences.bl_rna)
     prefs.IrsimPreferences.draw(me, ctx)
     check("operator" in calls, "the preferences draw")
@@ -406,7 +413,14 @@ def main() -> None:
     # --- 5b. thermal view on the assigned model -------------------------------------------------
     ctx.scene.irsim.thermal_view = True
     abs_eps = library_state.find(ctx, "abs_plastic_white").eps_lwir
-    check(close(white.diffuse_color[0], abs_eps, 1e-5), "thermal view grey level is LWIR ε")
+    check(
+        close(white.diffuse_color[0], thermal_view.display_grey(abs_eps), 1e-5),
+        "thermal view grey level is LWIR ε",
+    )
+    check(
+        thermal_view.display_grey(0.09) < 0.01 < 0.5 < thermal_view.display_grey(0.9),
+        "a mirror-like ε displays dark, an emitter bright",
+    )
     ctx.scene.irsim.thermal_view = False
     check(
         tuple(white.diffuse_color) == originals["white_plastic"],
@@ -549,6 +563,26 @@ def main() -> None:
         )
     check((downloaded / "downloaded.usdc").read_bytes() == b"not ours", "and are unchanged")
     ctx.scene.irsim.asset_name = "smoke_quad"
+
+    # --- 8b. reopen: an asset config's map puts the assignments back ------------------------------
+    for mat in bpy.data.materials:
+        mat.irsim_material = ""
+    check(scene_stats.summary(ctx).coverage == 0.0, "every assignment cleared")
+    chrome_mat = bpy.data.materials["chrome"]
+    chrome_mat.irsim_material = "carbon_fibre"  # a deliberate local change
+    bpy.ops.irsim.load_asset_map("EXEC_DEFAULT", asset="smoke_quad")
+    check(
+        chrome_mat.irsim_material == "carbon_fibre",
+        "loading a map keeps an existing assignment by default",
+    )
+    check(close(scene_stats.summary(ctx).coverage, 1.0), "and restores everything else")
+    bpy.ops.irsim.load_asset_map("EXEC_DEFAULT", asset="smoke_quad", overwrite=True)
+    check(chrome_mat.irsim_material == "bare_aluminium", "'Replace' takes the map's value")
+    try:
+        bpy.ops.irsim.load_asset_map("EXEC_DEFAULT", asset="nothing_here")
+        check(False, "a missing asset is reported")
+    except RuntimeError as exc:
+        check("no asset config" in str(exc), "a missing asset is reported")
 
     # --- 10. every panel draws, and every layout call is one Blender has -------------------------
     ui_checks(ctx)

@@ -11,6 +11,8 @@ library, and every file it writes into the repository, goes through this script,
 * ``check-material`` -- validate a draft exactly as the loader will, and return its derived bands.
 * ``write-material`` -- the same, then write ``configs/materials/<name>.yaml`` and reload the
                         whole library; a file that breaks the library is removed again.
+* ``list-assets``    -- the asset configs there are, and which ones this add-on wrote.
+* ``read-asset``     -- one asset config's map, loaded and checked by the project loader.
 * ``write-asset``    -- validate and write ``configs/assets/<name>.yaml``
                         (``irsim.materials.mapping.AssetConfig``), then reload it with every target
                         checked against the library.
@@ -309,6 +311,58 @@ def _asset_yaml(doc: dict, parts: list[str], notes: list[str]) -> str:
     return "\n".join(header) + "\n" + body
 
 
+def _assets_dir(args: argparse.Namespace, repo: pathlib.Path) -> pathlib.Path:
+    return pathlib.Path(args.assets_dir) if args.assets_dir else repo / "configs" / "assets"
+
+
+def _by_addon(path: pathlib.Path) -> bool:
+    first = path.read_text(encoding="utf-8").splitlines()[:1]
+    return bool(first) and MARKER in first[0]
+
+
+def cmd_list_assets(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
+    assets_dir = _assets_dir(args, repo)
+    paths = sorted(assets_dir.glob("*.yaml")) if assets_dir.is_dir() else []
+    return {
+        "ok": True,
+        "assets": [{"name": p.stem, "by_addon": _by_addon(p)} for p in paths],
+    }
+
+
+def cmd_read_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
+    """An asset config's map, loaded by the project loader with every target checked.
+
+    This is how an asset is reopened: a hand-written map (the Phantom 4's, whose comments record
+    why each line is what it is) is applied to the Blender materials of the same names, so the
+    add-on starts from the decisions already made instead of from nothing.
+    """
+    from pydantic import ValidationError
+
+    from irsim.materials.library import MaterialLibrary
+    from irsim.materials.mapping import load_asset_mapping
+
+    name = str((payload or {}).get("name", ""))
+    path = _assets_dir(args, repo) / f"{name}.yaml"
+    if not re.fullmatch(r"[A-Za-z0-9_]+", name) or not path.is_file():
+        raise RefusalError(f"there is no asset config named {name!r}", kind="missing")
+    library = MaterialLibrary.load(_material_dir(args, repo))
+    try:
+        asset = load_asset_mapping(path, known_materials=library.names)
+    except ValidationError as exc:
+        raise RefusalError(_pydantic_message(exc), kind="invalid") from exc
+    except ValueError as exc:
+        raise RefusalError(str(exc), kind="invalid") from exc
+    return {
+        "ok": True,
+        "name": asset.name,
+        "file": str(path),
+        "source_file": asset.source_file,
+        "scale_to_metres": asset.scale_to_metres,
+        "materials": dict(asset.materials),
+        "by_addon": _by_addon(path),
+    }
+
+
 def cmd_write_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
     from pydantic import ValidationError
 
@@ -338,11 +392,10 @@ def cmd_write_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) 
     if unknown:
         raise RefusalError(f"these are not library materials: {unknown}", kind="invalid")
 
-    assets_dir = pathlib.Path(args.assets_dir) if args.assets_dir else repo / "configs" / "assets"
+    assets_dir = _assets_dir(args, repo)
     target = assets_dir / f"{name}.yaml"
     if target.exists():
-        first = target.read_text(encoding="utf-8").splitlines()[:1]
-        if not first or MARKER not in first[0]:
+        if not _by_addon(target):
             raise RefusalError(
                 f"{target.name} exists and was written by hand; its comments are the record of "
                 "how its map was decided, so an export will not replace it. Export under another "
@@ -364,6 +417,8 @@ COMMANDS = {
     "library": cmd_library,
     "check-material": cmd_check_material,
     "write-material": cmd_write_material,
+    "list-assets": cmd_list_assets,
+    "read-asset": cmd_read_asset,
     "write-asset": cmd_write_asset,
 }
 

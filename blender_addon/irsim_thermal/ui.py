@@ -197,6 +197,8 @@ class LibraryPanel(_Base, Panel):
         row.operator("irsim.new_material", text="New material...", icon="ADD")
         op = row.operator("irsim.new_material", text="New from this...", icon="DUPLICATE")
         op.start_from = item.name
+        if context.mode == "OBJECT":
+            layout.operator("irsim.load_asset_map", text="From an existing asset...", icon="IMPORT")
 
     @staticmethod
     def _details(box, item) -> None:

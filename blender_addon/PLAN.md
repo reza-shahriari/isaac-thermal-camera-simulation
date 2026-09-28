@@ -59,12 +59,13 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 | B1 | Sidebar tab; parts list; library browser with ε/ρ/τ per band; assign to parts, to faces in Edit Mode, or to every part using a material; thermal view | ✅ 2026-09-28 | — |
 | B2 | New-material form, checked by irsim's own schema and closure before it writes `configs/materials/<name>.yaml` | ✅ 2026-09-28 | — |
 | B3 | Checklist (area-weighted coverage, mirror-like parts, default names); optional size guidance with *Apply scale*; export to USD + `.blend` + asset YAML; `prep_asset.py` audit in the background | ✅ 2026-09-28 | — |
-| B4 | Tutorial | ✅ text 2026-09-28; screenshots wait for B9 | — |
-| B5 | **Hidden parts.** Pick a predefined component (motor, ESC, battery, piston or turbine engine, exhaust line; car and ship parts later), place it as a proxy box inside the shell, and edit its mass, idle and rated heat. The component data comes from the project library, not from the add-on | planned | `AI.11` (schema), `AI.12` (library) |
-| B6 | **Connection finder.** Parts that touch (with contact area) and parts that face each other across a gap are found automatically. They are shown as a list and as lines in the viewport; the user confirms, deletes, or changes the joint type (from `configs/thermal/joints.yaml`) | planned | `AI.11` (contacts), `TC.9` (facing) |
-| B7 | **Main-object flag.** If `TC.11` wants "solve this asset fully" to be a property of the asset rather than the scene, the add-on offers it. Evolve/freeze (`TC.12`) and the exchange switch (`TC.10`) are scene settings, not asset ones | open | `TC.10`–`TC.12` |
-| B8 | The project site shows the tutorial | waiting for the owner: it needs a change to the site builder, a project file | — |
-| B9 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | pending: no interactive Blender was running | — |
+| B4 | Tutorial | ✅ text 2026-09-28; screenshots wait for B10 | — |
+| B5 | **Reopen from an asset config.** *Load materials from an asset* applies an existing map (the Phantom 4's hand-written one, or an earlier export's) to the Blender materials of the same names -- raw or USD-safe -- keeping existing assignments unless told otherwise | ✅ 2026-09-28 | — |
+| B6 | **Hidden parts.** Pick a predefined component (motor, ESC, battery, piston or turbine engine, exhaust line; car and ship parts later), place it as a proxy box inside the shell, and edit its mass, idle and rated heat. The component data comes from the project library, not from the add-on | planned | `AI.11` (schema), `AI.12` (library) |
+| B7 | **Connection finder.** Parts that touch (with contact area) and parts that face each other across a gap are found automatically. They are shown as a list and as lines in the viewport; the user confirms, deletes, or changes the joint type (from `configs/thermal/joints.yaml`) | planned | `AI.11` (contacts), `TC.9` (facing) |
+| B8 | **Main-object flag.** If `TC.11` wants "solve this asset fully" to be a property of the asset rather than the scene, the add-on offers it. Evolve/freeze (`TC.12`) and the exchange switch (`TC.10`) are scene settings, not asset ones | open | `TC.10`–`TC.12` |
+| B9 | The project site shows the tutorial | waiting for the owner: it needs a change to the site builder, a project file | — |
+| B10 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | pending: no interactive Blender was running | — |
 
 ## Verification
 
@@ -72,8 +73,13 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 # Blender-free logic and the bridge (48 tests; the bridge writes only to temporary directories)
 ~/IsaacSim/_build/linux-x86_64/release/python.sh -m pytest blender_addon/tests -q
 
-# End to end in a headless Blender, against a scratch copy of the repository (66 checks)
+# End to end in a headless Blender, against a scratch copy of the repository (71 checks)
 blender_addon/tests/run_blender_smoke.sh            # add --skip-audit to leave out prep_asset
+
+# The real Phantom 4 (needs the git-ignored 3d_models/phantom4.fbx): a .blend to open, two CPU
+# pictures, and an export + prep_asset audit of a 2.5-million-face asset
+blender -b --factory-startup --python blender_addon/demo/make_phantom4_demo.py -- \
+    --out outputs/blender_addon_demo --render --export-scratch /tmp/irsim_phantom_export
 ```
 
 What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
@@ -97,18 +103,28 @@ What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
 
 ## Open questions for the owner
 
-1. **The site (B8).** Should the tutorial be published on the project site? The site builder has a
+1. **The site (B9).** Should the tutorial be published on the project site? The site builder has a
    fixed document list, so this means editing `scripts/build_site.py` or `site/gallery.yaml`, which
    are project files.
 2. **The licence.** The folder now carries the repository's use-only licence. The Blender
    Foundation's position is that add-ons importing `bpy` are GPL when distributed, so if the add-on
    is ever shared outside the repository, its licence is a decision for you, possibly with advice.
    Using it privately is unaffected.
-3. **Hidden parts (B5).** Should a component's proxy box appear in the exported USD as an ordinary
+3. **Hidden parts (B6).** Should a component's proxy box appear in the exported USD as an ordinary
    prim, or as a guide prim that the camera never renders? The physics needs its position and size;
    the RGB companion should not show a box inside the shell.
 
 ## Log
+
+- **2026-09-28 (second commit)**: B5, reopening from an asset config, plus the Phantom 4 demo.
+  - The real FBX (2,486,459 faces in 41 prims) is measured in 0.35 s and read as centimetres. The
+    scaled model is 0.4105 × 0.4637 × 0.2067 m, the extent ADR 0128 found by hand.
+  - The hand-written map covers 100 %. The one mirror-like material flagged is the chrome trim
+    that the map chose on purpose.
+  - Exported through the add-on, the model passes `prep_asset.py`: 41/41 prims mapped.
+  - The thermal view now makes brightness *on screen* equal ε (sRGB decoding), so ε 0.09 shows
+    black rather than mid-grey. Rendered, the old `*metal*` rule's mistake (motor housings as
+    bare aluminium) is four black motors.
 
 - **2026-09-28**: B1–B4 shipped. The add-on is loaded in place from `blender_addon/` as a Blender
   local extension repository (checked headless with a throwaway user config). It found the

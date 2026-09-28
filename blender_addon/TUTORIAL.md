@@ -80,10 +80,26 @@ that part gets a copy of the material: same look, own infrared material, named
 `white_plastic__carbon_fibre`. The other part is not changed. Parts you did not select are never
 changed by an assignment.
 
-**Thermal view** (checkbox at the top) colours each part by its LWIR emissivity, from bright
-(emits) to dark (mirror-like). Anything still unassigned shows in **magenta**. It changes only the
-viewport colours; untick it and the model looks as before. A part with no material at all cannot be
-coloured and stays grey. The checklist lists it instead.
+**Thermal view** (checkbox at the top) colours each part so that its brightness on screen is its
+LWIR emissivity: white emits, black is a mirror. Anything still unassigned shows in **magenta**. It
+changes only the viewport colours; untick it and the model looks as before. A part with no material
+at all cannot be coloured and stays grey. The checklist lists it instead.
+
+This view is how a wrong material shows up. On the Phantom 4, an old automatic rule once made the
+motor housings polished aluminium (ε 0.09). In the thermal view they turn black: a hot motor would
+have shown up as reflected sky. The demo below renders exactly that.
+
+### Starting from an existing asset
+
+If the model already has an asset config (the Phantom 4 has a hand-written one in
+`configs/assets/phantom4.yaml`), click **From an existing asset…** under the library and pick it.
+Every Blender material whose name is in that map gets its material, whether the name matches as
+written or in the form USD uses. Materials you have already assigned are kept, unless you tick
+**Replace existing assignments**. If the asset records a scale (the Phantom 4 was in centimetres),
+the message says so; apply it from the size check.
+
+A model you exported with this add-on reopens with everything in place: open
+`3d_models/<name>/<name>.blend`.
 
 ## 5. When the material is not in the library
 
@@ -152,6 +168,21 @@ another name instead.
 The asset config is what the rest of irsim reads.
 `scripts/prep_asset.py --asset <name> --emit-mesh` prepares the thermal mesh archive that scenes
 solve on. `configs/scenes/phantom4_parts.yaml` shows how a scene binds an asset's parts by name.
+
+## See it on a real model
+
+`blender_addon/demo/make_phantom4_demo.py` does all of the above, headless, on the DJI Phantom 4
+(it needs the git-ignored `3d_models/phantom4.fbx`):
+
+```bash
+blender -b --factory-startup --python blender_addon/demo/make_phantom4_demo.py -- \
+    --out outputs/blender_addon_demo --render
+```
+
+It writes `phantom4_thermal_demo.blend`, which opens in the thermal view with the sidebar out, plus
+pictures of the model as it looks and of its emissivity in three states: nothing assigned, the old
+automatic rule's mistake, and the hand-written map. The grey pictures show **emissivity, not
+temperature**; they are the add-on's view, not a thermal image.
 
 ## Not yet in the add-on
 

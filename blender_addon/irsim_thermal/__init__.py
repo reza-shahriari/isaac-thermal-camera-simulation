@@ -15,6 +15,7 @@ _MODULES = (
     "library_state",
     "assign",
     "material_form",
+    "asset_map",
     "export",
     "ui",
 )

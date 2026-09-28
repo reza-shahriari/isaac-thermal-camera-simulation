@@ -262,3 +262,30 @@ def test_the_client_explains_a_missing_setup() -> None:
         bridge_client.run_bridge(sys.executable, "", "library")
     with pytest.raises(bridge_client.BridgeError, match="does not exist"):
         bridge_client.run_bridge("/no/such/python", str(REPO), "library")
+
+
+def test_asset_configs_are_listed_with_who_wrote_them(tmp_path) -> None:
+    assets = tmp_path / "assets"
+    assert call(tmp_path, "write-asset", asset_payload(), "--assets-dir", str(assets))["ok"]
+    (assets / "handmade.yaml").write_text("# hand-written\nschema_version: 1\n", encoding="utf-8")
+    listed = call(tmp_path, "list-assets", None, "--assets-dir", str(assets))
+    assert listed["assets"] == [
+        {"name": "handmade", "by_addon": False},
+        {"name": "test_quad", "by_addon": True},
+    ]
+
+
+def test_a_hand_written_map_is_read_through_the_project_loader(tmp_path) -> None:
+    # The committed Phantom 4 map: every target checked against the library on the way out.
+    result = call(tmp_path, "read-asset", {"name": "phantom4"})
+    assert result["ok"], result
+    assert result["by_addon"] is False
+    assert result["scale_to_metres"] == pytest.approx(0.01)
+    assert result["materials"]["Metal_Matte"] == "aircraft_aluminium_painted"
+    assert result["materials"]["chrome_shiny"] == "bare_aluminium"
+
+
+def test_reading_an_asset_that_does_not_exist_is_refused(tmp_path) -> None:
+    for name in ("no_such_asset", "../materials/carbon_fibre"):
+        result = call(tmp_path, "read-asset", {"name": name})
+        assert not result["ok"] and result["kind"] == "missing", name
