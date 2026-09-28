@@ -49,6 +49,7 @@ __all__ = [
     "bulk_conductance_kg_m2_s",
     "evaporation_kg_m2_s",
     "latent_heat_flux_w_m2",
+    "latent_flux_derivative_w_m2_k",
     "saturation_specific_humidity_kg_kg",
     "sensible_conductance_w_m2_k",
     "specific_humidity_kg_kg",
@@ -146,6 +147,26 @@ def latent_heat_flux_w_m2(
         L_V_WATER_J_KG
         * evaporation_kg_m2_s(t_surface_k, q_air_kg_kg, g_e_kg_m2_s, wet_fraction, r_s_s_m)
     )
+
+
+def latent_flux_derivative_w_m2_k(
+    t_surface_k: Any,
+    q_air_kg_kg: Any,
+    g_e_kg_m2_s: Any,
+    wet_fraction: Any = 1.0,
+    r_s_s_m: Any = 0.0,
+    dt_k: float = 0.05,
+) -> NDArray[np.float64]:
+    """``∂Q_L/∂T_s`` (W m⁻² K⁻¹): the latent term's own conductance, for §6.4's explicit bound
+    (PT.25). ``q_sat`` rises about 6 % per kelvin near 300 K, so at 10 m/s a fully wet surface
+    loses ~45 W m⁻² K⁻¹ this way -- more than it does by convection -- and a guard that counts
+    only ``h + 4εσT³`` passes a step that diverges. Central difference over ``2·dt_k``; the
+    curvature of ``q_sat`` over 0.1 K is below 1e-4 of the slope.
+    """
+    t = np.asarray(t_surface_k, dtype=np.float64)
+    up = latent_heat_flux_w_m2(t + dt_k, q_air_kg_kg, g_e_kg_m2_s, wet_fraction, r_s_s_m)
+    down = latent_heat_flux_w_m2(t - dt_k, q_air_kg_kg, g_e_kg_m2_s, wet_fraction, r_s_s_m)
+    return np.asarray((up - down) / (2.0 * dt_k))
 
 
 def wet_bulb_temperature_k(t_air_k: float, rh_fraction: float) -> float:

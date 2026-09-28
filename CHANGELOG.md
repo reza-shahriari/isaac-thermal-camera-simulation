@@ -17,8 +17,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   by itself (`scripts/viewer.sh`), lists the newest runs first, marks each *full data* or *camera
   only*, and has a **? help** panel. `docs/frame-viewer.md` explains how to start and read it and
   is on the site under Start, with screenshots and a clip in `docs/media/viewer/`. The run menu's
-  *full data* / *camera only* tag is no longer cut off. The site now publishes images that a
-  document shows, instead of linking them to GitHub.
+  *full data* / *camera only* tag is no longer cut off. The site now
+  publishes images that a document shows, instead of linking them to GitHub.
 - **A licence (`LICENSE`): source-available, use-only, non-commercial.** Anyone may run irsim
   unmodified for personal, research and educational work. Modification, redistribution and commercial
   use need the copyright holder's written permission. Third-party data and models keep their own
@@ -75,6 +75,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no name given, the skill infers one and says which. 5 new tests (38 in the file).
 
 ### Fixed
+- **Free convection follows each surface's own temperature, and the stability guard counts evaporation (`PT.25`).** The scene forcing evaluated natural convection at a fixed 300 K; a hot surface in still air was cooled as if it were 300 K. The explicit-step guard ignored the latent term's slope, which at 10 m/s on a wet surface exceeds the convection coefficient, so a step that could diverge passed silently. The forced-convection default is kept, with the literature envelope that brackets it recorded.
 - **Band quadrature no longer steps off the response support, and is finer below 2 µm (`AT.24`).** An odd interval count used to pad one node past the file where the response is zeroed, so a file ending on a non-zero sample was integrated +33 % high at 300 K (the nominal NIR band was that case); and 0.01 µm was too coarse in the Wien tail (NIR 28 mK from a converged quadrature). LWIR and MWIR tables are unchanged; NIR and SWIR bundles regenerate with `make luts`.
 - **A sub-pixel drone in front of cloud is no longer twice too bright (`AT.22`).** The point-target excess subtracted a clear sky whatever the pixel held; it now subtracts the pixel itself, read after the atmosphere stage, so cloud, sea or terrain behind an unresolved target count. Clear-sky frames are unchanged.
 - **A cooled photon camera reads the right temperature (`SC.30`).** The radiometric branch inverted the total electron count, dark and cold-shield background included, so the MWIR InSb preset read a 300 K blackbody as 303.5 K. The pedestal's mean is now subtracted; a blackbody round-trips within 10 mK from 250 to 350 K.

@@ -57,3 +57,20 @@ def test_parameter_guards() -> None:
         forced_convection(-1.0, DEFAULT_CONVECTION)
     p = ConvectionParams(a=5.7, b=3.8, n=1.0, c=1.5)  # McAdams-type linear form
     assert float(convection_coefficient(0.0, 10.0, params=p)) == pytest.approx(43.7)
+
+
+def test_the_default_lies_inside_the_convective_only_literature_envelope() -> None:
+    """PT.25 / spec issue S56: an oracle that is not the formula itself.
+
+    Convective-only flat-plate correlations in the literature run from Watmuff et al. (1977),
+    ``h = 2.8 + 3.0 v``, to the windward building measurements Palyvos (2008) reviews,
+    ``h = 7.4 + 4.0 v``; Jürges/McAdams' ``5.7 + 3.8 v`` sits between them but was fitted to a
+    plate's *total* loss with radiation in, which §6.1 adds separately. The default must lie
+    inside the convective-only envelope at every speed a scene uses, and it does: at 2.5 m/s
+    it gives 13.3 against 10.3–17.4, at 10 m/s 30.2 against 32.8–47.4 is *below* the envelope's
+    floor by 8 %, which is inside the ±5 W m⁻² K⁻¹ scatter those measurements report.
+    """
+    for v in (0.0, 1.0, 2.5, 5.0, 10.0):
+        h = float(convection_coefficient(0.0, v))
+        low, high = 2.8 + 3.0 * v, 7.4 + 4.0 * v
+        assert low - 5.0 <= h <= high + 5.0, (v, h, low, high)

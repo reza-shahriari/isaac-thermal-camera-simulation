@@ -29,7 +29,12 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from irsim.thermal.convection import DEFAULT_CONVECTION, ConvectionParams, convection_coefficient
+from irsim.thermal.convection import (
+    DEFAULT_CONVECTION,
+    ConvectionParams,
+    forced_convection,
+    relative_air_speed,
+)
 from irsim.thermal.facets import FacetForcing
 from irsim.thermal.frames import ENU, WorldFrame
 from irsim.thermal.longwave import longwave_down
@@ -186,12 +191,10 @@ class SceneSurfaceForcing:
             sample.t_air_k,
         )
         speeds = np.array([o.speed_at(t_s) for o in self.orientations])
-        h = convection_coefficient(
-            self.surface_temperature_k - sample.t_air_k,
-            sample.wind_speed_m_s,
-            speeds,
-            self.convection,
-        )
+        # PT.25: the forced term only. Free convection used to be evaluated here at a fixed
+        # `surface_temperature_k` (300 K) whatever the facet's own temperature was; the solver now
+        # takes `max(h_forced, c |T_s − T_air|^{1/3})` at its own state, which is what §6.2 says.
+        h = forced_convection(relative_air_speed(sample.wind_speed_m_s, speeds), self.convection)
         # PH.1: what the latent term needs from the weather, on every forcing. With no wetness
         # declared and no film the balance never evaluates it, so a dry scene is unchanged.
         from irsim.thermal.latent import bulk_conductance_kg_m2_s, specific_humidity_kg_kg
@@ -199,6 +202,7 @@ class SceneSurfaceForcing:
         return FacetForcing(
             t_air_k=sample.t_air_k,
             h_w_m2_k=np.asarray(h, dtype=np.float64),
+            free_convection_c=self.convection.c,
             q_solar_w_m2=np.asarray(q_solar, dtype=np.float64),
             q_longwave_down_w_m2=np.asarray(q_lw, dtype=np.float64),
             q_air_kg_kg=float(specific_humidity_kg_kg(sample.t_air_k, sample.rh_fraction)),
@@ -357,6 +361,7 @@ class CellForcing:
         return FacetForcing(
             t_air_k=float(t_air[i]),
             h_w_m2_k=np.full(n, h[i]),
+            free_convection_c=base.free_convection_c,
             q_solar_w_m2=np.asarray(q_solar_cells, dtype=np.float64),
             q_longwave_down_w_m2=q_lw_cells,
             q_internal_w_m2=np.full(n, q_int[i]),
@@ -542,6 +547,7 @@ class MeshCellForcing:
         return FacetForcing(
             t_air_k=float(t_air[i]),
             h_w_m2_k=np.full(n, h[i]),
+            free_convection_c=base.free_convection_c,
             q_solar_w_m2=np.asarray(q_solar_cells, dtype=np.float64),
             q_longwave_down_w_m2=q_lw_cells,
             q_internal_w_m2=np.full(n, q_int[i]),

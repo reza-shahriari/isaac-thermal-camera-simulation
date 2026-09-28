@@ -125,6 +125,20 @@ class FacetForcing:
     wet_fraction: Any = 0.0
     r_s_s_m: Any = 0.0
     precip_kg_m2_s: Any = 0.0
+    #: PT.25: the free-convection coefficient ``c`` of §6.2's ``h_free = c |T_s − T_air|^{1/3}``,
+    #: applied by the solver at each facet's *own* temperature, so ``h_w_m2_k`` is the forced
+    #: term alone when this is set. 0 (the default) leaves ``h_w_m2_k`` as the whole coefficient,
+    #: which is every producer written before this field existed, bit for bit.
+    free_convection_c: Any = 0.0
+
+    def effective_h(self, temperatures_k: Any, n_facets: int) -> NDArray[np.float64]:
+        """``max(h, c |T_s − T_air|^{1/3})`` per facet: §6.2's rule at the facet's own T."""
+        t_air, h = self.arrays(n_facets)[:2]
+        c = _f64(self.free_convection_c, "free_convection_c")
+        if np.all(c == 0.0):
+            return h
+        free = c * np.cbrt(np.abs(np.asarray(temperatures_k, dtype=np.float64) - t_air))
+        return np.asarray(np.maximum(h, free))
 
     def latent_arrays(self, n_facets: int) -> tuple[NDArray[np.float64], ...]:
         """``(q_air, g_e, wet_fraction, r_s, precip)`` as ``(N,)`` arrays."""
@@ -262,7 +276,8 @@ class FacetSolver:
         wet: NDArray[np.float64] | None = None,
     ) -> NDArray[np.float64]:
         """§6.1's right-hand side per facet; ``wet`` overrides the forcing's wet fraction."""
-        t_air, h, q_sol, q_lw, q_int = forcing.arrays(self.properties.n_facets)
+        t_air, _, q_sol, q_lw, q_int = forcing.arrays(self.properties.n_facets)
+        h = forcing.effective_h(temperatures, self.properties.n_facets)
         leaves = forcing.emission_factors(self.properties.n_facets)
         # eps multiplies BOTH the absorbed sky radiation and the emitted term, as §6.1 writes
         # it. Kirchhoff: a surface absorbs the same fraction of incident longwave that it emits.
@@ -285,7 +300,17 @@ class FacetSolver:
         """§6.4's bound on the forcing's actual h and the state's own T, every step."""
         from irsim.thermal.conduction import explicit_bound_s
 
-        h = forcing.arrays(self.properties.n_facets)[1]
+        h = forcing.effective_h(self._state, self.properties.n_facets)
+        wet = self._wetness(forcing)
+        if wet is not None:
+            # PT.25: the latent term is a conductance too, and at 10 m/s a wet surface's is
+            # larger than h; a bound that ignores it passes a step the midpoint rule diverges on.
+            from irsim.thermal.latent import latent_flux_derivative_w_m2_k
+
+            q_air, g_e, _, r_s, _ = forcing.latent_arrays(self.properties.n_facets)
+            h = h + np.maximum(
+                latent_flux_derivative_w_m2_k(self._state, q_air, g_e, wet, r_s), 0.0
+            )
         bound = explicit_bound_s(
             self.properties.heat_capacity_j_m2_k, h, self.properties.emissivity, self._state
         )
@@ -294,7 +319,8 @@ class FacetSolver:
             raise ValueError(
                 f"dt = {dt_s:g} s exceeds the §6.4 explicit bound {bound[worst]:.3g} s on facet "
                 f"{worst} (C = {self.properties.heat_capacity_j_m2_k[worst]:.4g} J/m²/K, "
-                f"h = {h[worst]:.3g} W/m²/K, T = {self._state[worst]:.1f} K). The midpoint rule "
+                f"h = {h[worst]:.3g} W/m²/K with any latent slope, "
+                f"T = {self._state[worst]:.1f} K). The midpoint rule "
                 "diverges there; shorten the tick or give the surface a larger areal capacity. "
                 "Conduction is not the cause -- it is stepped implicitly (ADR 0094)"
             )

@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `TC.9` is phase P, size L, and unblocks 3 other step(s).
 
-#### Then, in order — 92 open steps
+#### Then, in order — 91 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`TC.9`** | TC | P | L | 3 | ready |
-| 2 | **`PT.25`** | PT | P | S | — | ready |
-| 3 | **`PT.26`** | PT | P | S | — | ready |
-| 4 | **`TC.10`** | TC | P | M | — | `TC.9` |
-| 5 | **`TC.12`** | TC | P | M | — | ready |
-| 6 | **`AI.11`** | AI | A | M | 4 | ready |
-| 7 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
-| 8 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
-| 9 | **`PT.28`** | PT | A | S | 1 | ready |
-| 10 | **`SC.32`** | SC | A | S | 1 | ready |
-| 11 | **`AT.27`** | AT | A | S | — | ready |
-| 12 | **`AT.28`** | AT | A | S | — | `PT.28` |
-| 13 | **`EV.15`** | EV | A | S | — | ready |
-| 14 | **`IG.18`** | IG | A | S | — | ready |
-| 15 | **`IG.19`** | IG | A | S | — | ready |
+| 2 | **`PT.26`** | PT | P | S | — | ready |
+| 3 | **`TC.10`** | TC | P | M | — | `TC.9` |
+| 4 | **`TC.12`** | TC | P | M | — | ready |
+| 5 | **`AI.11`** | AI | A | M | 4 | ready |
+| 6 | **`TC.11`** | TC | P | L | 1 | `TC.9`, `AI.11` |
+| 7 | **`AI.12`** | AI | A | M | 2 | `AI.11` |
+| 8 | **`PT.28`** | PT | A | S | 1 | ready |
+| 9 | **`SC.32`** | SC | A | S | 1 | ready |
+| 10 | **`AT.27`** | AT | A | S | — | ready |
+| 11 | **`AT.28`** | AT | A | S | — | `PT.28` |
+| 12 | **`EV.15`** | EV | A | S | — | ready |
+| 13 | **`IG.18`** | IG | A | S | — | ready |
+| 14 | **`IG.19`** | IG | A | S | — | ready |
+| 15 | **`SC.31`** | SC | A | S | — | ready |
 
-…and 77 more — `python scripts/next_step.py --queue 40`.
+…and 76 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -425,7 +425,7 @@ owner named — a building — has no row. `PT.17`–`PT.22` close those gaps in
 | PT.22 | ✅ **done.** `irsim.thermal.raycast`: an `(origins, directions) → hit` protocol over `RectangleOccluders` (the oracle), a NumPy Möller–Trumbore `TriangleSoup`/`MeshOccluders` and `AnyOccluders`; the 0.53° disc on 1/7/19/37 concentric rays, outermost on the limb, as a sunlit fraction. Schema v11 `penumbra_rays:` (ADR 0107). | **Measured.** Box: rectangles = mesh cell-for-cell at 10–85°, and = trimesh. A neighbour block shades a wall its own mesh cannot. Ramp within 10 % of d·tan 0.53° at 0.5/2/6 m (18.0 vs 18.6 mm); binary gives zero width. | PT.21 | M | P |
 | PT.23 | ✅ **done.** The chain was right. `IG.2`'s two branches were built with `replace(base_state)`, which copies the *reference* to `PipelineState.buffers`, so both drove **one** membrane IIR with alternating inputs. `buffers` is now `init=False`, so `replace` cannot share it. | **Measured.** The shortfall is α/(2−α) = **0.778545** at 60 Hz and τ = 8 ms, against 0.778546 measured in sim — six figures. Frame 1 gives α itself. An engine-free twin carries the shared state as its negative control; the in-sim `xfail` is off and the law holds at all four ranges. | — | M | A |
 | PT.24 | **Down-facing skins see the ground, not the air.** Every forcing path hands `longwave_down` T_air as the surround and `solar_loading` has no albedo term, so a belly sits at T_air − 0.05 K all mission. Feed a scene-level ground temperature to the surround and add (1 − V_s)·α·albedo·GHI, per cell and per mesh cell; retire `newton, tau_s: 900` in `sky_target_clear_day.yaml`. | Red: the quad belly at noon equals T_air. Green: a tilt-180 carbon plate over ground at T_air + 20 K settles +5.6 K (pad) / +2.4 K (cruise) by the hand balance to 0.2 K. | — | M | A |
-| PT.25 | **The forced-convection floor is convective only.** `ConvectionParams` a = 5, b = 4 tracks Jürges' 5.7 + 3.8v, fitted to total plate loss with radiation in, while the balance adds εσT⁴ itself; h_free uses a fixed 300 K (`scene_forcing.py:153`); the explicit guard ignores the latent derivative. Adopt Watmuff's 2.8 + 3.0v, the cell's own T, dQ_L/dT in the guard; spec issue S56. | Red: a pad deck reads ~4 K cold at 2.5 m/s. Green: h(2.5) = 10.3 not 13.3; a wet leaf at 10 m/s raises at its 16 s bound; `test_convection` gains a literature oracle. | — | S | P |
+| PT.25 | ✅ **done** (re-scoped). `FacetForcing.free_convection_c` + `effective_h`: the solver takes max(h_forced, c·ΔT^{1/3}) at its own state; the guard adds ∂Q_L/∂T. The 5 + 4v^0.8 default stays: convective-only correlations run 2.8 + 3.0v to 7.4 + 4.0v and bracket it, so S56 is recorded, not applied. | **Measured.** A facet 60 K over still air gets 5.88 not 5.0; below 37 K bit-identical, as is every producer without the field. Wet leaf at 10 m/s: bound 35 → 16 s, a 20 s step raises. `test_facet_convection_guard.py`, `test_convection.py`. | — | S | P |
 | PT.26 | **In-plane conduction uses in-plane conductivity.** `lateral_operator` and `mesh_lateral_operator` take `conductivity_w_mk`, the through-thickness value (carbon 0.8; in-plane ~7). Add `conductivity_inplane_w_mk` to the material schema, default = k, used by both. | Diffusion length over 300 s goes 12 → 35 mm for carbon; the arm's shadow terminator spans ~3 cells, not 1; k_inplane = k is bit-identical. | — | S | P |
 | PT.27 | **Ground defaults to a layered slab with a deep boundary.** Ground materials run as one lumped node with an adiabatic back; damping depths (0.08–0.14 m) exceed the authored thicknesses, so the diurnal wave reflects. Default ≥ 3 layers with `back: {deep_temperature_k: ambient}` for soil, asphalt, concrete. | Concrete 0.10 m: amplitude 11.7 K, lag 1.3 h against the semi-infinite solution (5 %), not 15.1 K / 2.5 h; the 47 K swing pinned in `test_tier3_thermal.py:171` falls into band. | — | S | C |
 | PT.28 | **A target has an altitude.** `site.altitude_m` reaches nothing thermal and `aerial.py` uses the surface T_air for every target. Per-target `altitude_agl_m`: T_air(z) = T_air − Γz, speed of sound at T(z), convection at ρ(z); the column below it is AT.28. | −3.3 K at 500 m AGL, −20 K at 3 km, Γ from the atmosphere preset; z = 0 bit-identical; the ram-skin recovery uses a(z). | — | S | A |
