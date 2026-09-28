@@ -82,7 +82,7 @@ def _unfilter(raw: bytes, h: int, stride: int, bpp: int) -> NDArray[np.uint8]:
     """Undo the per-row PNG filters (PNG spec §9) and return the (h, stride) byte image."""
     rows = np.frombuffer(raw, dtype=np.uint8).reshape(h, stride + 1)
     out = np.zeros((h, stride), dtype=np.uint8)
-    prev = np.zeros(stride, dtype=np.int32)
+    prev: NDArray[np.int32] = np.zeros(stride, dtype=np.int32)
     for y in range(h):
         kind = int(rows[y, 0])
         line = rows[y, 1:].astype(np.int32)
