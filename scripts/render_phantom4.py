@@ -206,6 +206,13 @@ parser.add_argument("--half-width-m", type=float, default=None, help="half-width
 parser.add_argument("--altitude-low-m", type=float, default=None, help="lowest track altitude")
 parser.add_argument("--altitude-high-m", type=float, default=None, help="highest track altitude")
 parser.add_argument("--rt-subframes", type=int, default=16)
+parser.add_argument(
+    "--rgb-subframes",
+    type=int,
+    default=1,
+    help="IG.19: expose the visible companion over the detector's window from this many "
+    "sub-frames posed along the track (1 = one instant, as before)",
+)
 parser.add_argument("--settle", type=int, default=16)
 parser.add_argument("--span", default=None, help="display span 'loC,hiC'; default from the solve")
 parser.add_argument("--no-rgb", action="store_true", help="infrared only; no visible companion")
@@ -817,7 +824,16 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # renders geometry from here and radiometry from where it used to be.
         cam.refresh_pose()
 
-        outputs = cam.get_outputs(rt_subframes=args.rt_subframes)
+        # IG.19: the companion's sub-frames pose the aircraft where it is `dt` seconds from this
+        # frame's instant along the same track; `pose_at(0.0)` puts it back before the infrared.
+        phase_step = float(phases[1] - phases[0]) if len(phases) > 1 else 0.0
+
+        def pose_at(dt: float, _p: float = float(phases[index]), _step: float = phase_step) -> None:
+            place(float(at(_p + dt / interval_s * _step)))
+
+        outputs = cam.get_outputs(
+            rt_subframes=args.rt_subframes, rgb_subframes=args.rgb_subframes, pose_at=pose_at
+        )
         # A reflective band (SWIR, NIR) switches `apparent_temperature` off in its config --
         # inverting reflected sunlight through Planck gives a number that is not a temperature --
         # so the driver carries the band radiance instead. Every span, legend and statistic below

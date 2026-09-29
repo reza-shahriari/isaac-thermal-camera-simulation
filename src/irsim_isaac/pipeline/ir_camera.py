@@ -79,6 +79,7 @@ from numpy.typing import NDArray
 from irsim.config.sensor import DistortionSpec, SensorConfig, SensorSpec
 from irsim.io.truth import TruthPlanes, truth_planes
 from irsim.materials.mapping import Resolution
+from irsim.optics.exposure import accumulate_subframes, exposure_window_s, subframe_offsets_s
 from irsim.optics.projection import (
     FTHETA_UNVERIFIED,
     Intrinsics,
@@ -1143,14 +1144,50 @@ class IrCamera:
         rendered = {path for ident, path in self._last.labels.items() if ident != 0}
         return sorted(t.name for t in self.analytic_targets if _matches(rendered, t.name))
 
-    def get_outputs(self, *, step: bool = True, rt_subframes: int = 1) -> Outputs:
+    def get_outputs(
+        self,
+        *,
+        step: bool = True,
+        rt_subframes: int = 1,
+        rgb_subframes: int = 1,
+        pose_at: Callable[[float], None] | None = None,
+    ) -> Outputs:
         """One frame, all the way to ``radiance`` / ``apparent_t`` / ``dn16`` / ``display8``.
 
         The clock advances by one frame period afterwards, so a sequence of calls is a real
         sequence: the FFC fires on its schedule, the fixed pattern drifts, the bolometer's
         membrane carries its lag from frame to frame.
+
+        ``rgb_subframes`` > 1 with ``pose_at`` (IG.19, ADR 0167) exposes the visible companion over
+        the infrared's own window: ``pose_at(dt)`` puts the moving geometry where it is ``dt``
+        seconds from this frame's instant, the renderer is stepped at each of ``rgb_subframes``
+        instants spread across the detector's exposure window
+        (:func:`~irsim.optics.exposure.exposure_window_s`), and the companion is the mean of
+        those frames -- a camera's exposure, not a post-effect. The infrared planes are taken at
+        the frame's own instant afterwards (``pose_at(0.0)``), where the SC.28 kernel smears
+        them over the same window, so the pair describes one exposure. With one sub-frame, or
+        no pose callback, nothing changes.
         """
+        companion: NDArray[np.uint8] | None = None
+        if rgb_subframes > 1 and pose_at is not None and self.capture_rgb:
+            if self._reader is None:
+                raise RuntimeError("call open() first (it needs a running Kit application)")
+            window = exposure_window_s(self.sensor.sensor, self.frame_period_s)
+            exposures: list[NDArray[np.uint8]] = []
+            for dt in subframe_offsets_s(window, int(rgb_subframes)):
+                pose_at(float(dt))
+                self._reader.step(frames=1, rt_subframes=rt_subframes)
+                exposure = self._native_rgb(self._reader.read().rgb)
+                if exposure is None:
+                    break
+                exposures.append(exposure)
+            pose_at(0.0)
+            if exposures:
+                mean = np.asarray(accumulate_subframes(exposures), dtype=np.float64)
+                companion = np.clip(np.rint(mean), 0.0, 255.0).astype(np.uint8)
         planes = self.planes(step=step, rt_subframes=rt_subframes)
+        if companion is not None and self._last is not None:
+            self._last.rgb = companion
         self.state.t_s = self.scene.t0_s + self._t_rel_s
         self._last_frame_t_s = self.state.t_s
         outputs = run_frame(
