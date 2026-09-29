@@ -1237,6 +1237,15 @@ class IrCamera:
         near them: an RGB/IR pair that is a quarter of a pixel out is worse than no pair at all
         for anything that learns from both. It carries **no** infrared information -- it is the
         renderer's tone-mapped colour and nothing in the radiometric chain ever reads it.
+
+        **Its shape is checked against the render product, and a mismatch raises** (IG.9). The
+        pair's claim is that it is registered by construction, and that holds only when the
+        colour buffer is the grid the G-buffer was read on: several colour AOVs on this build
+        come back at half resolution regardless of anti-aliasing, and box-filtering one of those
+        by ``k`` would put every visible pixel on the wrong infrared pixel while producing a
+        perfectly ordinary-looking picture. A missing or all-black buffer is still reported
+        through :attr:`rgb_problem` -- the frame is absent, not wrong -- but a wrong-sized one is
+        an error, because the frame it would produce is present and wrong.
         """
         self._rgb_problem = None
         if rgb is None:
@@ -1255,11 +1264,21 @@ class IrCamera:
                 "/rtx/rendermode = PathTracing produces a lit colour AOV"
             )
             return None
+        width, height = self.optics.resolution
+        if arr.shape[:2] != (height, width):
+            raise ValueError(
+                f"the colour annotator returned {arr.shape[1]}x{arr.shape[0]} but the render "
+                f"product is {width}x{height}: box-filtering it onto the detector grid would put "
+                "every visible pixel on the wrong infrared pixel (IG.9)"
+            )
         k = self.config.supersample
         if k > 1:
             h, w = arr.shape[0] // k, arr.shape[1] // k
             block = arr[: h * k, : w * k].reshape(h, k, w, k, arr.shape[2])
             arr = np.rint(block.mean(axis=(1, 3))).astype(np.uint8)
+        native = (self.sensor.sensor.fpa.height, self.sensor.sensor.fpa.width)
+        if arr.shape[:2] != native:  # pragma: no cover - the render product is k x the detector
+            raise ValueError(f"companion RGB {arr.shape[:2]} is not the detector's {native}")
         return np.asarray(arr, dtype=np.uint8)
 
     def _native_unmapped(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:

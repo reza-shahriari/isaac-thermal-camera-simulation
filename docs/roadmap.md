@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `AT.31` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 67 open steps
+#### Then, in order — 66 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -204,7 +204,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`IG.3`** | IG | X | S | 6 | ready |
 | 15 | **`EV.5`** | EV | X | M | 3 | ready |
 
-…and 52 more — `python scripts/next_step.py --queue 40`.
+…and 51 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -789,7 +789,7 @@ job. Several of these rows are not new features but *documented invariants that 
 | IG.6 | ✅ **done.** `IrCamera.planes()` sets `motion_px` from `MotionTracker`, which gains an injectable transform reader and a per-frame path set; the three flight drivers declare their moving roots. Refused, not faked, on the first frame and outside the camera frame. | **Measured**, 14 engine-free cases: f·dx/R in pixels, the plane through the real `planes()`, and §16's smear — at 11 px/frame the bolometer's 10–90 edge goes **0 → 8.8 px** and the cooled InSb **0 → 1.1 px**, the 8.33× duty ratio. A wrong premise corrected: a rigid child's offset cancels exactly. | IG.5 | S | A |
 | IG.7 | **Re-probe the three ADR 0014 negatives that look like capture-protocol artefacts.** (a) `motion_vectors` with `rt_subframes=0` and the timeline running — IsaacSim #722 says pausing zeroes the motion g-buffer, exactly the 6e-5 signature. (b) `/rtx/rendermode` with NVIDIA's casing `RayTracedLighting`. (c) The Replicator `occlusion` annotator. | One line each in an existing probe. If (b) flips, several negative AOV results were taken under whichever mode that token selected. If (c) delivers, it replaces the unoccluded geometric `V_s`. | IG.3 | S | X |
 | IG.8 | ✅ **done.** `precision_critical` is gone; `_as_f64_plane` refuses float16 on every plane. The claim that justified the carve-out was false: ADR 0014's addendum records `normals` as **float32 ×4, full resolution** and the registry agrees. | **Measured.** The fp16 plane in that table is `PtWorldNormal`, which `AovReader` already rejects for being half-res and all-zero — nothing was rescued. Test asserting the opposite inverted; occlusion and motion gained refusals. Reinstating the carve-out turns 3 red. | — | S | 0 |
-| IG.9 | **Check the companion RGB's resolution.** `rgb` is omitted from `required` so it is exempt from the shape guard, and `_native_rgb` box-filters by the supersample factor without comparing against the render product. | The pair's whole claim is that it is "registered by construction rather than by calibration", and that pair is the sim-to-real training artefact. Several colour AOVs on this build return at half resolution regardless of AA. After: a mismatched shape raises rather than misaddressing every pixel. | — | S | X |
+| IG.9 | ✅ **done.** `_native_rgb` checks the colour buffer against the render product and raises on a mismatch (half, double, one row short) instead of cropping and averaging it; an absent or black buffer is still reported through `rgb_problem`. | **Measured** (engine-free, 3x camera): each native pixel is exactly its own block's mean; every mis-sized buffer raises (`test_companion_rgb_registration.py`). | — | S | X |
 | IG.10 | **Mark UNMAPPED pixels in the float outputs** and write `id_coverage` to a sidecar. They are ORed into `sky_mask`, so they skip the atmosphere *as well as* taking ε = 1 against their own temperature; the magenta overlay is display-only; the per-frame coverage number computed in `material_ids.py` is never recorded. | With `strict_materials=False` everywhere this is the live path, not a debug one, and a detector would train on pixels nobody computed. After: `radiance` and `apparent_t` carry a mask plane and every frame's coverage is in the sidecar. | IG.1 | S | X |
 | IG.11 | **`heading_deg` and `refresh_pose()`.** `IrCamera.heading_deg` is stored and never read — the live copy is on `SceneIllumination` — so a caller passing it to the camera alone gets the sun in the wrong compass direction silently. `refresh_pose()` is manual and one production caller remembers it. | Two silent-pose footguns in the object that already produced one silently wrong frame. After: the dead parameter goes, and `planes()` compares the cached pose against the prim and raises rather than rendering geometry from the new aim and sky from the old. | — | S | X |
 | IG.12 | **A cheap per-frame invariant on every annotator plane** — finite, right shape, not constant — generalising `_reject_reason` beyond required channels. Replicator annotators are documented to return empty arrays on random frames under multi-GPU (IsaacSim #507), and the known-issues page lists AOV texture-dimension mismatches that cause missing exports. | The rule `AovReader` already has at probe time applies on every frame. A silently empty frame in a 10 k-frame dataset export is unrecoverable after the fact, and the microseconds are free next to the radiance kernels. | IG.9 | S | X |

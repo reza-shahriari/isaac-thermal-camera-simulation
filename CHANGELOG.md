@@ -98,6 +98,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no name given, the skill infers one and says which. 5 new tests (38 in the file).
 
 ### Fixed
+- **A visible frame of the wrong size is refused (`IG.9`).** The companion RGB was box-filtered onto the infrared pixels without checking it came back at the render's resolution; a half-resolution colour buffer would have misregistered the whole pair while looking normal. It now raises.
 - **The RGB companion blurs like the infrared (`IG.19`).** A moving target is exposed over the same window in both bands -- the companion is accumulated from sub-frames posed along the track -- so the pair no longer shows one band sharp and the other smeared. `--rgb-subframes` on the Phantom 4 driver; ADR 0167.
 - **The CPU aerial scene has a sun and knows which way its surfaces face (`AT.23`).** A target's belly reflects the ground instead of the sky, the ground is seen at its own grazing angle, and with a solar bundle a noon deck is sunlit in SWIR and NIR; before, every surface faced the camera and no sun reached the frame.
 - **No more bright ring around unpainted metal (`AT.25`).** Bare and polished aluminium now take a conductor's own angular emissivity fitted to their authored value, so a skin seen edge-on reflects the sky instead of glowing at its own temperature (a 280 K skin under a 230 K sky reads 237 K at the limb, not 280). ADR 0163.
