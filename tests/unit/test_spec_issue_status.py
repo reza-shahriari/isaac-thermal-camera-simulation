@@ -52,6 +52,7 @@ WORDS = {
     41: "forty-one",
     42: "forty-two",
     43: "forty-three",
+    44: "forty-four",
     38: "thirty-eight",
     56: "fifty-six",
     57: "fifty-seven",

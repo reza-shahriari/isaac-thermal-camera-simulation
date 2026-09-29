@@ -95,7 +95,9 @@ class Atmosphere:
         sample = self._weather.at(t_s)
         w = sample.absolute_humidity_g_m3
         vis = self._preset.bands[ANCHOR_BAND]
-        gamma_mol_vis = gamma_molecular(w, vis.gamma0_per_m, vis.beta_per_m_per_g_m3)
+        gamma_mol_vis = gamma_molecular(
+            w, vis.gamma0_per_m, vis.beta_per_m_per_g_m3, vis.beta2_per_m_per_g2_m6
+        )
         gammas = {
             band: band_extinction(coeffs, w, sample.visibility_m, gamma_mol_vis)
             for band, coeffs in self._preset.bands.items()

@@ -626,9 +626,13 @@ class LayeredAtmosphere:
         sample = self._weather.at(t_s)
         w_h2o = sample.absolute_humidity_g_m3
         coeffs = self._preset.bands[band]
-        gamma_mol = gamma_molecular(w_h2o, coeffs.gamma0_per_m, coeffs.beta_per_m_per_g_m3)
+        gamma_mol = gamma_molecular(
+            w_h2o, coeffs.gamma0_per_m, coeffs.beta_per_m_per_g_m3, coeffs.beta2_per_m_per_g2_m6
+        )
         vis = self._preset.bands[ANCHOR_BAND]
-        gamma_mol_vis = gamma_molecular(w_h2o, vis.gamma0_per_m, vis.beta_per_m_per_g_m3)
+        gamma_mol_vis = gamma_molecular(
+            w_h2o, vis.gamma0_per_m, vis.beta_per_m_per_g_m3, vis.beta2_per_m_per_g2_m6
+        )
         gamma_aer = coeffs.aerosol_ratio_to_visible * gamma_aerosol_visible(
             sample.visibility_m, gamma_mol_vis
         )

@@ -73,6 +73,9 @@ class AtmosphereBandCoefficients(_Frozen):
 
     gamma0_per_m: float = Field(ge=0.0)
     beta_per_m_per_g_m3: float = Field(ge=0.0)
+    #: AT.27 (ADR 0160): the self-continuum square, m⁻¹ per (g m⁻³)². 0 -- the default, and
+    #: every preset written before the field existed -- is §7.3's linear law bit for bit.
+    beta2_per_m_per_g2_m6: float = Field(default=0.0, ge=0.0)
     aerosol_ratio_to_visible: float = Field(ge=0.0)
 
 

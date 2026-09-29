@@ -70,8 +70,11 @@ def test_rh_step_changes_gamma_by_exactly_beta_dw() -> None:
     preset = load_atmosphere_preset("us_standard_clear")
     atm = Atmosphere(preset, _weather_step())
     g1, g2 = atm.gamma("lwir", 1800.0), atm.gamma("lwir", 2.5 * 3600.0)
-    dw = absolute_humidity_g_m3(303.15, 0.80) - absolute_humidity_g_m3(293.15, 0.30)
-    assert g2 - g1 == pytest.approx(preset.bands["lwir"].beta_per_m_per_g_m3 * dw, rel=1e-12)
+    w1, w2 = absolute_humidity_g_m3(293.15, 0.30), absolute_humidity_g_m3(303.15, 0.80)
+    lwir = preset.bands["lwir"]
+    # AT.27: beta1 dw + beta2 (w2^2 - w1^2); the linear law's beta dw when beta2 = 0
+    expect = lwir.beta_per_m_per_g_m3 * (w2 - w1) + lwir.beta2_per_m_per_g2_m6 * (w2**2 - w1**2)
+    assert g2 - g1 == pytest.approx(expect, rel=1e-12)
     assert atm.state(1800.0).w_g_m3 == pytest.approx(absolute_humidity_g_m3(293.15, 0.30))
 
 

@@ -71,7 +71,9 @@ def band_extinction(
     gamma_mol_visible_per_m: float,
 ) -> float:
     """γ_B = γ_mol,B(w) + r_B γ_aer,vis(V) for one band (m⁻¹)."""
-    mol = gamma_molecular(w_g_m3, coeffs.gamma0_per_m, coeffs.beta_per_m_per_g_m3)
+    mol = gamma_molecular(
+        w_g_m3, coeffs.gamma0_per_m, coeffs.beta_per_m_per_g_m3, coeffs.beta2_per_m_per_g2_m6
+    )
     return mol + gamma_aerosol(
         visibility_m, coeffs.aerosol_ratio_to_visible, gamma_mol_visible_per_m
     )
@@ -83,7 +85,9 @@ def extinction_per_band(
     """γ_B (m⁻¹) for every band of the preset at the given weather."""
     w = absolute_humidity_g_m3(t_air_k, rh_fraction)
     vis = preset.bands[ANCHOR_BAND]
-    gamma_mol_vis = gamma_molecular(w, vis.gamma0_per_m, vis.beta_per_m_per_g_m3)
+    gamma_mol_vis = gamma_molecular(
+        w, vis.gamma0_per_m, vis.beta_per_m_per_g_m3, vis.beta2_per_m_per_g2_m6
+    )
     return {
         band: band_extinction(coeffs, w, visibility_m, gamma_mol_vis)
         for band, coeffs in preset.bands.items()

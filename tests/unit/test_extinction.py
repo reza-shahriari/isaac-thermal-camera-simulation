@@ -35,8 +35,12 @@ def test_clear_air_limit_and_rayleigh_ceiling() -> None:
     g_inf = extinction_per_band(preset, 288.15, 0.46, math.inf)
     w = absolute_humidity_g_m3(288.15, 0.46)
     for band, coeffs in preset.bands.items():
+        # AT.27: LWIR carries a self-continuum square; every other band's beta2 is 0
         assert g_inf[band] == pytest.approx(
-            coeffs.gamma0_per_m + coeffs.beta_per_m_per_g_m3 * w, rel=1e-12
+            coeffs.gamma0_per_m
+            + coeffs.beta_per_m_per_g_m3 * w
+            + coeffs.beta2_per_m_per_g2_m6 * w * w,
+            rel=1e-12,
         )
     # MOR is defined on the total extinction: past the Rayleigh-limited visibility no aerosol
     ray = preset.bands["visible"].gamma0_per_m
@@ -77,10 +81,14 @@ def test_humidity_step_changes_gamma_by_exactly_beta_dw_and_monotone() -> None:
     preset = load_atmosphere_preset("midlat_summer_humid")
     g1 = extinction_per_band(preset, 293.15, 0.30, 23000.0)
     g2 = extinction_per_band(preset, 303.15, 0.80, 23000.0)
-    dw = absolute_humidity_g_m3(303.15, 0.80) - absolute_humidity_g_m3(293.15, 0.30)
-    assert g2["lwir"] - g1["lwir"] == pytest.approx(
-        preset.bands["lwir"].beta_per_m_per_g_m3 * dw, rel=1e-12
-    )
+    w1, w2 = absolute_humidity_g_m3(293.15, 0.30), absolute_humidity_g_m3(303.15, 0.80)
+    lwir = preset.bands["lwir"]
+    # AT.27: the step is beta1 dw + beta2 (w2^2 - w1^2), the linear law's beta dw at beta2 = 0
+    expect = lwir.beta_per_m_per_g_m3 * (w2 - w1) + lwir.beta2_per_m_per_g2_m6 * (w2**2 - w1**2)
+    assert g2["lwir"] - g1["lwir"] == pytest.approx(expect, rel=1e-12)
+    assert lwir.beta2_per_m_per_g2_m6 > 0.0 and g2["lwir"] - g1[
+        "lwir"
+    ] > lwir.beta_per_m_per_g_m3 * (w2 - w1)
     # monotone in visibility and in distance
     vis = [50.0, 200.0, 1000.0, 5000.0, 23000.0, math.inf]
     taus = [transmittance_per_band(preset, 288.15, 0.5, v, 200.0)["lwir"] for v in vis]

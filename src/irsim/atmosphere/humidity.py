@@ -7,7 +7,8 @@ accurate to 0.1 % over −30…+35 °C. Absolute humidity (water-vapour density,
 
 The spec calls w "precipitable water"; it is the absolute humidity (spec issue T19), and the
 factor is derived from R_v here rather than typed in. RH is a **fraction**: 80 raises. The
-molecular part of the band extinction is the engineering form γ_mol,B = γ₀,B + β_B w.
+molecular part of the band extinction is the engineering form γ_mol,B = γ₀,B + β_B w, plus a
+β₂ w² self-continuum term where a band carries one (AT.27; LWIR does).
 
 docs/physics-model.md §7.3
 """
@@ -77,8 +78,24 @@ def dew_point_k(t_k: float, rh_fraction: float) -> float:
     return MAGNUS_C_C * x / (MAGNUS_B - x) + 273.15
 
 
-def gamma_molecular(w_g_m3: float, gamma0_per_m: float, beta_per_m_per_g_m3: float) -> float:
-    """γ_mol = γ₀ + β w (m⁻¹) -- the §7.3 engineering form; γ₀, β fitted per band (M8.3)."""
+def gamma_molecular(
+    w_g_m3: float,
+    gamma0_per_m: float,
+    beta_per_m_per_g_m3: float,
+    beta2_per_m_per_g2_m6: float = 0.0,
+) -> float:
+    """γ_mol = γ₀ + β₁ w + β₂ w² (m⁻¹): §7.3's form plus the self-continuum square (AT.27).
+
+    The 8–12 µm water-vapour continuum that dominates LWIR transmission is self-broadened: its
+    absorption coefficient goes as the vapour's number density times its own partial pressure,
+    ``n_w · e ∝ w²`` at a given temperature (MT_CKD; Mlawer et al. 2012). The line absorption
+    stays linear. ``beta2 = 0`` is the pre-AT.27 law bit for bit, which every band but LWIR
+    still uses (spec issue S57, ADR 0160).
+    """
     if w_g_m3 < 0.0 or gamma0_per_m < 0.0 or beta_per_m_per_g_m3 < 0.0:
         raise ValueError("w, gamma0 and beta must be non-negative")
-    return gamma0_per_m + beta_per_m_per_g_m3 * w_g_m3
+    if beta2_per_m_per_g2_m6 < 0.0:
+        raise ValueError("beta2 must be non-negative")
+    if beta2_per_m_per_g2_m6 == 0.0:
+        return gamma0_per_m + beta_per_m_per_g_m3 * w_g_m3
+    return gamma0_per_m + beta_per_m_per_g_m3 * w_g_m3 + beta2_per_m_per_g2_m6 * w_g_m3 * w_g_m3
