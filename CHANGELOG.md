@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Training labels from a frame's own planes (`EV.15`).** Boxes, instance masks, classes and a visibility per target, COCO and YOLO files beside every frame and a split manifest per run, all derived from the exact instance plane; a target under a pixel is a point with its fill fraction.
 - **Nineteen measured surfaces for the material library (`XD.13`).** Roads, roofs, bricks, concrete, wood, painted metal, leaves, dry grass, sand, desert playa, sea water, melting snow, PVC and PET, each paired from a USGS measurement (near and short-wave infrared, and the sunlight it absorbs) and a thermal-infrared measurement of the same kind of surface; `scripts/import_paired_spectra.py` regenerates them from the unzipped USGS library.
 - **Cameras by name, and a place for your own (`SC.32`).** `--sensor boson640` works everywhere a sensor file did; put your own camera YAML in `$IRSIM_SENSOR_DIR` and it loads by name, shadowing the shipped ones. Old sensor files keep loading: new fields default to the old behaviour, a version bump means a migrator, and an `extensions:` block is yours to fill. ADR 0159.
 - **Targets have an altitude (`PT.28`).** `altitude_agl_m` on a target puts it in the air up there -- colder by the preset's lapse rate, with the speed of sound and ram heating to match -- and the site's altitude now thins the air every surface convects with. Sea-level scenes are unchanged.
