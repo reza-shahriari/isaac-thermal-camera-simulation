@@ -190,8 +190,9 @@ def emissivity_curve(
 
 
 def write_nk(
-    name: str, spec: dict, url: str, text: str
+    name: str, spec: dict, url: str, text: str, need_um: tuple[float, float] = (TRIM_UM[0], 14.0)
 ) -> tuple[pathlib.Path, NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    """Write ``data/nk/<spec['nk']>.csv``; refuse a table that does not span ``need_um``."""
     lam, n, k = parse_rii_nk(text)
     unique = np.concatenate(([True], np.diff(lam) > 0.0))
     lam, n, k = lam[unique], n[unique], k[unique]
@@ -200,8 +201,8 @@ def write_nk(
     first = max(int(np.searchsorted(lam, TRIM_UM[0], side="right")) - 1, 0)
     last = min(int(np.searchsorted(lam, TRIM_UM[1], side="left")), len(lam) - 1)
     lam, n, k = lam[first : last + 1], n[first : last + 1], k[first : last + 1]
-    if lam[0] > TRIM_UM[0] or lam[-1] < 14.0:
-        raise ValueError(f"{name}: table covers {lam[0]}-{lam[-1]} um, needs 0.3-14 um")
+    if lam[0] > need_um[0] or lam[-1] < need_um[1]:
+        raise ValueError(f"{name}: table covers {lam[0]}-{lam[-1]} um, needs {need_um} um")
 
     def at(target: float) -> tuple[float, float]:
         return float(np.interp(target, lam, n)), float(np.interp(target, lam, k))

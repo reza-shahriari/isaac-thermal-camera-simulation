@@ -36,3 +36,7 @@ docs/validation/.*-clips.json
 .coverage
 .coverage.*
 htmlcov/
+# The USGS Spectral Library v7 archive (ASCIIdata_splib07a.zip), unzipped here to feed
+# scripts/import_paired_spectra.py. 113 MB of raw spectra: the importer commits only the curves
+# it uses, under data/spectra/materials/usgs/.
+ASCIIdata_splib07a/

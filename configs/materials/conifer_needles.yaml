@@ -1,0 +1,25 @@
+# Conifer needles: Pine needles: a conifer canopy.
+#
+# Written by scripts/import_paired_spectra.py (roadmap XD.13) -- edit the script, not this file.
+# Paired measurements: lodgepole pine needles (USGS) with new pine needles (UCSB).
+# NIR and SWIR are the library's band averages of 1 - R of the USGS curve beside this material.
+# The solar absorptivity is its AM1.5 average over the 0.35-2.5 um measured
+# (97 % of the direct energy in 0.3-4 um). MWIR and LWIR come from the second source
+# named in `reference`.
+schema_version: 2
+material:
+  name: conifer_needles
+  source: literature
+  surface_treatment: natural
+  reference: "NIR, SWIR and solar absorptivity: USGS Spectral Library Version 7 (Kokaly et al. 2017, U.S. Geological Survey Data Series 1035, doi:10.3133/ds1035; data doi:10.5066/F7RR1WDJ), splib07a, public domain, record 'splib07a Record=21532: Lodgepole-Pine LP-Needles-1 ASDFRa AREF' (data/spectra/materials/usgs/conifer_needles.csv). MWIR and LWIR: MODIS UCSB Emissivity Library (Z. Wan, ICESS, UC Santa Barbara), https://icess.eri.ucsb.edu/modis/EMIS/html/em.html, directional-hemispherical emissivity measured with a MIDAC FTIR and an integrating sphere, 3.3-14.5 um [R42]; files pinenew.prn (Leaf of Pine (New)), averaged, retrieved 2026-09-29. MWIR over the measured 3.34-5.0 um (83 % of the band). Not committed: the library states no licence, so only these band values are extracted. Thermal: vegetation_leaf"
+  description: "Pine needles: a conifer canopy"
+  thermal:
+    density_kg_m3: 700
+    specific_heat_j_kgk: 3000
+    conductivity_w_mk: 0.3
+    thickness_m: 0.0003   # ESTIMATED: a typical part or layer
+    solar_absorptivity: 0.627   # computed from the USGS curve, not typed
+  optical:
+    emissivity_per_band: {nir: 0.350, swir: 0.601, mwir: 0.985, lwir: 0.981}   # computed, see the header
+    roughness_per_band: {nir: 0.55, swir: 0.55, mwir: 0.45, lwir: 0.4}   # ESTIMATED, as the class's existing material
+    angular_model: {type: empirical, a: 0.06, p: 4.0}   # ESTIMATED, as the class

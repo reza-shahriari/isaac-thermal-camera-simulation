@@ -1,0 +1,25 @@
+# Pet black: Black PET plastic: moulded parts and packaging.
+#
+# Written by scripts/import_paired_spectra.py (roadmap XD.13) -- edit the script, not this file.
+# Paired measurements: black PET (USGS) with the Fresnel emissivity of PET's measured optical constants.
+# NIR and SWIR are the library's band averages of 1 - R of the USGS curve beside this material.
+# The solar absorptivity is its AM1.5 average over the 0.35-2.5 um measured
+# (97 % of the direct energy in 0.3-4 um). MWIR and LWIR come from the second source
+# named in `reference`.
+schema_version: 2
+material:
+  name: pet_black
+  source: literature
+  surface_treatment: as_manufactured
+  reference: "NIR, SWIR and solar absorptivity: USGS Spectral Library Version 7 (Kokaly et al. 2017, U.S. Geological Survey Data Series 1035, doi:10.3133/ds1035; data doi:10.5066/F7RR1WDJ), splib07a, public domain, record 'splib07a Record=19757: Plastic_PETE GDS382 Black ASDFRa AREF' (data/spectra/materials/usgs/pet_black.csv). MWIR and LWIR: normal-incidence Fresnel emissivity of data/nk/pet.csv (1) X. Zhang, J. Qiu, X. Li, J. Zhao, L. Liu. Complex refractive indices measurements of polymers in visible and near-infrared bands. Appl. Opt. 59, 2337-2344 (2020) (0.4-2 µm) 2) X. Zhang, J. Qiu, J. Zhao, X. Li, L. Liu. Complex refractive indices measurements of polymers in infrared bands. J. Quant. Spectrosc. Radiat. Transf. 252, 107063 (2020) (2-20 µm) (Normal temperature and pressure. Manufacturer: Chenghang plastic material, China.)), for an optically thick smooth part. Thermal: ESTIMATED: a typical value for the polymer; handbooks spread about 15 %"
+  description: "Black PET plastic: moulded parts and packaging"
+  thermal:
+    density_kg_m3: 1380
+    specific_heat_j_kgk: 1100
+    conductivity_w_mk: 0.2
+    thickness_m: 0.002   # ESTIMATED: a typical part or layer
+    solar_absorptivity: 0.936   # computed from the USGS curve, not typed
+  optical:
+    emissivity_per_band: {nir: 0.937, swir: 0.949, mwir: 0.958, lwir: 0.942}   # computed, see the header
+    roughness_per_band: {nir: 0.25, swir: 0.22, mwir: 0.12, lwir: 0.08}   # ESTIMATED, as the class's existing material
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the class
