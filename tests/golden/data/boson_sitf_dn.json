@@ -1,6 +1,6 @@
 {
   "atol": 1.0,
-  "config_hash": "6dda73a3fbdc7881bdce67682506b3c091fe8cb4265b45aedff9e3cc223d4c98",
+  "config_hash": "7da04cf19d0d79c1681a09069b38acf19e0171a398a7c8523b5b4bac8cb3b1af",
   "dtype": "uint16",
   "name": "boson_sitf_dn",
   "numpy_version": "2.3.1",

@@ -242,11 +242,27 @@ def agc_information(
     smoothing_sigma_dn: float = 1250.0,
     clip_limit_low: float = 0.0,
     max_gain: float = 0.0,
+    detail_threshold_sigma: float = 0.0,
+    noise_sigma_dn: float = 0.0,
 ) -> Float32Array:
     """Information-based equalisation with Linear Percent, Detail Headroom and DDE (§11.3).
 
     ``detail_gain`` is the gain on the high-pass layer at the transfer's local slope: 1 shows the
     frame's own detail, above 1 sharpens (a Boson's DDE > 1), below 1 smooths.
+
+    ``detail_threshold_sigma`` (SC.31) is the detail measure's noise gate, in units of
+    ``noise_sigma_dn``: the temporal noise σ_TVH the detector put into this frame, in DN, which the
+    pipeline hands down (`PipelineState.sigma_tvh_dn`) and which is 0 when noise is off. Only
+    residuals above ``k σ_TVH`` count as information when the histogram is weighted. Below it the
+    weighting saw noise -- on a noisy frame the residual is noise nearly everywhere, so the
+    "information" histogram was the plain histogram in disguise and a small target's transition
+    bins got nothing: on a 60 K clear-sky gradient at σ_TVH = 8.5 DN a 3 px target at 0 °C had
+    70 codes of contrast where the noise-free frame gave it 132, and gated at 3 σ it has 132
+    again. The σ is the camera's own and never an estimate read off the frame: a robust estimate
+    of the residual reads a clean frame's quantisation as noise and a sky's curvature as noise,
+    and then moves a noise-free frame by tens of codes. Either value 0 is the pre-SC.31 operator
+    bit for bit. The DDE add-back is not gated: detail is still displayed, it just no longer
+    decides where the codes go.
     """
     if plateau <= 0.0:
         raise ValueError("plateau must be positive (fraction of N_pixels per bin)")
@@ -254,11 +270,18 @@ def agc_information(
         raise ValueError("detail_headroom is a fraction of the range at each end, in [0, 0.5)")
     if detail_gain < 0.0:
         raise ValueError("detail_gain must be non-negative")
+    if detail_threshold_sigma < 0.0:
+        raise ValueError("detail_threshold_sigma must be non-negative")
+    if noise_sigma_dn < 0.0:
+        raise ValueError("noise_sigma_dn must be non-negative (DN)")
     dn = _as_dn(x, bit_depth)
     low, high = bilateral_split(dn, smoothing_sigma_dn)
     low = np.clip(low, 0.0, float(2**bit_depth - 1))
     counts = histogram_dn(low, bit_depth)
-    info = histogram_dn(low, bit_depth, np.abs(high)) if np.any(high) else None
+    detail = np.abs(high)
+    if detail_threshold_sigma > 0.0 and noise_sigma_dn > 0.0:
+        detail = np.where(detail > detail_threshold_sigma * noise_sigma_dn, detail, 0.0)
+    info = histogram_dn(low, bit_depth, detail) if np.any(detail) else None
     lut = information_lut(counts, plateau, info, info_weight, linear_percent, clip_limit_low)
     if lut is None:
         return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)

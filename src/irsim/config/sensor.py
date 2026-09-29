@@ -509,6 +509,7 @@ ISP_OPTIONAL_DEFAULTS: dict[str, float] = {
     "smoothing_sigma_dn": 1250.0,
     "clip_limit_low": 0.0,
     "max_gain": 0.0,
+    "detail_threshold_sigma": 0.0,  # SC.31: the detail measure's noise gate, off by default
 }
 
 
@@ -533,6 +534,11 @@ class IspSpec(_Frozen):
     info_weight: float = Field(1.0, ge=0.0)  # ESTIMATED: FLIR publishes no number
     detail_headroom: float = Field(0.0, ge=0.0, lt=0.5)
     smoothing_sigma_dn: float = Field(1250.0, gt=0.0)  # FLIR's Smoothing Factor default, as DN
+    #: SC.31: residuals below this many σ_TVH -- the detector's own temporal noise in DN, which
+    #: the pipeline hands the display branch -- are noise, not information, for the histogram's
+    #: weighting. 0 (the default, and every older config) is the pre-SC.31 operator; the Boson
+    #: preset gates at 3 σ.
+    detail_threshold_sigma: float = Field(0.0, ge=0.0)
     # SC.25 (ADR 0149): two controls every equalising core has under some name. The Lepton
     # family's low clip limit (a floor of shades for any occupied bin, fraction of N per bin)
     # and the Boson/Xenics max gain (display codes of 255 per DN; 0 = no limit). Both 0 = the

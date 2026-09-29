@@ -158,6 +158,7 @@ def _detector_signal(
     With an M9 chain attached the fixed pattern stage 5 adds is the *breathing* one (M9.4), so it
     is handed to the stage each frame rather than left to the stage's own static copy."""
     detector = config.detector
+    state.sigma_tvh_dn = 0.0
     if isinstance(config.fpa, BolometerParams):
         # The seam is the bolometer's alone and the protocol does not carry it: a photon
         # detector's noise is Poisson in electron space (CLAUDE.md #3), so there is no signal-DN
@@ -173,6 +174,7 @@ def _detector_signal(
         if not config.noise_enabled:
             return detector.noiseless_signal_dn(flux)
         frame = detector.response(flux, state.frame_index, config.sensor_seed)
+    state.sigma_tvh_dn = float(np.mean(frame.sigma_dn))
     fixed = None if config.chain is None else config.chain.fixed_pattern
     return config.noise.apply(
         frame.signal_dn, frame.sigma_dn, state.frame_index, fixed_override=fixed
@@ -414,7 +416,9 @@ def run_frame(
             flat = config.chain.display_nuc
         if flat is not None:
             display_dn = quantise(flat.apply(dn16), sensor.fpa.bit_depth)
-        display = run_display_branch(display_dn, sensor.isp, sensor.fpa.bit_depth)
+        display = run_display_branch(
+            display_dn, sensor.isp, sensor.fpa.bit_depth, noise_sigma_dn=state.sigma_tvh_dn
+        )
         display8, isp_hash = display.display8, display.isp_hash
     state.advance()
     return Outputs(

@@ -79,8 +79,15 @@ def agc_none(dn16: NDArray[np.uint16], bit_depth: int) -> NDArray[np.float32]:
     return np.asarray(top / np.float32(255.0), dtype=np.float32)
 
 
-def run_display_branch(dn16: object, isp: IspSpec, bit_depth: int) -> DisplayOutputs:
-    """DN16 → RGBA8 in the ADR 0031 order; float32 at every intermediate; uint8 out."""
+def run_display_branch(
+    dn16: object, isp: IspSpec, bit_depth: int, noise_sigma_dn: float = 0.0
+) -> DisplayOutputs:
+    """DN16 → RGBA8 in the ADR 0031 order; float32 at every intermediate; uint8 out.
+
+    ``noise_sigma_dn`` (SC.31) is the frame's own σ_TVH in DN, the unit of the information
+    AGC's detail gate; the pipeline passes ``PipelineState.sigma_tvh_dn`` and a bench that shows
+    a raw plane passes nothing, which leaves the gate off.
+    """
     dn = _check_dn16(dn16, bit_depth)
     if isp.agc == "linear":
         y = agc_linear(dn, isp.clip_percentiles[0], isp.clip_percentiles[1], 1.0, bit_depth)  # R1
@@ -110,6 +117,8 @@ def run_display_branch(dn16: object, isp: IspSpec, bit_depth: int) -> DisplayOut
             smoothing_sigma_dn=isp.smoothing_sigma_dn,
             clip_limit_low=isp.clip_limit_low,
             max_gain=isp.max_gain,
+            detail_threshold_sigma=isp.detail_threshold_sigma,
+            noise_sigma_dn=noise_sigma_dn,
         )
     elif isp.agc == "plateau_local":
         y = agc_plateau_local(

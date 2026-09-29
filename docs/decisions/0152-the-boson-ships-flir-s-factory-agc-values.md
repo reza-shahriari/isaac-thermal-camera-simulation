@@ -57,6 +57,16 @@ path: every one takes `display8` from the CPU branch.
   codes, hot patch by up to 227). `dn16`, `radiance` and `apparent_t` are bit-identical, and only their
   hash sidecars moved, because the golden key hashes the whole config. `test_boson_default_agc.py`
   checks the same thing through `run_frame`.
+- **The detail measure is gated (SC.31, 2026-09-29).** The information histogram weighted bins by the
+  summed |high-pass| of the residual, and on a noisy frame that residual is noise nearly
+  everywhere, so the weighting was the plain histogram in disguise: on a 60 K clear-sky gradient
+  at σ_TVH = 8.5 DN a 3 px target at 0 °C had 70 codes of contrast over its ring where the
+  noise-free frame gave it 132. `detail_threshold_sigma` (3 on the Boson) counts only residuals
+  above k × σ_TVH as information, where σ_TVH is the detector's own noise in DN handed down by the
+  pipeline (`PipelineState.sigma_tvh_dn`) -- never an estimate read off the frame, which read a
+  clean frame's quantisation and a sky's curvature as noise and moved a noise-free frame by up to
+  44 codes when tried. Gated, the target is 132 again; a 1 px target or one hotter than the sky
+  moves by ≤ 6 codes; a noise-free frame (σ = 0) is bit-identical, as is k = 0.
 - **What it buys.** On the phantom4-shaped synthetic frame the target goes from 2 to **37** codes,
   with its four parts in temperature order. On the saved `phantom4_perpart` planes, frame 48 goes from
   3 to 26 codes, frame 96 from 2 to 20, and frame 136 from 33 to 105.

@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 77 open steps
+#### Then, in order — 76 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.19`** | IG | A | S | — | ready |
-| 2 | **`SC.31`** | SC | A | S | — | ready |
-| 3 | **`SC.34`** | SC | A | S | — | ready |
-| 4 | **`AT.23`** | AT | A | M | — | ready |
-| 5 | **`AT.25`** | AT | A | M | — | ready |
-| 6 | **`EV.14`** | EV | A | M | — | ready |
-| 7 | **`SC.33`** | SC | A | M | — | ready |
-| 8 | **`TC.13`** | TC | A | L | — | ready |
-| 9 | **`AT.26`** | AT | B | S | — | ready |
-| 10 | **`IG.16`** | IG | B | M | — | ready |
-| 11 | **`AT.14`** | AT | B | L | — | ready |
-| 12 | **`TC.15`** | TC | C | M | 1 | ready |
-| 13 | **`AI.13`** | AI | C | S | — | ready |
-| 14 | **`PT.27`** | PT | C | S | — | ready |
-| 15 | **`AT.6`** | AT | C | M | — | ready |
+| 2 | **`SC.34`** | SC | A | S | — | ready |
+| 3 | **`AT.23`** | AT | A | M | — | ready |
+| 4 | **`AT.25`** | AT | A | M | — | ready |
+| 5 | **`EV.14`** | EV | A | M | — | ready |
+| 6 | **`SC.33`** | SC | A | M | — | ready |
+| 7 | **`TC.13`** | TC | A | L | — | ready |
+| 8 | **`AT.26`** | AT | B | S | — | ready |
+| 9 | **`IG.16`** | IG | B | M | — | ready |
+| 10 | **`AT.14`** | AT | B | L | — | ready |
+| 11 | **`TC.15`** | TC | C | M | 1 | ready |
+| 12 | **`AI.13`** | AI | C | S | — | ready |
+| 13 | **`PT.27`** | PT | C | S | — | ready |
+| 14 | **`AT.6`** | AT | C | M | — | ready |
+| 15 | **`AT.9`** | AT | C | M | — | ready |
 
-…and 62 more — `python scripts/next_step.py --queue 40`.
+…and 61 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -642,7 +642,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.29 | ✅ **done.** `render_phantom4.py` enables the flat field and the M9 chain with the other drivers' `ValueError` retry, gains `--no-flat-field` / `--no-chain`, and its docstring stops claiming the mesh bridge never reached a render. `from_sensor` keeps the flat field off by default: the radiometric branch divides cos⁴ out analytically and the goldens rest on it. | **Measured.** Red: frame 96's dn16 sky rose 3235 → 4465 DN centre to corner, +90 display codes. `test_render_drivers_flat_field.py` walks every `render_*.py` that builds a pipeline and was red on this one alone. | — | S | A |
 | SC.30 | ✅ **done** (split). `_scene_radiance_from_signal` subtracts the budget's dark and cold-shield background electrons before inverting -- a calibrated camera's offset, whose mean a dark frame measures and whose shot noise the budget already carries. The cooled camera's out-of-cone housing term and the `g_th` default moved to `SC.34`. | **Measured.** MWIR InSb read a 300 K blackbody as **303.5 K** (pedestal 3.3e5 e⁻ against 3.3e6 signal); now 250, 300 and 350 K round-trip within 10 mK through the photon chain. `test_photon_radiometric_offset.py`, red without the fix. | — | S | A |
 | SC.34 | **A cold-shielded FPA sees the shield out of cone; VOx's G_th is a number.** `optics/stage.py` adds A_d Ω (1 − τ RI) L_h to every FPA; a cold-shielded photon FPA gets only the lens part (1 − τ) RI L_h (§8.2, §9.1): ≤ 2 % at the MWIR corners, wrong-signed on a cold scene. Forward, inverse and the Warp twin move together. `g_th_w_per_k` = 1e-7 reports a 74.5 mK floor over the 50 mK anchor; VOx literature says 1–3e-8. | Cooled corner shading carries the lens sign only; forward and inverse round-trip to 10 mK at the corner; the reported floor sits below the anchor. | — | S | A |
-| SC.31 | **The information histogram sees detail, not noise.** `information.py:261` weights bins by summed |x_HP| of a 5×5 residual; at σ_TVH = 8.5 DN the sky's noise owns > 99.9 % of the mass and a 3 px target at +20 °C gets 7 codes (90 noise-free). Threshold the detail measure at k·σ_TVH, or a local variance excess over the noise floor, before binning; test at the shipped `linear_percent` 0.2 with a 1–3 px target. | The 3 px target keeps ≥ 40 codes at the configured NETD; a noise-free frame is unchanged within 1 code; ADR 0152's note updated. | — | S | A |
+| SC.31 | ✅ **done.** `agc_information(..., detail_threshold_sigma, noise_sigma_dn)` gates |high-pass| at k × σ_TVH for the histogram weighting only; σ_TVH is the detector's, recorded per frame in `PipelineState.sigma_tvh_dn` and passed by `run_frame`, never estimated (an estimate read quantisation as noise: 44 codes on a clean frame). Default 0; Boson 3; ADR 0152 note. | **Measured.** 60 K sky, σ_TVH = 8.5 DN: 3 px target at 0 °C 70 codes ungated, 132 gated = noise-free; 1 px and hotter-than-sky targets move ≤ 6; noise-free frame and k = 0 bit-identical, hash-neutral. | — | S | A |
 | SC.32 | ✅ **done.** `irsim.config.catalogue`: `resolve_sensor_path` (path, stem or `sensor_catalogue.yaml` alias; `$IRSIM_SENSOR_DIR` first), `list_sensors`, `migrate_sensor_document` + `MIGRATIONS`; `load_sensor_config` takes a name and migrates; `sensor.extensions:`. ADR 0159. | **Measured.** Five aliases resolve; a user dir shadows `boson640` by file name and a user camera loads by name; frozen v8–v11 Boson fixtures load to today's minus `bad_pixel_late_fraction`; a fake rename migrator walks once; `extensions` round-trips; `f_numbr` is still refused. | — | S | A |
 | SC.33 | **Calibration loaded from the camera file.** `DistortionSpec` is schema only; nothing applies it. Add `calibration:` — geometric (fx, fy, cx, cy, OpenCV k1–k3, p1, p2, applied to frame and companion) and radiometric (per-pixel gain and offset maps, a bad-pixel map, measured SITF/NETD) as hashed `.npy` sidecars — used when present, synthesised when absent. | A checkerboard rendered with k1 = −0.3 straightens under OpenCV's `undistort` to 0.1 px; a loaded gain map reproduces its own flat field to 1 DN; a file with no `calibration:` is bit-identical to today. | SC.32 | M | A |
 

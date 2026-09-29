@@ -371,6 +371,11 @@ class PipelineState:
     #: run can report how defocused it was without recomputing the median range; 0.0 means either
     #: in focus or no defocus model.
     defocus_w020_um: float = 0.0
+    #: SC.31: the temporal noise the detector put into the last frame -- σ_TVH in DN, the mean of
+    #: its per-pixel σ -- and 0 when noise is off. The display branch's detail gate is set in
+    #: these units: the camera's own noise, never an estimate read off the frame, which a clean
+    #: frame's quantisation and a sky's curvature both fool.
+    sigma_tvh_dn: float = 0.0
     t_s: float = (
         0.0  # frame time on the scene weather's axis (Scene.t0_s + t_rel); stage 2 reads it
     )

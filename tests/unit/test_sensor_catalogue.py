@@ -82,13 +82,24 @@ def test_the_user_directory_is_searched_first_and_shadows_by_name(
 # --- files never go stale -------------------------------------------------------------------------
 
 
+#: (block, key) of every field the shipped Boson file authors that the frozen fixtures predate.
+#: A frozen file loads it at its default, which is the pre-existing camera (ADR 0159).
+ADDED_SINCE_THE_FREEZE: tuple[tuple[str, str], ...] = (
+    ("noise", "bad_pixel_late_fraction"),
+    ("isp", "detail_threshold_sigma"),
+)
+
+
 @pytest.mark.parametrize("version", list(range(MIN_SCHEMA_VERSION, SCHEMA_VERSION)))
 def test_a_frozen_file_from_every_past_schema_version_loads_unchanged(version: int) -> None:
-    """The Boson as written at v8..v11 is the Boson today, minus the one field v12 added
-    (`bad_pixel_late_fraction`, which defaults to the pre-v12 camera)."""
+    """The Boson as written at v8..v11 is the Boson today, minus the fields authored in the
+    shipped file since the fixtures were frozen (each optional, each defaulting to the camera
+    the frozen file described): v12's `bad_pixel_late_fraction`, SC.31's
+    `isp.detail_threshold_sigma`."""
     frozen = load_sensor_config(FIXTURES / f"boson_v{version}.yaml")
     today = yaml.safe_load(BOSON.read_text())
-    del today["sensor"]["noise"]["bad_pixel_late_fraction"]
+    for block, key in ADDED_SINCE_THE_FREEZE:
+        del today["sensor"][block][key]
     expect = SensorConfig.model_validate(_resolved(today))
     assert frozen.schema_version == SCHEMA_VERSION, "migrated up to today on load"
     assert frozen.sensor == expect.sensor
