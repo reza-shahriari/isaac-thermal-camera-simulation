@@ -60,6 +60,9 @@ class Box:
     pixels: int
     visibility: float | None
     mask_rle: list[int]
+    #: Mean cloud transmittance over the mask (AT.29): 1 with no cloud between the camera and
+    #: the target, 0 behind an opaque one; ``None`` when the frame carried no cloud march.
+    cloud_transmittance: float | None = None
 
     @property
     def xywh(self) -> tuple[int, int, int, int]:
@@ -106,7 +109,11 @@ class FrameLabels:
                     "area": int(b.pixels),
                     "iscrowd": 0,
                     "segmentation": {"size": [self.height, self.width], "counts": b.mask_rle},
-                    "attributes": {"target": b.target, "visibility": b.visibility},
+                    "attributes": {
+                        "target": b.target,
+                        "visibility": b.visibility,
+                        "cloud_transmittance": b.cloud_transmittance,
+                    },
                 }
             )
         for k, p in enumerate(self.points):
@@ -159,6 +166,7 @@ def frame_labels(
     *,
     points: Sequence[tuple[str, float, float, float]] = (),
     frame_shape: tuple[int, int] | None = None,
+    cloud_transmittance: Any = None,
 ) -> FrameLabels:
     """Boxes, masks and points for one frame from its ``part_id`` plane and legend.
 
@@ -166,7 +174,9 @@ def frame_labels(
     appears in the frame gets no box (it is not in the picture, and a zero-size box would be a
     lie). ``points`` are ``(target, x_px, y_px, phi)`` for sub-pixel targets, labelled as points.
     ``frame_shape`` (rows, cols) lets a plane larger than the frame -- a padded render -- report
-    the visible share of each mask.
+    the visible share of each mask. ``cloud_transmittance`` (AT.29), the truth plane of that
+    name, gives every box the mean transmittance of the cloud in front of it, so a detector's
+    misses can be sorted by how much of the target the cloud left.
     """
     ids = np.asarray(part_id)
     if ids.ndim != 2:
@@ -174,6 +184,11 @@ def frame_labels(
     if not np.issubdtype(ids.dtype, np.integer):
         raise TypeError("part_id must be an integer plane")
     height, width = ids.shape if frame_shape is None else frame_shape
+    cloud = (
+        None if cloud_transmittance is None else np.asarray(cloud_transmittance, dtype=np.float64)
+    )
+    if cloud is not None and cloud.shape != ids.shape:
+        raise ValueError(f"cloud_transmittance {cloud.shape} does not match part_id {ids.shape}")
     code_of = {name: code for code, name in legend.items()}
     boxes: list[Box] = []
     categories: list[str] = []
@@ -213,6 +228,7 @@ def frame_labels(
                 n_inside,
                 visibility,
                 _rle(inside),
+                None if cloud is None else float(np.mean(cloud[mask])),
             )
         )
     point_labels = []

@@ -30,10 +30,23 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ["TruthPlanes", "centre_sample", "truth_planes", "SKY_LABEL"]
+__all__ = [
+    "CLOUD_LEGEND",
+    "CLOUD_THRESHOLD",
+    "TruthPlanes",
+    "centre_sample",
+    "truth_planes",
+    "SKY_LABEL",
+]
 
 #: The legend entry for id 0 in ``part_id`` / ``node_id``: the ray hit no geometry.
 SKY_LABEL = "(sky / no geometry)"
+
+#: A pixel is *cloud* when the marched cloud lets less than this fraction of what lies behind it
+#: through (AT.29): an emissivity above one half, the same line a cloud mask would draw in the
+#: visible. Below it the pixel is what it hit, seen through thin cloud.
+CLOUD_THRESHOLD = 0.5
+CLOUD_LEGEND = {0: "clear", 1: "cloud"}
 
 
 @dataclass(frozen=True)
@@ -101,6 +114,19 @@ def truth_planes(
         planes["material_id"] = material
         if material_names:
             legends["material_id"] = dict(enumerate(material_names))
+
+    if "cloud_transmittance" in gbuffer:
+        # AT.29: the cloud between the camera and the hit, as the march found it -- a fraction,
+        # the range its emission came from, and a name a label writer can use. Written for sky
+        # pixels too: there the ray ran to infinity and the plane says how much of the sky was
+        # cloud, which is what "unknown" became.
+        tau = centre_sample(gbuffer["cloud_transmittance"], shape).astype(np.float32)
+        planes["cloud_transmittance"] = tau
+        if "cloud_range_m" in gbuffer:
+            rng = centre_sample(gbuffer["cloud_range_m"], shape).astype(np.float32)
+            planes["cloud_range_m"] = np.where(tau >= 1.0, np.float32(np.nan), rng)
+        planes["cloud_id"] = (tau < CLOUD_THRESHOLD).astype(np.uint8)
+        legends["cloud_id"] = dict(CLOUD_LEGEND)
 
     if instance_id is not None and labels:
         ids = centre_sample(instance_id, shape)

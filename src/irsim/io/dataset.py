@@ -72,6 +72,13 @@ PLANE_UNITS: dict[str, str] = {
         "image with NO infrared content; nothing in the radiometric chain reads it"
     ),
     "instance_id": "renderer instance id (uint32)",
+    # AT.29: the cloud the infrared band marched between the camera and each pixel's hit.
+    "cloud_transmittance": (
+        "fraction of what lies behind the cloud that reaches the camera (1 = no cloud short of "
+        "the hit)"
+    ),
+    "cloud_range_m": "m, where the cloud's emission toward the camera is centred (NaN if none)",
+    "cloud_id": "0 = clear, 1 = cloud (transmittance under one half) -- see legend",
     # Scene truth under each pixel centre (irsim.io.truth): what was there, not what the camera saw.
     "temperature_k": (
         "K -- true surface temperature the radiometry was given, at the pixel centre "

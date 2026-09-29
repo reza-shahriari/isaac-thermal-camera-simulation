@@ -70,6 +70,9 @@ markers.
 | `node_id` | Which thermal node heats that part. The row below it gives that node's temperature from the frame's metadata. |
 | `material_id` | The material, for example `aircraft_aluminium_painted`. |
 | `distance_m` | Distance from the camera, in metres. Empty (`nan`) for the sky. |
+| `cloud_transmittance` | How much of what lies behind the cloud reaches the camera on this pixel's ray: 1 means no cloud short of the hit, 0 an opaque cloud. Written when the scene has a weather-fx cloud. |
+| `cloud_range_m` | How far away the cloud's glow on this ray is centred, in metres. Empty (`nan`) where there is no cloud. |
+| `cloud_id` | `cloud` when less than half of what is behind the cloud gets through, otherwise `clear`. A sky pixel that used to read as nothing at all now says whether it is cloud. |
 | `radiance` | The in-band radiance reaching the camera. |
 | `dn16` | The raw number the camera's ADC produced. |
 | `display8`, `rgb` | The pixel's colour in the display image and in the visible-light companion. |

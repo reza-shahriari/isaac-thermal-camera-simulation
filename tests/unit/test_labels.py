@@ -105,3 +105,25 @@ def test_the_files_round_trip_and_a_split_is_deterministic(tmp_path: pathlib.Pat
     pycocotools = pytest.importorskip("pycocotools.coco")
     coco_api = pycocotools.COCO(str(coco))
     assert coco_api.getAnnIds(imgIds=[7]) and len(coco_api.loadCats(coco_api.getCatIds())) == 3
+
+
+def test_a_box_carries_the_cloud_in_front_of_it() -> None:
+    """AT.29: with the frame's `cloud_transmittance` plane, every box reports the mean
+    transmittance over its own mask -- the quad behind an opaque cloud reads 0, the boat in the
+    clear reads 1 -- and the attribute reaches the COCO file. Without the plane it is None."""
+    ids = _plane()
+    tau = np.ones(ids.shape, dtype=np.float32)
+    tau[:12] = 0.0  # the quad's rows are behind an opaque cloud; the hull's are clear
+    labels = frame_labels(ids, LEGEND, TARGETS, CATEGORY, cloud_transmittance=tau)
+    by = {b.target: b for b in labels.boxes}
+    assert by["quad"].cloud_transmittance == pytest.approx(0.0)
+    assert by["boat"].cloud_transmittance == pytest.approx(1.0)
+    attrs = {
+        a["attributes"]["target"]: a["attributes"]
+        for a in labels.coco(1, "f.png")["annotations"]
+        if "target" in a["attributes"]
+    }
+    assert attrs["quad"]["cloud_transmittance"] == pytest.approx(0.0)
+    assert frame_labels(ids, LEGEND, TARGETS, CATEGORY).boxes[0].cloud_transmittance is None
+    with pytest.raises(ValueError):
+        frame_labels(ids, LEGEND, TARGETS, CATEGORY, cloud_transmittance=tau[:10])

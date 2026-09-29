@@ -97,3 +97,30 @@ def test_the_sidecar_carries_units_and_legends(tmp_path: pathlib.Path) -> None:
     assert doc["legends"]["part_id"]["1"] == "battery"
     back = np.load(tmp_path / doc["planes"]["temperature_k"]["file"])
     assert back.dtype == np.float32 and np.array_equal(back, t.planes["temperature_k"])
+
+
+def test_the_cloud_planes_reach_the_truth_and_name_a_cloud_pixel() -> None:
+    """AT.29: the march's transmittance to each hit is written beside the truth, the emission
+    range is NaN where there was no cloud, and `cloud_id` names a pixel *cloud* once less than
+    half of what lies behind the cloud gets through -- so a label reader stops calling it
+    unknown. Absent from the G-buffer, none of the three is written."""
+    from irsim.io.truth import CLOUD_LEGEND, CLOUD_THRESHOLD
+
+    g = _gbuffer()
+    assert "cloud_id" not in truth_planes(g, (H, W)).planes
+    rows, cols = np.mgrid[0 : H * K, 0 : W * K]
+    tau = np.clip(cols / (W * K - 1.0), 0.0, 1.0).astype(np.float32)  # clear on the right
+    g["cloud_transmittance"] = tau
+    g["cloud_range_m"] = np.full(tau.shape, 250.0, np.float32)
+    t = truth_planes(g, (H, W))
+    assert t.planes["cloud_transmittance"].dtype == np.float32
+    assert np.array_equal(t.planes["cloud_transmittance"], centre_sample(tau, (H, W)))
+    cloud = t.planes["cloud_id"]
+    assert cloud.dtype == np.uint8 and t.legends["cloud_id"] == CLOUD_LEGEND
+    assert np.array_equal(cloud, (centre_sample(tau, (H, W)) < CLOUD_THRESHOLD).astype(np.uint8))
+    assert cloud[:, 0].all() and not cloud[:, -1].any()
+    rng = t.planes["cloud_range_m"]
+    assert np.isnan(rng[centre_sample(tau, (H, W)) >= 1.0]).all()
+    assert (rng[centre_sample(tau, (H, W)) < 1.0] == 250.0).all()
+    for key in ("cloud_transmittance", "cloud_range_m", "cloud_id"):
+        assert key in PLANE_UNITS
