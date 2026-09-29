@@ -161,6 +161,10 @@ def build_mesh(spec: Any) -> Any:
         from irsim.io.assets import load_asset_meshes
 
         mesh = load_asset_meshes(spec.asset)[str(spec.prim)]
+        if spec.coarse:
+            from irsim.thermal.mesh_coarse import coarsen_mesh
+
+            return coarsen_mesh(mesh.vertices_m, mesh.faces, float(spec.cell_m), frame=spec.frame)
         if spec.cell_m is not None:
             return TriangleMeshPatch.by_cell_size(
                 mesh.vertices_m, mesh.faces, spec.cell_m, frame=spec.frame
@@ -179,6 +183,10 @@ def build_mesh(spec: Any) -> Any:
         )
     else:
         soup = sphere_mesh(spec.centre_m, float(spec.radius_m), spec.rings, spec.segments)
+    if spec.coarse:
+        from irsim.thermal.mesh_coarse import coarsen_mesh
+
+        return coarsen_mesh(soup.vertices, soup.faces, float(spec.cell_m), frame=spec.frame)
     if spec.cell_m is not None:
         return TriangleMeshPatch.by_cell_size(
             soup.vertices, soup.faces, spec.cell_m, frame=spec.frame
@@ -1171,6 +1179,7 @@ def _build_mesh_fields(
     reproduce.
     """
     from irsim.thermal.facets import FacetProperties, spin_up
+    from irsim.thermal.mesh_coarse import CoarseMeshPatch, coarse_lateral_operator
     from irsim.thermal.mesh_conduction import mesh_lateral_operator
     from irsim.thermal.mesh_field import TriangleMeshField
     from irsim.thermal.mesh_geometry import cell_occluders, mesh_sky_view
@@ -1209,8 +1218,13 @@ def _build_mesh_fields(
         # (ADR 0112). Without it a mesh renders every gradient at its full unconducted amplitude,
         # which ADR 0111 measured as 26 % too much on the quadrotor's carbon arms.
         thermal = build.materials[i].spec.thermal
+        # TC.13: a coarse patch conducts between its clusters (ADR 0165), a fine one between
+        # its sub-cells; the physics (k, thickness) is the material's either way.
+        lateral = (
+            coarse_lateral_operator if isinstance(mesh, CoarseMeshPatch) else mesh_lateral_operator
+        )
         conduction = (
-            mesh_lateral_operator(mesh, thermal.inplane_conductivity_w_mk, thermal.thickness_m)
+            lateral(mesh, thermal.inplane_conductivity_w_mk, thermal.thickness_m)
             if s.lateral_conduction
             else None
         )
@@ -1393,6 +1407,7 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
                         cell_m=obj.cell_m,
                         self_occluding=obj.self_occluding,
                         prim_path=prim_path,
+                        coarse=obj.coarse,
                     ),
                 )
             )

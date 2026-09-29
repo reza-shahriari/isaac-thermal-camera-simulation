@@ -481,9 +481,16 @@ class MeshSpec(_Frozen):
     self_occluding: bool | None = None
     frame: str = Field(default="world", min_length=1)
     prim_path: str | None = None
+    #: TC.13 (ADR 0165): cluster the faces into cells of about ``cell_m`` instead of putting a
+    #: cell on every face. For an imported asset whose triangles are far smaller than any
+    #: gradient -- a 180 k-face shell -- this is the difference between 180 k cells and 1.5 k,
+    #: with no area lost; needs ``cell_m``.
+    coarse: bool = False
 
     @model_validator(mode="after")
     def _shape_fields_match_the_shape(self) -> MeshSpec:
+        if self.coarse and self.cell_m is None:
+            raise ValueError("`coarse: true` clusters faces into cells of `cell_m`; give one")
         generated, imported = self.shape is not None, self.asset is not None
         if generated == imported:
             raise ValueError("a mesh names exactly one of `shape:` (generated) or `asset:`")
@@ -1095,6 +1102,10 @@ class ObjectSpec(_Frozen):
     materials: dict[str, str] = Field(default_factory=dict)
     prim_root: str | None = None
     self_occluding: bool = False
+    #: TC.13 (ADR 0165): coarse cells on every part -- faces clustered into cells of ``cell_m``
+    #: rather than one cell per face -- which is what makes a 1.5 million-face aircraft a five
+    #: thousand-cell solve. An object made of small meshes may leave it off.
+    coarse: bool = False
     #: The duty every hidden part's dissipation is scaled by: 1 is rated, 0 is off. Piecewise
     #: linear in seconds after the scene start, held at its ends; absent is rated throughout.
     duty_s: list[float] | None = None
