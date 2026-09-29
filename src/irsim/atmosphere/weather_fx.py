@@ -210,6 +210,11 @@ class WeatherFxDeck:
     #: Longest path followed through the slab, metres. Beyond it the transmittance of anything
     #: this field can hold has underflowed, and a level ray would otherwise march forever.
     max_path_m: float = 12_000.0
+    #: Where the rays start, in the field's own Y-up frame, metres (AT.30): the camera, as the
+    #: dome bake and the volume tiles place it (the anchor less the wind's drift, through
+    #: ``stage_to_field``). A march that passes no ``origin_m`` starts here, so the sky pixels,
+    #: the geometry pixels and the visible dome all read the field from one point.
+    origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
     @property
     def base_m(self) -> float:
@@ -257,7 +262,7 @@ class WeatherFxDeck:
         elevation_rad: Any,
         azimuth_rad: Any,
         *,
-        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        origin_m: tuple[float, float, float] | None = None,
         steps: int | None = None,
     ) -> MarchResult:
         """Integrate the field along each ray and answer in this project's own terms.
@@ -295,7 +300,7 @@ class WeatherFxDeck:
             axis=-1,
         )
         origin = np.zeros(direction.shape, dtype=np.float64)
-        origin[...] = np.asarray(origin_m, dtype=np.float64)
+        origin[...] = np.asarray(self.origin_m if origin_m is None else origin_m, dtype=np.float64)
 
         near, far = self.field.slab_span(origin, direction)
         hit = far > near
@@ -357,7 +362,7 @@ class WeatherFxDeck:
         range_m: Any,
         radiance_at_height: Callable[[NDArray[np.float64]], Any],
         *,
-        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        origin_m: tuple[float, float, float] | None = None,
         steps: int | None = None,
     ) -> OccludedMarch:
         """Integrate absorption **and emission** along each ray up to ``range_m`` (AT.14).
@@ -385,7 +390,7 @@ class WeatherFxDeck:
             [np.cos(el) * np.sin(az), np.sin(el), -np.cos(el) * np.cos(az)], axis=-1
         )
         origin = np.zeros(direction.shape, dtype=np.float64)
-        origin[...] = np.asarray(origin_m, dtype=np.float64)
+        origin[...] = np.asarray(self.origin_m if origin_m is None else origin_m, dtype=np.float64)
 
         near, far = self.field.slab_span(origin, direction)
         end = np.minimum(np.minimum(far, near + self.max_path_m), rng)

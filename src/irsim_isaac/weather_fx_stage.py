@@ -24,6 +24,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
+
 from irsim.atmosphere.weather_fx import WeatherFxDeck, ensure_weather_fx_on_path
 
 __all__ = ["StageOnlyContext", "WeatherFxSky", "author_weather_fx_sky", "weather_state"]
@@ -40,6 +42,23 @@ class StageOnlyContext:
     _stage: Any
     _up_axis: int
     _state: Any
+    #: Where the camera is, in stage units: what the dome is baked around and what the volumes
+    #: follow (AT.30). The infrared march is started from the same point, so the two bands see
+    #: the field from one place.
+    anchor_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    #: The wind's accumulated drift of the cloud field, metres in stage axes. The extension's
+    #: manager advances it on its clock; a headless render driver has no such clock and holds
+    #: it at zero, so the dome, the volumes and the infrared march all read an undrifted field.
+    cloud_drift_m: Any = None
+    #: Published by the sky effect after a bake (the fog effect reads it); None until then.
+    sky_horizon_rgb: Any = None
+    #: The manager's clock, seconds, which the precipitation effect winds its gusts from. A
+    #: headless driver authors one sky per run and has no such clock; zero.
+    time: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.cloud_drift_m is None:
+            self.cloud_drift_m = np.zeros(3)
 
     def stage(self) -> Any:
         return self._stage
@@ -47,14 +66,19 @@ class StageOnlyContext:
     def up_axis(self) -> int:
         return self._up_axis
 
+    def anchor(self) -> Any:
+        return np.asarray(self.anchor_m, dtype=np.float64)
+
     @property
     def state(self) -> Any:
         return self._state
 
     def meters_per_unit(self) -> float:
+        if self._stage is None:
+            return 1.0
         from pxr import UsdGeom
 
-        return float(UsdGeom.GetStageMetersPerUnit(self._stage)) if self._stage else 1.0
+        return float(UsdGeom.GetStageMetersPerUnit(self._stage))
 
 
 @dataclass
@@ -131,11 +155,16 @@ def author_weather_fx_sky(
     texture_dir: Any = None,
     up_axis: int | None = None,
     od_ratio: float | None = None,
+    anchor_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> WeatherFxSky:
     """Put weather-fx's sky on ``stage`` and return the cloud the infrared band should march.
 
     Everything authored lives under ``/WeatherFX`` in the **session layer**, so the caller's own
     stage is untouched and the effect's ``detach`` removes it cleanly.
+
+    ``anchor_m`` is the camera's position in metres (AT.30): the dome is baked around it,
+    and the returned deck's ``origin_m`` is the same point in the field's frame, so the infrared
+    march and the visible dome read the cloud from one place.
 
     The returned ``deck`` is ``None`` for a cloudless state -- a clear sky needs no march, and
     passing a deck that covers nothing would cost a march per pixel to learn that.
@@ -151,14 +180,28 @@ def author_weather_fx_sky(
 
     conditions = conditions_from_state(state)
     effect = SkyEffect(texture_dir=str(texture_dir) if texture_dir else None)
-    effect.attach(StageOnlyContext(stage, int(up_axis), state))
+    # ``anchor_m`` arrives in metres; the effect asks the context for stage units.
+    mpu = StageOnlyContext(stage, int(up_axis), state).meters_per_unit()
+    anchor_units = tuple(float(v) / mpu for v in anchor_m)
+    context = StageOnlyContext(stage, int(up_axis), state, anchor_m=anchor_units)  # type: ignore[arg-type]
+    effect.attach(context)
     # `changed` names every section, because nothing has been applied to this stage yet and the
     # effect's own short-circuit would otherwise decide there was nothing to do.
     effect.apply_state(state, {"general", "sky", "clouds"})
 
     deck = None
     if conditions.cloud is not None:
+        from weather_fx.core.clouds import stage_to_field
+
         deck = WeatherFxDeck(conditions.cloud)
         if od_ratio is not None:
             deck.od_ratio = float(od_ratio)
+        # The dome's own origin (`SkyEffect`): the anchor in metres, less the drift, turned
+        # into the field's Y-up frame. One expression on both sides, so they cannot part.
+        origin = stage_to_field(
+            np.asarray(anchor_m, dtype=np.float64)
+            - np.asarray(context.cloud_drift_m, dtype=np.float64),
+            int(up_axis),
+        )
+        deck.origin_m = (float(origin[0]), float(origin[1]), float(origin[2]))
     return WeatherFxSky(state=state, conditions=conditions, deck=deck, effect=effect)

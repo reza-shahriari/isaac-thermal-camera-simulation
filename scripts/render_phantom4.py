@@ -512,7 +512,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             scene_config = scene_config.model_copy(update={"scene": spec})
             print(f"  scene clock moved to {scene_start:%Y-%m-%d %H:%M} UTC")
 
-        weather_sky = author_weather_fx_sky(stage, state, texture_dir=out)
+        # AT.30: the dome is baked around the observer and the infrared march starts there too.
+        weather_sky = author_weather_fx_sky(
+            stage, state, texture_dir=out, anchor_m=tuple(float(v) for v in track.observer_m)
+        )
         print(f"weather-fx: {weather_sky.describe()}")
         stats = weather_sky.stats()
         print(
