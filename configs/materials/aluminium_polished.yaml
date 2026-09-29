@@ -30,4 +30,4 @@ material:
     # Level A for the same reason `bare_aluminium` is: a metal's emissivity RISES toward grazing,
     # which no Level B (a, p) can represent, and §4.2 licenses a constant only above eps = 0.93.
     # The n/k table supplies the shape; the values above supply the magnitude.
-    angular_model: {type: fresnel, n_k_file: nk/aluminium.csv}
+    angular_model: {type: fresnel, n_k_file: nk/aluminium.csv, fit: effective_nk}   # AT.25: no clip at the limb

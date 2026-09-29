@@ -92,6 +92,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no name given, the skill infers one and says which. 5 new tests (38 in the file).
 
 ### Fixed
+- **No more bright ring around unpainted metal (`AT.25`).** Bare and polished aluminium now take a conductor's own angular emissivity fitted to their authored value, so a skin seen edge-on reflects the sky instead of glowing at its own temperature (a 280 K skin under a 230 K sky reads 237 K at the limb, not 280). ADR 0163.
 - **A LUT bundle knows which builder made it (`GT.11`).** Band LUT sidecars record a hash of the code that built them; a bundle from an older builder is refused with the `make luts` remedy instead of silently feeding a golden. Run `make luts` once after this change.
 - **A cooled camera no longer sees a warm housing around its cold shield (`SC.34`).** The MWIR InSb's corner shading now carries only the lens's own emission, with the opposite sign to a bolometer's, forward and inverse alike (0.2 % of DN at the corners); the Boson's reported NETD floor sits under its 50 mK anchor now that its VOx thermal conductance is authored.
 - **An opaque cloud's LWIR emissivity was capped at 0.9975.** The sky march dropped a ray once its *visible* transmittance fell below e⁻¹², i.e. at half the band's own depth; it now stops at the band's opacity, and at infinite range the sky march and the finite-range march agree to 1e-9 (`AT.14`).

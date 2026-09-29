@@ -152,22 +152,15 @@ def test_the_lut_stays_usable_out_to_eighty_seven_degrees(
     assert float(np.max(np.abs(exact - interpolated))) < 0.011, name
 
 
-def test_the_metal_has_a_grazing_spike_no_cosine_uniform_table_can_resolve(
+def test_the_metal_s_grazing_spike_is_gone_and_the_packed_table_follows_the_dispatch(
     packed, library, boson
 ) -> None:
-    """⚠️ Recorded, not fixed. Bare aluminium's ε reaches **0.96 within 0.2° of grazing**.
-
-    A metal's reflectance goes to 1 at exactly 90°, so its emissivity goes to 0 — but on the way
-    there it passes through a sharp maximum, and for aluminium that maximum is less than a degree
-    wide. The LUT reads **0.18** where the exact dispatch reads 0.96.
-
-    Three reasons this is recorded rather than chased. §4.2 claims nothing beyond 70°, so there is
-    no reference to be accurate against. A pixel whose surface normal is 89.8° from the view
-    direction is an edge pixel with essentially zero projected area, so the feature contributes
-    almost nothing to an image. And resolving it on a cos-uniform grid would take thousands of
-    nodes, while a non-uniform one would cost the kernel the `acos` the grid exists to avoid. A
-    renderer that needs it should call the dispatch directly.
-    """
+    """AT.25 (ADR 0163). Before, bare aluminium's ε reached 0.96 within 0.2° of grazing -- the
+    clean metal's Fresnel shape scaled by the authored magnitude and clipped to 1 -- and this
+    test *recorded* that the cos-uniform LUT could not resolve the spike (it read 0.18 there).
+    With the effective n, k the angular law is a conductor's own: it peaks near 0.22 at about
+    85° and goes to 0 at 90°, there is no spike to resolve, and the packed table follows the
+    exact dispatch to a few hundredths everywhere, including the last degree."""
     cos_theta = np.linspace(1.0, 0.0, 721, dtype=np.float32)
     aluminium = library["bare_aluminium"]
     exact = np.asarray(
@@ -176,12 +169,10 @@ def test_the_metal_has_a_grazing_spike_no_cosine_uniform_table_can_resolve(
     )
     ids = np.full(cos_theta.shape, packed.id_for("bare_aluminium"), dtype=np.int32)
     interpolated = np.asarray(packed.epsilon_at(ids, cos_theta), dtype=np.float64)
-    worst = int(np.argmax(np.abs(exact - interpolated)))
-    assert math.degrees(math.acos(min(1.0, float(cos_theta[worst])))) > 89.0
-    assert exact[worst] > 0.9
-    assert float(np.max(np.abs(exact - interpolated))) > 0.5
-    # the spike is real physics, not a dispatch artefact: eps returns to 0 at exactly 90 deg
-    assert float(exact[-1]) < 0.05
+    assert exact.max() < 0.3 and exact[-1] < 1e-3, (exact.max(), exact[-1])
+    theta = np.degrees(np.arccos(cos_theta.astype(np.float64)))
+    assert 80.0 < theta[int(np.argmax(exact))] < 88.0
+    assert np.abs(exact - interpolated).max() < 0.05, np.abs(exact - interpolated).max()
 
 
 def test_the_lut_lookup_uses_the_absolute_cosine(packed) -> None:

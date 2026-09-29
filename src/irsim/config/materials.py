@@ -126,6 +126,13 @@ class ThermalSpec(_Frozen):
 class FresnelAngular(_Frozen):
     type: Literal["fresnel"]
     n_k_file: str = Field(min_length=1)  # relative to the data root (data/nk/)
+    #: AT.25 (ADR 0163). ``magnitude``: the authored ε_B scales the table's Fresnel *shape*
+    #: (Level A as it was; a dielectric's shape barely moves). ``effective_nk``: the table's
+    #: n and k are scaled by one factor until the band's normal-incidence Fresnel emissivity
+    #: *is* the authored ε_B, and the angular law is that conductor's own -- for a bare, oxidised
+    #: or anodised metal whose authored ε_B sits well above the clean metal's, so the scaled
+    #: shape no longer clips to 1 at the limb.
+    fit: Literal["magnitude", "effective_nk"] = "magnitude"
 
 
 class EmpiricalAngular(_Frozen):

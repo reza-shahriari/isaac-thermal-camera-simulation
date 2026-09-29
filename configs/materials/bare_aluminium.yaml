@@ -28,4 +28,4 @@ material:
     # Level B cannot help either because a metal's ε rises with angle (M7.6 refuses to fit it).
     # The table supplies the SHAPE; the emissivity_per_band values above supply the magnitude --
     # ideal Drude aluminium is ε = 0.012 at 10 µm, and §16.2's 0.09 is a real oxidised surface.
-    angular_model: {type: fresnel, n_k_file: nk/aluminium.csv}
+    angular_model: {type: fresnel, n_k_file: nk/aluminium.csv, fit: effective_nk}   # AT.25: no clip at the limb

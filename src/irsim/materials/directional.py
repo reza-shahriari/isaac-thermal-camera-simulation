@@ -112,6 +112,16 @@ def directional_emissivity(
         else (material.spec.optical.angular_model.n_k_file)
     )
     table = load_nk_table(str(source), data_dir)
+    fit = getattr(material.spec.optical.angular_model, "fit", "magnitude")
+    if fit == "effective_nk":
+        # AT.25 (ADR 0163): a conductor whose authored ε_B is the oxidised or painted surface's,
+        # not the clean metal's -- scale n and k together until the band's own normal-incidence
+        # Fresnel emissivity is ε_B, then take that conductor's angular law unclipped.
+        from irsim.materials.nk import effective_nk_table
+
+        fitted, magnitude = effective_nk_table(table, response, epsilon_b, t_ref_k, form)
+        law = band_directional_emissivity(fitted, response, c64, t_ref_k, form)
+        return np.asarray(np.clip(magnitude * np.asarray(law), 0.0, 1.0), dtype=np.float32)
     shape = np.asarray(band_directional_emissivity(table, response, c64, t_ref_k, form))
     at_normal = float(band_directional_emissivity(table, response, 1.0, t_ref_k, form))
     if not at_normal > 0.0:

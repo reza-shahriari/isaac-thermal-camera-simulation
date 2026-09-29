@@ -181,8 +181,8 @@ def test_the_bare_metals_are_the_only_materials_whose_emissivity_rises_with_angl
 ) -> None:  # type: ignore[no-untyped-def]
     """§4.2's dielectric/metal split, as a property of the whole committed library.
 
-    Bare aluminium goes 0.090 at normal to 0.146 at 70°; everything else falls. This is why it
-    needs Level A: the sign of its angular slope is one Level B cannot produce.
+    Bare aluminium goes 0.090 at normal to 0.132 at 70° (AT.25); everything else falls. This is
+    why it needs Level A: the sign of its angular slope is one Level B cannot produce.
 
     `AT.17` made the set two rather than one, and the *third* aluminium is the interesting case.
     `aluminium_polished` rises, because it is the same exposed metal with less oxide on it.
@@ -213,8 +213,10 @@ def test_the_bare_metals_are_the_only_materials_whose_emissivity_rises_with_angl
     assert float(_dispatch(aluminium, "lwir", np.float32(1.0), boson)) == pytest.approx(
         0.09, abs=1e-6
     )
+    # AT.25 (ADR 0163): the effective conductor's own law -- 0.132 at 70°, peaking 0.22 near 85°
+    # and 0 at 90° -- where the scaled clean-metal shape gave 0.146 here and clipped to 1 beyond.
     assert float(_dispatch(aluminium, "lwir", np.float32(COS_70), boson)) == pytest.approx(
-        0.146, abs=0.01
+        0.132, abs=0.005
     )
 
 

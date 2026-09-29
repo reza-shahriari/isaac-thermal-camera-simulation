@@ -45,6 +45,7 @@ from irsim.radiometry.band_average import (
 from irsim.radiometry.spectral_response import SpectralResponse
 
 __all__ = [
+    "effective_nk_table",
     "NK_SUBDIR",
     "NKTable",
     "load_nk_table",
@@ -97,6 +98,85 @@ class NKTable:
             return np.asarray(1.0 - fresnel_reflectance(n, k, cos_theta)[0], dtype=np.float64)
 
         return spectrum
+
+
+_EFFECTIVE_CACHE: dict[tuple[str, str, float, float, str], tuple[NKTable, float]] = {}
+
+
+def effective_nk_table(
+    table: NKTable,
+    response: SpectralResponse,
+    epsilon_normal: float,
+    t_ref_k: float = T_REF_K,
+    form: WeightingForm = "energy",
+) -> tuple[NKTable, float]:
+    """``(table', magnitude)``: the table with ``n`` and ``k`` scaled by one factor so that its
+    band-averaged Fresnel emissivity at normal incidence is ``epsilon_normal``, and the residual
+    magnitude (1.0 when the factor alone reaches it) -- AT.25, ADR 0163.
+
+    For a conductor ``ε(0) ≈ 4n / (n² + k²)``, so shrinking both constants by ``m < 1`` makes the
+    metal *more* emissive, which is what an oxide, an anodised layer or a thin coat of paint does
+    to a clean metal's optical constants at the band level; the angular law is then that
+    effective conductor's own, which still goes to zero at grazing and peaks well short of 1,
+    where scaling the clean metal's *shape* by the authored magnitude clipped to 1 across the
+    limb. ``ε(0)`` is unimodal in ``m`` (it rises as ``m`` falls, peaks where ``|ñ| ~ 1`` and
+    falls again as the metal turns into a weak dielectric), so the root is sought on the branch
+    continuous with the clean metal, ``[m*, 1]`` for a target above the clean value and
+    ``[1, 1e3]`` for one below it, and solved to 1e-10 in ε. Aluminium's ratio ``k/n`` caps that
+    peak at 0.43 in LWIR, 0.24 in MWIR, 0.09 in SWIR and 0.06 in NIR; an authored value beyond
+    it (bare aluminium's NIR 0.08) takes the most emissive conductor, ``m*``, and the residual
+    factor ``epsilon_normal / ε(m*)`` as a magnitude on its shape -- still 0 at grazing, still
+    unclipped -- which the second return says (ESTIMATED: a single scale on the clean metal's
+    constants is not an oxide's own optics).
+    """
+    from dataclasses import replace
+
+    from scipy.optimize import brentq
+
+    key = (str(table.path), response.sha256, float(epsilon_normal), float(t_ref_k), str(form))
+    hit = _EFFECTIVE_CACHE.get(key)
+    if hit is not None:
+        return hit
+    if not 0.0 < epsilon_normal < 1.0:
+        raise ValueError("epsilon_normal must lie in (0, 1)")
+
+    def scaled(m: float) -> NKTable:
+        return replace(table, name=f"{table.name}*{m:.6g}", n=table.n * m, k=table.k * m)
+
+    def eps_normal(m: float) -> float:
+        return float(band_directional_emissivity(scaled(m), response, 1.0, t_ref_k, form))
+
+    def residual(m: float) -> float:
+        return eps_normal(m) - epsilon_normal
+
+    clean = eps_normal(1.0)
+    magnitude = 1.0
+    if epsilon_normal <= clean:
+        # a value at or below the clean metal's: a brighter conductor, m >= 1
+        hi = 1e3
+        if residual(hi) > 0.0:
+            raise ValueError(
+                f"{table.name}: no n,k scale in [1, {hi}] gives a normal-incidence emissivity "
+                f"of {epsilon_normal:.3f} in this band"
+            )
+        m = (
+            1.0
+            if residual(1.0) == 0.0
+            else float(brentq(residual, 1.0, hi, xtol=1e-12, rtol=1e-12))
+        )
+    else:
+        grid = np.logspace(-3.0, 0.0, 61)
+        curve = np.array([eps_normal(float(g)) for g in grid])
+        peak = int(np.argmax(curve))
+        m_star = float(grid[peak])
+        if curve[peak] >= epsilon_normal:
+            m = float(brentq(residual, m_star, 1.0, xtol=1e-12, rtol=1e-12, maxiter=200))
+        else:
+            m = m_star
+            magnitude = epsilon_normal / float(curve[peak])
+    out = (scaled(m), magnitude)
+    _EFFECTIVE_CACHE[key] = out
+    return out
 
 
 def load_nk_table(name: str, data_dir: str | os.PathLike[str] | None = None) -> NKTable:

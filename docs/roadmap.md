@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 74 open steps
+#### Then, in order — 72 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.19`** | IG | A | S | — | ready |
 | 2 | **`AT.23`** | AT | A | M | — | ready |
-| 3 | **`AT.25`** | AT | A | M | — | ready |
-| 4 | **`AT.30`** | AT | A | M | — | ready |
-| 5 | **`EV.14`** | EV | A | M | — | ready |
-| 6 | **`SC.33`** | SC | A | M | — | ready |
-| 7 | **`TC.13`** | TC | A | L | — | ready |
-| 8 | **`AT.26`** | AT | B | S | — | ready |
-| 9 | **`IG.16`** | IG | B | M | — | ready |
-| 10 | **`TC.15`** | TC | C | M | 1 | ready |
-| 11 | **`AI.13`** | AI | C | S | — | ready |
-| 12 | **`PT.27`** | PT | C | S | — | ready |
-| 13 | **`AT.6`** | AT | C | M | — | ready |
-| 14 | **`AT.9`** | AT | C | M | — | ready |
-| 15 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 3 | **`EV.14`** | EV | A | M | — | ready |
+| 4 | **`SC.33`** | SC | A | M | — | ready |
+| 5 | **`TC.13`** | TC | A | L | — | ready |
+| 6 | **`AT.26`** | AT | B | S | — | ready |
+| 7 | **`IG.16`** | IG | B | M | — | ready |
+| 8 | **`TC.15`** | TC | C | M | 1 | ready |
+| 9 | **`AI.13`** | AI | C | S | — | ready |
+| 10 | **`PT.27`** | PT | C | S | — | ready |
+| 11 | **`AT.6`** | AT | C | M | — | ready |
+| 12 | **`AT.9`** | AT | C | M | — | ready |
+| 13 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 14 | **`PT.16`** | PT | C | M | — | ready |
+| 15 | **`TC.14`** | TC | C | M | — | ready |
 
-…and 59 more — `python scripts/next_step.py --queue 40`.
+…and 57 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -586,7 +586,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.22 | ✅ **done.** `excess_radiance` takes the pixel's post-stage-2 value and returns φ [τ_B(R) L_t + L_path(R) − L_pixel]; `inject_point_targets` reads it under every target. The grey L1 model keeps the clear-column form: its path and sky are not one column (S28, `AT.5`). | **Measured.** Over a cloud pixel 20 W/m²/sr above the clear sky a φ = 0.278 target at 700 m loses exactly φ·20 of excess; a target that looks like the cloud through its own air adds < 1e-9; over the clear column old and new agree to 1e-9. `test_point_target_background.py`, red without the fix. | — | S | A |
 | AT.23 | **The engine-free aerial builder lights and orients its surfaces.** `validation/aerial_scene.py` gives every surface V_s = 1 and n·v = 1 and writes no `l_sun`, `shadow_mask` or `sun_cos_incidence`, so a CPU render sees only sky reflection and no sun in any band. Carry tilt-derived V_s, a view angle and the solar planes from `SceneIllumination`. | A belly (tilt 180) reflects ground, not sky (≈ 3 K in LWIR on paint); a noon SWIR shell is sunlit; Isaac and CPU paths agree on the sky-target fixture to 0.1 K. | — | M | A |
 | AT.24 | ✅ **done.** `quadrature_grid` divides the support into an even number of intervals no wider than 0.01 µm nor `FINE_GRID_FRACTION` (0.5 %) of the short edge, ending on the last sample; the §3.2 sentence is spec issue S58. The ladder test's NIR and SWIR pins, produced by the padded grid, are re-pinned with the reason. | **Measured.** Odd-count 0.75–1.0 µm top-hat: +33 % → 3e-6 at 300 K, +54 % → 2e-5 at 200 K; vs a 20× finer quadrature NIR 28 → 2.6 mK, SWIR 4.7 → 0.21 mK, LWIR/MWIR bit-identical (0.53 / 0.11 mK). `test_band_integration.py`. | — | S | P |
-| AT.25 | **An angular model for oxidised, anodised and painted metal.** Level A scales the Fresnel shape by the authored magnitude and clips to 1, so `bare_aluminium` goes ε 0.09 → 1.0 at 89° and a 280 K skin against a 230 K sky brightens 236 → 280 K at the limb: a ring on every unpainted airframe. Model the excess as a thin dielectric film on a conductor, or fit an effective n, k reproducing ε_B(0); `test_material_table_angular.py:155` pins the artefact. | Bare Al ε(θ) peaks ≤ 0.3 at 80–85° and falls to 0 at 90°; hemispherical within 5 % of Drude; dielectrics bit-identical. | — | M | A |
+| AT.25 | ✅ **done.** `FresnelAngular.fit: magnitude | effective_nk` (ADR 0163); `effective_nk_table` scales n, k by one factor until ε_B(0) is the authored value; `bare_aluminium` and `aluminium_polished` declare it. | **Measured.** Bare Al LWIR ε(θ) peaks 0.22 at 85°, 0 at 90°, hemispherical/normal 1.17 (a conductor's 1.1–1.4); a 280 K skin at 89° under a 230 K sky reads 237 K, not 280; ε(70°) 0.132 (was 0.146); water and every `magnitude` material bit-identical; the packed angle LUT follows the dispatch to 0.05. | — | M | A |
 | AT.26 | **One emissivity for water.** `sea.py:334` uses the raw Fresnel band value (0.988 at nadir) while `water.yaml` gives 0.96 × shape: 0.9 K apart on the same sea. Decide (ADR) and make the sea model and the library consume the same number. | The sea model's nadir ε equals `MaterialTable`'s for `water` to 1e-6 in every band; a 290 K sea under a 250 K sky reads the same T_app by both routes to 1 mK. | — | S | B |
 | AT.27 | ✅ **done.** `gamma_molecular(w, γ₀, β₁, β₂)`; `AtmosphereBandCoefficients.beta2_per_m_per_g2_m6` (default 0); LWIR in every preset: β₂ = 8.6e-7 from the MT_CKD self-continuum at 10 µm, β₁ = 4.1e-5 refit on the clear-dry anchor. ADR 0160; S57 closed. | **Measured.** Clear-dry anchor unchanged to 3 digits (ladder pins and goldens untouched); humid row at its own 24.3 g/m³: τ(200 m) 0.79 → 0.73, in band; tropical 0.79; 12 g/m³ −1 %, 35 g/m³ −16 %; continuum share 34 % at the humid row; β₂ = 0 bit-identical. MWIR wing left linear. | — | S | A |
 | AT.28 | ✅ **done.** `column_length(d, θ, H, z₀)` (e^{−z₀/H}, descending rays to the ground); `observer_height_m` on the exponential sum, the layered wrappers, `path_radiance_plane` (per class, 8 equal-loss pieces, ADR 0161) and `apply_layered_gbuffer` via `planes["observer_height_m"]`. | **Measured.** z₀ = 0 bit-identical; air-to-air columns = the two-endpoint integral to 1e-6 (30 m and 3 km, eight elevations); down-to-ground denser than up; from 3 km τ higher and L_path lower; the plane within 0.5 % of the exact path over 13 geometries, 4 presets; exact when level. | PT.28 | S | A |
