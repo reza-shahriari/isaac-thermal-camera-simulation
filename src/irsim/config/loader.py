@@ -225,6 +225,12 @@ def _dump_with_file_hashes(
     for key, default in v11_defaults:
         if optics.get(key) == default:
             optics.pop(key, None)
+    # `SC.34`, same rule: a photon FPA carries a bolometer's membrane conductance as null, and
+    # null describes nothing, so it is not recorded -- every photon golden written before the key
+    # existed stays valid.
+    fpa = sensor.get("fpa", {})
+    if fpa.get("g_th_w_per_k") is None:
+        fpa.pop("g_th_w_per_k", None)
     # `SC.19`, same rule: no late defects is the pre-v12 camera (every defect on the map).
     noise = sensor.get("noise", {})
     if noise.get("bad_pixel_late_fraction") == 0.0:
