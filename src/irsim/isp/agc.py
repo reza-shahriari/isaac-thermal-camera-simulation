@@ -30,6 +30,8 @@ Inputs are uint16 DN or float32 in [0, 2^bit_depth − 1]; float16 is refused; o
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -42,10 +44,17 @@ __all__ = [
     "plateau_lut",
     "tile_bounds",
     "CONSTANT_FRAME_LEVEL",
+    "LutHook",
+    "apply_lut",
     "DEFAULT_TILES",
 ]
 
 Float32Array = NDArray[np.float32]
+
+#: SC.10: what an operator hands its transfer table to before indexing the frame with it -- the
+#: temporal damper (:class:`irsim.isp.damping.TransferDamper`), or ``None`` for the pure
+#: per-frame operator, which is then unchanged bit for bit.
+LutHook = Callable[[NDArray[np.float64]], NDArray[np.float64]]
 
 # A frame with no dynamic range (x_hi == x_lo) displays as mid-grey, as real cores do.
 CONSTANT_FRAME_LEVEL = 0.5
@@ -127,11 +136,16 @@ def agc_linear(
     gamma: float = 1.0,
     bit_depth: int = 16,
     weights: object = None,
+    lut_hook: LutHook | None = None,
 ) -> Float32Array:
     """Linear AGC with percentile clipping and gamma, global over the frame (§11.3).
 
     ``weights`` moves the two percentiles onto the pixels a caller cares about; the mapping it
     produces still applies to the whole frame, so an ROI sets the stretch without cropping it.
+
+    ``lut_hook`` (SC.10) turns the map into a table over the DN bins, hands it to the hook and
+    indexes the floored frame with what comes back; without one the float map is applied
+    directly, as before.
     """
     if not 0.0 <= p_lo < p_hi <= 1.0:
         raise ValueError("need 0 <= p_lo < p_hi <= 1")
@@ -141,6 +155,14 @@ def agc_linear(
     counts = histogram_dn(dn, bit_depth, weights)
     x_lo = percentile_from_histogram(counts, p_lo)
     x_hi = percentile_from_histogram(counts, p_hi)
+    if lut_hook is not None:
+        if x_hi <= x_lo or int(np.floor(x_hi)) == int(np.floor(x_lo)):
+            table = np.full(counts.size, CONSTANT_FRAME_LEVEL, dtype=np.float64)
+        else:
+            table = np.clip((np.arange(counts.size) - x_lo) / (x_hi - x_lo), 0.0, 1.0)
+            if gamma != 1.0:
+                table = table ** (1.0 / gamma)
+        return apply_lut(dn, table, lut_hook)
     if x_hi <= x_lo or int(np.floor(x_hi)) == int(np.floor(x_lo)):
         # both percentiles fall in one integer bin: no dynamic range at DN resolution
         return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
@@ -151,7 +173,11 @@ def agc_linear(
 
 
 def agc_plateau(
-    x: object, plateau: float, bit_depth: int = 16, weights: object = None
+    x: object,
+    plateau: float,
+    bit_depth: int = 16,
+    weights: object = None,
+    lut_hook: LutHook | None = None,
 ) -> Float32Array:
     """Plateau-equalisation AGC (§11.3, ADR 0028): each of the 2^bit_depth bins' counts is
     clipped at P = plateau · N_pixels, the clipped counts are integrated into an exclusive CDF,
@@ -162,10 +188,19 @@ def agc_plateau(
     dn = _as_dn(x, bit_depth)
     counts = histogram_dn(dn, bit_depth, weights)
     lut = plateau_lut(counts, plateau)
+    if lut_hook is not None:
+        table = np.full(counts.size, CONSTANT_FRAME_LEVEL) if lut is None else lut
+        return apply_lut(dn, table, lut_hook)
     if lut is None:
         return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
     idx = np.floor(dn).astype(np.int64)
     return np.asarray(lut[idx], dtype=np.float32)
+
+
+def apply_lut(dn: NDArray[np.float64], table: object, lut_hook: LutHook) -> Float32Array:
+    """SC.10: pass a transfer table through ``lut_hook`` and index the floored frame with it."""
+    damped = np.asarray(lut_hook(np.asarray(table, dtype=np.float64)), dtype=np.float64)
+    return np.asarray(damped[np.floor(dn).astype(np.int64)], dtype=np.float32)
 
 
 def plateau_lut(
@@ -240,6 +275,7 @@ def agc_plateau_local(
     bit_depth: int = 16,
     weights: object = None,
     clip_limit_low: float = 0.0,
+    lut_hook: LutHook | None = None,
 ) -> Float32Array:
     """Locally-adaptive plateau equalisation: per-tile CDFs blended bilinearly (§11.3, M9.10).
 
@@ -252,6 +288,10 @@ def agc_plateau_local(
     The four tile mappings nearest each pixel are blended bilinearly. Without that blend each tile
     boundary is a visible step; with it, ``tiles=(1, 1)`` also reduces to :func:`agc_plateau`
     exactly, because the single tile's weight is 1.0 and multiplying by one changes no bits.
+
+    ``lut_hook`` (SC.10) receives the whole ``(ty, tx, 2^bit_depth)`` stack of tile tables at
+    once -- the damped transfer of a tiled core is one table per tile, each filtered on its own
+    history -- and the blend reads what it returns.
     """
     ty, tx = int(tiles[0]), int(tiles[1])
     dn = _as_dn(x, bit_depth)
@@ -267,6 +307,19 @@ def agc_plateau_local(
     out = np.zeros(dn.shape, dtype=np.float64)
     covered = np.zeros(dn.shape, dtype=np.float64)
 
+    n_bins = 2**bit_depth
+    tables = np.empty((ty, tx, n_bins), dtype=np.float64)
+    for i in range(ty):
+        for j in range(tx):
+            tile = dn[rows[i] : rows[i + 1], cols[j] : cols[j + 1]]
+            tile_w = None if w is None else w[rows[i] : rows[i + 1], cols[j] : cols[j + 1]]
+            if tile_w is not None and tile_w.sum() <= 0.0:
+                tile_w = None  # an ROI that misses this tile entirely: fall back to every pixel
+            lut = plateau_lut(histogram_dn(tile, bit_depth, tile_w), plateau, clip_limit_low)
+            tables[i, j] = CONSTANT_FRAME_LEVEL if lut is None else lut
+    if lut_hook is not None:
+        tables = np.asarray(lut_hook(tables), dtype=np.float64)
+
     for i in range(ty):
         wy = np.where(row_lower == i, 1.0 - row_frac, 0.0)
         if ty > 1:
@@ -280,13 +333,7 @@ def agc_plateau_local(
             if not wx.any():
                 continue
             weight = wy[:, None] * wx[None, :]
-            tile = dn[rows[i] : rows[i + 1], cols[j] : cols[j + 1]]
-            tile_w = None if w is None else w[rows[i] : rows[i + 1], cols[j] : cols[j + 1]]
-            if tile_w is not None and tile_w.sum() <= 0.0:
-                tile_w = None  # an ROI that misses this tile entirely: fall back to every pixel
-            lut = plateau_lut(histogram_dn(tile, bit_depth, tile_w), plateau, clip_limit_low)
-            contribution = CONSTANT_FRAME_LEVEL if lut is None else lut[idx]
-            out += weight * contribution
+            out += weight * tables[i, j][idx]
             covered += weight
     if not np.allclose(covered, 1.0, atol=1e-9):
         raise AssertionError("tile blend weights do not sum to one")  # pragma: no cover

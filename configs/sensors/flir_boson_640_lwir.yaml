@@ -109,7 +109,7 @@ sensor:
 
   # The factory-default AGC (SC.22, ADR 0152), read off [R51] p. 5's "Current Camera Values" panel:
   # Information-Based Mode on, Plateau 7, Linear Percent 20, Max Gain 1.38, Detail Headroom 12,
-  # DDE 0.95, Smoothing Factor 1250, Tail Rejection 0, ACE 0.97, Damping 85.
+  # DDE 0.95, Smoothing Factor 1250, Tail Rejection 0, ACE 0.97, Damping 85 (SC.10).
   isp:
     agc: information_based                       # [R51] "FLIR recommends the Information-Based
                                                  # Equalization mode"; the panel shows it on
@@ -132,6 +132,8 @@ sensor:
     dde_gain: 0.0                                # [R51] DDE 0.95 is the high-pass gain; irsim adds
                                                  # it back at 1 + dde_gain >= 1, so 0.0 is nearest
                                                  # (5 % more detail than the Boson). Was 0.35
+    agc_damping: 0.85                            # [R51] Damping 85 (of 0-100): the IIR weight
+                                                 # on the previous frame's transfer (SC.10)
     polarity: white_hot
     palette: gray
 

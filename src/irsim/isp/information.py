@@ -41,7 +41,14 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from irsim.isp.agc import CONSTANT_FRAME_LEVEL, _as_dn, histogram_dn, plateau_lut
+from irsim.isp.agc import (
+    CONSTANT_FRAME_LEVEL,
+    LutHook,
+    _as_dn,
+    apply_lut,
+    histogram_dn,
+    plateau_lut,
+)
 
 __all__ = [
     "BILATERAL_RADIUS_PX",
@@ -195,6 +202,7 @@ def equalise_image(
     linear_percent: float = 0.0,
     clip_limit_low: float = 0.0,
     max_gain: float = 0.0,
+    lut_hook: LutHook | None = None,
 ) -> Float32Array:
     """Global plateau equalisation with the cross-vendor controls (SC.21, SC.25).
 
@@ -205,8 +213,12 @@ def equalise_image(
     counts = histogram_dn(dn, bit_depth)
     lut = information_lut(counts, plateau, None, 0.0, linear_percent, clip_limit_low)
     if lut is None:
+        if lut_hook is not None:  # SC.10: a flat frame still moves the damped transfer
+            return apply_lut(dn, np.full(counts.size, CONSTANT_FRAME_LEVEL), lut_hook)
         return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
     lut = limit_gain(lut, counts, max_gain)
+    if lut_hook is not None:
+        return apply_lut(dn, lut, lut_hook)
     return np.asarray(lut[np.floor(dn).astype(np.int64)], dtype=np.float32)
 
 
@@ -244,8 +256,13 @@ def agc_information(
     max_gain: float = 0.0,
     detail_threshold_sigma: float = 0.0,
     noise_sigma_dn: float = 0.0,
+    lut_hook: LutHook | None = None,
 ) -> Float32Array:
     """Information-based equalisation with Linear Percent, Detail Headroom and DDE (§11.3).
+
+    ``lut_hook`` (SC.10) receives the final transfer -- after the gain limit and the headroom --
+    and what it returns is both what the base layer is indexed with and what the detail layer's
+    slope is taken from, so a damped transfer damps the detail's gain with it.
 
     ``detail_gain`` is the gain on the high-pass layer at the transfer's local slope: 1 shows the
     frame's own detail, above 1 sharpens (a Boson's DDE > 1), below 1 smooths.
@@ -284,10 +301,16 @@ def agc_information(
     info = histogram_dn(low, bit_depth, detail) if np.any(detail) else None
     lut = information_lut(counts, plateau, info, info_weight, linear_percent, clip_limit_low)
     if lut is None:
-        return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
-    lut = limit_gain(lut, counts, max_gain)
-    if detail_headroom > 0.0:
-        lut = detail_headroom + (1.0 - 2.0 * detail_headroom) * lut
+        if lut_hook is None:
+            return np.full(dn.shape, CONSTANT_FRAME_LEVEL, dtype=np.float32)
+        # SC.10: a flat frame is still a frame the damped transfer moves towards
+        lut = np.full(counts.size, CONSTANT_FRAME_LEVEL, dtype=np.float64)
+    else:
+        lut = limit_gain(lut, counts, max_gain)
+        if detail_headroom > 0.0:
+            lut = detail_headroom + (1.0 - 2.0 * detail_headroom) * lut
+    if lut_hook is not None:
+        lut = np.asarray(lut_hook(np.asarray(lut, dtype=np.float64)), dtype=np.float64)
     idx = np.floor(low).astype(np.int64)
     y = lut[idx]
     if detail_gain > 0.0 and np.any(high):

@@ -516,6 +516,7 @@ ISP_OPTIONAL_DEFAULTS: dict[str, float] = {
     "clip_limit_low": 0.0,
     "max_gain": 0.0,
     "detail_threshold_sigma": 0.0,  # SC.31: the detail measure's noise gate, off by default
+    "agc_damping": 0.0,  # SC.10: no memory between frames, the pre-SC.10 operator
 }
 
 
@@ -551,6 +552,10 @@ class IspSpec(_Frozen):
     # old operator.
     clip_limit_low: float = Field(0.0, ge=0.0, lt=1.0)
     max_gain: float = Field(0.0, ge=0.0)
+    #: SC.10 (ADR 0170): the fraction of the previous frame's transfer each new frame keeps, per
+    #: native frame -- the Boson's Damping Factor / 100, the Lepton's HEQ Dampening Factor / 256.
+    #: 0 (the default, and every older config) is a pure per-frame AGC; 1 freezes the transfer.
+    agc_damping: float = Field(0.0, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
     def _clip(self) -> IspSpec:

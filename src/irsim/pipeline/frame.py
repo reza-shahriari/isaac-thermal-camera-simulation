@@ -34,6 +34,7 @@ from irsim.detector.bolometer import MicrobolometerDetector
 from irsim.detector.gain_state import clip_to_gain_ceiling, gain_ceiling_radiance
 from irsim.detector.params import BolometerParams, PhotonParams
 from irsim.detector.quantise import dn_max_for_bits, quantise
+from irsim.isp.damping import TRANSFER_KEY, TRANSFER_T_KEY, TransferDamper, damping_over
 from irsim.isp.display import run_display_branch
 from irsim.isp.radiometric import apparent_temperature
 from irsim.optics.autofocus import AutofocusServo, focus_measure, track_distance_m
@@ -423,9 +424,28 @@ def run_frame(
             flat = config.chain.display_nuc
         if flat is not None:
             display_dn = quantise(flat.apply(dn16), sensor.fpa.bit_depth)
+        # SC.10: the AGC's transfer is damped across frames at the core's own rate, over the
+        # scene time that actually passed (a time-lapse is undamped, continuous video is not).
+        damper = None
+        if sensor.isp.agc_damping > 0.0:
+            dt = 1.0 / float(sensor.fpa.frame_rate_hz)
+            previous_t = state.buffers.get(TRANSFER_T_KEY)
+            if previous_t is not None and float(state.t_s) - float(previous_t) > 0.0:
+                dt = float(state.t_s) - float(previous_t)
+            damper = TransferDamper(
+                damping_over(sensor.isp.agc_damping, sensor.fpa.frame_rate_hz, dt),
+                state.buffers.get(TRANSFER_KEY),
+            )
         display = run_display_branch(
-            display_dn, sensor.isp, sensor.fpa.bit_depth, noise_sigma_dn=state.sigma_tvh_dn
+            display_dn,
+            sensor.isp,
+            sensor.fpa.bit_depth,
+            noise_sigma_dn=state.sigma_tvh_dn,
+            lut_hook=damper,
         )
+        if damper is not None:
+            state.buffers[TRANSFER_KEY] = damper.previous
+            state.buffers[TRANSFER_T_KEY] = float(state.t_s)
         display8, isp_hash = display.display8, display.isp_hash
     state.advance()
     return Outputs(

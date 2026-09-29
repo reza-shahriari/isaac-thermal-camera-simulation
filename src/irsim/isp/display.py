@@ -33,7 +33,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.config.sensor import ISP_OPTIONAL_DEFAULTS, IspSpec
-from irsim.isp.agc import agc_linear, agc_plateau, agc_plateau_local
+from irsim.isp.agc import LutHook, agc_linear, agc_plateau, agc_plateau_local
 from irsim.isp.dde import dde
 from irsim.isp.information import agc_information, blend_linear, equalise_image
 from irsim.isp.palette import to_display8
@@ -80,17 +80,27 @@ def agc_none(dn16: NDArray[np.uint16], bit_depth: int) -> NDArray[np.float32]:
 
 
 def run_display_branch(
-    dn16: object, isp: IspSpec, bit_depth: int, noise_sigma_dn: float = 0.0
+    dn16: object,
+    isp: IspSpec,
+    bit_depth: int,
+    noise_sigma_dn: float = 0.0,
+    lut_hook: LutHook | None = None,
 ) -> DisplayOutputs:
     """DN16 → RGBA8 in the ADR 0031 order; float32 at every intermediate; uint8 out.
 
     ``noise_sigma_dn`` (SC.31) is the frame's own σ_TVH in DN, the unit of the information
     AGC's detail gate; the pipeline passes ``PipelineState.sigma_tvh_dn`` and a bench that shows
     a raw plane passes nothing, which leaves the gate off.
+
+    ``lut_hook`` (SC.10) is the temporal damper the pipeline keeps in ``PipelineState``: every
+    mode hands it its transfer before applying it (``plateau_local`` its stack of tile tables);
+    ``none`` has no transfer to damp.
     """
     dn = _check_dn16(dn16, bit_depth)
     if isp.agc == "linear":
-        y = agc_linear(dn, isp.clip_percentiles[0], isp.clip_percentiles[1], 1.0, bit_depth)  # R1
+        y = agc_linear(
+            dn, isp.clip_percentiles[0], isp.clip_percentiles[1], 1.0, bit_depth, lut_hook=lut_hook
+        )  # R1
     elif isp.agc == "plateau_equalization":
         if isp.linear_percent or isp.clip_limit_low or isp.max_gain:  # SC.21, SC.25
             y = equalise_image(
@@ -100,9 +110,10 @@ def run_display_branch(
                 linear_percent=isp.linear_percent,
                 clip_limit_low=isp.clip_limit_low,
                 max_gain=isp.max_gain,
+                lut_hook=lut_hook,
             )
         else:
-            y = agc_plateau(dn, isp.plateau, bit_depth)  # R1
+            y = agc_plateau(dn, isp.plateau, bit_depth, lut_hook=lut_hook)  # R1
     elif isp.agc == "information_based":
         # SC.21: DDE is part of this operator (the high-pass is added back at the transfer's
         # slope), so the R3 unsharp mask below is skipped for it rather than applied twice.
@@ -119,10 +130,16 @@ def run_display_branch(
             max_gain=isp.max_gain,
             detail_threshold_sigma=isp.detail_threshold_sigma,
             noise_sigma_dn=noise_sigma_dn,
+            lut_hook=lut_hook,
         )
     elif isp.agc == "plateau_local":
         y = agc_plateau_local(
-            dn, isp.plateau, isp.agc_tiles, bit_depth, clip_limit_low=isp.clip_limit_low
+            dn,
+            isp.plateau,
+            isp.agc_tiles,
+            bit_depth,
+            clip_limit_low=isp.clip_limit_low,
+            lut_hook=lut_hook,
         )  # M9.10
         y = blend_linear(y, dn, isp.linear_percent, bit_depth)  # SC.25; λ = 0 is the identity
     elif isp.agc == "none":

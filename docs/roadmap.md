@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `AT.31` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 68 open steps
+#### Then, in order — 67 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -204,7 +204,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`IG.3`** | IG | X | S | 6 | ready |
 | 15 | **`EV.5`** | EV | X | M | 3 | ready |
 
-…and 53 more — `python scripts/next_step.py --queue 40`.
+…and 52 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -623,7 +623,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.7 | **Adopt the standard bench conditions** so irsim's Tier 2 numbers are comparable rather than project-local: SITF as a differential sweep −10…+20 °C in 5 °C steps with a linear fit over −5…+15; 3-D noise from 128 frames at 25 °C; MTF by ISO 12233 at 0.5 cycles/pixel from 128 averaged frames. Report N_temp and N_spat. | The bench reproduces its own previous numbers under the new conditions within the estimator's stated sampling floor, and the two summary quantities every external source quotes are printed. Red today: the frame counts and sweeps are project-chosen. | SC.6 | M | X |
 | SC.8 | **Retire "for when a camera arrives".** All four Tier 2 measured comparisons skip forever against directories never created, keyed to `flir_boson_640_lwir` while the only public measurement belongs to `halmstad_boson_320`. Datasheet limits go on one camera YAML, field-measured ratios on the other, with a schema guard that the two never mix in one `ratios_3d` block. | The four benches run instead of skipping; the framing in `validation/measured.py` and the Tier 2 protocol doc, which contradicts ADR 0003, is deleted. | SC.3 | M | X |
 | SC.9 | **NV-IPM Measured System Component export**: four 3-D components in Kelvin, pre-sample MTF arrays, normalised response, pitch, FOV, frame rate. | A third party range-checks irsim's Tier 2 benches independently in a free model with no camera. The export round-trips through NV-IPM's own reader. This is the cheapest external credibility the project can buy under the no-camera constraint. | SC.7 | M | X |
-| SC.10 | **AGC temporal behaviour.** Every AGC operator is a pure per-frame function with no memory, and `display.py:286` says any temporal behaviour must become an explicit `PipelineState` field. Real cores damp frame to frame, so a target entering frame gives a smooth transient in reality and a one-frame step in the renders. | `lag1_autocorrelation` of the rendered display stream lands inside the real set's measured band, where it does not today. The ablation ranks this switch first (AUC 1.000, EMD 61.7 codes). | — | M | X |
+| SC.10 | ✅ **done.** `isp/damping.py` (`TransferDamper`, `damping_over`); every global AGC mode takes `lut_hook` (tiled: its tile stack); `isp.agc_damping` per native frame, scaled by elapsed scene time; Boson 0.85 ([R51] Damping 85). ADR 0170. | **Measured**: background follows a^k·old + (1−a^k)·new to 1e-6; 60 Hz video settles to 1 code in 60 frames; a 6 s time-lapse is bit-identical to undamped. Lag-1 against the real set: EV.14's clip. | — | M | X |
 | SC.11 | **Thermal polarity as a config switch and an evaluation axis.** MaCVi 2026 had to normalise inverted thermal scaling across real maritime clips. White-hot stays the default (the owner's preference, and all five configs carry `palette: gray`). | A polarity-flipped condition appears in the detector evaluation and in the ablation switch set. Red today: a detector trained only on white-hot fails on half the real world and nothing measures that. | — | S | X |
 | SC.12 | **Record the size-of-source effect** (~0.8–1.0 K for uncooled microbolometers per VDI/VDE 5585, against ~0.1–0.2 K for cooled MCT) as a known omission in `docs/spec-issues.md`. | A spec-issue row with the number. It is larger than several effects the chain does model, so leaving it unrecorded misstates the chain's own error budget. | RP.7 | S | X |
 | SC.13 | **Close the ISP temporal-filter question.** `sensor_chain.py:241` says the filter "stays an identity until ME.5's temporal PSD on flat sky shows whether real cores low-pass their output at all". ME.5 landed and measured a one-pole time constant of 2563 frames at a drift fraction of 0.9276, above the 0.5 the report itself calls untrustworthy. | The answer — "not measurable on this set" — is recorded in the ADR and the dangling conditional is removed, so the next session does not re-open a question that was answered. | — | S | X |
