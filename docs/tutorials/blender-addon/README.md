@@ -38,5 +38,8 @@ material, and a downloaded model almost never says what that is.
 10. [See it all on a real model](10-phantom4.md): the DJI Phantom 4, done headless by one script.
 11. [Troubleshooting](11-troubleshooting.md).
 
+What the add-on is, in one page: [the Blender add-on](../../blender-addon.md). Where every
+material's numbers come from, and how to check them: [the material library](../../materials.md).
+
 The add-on's own plan, including what is not built yet, is
 [`blender_addon/PLAN.md`](../../../blender_addon/PLAN.md).

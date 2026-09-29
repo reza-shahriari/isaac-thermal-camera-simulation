@@ -94,6 +94,22 @@ DOCUMENTS: list[tuple[str, str, str, str, str]] = [
         "the camera measured -- how to start it and read it.",
     ),
     (
+        "docs/blender-addon.md",
+        "blender/",
+        "Blender add-on",
+        "Start",
+        "irsim Thermal Materials: say what every part of a 3D model is made of, add the parts it "
+        "lacks, and export it to the simulator -- in Blender, with no Python.",
+    ),
+    (
+        "docs/materials.md",
+        "materials/",
+        "Material library",
+        "Physics",
+        "Every material's emissivity in the four bands, where each number was measured, and how "
+        "you can check it yourself.",
+    ),
+    (
         "CLAUDE.md",
         "guide/",
         "Working agreement",
