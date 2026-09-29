@@ -29,6 +29,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.config.sensor import SensorConfig
+from irsim.optics.projection import Intrinsics
 
 __all__ = [
     "Encoding",
@@ -125,13 +126,15 @@ def camera_info(
     """`CameraInfo` from the sensor's own optics and FPA blocks (M10.9a's intrinsics)."""
     spec = sensor.sensor
     height, width = spec.fpa_shape
-    fx = spec.optics.focal_length_mm * 1000.0 / spec.fpa.pitch_um  # mm/um = px
+    # SC.33: the calibrated pinhole and lens when the file carries one, else the designed ones
+    intr = Intrinsics.from_sensor(spec, 1)
+    lens = spec.effective_distortion
     return CameraInfoMessage(
         width=int(width),
         height=int(height),
-        distortion_model=str(spec.optics.distortion.model),
-        d=tuple(float(c) for c in spec.optics.distortion.coeffs),
-        k=(fx, 0.0, width / 2.0, 0.0, fx, height / 2.0, 0.0, 0.0, 1.0),
+        distortion_model=str(lens.model),
+        d=tuple(float(c) for c in lens.coeffs),
+        k=(intr.fx_px, 0.0, intr.cx_px, 0.0, intr.fy_px, intr.cy_px, 0.0, 0.0, 1.0),
         frame_id=frame_id,
         stamp_ns=_stamp_ns(t_s),
     )

@@ -36,6 +36,9 @@ __all__ = [
     "OpticsSpec",
     "MtfSpec",
     "DistortionSpec",
+    "CalibrationSpec",
+    "GeometricCalibrationSpec",
+    "RadiometricCalibrationSpec",
     "BolometerFpa",
     "PhotonFpa",
     "DarkCurrentSpec",
@@ -71,6 +74,8 @@ __all__ = [
 # 12: `noise.bad_pixel_late_fraction` (SC.19, §10.4): the share of the defect population that
 # appeared after the factory map was made and so is never replaced. Defaults to 0, which is the
 # pre-v12 camera (every defect on the map).
+# SC.33: the optional `calibration:` block (geometric and radiometric, ADR 0164). Absent it is the
+# camera as designed, so by the rule below there is no bump.
 # The compatibility rule (SC.32, ADR 0159): a new field is optional with a default that *is* the
 # pre-existing behaviour, so it needs no version bump; `schema_version` moves only for a breaking
 # rename and then ships a migrator in `irsim.config.catalogue.MIGRATIONS`; `sensor.extensions:`
@@ -610,6 +615,67 @@ class OutputsSpec(_Frozen):
     display_8: bool
 
 
+class GeometricCalibrationSpec(_Frozen):
+    """§8.4 / SC.33 ``calibration.geometric``: the camera as measured, not as designed.
+
+    OpenCV's pinhole-plus-Brown-Conrady model in pixels of the native grid (``fx_px``, ``fy_px``,
+    ``cx_px``, ``cy_px``; ``k1``–``k3`` radial, ``p1``, ``p2`` tangential), exactly what
+    ``cv2.calibrateCamera`` returns, so a measured calibration is pasted in rather than
+    converted. Present, it replaces the designed ``optics.focal_length_mm`` / format-centre pinhole
+    and ``optics.distortion`` everywhere the camera's projection is used: the USD camera and its
+    lens schema (ADR 0015), the engine-free builder's G-buffer, the ROS camera info, the point
+    targets and the rotor discs (ADR 0164).
+    """
+
+    fx_px: float = Field(gt=0)
+    fy_px: float = Field(gt=0)
+    cx_px: float
+    cy_px: float
+    k1: float = 0.0
+    k2: float = 0.0
+    k3: float = 0.0
+    p1: float = 0.0
+    p2: float = 0.0
+
+    @property
+    def distortion(self) -> DistortionSpec:
+        """The measured lens as the ``brown_conrady`` block the projection code takes."""
+        return DistortionSpec(
+            model="brown_conrady", coeffs=[self.k1, self.k2, self.p1, self.p2, self.k3]
+        )
+
+
+class RadiometricCalibrationSpec(_Frozen):
+    """SC.33 ``calibration.radiometric``: what a bench measured on this unit, as sidecars.
+
+    ``gain_map`` and ``offset_map`` are float32 ``.npy`` planes of the FPA's shape, paths relative
+    to the data root like ``optics.vignetting_map``: the residual non-uniformity the unit's frames
+    carry after its own correction, ``DN = gain · DN_ideal + offset`` (gain about 1, offset in
+    DN). Given, they *are* the fixed pattern -- the drawn V/H/VH pattern of §10.3 is not added on
+    top; only its drift (ADR 0058) breathes from them. ``bad_pixel_map`` is a boolean ``.npy``
+    plane, True where the unit's factory map replaces the pixel; given, it replaces the drawn
+    cluster map of §10.4. ``netd_k`` is the unit's measured NETD at 300 K and replaces the
+    datasheet ``noise.netd_mk_at_300k`` as the anchor (ADR 0025), whatever the FPA's kind;
+    ``sitf_dn_per_k`` its measured ∂DN/∂T at 300 K, which replaces the transfer's own for the NUC
+    residual's millikelvin-to-DN conversion (ADR 0056). Each is used when present and synthesised
+    when absent; every map's content hash enters the config hash, so a frame says which
+    calibration made it (ADR 0164).
+    """
+
+    gain_map: str | None = None
+    offset_map: str | None = None
+    bad_pixel_map: str | None = None
+    netd_k: float | None = Field(default=None, gt=0)
+    sitf_dn_per_k: float | None = Field(default=None, gt=0)
+
+
+class CalibrationSpec(_Frozen):
+    """SC.33 ``calibration:`` -- optional; absent, the camera is exactly the designed one."""
+
+    geometric: GeometricCalibrationSpec | None = None
+    radiometric: RadiometricCalibrationSpec | None = None
+
+
 class SensorSpec(_Frozen):
     """The ``sensor:`` block, with the derived read-only quantities the kernels need."""
 
@@ -626,6 +692,22 @@ class SensorSpec(_Frozen):
     #: tool's own settings -- carried through load and dump untouched and never validated. The
     #: only key a stranger may add without a schema change; a typo elsewhere is still refused.
     extensions: dict[str, Any] = Field(default_factory=dict)
+    #: SC.33 (ADR 0164): what a bench measured on this unit -- a geometric calibration that
+    #: replaces the designed pinhole and lens, radiometric maps that replace the drawn
+    #: non-uniformity and defects. Absent, the camera is exactly as designed; every field inside
+    #: is optional and used only when present, so no schema bump (the SC.32 rule).
+    calibration: CalibrationSpec | None = None
+
+    @property
+    def effective_distortion(self) -> DistortionSpec:
+        """``calibration.geometric``'s lens when one was measured, else ``optics.distortion``."""
+        geo = None if self.calibration is None else self.calibration.geometric
+        return self.optics.distortion if geo is None else geo.distortion
+
+    @property
+    def radiometric_calibration(self) -> RadiometricCalibrationSpec | None:
+        """The unit's measured radiometric maps and figures, or ``None``."""
+        return None if self.calibration is None else self.calibration.radiometric
 
     @property
     def quantity(self) -> Literal["lb", "lb_q"]:

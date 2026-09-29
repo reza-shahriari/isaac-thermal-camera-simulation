@@ -180,7 +180,7 @@ def build_rotor_veils(
     are dropped here rather than by the compositor.
     """
     intrinsics = Intrinsics.from_sensor(sensor, supersample)
-    distortion = sensor.optics.distortion
+    distortion = sensor.effective_distortion
     if distance_m is not None and rays_cv is None:
         rays_cv = camera_ray_directions(intrinsics)
 

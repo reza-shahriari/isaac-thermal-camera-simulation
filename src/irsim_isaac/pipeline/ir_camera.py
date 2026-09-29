@@ -186,11 +186,16 @@ def camera_optics(spec: SensorSpec, supersample: int | None = None) -> CameraOpt
     """Camera-prim optics for ``spec`` at its configured supersample factor (§8.3)."""
     k = spec.optics.supersample_factor if supersample is None else int(supersample)
     pitch_mm = spec.fpa.pitch_um * 1e-3
+    intrinsics = Intrinsics.from_sensor(spec, k)
+    geo = None if spec.calibration is None else spec.calibration.geometric
+    # SC.33: a measured fx is the focal length the prim gets, so the prim's focalLength /
+    # horizontalAperture ratio and the lens schema's fx cannot disagree (ADR 0164)
+    focal_mm = float(spec.optics.focal_length_mm) if geo is None else float(geo.fx_px * pitch_mm)
     return CameraOptics(
-        focal_length_mm=float(spec.optics.focal_length_mm),
+        focal_length_mm=focal_mm,
         horizontal_aperture_mm=float(spec.fpa.width * pitch_mm),
         vertical_aperture_mm=float(spec.fpa.height * pitch_mm),
-        intrinsics=Intrinsics.from_sensor(spec, k),
+        intrinsics=intrinsics,
         supersample=k,
     )
 
@@ -560,7 +565,7 @@ class IrCamera:
             self._up_axis = axis if axis in UP_AXIS_VECTOR else "Y"
 
         self._authored = author_camera(
-            stage, self.camera_path, self.optics, self.sensor.sensor.optics.distortion
+            stage, self.camera_path, self.optics, self.sensor.sensor.effective_distortion
         )
         self.refresh_pose()
 
@@ -865,7 +870,7 @@ class IrCamera:
             instance_id,
             labels,
             self.optics.intrinsics,
-            self.sensor.sensor.optics.distortion,
+            self.sensor.sensor.effective_distortion,
         )
 
     def _moving_leaf_paths(self, labels: Mapping[Any, Any] | None) -> list[str]:
@@ -969,7 +974,7 @@ class IrCamera:
         assert sky is not None  # checked in __init__
         sensor = self.sensor.sensor
         native = Intrinsics.from_sensor(sensor, 1)
-        distortion = sensor.optics.distortion
+        distortion = sensor.effective_distortion
         up = np.asarray(UP_AXIS_VECTOR[self._up_axis or "Y"], dtype=np.float64)
         temperatures = self.bridge.temperatures()
         t_abs = self.scene.t0_s + self._t_rel_s

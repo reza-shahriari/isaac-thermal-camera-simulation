@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -37,6 +37,8 @@ from numpy.typing import NDArray
 from irsim.atmosphere.sky import SkyModel
 from irsim.config.sensor import SensorSpec
 from irsim.materials.table import UNMAPPED_MATERIAL_ID, MaterialTable
+from irsim.optics.calibration import distort_image, distort_planes
+from irsim.optics.projection import Intrinsics, distort_normalised
 from irsim.pipeline.environment import ground_temperature_k
 from irsim.pipeline.point_target import PointTarget, fill_fraction
 from irsim.radiometry.encoding import encode_temperature
@@ -121,8 +123,15 @@ def elevation_grid_rad(
     h, w = sensor.fpa.height * k, sensor.fpa.width * k
     pitch_m = sensor.fpa.pitch_um * 1e-6 / k
     f_m = sensor.optics.focal_length_mm * 1e-3
-    dx = (np.arange(w, dtype=np.float64) + 0.5 - w / 2.0) * pitch_m
-    dy = (np.arange(h, dtype=np.float64) + 0.5 - h / 2.0) * pitch_m
+    geo = None if sensor.calibration is None else sensor.calibration.geometric
+    if geo is None:
+        dx = (np.arange(w, dtype=np.float64) + 0.5 - w / 2.0) * pitch_m
+        dy = (np.arange(h, dtype=np.float64) + 0.5 - h / 2.0) * pitch_m
+    else:
+        # SC.33: the measured pinhole -- its focal lengths and principal point on this grid
+        intr = Intrinsics.from_sensor(sensor, k)
+        dx = (np.arange(w, dtype=np.float64) + 0.5 - intr.cx_px) / intr.fx_px * f_m
+        dy = (np.arange(h, dtype=np.float64) + 0.5 - intr.cy_px) / intr.fy_px * f_m
     ray = np.empty((h, w, 3), dtype=np.float64)
     ray[..., 0] = dx[None, :]
     ray[..., 1] = -dy[:, None]
@@ -285,6 +294,29 @@ def build_aerial_gbuffer(
             ),
             dtype=np.float64,
         )
+    geo = None if sensor.calibration is None else sensor.calibration.geometric
+    if geo is not None:
+        # SC.33 (ADR 0015, ADR 0164): this builder is the engine of the CPU path, so it is the
+        # builder that distorts -- every plane at once, as the prim's lens schema does to every
+        # AOV. Integer planes go nearest, floats bilinear; the encoded temperature is re-derived
+        # from the resampled one rather than resampled itself; a point target moves to where the
+        # lens puts its ray. The resolved target boxes stay on the ideal grid.
+        intr = Intrinsics.from_sensor(sensor, k)
+        planes = distort_planes(planes, intr, geo.distortion)
+        planes["encoded_t"] = encode_temperature(planes["temperature_k"])
+        elevation = distort_image(elevation, intr, geo.distortion)
+        sky_mask = planes["sky_mask"]
+        cloud_mask = distort_image(cloud_mask, intr, geo.distortion)
+        native = Intrinsics.from_sensor(sensor, 1)
+        moved = []
+        for pt in point_targets:
+            xn = (pt.position_px[0] - native.cx_px) / native.fx_px
+            yn = (pt.position_px[1] - native.cy_px) / native.fy_px
+            xd, yd = distort_normalised(xn, yn, geo.distortion)
+            u = float(xd * native.fx_px + native.cx_px)
+            v = float(yd * native.fy_px + native.cy_px)
+            moved.append(replace(pt, position_px=(u, v)))
+        point_targets = moved
     return AerialScene(
         planes=planes,
         elevation_rad=elevation,

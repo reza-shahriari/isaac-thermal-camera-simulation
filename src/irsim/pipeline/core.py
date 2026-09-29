@@ -239,6 +239,13 @@ class PipelineConfig:
         # config's 200 e- per integration.
         authored = isinstance(fpa, PhotonParams) and fpa.read_noise_e is not None
         use_electrons = {"auto": authored, "electrons": True, "netd": False}[noise_handle]
+        # SC.33 (ADR 0164): a NETD measured on this unit beats any datasheet handle, so it is
+        # the anchor whatever the FPA's kind -- an electron budget is a design, this is a
+        # measurement of the camera in hand.
+        radiometric = sensor.sensor.radiometric_calibration
+        measured_netd_k = None if radiometric is None else radiometric.netd_k
+        if measured_netd_k is not None:
+            use_electrons = False
         if use_electrons:
             if not isinstance(fpa, PhotonParams):
                 raise ValueError(
@@ -247,7 +254,9 @@ class PipelineConfig:
                 )
             budget = electron_budget(sensor.sensor, lut, background_electrons=background)
         else:
-            budget = anchor_noise(sensor.sensor, lut, background_electrons=background)
+            budget = anchor_noise(
+                sensor.sensor, lut, target_netd_k=measured_netd_k, background_electrons=background
+            )
         detector: Detector
         if isinstance(fpa, BolometerParams):
             floor = (

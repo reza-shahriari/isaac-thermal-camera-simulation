@@ -302,7 +302,7 @@ def run_frame(
             radiance_ss,
             plumes,
             Intrinsics.from_sensor(sensor, k),
-            sensor.optics.distortion,
+            sensor.effective_distortion,
             config.response,
             config.gas_tables,
             planes.get("distance_m"),

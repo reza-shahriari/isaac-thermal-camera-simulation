@@ -98,6 +98,10 @@ class SensorChain:
     shutter_dn: NDArray[np.float32] | None = None
     #: The display flat field with its offset re-measured on that shutter; None = factory.
     display_nuc: TwoPointNuc | None = None
+    #: SC.33 (ADR 0164): the unit's measured non-uniformity -- gain about 1, offset in DN --
+    #: applied in `finish_frame` in place of the drawn V/H/VH pattern; None = the drawn one.
+    measured_gain: NDArray[np.float32] | None = None
+    measured_offset: NDArray[np.float32] | None = None
     _drift_rng: np.random.Generator = field(init=False, repr=False)
     _last_t_s: float | None = field(default=None, init=False, repr=False)
 
@@ -149,6 +153,27 @@ class SensorChain:
         unit_sigmas = Sigmas7.from_ratios(1.0, sensor.noise.sigma_ratios())
         drift = FpnDrift(tau_s=sensor.noise.fpn_drift_tau_s, sigmas=unit_sigmas)
         bad_pixels = generate_defect_map(shape, sensor.noise, sensor_seed)
+        pattern = DriftingPattern.start(drift, shape, sensor_seed)
+        measured_gain = measured_offset = None
+        radiometric = sensor.radiometric_calibration
+        if radiometric is not None:
+            # SC.33 (ADR 0164): what the bench measured on this unit replaces what would have
+            # been drawn -- the map, the gain, the offset -- one term at a time.
+            from irsim.io.calibration import load_bad_pixel_map, load_gain_or_offset_map
+
+            if radiometric.bad_pixel_map is not None:
+                bad_pixels = load_bad_pixel_map(radiometric.bad_pixel_map, shape)
+            if radiometric.gain_map is not None:
+                measured_gain = load_gain_or_offset_map(radiometric.gain_map, shape)
+            if radiometric.offset_map is not None:
+                measured_offset = load_gain_or_offset_map(radiometric.offset_map, shape)
+            if measured_gain is not None or measured_offset is not None:
+                # the measured maps *are* the fixed pattern; the drift still breathes, from zero
+                pattern.pattern = FixedPattern(
+                    v=np.zeros(shape[0], dtype=np.float32),
+                    h=np.zeros(shape[1], dtype=np.float32),
+                    vh=np.zeros(shape, dtype=np.float32),
+                )
         return cls(
             sensor=sensor,
             housing=housing,
@@ -159,7 +184,9 @@ class SensorChain:
             ),
             bad_pixels=bad_pixels,
             defect_state=DefectState.initial(bad_pixels, sensor.noise, sensor_seed),
-            pattern=DriftingPattern.start(drift, shape, sensor_seed),
+            pattern=pattern,
+            measured_gain=measured_gain,
+            measured_offset=measured_offset,
             sensor_seed=sensor_seed,
             defects_enabled=defects_enabled,
             residual_enabled=residual_enabled,
@@ -237,6 +264,16 @@ class SensorChain:
         """
         signal = np.asarray(signal_dn, dtype=np.float32)
         active = np.zeros(signal.shape, dtype=bool)
+
+        if self.measured_gain is not None or self.measured_offset is not None:
+            # SC.33 (ADR 0164): the unit's own non-uniformity, measured on a bench, where the
+            # drawn pattern would otherwise have been added at stage 5 -- gain on the signal,
+            # offset in DN, before the defects that sit on top of both.
+            if self.measured_gain is not None:
+                signal = signal * self.measured_gain
+            if self.measured_offset is not None:
+                signal = signal + self.measured_offset
+            signal = np.asarray(signal, dtype=np.float32)
 
         if self.defects_enabled and self.bad_pixels.count:
             active = active_defect_mask(self.bad_pixels, self.defect_state)
@@ -323,7 +360,14 @@ def attach_sensor_chain(
         defects_enabled = fidelity.bad_pixels
     if residual_enabled is None:
         residual_enabled = fidelity.nuc_residual
-    dn_per_k = dn_per_kelvin(config.calibration, config.lut, RESIDUAL_REFERENCE_K)
+    # SC.33 (ADR 0164): a SITF measured on this unit is the better conversion than the transfer's
+    radiometric = config.sensor.sensor.radiometric_calibration
+    measured_sitf = None if radiometric is None else radiometric.sitf_dn_per_k
+    dn_per_k = (
+        float(measured_sitf)
+        if measured_sitf is not None
+        else dn_per_kelvin(config.calibration, config.lut, RESIDUAL_REFERENCE_K)
+    )
     chain = SensorChain.build(
         config.sensor.sensor,
         dn_per_k=dn_per_k,

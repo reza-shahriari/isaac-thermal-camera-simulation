@@ -46,9 +46,22 @@ __all__ = [
 DEFAULT_DATA_DIR = pathlib.Path(__file__).resolve().parents[3] / "data"
 # Dotted paths (under ``sensor``) of fields that name data files. Extend here when material or
 # atmosphere configs add file references; the hashes pick them up automatically.
-DATA_PATH_FIELDS: tuple[str, ...] = ("band.spectral_response", "optics.vignetting_map")
+DATA_PATH_FIELDS: tuple[str, ...] = (
+    "band.spectral_response",
+    "optics.vignetting_map",
+    "calibration.radiometric.gain_map",
+    "calibration.radiometric.offset_map",
+    "calibration.radiometric.bad_pixel_map",
+)
 # The subset that may be absent or null: an optional file is resolved and hashed when given.
-OPTIONAL_DATA_PATH_FIELDS: frozenset[str] = frozenset({"optics.vignetting_map"})
+OPTIONAL_DATA_PATH_FIELDS: frozenset[str] = frozenset(
+    {
+        "optics.vignetting_map",
+        "calibration.radiometric.gain_map",
+        "calibration.radiometric.offset_map",
+        "calibration.radiometric.bad_pixel_map",
+    }
+)
 
 
 def resolve_data_dir(data_dir: str | os.PathLike[str] | None = None) -> pathlib.Path:
@@ -231,6 +244,11 @@ def _dump_with_file_hashes(
     fpa = sensor.get("fpa", {})
     if fpa.get("g_th_w_per_k") is None:
         fpa.pop("g_th_w_per_k", None)
+    # `SC.33`, same rule: no calibration block -- or one with nothing in it -- is the camera as
+    # designed, and describes nothing, so it is not recorded.
+    calibration = sensor.get("calibration")
+    if calibration is None or all(v is None for v in calibration.values()):
+        sensor.pop("calibration", None)
     # `SC.19`, same rule: no late defects is the pre-v12 camera (every defect on the map).
     noise = sensor.get("noise", {})
     if noise.get("bad_pixel_late_fraction") == 0.0:

@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 71 open steps
+#### Then, in order — 70 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.19`** | IG | A | S | — | ready |
 | 2 | **`EV.14`** | EV | A | M | — | ready |
-| 3 | **`SC.33`** | SC | A | M | — | ready |
-| 4 | **`TC.13`** | TC | A | L | — | ready |
-| 5 | **`AT.26`** | AT | B | S | — | ready |
-| 6 | **`IG.16`** | IG | B | M | — | ready |
-| 7 | **`TC.15`** | TC | C | M | 1 | ready |
-| 8 | **`AI.13`** | AI | C | S | — | ready |
-| 9 | **`PT.27`** | PT | C | S | — | ready |
-| 10 | **`AT.6`** | AT | C | M | — | ready |
-| 11 | **`AT.9`** | AT | C | M | — | ready |
-| 12 | **`PH.14`** | PH | C | M | — | `TC.15` |
-| 13 | **`PT.16`** | PT | C | M | — | ready |
-| 14 | **`TC.14`** | TC | C | M | — | ready |
-| 15 | **`XD.10`** | XD | C | L | — | ready |
+| 3 | **`TC.13`** | TC | A | L | — | ready |
+| 4 | **`AT.26`** | AT | B | S | — | ready |
+| 5 | **`IG.16`** | IG | B | M | — | ready |
+| 6 | **`TC.15`** | TC | C | M | 1 | ready |
+| 7 | **`AI.13`** | AI | C | S | — | ready |
+| 8 | **`PT.27`** | PT | C | S | — | ready |
+| 9 | **`AT.6`** | AT | C | M | — | ready |
+| 10 | **`AT.9`** | AT | C | M | — | ready |
+| 11 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 12 | **`PT.16`** | PT | C | M | — | ready |
+| 13 | **`TC.14`** | TC | C | M | — | ready |
+| 14 | **`XD.10`** | XD | C | L | — | ready |
+| 15 | **`IG.3`** | IG | X | S | 5 | ready |
 
-…and 56 more — `python scripts/next_step.py --queue 40`.
+…and 55 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -646,7 +646,7 @@ published acceptance limits. None of this needs a camera — a Boson Engineering
 | SC.34 | ✅ **done.** `housing_terms(A_d, F, τ, L_h, cold_shielded)` → `(base, per_ri)`; `is_cold_shielded` (photon FPA < 200 K); `apply_optics`, `invert_optics` and the Warp kernel take the two scalars; Boson `g_th_w_per_k` 2e-8 (ESTIMATED, VOx literature). | **Measured.** Warm form bit-identical (every Boson golden unchanged); cooled MWIR corner darker than axis by (1 − τ)RI L_h only (MWIR goldens −0.2 % DN at the corners) and apply→invert to 1e-4 at the corner; Boson floor 33 mK under the 50 mK anchor (was 74.5 over). | — | S | A |
 | SC.31 | ✅ **done.** `agc_information(..., detail_threshold_sigma, noise_sigma_dn)` gates |high-pass| at k × σ_TVH for the histogram weighting only; σ_TVH is the detector's, recorded per frame in `PipelineState.sigma_tvh_dn` and passed by `run_frame`, never estimated (an estimate read quantisation as noise: 44 codes on a clean frame). Default 0; Boson 3; ADR 0152 note. | **Measured.** 60 K sky, σ_TVH = 8.5 DN: 3 px target at 0 °C 70 codes ungated, 132 gated = noise-free; 1 px and hotter-than-sky targets move ≤ 6; noise-free frame and k = 0 bit-identical, hash-neutral. | — | S | A |
 | SC.32 | ✅ **done.** `irsim.config.catalogue`: `resolve_sensor_path` (path, stem or `sensor_catalogue.yaml` alias; `$IRSIM_SENSOR_DIR` first), `list_sensors`, `migrate_sensor_document` + `MIGRATIONS`; `load_sensor_config` takes a name and migrates; `sensor.extensions:`. ADR 0159. | **Measured.** Five aliases resolve; a user dir shadows `boson640` by file name and a user camera loads by name; frozen v8–v11 Boson fixtures load to today's minus `bad_pixel_late_fraction`; a fake rename migrator walks once; `extensions` round-trips; `f_numbr` is still refused. | — | S | A |
-| SC.33 | **Calibration loaded from the camera file.** `DistortionSpec` is schema only; nothing applies it. Add `calibration:` — geometric (fx, fy, cx, cy, OpenCV k1–k3, p1, p2, applied to frame and companion) and radiometric (per-pixel gain and offset maps, a bad-pixel map, measured SITF/NETD) as hashed `.npy` sidecars — used when present, synthesised when absent. | A checkerboard rendered with k1 = −0.3 straightens under OpenCV's `undistort` to 0.1 px; a loaded gain map reproduces its own flat field to 1 DN; a file with no `calibration:` is bit-identical to today. | SC.32 | M | A |
+| SC.33 | ✅ **done.** `calibration.geometric` (OpenCV fx, fy, cx, cy, k1–k3, p1, p2) → `Intrinsics.from_sensor`, `effective_distortion`, USD lens schema, ROS info, targets, discs; the CPU builder distorts its own planes. `calibration.radiometric`: hashed gain / offset / bad-pixel `.npy`, `netd_k`, `sitf_dn_per_k`. ADR 0164. | **Measured.** Checkerboard through k1 = −0.3: 1.9 px at the corners, straight under `cv2.undistort` to < 0.1 px; gain map → its flat field to 0.01 DN; bad-pixel map is the replaced set; no block: hash and goldens unchanged. | — | M | A |
 
 ---
 

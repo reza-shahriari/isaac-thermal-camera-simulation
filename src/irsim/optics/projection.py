@@ -138,6 +138,17 @@ class Intrinsics:
         f_px = spec.optics.focal_length_mm / (spec.fpa.pitch_um * 1e-3) * supersample
         width = spec.fpa.width * supersample
         height = spec.fpa.height * supersample
+        geo = None if spec.calibration is None else spec.calibration.geometric
+        if geo is not None:
+            # SC.33 (ADR 0164): the measured pinhole, scaled onto the k× grid as the designed one
+            return cls(
+                fx_px=geo.fx_px * supersample,
+                fy_px=geo.fy_px * supersample,
+                cx_px=geo.cx_px * supersample,
+                cy_px=geo.cy_px * supersample,
+                width=width,
+                height=height,
+            )
         return cls(
             fx_px=f_px,
             fy_px=f_px,
