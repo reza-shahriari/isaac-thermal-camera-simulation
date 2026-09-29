@@ -177,6 +177,8 @@ class SkyModel:
 
     def solar_terms(self, t_s: float) -> Any:
         """The sun at ``t_s`` for this sky's site and weather (`SolarTerms`; AT.23)."""
+        from irsim.thermal.scene_forcing import solar_terms_at
+
         if self._site is None:
             raise ValueError("this sky has no site, so it cannot place the sun; pass site=")
         return solar_terms_at(self.weather, self._site[0], self._site[1], float(t_s))
