@@ -546,6 +546,101 @@ Fit $\gamma_0,\beta$ per band against your MODTRAN table or published curves.
 
 For ground-vehicle simulation under ~500 m: multiple scattering, adjacency effects, spherical refraction, and spectral fine structure within a band. These matter for airborne and satellite work — they are why MODTRAN's correlated-k treatment exists for LWIR flux calculations [R18] — and not for you. Document that you have dropped them.
 
+### 7.5 Clouds as a participating medium
+
+For aerial targets the cloud is the dominant clutter, and it is also something a target can be
+behind or inside. It is therefore not a sky colour: it is a volume of absorbing, emitting air
+that every camera ray crosses, to whatever the ray hits (spec issue S33; ADRs 0146, 0162, 0169;
+sources and search notes in `docs/clouds-in-the-infrared.md`).
+
+**One field for both bands.** The cloud is `isaac-weather-fx`'s density field $\rho(\mathbf x)\in[0,1]$
+scaled by a **visible** extinction $\sigma_{\text{vis}}$ per metre. The visible companion and the
+infrared band read the same array from the same origin (the camera, less the wind's drift), so
+they cannot disagree about where a cloud is; each band derives its own optical properties from it.
+
+**Visible extinction to band absorption.** Along a camera ray the band's absorption coefficient is
+
+$$
+\beta_B(\mathbf x) = r_B\,\sigma_{\text{vis}}\,\rho(\mathbf x)
+$$
+
+with $r_B$ a per-band, per-cloud-phase datum, never code:
+
+- **LWIR, liquid water:** $r = 0.5$. The large-particle limit of $Q_{\text{abs,IR}}/Q_{\text{ext,vis}}$
+  is exactly one half; measured cloud ratios are 2–3 in extinction terms [R54][R55], and Shaw &
+  Nugent use "LWIR optical depth is half the visible" for a calibrated LWIR cloud imager [R56]. The
+  same number follows from the mass coefficients: $\tau_{\text{vis}} = 3\,\text{LWP}/(2\rho_w r_e)$
+  gives 0.15 m²/g at $r_e = 10$ µm [R57], and Stephens' LWIR flux coefficient 0.130–0.158 m²/g [R58]
+  divided by the diffusivity factor 1.66 is 0.08–0.10 m²/g. Scattering (single-scattering albedo
+  near 0.5 in the window) is folded into the ratio, the scaled-absorption approximation that keeps a
+  non-scattering solver within about 2 % of the flux [R59].
+- **A ray takes no diffusivity factor.** $\varepsilon = 1 - e^{-0.79\,\tau_{\text{vis}}}$ [R56] is a
+  *flux* emissivity (0.5 × 1.58) and belongs in the hemispherical blends of §5.3, not on a pixel.
+- **MWIR:** no citable liquid-water coefficient was found; water's absorption is weaker there, so
+  the cloud scatters more than it emits and daytime sunlight scattered by it is first order.
+  ESTIMATED until measured.
+- **Ice (cirrus):** its own coefficients, polynomials in $1/D_e$ per band [R60]; not used until the
+  field carries a phase.
+
+A liquid cloud of 100 g/m² is black in LWIR [R56]: a cumulus is opaque within tens of metres of
+its edge, which is why its emission comes from a thin skin facing the camera.
+
+**Temperature.** Surface air lifts dry-adiabatically to the base $z_b$ and saturated above it:
+
+$$
+T(z) = T_{\text{air}} - \Gamma_d\,z_b - \Gamma_m\,(z - z_b),\qquad z \ge z_b,\qquad \Gamma_d = g/c_p
+$$
+
+$\Gamma_m$ is the moist adiabat, 5–6 K/km in the lower troposphere; the atmosphere preset's
+environmental 6.5 K/km stands in for it today, which makes a kilometre-deep cloud's top about 1 K
+too cold. An opaque cloud reads close to the temperature of the level it is seen at: its base from
+below, its top from above [R56].
+
+**Along the ray.** With the non-scattering emission–absorption (Schwarzschild) equation [R61], a
+pixel whose ray hits a surface at range $R$ reads
+
+$$
+L = \tau_c(R)\,\big[\tau_{\text{air}}(R)\,L_{\text{hit}} + L_{\text{path,air}}(R)\big]
+  + \tau_{\text{air}}(R_c)\int_0^R \beta_B(s)\,L_B\big(T(z(s))\big)\,e^{-\tau_c(s)}\,ds
+$$
+
+$$
+\tau_c(s) = \int_0^s \beta_B\,ds',\qquad
+R_c = \text{the range at which the integral's weight is centred}
+$$
+
+discretised per sample, from the camera outward, each sample emitting what it absorbs at its own
+height's temperature. A sky pixel is the same integral with $R = \infty$, composed with the clear
+column beyond the cloud as ADR 0126 does. A ray is dropped once $\tau_c > 12$ in the **band**.
+
+**Two fidelity tiers, one rule.**
+
+| | Path-traced render | Real-time render |
+|---|---|---|
+| Visible cloud | 3-D volumes: parallax, shadow, occludes targets | painted on the dome, at infinity |
+| Infrared sky pixels | marched per pixel, the integral above with $R=\infty$ | **the same** |
+| Infrared pixels on a target | marched to the hit: attenuated, cloud emission in front | clear air to the hit |
+| Target behind or inside cloud | occluded in both bands | occluded in neither |
+
+The rule is that **occlusion follows the render path, so the two bands never disagree about
+it**. The real-time tier may drop target occlusion for speed. It may not drop the cloud itself:
+in both tiers the infrared frame shows the cloud, from the same field, to the same criteria.
+
+**What "realistic" means, in both tiers.**
+
+1. An opaque cloud reads within 1 K of $T(z)$ at the level it is seen, through the air in front.
+2. A cloud edge is a fringe of falling emissivity, not a step, and the sampling adds no structure
+   of its own: residual lag-one correlation of the march error along a row below 0.6.
+3. The two bands cover the same pixels with cloud (they sample one field from one origin).
+4. Clear sky, broken cloud and overcast are compared with calibrated full-sky LWIR imagery (the
+   ARM Infrared Cloud Imager, roadmap `XD.6`): the cloud-minus-clear radiance and the width of
+   cloud edges fall inside the spread of the real sky at matching air temperature and humidity.
+
+**Not modelled, and flagged.** Multiple scattering beyond the ratio; sunlight scattered by cloud
+toward the camera on a target pixel (sky pixels carry it, ADR 0153); cloud shadows on the ground
+and target thermal solves (the weather attenuates irradiance uniformly by cloud fraction);
+precipitation; ice.
+
 ---
 
 <a name="8-optics"></a>
@@ -1627,6 +1722,14 @@ Steps 1–5 give a defensible LWIR camera. Steps 6–9 are what separate it from
 - [R51] FLIR, *FLIR Camera Adjustments — Boson Application Note*, 102-2013-100-01 Rev 220, June 2018. https://tesscorn-thermalimaging.com/wp-content/uploads/2024/08/Boson-CameraAdjustments-AppNote-2.pdf — the Boson's AGC: plateau value as a fraction of the ROI's pixels per bin (default 7 %), Information-Based Equalization as the factory default mode, Linear Percent, Tail Rejection, Max Gain, Damping Factor, DDE and Detail Headroom.
 - [R52] FLIR, *Lepton Software Interface Description Document (IDD)*, 110-0144-04. https://cdn.sparkfun.com/assets/0/6/d/2/e/16465-FLIRLepton-SoftwareIDD.pdf — AGC HEQ: clip limit high (bin population cap), clip limit low (constant added to every non-zero bin), linear percent, dampening factor (IIR), ROI.
 - [R53] Xenics, *Smart onboard image enhancement algorithms for SWIR day and night vision camera*, 2015. https://www.researchgate.net/publication/283861475_Smart_onboard_image_enhancement_algorithms_for_SWIR_day_and_night_vision_camera — auto-exposure positions the histogram by integration time and switches gain and read-out modes; auto-gain and histogram equalisation follow, with a maximal allowed stretching and equalisation strength.
+- [R54] University of Wisconsin lidar group, *Visible vs. Infrared Optical Depths* (thesis chapter), citing Platt et al. 1980, Minnis et al. 1990 and 1993. http://lidar.ssec.wisc.edu/papers/ww_thes/node17.htm — ratio of visible extinction to 10.6 µm absorption efficiency, 2:1 in the large-particle limit, 2.13 measured.
+- [R55] D. H. DeSlover, W. L. Smith, P. K. Piironen, E. W. Eloranta, *A methodology for measuring cirrus cloud visible-to-infrared spectral optical depth ratios*, J. Atmos. Oceanic Technol. 16, 251–262 (1999) — ratios of 2–3 by cloud type.
+- [R56] J. A. Shaw, P. W. Nugent, *Physics principles in radiometric infrared imaging of clouds in the atmosphere*, Eur. J. Phys. 34, S111–S121 (2013). https://www.montana.edu/jshaw/documents/Physics_IRCloudImaging_EJP2013.pdf — LWIR optical depth half the visible; ε = 1 − exp(−0.79 τ); opaque at 0.1 mm of liquid.
+- [R57] J.-L. Brenguier et al., *Cloud optical thickness and liquid water path — does the k coefficient vary with droplet concentration?*, Atmos. Chem. Phys. 11, 9771–9786 (2011) — τ = 3 LWP / (2 ρ_w r_e).
+- [R58] G. L. Stephens, *Radiation profiles in extended water clouds. II: Parameterization schemes*, J. Atmos. Sci. 35, 2123–2132 (1978); tabulated with later measurements in Stephens, AT622 notes §16, Table 16.1. https://reef.atmos.colostate.edu/~odell/AT622/stephens_notes/AT622_section16.pdf — LWIR mass absorption 0.130 (down) and 0.158 (up) m²/g in flux form.
+- [R59] M.-D. Chou, K.-T. Lee, S.-C. Tsay, Q. Fu, *Parameterization for cloud longwave scattering for use in atmospheric models*, J. Climate 12, 159–169 (1999). https://modis-images.gsfc.nasa.gov/_docs/Chou_et_al._(1999).pdf — scaled absorption, errors under 2 % of the flux.
+- [R60] G. Hong, P. Yang, B. A. Baum, A. J. Heymsfield, K.-M. Xu, *Parameterization of shortwave and longwave radiative properties of ice clouds for use in climate models*, J. Climate 22, 6287–6312 (2009), Tables A1–A2.
+- [R61] G. W. Petty, *A First Course in Atmospheric Radiation*, 2nd ed., Sundog (2006), ch. 8 — the Schwarzschild emission–absorption equation along a path.
 
 **Related open work**
 

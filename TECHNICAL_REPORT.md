@@ -486,10 +486,13 @@ Phantom 4 at 53 to 121 m through a stratus fractus layer brought down to 15 m ha
 36 to 38 °C and reads −0.5 °C at 97 m, the layer itself −12 to −2 °C; the target is 6 to 14 pixels
 across, because a resolved target behind a cumulus at its natural base needs an aircraft-sized
 asset the library does not hold. What it does not do yet: the analytic point-target path runs after
-stage 2 and ignores the planes; the native `CloudDeck` has no finite-range march; the pinned
-weather-fx commit predates the path-traced volumes, so the visible companion still paints its
-cloud on a dome and does not occlude what the infrared band now does (`AT.30`); and nothing
-labels a cloud pixel until the planes reach disk (`AT.29`).
+stage 2 and ignores the planes; the native `CloudDeck` has no finite-range march; the headless
+render driver draws the visible cloud on the dome, where no target can be behind it, so the two
+bands disagree about occlusion until `AT.31`. The owner settled that trade (ADR 0169, spec §7.5):
+occlusion follows the render path — the path-traced tier occludes in both bands, the real-time tier
+in neither — and the cloud itself, with its realism criteria, is required in both. Phase A's exit
+now names the cloud, and the calibrated full-sky LWIR check (`XD.6`) moved into phase A as its
+realism gate.
 
 Three limits of the deck, stated rather than left to be discovered. A cloud is still a **vertical
 extrusion** — a dome standing on the base plane, widest at the bottom — where a real cumulus bulges
