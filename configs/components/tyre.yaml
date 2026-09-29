@@ -1,0 +1,21 @@
+# A passenger car tyre. AI.13.
+# Rolling resistance is heat: F_rr = C_rr m g / 4 per tyre, so at 30 m/s (108 km/h) a 195/65 R15
+# on a 1.5 t car with C_rr 0.010 loses 37 N x 30 m/s = 1.1 kW into its own rubber.
+schema_version: 1
+component:
+  name: tyre
+  kind: tyre
+  description: 195/65 R15 passenger radial on a 1.5 t car at 108 km/h
+  mass_kg: 9.5
+  specific_heat_j_kgk: 1700.0         # SBR/natural-rubber compound, 1.5-1.9 kJ/kg/K
+  rated_power_in_w: 1100.0            # C_rr 0.010 x 1500 kg x 9.81 / 4 tyres x 30 m/s
+  efficiency: 0.0                     # rolling loss is all hysteresis heat in the tread and sidewall
+  dissipation_rated_w: 1100.0
+  dissipation_idle_w: 0.0
+  heats: [tyre, wheel_rim]
+  material: rubber_tyre
+  status: ESTIMATED
+  source: >-
+    SAE J2452 rolling-resistance procedure and the ISO 28580 label ranges (C_rr 0.006-0.012 for
+    passenger tyres); tyre mass from manufacturer data for the 195/65 R15 size (8.5-10.5 kg);
+    rubber specific heat from Mark, Erman & Roland, The Science and Technology of Rubber.

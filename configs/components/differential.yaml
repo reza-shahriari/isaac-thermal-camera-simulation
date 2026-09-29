@@ -1,0 +1,19 @@
+# A rear-axle hypoid differential. AI.13.
+schema_version: 1
+component:
+  name: differential
+  kind: gearbox
+  description: hypoid rear differential of a rear-driven 1.5 t car, 60 kW through at highway speed
+  mass_kg: 25.0                       # cast housing, crown wheel, pinion and oil
+  specific_heat_j_kgk: 460.0          # cast iron and steel
+  rated_power_in_w: 60000.0           # power through it at sustained highway load
+  efficiency: 0.97                    # a hypoid stage runs 95-98 % under load
+  dissipation_rated_w: 1800.0         # 60 kW x 3 % gear-mesh and churning loss into the oil and housing
+  dissipation_idle_w: 0.0
+  heats: [differential, rear_axle]
+  material: iron_weathered
+  status: ESTIMATED
+  source: >-
+    Hypoid gear efficiency 95-98 % under load (Xu, Kahraman et al., ASME J. Mech. Des. 129,
+    2007; Petry-Johnson et al. 2008); housing mass from OEM parts data for a rear axle assembly
+    (20-30 kg). Class figures, not a named car's.

@@ -47,7 +47,20 @@ DISSIPATION_TOLERANCE = 0.05
 
 Status = Literal["MEASURED", "ESTIMATED"]
 Kind = Literal[
-    "motor", "esc", "battery", "controller", "piston_engine", "turbine", "exhaust", "other"
+    "motor",
+    "esc",
+    "battery",
+    "controller",
+    "piston_engine",
+    "turbine",
+    "exhaust",
+    # AI.13: what warms a car away from its engine
+    "brake",
+    "tyre",
+    "light",
+    "heater",
+    "gearbox",
+    "other",
 ]
 
 

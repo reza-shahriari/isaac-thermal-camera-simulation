@@ -1,0 +1,20 @@
+# A car's rear tail/brake lamp, one incandescent P21W bulb behind a polycarbonate lens. AI.13.
+schema_version: 1
+component:
+  name: tail_light
+  kind: light
+  description: P21W 21 W incandescent brake lamp in its red polycarbonate housing
+  mass_kg: 0.35                       # lens, reflector and bulb; the housing is what warms
+  specific_heat_j_kgk: 1200.0         # polycarbonate, 1.2-1.3 kJ/kg/K
+  rated_power_in_w: 21.0              # a P21W bulb at 12.8 V
+  efficiency: 0.02                    # a tungsten filament radiates ~2 % as visible light
+  dissipation_rated_w: 20.6
+  dissipation_idle_w: 0.0
+  heats: [tail_light, rear_body]
+  material: pet_black                 # a dark plastic lens; the red polycarbonate is not in the library (ESTIMATED)
+  status: ESTIMATED
+  source: >-
+    ECE R37 category P21W: 21 W at 12.8 V; luminous efficacy of a 2900 K tungsten filament is
+    ~15 lm/W, about 2 % of the input as visible light (IESNA Lighting Handbook, ch. 6), the rest
+    heat and near-infrared into the housing. Housing mass and polycarbonate specific heat from
+    supplier data (class figures).

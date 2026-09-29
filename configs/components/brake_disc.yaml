@@ -1,0 +1,23 @@
+# A passenger car's front brake disc. AI.13.
+# Numbers ESTIMATED from the class: a 1.5 t car's ventilated front disc is 6-9 kg of grey cast
+# iron; a 100 km/h -> 0 stop at 0.8 g turns ~580 kJ into heat in ~3.5 s, two thirds of it on
+# the front axle, so one front disc takes ~55 kW for the stop's duration.
+schema_version: 1
+component:
+  name: brake_disc
+  kind: brake
+  description: ventilated grey cast iron front disc, 300 mm, of a 1.5 t car
+  mass_kg: 7.0
+  specific_heat_j_kgk: 460.0          # grey cast iron, 450-500 J/kg/K
+  rated_power_in_w: 55000.0           # the front disc's share of a 0.8 g stop from 100 km/h
+  efficiency: 0.0                     # a brake turns all of it into heat
+  dissipation_rated_w: 55000.0
+  dissipation_idle_w: 0.0
+  heats: [brake_disc, wheel_hub]
+  material: iron_weathered
+  status: ESTIMATED
+  source: >-
+    Limpert, Brake Design and Safety (SAE, 3rd ed.), ch. 3: kinetic energy 0.5 m v^2 = 579 kJ for
+    1500 kg at 27.8 m/s, front axle 65-70 % of braking, stop time v / (0.8 g) = 3.5 s; disc mass
+    and cast-iron specific heat from the same chapter's worked examples. Class figures, not a
+    named car's.

@@ -33,6 +33,16 @@ EXPECTED = {
     "small_turbine",
     "exhaust_line",
 }
+#: AI.13: the ground set -- what warms a car away from its engine.
+GROUND = {
+    "brake_disc": "brake",
+    "tyre": "tyre",
+    "tail_light": "light",
+    "rear_window_heater": "heater",
+    "differential": "gearbox",
+    "ev_drive_motor": "motor",
+    "ev_pack": "battery",
+}
 
 
 def _entry(**overrides: object) -> dict[str, object]:
@@ -59,7 +69,7 @@ def _entry(**overrides: object) -> dict[str, object]:
 
 def test_the_library_ships_the_seven_components_the_row_names() -> None:
     lib = load_component_library()
-    assert set(lib) == EXPECTED
+    assert set(lib) == EXPECTED | set(GROUND)
     assert lib.path == COMPONENTS_DIR
     for c in lib.values():
         assert c.mass_kg > 0.0 and c.capacity_j_k > 0.0
@@ -134,3 +144,30 @@ def test_an_unknown_material_and_a_misnamed_file_are_refused(tmp_path: pathlib.P
         load_component(lib_dir / "gadget.yaml")
     with pytest.raises(KeyError, match="unknown component"):
         lib["nothing"]
+
+
+# --- AI.13: the ground components ---------------------------------------------------------------
+
+
+def test_the_ground_components_carry_their_kind_mass_and_cited_dissipation() -> None:
+    """Seven entries a car needs away from its engine, each with a mass, a specific heat, a rated
+    dissipation that its own efficiency reproduces to 5 %, at least one part it heats, a library
+    material and a source that names where the numbers came from."""
+    lib = load_component_library()
+    for name, kind in GROUND.items():
+        c = lib[name]
+        assert c.kind == kind and c.mass_kg > 0.0 and c.specific_heat_j_kgk > 0.0, name
+        assert c.dissipation_rated_w == pytest.approx(
+            c.rated_power_in_w * (1.0 - c.efficiency), rel=0.05
+        ), name
+        assert c.heats and c.material is not None and len(c.source) > 80, name
+    # a brake and a tyre are all heat, a lamp nearly so, a traction motor mostly not
+    assert lib["brake_disc"].efficiency == 0.0 and lib["tyre"].efficiency == 0.0
+    assert lib["tail_light"].dissipation_rated_w > 0.95 * lib["tail_light"].rated_power_in_w
+    assert lib["ev_drive_motor"].efficiency >= 0.9 and lib["ev_pack"].efficiency >= 0.95
+    # the pack's loss is I^2 R at its rating: (P / V)^2 R with 360 V and ~0.1 ohm
+    assert lib["ev_pack"].dissipation_rated_w == pytest.approx(
+        (40000.0 / 360.0) ** 2 * 0.1, rel=0.05
+    )
+    # capacities: the pack is a hundred times the lamp housing
+    assert lib["ev_pack"].capacity_j_k > 100.0 * lib["tail_light"].capacity_j_k

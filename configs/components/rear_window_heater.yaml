@@ -1,0 +1,19 @@
+# A car's rear-window defogger: printed resistive grid on the glass. AI.13.
+schema_version: 1
+component:
+  name: rear_window_heater
+  kind: heater
+  description: 12 V resistive defogger grid on a 10 kg rear window, 180 W
+  mass_kg: 10.0                       # the glass it heats, 1.2 m^2 of 3.5 mm tempered glass
+  specific_heat_j_kgk: 840.0          # soda-lime glass
+  rated_power_in_w: 180.0             # 12 V x 15 A, the common fuse rating
+  efficiency: 0.0                     # a resistive grid is all heat
+  dissipation_rated_w: 180.0
+  dissipation_idle_w: 0.0
+  heats: [rear_window]
+  material: glass_windshield
+  status: ESTIMATED
+  source: >-
+    Defogger circuits are fused at 15-20 A on 12 V systems (150-240 W; Bosch Automotive
+    Handbook, "Window heating"); glass mass from 1.2 m^2 x 3.5 mm x 2500 kg/m^3; specific heat
+    of soda-lime glass 0.84 kJ/kg/K (CRC Handbook). Class figures.

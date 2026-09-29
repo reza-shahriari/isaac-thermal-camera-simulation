@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 69 open steps
+#### Then, in order — 68 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -193,18 +193,18 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 3 | **`AT.26`** | AT | B | S | — | ready |
 | 4 | **`IG.16`** | IG | B | M | — | ready |
 | 5 | **`TC.15`** | TC | C | M | 1 | ready |
-| 6 | **`AI.13`** | AI | C | S | — | ready |
-| 7 | **`PT.27`** | PT | C | S | — | ready |
-| 8 | **`AT.6`** | AT | C | M | — | ready |
-| 9 | **`AT.9`** | AT | C | M | — | ready |
-| 10 | **`PH.14`** | PH | C | M | — | `TC.15` |
-| 11 | **`PT.16`** | PT | C | M | — | ready |
-| 12 | **`TC.14`** | TC | C | M | — | ready |
-| 13 | **`XD.10`** | XD | C | L | — | ready |
-| 14 | **`IG.3`** | IG | X | S | 5 | ready |
-| 15 | **`EV.5`** | EV | X | M | 3 | ready |
+| 6 | **`PT.27`** | PT | C | S | — | ready |
+| 7 | **`AT.6`** | AT | C | M | — | ready |
+| 8 | **`AT.9`** | AT | C | M | — | ready |
+| 9 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 10 | **`PT.16`** | PT | C | M | — | ready |
+| 11 | **`TC.14`** | TC | C | M | — | ready |
+| 12 | **`XD.10`** | XD | C | L | — | ready |
+| 13 | **`IG.3`** | IG | X | S | 5 | ready |
+| 14 | **`EV.5`** | EV | X | M | 3 | ready |
+| 15 | **`SC.5`** | SC | X | M | 3 | ready |
 
-…and 54 more — `python scripts/next_step.py --queue 40`.
+…and 53 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -825,7 +825,7 @@ of the silhouette still render at their node's one temperature.
 | AI.10 | ✅ **done.** The `low2high` skill: geometry fit for the camera, up or down. `irsim.io.mesh_facets` gives each edge its silhouette error `(w/2)tan(θ/4)` against half a pixel; `tessellate_step.py` meshes STEP/IGES via OpenCascade (optional `cad` extra) with part names, in metres. ADR 0155. | **Measured.** Phantom 4 as authored: 0/41 meshes faceted at 2 m, 1.36 mrad; decimated to ~100 k faces: 40/41. Sagitta identity exact to 1e-9; 22 tests + 4 with the extra. | AI.9 | M | A |
 | AI.11 | ✅ **done.** `PartsConfig.contacts` (`ContactSpec`: a, b, joint, area_m2) and `.hidden_parts` (`HiddenPartSpec`: box, component, mass, c_p, dissipation, status) in `irsim.io.asset_parts`; `load_asset_mapping` checks joints against the table, `assign_parts` areas against measured parts. Phantom 4 authored (ESTIMATED). | **Measured.** Refused by name: missing part, self-contact, name shadowing, unknown joint, area > either part's (box area for hidden), hidden part without mass or component. Round-trips through YAML; the older `phantom4` config loads unchanged; 8 tests. | — | M | A |
 | AI.12 | ✅ **done.** `configs/components/*.yaml` (7 entries) + `irsim.config.components`; `HiddenPartSpec.resolved_capacity_j_k` / `resolved_dissipation_w` inherit from the component; `load_asset_mapping` checks the names; `build_full_solve` takes `components`. | **Measured.** Every rated dissipation = `P_in (1 − η)` to 5 % (the loader enforces it); no mass, no source, idle > rated, unknown material, misnamed file: refused; every material named is in the library; the Phantom 4's ESC and controller resolve. DJI pack figures MEASURED, the rest ESTIMATED. | AI.11 | M | A |
-| AI.13 | **Ground components: what warms a car away from its engine.** AI.12's library extended with brake disc, tyre, tail light, rear-window heater, differential, EV drive motor and pack, same fields and provenance. | As AI.12: each entry's dissipation matches its cited source to 5 %; the loader refuses an entry without mass or source. | AI.12 | S | C |
+| AI.13 | ✅ **done.** `configs/components/{brake_disc,tyre,tail_light,rear_window_heater,differential,ev_drive_motor,ev_pack}.yaml`; `Kind` += brake, tyre, light, heater, gearbox. | **Measured.** Each entry's dissipation is rated × (1 − η) to 5 % and its source names the figure; the pack's loss is (P/V)²R at 360 V and 0.1 Ω; the loader still refuses an entry without mass or source (`tests/unit/test_components.py`). | AI.12 | S | C |
 
 ---
 

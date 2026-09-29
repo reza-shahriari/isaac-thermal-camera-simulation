@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Seven ground components in the library (`AI.13`).** Brake disc, tyre, tail light, rear-window heater, differential, EV drive motor and EV pack, with mass, heat capacity, cited dissipation and what they heat, so a car's hidden parts can be wired into a solved network the way the drone's are.
 - **The demo drone is solved, not scripted (`TC.13`).** Its motors warm up over the climb, run hotter on the loaded side of an orbit and are still warm minutes after landing; its battery warms the shell from inside; every part is a solved mesh. `configs/scenes/phantom4_solved.yaml`; ADR 0166.
 - **A million-face asset can be solved whole (`TC.13`, part 1).** Mesh surfaces and solved objects can cluster their faces into thermal cells of a chosen size instead of one cell per face, keeping every bit of area; the Phantom 4's 1.5 million faces become five thousand cells. ADR 0165.
 - **Your camera's own calibration in its YAML (`SC.33`).** Paste the OpenCV intrinsics and distortion a checkerboard gave you, and the gain, offset and bad-pixel maps a bench measured, into `calibration:`; the simulator renders that unit -- Isaac and the CPU path alike -- and a file without the block is the designed camera it always was. ADR 0164.

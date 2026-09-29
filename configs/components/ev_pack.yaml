@@ -1,0 +1,19 @@
+# A battery-electric car's traction pack. AI.13.
+schema_version: 1
+component:
+  name: ev_pack
+  kind: battery
+  description: 24 kWh, 360 V lithium-ion traction pack in its steel case (Nissan Leaf class)
+  mass_kg: 294.0                      # the Leaf's 24 kWh pack, case included
+  specific_heat_j_kgk: 1000.0         # pouch cells with their modules and case, 0.9-1.1 kJ/kg/K
+  rated_power_in_w: 40000.0           # sustained highway discharge
+  efficiency: 0.97                    # 1 - I^2 R / P at 111 A with R ~ 100 mOhm for the pack
+  dissipation_rated_w: 1200.0         # (40000 / 360)^2 x 0.1
+  dissipation_idle_w: 0.0
+  heats: [pack_floor, underbody]
+  material: metal_sheet_painted_grey
+  status: ESTIMATED
+  source: >-
+    Nissan Leaf 24 kWh pack: 294 kg, 360 V nominal (Nissan specifications, MEASURED); pack
+    resistance ~100 mOhm from cell-level 3-4 mOhm figures in Idaho National Laboratory's
+    Leaf battery testing reports; cell specific heat from Pesaran et al. (NREL) 0.9-1.1 kJ/kg/K.

@@ -1,0 +1,19 @@
+# A battery-electric car's traction motor. AI.13.
+schema_version: 1
+component:
+  name: ev_drive_motor
+  kind: motor
+  description: 80 kW permanent-magnet synchronous traction motor (Nissan Leaf EM57 class)
+  mass_kg: 58.0                       # EM57 with its housing
+  specific_heat_j_kgk: 450.0          # steel laminations, copper windings and an aluminium housing by mass
+  rated_power_in_w: 80000.0           # electrical input at the rating
+  efficiency: 0.94                    # 94-96 % peak for the class
+  dissipation_rated_w: 4800.0         # copper, iron and bearing loss into the housing and coolant
+  dissipation_idle_w: 0.0
+  heats: [motor_housing, subframe]
+  material: aluminium_weathered
+  status: ESTIMATED
+  source: >-
+    Oak Ridge National Laboratory, "Annual Progress Report for the Electric Drive Technologies
+    Program" (2016): Nissan Leaf EM57 80 kW, ~58 kg, peak efficiency 94-96 %. The rated-point
+    efficiency and the mass-weighted specific heat are estimates from that teardown.
