@@ -88,6 +88,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no name given, the skill infers one and says which. 5 new tests (38 in the file).
 
 ### Fixed
+- **A cooled camera no longer sees a warm housing around its cold shield (`SC.34`).** The MWIR InSb's corner shading now carries only the lens's own emission, with the opposite sign to a bolometer's, forward and inverse alike (0.2 % of DN at the corners); the Boson's reported NETD floor sits under its 50 mK anchor now that its VOx thermal conductance is authored.
 - **The Boson's information-based AGC no longer hands the codes to the sky's noise (`SC.31`).** The detail measure is gated at three times the detector's own temporal noise, which the pipeline now hands the display branch, so a few-pixel drone at standoff keeps its shades at the camera's NETD (132 codes of contrast instead of 70 on a 60 K sky); noise-free frames are bit-identical and older sensor files load unchanged.
 - **The G-buffer contract and its dataclass are one thing (`IG.18`).** A validated G-buffer keeps its slant-elevation and background-temperature planes through a round trip, and the Isaac adapter no longer re-adds a plane by hand after validation.
 - **The camera's own altitude thins its air (`AT.28`).** A camera on a mast, a drone or an aircraft now sees the column from its own height -- thinner looking up, denser looking down to the ground -- instead of surface air along its whole ray. Surface cameras are unchanged. ADR 0161.

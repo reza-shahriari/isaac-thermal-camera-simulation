@@ -87,6 +87,7 @@ def test_the_user_directory_is_searched_first_and_shadows_by_name(
 ADDED_SINCE_THE_FREEZE: tuple[tuple[str, str], ...] = (
     ("noise", "bad_pixel_late_fraction"),
     ("isp", "detail_threshold_sigma"),
+    ("fpa", "g_th_w_per_k"),
 )
 
 

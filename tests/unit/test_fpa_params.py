@@ -46,10 +46,11 @@ def test_boson_known_answers() -> None:
     assert p.frame_dt_s == pytest.approx(16.6667e-3, rel=1e-5)
     assert p.dn_max == 65535 and p.shape == (512, 640)
     assert p.thermal_time_constant_s == pytest.approx(8e-3)  # [R24]: nominally 8 msec (SC.3)
-    assert p.c_th_j_per_k == pytest.approx(8e-3 * 1e-7)
+    # SC.34: the Boson authors VOx's G_th (2e-8 W/K, ESTIMATED); C_th follows as G_th * tau
+    assert p.c_th_j_per_k == pytest.approx(8e-3 * 2e-8)
     assert (p.absorptance, p.g_th_w_per_k, p.bias_current_a, p.resistance_ohm) == (
         0.8,
-        1e-7,
+        2e-8,
         50e-6,
         1e5,
     )

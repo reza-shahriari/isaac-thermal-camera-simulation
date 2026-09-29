@@ -390,6 +390,7 @@ class PhotonFpa(_FpaCommon):
     dark_current: DarkCurrentSpec | None = None
     thermal_time_constant_ms: None = None
     tcr_per_k: None = None
+    g_th_w_per_k: None = None  # a bolometer's membrane conductance (SC.34); null on a photon FPA
 
     @model_validator(mode="after")
     def _integration_fits_frame(self) -> PhotonFpa:

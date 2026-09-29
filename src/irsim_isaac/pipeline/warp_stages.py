@@ -59,7 +59,7 @@ from irsim.materials.table import MaterialTable
 from irsim.noise.stage import NoiseStage
 from irsim.noise.three_d import FixedPattern
 from irsim.optics.aperture import aperture_factor
-from irsim.optics.self_emission import housing_power_axis as housing_power_field_axis
+from irsim.optics.self_emission import housing_terms, is_cold_shielded
 from irsim.optics.stage import optics_field
 from irsim.pipeline.atmosphere import atmosphere_stage
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes, require_fp32_or_better
@@ -263,18 +263,20 @@ if wp is not None:
         cos4: wp.array2d(dtype=wp.float32),
         factor: wp.float32,
         area_m2: wp.float32,
-        lb_housing: wp.float32,
-        phi_housing: wp.float32,
+        housing_base: wp.float32,
+        housing_per_ri: wp.float32,
         supersample: wp.int32,
         flux: wp.array2d(dtype=wp.float32),
     ):
-        """Box-mean k× downsample, then Φ = A_d Ω τ RI (L − L_h) + A_d Ω L_h (§8.1, §8.2, §8.3).
+        """Box-mean k× downsample, then Φ = A_d Ω τ RI L + base + per_ri · RI (§8.1, §8.2, §8.3).
 
-        ``factor`` is Ω_eff τ_opt and ``phi_housing`` is A_d Ω_eff L_B(T_housing), both computed
-        on the host by `irsim.optics` (ADR 0145) — the aperture factor π/(4F² + 1) is written once,
-        in `irsim.optics.aperture`, and `tests/unit/test_aperture_guard.py` walks the AST of this
-        file to keep it that way (non-negotiable #5). The box is the full pitch; the fill factor
-        is already in A_d, not in the box (ADR 0020).
+        ``factor`` is Ω_eff τ_opt and ``(housing_base, housing_per_ri)`` are
+        `irsim.optics.self_emission.housing_terms`, computed on the host (ADR 0145, SC.34): a warm
+        housing is ``A_d Ω L_h (1 − τ RI)``, a cold-shielded FPA ``A_d Ω RI (1 − τ) L_h``, and this
+        one kernel serves both. The aperture factor π/(4F² + 1) is written once, in
+        `irsim.optics.aperture`, and `tests/unit/test_aperture_guard.py` walks the AST of this file
+        to keep it that way (non-negotiable #5). The box is the full pitch; the fill factor is
+        already in A_d, not in the box (ADR 0020).
         """
         i, j = wp.tid()
         acc = wp.float32(0.0)
@@ -282,7 +284,9 @@ if wp is not None:
             for b in range(supersample):
                 acc += radiance_ss[i * supersample + a, j * supersample + b]
         mean = acc / (wp.float32(supersample) * wp.float32(supersample))
-        flux[i, j] = (mean - lb_housing) * factor * cos4[i, j] * area_m2 + phi_housing
+        flux[i, j] = (
+            mean * factor * cos4[i, j] * area_m2 + housing_base + housing_per_ri * cos4[i, j]
+        )
 
     @wp.kernel
     def _bolometer_signal_kernel(
@@ -1138,7 +1142,8 @@ class OpticsTerms:
     factor: float  # Omega_eff * tau_opt
     area_m2: float
     lb_housing: float
-    phi_housing: float  # A_d * Omega_eff * L_B(T_housing), the housing power with no scene
+    housing_base: float  # the RI-independent housing power (0 behind a cold shield), SC.34
+    housing_per_ri: float  # the housing power that scales with RI_ij (negative on a warm camera)
     supersample: int
     cos4: NDArray[np.float32]
     psf: NDArray[np.float32] | None
@@ -1162,12 +1167,13 @@ def optics_terms(
     k = sensor.optics.supersample_factor if supersample is None else supersample
     f, tau = sensor.optics.f_number, sensor.optics.transmittance
     a_d = sensor.detector_active_area_m2
+    base, per_ri = housing_terms(a_d, f, tau, lb_housing, is_cold_shielded(sensor))
     return OpticsTerms(
         factor=aperture_factor(f) * tau,
         area_m2=a_d,
         lb_housing=float(lb_housing),
-        # A_d Ω_eff L_h: housing_power_field at RI = 0, i.e. with no scene in the cone
-        phi_housing=housing_power_field_axis(a_d, f, tau, lb_housing),
+        housing_base=float(base),
+        housing_per_ri=float(per_ri),
         supersample=k,
         cos4=np.ascontiguousarray(optics_field(sensor), dtype=np.float32),
         psf=None if psf is None else np.ascontiguousarray(psf, dtype=np.float32),
@@ -1206,7 +1212,8 @@ def launch_optics(radiance_ss: Any, terms: OpticsTerms, flux: Any, device: str) 
             np.float32(terms.factor),
             np.float32(terms.area_m2),
             np.float32(terms.lb_housing),
-            np.float32(terms.phi_housing),
+            np.float32(terms.housing_base),
+            np.float32(terms.housing_per_ri),
             np.int32(terms.supersample),
         ],
         outputs=[flux],

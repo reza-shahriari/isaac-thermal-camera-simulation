@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
@@ -59,12 +60,53 @@ def self_emission_power(
     return active_area_m2 * aperture_factor(f_number) * (1.0 - tau_opt) * lb_housing
 
 
+#: Below this FPA temperature a photon FPA is behind a cold shield: the out-of-cone hemisphere
+#: is a surface ~200 K colder than any scene, whose band radiance is nothing next to the
+#: housing's (SC.34). Uncooled InGaAs (TEC, ~270 K) and CMOS are above it and see their housing.
+COLD_SHIELD_MAX_FPA_K = 200.0
+
+
+def is_cold_shielded(sensor: Any) -> bool:
+    """A photon FPA held below :data:`COLD_SHIELD_MAX_FPA_K` sits behind a cold shield (SC.34)."""
+    fpa = sensor.fpa
+    if getattr(fpa, "type", None) != "photon":
+        return False
+    t = getattr(fpa, "fpa_temp_k", None)
+    return t is not None and float(t) < COLD_SHIELD_MAX_FPA_K
+
+
+def housing_terms(
+    active_area_m2: float,
+    f_number: float,
+    tau_opt: float,
+    lb_housing: float,
+    cold_shielded: bool = False,
+) -> tuple[float, float]:
+    """``(base, per_ri)`` with Φ_housing,ij = base + per_ri · RI_ij (SC.34).
+
+    Warm housing (a bolometer, an uncooled photon FPA): the out-of-cone hemisphere is the
+    housing and the lens emits into the cone, ``A_d Ω_eff L_h (1 − τ RI)`` -- base
+    ``A_d Ω_eff L_h``, per_ri ``−A_d Ω_eff τ L_h`` (§8.2, ADR 0145). Cold-shielded (a cooled
+    photon FPA): the out-of-cone hemisphere is the shield at T_FPA and radiates nothing next to
+    the housing, so only the lens's own emission arrives, through the cone it fills,
+    ``A_d Ω_eff RI (1 − τ) L_h`` -- base 0, per_ri ``A_d Ω_eff (1 − τ) L_h`` (§8.2, §9.1).
+    The sign is the point: on a warm camera the corners see *more* housing than the axis, on a
+    cold-shielded one *less*, and a uniform scene colder than the housing shades the opposite
+    way. One kernel serves both from these two scalars (the Warp twin takes them as is).
+    """
+    axis = housing_power_axis(active_area_m2, f_number, tau_opt, lb_housing)
+    if cold_shielded:
+        return 0.0, axis * (1.0 - tau_opt)
+    return axis, -axis * tau_opt
+
+
 def housing_power_field(
     active_area_m2: float,
     f_number: float,
     tau_opt: float,
     lb_housing: float,
     relative_illumination: object,
+    cold_shielded: bool = False,
 ) -> NDArray[np.float64]:
     """Everything a pixel receives that is not scene: A_d Ω_eff (1 − τ_opt RI_ij) L_B(T_housing).
 
@@ -86,8 +128,8 @@ def housing_power_field(
     ri = np.asarray(relative_illumination, dtype=np.float64)
     if np.any(ri <= 0.0) or np.any(ri > 1.0 + 1e-12) or not np.all(np.isfinite(ri)):
         raise ValueError("relative illumination must lie in (0, 1]")
-    axis_housing = housing_power_axis(active_area_m2, f_number, tau_opt, lb_housing)
-    return np.asarray(axis_housing * (1.0 - tau_opt * ri), dtype=np.float64)
+    base, per_ri = housing_terms(active_area_m2, f_number, tau_opt, lb_housing, cold_shielded)
+    return np.asarray(base + per_ri * ri, dtype=np.float64)
 
 
 def housing_power_axis(

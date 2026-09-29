@@ -194,21 +194,22 @@ def test_boson_floors_are_finite_and_plausible(tophat_lwir_lut: BandLUT) -> None
     ENBW is 1/(4 tau), so it is set by the membrane and by nothing else: at the datasheet's
     nominal 8 ms (SC.3, ADR 0091) that is 31.25 Hz, where the 10 ms this project carried as
     ESTIMATED gave 25 Hz. A faster membrane passes more bandwidth and therefore has a *higher*
-    temperature-fluctuation floor -- 74.5 mK against 66.6 mK, which is above the 50 mK the
-    datasheet claims. That is not a contradiction: this floor is computed from the generic VOx
-    thermal conductance and heat capacity in the config, both still ESTIMATED, and the anchor
-    overrides the magnitude. It is recorded here because it is the direction nobody expects.
+    temperature-fluctuation floor. With the generic 1e-7 W/K conductance that floor was 74.5 mK,
+    above the 50 mK the datasheet claims -- the direction nobody expects, and a sign the number
+    was a placeholder; SC.34 authors VOx's G_th as 2e-8 W/K (ESTIMATED from the literature's
+    1-3e-8) and the floor is 33.3 mK, under the anchor as a floor should be. The anchor (M4.6)
+    still overrides the magnitude; this pins the floor so a change to the constants is seen.
     """
     s = _boson()
     floors = bolometer_floors(s, tophat_lwir_lut)
     assert floors["enbw_hz"] == pytest.approx(31.25)
     assert floors["enbw_hz"] == pytest.approx(1.0 / (4.0 * s.fpa.thermal_time_constant_ms * 1e-3))
-    assert floors["netd_temperature_fluctuation_k"] == pytest.approx(0.0745, rel=1e-2)
+    assert floors["netd_temperature_fluctuation_k"] == pytest.approx(0.0333, rel=1e-2)  # SC.34
     for key in ("netd_temperature_fluctuation_k", "netd_johnson_k"):
         assert 1e-3 < floors[key] < 0.5, (key, floors[key])
     total = math.hypot(floors["netd_temperature_fluctuation_k"], floors["netd_johnson_k"])
     assert 5e-3 < total < 0.5, total
-    assert floors["responsivity_v_per_w"] == pytest.approx(8.4e5, rel=1e-9)
+    assert floors["responsivity_v_per_w"] == pytest.approx(4.2e6, rel=1e-9)  # 5x: G_th 2e-8, SC.34
     nep = 0.05 * 0.8 * signal_derivative_per_k(300.0, s, tophat_lwir_lut)  # NEP at the 50 mK anchor
     d_star = d_star_cm_hz_w(s.detector_active_area_m2, floors["enbw_hz"], nep)
     assert 1e8 < d_star < 1e10, d_star

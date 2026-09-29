@@ -29,7 +29,7 @@ from irsim.config.sensor import SensorSpec
 from irsim.optics.aperture import aperture_factor, fpa_irradiance
 from irsim.optics.psf import apply_psf
 from irsim.optics.sampling import box_downsample
-from irsim.optics.self_emission import housing_power_field
+from irsim.optics.self_emission import housing_power_field, is_cold_shielded
 from irsim.optics.smear import apply_motion_smear
 from irsim.optics.vignetting import cos4_field, load_vignetting_map
 
@@ -98,7 +98,7 @@ def apply_optics(
     f, tau = sensor.optics.f_number, sensor.optics.transmittance
     ri = optics_field(sensor)
     irradiance = fpa_irradiance(radiance, f, tau, ri)
-    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri)
+    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri, is_cold_shielded(sensor))
     phi = irradiance.astype(np.float64) * a_d + phi_housing
     return np.asarray(phi, dtype=np.float32)
 
@@ -138,6 +138,6 @@ def invert_optics(
     a_d = sensor.detector_active_area_m2
     f, tau = sensor.optics.f_number, sensor.optics.transmittance
     ri = optics_field(sensor).astype(np.float64)
-    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri)
+    phi_housing = housing_power_field(a_d, f, tau, lb_housing, ri, is_cold_shielded(sensor))
     denom = a_d * aperture_factor(f) * tau * ri
     return np.asarray((p.astype(np.float64) - phi_housing) / denom, dtype=np.float32)

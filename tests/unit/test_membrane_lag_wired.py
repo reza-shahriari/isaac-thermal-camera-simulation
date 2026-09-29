@@ -64,6 +64,7 @@ def _config(lut: BandLUT, *, photon: bool = False, **over: Any) -> PipelineConfi
             dark_current_model="fixed",
             thermal_time_constant_ms=None,
             tcr_per_k=None,
+            g_th_w_per_k=None,
         )
     for block, updates in over.items():
         d["sensor"][block].update(updates)

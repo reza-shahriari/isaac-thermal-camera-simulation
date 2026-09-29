@@ -269,6 +269,7 @@ def test_a_bolometer_smears_more_than_a_cooled_detector() -> None:
                     "dark_current_model": "fixed",
                     "thermal_time_constant_ms": None,
                     "tcr_per_k": None,
+                    "g_th_w_per_k": None,
                 }
             )
         }

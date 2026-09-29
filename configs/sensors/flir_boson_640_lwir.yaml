@@ -49,6 +49,10 @@ sensor:
     frame_rate_hz: 60
     bit_depth: 16
     thermal_time_constant_ms: 8.0                # [R24] Table/S5: "Nominally 8 msec". Was 10.0,
+    g_th_w_per_k: 2.0e-8                        # ESTIMATED (SC.34): VOx 17 um pixel thermal conductance,
+                                                 # 1-3e-8 W/K in the literature (Niklaus, Vieider & Jakobsen 2007
+                                                 # review; the schema's 1e-7 default reported a 74.5 mK floor over the
+                                                 # 50 mK anchor). Reported floors only: DN come from the anchor.
                                                  # carried as ESTIMATED from the generic VOx 8-12 ms
                                                  # range while the datasheet states the number (SC.3)
     tcr_per_k: -0.021                            # ESTIMATED (typical VOx)

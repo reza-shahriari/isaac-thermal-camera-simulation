@@ -1,6 +1,6 @@
 {
   "atol": 1.0,
-  "config_hash": "99d012f339279d7372f0b25a4b83f899d3b8acc324f29fd44015fe09c43e862c",
+  "config_hash": "6e345eba185709b33c3333e5c6c40b0dc159cd8f702998c12bc01f1245a38c75",
   "dtype": "uint16",
   "name": "pointwise_frame_dn16",
   "numpy_version": "2.3.1",
