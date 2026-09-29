@@ -118,6 +118,9 @@ class GBuffer:
     shadow_mask: NDArray[np.float32] | None = None
     sun_cos_incidence: NDArray[np.float32] | None = None
     elevation_rad: NDArray[np.float32] | None = None
+    #: `OC.7`'s clear-column apparent temperature behind each pixel (listed in OPTIONAL_KEYS
+    #: since it was added; the dataclass had no field for it, so `from_dict` raised -- IG.18).
+    background_t_k: NDArray[np.float32] | None = None
     extra: dict[str, NDArray[Any]] = field(default_factory=dict)
 
     @property
@@ -203,15 +206,10 @@ class GBuffer:
             "material_id": self.material_id,
             "sky_view_factor": self.sky_view_factor,
         }
-        for key in (
-            "encoded_t",
-            "motion_px",
-            "semantic_id",
-            "sky_mask",
-            "shadow_mask",
-            "sun_cos_incidence",
-        ):
-            value = getattr(self, key)
+        # IG.18: every optional plane the contract names, so `from_dict(to_dict(g))` is the
+        # identity and no adapter has to re-add a plane the validator dropped.
+        for key in sorted(OPTIONAL_KEYS):
+            value = getattr(self, key, None)
             if value is not None:
                 out[key] = value
         out.update(self.extra)

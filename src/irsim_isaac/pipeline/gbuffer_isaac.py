@@ -452,6 +452,7 @@ def to_gbuffer(
     temperature_k: Any,
     material_id: Any,
     sky_temperature_k: Any | None = None,
+    elevation_rad: Any | None = None,
 ) -> GBuffer:
     """Join the geometry planes to the facet-table lookups and validate the M0.6 contract.
 
@@ -490,6 +491,9 @@ def to_gbuffer(
         out["motion_px"] = planes.motion_px
     if planes.semantic_id is not None:
         out["semantic_id"] = planes.semantic_id
+    if elevation_rad is not None:
+        # IG.18: each pixel's ray elevation (AT.1) is validated with the rest of the contract
+        out["elevation_rad"] = np.asarray(elevation_rad, dtype=np.float32)
     return GBuffer.from_dict(out)
 
 

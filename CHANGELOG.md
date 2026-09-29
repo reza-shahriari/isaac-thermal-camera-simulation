@@ -88,6 +88,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with no name given, the skill infers one and says which. 5 new tests (38 in the file).
 
 ### Fixed
+- **The G-buffer contract and its dataclass are one thing (`IG.18`).** A validated G-buffer keeps its slant-elevation and background-temperature planes through a round trip, and the Isaac adapter no longer re-adds a plane by hand after validation.
 - **The camera's own altitude thins its air (`AT.28`).** A camera on a mast, a drone or an aircraft now sees the column from its own height -- thinner looking up, denser looking down to the ground -- instead of surface air along its whole ray. Surface cameras are unchanged. ADR 0161.
 - **Humid air absorbs LWIR the way the continuum says (`AT.27`).** The water-vapour term gains a w² self-continuum contribution in LWIR, anchored so clear dry air is unchanged: a 30 °C, 80 % RH day now transmits 0.73 over 200 m instead of 0.79, mid-latitude summer air 1 % less than before. Older atmosphere presets load unchanged. ADR 0160.
 - **Heat spreads along a carbon skin at the laminate's in-plane conductivity (`PT.26`).** The lateral conduction operators used the through-thickness value, nine times too low for carbon fibre; materials gain an optional `conductivity_inplane_w_mk` (older files unchanged), and a quadrotor arm's crown-to-underside gradient shrinks from 11 K to 3 K as the tube conducts round itself.
