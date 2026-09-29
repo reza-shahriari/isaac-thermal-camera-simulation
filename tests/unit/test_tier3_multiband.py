@@ -481,13 +481,13 @@ BASELINE_OVERRIDES: dict[str, tuple[str, str]] = {
         "band remains a config and a response file, which is the property the guard is for.",
     ),
     "lut_files.py": (
-        "877a1ce",
-        "AT.2 added `load_band_response_for_config`, a band-agnostic sibling of "
-        "`load_band_lut_for_config`. It names no band and branches on none: it reads the response "
-        "path a sensor config already declares. It exists because the layered atmosphere needs the "
-        "camera's R(lambda) to split a band into spectral classes, and without it every band was "
-        "split by a nominal top-hat -- measured as a 5.5x error in the MWIR h2o_wing weight. "
-        "Adding a band still needs no edit to this file, which is the property the guard is for.",
+        "4de2305",
+        "GT.11 added `builder_sha256` -- a hash of the source of `band_integration`, `planck` and "
+        "`constants` written into every LUT sidecar and checked on load, so a bundle an older "
+        "builder made is refused with the `make luts` remedy instead of feeding a golden. It "
+        "names no band and branches on none (AT.2's `load_band_response_for_config`, the previous "
+        "baseline, likewise read only the response path a config declares). Adding a band still "
+        "needs no edit to this file, which is the property the guard is for.",
     ),
 }
 
