@@ -797,6 +797,15 @@ class IrCamera:
         # The reflective terms ride *outside* the M0.6 contract, the way `radiance_behind` does:
         # they are stage-1 inputs, not geometry, and `GBuffer` refuses keys it does not know.
         planes.update(self._illumination_planes(aovs, geometry))
+        # AT.14: the cloud between the camera and every hit, marched on the shared field. Sky
+        # pixels carry theirs in the temperature already; these planes are for the geometry.
+        occlusion = self.bridge.cloud_occlusion(
+            elevation, azimuth, geometry.distance_m, geometry.sky_mask
+        )
+        if occlusion is not None:
+            planes["cloud_transmittance"] = np.asarray(occlusion.transmittance, dtype=np.float32)
+            planes["cloud_radiance"] = np.asarray(occlusion.radiance, dtype=np.float32)
+            planes["cloud_range_m"] = np.asarray(occlusion.range_m, dtype=np.float32)
         self._last = _Frame(
             rgb=self._native_rgb(aovs.rgb),
             planes=planes,

@@ -171,6 +171,17 @@ class SkyModel:
         return self._band
 
     @property
+    def site(self) -> tuple[float, float] | None:
+        """``(latitude_deg, longitude_deg)`` when the sky was given one, else ``None`` (AT.23)."""
+        return self._site
+
+    def solar_terms(self, t_s: float) -> Any:
+        """The sun at ``t_s`` for this sky's site and weather (`SolarTerms`; AT.23)."""
+        if self._site is None:
+            raise ValueError("this sky has no site, so it cannot place the sun; pass site=")
+        return solar_terms_at(self.weather, self._site[0], self._site[1], float(t_s))
+
+    @property
     def environment(self) -> EnvironmentSpec:
         return self._env
 
@@ -498,6 +509,50 @@ class SkyModel:
             np.interp(deg, ELEVATION_GRID_DEG, tau_grid),
             l_base,
             march.emissivity(),
+        )
+
+    def cloud_occlusion(
+        self,
+        t_s: float,
+        elevation_rad: Any,
+        azimuth_rad: Any,
+        deck: Any,
+        range_m: Any,
+        *,
+        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        steps: int | None = None,
+    ) -> Any:
+        """The cloud between the camera and each pixel's hit: transmittance and emission (AT.14).
+
+        docs/clouds-in-the-infrared.md; ADR 0162. The sky pixels have always marched the shared
+        field (:meth:`radiance_field_from_deck`); a pixel that hit geometry never did, so a
+        target behind or inside a cloud was drawn through clear air. This marches the same
+        array with the same base temperature and the same in-cloud lapse, ended at the hit,
+        and answers what stage 2 composes: ``L = τ_c (τ_air L_hit + L_path,air) + L_cloud``.
+
+        ``deck`` must offer ``march_to`` (a :class:`~irsim.atmosphere.weather_fx.WeatherFxDeck`
+        does); the native :class:`~irsim.atmosphere.cloud_deck.CloudDeck` does not yet, and a
+        caller that holds one gets ``None`` back rather than a guess.
+        """
+        march_to = getattr(deck, "march_to", None)
+        if march_to is None:
+            return None
+        base_m = float(getattr(deck, "base_m", self.cloud_base_m(t_s)))
+        t_base = self.cloud_base_temperature_k(t_s, base_m)
+        lapse = self._atm.preset.profile.lapse_rate_k_per_m
+        lut, q = self._lut, self._q
+        # A reflective band's cloud also scatters sunlight toward the camera (AT.20); the sky
+        # path takes the column's own two-stream albedo, this one the preset's -- the same
+        # approximation :meth:`_cloud` makes for the uniform blend.
+        shine = float(self.cloud_shine(t_s))
+
+        def radiance_at_height(height_m: NDArray[np.float64]) -> NDArray[np.float64]:
+            t_emit = t_base - lapse * np.maximum(height_m - base_m, 0.0)
+            return np.asarray(lut.lookup(t_emit, q), dtype=np.float64) + shine
+
+        el = np.maximum(np.asarray(elevation_rad, dtype=np.float64), 0.0)
+        return march_to(
+            el, azimuth_rad, range_m, radiance_at_height, origin_m=origin_m, steps=steps
         )
 
     def apparent_temperature_field_from_deck(

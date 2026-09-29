@@ -693,6 +693,40 @@ sections:
       the real-time path and the volume is the path-tracing one.
     source: scripts/probe_cloud_volume.py
 
+  - id: cloud-occlusion
+    title: A drone behind a cloud, in the infrared
+    lead: |
+      Until `AT.14` the infrared band marched the weather-fx cloud only where a ray hit nothing,
+      so a target behind or inside a cloud was drawn through clear air. Here the shared field is
+      marched to every pixel's own hit (ADR 0162): a Phantom 4 flying at 30–110 m through a thin
+      stratus fractus layer (base 15 m, 80 m thick, 60 % cover, the preset in
+      `configs/weather_fx/stratus_fractus_over_the_camera.json`), filmed from the ground at 53 to
+      121 m. Its parts are solved at 14 to 18 °C on the first frame and the motors reach 36 to
+      38 °C by the eighth, yet the airframe *reads* 4 °C at 59 m and −0.5 °C at 97 m — the cloud's
+      transmittance to the hit, with the layer's own emission (it sits at the 14 °C air, cooling
+      with height) laid in front. The thin cloud over the rest of the frame reads −12 to −2 °C
+      against what would be a −40 °C clear sky.
+    media:
+      - video: phantom4_cloud_occlusion/phantom4_parts_pair.mp4
+        width: full
+        caption: >-
+          LWIR on the left, the visible companion on the right, 24 frames at 12 fps on a −11.4 to
+          12.7 °C span. The target is 6 to 14 pixels across: the physics is in the numbers above
+          more than in the picture.
+      - video: phantom4_cloud_occlusion/phantom4_parts_skypair.mp4
+        width: half
+        caption: The same frames on the sky's own span, −13.9 to 0.2 °C, where the layer's structure shows.
+      - video: phantom4_cloud_occlusion/phantom4_parts_agcpair.mp4
+        width: half
+        caption: And through the camera's own AGC.
+    note: |
+      Two things this clip does not yet show. The visible companion is a dome bake — the pinned
+      weather-fx commit predates its path-traced volumes — so it does *not* occlude the drone the
+      infrared band now occludes; `AT.30` bumps the submodule and aligns the two. And a large,
+      resolved target behind a cumulus at its natural 600 m base would need an aircraft-sized
+      asset the library does not hold yet, which is why the layer was brought down to the drone.
+    source: scripts/render_phantom4.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |

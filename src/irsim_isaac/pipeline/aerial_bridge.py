@@ -52,6 +52,7 @@ from irsim.atmosphere.cloud import SkyFixedCloud, generate_sky_cloud, sky_angles
 from irsim.atmosphere.cloud_deck import CloudDeck, resample_bilinear
 from irsim.atmosphere.sea import SeaModel
 from irsim.atmosphere.sky import SkyModel
+from irsim.pipeline.atmosphere import CloudOcclusion
 from irsim.pipeline.environment import ground_temperature_k
 from irsim.scene import Scene
 from irsim_isaac.pipeline.material_ids import BACKGROUND_INSTANCE_ID, labels_to_paths
@@ -508,6 +509,34 @@ class AerialThermalBridge:
             t_abs, el[::k, ::k], az[::k, ::k], self.deck
         )
         return resample_bilinear(coarse, el.shape)
+
+    def cloud_occlusion(
+        self, elevation_rad: Any, azimuth_rad: Any, distance_m: Any, sky_mask: Any
+    ) -> CloudOcclusion | None:
+        """The cloud between the camera and each pixel's hit, or ``None`` without a deck (AT.14).
+
+        Sky pixels are marched to infinity by :meth:`sky_temperature_field` already and are
+        given range ``inf`` here only so the planes are whole; stage 2 leaves them alone. The
+        march is run at the same stride as the sky's and interpolated back, for the same reason
+        (:meth:`_deck_temperature`): the field's finest feature is about one native pixel.
+        """
+        if self.deck is None or self.sky is None or not hasattr(self.deck, "march_to"):
+            return None
+        t_abs = self.scene.t0_s + self._t_rel_s
+        el = np.asarray(elevation_rad, dtype=np.float64)
+        az = np.asarray(azimuth_rad, dtype=np.float64)
+        sky = np.asarray(sky_mask, dtype=bool)
+        rng = np.where(sky, np.inf, np.asarray(distance_m, dtype=np.float64))
+        k = self.deck_stride
+        if k <= 1 or el.ndim != 2 or min(el.shape) < 2 * k:
+            m = self.sky.cloud_occlusion(t_abs, el, az, self.deck, rng)
+            return CloudOcclusion(m.transmittance, m.path_radiance, m.emission_range_m)
+        m = self.sky.cloud_occlusion(t_abs, el[::k, ::k], az[::k, ::k], self.deck, rng[::k, ::k])
+        return CloudOcclusion(
+            resample_bilinear(m.transmittance, el.shape),
+            resample_bilinear(m.path_radiance, el.shape),
+            resample_bilinear(m.emission_range_m, el.shape),
+        )
 
     def sky_temperature(self, elevation_rad: Any) -> NDArray[np.float64]:
         """MS.2's apparent sky temperature; elevations must be above the horizon."""

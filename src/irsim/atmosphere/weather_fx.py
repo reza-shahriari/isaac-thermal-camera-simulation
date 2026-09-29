@@ -29,6 +29,7 @@ from __future__ import annotations
 import math
 import pathlib
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -40,6 +41,7 @@ from irsim.atmosphere.cloud_deck import MarchResult
 
 __all__ = [
     "WEATHER_FX_PACKAGE",
+    "OccludedMarch",
     "WeatherFxDeck",
     "cloud_field_from_spec",
     "ensure_weather_fx_on_path",
@@ -136,6 +138,8 @@ def cloud_field_from_spec(
 #: Transmittance below which a ray is opaque for every purpose this project has: e^-12 of the
 #: sky behind it is 1e-5 of a radiance the band LUT resolves to 1e-4.
 OPAQUE_TRANSMITTANCE = math.exp(-12.0)
+#: The same limit as an optical depth, for a march that accumulates depth rather than product.
+OPAQUE_OPTICAL_DEPTH = 12.0
 
 
 def ray_hash(direction: Any) -> NDArray[np.float64]:
@@ -151,6 +155,34 @@ def ray_hash(direction: Any) -> NDArray[np.float64]:
     phase = d[..., 0] * 12.9898 + d[..., 1] * 78.233 + d[..., 2] * 37.719
     value = np.sin(phase) * 43758.5453123
     return np.asarray(value - np.floor(value), dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class OccludedMarch:
+    """What a ray took from the cloud between the camera and **whatever it hit** (AT.14).
+
+    The sky-only :class:`~irsim.atmosphere.cloud_deck.MarchResult` answers "how much cloud, and
+    where did the emission come from" for a ray that ends at infinity. This answers the
+    Schwarzschild question for a ray that ends at a range -- a drone, a wing, the sea -- so the
+    surface behind the cloud can be attenuated by it and the cloud's own emission laid in front:
+    ``L = transmittance · L_hit + path_radiance`` (docs/clouds-in-the-infrared.md).
+    """
+
+    #: Visible optical depth accumulated between the camera and the hit (not the band's).
+    optical_depth: NDArray[np.float64]
+    #: The **band's** transmittance through that cloud, ``exp(−od_ratio · τ_vis)`` sample by
+    #: sample. 1 where the ray met no cloud short of its hit.
+    transmittance: NDArray[np.float64]
+    #: The band radiance the cloud emits toward the camera along the ray, each sample at its own
+    #: height's temperature and attenuated by the cloud in front of it. 0 without cloud.
+    path_radiance: NDArray[np.float64]
+    #: Range from the camera at which that emission is centred, weighted by what reaches the
+    #: sensor, metres -- what the air in front of the cloud is integrated over. 0 without cloud.
+    emission_range_m: NDArray[np.float64]
+
+    @property
+    def emissivity(self) -> NDArray[np.float64]:
+        return np.asarray(1.0 - self.transmittance, dtype=np.float64)
 
 
 @dataclass
@@ -303,7 +335,10 @@ class WeatherFxDeck:
             height_weight[idx] += weight
             optical[idx] += d_tau
             transmittance[idx] = transmittance[idx] * np.exp(-d_tau)
-            active[idx] = transmittance[idx] > OPAQUE_TRANSMITTANCE
+            # Opaque in the *band*, not in the visible: the band's depth is `od_ratio` times
+            # the visible one, and dropping out at visible e^-12 capped an opaque cloud's LWIR
+            # emissivity at 1 - e^-6 (AT.14 found it against the finite-range march).
+            active[idx] = optical[idx] * float(self.od_ratio) < OPAQUE_OPTICAL_DEPTH
 
         above_base = np.where(
             height_weight > 1e-12,
@@ -314,6 +349,90 @@ class WeatherFxDeck:
             optical_depth=optical,
             emission_height_m=np.maximum(above_base, 0.0),
         )
+
+    def march_to(
+        self,
+        elevation_rad: Any,
+        azimuth_rad: Any,
+        range_m: Any,
+        radiance_at_height: Callable[[NDArray[np.float64]], Any],
+        *,
+        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        steps: int | None = None,
+    ) -> OccludedMarch:
+        """Integrate absorption **and emission** along each ray up to ``range_m`` (AT.14).
+
+        The same stratified, hashed quadrature as :meth:`march`, ended at the ray's own hit
+        instead of the far side of the slab, and carrying the band along: every sample
+        absorbs ``1 − e^{−od_ratio σ Δs}`` of what is behind it and emits that fraction of
+        ``radiance_at_height(height_m)`` toward the camera, attenuated by the cloud already
+        crossed. That is the Schwarzschild integral for a non-scattering medium, discretised
+        per sample and marched from the camera outward (docs/clouds-in-the-infrared.md; Petty
+        ch. 8). Scattering enters only through ``od_ratio`` -- the band's absorption is a fixed
+        fraction of the visible extinction -- which is the standard operational approximation
+        (Chou et al. 1999) and the same one the sky pixels already make.
+
+        ``range_m`` is per ray and may be ``inf`` (a sky pixel); a ray whose hit lies short of
+        the slab meets no cloud and answers transmittance 1, radiance 0. ``radiance_at_height``
+        takes heights above the ground in metres and returns the band radiance the cloud emits
+        there; the sky model supplies its own base temperature and in-cloud lapse.
+        """
+        el = np.asarray(elevation_rad, dtype=np.float64)
+        az = np.asarray(azimuth_rad, dtype=np.float64)
+        rng = np.asarray(range_m, dtype=np.float64)
+        el, az, rng = np.broadcast_arrays(el, az, rng)
+        direction = np.stack(
+            [np.cos(el) * np.sin(az), np.sin(el), -np.cos(el) * np.cos(az)], axis=-1
+        )
+        origin = np.zeros(direction.shape, dtype=np.float64)
+        origin[...] = np.asarray(origin_m, dtype=np.float64)
+
+        near, far = self.field.slab_span(origin, direction)
+        end = np.minimum(np.minimum(far, near + self.max_path_m), rng)
+        hit = end > near
+        span = np.where(hit, end - near, 0.0)
+        shape = span.shape
+        optical = np.zeros(shape, dtype=np.float64)
+        transmittance = np.ones(shape, dtype=np.float64)
+        radiance = np.zeros(shape, dtype=np.float64)
+        range_sum = np.zeros(shape, dtype=np.float64)
+        range_weight = np.zeros(shape, dtype=np.float64)
+        if not np.any(hit) or self.field.cover <= 0.0:
+            return OccludedMarch(optical, transmittance, radiance, range_sum)
+
+        n = max(int(steps if steps is not None else (self.steps or self.steps_for(span))), 1)
+        jitter = ray_hash(direction)
+        width = span / n
+        extinction = float(self.field.extinction_per_m)
+        ratio = float(self.od_ratio)
+        dx, dy, dz = direction[..., 0], direction[..., 1], direction[..., 2]
+        ox, oy, oz = origin[..., 0], origin[..., 1], origin[..., 2]
+        active = hit.copy()
+        for k in range(n):
+            idx = np.nonzero(active)
+            if idx[0].size == 0:
+                break
+            t = near[idx] + (k + jitter[idx]) * width[idx]
+            px, py, pz = ox[idx] + dx[idx] * t, oy[idx] + dy[idx] * t, oz[idx] + dz[idx] * t
+            d_tau = np.asarray(self.field.density(px, py, pz), dtype=np.float64) * (
+                extinction * width[idx]
+            )
+            absorbed = -np.expm1(-ratio * d_tau)
+            # What this sample contributes at the sensor: its own emission, absorbed here,
+            # through the cloud already crossed. The weight is the same quantity, so the
+            # emission range is where the radiance the sensor sees actually came from.
+            weight = transmittance[idx] * absorbed
+            radiance[idx] += weight * np.asarray(radiance_at_height(py), dtype=np.float64)
+            range_sum[idx] += weight * t
+            range_weight[idx] += weight
+            optical[idx] += d_tau
+            transmittance[idx] = transmittance[idx] * (1.0 - absorbed)
+            active[idx] = transmittance[idx] > OPAQUE_TRANSMITTANCE
+
+        emission_range = np.where(
+            range_weight > 1e-12, range_sum / np.maximum(range_weight, 1e-12), 0.0
+        )
+        return OccludedMarch(optical, transmittance, radiance, emission_range)
 
     def adequate_steps(self, elevation_rad: Any) -> int:
         """How many steps this field wants for the shallowest ray in the array.

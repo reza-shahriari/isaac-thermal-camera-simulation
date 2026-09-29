@@ -13,6 +13,8 @@ docs/physics-model.md §13.4 stage 2, §7.1, §3.3
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -21,11 +23,74 @@ from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 
 __all__ = [
+    "CloudOcclusion",
     "apply_atmosphere_gbuffer",
     "apply_layered_gbuffer",
     "atmosphere_stage",
     "AtmosphereStage",
+    "cloud_from_planes",
+    "compose_cloud",
 ]
+
+
+@dataclass(frozen=True)
+class CloudOcclusion:
+    """The cloud between the camera and each pixel's hit, as three planes (AT.14).
+
+    Produced by the deck march (:meth:`irsim.atmosphere.sky.SkyModel.cloud_occlusion`) and
+    carried in the plane dict as ``cloud_transmittance``, ``cloud_radiance`` and
+    ``cloud_range_m`` -- outside the M0.6 G-buffer contract, the way ``radiance_behind`` is,
+    because they are stage-2 inputs rather than geometry. Sky pixels are ignored: their cloud is
+    already in the sky temperature the bridge marched.
+    """
+
+    #: The band's transmittance through the cloud short of the hit; 1 where there is none.
+    transmittance: NDArray[np.floating]
+    #: Cloud emission toward the camera, before the air in front of the cloud; 0 without cloud.
+    radiance: NDArray[np.floating]
+    #: Range at which that emission is centred, metres, so the air in front can attenuate it.
+    range_m: NDArray[np.floating]
+
+
+def cloud_from_planes(planes: Planes) -> CloudOcclusion | None:
+    """The three cloud planes, or ``None`` when the frame carries no cloud march."""
+    if "cloud_transmittance" not in planes:
+        return None
+    return CloudOcclusion(
+        np.asarray(planes["cloud_transmittance"]),
+        np.asarray(planes["cloud_radiance"]),
+        np.asarray(planes["cloud_range_m"]),
+    )
+
+
+def compose_cloud(
+    radiance: NDArray[np.floating],
+    cloud: CloudOcclusion,
+    air_transmittance_to_cloud: NDArray[np.floating],
+    sky_mask: NDArray[np.bool_] | None = None,
+) -> NDArray[np.floating]:
+    """``τ_c · L + τ_air(R_c) · L_cloud`` on every non-sky pixel; dtype preserved.
+
+    ``radiance`` is the pixel *after* its own air (``τ_air(R) L_hit + L_path,air(R)``): the
+    cloud sits between the camera and the hit, so the whole of that is seen through it, and
+    the cloud's own emission reaches the camera through the air in front of the cloud only.
+    The air *inside* the cloud path is counted twice at most over the cloud's own thickness,
+    which its opacity makes invisible (docs/clouds-in-the-infrared.md).
+    """
+    l_in = np.asarray(radiance)
+    if l_in.dtype == np.float16:
+        raise TypeError("radiance is float16 (non-negotiable #2)")
+    tau_c = np.asarray(cloud.transmittance, dtype=np.float64)
+    if tau_c.shape != l_in.shape:
+        raise ValueError(f"cloud planes {tau_c.shape} do not match the radiance {l_in.shape}")
+    out = tau_c * l_in.astype(np.float64) + np.asarray(
+        air_transmittance_to_cloud, dtype=np.float64
+    ) * np.asarray(cloud.radiance, dtype=np.float64)
+    if sky_mask is not None:
+        out = np.where(np.asarray(sky_mask, dtype=bool), l_in, out)
+    return np.asarray(
+        out, dtype=l_in.dtype if np.issubdtype(l_in.dtype, np.floating) else np.float64
+    )
 
 
 def apply_atmosphere_gbuffer(
@@ -35,8 +100,13 @@ def apply_atmosphere_gbuffer(
     l_air: float,
     sky_mask: NDArray[np.bool_] | None = None,
     tau_override: float | None = None,
+    cloud: CloudOcclusion | None = None,
 ) -> NDArray[np.floating]:
-    """Per-pixel M8.1 on the radiance plane; dtype preserved (float16 refused)."""
+    """Per-pixel M8.1 on the radiance plane; dtype preserved (float16 refused).
+
+    ``cloud`` (AT.14) lays the marched cloud over the result: the grey atmosphere's own
+    ``exp(−γ R_c)`` attenuates the cloud's emission.
+    """
     l_in = np.asarray(radiance)
     d = np.asarray(distance_m)
     if d.shape != l_in.shape:
@@ -50,6 +120,9 @@ def apply_atmosphere_gbuffer(
         if sky.dtype != np.bool_ or sky.shape != l_in.shape:
             raise ValueError("sky_mask must be a bool plane with the radiance shape")
         out = np.where(sky, l_in, out).astype(l_in.dtype, copy=False)
+    if cloud is not None:
+        to_cloud = np.exp(-float(gamma_per_m) * np.asarray(cloud.range_m, dtype=np.float64))
+        out = compose_cloud(out, cloud, to_cloud, sky_mask)
     return out
 
 
@@ -63,8 +136,12 @@ def apply_layered_gbuffer(
     sky_mask: NDArray[np.bool_] | None = None,
     elevation_rad: NDArray[np.floating] | None = None,
     observer_height_m: float = 0.0,
+    cloud: CloudOcclusion | None = None,
 ) -> NDArray[np.floating]:
     """MS.1 on the radiance plane, each pixel along its own slant ray when one is given (AT.1).
+
+    ``cloud`` (AT.14) composes the marched cloud over every non-sky pixel afterwards, its
+    emission attenuated by the same exponential sum over the range the emission came from.
 
     ``observer_height_m`` (AT.28) starts every column at the camera's height; 0 is the surface
     camera every scene had, bit for bit.
@@ -102,6 +179,12 @@ def apply_layered_gbuffer(
         if sky.dtype != np.bool_ or sky.shape != l_in.shape:
             raise ValueError("sky_mask must be a bool plane with the radiance shape")
         out = np.where(sky, l_in, out).astype(l_in.dtype, copy=False)
+    if cloud is not None:
+        el_c = 0.0 if elevation_rad is None else np.asarray(elevation_rad, dtype=np.float64)
+        to_cloud = atmosphere.exponential_sum(band, t_s).transmittance(
+            np.asarray(cloud.range_m, dtype=np.float64), el_c, float(observer_height_m)
+        )
+        out = compose_cloud(out, cloud, to_cloud, sky_mask)
     return out
 
 
@@ -123,6 +206,7 @@ def atmosphere_stage(planes: Planes, config: PipelineConfig, state: PipelineStat
                 sky_mask=planes.get("sky_mask"),
                 elevation_rad=planes.get("elevation_rad"),
                 observer_height_m=float(planes.get("observer_height_m", 0.0)),
+                cloud=cloud_from_planes(planes),
             )
         }
     atm_state = config.atmosphere.state(state.t_s)
@@ -135,6 +219,7 @@ def atmosphere_stage(planes: Planes, config: PipelineConfig, state: PipelineStat
         l_air,
         sky_mask=planes.get("sky_mask"),
         tau_override=config.tau_override,
+        cloud=cloud_from_planes(planes),
     )
     return {"radiance": out}
 

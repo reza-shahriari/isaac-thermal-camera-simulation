@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "_comment": "AT.14 demonstration: a thin, broken stratus fractus layer just above the camera (base 15 m, 80 m thick, 60 % cover) so a drone flying through 30-110 m is seen through cloud, behind it and beside it in one clip. Loaded over the fair_cumulus regime by scripts/render_phantom4.py --weather-preset.",
+  "clouds": {"enabled": true, "cover": 0.6, "genus": "stratus", "base_m": 15.0, "thickness_m": 80.0, "temperature_c": 14.0, "dewpoint_c": 13.5},
+  "wind": {"speed_mps": 2.0, "direction_deg": 250.0}
+}

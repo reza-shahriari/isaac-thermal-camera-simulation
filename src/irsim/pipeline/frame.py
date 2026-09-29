@@ -43,7 +43,11 @@ from irsim.optics.projection import Intrinsics
 from irsim.optics.psf import apply_psf
 from irsim.optics.stage import apply_optics, invert_optics, shutter_flux
 from irsim.optics.thermal_defocus import effective_focus_distance_m, thermal_defocus_um
-from irsim.pipeline.atmosphere import apply_atmosphere_gbuffer, apply_layered_gbuffer
+from irsim.pipeline.atmosphere import (
+    apply_atmosphere_gbuffer,
+    apply_layered_gbuffer,
+    cloud_from_planes,
+)
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.detector import bolometer_lag, lag_interval_s
 from irsim.pipeline.optics import motion_for_integration
@@ -251,6 +255,8 @@ def run_frame(
             # beside it took the slant one -- `atmosphere_stage` passed it, `run_frame` did not.
             elevation_rad=planes.get("elevation_rad"),
             observer_height_m=float(planes.get("observer_height_m", 0.0)),
+            # AT.14: the cloud between the camera and the hit, when the bridge marched one.
+            cloud=cloud_from_planes(planes),
         )
     elif config.atmosphere is not None:
         atm_state = config.atmosphere.state(state.t_s)
@@ -262,6 +268,7 @@ def run_frame(
             l_air,
             sky_mask=planes.get("sky_mask"),
             tau_override=config.tau_override,
+            cloud=cloud_from_planes(planes),
         )
     # stage 2b: analytic point targets below one native pixel (MS.6), before the PSF and box
     if point_targets:
