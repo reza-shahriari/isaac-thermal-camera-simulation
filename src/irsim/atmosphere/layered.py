@@ -268,8 +268,21 @@ def class_weights(
     return np.asarray(out / out.sum(), dtype=np.float64)
 
 
-def column_length(distance_m: Any, elevation_rad: Any, scale_height_m: float) -> Any:
-    """∫₀^d e^{−s sinθ/H} ds on a flat-earth ray: d at θ = 0, else H/sinθ (1 − e^{−d sinθ/H}).
+#: AT.28: pieces of equal transmittance loss along a ray from a camera above the surface, per
+#: class; each emits its exact loss at its density-weighted mean height. Eight bring the plane
+#: within 0.3 % of a 4000-step quadrature for every geometry in `test_observer_height.py`.
+PLANE_SEGMENTS = 8
+
+
+def column_length(
+    distance_m: Any, elevation_rad: Any, scale_height_m: float, observer_height_m: float = 0.0
+) -> Any:
+    """∫₀^d e^{−(z₀ + s sinθ)/H} ds on a flat-earth ray from height ``z₀`` (AT.28).
+
+    ``z₀ = 0``: d at θ = 0, else H/sinθ (1 − e^{−d sinθ/H}) -- bit for bit what it was. From a
+    mast, a drone or an aircraft the whole column carries the factor e^{−z₀/H}, and a ray that
+    *descends* (sinθ < 0) gains density on the way down: the same closed form with the sign of
+    sinθ, evaluated no further than the ground at s = z₀/|sinθ| (a target cannot be below it).
 
     ``elevation_rad`` broadcasts against ``distance_m`` (AT.1), so one call answers a whole frame
     whose pixels each look along their own ray. It used to be a scalar, and the pipeline passed
@@ -281,19 +294,53 @@ def column_length(distance_m: Any, elevation_rad: Any, scale_height_m: float) ->
     """
     d = np.asarray(distance_m, dtype=np.float64)
     st = np.sin(np.asarray(elevation_rad, dtype=np.float64))
-    up = st > 0.0
-    # `np.where` evaluates both branches, so the divide is guarded rather than masked afterwards:
-    # a zero sine would raise and a negative one would return a negative column.
-    safe = np.where(up, st, 1.0)
+    if observer_height_m < 0.0 or not math.isfinite(observer_height_m):
+        raise ValueError("observer_height_m must be finite and non-negative")
+    if observer_height_m == 0.0:
+        up = st > 0.0
+        # `np.where` evaluates both branches, so the divide is guarded rather than masked
+        # afterwards: a zero sine would raise and a negative one would return a negative column.
+        safe = np.where(up, st, 1.0)
+        with np.errstate(over="ignore", invalid="ignore"):
+            slant = scale_height_m / safe * (1.0 - np.exp(-d * safe / scale_height_m))
+        return np.asarray(np.where(up, slant, np.broadcast_to(d, np.shape(slant))))
+    top = math.exp(-observer_height_m / scale_height_m)
+    sloped = st != 0.0
+    safe = np.where(sloped, st, 1.0)
+    # a descending ray stops at the ground
+    with np.errstate(divide="ignore", invalid="ignore"):
+        to_ground = np.where(st < 0.0, observer_height_m / np.abs(safe), np.inf)
+    reach = np.minimum(d, to_ground)
     with np.errstate(over="ignore", invalid="ignore"):
-        slant = scale_height_m / safe * (1.0 - np.exp(-d * safe / scale_height_m))
-    return np.asarray(np.where(up, slant, np.broadcast_to(d, np.shape(slant))))
+        slant = scale_height_m / safe * (1.0 - np.exp(-reach * safe / scale_height_m))
+    flat = np.broadcast_to(reach, np.shape(slant))
+    return np.asarray(top * np.where(sloped, slant, flat))
 
 
 def _scaled(gamma: float, column: NDArray[np.float64]) -> NDArray[np.float64]:
     if gamma == 0.0:
         return np.zeros_like(column)
     return np.asarray(gamma * column, dtype=np.float64)
+
+
+def _distance_at_loss_share(
+    u: float,
+    loss_tot: NDArray[np.float64],
+    gamma: float,
+    c_tot: NDArray[np.float64],
+    sloped: NDArray[np.bool_],
+    safe_sin: NDArray[np.float64],
+    scale_height_m: float,
+    top: float,
+) -> NDArray[np.float64]:
+    """Distance along a ray at which one class has lost the share ``u`` of its molecular loss
+    ``loss_tot`` (AT.28): the column at that share, inverted through the closed-form slant
+    column, ``s = c / e^{−z₀/H}`` on a horizontal ray. A class with no molecular extinction
+    takes the share of the column itself."""
+    c = -np.log1p(-u * loss_tot) / gamma if gamma > 0.0 else u * c_tot
+    with np.errstate(divide="ignore", invalid="ignore"):
+        slant = -(scale_height_m / safe_sin) * np.log1p(-c * safe_sin / (top * scale_height_m))
+    return np.asarray(np.where(sloped, slant, c / top), dtype=np.float64)
 
 
 @dataclass(frozen=True)
@@ -317,25 +364,33 @@ class ExponentialSum:
     def n_terms(self) -> int:
         return int(self.weights.size)
 
-    def optical_depths(self, distance_m: Any, elevation_rad: Any = 0.0) -> NDArray[np.float64]:
+    def optical_depths(
+        self, distance_m: Any, elevation_rad: Any = 0.0, observer_height_m: float = 0.0
+    ) -> NDArray[np.float64]:
         """Per class optical depth along the ray, shape ``(n_terms, *broadcast shape)``.
 
-        ``elevation_rad`` broadcasts against ``distance_m``, so a frame is one call (AT.1).
+        ``elevation_rad`` broadcasts against ``distance_m``, so a frame is one call (AT.1);
+        ``observer_height_m`` starts every column at the camera's height (AT.28).
         """
         d, el = np.broadcast_arrays(
             np.asarray(distance_m, dtype=np.float64), np.asarray(elevation_rad, dtype=np.float64)
         )
-        col_aer = np.asarray(column_length(d, el, self.aerosol_scale_height_m), dtype=np.float64)
+        z0 = float(observer_height_m)
+        col_aer = np.asarray(
+            column_length(d, el, self.aerosol_scale_height_m, z0), dtype=np.float64
+        )
         # 0 * inf (a zero extinction on an infinite horizontal path) is 0, not NaN
         aer = _scaled(self.gamma_aerosol, col_aer)
         out = np.empty((self.n_terms, *d.shape))
         for k in range(self.n_terms):
-            col = column_length(d, el, float(self.scale_heights_m[k]))
+            col = column_length(d, el, float(self.scale_heights_m[k]), z0)
             out[k] = _scaled(float(self.gamma_0[k]), np.asarray(col, dtype=np.float64)) + aer
         return out
 
-    def transmittance(self, distance_m: Any, elevation_rad: Any = 0.0) -> NDArray[np.float64]:
-        od = self.optical_depths(distance_m, elevation_rad)
+    def transmittance(
+        self, distance_m: Any, elevation_rad: Any = 0.0, observer_height_m: float = 0.0
+    ) -> NDArray[np.float64]:
+        od = self.optical_depths(distance_m, elevation_rad, observer_height_m)
         with np.errstate(over="ignore", invalid="ignore"):
             tau = np.tensordot(self.weights, np.exp(-od), axes=1)
         d, el = np.broadcast_arrays(
@@ -369,6 +424,7 @@ class ExponentialSum:
         n_steps: int = 4000,
         u_max: float = 40.0,
         s_max_m: float = 300e3,
+        observer_height_m: float = 0.0,
     ) -> NDArray[np.float64]:
         """Per class ∫₀^d γ_k(h) τ_k(s) L_B(T(h)) ds (unweighted), shape (n_terms,).
 
@@ -379,19 +435,32 @@ class ExponentialSum:
         left (e^{−40}). At θ = 0 the ray stays at h = 0 and the result is closed-form.
         """
         st = math.sin(elevation_rad)
-        lb0 = float(lb_of_height(np.zeros(1))[0])
+        z0 = float(observer_height_m)
+        lb0 = float(lb_of_height(np.array([z0]))[0])
         out = np.zeros(self.n_terms)
-        if st <= 0.0:
+        if st <= 0.0 and z0 == 0.0:
+            # a surface ray at or below the horizon: isothermal at the surface, closed form
             if math.isinf(distance_m):
                 out[self.gamma_0 + self.gamma_aerosol > 0.0] = lb0
                 return out
             tau_k = np.exp(-self.optical_depths(distance_m, 0.0))
             return np.asarray((1.0 - tau_k) * lb0, dtype=np.float64)
-        upper = s_max_m if math.isinf(distance_m) else min(float(distance_m), s_max_m)
+        if st == 0.0:
+            # AT.28: a horizontal ray at height z0 is isothermal at T(z0) with its thinner column
+            if math.isinf(distance_m):
+                out[self.gamma_0 + self.gamma_aerosol > 0.0] = lb0
+                return out
+            tau_k = np.exp(-self.optical_depths(distance_m, 0.0, z0))
+            return np.asarray((1.0 - tau_k) * lb0, dtype=np.float64)
+        if st < 0.0:
+            # AT.28: a descending ray ends at the ground; the ray is finite by construction
+            upper = min(float(distance_m), z0 / abs(st))
+        else:
+            upper = s_max_m if math.isinf(distance_m) else min(float(distance_m), s_max_m)
         if upper <= 0.0:
             return out
         s_dense = np.concatenate([[0.0], np.logspace(-3, math.log10(upper), 20000)])
-        od_dense = self.optical_depths(s_dense, elevation_rad)  # (K, n)
+        od_dense = self.optical_depths(s_dense, elevation_rad, z0)  # (K, n)
         n = n_steps if n_steps % 2 == 0 else n_steps + 1
         for k in range(self.n_terms):
             od_end = float(od_dense[k, -1])
@@ -400,7 +469,7 @@ class ExponentialSum:
             u_top = min(od_end, u_max)
             u = np.linspace(0.0, u_top, n + 1)
             s_of_u = np.interp(u, od_dense[k], s_dense)
-            lb = lb_of_height(s_of_u * st)
+            lb = lb_of_height(np.maximum(z0 + s_of_u * st, 0.0))
             out[k] = float(simpson(lb * np.exp(-u), float(u[1] - u[0])))
         return out
 
@@ -486,10 +555,11 @@ class ExponentialSum:
         n_steps: int = 4000,
         u_max: float = 40.0,
         s_max_m: float = 300e3,
+        observer_height_m: float = 0.0,
     ) -> float:
         """Σ_k w_k ∫₀^d γ_k(h) τ_k(s) L_B(T(h)) ds  (d = ∞ → the column emission)."""
         per_class = self.path_radiance_per_class(
-            distance_m, elevation_rad, lb_of_height, n_steps, u_max, s_max_m
+            distance_m, elevation_rad, lb_of_height, n_steps, u_max, s_max_m, observer_height_m
         )
         return float(np.dot(self.weights, per_class))
 
@@ -759,8 +829,21 @@ class LayeredAtmosphere:
         distance_m: Any,
         elevation_rad: Any,
         quantity: Quantity = "lb",
+        observer_height_m: float = 0.0,
     ) -> NDArray[np.float64]:
-        """L_path per pixel, each along its own slant ray (AT.1).
+        """L_path per pixel, each along its own slant ray (AT.1), from a camera at z₀ (AT.28).
+
+        With ``observer_height_m > 0`` the plane is a short quadrature along each pixel's own
+        ray: the ray is cut into :data:`PLANE_SEGMENTS` equal pieces up to the ground (a
+        descending ray) or up to where the column has saturated (an ascending one), each piece
+        carries its **exact** per-class transmittance loss from the closed-form column (which
+        carries e^{−z₀/H}), and that loss emits at the band radiance of the air at the piece's
+        mid-height. A camera on a mast or a drone thus sees a shorter, colder column than the
+        surface tables describe, weighted the way the air really emits -- nearest air first.
+        An isothermal emission at the ray's geometric mean height was tried first and read the
+        exact path 1-4 % high looking down and 4 % low looking up at 3 km, because absorption
+        weights the emission toward the camera's end; the segments bring that to < 0.1 %
+        (`tests/unit/test_observer_height.py`). Exact for a horizontal ray by construction.
 
         The stage used to pass elevation **0.0 unconditionally**, so every resolved pixel was given
         surface-density extinction and surface-temperature emission over its whole slant range,
@@ -778,7 +861,8 @@ class LayeredAtmosphere:
         )
         es = self.exponential_sum(band, t_s)
         out = np.zeros(d.shape, dtype=np.float64)
-
+        if observer_height_m > 0.0:
+            return self._plane_from_height(es, band, t_s, d, el, quantity, float(observer_height_m))
         # Only rays that do not rise at all. Everything above the horizon goes through the table,
         # whose first node *is* the horizontal answer, so there is no clamp and no step.
         flat = np.sin(el) <= 0.0
@@ -813,6 +897,64 @@ class LayeredAtmosphere:
             slant += es.weights[k] * (low * (1.0 - blend) + high * blend)
         return np.asarray(np.where(flat, out, slant))
 
+    def _plane_from_height(
+        self,
+        es: ExponentialSum,
+        band: str,
+        t_s: float,
+        d: NDArray[np.float64],
+        el: NDArray[np.float64],
+        quantity: Quantity,
+        z0: float,
+    ) -> NDArray[np.float64]:
+        """The AT.28 branch of :meth:`path_radiance_plane`.
+
+        Each class is integrated on its own grid: the ray (cut at the ground for a descending
+        one) is split into :data:`PLANE_SEGMENTS` pieces that each hold an **equal share of that
+        class's own molecular transmittance loss** ``1 − e^{−γ_k C_k}``, so a strong absorber's
+        pieces crowd the first few hundred metres and a weak one's follow the air's density to
+        the far end. Each piece emits its exact loss (the closed-form column, aerosol included)
+        at the band radiance of the air at the distance where half of the piece's loss has
+        happened -- the midpoint rule in the loss coordinate, whose error is second order in
+        the air's temperature change across a piece. Equal pieces of *distance* were tried
+        first and read a 5° descent from 8 km 3 % low, because the dense far end of that ray
+        fell into one 45 km piece.
+        """
+        lb = self._lb_of_height(band, t_s, quantity)
+        sin_el = np.sin(el)
+        sloped = sin_el != 0.0
+        safe = np.where(sloped, sin_el, 1.0)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            to_ground = np.where(sin_el < 0.0, z0 / np.abs(safe), np.inf)
+        reach = np.minimum(d, to_ground)
+        edges = np.arange(PLANE_SEGMENTS + 1) / PLANE_SEGMENTS
+        h_aer = es.aerosol_scale_height_m
+        out = np.zeros(d.shape, dtype=np.float64)
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            for k in range(es.n_terms):
+                h_k, g_k = float(es.scale_heights_m[k]), float(es.gamma_0[k])
+                top = math.exp(-z0 / h_k)
+                c_tot = np.asarray(column_length(reach, el, h_k, z0), dtype=np.float64)
+                loss_tot = -np.expm1(-g_k * c_tot)
+
+                geometry = (loss_tot, g_k, c_tot, sloped, safe, h_k, top)
+
+                # exact transmittance of this class (aerosol included) at the piece edges; the
+                # last edge is the ray's true end, so the losses sum to 1 − τ_k(d) exactly
+                tau_edges = []
+                for n, u in enumerate(edges):
+                    s_n = d if n == PLANE_SEGMENTS else _distance_at_loss_share(u, *geometry)
+                    col = _scaled(g_k, np.asarray(column_length(s_n, el, h_k, z0)))
+                    aer = _scaled(es.gamma_aerosol, np.asarray(column_length(s_n, el, h_aer, z0)))
+                    tau_edges.append(np.exp(-(col + aer)))
+                for n in range(PLANE_SEGMENTS):
+                    # the midpoint rule in the loss coordinate: the piece's exact loss emits at
+                    # the height where half of that piece's loss has happened
+                    s_mid = _distance_at_loss_share(0.5 * (edges[n] + edges[n + 1]), *geometry)
+                    height = np.where(sloped, np.maximum(z0 + s_mid * sin_el, 0.0), z0)
+                    out += es.weights[k] * (tau_edges[n] - tau_edges[n + 1]) * lb(height)
+        return np.asarray(out, dtype=np.float64)
+
     def _lb_of_height(
         self, band: str, t_s: float, quantity: Quantity
     ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
@@ -832,9 +974,16 @@ class LayeredAtmosphere:
         return float(self._lb_of_height(band, t_s, quantity)(np.zeros(1))[0])
 
     def transmittance(
-        self, band: str, t_s: float, distance_m: Any, elevation_rad: float = 0.0
+        self,
+        band: str,
+        t_s: float,
+        distance_m: Any,
+        elevation_rad: float = 0.0,
+        observer_height_m: float = 0.0,
     ) -> NDArray[np.float64]:
-        return self.exponential_sum(band, t_s).transmittance(distance_m, elevation_rad)
+        return self.exponential_sum(band, t_s).transmittance(
+            distance_m, elevation_rad, observer_height_m
+        )
 
     def path_radiance(
         self,
@@ -843,17 +992,29 @@ class LayeredAtmosphere:
         distance_m: float,
         elevation_rad: float = 0.0,
         quantity: Quantity = "lb",
+        observer_height_m: float = 0.0,
     ) -> float:
         es = self.exponential_sum(band, t_s)
-        return es.path_radiance(distance_m, elevation_rad, self._lb_of_height(band, t_s, quantity))
+        return es.path_radiance(
+            distance_m,
+            elevation_rad,
+            self._lb_of_height(band, t_s, quantity),
+            observer_height_m=observer_height_m,
+        )
 
     def class_transmittances(
-        self, band: str, t_s: float, distance_m: float, elevation_rad: float = 0.0
+        self,
+        band: str,
+        t_s: float,
+        distance_m: float,
+        elevation_rad: float = 0.0,
+        observer_height_m: float = 0.0,
     ) -> NDArray[np.float64]:
         """τ_k(d, θ) per spectral class (the band τ is Σ w_k τ_k)."""
         es = self.exponential_sum(band, t_s)
         return np.asarray(
-            np.exp(-es.optical_depths(float(distance_m), elevation_rad)), dtype=np.float64
+            np.exp(-es.optical_depths(float(distance_m), elevation_rad, observer_height_m)),
+            dtype=np.float64,
         )
 
     def sky_beyond_per_class(
@@ -863,14 +1024,18 @@ class LayeredAtmosphere:
         distance_m: float,
         elevation_rad: float,
         quantity: Quantity = "lb",
+        observer_height_m: float = 0.0,
     ) -> NDArray[np.float64]:
         """Per class, the column emission beyond range R along the ray as seen *from R*:
         L_beyond,k = (L_sky,k − L_path,k(R)) / τ_k(R). A target at R occults exactly this."""
         es = self.exponential_sum(band, t_s)
         lb = self._lb_of_height(band, t_s, quantity)
-        sky_k = es.path_radiance_per_class(math.inf, elevation_rad, lb)
-        path_k = es.path_radiance_per_class(float(distance_m), elevation_rad, lb)
-        tau_k = self.class_transmittances(band, t_s, distance_m, elevation_rad)
+        z0 = observer_height_m
+        sky_k = es.path_radiance_per_class(math.inf, elevation_rad, lb, observer_height_m=z0)
+        path_k = es.path_radiance_per_class(
+            float(distance_m), elevation_rad, lb, observer_height_m=z0
+        )
+        tau_k = self.class_transmittances(band, t_s, distance_m, elevation_rad, z0)
         with np.errstate(divide="ignore", invalid="ignore"):
             beyond = np.where(tau_k > 1e-300, (sky_k - path_k) / tau_k, 0.0)
         return np.asarray(np.maximum(beyond, 0.0), dtype=np.float64)

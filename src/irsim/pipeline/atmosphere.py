@@ -62,8 +62,12 @@ def apply_layered_gbuffer(
     quantity: str,
     sky_mask: NDArray[np.bool_] | None = None,
     elevation_rad: NDArray[np.floating] | None = None,
+    observer_height_m: float = 0.0,
 ) -> NDArray[np.floating]:
     """MS.1 on the radiance plane, each pixel along its own slant ray when one is given (AT.1).
+
+    ``observer_height_m`` (AT.28) starts every column at the camera's height; 0 is the surface
+    camera every scene had, bit for bit.
 
     ``elevation_rad`` is optional and its absence is the old behaviour exactly: a horizontal path
     for every pixel. That used to be the *only* behaviour, with ``0.0`` passed unconditionally --
@@ -86,8 +90,9 @@ def apply_layered_gbuffer(
             raise TypeError("elevation_rad is float16 (non-negotiable #2)")
         if el.shape != l_in.shape:
             raise ValueError(f"elevation_rad shape {el.shape} != radiance shape {l_in.shape}")
-        tau = atmosphere.exponential_sum(band, t_s).transmittance(d, el)
-        path = atmosphere.path_radiance_plane(band, t_s, d, el, quantity)  # type: ignore[arg-type]
+        z0 = float(observer_height_m)
+        tau = atmosphere.exponential_sum(band, t_s).transmittance(d, el, z0)
+        path = atmosphere.path_radiance_plane(band, t_s, d, el, quantity, z0)  # type: ignore[arg-type]
         out = np.asarray(
             tau * l_in.astype(np.float64) + path,
             dtype=l_in.dtype if np.issubdtype(l_in.dtype, np.floating) else np.float64,
@@ -117,6 +122,7 @@ def atmosphere_stage(planes: Planes, config: PipelineConfig, state: PipelineStat
                 config.quantity,
                 sky_mask=planes.get("sky_mask"),
                 elevation_rad=planes.get("elevation_rad"),
+                observer_height_m=float(planes.get("observer_height_m", 0.0)),
             )
         }
     atm_state = config.atmosphere.state(state.t_s)

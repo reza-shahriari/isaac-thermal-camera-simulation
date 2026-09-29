@@ -248,6 +248,7 @@ def run_frame(
             # resolved pixel took the horizontal column while the sky and point-target paths
             # beside it took the slant one -- `atmosphere_stage` passed it, `run_frame` did not.
             elevation_rad=planes.get("elevation_rad"),
+            observer_height_m=float(planes.get("observer_height_m", 0.0)),
         )
     elif config.atmosphere is not None:
         atm_state = config.atmosphere.state(state.t_s)
