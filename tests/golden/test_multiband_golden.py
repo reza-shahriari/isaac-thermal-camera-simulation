@@ -31,7 +31,7 @@ from irsim.materials.library import MaterialLibrary
 from irsim.pipeline import PipelineConfig, PipelineState, run_frame
 from irsim.pipeline.solar import SolarIllumination
 from irsim.radiometry.encoding import encode_temperature
-from irsim.radiometry.lut_files import load_band_lut_for_config
+from irsim.radiometry.lut_files import builder_sha256, load_band_lut_for_config
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 DATA = REPO / "data"
@@ -100,7 +100,13 @@ def test_golden_frame_for_every_band_beyond_lwir(
     out = run_frame(planes, pipeline, PipelineState(housing_temp_k=pipeline.t_housing_cal_k))
 
     key = hashlib.sha256(
-        (config_hash(cfg) + f"|{SIZE}x{SIZE}|sun={sun_fraction}|numpy=" + np.__version__).encode()
+        (
+            config_hash(cfg)
+            + f"|{SIZE}x{SIZE}|sun={sun_fraction}|numpy="
+            + np.__version__
+            + "|lut_builder="
+            + builder_sha256()  # GT.11: a golden rests on one builder's tables
+        ).encode()
     ).hexdigest()
     assert out.radiance is not None and out.dn16 is not None and out.display8 is not None
     golden.check(f"{band}_frame_radiance", out.radiance, config_hash=key, rtol=1e-5, units="band")

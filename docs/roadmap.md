@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 75 open steps
+#### Then, in order — 74 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -204,7 +204,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`AT.9`** | AT | C | M | — | ready |
 | 15 | **`PH.14`** | PH | C | M | — | `TC.15` |
 
-…and 60 more — `python scripts/next_step.py --queue 40`.
+…and 59 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -843,7 +843,7 @@ of the silhouette still render at their node's one temperature.
 | GT.8 | **`--lane` answers with a startable step.** `next_step.py --lane PT` prints `PT.9` although it waits on `WM.3`; the single-head and `--queue` outputs gain the `waiting on` column the published block already has. | Red today: `--lane PT` names a blocked head. After: the head printed for a lane is its first step whose deps are all ticked, or the line says what it waits on; `test_roadmap_queue.py` gains a `--lane` case. | — | S | X |
 | GT.9 | ✅ **done.** `test_colour_does_not_set_emissivity.py`: the three sprayed topcoats share one ε in MWIR and LWIR to 1e-9, with a **control** that they must still differ ≥ 3× in NIR, so the test cannot pass on a library of identical materials. §4.5a. | **Measured.** The folk rule's modest 0.95/0.85 split would put two 320 K panels **5.26 K** apart under a 250 K sky — 105 × NETD, on paint alone — where the library gives 0. Colour's real channel is α_sol 0.94 vs 0.28, worth **24.3 K** of surface temperature at 800 W/m² and h = 15. 4 cases. | — | S | X |
 | GT.10 | **Tests that would catch the wiring defects.** Goldens use ε = 1 with no atmosphere or sky; `test_run_frame` never passes an atmosphere, elevation, motion or point target; `test_lut` uses the LUT's own Simpson; `test_convection` compares a formula with itself; `test_material_table_angular.py:155` pins the limb clip. Add a golden with ε < 1, sky, layered atmosphere and slant elevation; `run_frame`-vs-stage equivalence; converged and literature oracles. | Each of AT.21, AT.24, AT.25, SC.28 and PT.25 has a test red at its parent commit and green after, in the fast tier. | — | M | X |
-| GT.11 | **A LUT bundle knows which builder made it.** `make luts` for `AT.24` moved the gitignored MWIR bundle by a uniform 20 % though its grid did not change: an older builder had made it, the config and response hashes still matched, and the GT.2 multiband golden was recorded against it. Hash the builder's code inputs (grid rule, constants, Planck forms) into the sidecar and refuse a bundle whose hash differs. | A bundle built before a change to `quadrature_grid` is refused naming `make luts`; the multiband goldens say which builder hash they rest on. | — | S | X |
+| GT.11 | ✅ **done.** `lut_files.builder_sha256()` (source of `band_integration`, `planck`, `constants` + LUT schema) written into every sidecar; `_read_sidecar` refuses a differing or unrecorded builder naming `make luts`; the multiband goldens hash the builder in. | **Measured.** A fresh bundle records today's hash and loads; the same sidecar with another hash, or none, raises `StaleLUTError` naming `make luts`; the hash is stable and covers `FINE_GRID_FRACTION`. | — | S | X |
 
 ---
 

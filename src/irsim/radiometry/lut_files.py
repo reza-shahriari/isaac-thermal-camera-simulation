@@ -21,6 +21,7 @@ docs/physics-model.md §3.2 (b), §13.5, §14; CLAUDE.md non-negotiable #2
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import pathlib
@@ -38,6 +39,7 @@ from irsim.radiometry.lut import QUANTITIES, BandLUT
 from irsim.radiometry.spectral_response import SpectralResponse, load_spectral_response
 
 __all__ = [
+    "builder_sha256",
     "LUT_SCHEMA_VERSION",
     "StaleLUTError",
     "LUTPaths",
@@ -72,6 +74,27 @@ def lut_paths(band_hash: str, out_dir: str | os.PathLike[str]) -> LUTPaths:
         f32={q: root / f"{key}_{q}.f32" for q in QUANTITIES},
         sidecar=root / f"{key}_lut.json",
     )
+
+
+def builder_sha256() -> str:
+    """SHA-256 over the code that builds a table: the quadrature grid rule, the Planck forms and
+    the constants (GT.11).
+
+    `make luts` for AT.24 moved a gitignored MWIR bundle by a uniform 20 % although its grid was
+    unchanged: an older builder had made it, the config and spectral hashes still matched, and a
+    golden was recorded against it. A bundle now carries the hash of the modules whose source
+    decides every number in it, and a bundle whose builder differs is refused with the remedy.
+    Source text rather than a version: a version is bumped by hand, and forgotten.
+    """
+    import inspect
+
+    from irsim.radiometry import band_integration, constants, planck
+
+    digest = hashlib.sha256()
+    for module in (band_integration, planck, constants):
+        digest.update(inspect.getsource(module).encode("utf-8"))
+    digest.update(f"lut_schema={LUT_SCHEMA_VERSION}".encode())
+    return digest.hexdigest()
 
 
 def save_band_lut(
@@ -111,6 +134,7 @@ def save_band_lut(
         "raw_layout": "little-endian float32, N entries, index i <-> T = t0_k + i * dt_k",
         "numpy_version": np.__version__,
         "irsim_version": irsim.__version__,
+        "builder_sha256": builder_sha256(),
     }
     paths.sidecar.write_text(json.dumps(sidecar, indent=2, sort_keys=True) + "\n")
     return paths
@@ -122,6 +146,13 @@ def _read_sidecar(path: pathlib.Path) -> dict[str, Any]:
         raise StaleLUTError(
             f"{path}: sidecar schema_version {data.get('schema_version')} != {LUT_SCHEMA_VERSION}; "
             "regenerate with `make luts`"
+        )
+    built_by = data.get("builder_sha256")
+    if built_by != builder_sha256():
+        raise StaleLUTError(
+            f"{path}: built by a different builder ({(built_by or 'unrecorded')[:12]}… against "
+            f"{builder_sha256()[:12]}…): the quadrature grid, the Planck forms or the constants "
+            "changed since, so its numbers are not today's. Regenerate with `make luts` (GT.11)"
         )
     return data
 

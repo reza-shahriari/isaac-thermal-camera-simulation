@@ -1,6 +1,6 @@
 {
   "atol": 1.0,
-  "config_hash": "24806763323c745f927ff236a901c6222963f962fbfe64498594c9f72d2eaa2c",
+  "config_hash": "b7acc853123f7cda637d8c6849852f64e50cabf2788c59e89ef060ca2286390a",
   "dtype": "uint8",
   "name": "swir_frame_display8",
   "numpy_version": "2.3.1",
