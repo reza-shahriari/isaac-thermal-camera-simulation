@@ -1350,6 +1350,10 @@ class FullObject:
     def node_temperature_k(self, hidden: str) -> float:
         return float(self.solve.node_temperature_k(hidden))
 
+    def node_temperature_at(self, hidden: str, t_s: float) -> float:
+        """A hidden part's temperature at ``t_s``, from the solve's kept ticks (TC.13)."""
+        return float(self.solve.node_temperature_at(hidden, t_s))
+
 
 def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
     """Append every object's visible parts to ``thermal.surfaces`` as mesh surfaces (TC.11).
@@ -1396,11 +1400,14 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
             prim_path = (
                 None if obj.prim_root is None else f"{obj.prim_root}/{part.name}/{part.name}"
             )
+            speed = obj.speeds.get(part.name)
             surfaces.append(
                 SurfaceSpec(
                     name=name,
                     material=material,
                     tilt_deg=0.0,
+                    speed_s=None if speed is None else list(speed.at_s),
+                    speed_m_s=None if speed is None else list(speed.values),
                     mesh=MeshSpec(
                         asset=archive,
                         prim=part.name,
@@ -1452,13 +1459,36 @@ def _build_full_objects(
                 for p in names
             ]
             exchange = ObjectExchange(bodies)
-        duty = None
-        if obj.duty_s is not None and obj.duty is not None:
-            times = t0_s + np.asarray(obj.duty_s, dtype=np.float64)
-            values = np.asarray(obj.duty, dtype=np.float64)
 
-            def duty(t_s: float, _t: Any = times, _v: Any = values) -> float:
+        def schedule(at_s: Any, values: Any) -> Any:
+            times = t0_s + np.asarray(at_s, dtype=np.float64)
+            vals = np.asarray(values, dtype=np.float64)
+
+            def f(t_s: float, _t: Any = times, _v: Any = vals) -> float:
                 return float(np.interp(t_s, _t, _v))
+
+            return f
+
+        duty: Any = None
+        if obj.duty_s is not None and obj.duty is not None:
+            duty = schedule(obj.duty_s, obj.duty)
+        if obj.duties:
+            # TC.13: a duty per hidden part, the object's duty (or rated) for the rest
+            hidden = {h.name for h in parts.hidden_parts}
+            unknown = sorted(set(obj.duties) - hidden)
+            if unknown:
+                raise ValueError(
+                    f"object {obj.name!r}: duties name hidden parts the asset lacks: {unknown}"
+                )
+            per_part = {n: schedule(sch.at_s, sch.values) for n, sch in obj.duties.items()}
+            if duty is not None:
+                per_part["*"] = duty
+            duty = per_part
+        unknown_speed = sorted(set(obj.speeds) - {p.name for p in parts.parts})
+        if unknown_speed:
+            raise ValueError(
+                f"object {obj.name!r}: speeds name parts the asset lacks: {unknown_speed}"
+            )
 
         solve = build_full_solve(
             obj.name,

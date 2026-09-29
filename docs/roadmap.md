@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 70 open steps
+#### Then, in order — 69 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.19`** | IG | A | S | — | ready |
 | 2 | **`EV.14`** | EV | A | M | — | ready |
-| 3 | **`TC.13`** | TC | A | L | — | ready |
-| 4 | **`AT.26`** | AT | B | S | — | ready |
-| 5 | **`IG.16`** | IG | B | M | — | ready |
-| 6 | **`TC.15`** | TC | C | M | 1 | ready |
-| 7 | **`AI.13`** | AI | C | S | — | ready |
-| 8 | **`PT.27`** | PT | C | S | — | ready |
-| 9 | **`AT.6`** | AT | C | M | — | ready |
-| 10 | **`AT.9`** | AT | C | M | — | ready |
-| 11 | **`PH.14`** | PH | C | M | — | `TC.15` |
-| 12 | **`PT.16`** | PT | C | M | — | ready |
-| 13 | **`TC.14`** | TC | C | M | — | ready |
-| 14 | **`XD.10`** | XD | C | L | — | ready |
-| 15 | **`IG.3`** | IG | X | S | 5 | ready |
+| 3 | **`AT.26`** | AT | B | S | — | ready |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`TC.15`** | TC | C | M | 1 | ready |
+| 6 | **`AI.13`** | AI | C | S | — | ready |
+| 7 | **`PT.27`** | PT | C | S | — | ready |
+| 8 | **`AT.6`** | AT | C | M | — | ready |
+| 9 | **`AT.9`** | AT | C | M | — | ready |
+| 10 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 11 | **`PT.16`** | PT | C | M | — | ready |
+| 12 | **`TC.14`** | TC | C | M | — | ready |
+| 13 | **`XD.10`** | XD | C | L | — | ready |
+| 14 | **`IG.3`** | IG | X | S | 5 | ready |
+| 15 | **`EV.5`** | EV | X | M | 3 | ready |
 
-…and 55 more — `python scripts/next_step.py --queue 40`.
+…and 54 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -507,7 +507,7 @@ closed by an analytic check; the frames of `TC.6` are the in-engine half and wai
 | TC.10 | ✅ **done.** `thermal.object_exchange: true` (schema v18): `irsim.thermal.object_exchange` joins every plain patch and mesh, TC.9's factors symmetrised, `q = ε[Σ G ε_j σ T̄_j⁴ − cover·q_lw]` per tick from one snapshot, members in lockstep behind `ExchangedField`. ADR 0157. | **Measured.** Off/absent: same state hash. Pan over road: closed form to 1 % (3 % of peak per cell); black bodies close to 1e-6; clear-night asphalt under a 310 K pan +0.25 K/h, no rectangle authored. Not yet: exchange in spin-up; layered/cabin/prescribed refused by name. | TC.9 | M | P |
 | TC.11 | ✅ **done.** `thermal.objects: [{asset, solve: full, duty}]` (schema v20) → `<object>.<part>` mesh surfaces + `full_solve.build_full_solve`: mesh members, hidden parts as lumped members × duty, contacts by proximity / footprint / direct from the joints table, TC.9 exchange inside the solve. | **Measured.** Synthetic arm + can + 6 W winding: can before near arm before far arm; the can climbs (first tick < 1/5 of the rise), stays hot after the throttle stops (> half its rise at 1200 s); 3600 J in = stored to 1e-6. Inner/outer face: across the object. | TC.9, AI.11, TC.16 | L | P |
 | TC.12 | ✅ **done.** `evolve:` / `freeze_at_s:` on surfaces, targets, nodes and `thermal:` (schema v19): `ThermalField.hold_from_s` (per field or facet), `hold.HeldSolver` for targets, `ThermalNetwork.hold` (infinite capacity in the solve, written back). ADR 0158. | **Measured.** Unset: hashes identical. Held field bit-identical to the hold, constant after; a 320 K pan held over asphalt keeps the road under it warmer than one left to cool; a frozen target stops on the tick; a held node is a boundary its neighbour moves toward; map, cabin panel, fixed node, two holds: refused. | — | M | P |
-| TC.13 | 🟡 **Part 1 landed.** `mesh_coarse` (ADR 0165): faces clustered into cells of `cell_m`, area exact, `coarse: true` on a mesh surface or a `thermal.objects:` entry; the Phantom 4's 1.53 M faces are 5,113 cells at 2 cm. Part 2: windings and pack as hidden components with contacts, a scene on `solve: full`, the driver on the object's surfaces, the perpart tests rewritten. | Motors lag the throttle by their own time constant and stay hot after landing, which today's model cannot show; the pack warms the shell from inside; energy closes per tick. | TC.11, AI.12 | L | A |
+| TC.13 | ✅ **done.** `phantom4_solved.yaml` on `solve: full`: 19 coarse mesh parts (ADR 0165), windings + pack + ESCs + FC as hidden components, 19 contacts; `ObjectSpec.duties` / `speeds` per part; `FullObject.node_temperature_at`; the driver maps parts to `<object>.<part>`. ADR 0166. | **Measured.** Bells +1.4 K after the climb's first minute, +14 K at its end (lag); 42 °C hover, 60-66 °C orbits; rear > front by 10 K in cruise, outer > inner by 8 K in orbits; 43 °C ten minutes after landing; shell under the pack +2 K; adiabatic object closes energy to 1e-6. | TC.11, AI.12 | L | A |
 | TC.14 | **The car's body is solved, not held at air temperature.** `shell` and `glass` are T_air targets — 5–8 K wrong on a clear night by the scene's own note — and TC.7's exhaust radiates into a floor pan held at body temperature, so the floor never warms. Solve the panels by §12.3's balance; make the pan a node. | Clear-night panels settle below air by the sky deficit (analytic facet, 0.5 K); the pan over the silencer warms after key-on and through the hot soak; overcast panels stay within 1 K of air. | — | M | C |
 | TC.15 | **Underbody and exhaust follow the solved engine.** In both ignition scenes the underbody is §6.6's bay row at a third of its load (ESTIMATED) and the exhaust a scripted τ = 360 s row, so neither is heated by the TC.5 block solved beside them. Drive them from the block's network and TC.7's line. | The underbody lags the block along its conductance path (TC.6's ordering, extended); the road stripe under the pipe follows TC.7's wall to 0.1 K; no scripted row is left in either scene. | — | M | C |
 | TC.16 | ✅ **done.** `coupling.FieldMember` takes a `TriangleMeshPatch` (per-cell areas); `ExplicitContactor` + `proximity_contactor` (cells within a gap, scaled to `h_c·A`); `LumpedLink.per_cell_w_k` + `footprint_conductances` (nearest cells to the footprint's area). Split out of TC.11. | **Measured.** Mesh member alone = `TriangleMeshField` bit for bit; plate-on-tube conserves energy to 1e-9, contact cells warm first; footprint sums to `h_c·A` to 1e-12; a 2 W ESC for 600 s stores 1200 J to 1e-6 and the arm keeps warming after it stops. | — | M | P |

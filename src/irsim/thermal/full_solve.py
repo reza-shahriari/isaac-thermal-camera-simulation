@@ -60,6 +60,10 @@ class FullSolve:
         """The `PatchView` of a shown part (what a mesh bridge binds)."""
         return self.coupled.fields[part]
 
+    def node_temperature_at(self, hidden: str, t_s: float) -> float:
+        """A hidden part's temperature at ``t_s`` (kept ticks), K."""
+        return float(self.coupled.node_temperature_at(hidden, t_s))
+
     def node_temperature_k(self, hidden: str) -> float:
         return self.coupled.node_temperature_k(hidden)
 
@@ -72,7 +76,7 @@ def build_full_solve(
     *,
     t0_s: float,
     tick_s: float,
-    duty: Callable[[float], float] | None = None,
+    duty: Callable[[float], float] | Mapping[str, Callable[[float], float]] | None = None,
     gap_m: float,
     exchange: Any = None,
     keep_ticks: int | None = None,
@@ -94,7 +98,17 @@ def build_full_solve(
     its own numbers nor a component is refused: a node without capacity is the instantaneous
     source this step retires.
     """
-    duty_fn = duty if duty is not None else constant_duty()
+    # TC.13: ``duty`` may be one schedule for every hidden part or a mapping by part name, with
+    # ``"*"`` (else rated) for the parts it does not name.
+    if duty is None:
+        by_part: dict[str, Callable[[float], float]] = {}
+        fallback = constant_duty()
+    elif isinstance(duty, Mapping):
+        by_part = {k: v for k, v in duty.items() if k != "*"}
+        fallback = duty.get("*", constant_duty())
+    else:
+        by_part = {}
+        fallback = duty
     shown = [p.name for p in parts.parts if p.name in mesh_fields]
     missing = [p.name for p in parts.parts if p.name not in mesh_fields]
     if missing:
@@ -125,8 +139,10 @@ def build_full_solve(
         except ValueError as exc:
             raise ValueError(f"object {name!r}: {exc}") from None
 
-        def forcing(t_s: float, _h: Any = h) -> FacetForcing:
-            watts = _h.resolved_dissipation_w(duty_fn(t_s), components)
+        duty_fn = by_part.get(h.name, fallback)
+
+        def forcing(t_s: float, _h: Any = h, _d: Any = duty_fn) -> FacetForcing:
+            watts = _h.resolved_dissipation_w(_d(t_s), components)
             return FacetForcing(t_air_k=initial_mean, h_w_m2_k=0.0, q_internal_w_m2=watts)
 
         lumped.append(LumpedMember(h.name, float(capacity), forcing, initial_mean))

@@ -168,7 +168,25 @@ asset:
       - {a: esc_rear_right, b: arms, joint: dry_default, area_m2: 0.0003}
       - {a: battery, b: shell_lower, joint: dry_default, area_m2: 0.0069}
       - {a: flight_controller, b: shell_lower, joint: dry_default, area_m2: 0.0004}
+      # --- TC.13: the heat sources themselves, inside the parts the camera sees ------------------
+      # A motor's windings sit on a stator pressed into its bell (the visible `motor_*` part) over
+      # the stator's whole circumference, pi x 24 mm x 12 mm ~ 9 cm^2 of steel on aluminium plus
+      # the bearing seat, taken as 10 cm^2; the pack's cells sit inside the battery case (the
+      # visible `battery` part), whose mesh is 57 cm^2 in all, over 40 cm^2. ESTIMATED, as above.
+      - {a: winding_front_left, b: motor_front_left, joint: dry_default, area_m2: 0.001}
+      - {a: winding_front_right, b: motor_front_right, joint: dry_default, area_m2: 0.001}
+      - {a: winding_rear_left, b: motor_rear_left, joint: dry_default, area_m2: 0.001}
+      - {a: winding_rear_right, b: motor_rear_right, joint: dry_default, area_m2: 0.001}
+      - {a: pack, b: battery, joint: dry_default, area_m2: 0.004}   # the case mesh is 57 cm^2 in all
     hidden_parts:
+      # TC.13 (ADR 0166): the windings and the pack are what dissipate; the bells and the case are
+      # what the camera sees. Each takes its mass, heat capacity and rated dissipation from the
+      # component library (AI.12) and its duty from the scene's schedule for it.
+      - {name: winding_front_left, centre_m: [0.044, 0.314, 0.040], size_m: [0.020, 0.020, 0.015], component: brushless_motor}
+      - {name: winding_front_right, centre_m: [-0.185, 0.439, 0.040], size_m: [0.020, 0.020, 0.015], component: brushless_motor}
+      - {name: winding_rear_left, centre_m: [0.17, 0.544, 0.040], size_m: [0.020, 0.020, 0.015], component: brushless_motor}
+      - {name: winding_rear_right, centre_m: [-0.06, 0.669, 0.040], size_m: [0.020, 0.020, 0.015], component: brushless_motor}
+      - {name: pack, centre_m: [-0.0078, 0.4915, 0.020], size_m: [0.088, 0.078, 0.028], component: lipo_pack}
       - {name: esc_front_left, centre_m: [0.044, 0.314, 0.030], size_m: [0.030, 0.020, 0.006], component: esc,
          mass_kg: 0.012, specific_heat_j_kgk: 900.0, dissipation_w: 2.0, status: ESTIMATED}
       - {name: esc_front_right, centre_m: [-0.185, 0.439, 0.030], size_m: [0.030, 0.020, 0.006], component: esc,

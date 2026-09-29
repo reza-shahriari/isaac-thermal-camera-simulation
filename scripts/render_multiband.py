@@ -122,6 +122,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "`scripts/render_phantom4.py --asset phantom4_parts "
         "--scene configs/scenes/phantom4_perpart.yaml`."
     ),
+    "phantom4_solved.yaml": (
+        "TC.13: the same aircraft and mission as phantom4_perpart.yaml, solved as one thermal "
+        "network on coarse mesh cells (ADR 0165, ADR 0166) instead of prescribed nodes; "
+        "render_phantom4.py --scene configs/scenes/phantom4_solved.yaml renders it in the band "
+        "its sensor config names, and the sweep films the prescribed twin"
+    ),
     "phantom4_pointwise.yaml": (
         "AI.2's reference scene: the first in this project whose geometry was not authored in "
         "Python. It needs a mesh archive that is generated rather than committed -- "

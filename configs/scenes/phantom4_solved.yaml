@@ -1,0 +1,120 @@
+# The **DJI Phantom 4 Pro solved as one thermal network** (TC.13, ADR 0166). Schema: irsim.config.scene
+# (v20). The same airframe, weather, site and mission as `phantom4_perpart.yaml`; what changes is that
+# nothing here is prescribed. `phantom4_perpart.yaml` gave every part a temperature by ADR 0072's
+# instantaneous `T_air + dT_max u^2` node or ADR 0143's `T_air + offset`; this scene gives the object to
+# TC.11's full solve: every visible part is a mesh member coarsened to 2 cm cells (ADR 0165 -- 1.53 M
+# faces become ~5,100 cells, area exact), every hidden part -- four motor windings, the pack, four ESCs,
+# the flight controller -- a lumped member with the component library's mass and rated watts (AI.12),
+# every AI.11 contact a conductance, all in one implicit step per tick.
+#
+# What follows from that and could not before: a winding's heat reaches its bell through the stator
+# press fit at the rate the contact allows, so the motor **lags** its throttle by its own time
+# constant and is still warm minutes after landing; the pack warms the battery case and the case
+# warms the lower shell over their footprints, from inside; a propeller's speed follows its own
+# station's throttle (`speeds:`), as before.
+#
+# Duties. A component's dissipation is rated x duty (linear). Electrical input to a rotor scales
+# about as the cube of throttle (thrust ~ u^2, power ~ thrust^1.5) and the loss fraction is taken
+# constant at the rating, so a station's duty is 0.694 u^3 (ESTIMATED): the factor puts hover
+# (u = 0.6) at 0.15 of the 300 W rating, the 45 W per motor the pack's 200 W hover draw implies,
+# so a 60 W-rated motor dissipates 9 W at hover and 17 W in the orbit. The ESCs follow their
+# station's duty, the pack the mean of the four, the flight controller runs at rated whenever the
+# aircraft is on. The motor bells and their mounts sit in their propeller's downwash, so they take
+# the propeller's airflow speed too (`speeds:`, ESTIMATED).
+#
+# Mission clock, as the parent: T+0 idle on the ground, spool and take off by T+60, hover, climb to
+# T+300, forward cruise to T+570, right-hand orbit T+630..870, left-hand orbit T+930..1170, hover in a
+# wind from the front-left T+1230..1470, descent from T+1500, landed and idle at T+1680.
+
+schema_version: 20
+scene:
+  name: phantom4_solved
+  description: "A DJI Phantom 4 Pro solved whole: nineteen coarse mesh parts, ten hidden components, nineteen contacts"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0
+    objects:
+      - name: phantom4
+        asset: phantom4_parts
+        solve: full
+        cell_m: 0.02
+        coarse: true
+        contact_gap_m: 0.03
+        self_occluding: false
+        prim_root: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002
+        # the flight controller and anything unnamed below: rated whenever the aircraft is powered
+        duty_s: [0.0, 1680.0]
+        duty:   [1.0, 1.0]
+        duties:
+          winding_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.238, 0.238, 0.1654, 0.1499, 0.1499, 0.1654, 0.2182, 0.2182, 0.1499, 0.0632, 0.0001]
+          winding_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.1499, 0.1499, 0.1654, 0.238, 0.238, 0.1654, 0.1735, 0.1735, 0.1499, 0.0591, 0.0001]
+          winding_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.259, 0.259, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1499, 0.0676, 0.0001]
+          winding_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.1654, 0.1654, 0.1654, 0.259, 0.259, 0.1654, 0.1285, 0.1285, 0.1499, 0.0632, 0.0001]
+          esc_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.238, 0.238, 0.1654, 0.1499, 0.1499, 0.1654, 0.2182, 0.2182, 0.1499, 0.0632, 0.0001]
+          esc_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.1499, 0.1499, 0.1654, 0.238, 0.238, 0.1654, 0.1735, 0.1735, 0.1499, 0.0591, 0.0001]
+          esc_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.259, 0.259, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1499, 0.0676, 0.0001]
+          esc_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.1654, 0.1654, 0.1654, 0.259, 0.259, 0.1654, 0.1285, 0.1285, 0.1499, 0.0632, 0.0001]
+          pack:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1867, 0.1867, 0.1654, 0.2031, 0.2031, 0.1654, 0.2031, 0.2031, 0.1654, 0.1714, 0.1714, 0.1499, 0.0633, 0.0001]
+        # each station through its own downwash, on the parent scene's scale (0.15 -> 2 m/s, 0.66 -> 14 m/s)
+        speeds:
+          propeller_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 14.9, 14.9, 13, 12.6, 12.6, 13, 14.5, 14.5, 12.6, 9.1, 2]
+          motor_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 14.9, 14.9, 13, 12.6, 12.6, 13, 14.5, 14.5, 12.6, 9.1, 2]
+          motor_mount_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 14.9, 14.9, 13, 12.6, 12.6, 13, 14.5, 14.5, 12.6, 9.1, 2]
+          propeller_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 12.6, 12.6, 13, 14.9, 14.9, 13, 13.3, 13.3, 12.6, 8.8, 2]
+          motor_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 12.6, 12.6, 13, 14.9, 14.9, 13, 13.3, 13.3, 12.6, 8.8, 2]
+          motor_mount_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 12.6, 12.6, 13, 14.9, 14.9, 13, 13.3, 13.3, 12.6, 8.8, 2]
+          propeller_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 15.4, 15.4, 13, 13, 13, 13, 13, 13, 12.6, 9.3, 2]
+          motor_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 15.4, 15.4, 13, 13, 13, 13, 13, 13, 12.6, 9.3, 2]
+          motor_mount_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 15.4, 15.4, 13, 13, 13, 13, 13, 13, 12.6, 9.3, 2]
+          propeller_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 13, 13, 13, 15.4, 15.4, 13, 11.9, 11.9, 12.6, 9.1, 2]
+          motor_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 13, 13, 13, 15.4, 15.4, 13, 11.9, 11.9, 12.6, 9.1, 2]
+          motor_mount_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 13, 13, 13, 15.4, 15.4, 13, 11.9, 11.9, 12.6, 9.1, 2]

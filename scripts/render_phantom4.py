@@ -98,21 +98,17 @@ TARGET_BY_PART: dict[str, tuple[str, ...]] = {
 DEFAULT_TARGET = "airframe"
 
 
-def target_for_part(part: str, defined: Collection[str]) -> str:
-    """The thermal node a part's prim falls back to where no mesh cell covers a pixel.
-
-    ``defined`` is the set of target names the scene declares. The scene is the authority: the
-    part's own name wins if the scene defines a node by it, then each entry of
-    :data:`TARGET_BY_PART` in order, then :data:`DEFAULT_TARGET`. Nothing here is checked
-    against the scene beyond membership -- the bridge refuses an undefined name, and the name it
-    refuses is the one this returned, so an asset with a part the scene never heard of fails
-    loudly at construction rather than rendering at the wrong temperature.
-
-    Only **targets** are candidates, never §12.3 thermal surfaces, although the bridge would take
-    either. A surface's temperature is already in the picture through its cells, and the readout
-    legend draws every mapped name -- mapping nine surfaces as well as fifteen nodes would push
-    the legend off the bottom of a 512-row frame.
+def target_for_part(part: str, defined: Collection[str], objects: Collection[str] = ()) -> str:
+    """The thermal node a prim named after ``part`` renders from: the part's own name if the
+    scene defines it, else the candidates of :data:`TARGET_BY_PART` in order, then
+    :data:`DEFAULT_TARGET`. With ``objects`` (TC.13, `thermal.objects:`), a part solved as one of
+    an object's surfaces -- ``<object>.<part>`` -- comes first: the solve, not the driver's map,
+    is then what says how fine the nodes are. Nothing here is checked against the scene; the
+    bridge refuses a name it does not have, which is the guard that matters.
     """
+    for obj in objects:
+        if f"{obj}.{part}" in defined:
+            return f"{obj}.{part}"
     for candidate in (part, *TARGET_BY_PART.get(part, ())):
         if candidate in defined:
             return candidate
@@ -605,9 +601,13 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     # A part-split asset names its prims after parts, so the leaf name is the key, and the scene's
     # own target names decide how fine the nodes are (`target_for_part`). A prim nothing names
     # falls to `airframe`, which is what a shell, an arm or a leg wants in a four-node scene.
-    defined_targets = set(scene.targets)
+    # TC.13: a solved object's parts are thermal *surfaces* named `<object>.<part>`; the bridge
+    # resolves either kind, so both are on offer and the object's own surface wins for its parts.
+    defined_targets = set(scene.targets) | set(scene.thermal_surfaces)
     prim_to_target = {
-        record.path: target_for_part(record.path.rsplit("/", 1)[-1], defined_targets)
+        record.path: target_for_part(
+            record.path.rsplit("/", 1)[-1], defined_targets, objects=tuple(scene.objects)
+        )
         for record in records
     }
     by_node: dict[str, int] = {}

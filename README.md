@@ -71,11 +71,11 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **A solved drone** — the demo Phantom 4's motors now heat up over a climb, run hotter on the loaded side of a turn and stay warm after landing, because every part is solved as one thermal network.
 - **Bring your own calibration** — paste your camera's OpenCV intrinsics, distortion and bench maps into its YAML and the simulator renders that unit.
 - **Clouds hide what is behind them** — a drone flying behind or through a weather-fx cloud is now attenuated by it in the infrared, and the cloud's own glow is laid in front; [how a visible cloud becomes an infrared one](docs/clouds-in-the-infrared.md).
 - **Tutorials** — step-by-step guides on the project site, starting with [giving a downloaded model its infrared materials in Blender](docs/tutorials/blender-addon/README.md).
 - **Low-poly to high-poly, and CAD in** — game models get smoothed or rebuilt, STEP/CAD models get meshed, and a check confirms no facet is visible to the camera.
-- **Frame viewer** — click any pixel of a render and read the true temperature, part, range and radiance behind it. Run `make viewer`; [how to use it](docs/frame-viewer.md).
 
 Full history in the [changelog](CHANGELOG.md).
 

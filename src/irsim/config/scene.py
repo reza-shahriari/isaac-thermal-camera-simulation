@@ -1079,6 +1079,23 @@ class SourceSpec(_Frozen):
         return self
 
 
+class ScheduleSpec(_Frozen):
+    """A piecewise-linear schedule in seconds after the scene start, held at its ends (TC.13)."""
+
+    at_s: list[float]
+    values: list[float]
+
+    @model_validator(mode="after")
+    def _is_a_schedule(self) -> ScheduleSpec:
+        if len(self.at_s) != len(self.values) or not self.values:
+            raise ValueError("a schedule's at_s and values must match in length and not be empty")
+        if any(v < 0.0 for v in self.values):
+            raise ValueError("a schedule's values cannot be negative")
+        if any(b <= a for a, b in zip(self.at_s[:-1], self.at_s[1:], strict=True)):
+            raise ValueError("a schedule's at_s must increase")
+        return self
+
+
 class ObjectSpec(_Frozen):
     """A scene's main object, solved from its asset (TC.11, schema v20).
 
@@ -1110,6 +1127,13 @@ class ObjectSpec(_Frozen):
     #: linear in seconds after the scene start, held at its ends; absent is rated throughout.
     duty_s: list[float] | None = None
     duty: list[float] | None = None
+    #: TC.13: a duty per hidden part, by name, over the object's duty -- four motors on four
+    #: throttle histories are four windings on four duties, which is what makes same-kind parts
+    #: differ the way a flight makes them differ (ADR 0143's point, now solved).
+    duties: dict[str, ScheduleSpec] = Field(default_factory=dict)
+    #: TC.13: an airflow speed per visible part (PT.9's `speed_s` / `speed_m_s`), for a
+    #: propeller through its own downwash.
+    speeds: dict[str, ScheduleSpec] = Field(default_factory=dict)
     evolve: bool | None = None
     freeze_at_s: float | None = Field(default=None, ge=0.0)
 

@@ -677,6 +677,14 @@ class CoupledFields:
         start, _stop = self._slices[name]
         return float(self.field.latest_state_k[start])
 
+    def node_temperature_at(self, name: str, t_s: float) -> float:
+        """A lumped member's temperature at ``t_s``, from the kept ticks (TC.13): what a test
+        or a legend asks after the solve has moved on."""
+        if name not in self.lumped_names:
+            raise KeyError(f"{name!r} is not a lumped member; lumped: {list(self.lumped_names)}")
+        start, _stop = self._slices[name]
+        return float(self.field.temperature_at(t_s)[start])
+
     def stored_energy_j(self) -> float:
         """``Σ C_i A_i T_i`` at the latest tick, in float64 from the solver's own state."""
         temps = self.field.latest_state_k

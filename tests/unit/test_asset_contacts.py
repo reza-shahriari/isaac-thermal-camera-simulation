@@ -171,6 +171,12 @@ def test_the_phantom4_carries_its_contacts_and_hidden_parts_and_still_loads() ->
         "esc_rear_left",
         "esc_rear_right",
         "flight_controller",
+        # TC.13: the sources themselves, inside the bells and the case
+        "winding_front_left",
+        "winding_front_right",
+        "winding_rear_left",
+        "winding_rear_right",
+        "pack",
     }
     table = load_joint_table()
     parts.check_joints(table)
@@ -185,10 +191,17 @@ def test_the_phantom4_carries_its_contacts_and_hidden_parts_and_still_loads() ->
     for st in ("front_left", "front_right", "rear_left", "rear_right"):
         assert (f"motor_{st}", f"motor_mount_{st}") in pairs
         assert (f"esc_{st}", "arms") in pairs
+    # every hidden part has a capacity and a dissipation: its own numbers, or (TC.13) the
+    # component library's for the windings and the pack, which carry only `component:`
+    from irsim.config.components import load_component_library
+
+    components = load_component_library()
     for h in parts.hidden_parts:
-        assert (
-            h.status == "ESTIMATED" and h.capacity_j_k is not None and h.dissipation_w is not None
-        )
+        assert h.status == "ESTIMATED"
+        assert h.resolved_capacity_j_k(components) > 0.0
+        assert h.resolved_dissipation_w(1.0, components) > 0.0
+        if h.component is None:
+            assert h.capacity_j_k is not None and h.dissipation_w is not None
     # the older per-material config has no such blocks and loads exactly as before
     plain = load_asset_mapping("phantom4")
     assert plain.parts is None or plain.parts.contacts == []
