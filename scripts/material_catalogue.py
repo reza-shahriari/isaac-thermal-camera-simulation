@@ -35,6 +35,8 @@ END = "<!-- end of {} table -->"
 #: the same kind of surface: the independent comparison the page shows.
 COMPARE = {
     "asphalt_road_aged": "Asphalt (dry)",
+    "asphalt_road_stone": "Asphalt (dry)",
+    "concrete_weathered": "Concrete",
     "concrete_pavement": "Concrete",
     "cinder_block": "Concrete",
     "leaf_maple": "Vegetation (leaf)",
@@ -49,6 +51,8 @@ COMPARE = {
 def origin(name: str) -> str:
     """How a material's optics were obtained, from the script that wrote it (if any)."""
     text = (MATERIAL_DIR / f"{name}.yaml").read_text(encoding="utf-8")
+    if "scripts/import_slum.py" in text:
+        return "measured: SLUM (MWIR from its class)"
     if "scripts/import_paired_spectra.py" in text:
         second = "polymer n, k" if "data/nk/" in text else "UCSB"
         return f"measured: USGS + {second}"

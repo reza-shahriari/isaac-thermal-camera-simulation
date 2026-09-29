@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 49 materials. 26 of them were measured and imported by a script; the rest are
+The library has 79 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -65,6 +65,26 @@ Each material's file names both samples and explains the pairing. A pairing is a
 matches the same *kind* of surface (a clay brick with a clay brick), not the same physical
 sample.
 
+### Urban surfaces measured twice on the same sample: SLUM
+
+Thirty surfaces of a city: road asphalt and tarmac, roofing felt, cements and concretes, cement and
+clay bricks, a slate and a fibre-cement shingle, ceramic and cement roof tiles, painted metal
+roofing, weathered aluminium and iron, PVC roofing membranes, sandstone and granite. They come
+from **SLUM, the Spectral Library of impervious Urban Materials** (Kotthaus et al. 2014, King's
+College London and the University of Reading), which measured 74 samples collected in London
+with two instruments: a spectroradiometer for the sunlight they reflect (0.35 to 2.5 µm) and a
+portable infrared spectrometer, calibrated against reference blackbodies, for what they emit
+(8 to 14 µm). Because both measurements are of the *same* sample, the near-infrared,
+short-wave, long-wave and sunlight values need no pairing judgement at all. SLUM is published on
+Zenodo under the Mozilla Public License 2.0, so the curves we use are committed in
+[`data/spectra/materials/slum/`](../data/spectra/materials/slum/) with that licence kept.
+
+SLUM did not measure the **mid-wave** band. For these materials it comes from the closest
+measured source for the class (a UCSB spectrum of the same kind of surface, or PVC's optical
+constants), or, for painted metal, weathered metal and granite, from the **FLIR emissivity
+table**: a compilation of published measurements printed in FLIR's camera manuals, which FLIR
+itself calls "recommendations only". Each file says which.
+
 ### The rest: literature starting values
 
 The remaining 23 materials (car paints, rubber, human skin, cotton, glass, carbon fibre and
@@ -99,12 +119,21 @@ any correct measurement of these surfaces has, independent of the data:
 - **Water** is dark in every band.
 - **Kirchhoff's law** holds for every material in every band, to one part in a million.
 
-**4. The values agree with independent literature.** The table below sets measured materials
+**4. The values reproduce what the original authors published.** The SLUM paper lists, for
+every sample, the albedo and the broadband emissivity its authors computed themselves, with their
+own solar spectrum and their own weighting. For all thirty SLUM materials, our sunlight absorbed
+equals one minus their albedo, and our long-wave emissivity equals their emissivity, within
+0.012; a test checks every one. This check also caught a mislabelled pair in the published data
+file (the two faces of the slate shingle are labelled the other way round from the paper), which
+the slate material now follows the paper on and says so.
+
+**5. The values agree with independent literature.** The table below sets measured materials
 beside the literature values the project started from, for the same kind of surface. In the long
 wave, the band most thermal cameras use, every pair agrees within 0.04. The larger differences
 have physical reasons, and they are why measured values replace the generic ones: melting snow
 absorbs about twice the sunlight of the fresh snow the literature row describes; a bright desert
-playa reflects more in the mid-wave than generic soil, because of its minerals; and the two
+playa reflects more in the mid-wave than generic soil, because of its minerals; a road whose
+asphalt carries light stone aggregate absorbs less sunlight than the dark asphalt row; and the two
 measured leaves absorb more sunlight than the generic leaf row assumed.
 
 <!-- comparison table: written by scripts/material_catalogue.py -->
@@ -112,6 +141,8 @@ measured leaves absorb more sunlight than the generic leaf row assumed.
 | measured material | literature row (§16.2) | LWIR measured / literature | MWIR measured / literature | sunlight absorbed measured / literature |
 |---|---|---|---|---|
 | `asphalt_road_aged` | Asphalt (dry) | 0.97 / 0.94 | 0.97 / 0.92 | 0.89 / 0.90 |
+| `asphalt_road_stone` | Asphalt (dry) | 0.96 / 0.94 | 0.97 / 0.92 | 0.78 / 0.90 |
+| `concrete_weathered` | Concrete | 0.95 / 0.92 | 0.93 / 0.90 | 0.63 / 0.65 |
 | `concrete_pavement` | Concrete | 0.96 / 0.92 | 0.93 / 0.90 | 0.71 / 0.65 |
 | `cinder_block` | Concrete | 0.96 / 0.92 | 0.95 / 0.90 | 0.65 / 0.65 |
 | `leaf_maple` | Vegetation (leaf) | 0.96 / 0.97 | 0.96 / 0.96 | 0.69 / 0.50 |
@@ -123,8 +154,9 @@ measured leaves absorb more sunlight than the generic leaf row assumed.
 
 <!-- end of comparison table -->
 
-**5. The limits are stated, not hidden.** The UCSB measurements start at 3.34 µm, so the mid-wave
-value covers 83 % of that band. The sunlight absorbed covers the 97 % of the sun's energy that USGS
+**6. The limits are stated, not hidden.** The UCSB measurements start at 3.34 µm, so the mid-wave
+value covers 83 % of that band. SLUM's long-wave curves start at 8 µm, 92 % of the band, and its
+materials' mid-wave value comes from their class, not their sample. The sunlight absorbed covers the 97 % of the sun's energy that USGS
 measured. Paired samples are the same kind of surface, not the same sample. Paper, fabrics,
 polyethylene, ABS and rubber do not have measured thermal-infrared values yet.
 
@@ -140,47 +172,77 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `aircraft_aluminium_painted` | painted | 0.25 | 0.35 | 0.88 | 0.90 | 0.30 | literature, partly estimated |
 | `aluminium_anodised` | anodised | 0.15 | 0.25 | 0.82 | 0.84 | 0.35 | literature, partly estimated |
 | `aluminium_polished` | polished | 0.04 | 0.03 | 0.03 | 0.04 | 0.08 | literature, partly estimated |
+| `aluminium_weathered` | weathered | 0.80 | 0.72 | 0.89 | 0.81 | 0.75 | measured: SLUM (MWIR from its class) |
 | `asphalt_dry` | weathered | 0.92 | 0.90 | 0.92 | 0.94 | 0.90 | literature, partly estimated |
 | `asphalt_road_aged` | weathered | 0.86 | 0.80 | 0.97 | 0.97 | 0.89 | measured: USGS + UCSB |
+| `asphalt_road_stone` | weathered | 0.76 | 0.74 | 0.97 | 0.96 | 0.78 | measured: SLUM (MWIR from its class) |
 | `bare_aluminium` | oxidised | 0.08 | 0.05 | 0.06 | 0.09 | 0.15 | literature, partly estimated |
 | `brick_red` | as manufactured | 0.77 | 0.75 | 0.67 | 0.95 | 0.83 | measured: USGS + UCSB |
 | `brick_tan` | as manufactured | 0.83 | 0.82 | 0.92 | 0.96 | 0.86 | measured: USGS + UCSB |
 | `car_paint_black` | painted | 0.94 | 0.94 | 0.88 | 0.90 | 0.94 | literature, partly estimated |
 | `car_paint_white` | painted | 0.30 | 0.40 | 0.88 | 0.90 | 0.28 | literature, partly estimated |
 | `carbon_fibre` | as manufactured | 0.90 | 0.88 | 0.88 | 0.90 | 0.90 | literature, partly estimated |
+| `cement_brick_black` | weathered | 0.88 | 0.86 | 0.93 | 0.94 | 0.91 | measured: SLUM (MWIR from its class) |
+| `cement_brick_yellow` | weathered | 0.67 | 0.62 | 0.93 | 0.94 | 0.70 | measured: SLUM (MWIR from its class) |
+| `cement_weathered` | weathered | 0.67 | 0.64 | 0.93 | 0.94 | 0.71 | measured: SLUM (MWIR from its class) |
 | `chrome_plated` | polished | 0.37 | 0.32 | 0.07 | 0.03 | 0.35 | measured optical constants |
 | `cinder_block` | weathered | 0.65 | 0.65 | 0.95 | 0.96 | 0.65 | measured: USGS + UCSB |
+| `clay_brick_light_red` | as manufactured | 0.46 | 0.30 | 0.67 | 0.94 | 0.57 | measured: SLUM (MWIR from its class) |
+| `clay_brick_painted` | as manufactured | 0.36 | 0.36 | 0.67 | 0.95 | 0.44 | measured: SLUM (MWIR from its class) |
+| `clay_brick_weathered` | as manufactured | 0.59 | 0.50 | 0.67 | 0.94 | 0.68 | measured: SLUM (MWIR from its class) |
 | `concrete` | weathered | 0.65 | 0.72 | 0.90 | 0.92 | 0.65 | literature, partly estimated |
+| `concrete_new` | weathered | 0.77 | 0.73 | 0.93 | 0.91 | 0.79 | measured: SLUM (MWIR from its class) |
 | `concrete_pavement` | weathered | 0.69 | 0.66 | 0.93 | 0.96 | 0.71 | measured: USGS + UCSB |
+| `concrete_weathered` | weathered | 0.61 | 0.61 | 0.93 | 0.95 | 0.63 | measured: SLUM (MWIR from its class) |
+| `concrete_white` | weathered | 0.52 | 0.48 | 0.93 | 0.95 | 0.58 | measured: SLUM (MWIR from its class) |
 | `conifer_needles` | natural | 0.35 | 0.60 | 0.98 | 0.98 | 0.63 | measured: USGS + UCSB |
 | `copper_polished` | polished | 0.05 | 0.03 | 0.01 | 0.01 | 0.19 | measured optical constants |
 | `cotton_clothing` | as manufactured | 0.45 | 0.55 | 0.93 | 0.95 | 0.70 | literature, partly estimated |
 | `etics_render` | weathered | 0.88 | 0.88 | 0.90 | 0.91 | 0.30 | literature, partly estimated |
+| `fibre_cement_shingle` | as manufactured | 0.95 | 0.96 | 0.93 | 0.94 | 0.95 | measured: SLUM (MWIR from its class) |
 | `glass_windshield` | as manufactured | 0.15 | 0.22 | 0.85 | 0.88 | 0.10 | literature, partly estimated |
 | `gold_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.15 | measured optical constants |
+| `granite_rough` | weathered | 0.48 | 0.50 | 0.96 | 0.92 | 0.52 | measured: SLUM (MWIR from its class) |
+| `granite_weathered` | weathered | 0.42 | 0.46 | 0.96 | 0.93 | 0.46 | measured: SLUM (MWIR from its class) |
 | `grass_dry` | natural | 0.67 | 0.67 | 0.91 | 0.96 | 0.76 | measured: USGS + UCSB |
 | `human_skin` | natural | 0.50 | 0.70 | 0.97 | 0.98 | 0.65 | literature, partly estimated |
+| `iron_weathered` | weathered | 0.94 | 0.93 | 0.96 | 0.97 | 0.95 | measured: SLUM (MWIR from its class) |
 | `leaf_maple` | natural | 0.38 | 0.64 | 0.96 | 0.96 | 0.69 | measured: USGS + UCSB |
 | `magnesium_polished` | polished | 0.06 | 0.13 | 0.05 | 0.04 | 0.06 | measured optical constants |
+| `metal_sheet_painted_green` | painted | 0.83 | 0.78 | 0.92 | 0.93 | 0.90 | measured: SLUM (MWIR from its class) |
+| `metal_sheet_painted_grey` | painted | 0.84 | 0.82 | 0.92 | 0.94 | 0.88 | measured: SLUM (MWIR from its class) |
+| `metal_sheet_painted_patina` | painted | 0.35 | 0.67 | 0.92 | 0.94 | 0.54 | measured: SLUM (MWIR from its class) |
 | `painted_aluminium_green` | painted | 0.58 | 0.70 | 0.65 | 0.97 | 0.56 | measured: USGS + UCSB |
 | `painted_composite` | painted | 0.30 | 0.40 | 0.90 | 0.92 | 0.35 | literature, partly estimated |
 | `pet_black` | as manufactured | 0.94 | 0.95 | 0.96 | 0.94 | 0.94 | measured: USGS + polymer n, k |
 | `playa_dry_mud` | natural | 0.46 | 0.44 | 0.81 | 0.95 | 0.55 | measured: USGS + UCSB |
 | `plywood` | as manufactured | 0.19 | 0.40 | 0.89 | 0.95 | 0.44 | measured: USGS + UCSB |
 | `propeller_rubber` | as manufactured | 0.94 | 0.92 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
+| `pvc_roofing_blue` | as manufactured | 0.80 | 0.84 | 0.96 | 0.94 | 0.86 | measured: SLUM (MWIR from its class) |
+| `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.94 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |
+| `pvc_roofing_light_grey` | as manufactured | 0.56 | 0.65 | 0.96 | 0.93 | 0.57 | measured: SLUM (MWIR from its class) |
 | `pvc_white` | as manufactured | 0.31 | 0.55 | 0.96 | 0.96 | 0.38 | measured: USGS + polymer n, k |
 | `roof_shingle_dark` | weathered | 0.90 | 0.92 | 0.97 | 0.97 | 0.90 | measured: USGS + UCSB |
 | `roof_tar_black` | weathered | 0.97 | 0.97 | 0.97 | 0.97 | 0.97 | measured: USGS + UCSB |
+| `roof_tile_cement_grey` | as manufactured | 0.86 | 0.90 | 0.93 | 0.94 | 0.87 | measured: SLUM (MWIR from its class) |
+| `roof_tile_cement_red` | as manufactured | 0.65 | 0.64 | 0.93 | 0.94 | 0.73 | measured: SLUM (MWIR from its class) |
+| `roof_tile_ceramic_black` | as manufactured | 0.84 | 0.51 | 0.86 | 0.92 | 0.85 | measured: SLUM (MWIR from its class) |
+| `roof_tile_ceramic_red` | as manufactured | 0.59 | 0.55 | 0.86 | 0.93 | 0.69 | measured: SLUM (MWIR from its class) |
+| `roof_tile_ceramic_weathered` | as manufactured | 0.75 | 0.67 | 0.86 | 0.94 | 0.81 | measured: SLUM (MWIR from its class) |
+| `roofing_felt_grey` | weathered | 0.93 | 0.94 | 0.97 | 0.93 | 0.93 | measured: SLUM (MWIR from its class) |
 | `rubber_tyre` | as manufactured | 0.95 | 0.94 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
 | `rusted_steel` | oxidised | 0.62 | 0.68 | 0.82 | 0.85 | 0.80 | literature, partly estimated |
 | `sand_beach` | natural | 0.68 | 0.57 | 0.87 | 0.90 | 0.72 | measured: USGS + UCSB |
+| `sandstone_beige` | weathered | 0.56 | 0.43 | 0.85 | 0.90 | 0.60 | measured: SLUM (MWIR from its class) |
 | `seawater` | natural | 0.98 | 0.98 | 0.98 | 0.98 | 0.97 | measured: USGS + UCSB |
 | `silver_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | measured optical constants |
+| `slate_roof` | weathered | 0.91 | 0.91 | 0.83 | 0.90 | 0.91 | measured: SLUM (MWIR from its class) |
 | `snow` | natural | 0.15 | 0.90 | 0.98 | 0.99 | 0.15 | literature, partly estimated |
 | `snow_melting` | natural | 0.41 | 0.98 | 0.99 | 0.99 | 0.32 | measured: USGS + UCSB |
 | `soil_dry` | natural | 0.70 | 0.74 | 0.90 | 0.92 | 0.75 | literature, partly estimated |
 | `soil_wet` | natural | 0.85 | 0.90 | 0.95 | 0.96 | 0.85 | literature, partly estimated |
 | `steel_polished` | polished | 0.36 | 0.25 | 0.08 | 0.02 | 0.39 | measured optical constants |
+| `tarmac_black` | weathered | 0.86 | 0.85 | 0.97 | 0.95 | 0.87 | measured: SLUM (MWIR from its class) |
 | `titanium_polished` | polished | 0.39 | 0.35 | 0.19 | 0.07 | 0.40 | measured optical constants |
 | `vegetation_leaf` | natural | 0.10 | 0.25 | 0.96 | 0.97 | 0.50 | literature, partly estimated |
 | `water` | natural | 0.95 | 0.98 | 0.98 | 0.96 | 0.93 | literature, partly estimated |
@@ -196,6 +258,7 @@ The importers are scripts, so the library can be rebuilt from its sources:
   their curves and files.
 - `scripts/import_paired_spectra.py --usgs <folder>` reads the unzipped USGS library and the
   UCSB spectra and writes the paired materials.
+- `scripts/import_slum.py` fetches SLUM from Zenodo and writes the urban materials.
 - `scripts/material_catalogue.py` rewrites the tables on this page.
 
 To add one material by hand, the [Blender add-on](blender-addon.md) has a form that checks it with
@@ -206,6 +269,14 @@ the library's rules before writing it ([tutorial step 5](tutorials/blender-addon
 - R. F. Kokaly, R. N. Clark, G. A. Swayze et al. (2017). *USGS Spectral Library Version 7*. U.S.
   Geological Survey Data Series 1035. [doi:10.3133/ds1035](https://doi.org/10.3133/ds1035);
   data: [doi:10.5066/F7RR1WDJ](https://doi.org/10.5066/F7RR1WDJ). Public domain.
+- S. Kotthaus, T. E. L. Smith, M. J. Wooster, C. S. B. Grimmond (2014). Derivation of an urban
+  materials spectral library through emittance and reflectance spectroscopy. *ISPRS Journal of
+  Photogrammetry and Remote Sensing* 94, 194–212.
+  [doi:10.1016/j.isprsjprs.2014.05.005](https://doi.org/10.1016/j.isprsjprs.2014.05.005); data:
+  [doi:10.5281/zenodo.4263842](https://doi.org/10.5281/zenodo.4263842), Mozilla Public License 2.0.
+- FLIR Systems, *Emissivity tables*, FLIR E95 user manual (T810190), section 37: a compilation
+  whose rows used here cite Jones, Smith & Probert, *External thermography of buildings*, Proc.
+  SPIE 110 (1977), and C. Öhman, *Emittance measurements using AGEMA E-Box*, AGEMA (1999).
 - Z. Wan et al., *MODIS UCSB Emissivity Library*, Institute for Computational Earth System
   Science, University of California, Santa Barbara.
   [icess.eri.ucsb.edu/modis/EMIS](https://icess.eri.ucsb.edu/modis/EMIS/html/em.html).

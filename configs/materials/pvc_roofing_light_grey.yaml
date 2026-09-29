@@ -1,0 +1,25 @@
+# Pvc roofing light grey: New light grey PVC roofing membrane.
+#
+# Written by scripts/import_slum.py (roadmap XD.13) -- edit the script, not this file.
+# SLUM sample V002: NIR, SWIR, LWIR and the solar absorptivity are measured on this one sample
+# (short-wave reflectance and long-wave emissivity, beside this material under
+# data/spectra/materials/slum/). LWIR covers the 8.0-13.5 um measured (92 % of the band); the
+# solar absorptivity covers 0.35-2.5 um (97 % of the AM1.5 direct
+# energy in 0.3-4 um). MWIR, which SLUM did not measure, comes from the source in `reference`.
+schema_version: 2
+material:
+  name: pvc_roofing_light_grey
+  source: literature
+  surface_treatment: as_manufactured
+  reference: "NIR, SWIR, LWIR and solar absorptivity: SLUM, the Spectral Library of impervious Urban Materials: S. Kotthaus, T. E. L. Smith, M. J. Wooster, C. S. B. Grimmond (2014), Derivation of an urban materials spectral library through emittance and reflectance spectroscopy, ISPRS J. Photogramm. Remote Sens. 94, 194-212, doi:10.1016/j.isprsjprs.2014.05.005; data doi:10.5281/zenodo.4263842 (MPL-2.0), sample V002 (data/spectra/materials/slum/pvc_roofing_light_grey_sw.csv and _lw.csv). MWIR: normal Fresnel emissivity of data/nk/pvc.csv, the polymer's measured optical constants. Thermal: PVC, ESTIMATED as pvc_white's, a 1.5 mm membrane"
+  description: "New light grey PVC roofing membrane"
+  thermal:
+    density_kg_m3: 1380
+    specific_heat_j_kgk: 1000
+    conductivity_w_mk: 0.17
+    thickness_m: 0.0015   # ESTIMATED: a typical part or layer
+    solar_absorptivity: 0.566   # computed from the SLUM curve, not typed
+  optical:
+    emissivity_per_band: {nir: 0.558, swir: 0.647, mwir: 0.957, lwir: 0.934}   # computed, see the header
+    roughness_per_band: {nir: 0.3, swir: 0.28, mwir: 0.18, lwir: 0.12}   # ESTIMATED, as the class
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the class

@@ -40,3 +40,7 @@ htmlcov/
 # scripts/import_paired_spectra.py. 113 MB of raw spectra: the importer commits only the curves
 # it uses, under data/spectra/materials/usgs/.
 ASCIIdata_splib07a/
+# Papers and manuals the owner downloaded for reference (copyrighted PDFs, cited, never
+# redistributed), and a stray download cache.
+papers/
+.cache_spectra/
