@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `IG.19` is phase A, size S, and unblocks 0 other step(s).
 
-#### Then, in order — 72 open steps
+#### Then, in order — 71 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`IG.19`** | IG | A | S | — | ready |
-| 2 | **`AT.23`** | AT | A | M | — | ready |
-| 3 | **`EV.14`** | EV | A | M | — | ready |
-| 4 | **`SC.33`** | SC | A | M | — | ready |
-| 5 | **`TC.13`** | TC | A | L | — | ready |
-| 6 | **`AT.26`** | AT | B | S | — | ready |
-| 7 | **`IG.16`** | IG | B | M | — | ready |
-| 8 | **`TC.15`** | TC | C | M | 1 | ready |
-| 9 | **`AI.13`** | AI | C | S | — | ready |
-| 10 | **`PT.27`** | PT | C | S | — | ready |
-| 11 | **`AT.6`** | AT | C | M | — | ready |
-| 12 | **`AT.9`** | AT | C | M | — | ready |
-| 13 | **`PH.14`** | PH | C | M | — | `TC.15` |
-| 14 | **`PT.16`** | PT | C | M | — | ready |
-| 15 | **`TC.14`** | TC | C | M | — | ready |
+| 2 | **`EV.14`** | EV | A | M | — | ready |
+| 3 | **`SC.33`** | SC | A | M | — | ready |
+| 4 | **`TC.13`** | TC | A | L | — | ready |
+| 5 | **`AT.26`** | AT | B | S | — | ready |
+| 6 | **`IG.16`** | IG | B | M | — | ready |
+| 7 | **`TC.15`** | TC | C | M | 1 | ready |
+| 8 | **`AI.13`** | AI | C | S | — | ready |
+| 9 | **`PT.27`** | PT | C | S | — | ready |
+| 10 | **`AT.6`** | AT | C | M | — | ready |
+| 11 | **`AT.9`** | AT | C | M | — | ready |
+| 12 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 13 | **`PT.16`** | PT | C | M | — | ready |
+| 14 | **`TC.14`** | TC | C | M | — | ready |
+| 15 | **`XD.10`** | XD | C | L | — | ready |
 
-…and 57 more — `python scripts/next_step.py --queue 40`.
+…and 56 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -584,7 +584,7 @@ fire a phenomenology feature and not a 10 mK one, and `PH.13` records that so no
 | AT.20 | ✅ **done** (ADR 0153). `ground.material` names a library material; in a sunlit band L_ground += ρ_B E_B/π, E_B = the weather's DNI·sin h + DHI through the band's two solar fractions (`per_dni`, `per_dhi`). Cloud bases gain R(τ, μ0) E_B/π, the dome's own form. In-engine render waits on a free A6000. | **Measured.** V_s = 0 panel = ρ·albedo·E_B/π vs a numpy oracle; SWIR env 9e-8 → 13.4, NIR 8e-16 → 8.55; deck clouds 1.0× → 13× (SWIR), 6.7× (NIR); night 0.0; LWIR bit-identical. `test_sunlit_environment.py`, 11 cases. | — | M | A |
 | AT.21 | ✅ **done.** `run_frame` passes `planes["elevation_rad"]` to `apply_layered_gbuffer`, as `atmosphere_stage` already did. One argument: the entry point every driver and `IrCamera` call skipped it while the sky and point-target paths took the slant column. | **Measured.** A 310 K target at 5 km, 45° through `run_frame` read **1.14 K low** with path radiance 60 % high against the stage; now the two agree to < 10 mK on a 0–60° plane, rows attenuate less as they steepen, and a frame without the plane is bit-identical. `test_run_frame_slant_path.py`, red without the fix. | — | S | A |
 | AT.22 | ✅ **done.** `excess_radiance` takes the pixel's post-stage-2 value and returns φ [τ_B(R) L_t + L_path(R) − L_pixel]; `inject_point_targets` reads it under every target. The grey L1 model keeps the clear-column form: its path and sky are not one column (S28, `AT.5`). | **Measured.** Over a cloud pixel 20 W/m²/sr above the clear sky a φ = 0.278 target at 700 m loses exactly φ·20 of excess; a target that looks like the cloud through its own air adds < 1e-9; over the clear column old and new agree to 1e-9. `test_point_target_background.py`, red without the fix. | — | S | A |
-| AT.23 | **The engine-free aerial builder lights and orients its surfaces.** `validation/aerial_scene.py` gives every surface V_s = 1 and n·v = 1 and writes no `l_sun`, `shadow_mask` or `sun_cos_incidence`, so a CPU render sees only sky reflection and no sun in any band. Carry tilt-derived V_s, a view angle and the solar planes from `SceneIllumination`. | A belly (tilt 180) reflects ground, not sky (≈ 3 K in LWIR on paint); a noon SWIR shell is sunlit; Isaac and CPU paths agree on the sky-target fixture to 0.1 K. | — | M | A |
+| AT.23 | ✅ **done.** `SceneTarget.tilt_deg/azimuth_deg`; `build_aerial_gbuffer` writes per-pixel `normal_dot_view`, tilt-derived `sky_view_factor`, and with `illumination=` plus `SkyModel.site` the `l_sun` / `sun_cos_incidence` / `shadow_mask` planes via `solar_terms(t_s)`. | **Measured.** Belly (tilt 180) sees no sky and reads 3.3 K warmer than the deck on paint in LWIR; the ground's n·v = |sin el|; a 1 Jan noon deck at 45 N is lit at cos 0.37, its belly not; the sunlit SWIR deck is 48× its emission; no site → no sun. Isaac-vs-CPU on the fixture awaits a render (`IG.19`). | — | M | A |
 | AT.24 | ✅ **done.** `quadrature_grid` divides the support into an even number of intervals no wider than 0.01 µm nor `FINE_GRID_FRACTION` (0.5 %) of the short edge, ending on the last sample; the §3.2 sentence is spec issue S58. The ladder test's NIR and SWIR pins, produced by the padded grid, are re-pinned with the reason. | **Measured.** Odd-count 0.75–1.0 µm top-hat: +33 % → 3e-6 at 300 K, +54 % → 2e-5 at 200 K; vs a 20× finer quadrature NIR 28 → 2.6 mK, SWIR 4.7 → 0.21 mK, LWIR/MWIR bit-identical (0.53 / 0.11 mK). `test_band_integration.py`. | — | S | P |
 | AT.25 | ✅ **done.** `FresnelAngular.fit: magnitude | effective_nk` (ADR 0163); `effective_nk_table` scales n, k by one factor until ε_B(0) is the authored value; `bare_aluminium` and `aluminium_polished` declare it. | **Measured.** Bare Al LWIR ε(θ) peaks 0.22 at 85°, 0 at 90°, hemispherical/normal 1.17 (a conductor's 1.1–1.4); a 280 K skin at 89° under a 230 K sky reads 237 K, not 280; ε(70°) 0.132 (was 0.146); water and every `magnitude` material bit-identical; the packed angle LUT follows the dispatch to 0.05. | — | M | A |
 | AT.26 | **One emissivity for water.** `sea.py:334` uses the raw Fresnel band value (0.988 at nadir) while `water.yaml` gives 0.96 × shape: 0.9 K apart on the same sea. Decide (ADR) and make the sea model and the library consume the same number. | The sea model's nadir ε equals `MaterialTable`'s for `water` to 1e-6 in every band; a 290 K sea under a 250 K sky reads the same T_app by both routes to 1 mK. | — | S | B |

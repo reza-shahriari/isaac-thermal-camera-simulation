@@ -40,6 +40,7 @@ from irsim.materials.table import UNMAPPED_MATERIAL_ID, MaterialTable
 from irsim.pipeline.environment import ground_temperature_k
 from irsim.pipeline.point_target import PointTarget, fill_fraction
 from irsim.radiometry.encoding import encode_temperature
+from irsim.thermal.scene_forcing import SurfaceOrientation
 from irsim.validation.aerial import AerialTarget, target_leaving_radiance
 
 __all__ = [
@@ -66,6 +67,10 @@ class SceneTarget:
     range_m: float
     position_px: tuple[float, float]
     elevation_rad: float | None = None  # None: read from the pixel grid at its position
+    #: AT.23: which way the surface faces. 0 is a deck looking up (sky view 1), 180 a belly
+    #: looking down (sky view 0, it reflects the ground); the azimuth places the sun on it.
+    tilt_deg: float = 0.0
+    azimuth_deg: float = 180.0
 
     def __post_init__(self) -> None:
         if not self.temperature_k > 0.0 or not math.isfinite(self.temperature_k):
@@ -139,8 +144,22 @@ def build_aerial_gbuffer(
     ground_material: str = "asphalt_dry",
     cloud_seed: int | None = None,
     supersample: int = 1,
+    illumination: Any = None,
+    boresight_azimuth_deg: float = 0.0,
 ) -> AerialScene:
-    """Assemble the aerial G-buffer. ``cloud_seed`` None leaves the sky clear of structure."""
+    """Assemble the aerial G-buffer. ``cloud_seed`` None leaves the sky clear of structure.
+
+    AT.23: every surface carries its orientation and its light. The ground faces up and is seen
+    along each pixel's ray, so ``normal_dot_view`` is the ray's own sine of elevation, not 1; a
+    target faces where its ``tilt_deg`` / ``azimuth_deg`` say, so a belly (tilt 180) has a sky
+    view of 0 and reflects the ground, and its ``normal_dot_view`` is the cosine between its
+    normal and the ray. With ``illumination`` (a `SolarIllumination` for this sensor) and a sky
+    model that knows its site, the sun is placed from the weather's epoch and every lit surface
+    gets ``l_sun`` through the preset's beam transmittance, ``sun_cos_incidence`` and a
+    ``shadow_mask`` of ones (nothing occludes in this scene); without them the frame is the
+    emissive-only picture it always was, bit for bit. Rays are taken along the boresight azimuth
+    (``boresight_azimuth_deg``, degrees east of north) at each pixel's elevation.
+    """
     k = int(supersample)
     elevation = elevation_grid_rad(sensor, boresight_elevation_deg, k)
     horizon = math.radians(horizon_elevation_deg)
@@ -168,6 +187,20 @@ def build_aerial_gbuffer(
     material_id = np.where(sky_mask, UNMAPPED_MATERIAL_ID, materials.id_for(ground_material))
     material_id = material_id.astype(np.int32)
     sky_view = np.ones(shape, dtype=np.float32)  # sky pixels and flat ground both face up
+    # AT.23: the ray through each pixel, and what faces it
+    az = math.radians(boresight_azimuth_deg)
+    ray = np.stack(
+        [
+            math.sin(az) * np.cos(elevation),
+            math.cos(az) * np.cos(elevation),
+            np.sin(elevation),
+        ],
+        axis=-1,
+    )  # ENU, pointing away from the camera
+    normal = np.zeros((*shape, 3), dtype=np.float64)
+    normal[..., 2] = 1.0  # the ground faces up; sky pixels carry it too and never use it
+    normal_dot_view = np.abs(np.sum(normal * -ray, axis=-1)).astype(np.float32)
+    normal_dot_view[sky_mask] = 1.0
 
     # -- targets ------------------------------------------------------------------------
     point_targets: list[PointTarget] = []
@@ -214,6 +247,13 @@ def build_aerial_gbuffer(
         temperature[i0:i1, j0:j1] = np.float32(target.temperature_k)
         distance[i0:i1, j0:j1] = np.float32(target.range_m)
         material_id[i0:i1, j0:j1] = materials.id_for(target.material)
+        # AT.23: the target's own orientation, on every pixel it covers
+        facet = SurfaceOrientation(tilt_deg=target.tilt_deg, azimuth_deg=target.azimuth_deg)
+        n_t = np.asarray(facet.normal_enu(), dtype=np.float64)
+        normal[i0:i1, j0:j1] = n_t
+        sky_view[i0:i1, j0:j1] = np.float32(0.5 * (1.0 + math.cos(math.radians(target.tilt_deg))))
+        block = -ray[i0:i1, j0:j1]
+        normal_dot_view[i0:i1, j0:j1] = np.abs(block @ n_t).astype(np.float32)
         sky_mask[i0:i1, j0:j1] = False
         cloud_mask[i0:i1, j0:j1] = False
         resolved.append((target, (i0, j0, i1, j1)))
@@ -221,12 +261,30 @@ def build_aerial_gbuffer(
     planes: dict[str, NDArray[Any]] = {
         "temperature_k": temperature,
         "encoded_t": encode_temperature(temperature),
-        "normal_dot_view": np.ones(shape, dtype=np.float32),
+        "normal_dot_view": normal_dot_view,
         "distance_m": distance,
         "material_id": material_id,
         "sky_view_factor": sky_view,
         "sky_mask": sky_mask,
     }
+    # AT.23: the sun on every lit surface, through the preset's beam transmittance
+    if illumination is not None and sky.site is not None:
+        from irsim.pipeline.solar import beam_transmittance
+
+        terms = sky.solar_terms(t_s)
+        el_sun = float(terms.elevation_deg)
+        cos_sun = np.clip(np.sum(normal * np.asarray(terms.direction_enu), axis=-1), 0.0, 1.0)
+        cos_sun[sky_mask] = 0.0
+        tau_sun = float(beam_transmittance(sky.atmosphere.preset, sky.band, el_sun))
+        shadow = np.ones(shape, dtype=np.float32)
+        planes["sun_cos_incidence"] = cos_sun.astype(np.float32)
+        planes["shadow_mask"] = shadow
+        planes["l_sun"] = np.asarray(
+            illumination.incident_radiance(
+                cos_sun, elevation_deg=el_sun, tau_sun=tau_sun, shadow=shadow
+            ),
+            dtype=np.float64,
+        )
     return AerialScene(
         planes=planes,
         elevation_rad=elevation,
