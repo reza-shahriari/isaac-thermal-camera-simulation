@@ -727,6 +727,34 @@ sections:
       asset the library does not hold yet, which is why the layer was brought down to the drone.
     source: scripts/render_phantom4.py
 
+  - id: aerial-reference-clip
+    title: Ten seconds at standoff, at the camera's own rate
+    lead: |
+      Every other aerial clip here is a time-lapse at a few metres. The public drone datasets are
+      not: they film at tens to hundreds of metres, frame after frame. `EV.14` renders that —
+      **600 frames at 60 Hz**, a heavy-lift quadrotor flying out from **50 m to 250 m** (26.7 px
+      across down to 5.4) against fair-weather cumulus, with the bolometer's smear and the camera's
+      damped AGC running at their real rate. A second drone holds station **1.25–1.45 km** out,
+      filling 4–6 % of a pixel, and goes through the analytic sub-pixel path on every frame.
+    media:
+      - video: aerial_reference_clip/aerial_reference_agc.mp4
+        width: full
+        caption: >-
+          LWIR through the camera's own information-based AGC, damped at FLIR's factory 0.85 per
+          frame: the display's mean moves a median 0.01 codes a frame
+      - video: aerial_reference_clip/aerial_reference_rgb.mp4
+        width: half
+        caption: The visible companion, the same instants and the same clouds
+      - video: aerial_reference_clip/aerial_reference_sky.mp4
+        width: half
+        caption: The same frames on a fixed span over the sky, −25.7 to 56.0 °C
+    note: |
+      The distant drone is there in the numbers more than in the picture: against a cloud edge it
+      reads 0.26–0.56 K above its surroundings, about five times the 80 mK noise, which the AGC
+      does not lift out of the cloud's gradient. The three fixed black dots are the camera's dead
+      pixels.
+    source: scripts/render_quad_outbound.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |

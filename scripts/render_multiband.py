@@ -99,6 +99,12 @@ SCENES: dict[str, tuple[str, list[str], int]] = {
 #: this accounts for every file in `configs/scenes/` that `SCENES` does not name, so a new scene
 #: cannot be added and quietly left unfilmed.
 UNSWEPT_SCENES: dict[str, str] = {
+    "aerial_reference_clip.yaml": (
+        "EV.14's reference clip (ADR 0168): the outbound quad's aircraft under cumulus, filmed as "
+        "ten seconds of continuous 60 Hz video by `render_quad_outbound.py --reference`. Its "
+        "measurement is the clip -- 600 frames, the AGC's frame-to-frame drift and a sub-pixel "
+        "companion -- and one frame per band would say nothing the outbound sweep does not."
+    ),
     "sky_only.yaml": (
         "SC.20's Tier 4 reference: nothing but sky, so the camera's own radial shading is all "
         "a frame holds. It is measured, not filmed: `scripts/validate_sky_flat.py` renders it "

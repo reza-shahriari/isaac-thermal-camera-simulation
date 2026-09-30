@@ -27,7 +27,8 @@ not the aircraft is sky, computed at that ray's own elevation (ADR 0060). There 
 and no sky geometry on the stage.
 
 docs/physics-model.md §6.6, §15 T3; ADR 0060 (the analytic background), ADR 0072 (the heat
-sources), ADR 0073 (the dome), ADR 0087 (the field), ADR 0123 (this stage)
+sources), ADR 0073 (the dome), ADR 0087 (the field), ADR 0123 (this stage),
+ADR 0168 (EV.14's continuous reference clip)
 """
 
 from __future__ import annotations
@@ -45,11 +46,19 @@ from irsim_isaac.visible_sky import DomeSpec
 __all__ = [
     "AIM_ELEVATION_DEG",
     "AIM_POINT_M",
+    "REFERENCE_DURATION_S",
+    "REFERENCE_FAR_M",
+    "REFERENCE_NEAR_M",
+    "REFERENCE_SWEEP_DEG",
     "OutboundTrack",
     "QuadOutboundStage",
     "POINTWISE_QUAD",
+    "boresight",
     "build_quad_outbound",
+    "companion_angle_deg",
+    "distant_companion_position",
     "pointwise_quad_parts",
+    "reference_track",
     "rotor_mounts",
     "rotor_rpm",
 ]
@@ -280,6 +289,85 @@ class OutboundTrack:
         boresight elevation is constant along the track, so one comparison covers the whole run.
         """
         return self.elevation_deg - 0.5 * float(vfov_deg) <= 0.0
+
+
+#: EV.14: the reference clip's range band, metres. The public aerial sets this project is compared
+#: against (EV.3-EV.7) film drones at tens to hundreds of metres with the target 5-40 px across;
+#: every other aerial clip here is a time-lapse at a few metres. 50 -> 250 m puts this frame's
+#: 1.14 m tip-to-tip at 27 px through the Boson's 14 mm lens at the start and 5.3 px at the end.
+REFERENCE_NEAR_M = 50.0
+REFERENCE_FAR_M = 250.0
+
+#: EV.14: seconds of flight the reference clip covers, at the sensor's own frame rate.
+REFERENCE_DURATION_S = 10.0
+
+#: EV.14: how far the camera walks round the aircraft over the clip, degrees. A tracking mount
+#: follows a drone at 20 m/s through a few degrees of bearing in ten seconds, not the 55 degrees
+#: the half-hour time-lapse sweeps; at 60 Hz this is 0.23 mrad per frame, a quarter of a pixel of
+#: background slew per frame, which is what a pan-tilt mount tracking a drone shows.
+REFERENCE_SWEEP_DEG = 8.0
+
+
+def reference_track(duration_s: float = REFERENCE_DURATION_S) -> OutboundTrack:
+    """EV.14's track: 50 -> 250 m in ``duration_s`` of continuous video, a few degrees of slew."""
+    return OutboundTrack(
+        near_m=REFERENCE_NEAR_M,
+        far_m=REFERENCE_FAR_M,
+        duration_s=duration_s,
+        azimuth_sweep_deg=REFERENCE_SWEEP_DEG,
+    )
+
+
+def boresight(track: OutboundTrack, t_rel_s: float) -> tuple[float, float, float]:
+    """Unit vector from the camera to :data:`AIM_POINT_M` at ``t_rel_s``, stage frame."""
+    c = track.camera_position_m(t_rel_s)
+    d = [AIM_POINT_M[i] - c[i] for i in range(3)]
+    n = math.sqrt(sum(x * x for x in d))
+    return (d[0] / n, d[1] / n, d[2] / n)
+
+
+def distant_companion_position(
+    track: OutboundTrack, beyond_m: float, offset_deg: float
+) -> tuple[float, float, float]:
+    """Where EV.14's sub-pixel companion hangs: ``beyond_m`` past the aircraft, ``offset_deg`` up.
+
+    Placed from the track's **midpoint** view: along the camera-to-aircraft ray at mid-clip,
+    tilted ``offset_deg`` towards the stage's up, at the aircraft's range plus ``beyond_m``. From
+    a kilometre past the aircraft the ray to it swings far less than the boresight does, so it
+    stays where it was put for the whole clip -- :func:`companion_angle_deg` is what a test reads
+    to prove that rather than trust it. Static in the stage, like the aircraft: a distant drone
+    holding station, which the sky-first lane needs as the sub-pixel case (ADR 0071).
+    """
+    if beyond_m <= 0.0:
+        raise ValueError("beyond_m must be positive: the companion is behind the aircraft")
+    t_mid = 0.5 * track.duration_s
+    d = boresight(track, t_mid)
+    up = (0.0, 1.0, 0.0)
+    right = (d[1] * up[2] - d[2] * up[1], d[2] * up[0] - d[0] * up[2], d[0] * up[1] - d[1] * up[0])
+    rn = math.sqrt(sum(x * x for x in right))
+    right = (right[0] / rn, right[1] / rn, right[2] / rn)
+    true_up = (
+        right[1] * d[2] - right[2] * d[1],
+        right[2] * d[0] - right[0] * d[2],
+        right[0] * d[1] - right[1] * d[0],
+    )
+    o = math.radians(offset_deg)
+    ray = tuple(math.cos(o) * d[i] + math.sin(o) * true_up[i] for i in range(3))
+    reach = track.range_at(t_mid) + float(beyond_m)
+    c = track.camera_position_m(t_mid)
+    return (c[0] + reach * ray[0], c[1] + reach * ray[1], c[2] + reach * ray[2])
+
+
+def companion_angle_deg(
+    track: OutboundTrack, t_rel_s: float, position_m: tuple[float, float, float]
+) -> tuple[float, float]:
+    """The companion's range and its angle off the boresight at ``t_rel_s`` (metres, degrees)."""
+    c = track.camera_position_m(t_rel_s)
+    v = [position_m[i] - c[i] for i in range(3)]
+    r = math.sqrt(sum(x * x for x in v))
+    d = boresight(track, t_rel_s)
+    cos_a = max(-1.0, min(1.0, sum(v[i] * d[i] for i in range(3)) / r))
+    return r, math.degrees(math.acos(cos_a))
 
 
 @dataclass

@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `AT.31` is phase A, size M, and unblocks 0 other step(s).
 
-#### Then, in order — 66 open steps
+#### Then, in order — 65 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`AT.31`** | AT | A | M | — | ready |
-| 2 | **`EV.14`** | EV | A | M | — | ready |
-| 3 | **`XD.6`** | XD | A | L | — | ready |
-| 4 | **`AT.26`** | AT | B | S | — | ready |
-| 5 | **`IG.16`** | IG | B | M | — | ready |
-| 6 | **`TC.15`** | TC | C | M | 1 | ready |
-| 7 | **`PT.27`** | PT | C | S | — | ready |
-| 8 | **`AT.6`** | AT | C | M | — | ready |
-| 9 | **`AT.9`** | AT | C | M | — | ready |
-| 10 | **`PH.14`** | PH | C | M | — | `TC.15` |
-| 11 | **`PT.16`** | PT | C | M | — | ready |
-| 12 | **`TC.14`** | TC | C | M | — | ready |
-| 13 | **`XD.10`** | XD | C | L | — | ready |
-| 14 | **`IG.3`** | IG | X | S | 6 | ready |
-| 15 | **`EV.5`** | EV | X | M | 3 | ready |
+| 2 | **`XD.6`** | XD | A | L | — | ready |
+| 3 | **`AT.26`** | AT | B | S | — | ready |
+| 4 | **`IG.16`** | IG | B | M | — | ready |
+| 5 | **`TC.15`** | TC | C | M | 1 | ready |
+| 6 | **`PT.27`** | PT | C | S | — | ready |
+| 7 | **`AT.6`** | AT | C | M | — | ready |
+| 8 | **`AT.9`** | AT | C | M | — | ready |
+| 9 | **`PH.14`** | PH | C | M | — | `TC.15` |
+| 10 | **`PT.16`** | PT | C | M | — | ready |
+| 11 | **`TC.14`** | TC | C | M | — | ready |
+| 12 | **`XD.10`** | XD | C | L | — | ready |
+| 13 | **`IG.3`** | IG | X | S | 6 | ready |
+| 14 | **`EV.5`** | EV | X | M | 3 | ready |
+| 15 | **`SC.5`** | SC | X | M | 3 | ready |
 
-…and 51 more — `python scripts/next_step.py --queue 40`.
+…and 50 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -736,7 +736,7 @@ requirement into an external, cited number, and it can return a negative.
 | EV.11 | **Sweep the mixed-to-real ratio** instead of testing one mix. Published: synthetic pre-training plus 100 real images beat real-only in every configuration measured, and the KAIST optimum is only 10–20 % synthetic. | mAP@50:95 against synthetic fraction at 0, 10, 20, 50 and 100 %, three seeds each, on the ~100–200 Python-readable boxes of `XD.11`. Passes when a mixed point beats real-only by more than the seed spread and any point beats the published synthetic-only band 0.41–0.54; a curve without seed spread fails review. | XD.11 | M | X |
 | EV.12 | **Training-free dataset-quality proxy.** Evaluate SDQM (public code, Pearson r = 0.87 with YOLO11 mAP50) as a stand-in for the torch-blocked half of ME.7. | A defensible sim-to-real number inside the existing no-GPU gate, making the torch install a confirmation rather than a prerequisite. A clear negative result is an acceptable outcome and must be recorded as one. | — | M | X |
 | EV.13 | **Publish the paired RAW-16 / AGC-8 artefact** (open question 7 gates the publication, not the format). No public thermal set offers the pairing and the literature names the 16→8 mapping as the dominant sim-to-real factor. | The float planes invert to apparent temperature within the project's existing 10 mK encode/decode budget while the 8-bit stream fails the same bound — the fp16 negative control that already discriminates. Note honestly that this is a self-consistency check on irsim's own encode/decode, not an external radiometric check; XD.5 is the external one. | IG.13 | M | X |
-| EV.14 | **The aerial reference clip: continuous video at standoff.** Every aerial clip is a time-lapse (Phantom 4: 11.6 s per frame at 12 fps, 3–4 m range) and no public set looks like that. One scene config renders 10 s at the sensor's frame rate at 50–300 m with the sub-pixel path exercised, cloud behind the target, bolometer lag and AGC damping live. | Target 5–40 px as in the reference sets; frame-to-frame display drift inside the measured lag-1 band once SC.10 lands; the clip is what EV.3–EV.7 measure. | AT.21, AT.22, SC.28, SC.29 | M | A |
+| EV.14 | ✅ **done.** `aerial_reference_clip.yaml` + `render_quad_outbound.py --reference`: 600 frames at 60 Hz, 50→250 m, cumulus behind, damped AGC, sub-pixel companion at 1.25–1.45 km. ADR 0168. | **Measured**: 26.7→5.4 px; companion in frame 600/600, +0.26–0.56 K over cloud; AGC mean step median 0.01 codes (p95 0.03), lag-1 0.9995. Real-set band: EV.3–EV.7. | AT.21, AT.22, SC.28, SC.29 | M | A |
 | EV.15 | ✅ **done.** `irsim.io.labels`: `frame_labels(part_id, legend, targets, category_of, points)` → `Box` (xyxy, COCO xywh, YOLO cxcywh, RLE mask, visibility), `PointLabel(φ)`; `write_frame_labels` (COCO json + YOLO txt per frame), `split_manifest` / `write_split_manifest`. | **Measured.** Boxes equal the mask's extent to the pixel and the RLE decodes to the mask; an absent target gets no box; a sub-pixel target is a point with its φ; visibility is the mask's share inside the frame; a seeded split reproduces; loads in pycocotools when present. Drivers not wired. | — | S | A |
 
 ---

@@ -1,0 +1,111 @@
+# EV.14: the aerial **reference clip** -- ten seconds of continuous video at the sensor's own frame
+# rate, a heavy-lift quadrotor at 50 m to 250 m, cumulus behind it. Schema: irsim.config.scene.
+# Roadmap EV.14; ADR 0168 (this clip), ADR 0123 (the outbound stage it reuses), ADR 0071 (the
+# sub-pixel path), ADR 0126 (the cloud deck).
+#
+# Every other aerial clip in this project is a time-lapse at a few metres -- the Phantom 4 at
+# 11.6 s of flight per frame, 3-4 m away -- and no public aerial set looks like that. The sets
+# EV.3-EV.7 compare against film drones at tens to hundreds of metres, 5-40 px across, frame after
+# frame. This scene is the one that looks like them:
+#
+#   * **The aircraft and its thermal model are `quad_outbound_pointwise.yaml`'s**, cell for cell --
+#     the same deck, belly and arms, the same occluders, the same prims (`tests/unit/
+#     test_aerial_reference_clip.py` asserts the thermal block is identical, so the prim-agreement
+#     checks in `test_quad_outbound.py` cover this file too).
+#   * **The weather is fair-weather cumulus** (`scattered_cumulus_48h.csv`, the
+#     `scattered_cumulus` preset with an optical depth and a base at the LCL), so the deck the
+#     infrared marches and the dome bakes has cloud in the field behind the target. The clear
+#     summer file carries almost none, and a reference clip against an empty sky would test
+#     nothing a detector finds hard.
+#   * **Everything else is the driver's**: `render_quad_outbound.py --reference` flies the camera
+#     along `irsim_isaac.quad_outbound.reference_track` (50 -> 250 m in 10 s, 8 deg of slew),
+#     captures at `1 / frame_rate_hz` so the bolometer's smear and the chain's per-frame noise are
+#     at their real rate, and hangs a sub-pixel companion drone 1.2 km beyond the aircraft, which
+#     goes through the analytic path (ADR 0071) for the whole clip.
+#
+# Ten seconds of a half-hour thermal profile is a constant temperature to the eye: that is right.
+# What changes over this clip is range, slew, noise and cloud, which is what a detector sees.
+
+schema_version: 20
+scene:
+  name: aerial_reference_clip
+  description: "EV.14 reference clip: a quadrotor at 50-250 m, 10 s at the frame rate, cumulus behind it"
+  weather_file: weather/scattered_cumulus_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: scattered_cumulus
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  # Stage axes against the compass: +Y is up and -Z is north, so a heading of 0 puts the camera's
+  # boresight due north and the sun lands where the site and the clock say it does.
+  world_frame: {up: [0.0, 1.0, 0.0], north: [0.0, 0.0, -1.0]}
+  targets:
+    # The per-prim airframe is kept so a prim that carries no patch still has a temperature.
+    - {name: airframe, solver: airframe, offset_k: 0.0}
+    - name: motor
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0, 1440.0, 1560.0, 1800.0]
+      throttle:   [0.15,  0.18,  0.85,  0.62,  0.66,   0.98,   0.95,   0.35,   0.20,   0.05]
+    - name: esc
+      solver: heat_source
+      source: esc
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0, 1440.0, 1560.0, 1800.0]
+      throttle:   [0.15,  0.18,  0.85,  0.62,  0.66,   0.98,   0.95,   0.35,   0.20,   0.05]
+    - name: battery
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1080.0, 1200.0, 1440.0, 1560.0, 1800.0]
+      throttle:   [0.15,  0.18,  0.85,  0.62,  0.66,   0.98,   0.95,   0.35,   0.20,   0.05]
+
+  thermal:
+    spin_up_hours: 48.0
+    tick_s: 10.0
+    penumbra_rays: 7        # the pods stand 40 mm off the arms: a 0.4 mm ramp, but free here
+
+    # The body and two of the motor pods, as the boxes they are to the sun (ADR 0095). Every face
+    # here is a face of a prim `irsim_isaac.quad_outbound` authors, at the same coordinates -- the
+    # shadow and the picture come from one description of the aircraft.
+    occluders:
+      - {name: body_w,   centre_m: [-0.15, 0.30,  0.00], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_e,   centre_m: [ 0.15, 0.30,  0.00], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_s,   centre_m: [ 0.00, 0.30,  0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_n,   centre_m: [ 0.00, 0.30, -0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.15, half_v_m: 0.06}
+      - {name: body_top, centre_m: [ 0.00, 0.36,  0.00], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.15, half_v_m: 0.15}
+      - {name: pod_n_top, centre_m: [ 0.00, 0.37, -0.42], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_n_s,   centre_m: [ 0.00, 0.34, -0.39], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_e_top, centre_m: [ 0.42, 0.37,  0.00], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_e_s,   centre_m: [ 0.42, 0.34,  0.03], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
+
+    surfaces:
+      # The deck: 0.30 x 0.30 m of carbon on top of the body, the one surface a camera above sees.
+      - name: deck
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.15, 0.36, 0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/deck}
+
+      # The belly: the same plate facing down. tilt 180 means it sees no sky at all -- only the
+      # ground under it -- which is why a quadrotor read from below is nothing like one read from
+      # above, and from a *ground* camera the belly is most of what there is to read.
+      - name: belly
+        material: carbon_fibre
+        tilt_deg: 180.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.15, 0.24, 0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/belly}
+
+      # Two arms, north and east: 0.30 m of carbon tube from the body to the pod, 40 mm below the
+      # deck so the deck's own shadow falls across their inner half at a high sun.
+      - name: arm_n
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.025, 0.32, -0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 2, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/arm_n}
+      - name: arm_e
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [0.15, 0.32, 0.025], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 2, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/arm_e}

@@ -71,11 +71,11 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **Drone footage the way datasets film it** — ten seconds of continuous 60 Hz video of a quadcopter flying out to 250 m against cumulus, with a second drone too far away to fill a pixel.
 - **A solved drone** — the demo Phantom 4's motors now heat up over a climb, run hotter on the loaded side of a turn and stay warm after landing, because every part is solved as one thermal network.
 - **Bring your own calibration** — paste your camera's OpenCV intrinsics, distortion and bench maps into its YAML and the simulator renders that unit.
 - **Clouds hide what is behind them** — a drone flying behind or through a weather-fx cloud is now attenuated by it in the infrared, and the cloud's own glow is laid in front; [how a visible cloud becomes an infrared one](docs/clouds-in-the-infrared.md).
 - **Tutorials** — step-by-step guides on the project site, starting with [giving a downloaded model its infrared materials in Blender](docs/tutorials/blender-addon/README.md).
-- **Low-poly to high-poly, and CAD in** — game models get smoothed or rebuilt, STEP/CAD models get meshed, and a check confirms no facet is visible to the camera.
 
 Full history in the [changelog](CHANGELOG.md).
 

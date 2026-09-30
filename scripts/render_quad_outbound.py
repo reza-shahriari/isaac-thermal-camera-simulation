@@ -21,8 +21,17 @@ its self-shadowing, which is the whole point-wise signature. Relative motion is 
 is more than half the vertical field, so the horizon is never in frame. The driver refuses to
 render rather than quietly putting the analytic ground into the bottom of a sky-target picture.
 
+**The reference clip (EV.14, ADR 0168).** ``--reference`` turns the time-lapse into what the
+public aerial sets look like: ten seconds of continuous video at the sensor's own frame rate, the
+heavy-lift quad at 50 m to 250 m (27 px to 5.3 px across), fair-weather cumulus behind it
+(``configs/scenes/aerial_reference_clip.yaml``), and a second, distant drone 1.2 km beyond it
+that stays under a pixel for the whole clip and therefore goes through the analytic sub-pixel
+path (ADR 0071). The capture interval is ``1 / frame_rate_hz``, so the bolometer's smear over its
+window and the chain's temporal noise run at their real rate rather than once per six seconds.
+
 Run with the Isaac interpreter (docs/decisions/0002), after `make luts`:
     IRSIM_GPU=0 python.sh scripts/render_quad_outbound.py --frames 300 --rgb
+    IRSIM_GPU=0 python.sh scripts/render_quad_outbound.py --reference --rgb
 """
 
 from __future__ import annotations
@@ -66,21 +75,34 @@ AIRFRAMES: dict[str, dict[str, Any]] = {
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
     "--airframe",
-    default="phantom3",
+    default=None,
     choices=sorted(AIRFRAMES),
-    help="which aircraft to fly. Each carries its own scene config and range band",
+    help="which aircraft to fly. Each carries its own scene config and range band "
+    "(default: phantom3, or heavy_lift with --reference)",
+)
+parser.add_argument(
+    "--reference",
+    action="store_true",
+    help="EV.14: 10 s of continuous video at the sensor's frame rate, 50-250 m, cumulus behind "
+    "the target and a sub-pixel companion 1.2 km beyond it",
 )
 parser.add_argument("--out", default=None)
-parser.add_argument("--frames", type=int, default=300)
+parser.add_argument("--frames", type=int, default=None, help="default 300; --reference: 10 s")
 parser.add_argument("--sensor", default=str(REPO / "configs/sensors/flir_boson_640_lwir.yaml"))
 parser.add_argument("--scene", default=None)
 parser.add_argument(
     "--interval-s",
     type=float,
-    default=6.0,
-    help="scene seconds per captured frame. frames x interval must fit inside the flight profile",
+    default=None,
+    help="scene seconds per captured frame. frames x interval must fit inside the flight profile "
+    "(default 6; --reference: one frame period of the sensor)",
 )
-parser.add_argument("--fps", type=float, default=30.0, help="playback rate of the encoded video")
+parser.add_argument(
+    "--fps",
+    type=float,
+    default=30.0,
+    help="playback rate of the encoded video (--reference without --fps: the sensor's own rate)",
+)
 parser.add_argument("--near-m", type=float, default=None)
 parser.add_argument("--far-m", type=float, default=None)
 # **The close-up is a different measurement, not a nicer picture.** The outbound track answers
@@ -175,11 +197,38 @@ parser.add_argument("--integration-ms", type=float, default=None)
 
 args = parser.parse_args()
 
+#: EV.14's sub-pixel companion: how far beyond the aircraft it holds station, how far above the
+#: boresight it sits, and the area it shows the camera -- a 350 mm-class quad seen from below,
+#: ESTIMATED as its body plus arms. At 1.25-1.5 km it fills under a tenth of a Boson pixel.
+COMPANION_BEYOND_M = 1200.0
+COMPANION_OFFSET_DEG = 6.0
+COMPANION_AREA_M2 = 0.06
+
+if args.airframe is None:
+    args.airframe = "heavy_lift" if args.reference else "phantom3"
+if args.reference and args.close_up:
+    parser.error("--reference is the standoff clip; --close-up is the opposite measurement")
 _AIRFRAME = AIRFRAMES[args.airframe]
 if args.scene is None:
-    args.scene = str(REPO / "configs" / "scenes" / _AIRFRAME["scene"])
+    args.scene = str(
+        REPO
+        / "configs"
+        / "scenes"
+        / ("aerial_reference_clip.yaml" if args.reference else _AIRFRAME["scene"])
+    )
 if args.out is None:
-    args.out = _AIRFRAME["out"]
+    args.out = "outputs/aerial_reference_clip" if args.reference else _AIRFRAME["out"]
+if args.reference:
+    # The reference band, not the airframe's own: the sets it is compared with film at standoff.
+    # Literal here because Kit has not booted yet; `reference_track` owns the same numbers and
+    # `test_aerial_reference_clip.py` holds the two together.
+    if args.near_m is None:
+        args.near_m = 50.0
+    if args.far_m is None:
+        args.far_m = 250.0
+    # A cloud with a top, so there is cloud *behind* the target along the ray (AT.12, AT.14).
+    if not args.no_cloud:
+        args.cloud_deck = True
 if args.close_up:
     # Sized so the widest extent fills most of the frame at both ends: a slow push out that
     # still never lets the aircraft get small. The exact pair is checked against the sensor
@@ -256,8 +305,12 @@ def main() -> int:
     from irsim_isaac.pipeline.point_bridge import bindings_from_scene
     from irsim_isaac.quad_outbound import (
         AIM_ELEVATION_DEG,
+        REFERENCE_DURATION_S,
+        REFERENCE_SWEEP_DEG,
         OutboundTrack,
         build_quad_outbound,
+        companion_angle_deg,
+        distant_companion_position,
     )
 
     if args.airframe == "phantom3":
@@ -292,6 +345,21 @@ def main() -> int:
             return 1
     spec = sensor.sensor
     quantity = spec.quantity
+    # EV.14: continuous video at the camera's own rate, unless a caller asked for something else.
+    if args.reference:
+        rate = float(spec.fpa.frame_rate_hz)
+        if args.interval_s is None:
+            args.interval_s = 1.0 / rate
+        if args.frames is None:
+            args.frames = int(round(REFERENCE_DURATION_S / args.interval_s))
+        # The literal default stays 30 (the sweep's watch-length test reads it); the reference
+        # clip plays at the camera's own rate unless the command line asked for another.
+        if not any(a == "--fps" or a.startswith("--fps=") for a in sys.argv[1:]):
+            args.fps = rate
+    if args.frames is None:
+        args.frames = 300
+    if args.interval_s is None:
+        args.interval_s = 6.0
     lut = load_band_lut_for_config(sensor, REPO / "data" / "lut")
     response = load_band_response_for_config(sensor, REPO / "data")
     skylight = skylight_for_sensor(sensor, quantity)
@@ -314,8 +382,11 @@ def main() -> int:
         duration_s=span_s,
         elevation_deg=AIM_ELEVATION_DEG if args.elevation_deg is None else args.elevation_deg,
         # A wider walk round the aircraft when it fills the frame: at 80 m the aspect hardly
-        # matters, but at 2 m which side the sun is on is most of the picture.
-        azimuth_sweep_deg=140.0 if args.close_up else 55.0,
+        # matters, but at 2 m which side the sun is on is most of the picture. The reference
+        # clip slews a few degrees in ten seconds, as a tracking mount does (EV.14).
+        azimuth_sweep_deg=REFERENCE_SWEEP_DEG
+        if args.reference
+        else (140.0 if args.close_up else 55.0),
     )
 
     ifov_mrad = 1e3 * spec.fpa.pitch_um * 1e-3 / spec.optics.focal_length_mm
@@ -527,10 +598,54 @@ def main() -> int:
             )
         )
 
+    # EV.14: the sub-pixel companion, injected analytically (ADR 0071). It has no prim on the
+    # stage, so there is nothing to hide and nothing the renderer could double-count; its
+    # temperature is the scene's per-prim airframe node, a drone holding station in the same air.
+    analytic = []
+    companion: dict[str, Any] | None = None
+    if args.reference:
+        from irsim.pipeline.point_target import fill_fraction
+        from irsim_isaac.pipeline.ir_camera import AnalyticTarget
+
+        where = distant_companion_position(track, COMPANION_BEYOND_M, COMPANION_OFFSET_DEG)
+        seen = [companion_angle_deg(track, t, where) for t in np.linspace(0.0, span_s, 11)]
+        phis = [
+            fill_fraction(
+                COMPANION_AREA_M2, r, spec.optics.focal_length_mm * 1e-3, spec.pixel_area_m2
+            )
+            for r, _ in seen
+        ]
+        companion = {
+            "position_m": [round(x, 3) for x in where],
+            "area_m2": COMPANION_AREA_M2,
+            "range_m": [round(min(r for r, _ in seen), 1), round(max(r for r, _ in seen), 1)],
+            "off_boresight_deg": [
+                round(min(a for _, a in seen), 2),
+                round(max(a for _, a in seen), 2),
+            ],
+            "fill_fraction": [round(min(phis), 4), round(max(phis), 4)],
+        }
+        print(
+            f"companion: {COMPANION_AREA_M2} m^2 at {companion['range_m'][0]:.0f}-"
+            f"{companion['range_m'][1]:.0f} m, {companion['off_boresight_deg'][0]:.1f}-"
+            f"{companion['off_boresight_deg'][1]:.1f} deg off the boresight, fill "
+            f"{companion['fill_fraction'][0]:.3f}-{companion['fill_fraction'][1]:.3f} of a pixel"
+        )
+        analytic.append(
+            AnalyticTarget(
+                name="companion",
+                world_position=where,
+                area_m2=COMPANION_AREA_M2,
+                material="carbon_fibre",
+                thermal_node="airframe",
+            )
+        )
+
     camera = IrCamera(
         sensor,
         scene,
         pipeline=pipeline,
+        analytic_targets=analytic,
         prim_to_target=stage.prim_to_target,
         resolutions=resolutions,
         camera_path=stage.camera_path,
@@ -741,6 +856,17 @@ def main() -> int:
             dn = np.asarray(outputs.dn16)
             record["dn16_min"] = float(dn.min())
             record["dn16_max"] = float(dn.max())
+        if analytic:
+            # EV.14: where the companion landed, or where it fell outside the frame. Recomputed
+            # rather than cached by the camera, which keeps only the ones it could not see.
+            on = camera.point_targets()
+            if on:
+                record["companion_px"] = [round(x, 2) for x in on[0].position_px]
+            for name, (u, v) in camera.last_offscreen_targets:
+                record[f"{name}_offscreen_px"] = [round(u, 1), round(v, 1)]
+        if outputs.display8 is not None:
+            # EV.14: what the camera's own AGC did this frame, for the frame-to-frame drift.
+            record["display8_mean"] = round(float(np.mean(np.asarray(outputs.display8))), 3)
         history.append(record)
 
         if writer.wants(index):
@@ -777,15 +903,19 @@ def main() -> int:
             cell: dict = cells,
             node: dict = temps,
         ) -> Any:
-            minutes, seconds = divmod(int(t), 60)
+            minutes, seconds = divmod(float(t), 60.0)
             return overlay_readout(
                 image,
                 [
-                    f"T+{minutes:02d}:{seconds:02d}   range {r:6.1f} m   "
+                    f"T+{int(minutes):02d}:{seconds:05.2f}   range {r:6.1f} m   "
                     f"span {1e3 * SPAN_M / r / ifov_mrad:5.1f} px",
                     f"throttle {u * 100:3.0f}%   "
                     + "   ".join(f"{n} {cell[n] - 273.15:5.1f}C" for n in sunlit_shaded),
-                    f"1 frame / {args.interval_s:g} s time-lapse   {caption}",
+                    (
+                        f"continuous, {args.fps:g} Hz   {caption}"
+                        if args.reference
+                        else f"1 frame / {args.interval_s:g} s time-lapse   {caption}"
+                    ),
                 ],
                 {**{f"{n:7.7s}": cell[n] for n in gauge_fields}, "motor  ": node["motor"]},
                 scale,
@@ -833,7 +963,12 @@ def main() -> int:
             videos[kind] = str(
                 encode_mp4(
                     str(frames_dir / f"{kind}_*.png"),
-                    out_dir / f"{args.airframe}_outbound_{kind}.mp4",
+                    out_dir
+                    / (
+                        f"aerial_reference_{kind}.mp4"
+                        if args.reference
+                        else f"{args.airframe}_outbound_{kind}.mp4"
+                    ),
                     fps=args.fps,
                 )
             )
@@ -845,6 +980,10 @@ def main() -> int:
         print("ffmpeg not found: keeping the PNG sequence", file=sys.stderr)
 
     first, last = history[0], history[-1]
+    # EV.14: the camera AGC's frame-to-frame drift -- the number SC.10's damping is to be judged
+    # on. Per-frame AGC has no memory, so this is what the stream does without it.
+    means = np.array([h["display8_mean"] for h in history if "display8_mean" in h])
+    steps = np.abs(np.diff(means)) if means.size > 1 else np.zeros(1)
     summary = {
         "boot_s": round(boot_s, 2),
         "render_s": round(render_s, 2),
@@ -902,6 +1041,10 @@ def main() -> int:
         "plane_frames": planes_written,
         "palette": palette_name,
         "videos": videos,
+        "reference": bool(args.reference),
+        "companion": companion,
+        "display8_mean_step_median": round(float(np.median(steps)), 4),
+        "display8_mean_step_p95": round(float(np.percentile(steps, 95)), 4),
         "history": history,
     }
     path = out_dir / "summary.json"
