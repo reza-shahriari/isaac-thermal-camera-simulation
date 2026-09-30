@@ -163,9 +163,10 @@ UNSWEPT_SCENES: dict[str, str] = {
         "scripts/validate_thermal_diurnal.py, which produces a diurnal curve, not a frame."
     ),
     "wall_half_in_sun.yaml": (
-        "PT.20's reference scene: seven patches on one building and its ground, no camera and "
-        "no prims yet. scripts/wall_half_in_sun.py writes the engine-free frame from a synthetic "
-        "G-buffer; the rendered one is IG.2's."
+        "PT.20's reference scene: a building, its ground and the neighbour block as patches. "
+        "Filmed by scripts/render_patch_scene.py --scene wall_half_in_sun (IG.20) as a two-hour "
+        "LWIR time-lapse; a band sweep would film one instant of a scene whose point is the "
+        "shadow moving, and the driver takes --sensor for any band."
     ),
     "quad_flight_mesh.yaml": (
         "WM.7's reference scene: the same mission with the two arms as meshed tubes, no camera "
@@ -185,9 +186,9 @@ UNSWEPT_SCENES: dict[str, str] = {
         "engine-free plan frame from a synthetic G-buffer; the rendered one is IG.2's."
     ),
     "wet_road_noon.yaml": (
-        "PH.2's reference field: one road patch, half wet, part shaded, no camera and no prims "
-        "yet. Its numbers are tests/unit/test_wet_road.py's; the frame is IG.2's, and when a "
-        "driver authors the road it joins the sweep."
+        "PH.2's reference field: one road patch, half wet, and the wall shading it. Filmed by "
+        "scripts/render_patch_scene.py --scene wet_road_noon (IG.20) as a two-hour LWIR "
+        "time-lapse of the drying; the driver takes --sensor for any band."
     ),
 }
 

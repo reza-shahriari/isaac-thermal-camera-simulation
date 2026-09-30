@@ -591,6 +591,28 @@ sections:
         width: half
         caption: 15:00 — wet 44.8 °C, dry 55.8 °C
 
+  - id: patch-scenes
+    title: IG.20 — the wall half in sun and the wet road, rendered
+    lead: |
+      Two phase-P scenes that had only ever been solved on a synthetic G-buffer, now on an Isaac
+      stage: every patched surface is a quad drawn from its own solved field, cell by cell. A
+      building's west wall from 18:00 to 20:00, half concrete and half insulated render, with a
+      neighbour's shadow across it — the lit concrete stands 6.9 K over the shaded, and the roof
+      cools from 10.2 K over the north wall to 3.6 K as the sun sets. An asphalt road at 14:00
+      with its west half watered — 47.9 °C wet against 55.5 °C dry twenty minutes in, with the
+      shading wall's cold strip along the south edge.
+    media:
+      - video: wall_half_in_sun_lwir/wall_half_in_sun_pair.mp4
+        width: full
+        caption: 18:00–20:00, one frame per 150 s — LWIR left on a fixed span, visible right
+      - video: wet_road_noon_lwir/wet_road_noon_pair.mp4
+        width: full
+        caption: 14:00–16:00, the west half wet from 14:00 — LWIR left, visible right
+    note: |
+      The wet cells keep dry asphalt's emissivity (≈0.93 against water's ≈0.96), since a surface
+      has one infrared material; that is of order 1 K on the wet half.
+    source: scripts/render_patch_scene.py
+
   - id: exhaust-line
     title: TC.7 — the exhaust line as a gas stream in a wall
     lead: |

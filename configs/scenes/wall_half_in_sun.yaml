@@ -87,3 +87,32 @@ scene:
         material: asphalt_dry
         tilt_deg: 0.0
         patch: {origin_m: [-12.0, -12.0, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 48, n_v: 48, du_m: 0.5, dv_m: 0.5, thickness_m: 0.10, frame: world, prim_path: /World/Ground}
+
+      # The neighbour's own five faces (IG.20), solved like the building's so it can stand in the
+      # rendered frame: the visible companion has to show what casts the shadow on the west wall,
+      # and a prim with no field would have no temperature to show it at. Coarser cells (0.5 m):
+      # it is the caster, not the subject. Adding them changes no other surface's solve.
+      - name: nbr_east
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 90.0
+        patch: {origin_m: [-2.0, -1.0, 0.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 16, n_v: 8, du_m: 0.5, dv_m: 0.5, thickness_m: 0.15, frame: world, prim_path: /World/Neighbour/east}
+      - name: nbr_west
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 270.0
+        patch: {origin_m: [-6.0, -1.0, 0.0], u_axis: [0.0, 1.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 16, n_v: 8, du_m: 0.5, dv_m: 0.5, thickness_m: 0.15, frame: world, prim_path: /World/Neighbour/west}
+      - name: nbr_south
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 180.0
+        patch: {origin_m: [-6.0, -1.0, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 8, n_v: 8, du_m: 0.5, dv_m: 0.5, thickness_m: 0.15, frame: world, prim_path: /World/Neighbour/south}
+      - name: nbr_north
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 0.0
+        patch: {origin_m: [-6.0, 7.0, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 8, n_v: 8, du_m: 0.5, dv_m: 0.5, thickness_m: 0.15, frame: world, prim_path: /World/Neighbour/north}
+      - name: nbr_roof
+        material: concrete
+        tilt_deg: 0.0
+        patch: {origin_m: [-6.0, -1.0, 4.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 8, n_v: 16, du_m: 0.5, dv_m: 0.5, thickness_m: 0.15, frame: world, prim_path: /World/Neighbour/roof}

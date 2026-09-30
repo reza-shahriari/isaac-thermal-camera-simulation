@@ -45,7 +45,9 @@ def _stats(scene: Scene, name: str) -> tuple[np.ndarray, np.ndarray]:
     return temps, lit
 
 
-def test_the_scene_is_one_building_with_seven_patches_and_ten_occluders() -> None:
+def test_the_scene_is_one_building_its_neighbour_and_ten_occluders() -> None:
+    """Seven patches on the building and its ground, and since IG.20 the neighbour's own five
+    faces -- solved so the rendered frame can show what casts the shadow."""
     spec = load_scene_config(SCENE).scene
     assert spec.thermal is not None
     assert [s.name for s in spec.thermal.surfaces] == [
@@ -56,6 +58,11 @@ def test_the_scene_is_one_building_with_seven_patches_and_ten_occluders() -> Non
         "east",
         "roof",
         "ground",
+        "nbr_east",
+        "nbr_west",
+        "nbr_south",
+        "nbr_north",
+        "nbr_roof",
     ]
     assert len(spec.thermal.occluders) == 10
     west = [s for s in spec.thermal.surfaces if s.name.startswith("west")]

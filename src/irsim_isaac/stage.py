@@ -57,6 +57,12 @@ VISIBLE_ALBEDO: dict[str, tuple[tuple[float, float, float], float, float]] = {
     # Maritime (MM.6): a white superstructure, a bare metal stack, and a painted hull.
     "car_paint_white": ((0.78, 0.78, 0.76), 0.30, 0.0),
     "bare_aluminium": ((0.62, 0.63, 0.64), 0.28, 1.0),
+    # Phase P's reference scenes (IG.20): a building, its render, and the road and ground.
+    "concrete": ((0.42, 0.41, 0.39), 0.80, 0.0),
+    "etics_render": ((0.70, 0.68, 0.64), 0.85, 0.0),
+    "asphalt_dry": ((0.08, 0.08, 0.085), 0.85, 0.0),
+    # A water film (visible band only; the infrared reads the wetted surface's own field).
+    "water_film": ((0.02, 0.02, 0.025), 0.05, 0.0),
 }
 _DEFAULT_LOOK: tuple[tuple[float, float, float], float, float] = ((0.35, 0.35, 0.35), 0.6, 0.0)
 

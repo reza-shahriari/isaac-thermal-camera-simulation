@@ -62,8 +62,10 @@ def road():  # type: ignore[no-untyped-def]
 def test_the_scene_is_one_prim_half_wet_and_part_shaded(road) -> None:  # type: ignore[no-untyped-def]
     scene, fld, wet0, lit, _, _ = road
     spec = load_scene_config(SCENE).scene
-    assert [s.name for s in spec.thermal.surfaces] == ["road"]  # type: ignore[union-attr]
+    # the road, and since IG.20 the shading wall's own face so the rendered frame shows the caster
+    assert [s.name for s in spec.thermal.surfaces] == ["road", "south_wall"]  # type: ignore[union-attr]
     assert spec.thermal.surfaces[0].film.depth_mm == 0.5  # type: ignore[union-attr]
+    assert spec.thermal.surfaces[1].film is None  # type: ignore[union-attr]
     assert wet0.sum() == fld.patch.n_cells // 2  # the west half, cell for cell
     assert 0.05 < 1.0 - lit.mean() < 0.3  # the wall shades the south rows
     assert (wet0 & lit).sum() > 100 and (wet0 & ~lit).sum() > 10
