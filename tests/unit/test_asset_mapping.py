@@ -259,11 +259,32 @@ def test_phantom4_scale_puts_the_aircraft_at_its_published_size(phantom4: AssetM
 def test_every_committed_asset_config_loads_and_targets_real_materials(
     library: MaterialLibrary,
 ) -> None:
-    configs = sorted(ASSETS_DIR.glob("*.yaml"))
+    # `<name>.provenance.yaml` sits beside its asset config by design (AI.8/AI.9, ADR 0150) and
+    # is a different document; it is checked by the provenance test below, not loaded as a map.
+    configs = sorted(p for p in ASSETS_DIR.glob("*.yaml") if not p.name.endswith(PROVENANCE_SUFFIX))
     assert configs, "configs/assets is empty"
     for path in configs:
         asset = load_asset_mapping(path, known_materials=library.names)
         assert asset.name == path.stem
+
+
+PROVENANCE_SUFFIX = ".provenance.yaml"
+
+
+def test_every_committed_provenance_record_loads_and_names_a_shareable_asset() -> None:
+    """A committed provenance is a promise that the asset may be shared (ADR 0150).
+
+    A quarantined model's record never leaves `3d_models/quarantine/`, so one here that says
+    otherwise is a licence leak, and one whose asset config is missing is an orphan.
+    """
+    from irsim.io.sketchfab import load_provenance
+
+    for path in sorted(ASSETS_DIR.glob(f"*{PROVENANCE_SUFFIX}")):
+        record = load_provenance(path)
+        name = path.name.removesuffix(PROVENANCE_SUFFIX)
+        assert record.asset_name == name, path
+        assert record.shareable, f"{path}: a quarantined asset's provenance is in git"
+        assert (ASSETS_DIR / f"{name}.yaml").exists(), f"{path}: no asset config beside it"
 
 
 # ---------------------------------------------------------------------------------------------

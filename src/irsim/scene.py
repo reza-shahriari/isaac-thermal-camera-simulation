@@ -1361,8 +1361,9 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
     Each part becomes ``SurfaceSpec(name=<object>.<part>, material=..., mesh={asset: archive,
     prim: part, cell_m, ...})``, so the forcing, the spin-up, the per-cell mesh field and the
     bridge all work exactly as for a hand-written mesh surface. The material is the object's
-    override for the part, else the asset map's entry for the part's own mesh material; a part
-    with neither is refused by name. Returns the spec and the loaded asset mappings by object.
+    override for the part, else the part's own asserted material (AI.14), else the asset map's
+    entry for the part's own mesh material; a part with none is refused by name. Returns the
+    spec and the loaded asset mappings by object.
     """
     thermal = spec.thermal
     if thermal is None or not thermal.objects:
@@ -1386,7 +1387,11 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
                     f"object {obj.name!r}: part {part.name!r} is not in archive {archive!r}; "
                     f"prims: {sorted(meshes)}"
                 )
-            material = obj.materials.get(part.name) or asset.lookup(meshes[part.name].material_name)
+            material = (
+                obj.materials.get(part.name)
+                or part.material
+                or asset.lookup(meshes[part.name].material_name)
+            )
             if material is None:
                 raise ValueError(
                     f"object {obj.name!r}: part {part.name!r} has no library material -- its mesh "

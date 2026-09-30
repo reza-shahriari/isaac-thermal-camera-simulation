@@ -197,6 +197,12 @@ class PartSpec(_Frozen):
     #: ``None`` means the part is named and measured but left to the scene's default target.
     target: str | None = None
     select: PartSelector = Field(default_factory=PartSelector)
+    #: A library material asserted for the **whole part** (AI.14), outranking the asset's
+    #: source-material map for this part's geometry. For an asset whose artist put everything on
+    #: one texture atlas -- the Inspire 3's body, carbon arms, propellers and motors all share
+    #: `default` -- the source name cannot say what anything is made of, and the part can. ``None``
+    #: leaves the part to the map, which is right whenever the source materials are distinct.
+    material: str | None = None
 
 
 class ContactSpec(_Frozen):
@@ -317,6 +323,33 @@ class PartsConfig(_Frozen):
     #: written before the fields existed, and loads unchanged.
     contacts: list[ContactSpec] = Field(default_factory=list)
     hidden_parts: list[HiddenPartSpec] = Field(default_factory=list)
+    #: AI.14: geometry that is **not the asset** -- a display stand, a transport case, a ground
+    #: plane the artist modelled the aircraft on. Tried before any part, left out of the coverage
+    #: totals, and never split into a part, so it leaves the part-split USD without the gate having
+    #: to be lowered to let it through. Empty is every asset written before the field existed.
+    exclude: list[PartSelector] = Field(default_factory=list)
+
+    def excludes(self, component: Component) -> bool:
+        """Whether ``component`` is geometry that is not part of the asset."""
+        return any(s.accepts(component, self.centre) for s in self.exclude)
+
+    def claim(self, component: Component) -> PartSpec | None:
+        """The part ``component`` joins: none if excluded, else the first selector that accepts it.
+
+        The one place the claiming rule lives, so the report, the archive split and the Blender
+        split in ``scripts/prep_asset.py`` cannot disagree about which part a shell belongs to.
+        """
+        if self.excludes(component):
+            return None
+        for spec in self.parts:
+            if spec.select.accepts(component, self.centre):
+                return spec
+        return None
+
+    @property
+    def materials(self) -> dict[str, str]:
+        """``{part name: library material}`` for every part that asserts one (AI.14)."""
+        return {p.name: p.material for p in self.parts if p.material is not None}
 
     @field_validator("parts")
     @classmethod
@@ -440,6 +473,10 @@ class PartReport:
     empty_parts: tuple[str, ...] = ()
     unassigned_area_m2: float = 0.0
     unassigned_faces: int = 0
+    #: Geometry `PartsConfig.exclude` removed (AI.14). Not in ``total_area_m2``: a transport case
+    #: modelled under the aircraft is not a part of it the decomposition failed to find.
+    excluded_area_m2: float = 0.0
+    excluded_faces: int = 0
 
     @property
     def coverage(self) -> float:
@@ -483,6 +520,11 @@ class PartReport:
                 f"{100.0 * self.unassigned_area_m2 / self.total_area_m2:5.1f}%  "
                 f"{self.unassigned_faces:>8d} faces"
             )
+        if self.excluded_faces:
+            lines.append(
+                f"  {'<excluded: not the asset>':<28} {self.excluded_area_m2:9.5f} m2  "
+                f"{'':>6}  {self.excluded_faces:>8d} faces"
+            )
         for name in self.empty_parts:
             lines.append(f"  EMPTY: part {name!r} matched no geometry")
         return "\n".join(lines)
@@ -498,7 +540,6 @@ def assign_parts(
     only how much of it there was.
     """
     parts = list(config.parts)
-    centre = config.centre
     assignments: list[PartAssignment] = []
     area_by_part: dict[str, float] = {p.name: 0.0 for p in parts}
     faces_by_part: dict[str, int] = {p.name: 0 for p in parts}
@@ -506,15 +547,18 @@ def assign_parts(
     total_faces = 0
     unassigned_area = 0.0
     unassigned_faces = 0
+    excluded_area = 0.0
+    excluded_faces = 0
 
     for c in components:
+        if config.excludes(c):
+            excluded_area += c.area_m2
+            excluded_faces += c.faces
+            assignments.append(PartAssignment(c.index, None, None, c.area_m2, c.faces))
+            continue
         total_area += c.area_m2
         total_faces += c.faces
-        hit: PartSpec | None = None
-        for spec in parts:
-            if spec.select.accepts(c, centre):
-                hit = spec
-                break
+        hit = config.claim(c)
         if hit is None:
             unassigned_area += c.area_m2
             unassigned_faces += c.faces
@@ -534,6 +578,8 @@ def assign_parts(
         empty_parts=empty,
         unassigned_area_m2=unassigned_area,
         unassigned_faces=unassigned_faces,
+        excluded_area_m2=excluded_area,
+        excluded_faces=excluded_faces,
     )
     if config.contacts:
         config.check_contact_areas(area_by_part)
@@ -659,11 +705,7 @@ def split_by_part(meshes: Any, config: PartsConfig) -> tuple[dict[str, Any], Par
             )
             running += 1
             all_components.append(stat)
-            hit = None
-            for spec in config.parts:
-                if spec.select.accepts(stat, config.centre):
-                    hit = spec
-                    break
+            hit = config.claim(stat)
             if hit is None:
                 continue
             per_part_faces.setdefault(hit.name, []).append(
