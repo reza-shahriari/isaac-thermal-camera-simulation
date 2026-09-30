@@ -298,6 +298,20 @@ sections:
         label: NIR
     source: scripts/render_aerial_demo.py
 
+  - id: car-hot-soak
+    title: IG.22 — the engine stops, the bonnet keeps warming
+    lead: |
+      The overcast-night car with TC.6's solved engine: key on at 30 s, off at 20 minutes, one frame
+      a minute on a fixed 10–40 °C span. While the engine runs the bonnet warms over the bay; after
+      key-off the fan and the coolant flow stop, the block's heat soaks upward, and the bonnet's
+      hottest cell goes on climbing from 33.7 °C to 41.6 °C by minute 27 while the engine itself
+      cools from 92 °C to 86 °C — the hot soak a thermal camera sees on a parked car.
+    media:
+      - video: car_ignition_hot_soak/car_ignition_spanned.mp4
+        width: full
+        caption: T+0 to T+29 min, key-off at T+20 — LWIR, one frame per 60 s, fixed span
+    source: scripts/render_car_ignition.py
+
   - id: car-ignition
     title: A car that starts its engine
     lead: |

@@ -315,6 +315,8 @@ def main() -> int:
         t_abs = scene.t0_s + camera.t_rel_s
         outputs = camera.get_outputs(rt_subframes=args.rt_subframes)
         row = describe(demo, scene, t_abs)
+        load_at = getattr(scene.targets["engine_bay"], "load_at", None)
+        row["engine_load"] = float(load_at(t_abs)) if load_at is not None else float("nan")
         rows.append(row)
         print(
             f"{row['t_s']:6.0f} {row['t_air_k']:7.2f} {row['engine_bay_k']:7.2f} "
@@ -351,7 +353,9 @@ def main() -> int:
             # caption every frame with the last frame's values.
             def readout(image: Any, caption: str, sp: Any, r: dict = row) -> Any:
                 minutes, seconds = divmod(int(r["t_s"]), 60)
-                key = "OFF" if r["engine_bay_k"] - r["t_air_k"] < 0.05 else "RUNNING"
+                # TC.6: the key is the engine's own load schedule. The bay's temperature is not:
+                # a solved block stays 70 K over the air long after key-off -- the hot soak.
+                key = "RUNNING" if r["engine_load"] > 0.0 else "OFF"
                 return overlay_readout(
                     np.asarray(image, dtype=np.uint8),
                     [

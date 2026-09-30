@@ -119,6 +119,11 @@ class CarGeometry:
     bonnet_length_m: float = 1.30
     bonnet_inset_m: float = 0.08  # from each side of the shell
     bonnet_thickness_m: float = 0.06
+    #: The bonnet *box* is drawn this far inside its patch on every edge. Its side faces would
+    #: otherwise lie exactly on the patch's boundary, and a rendered point reconstructed there
+    #: rounds either way -- 308 px of a frame fell outside the patch and strict coverage refused
+    #: it. 5 mm moves no cell and no shadow a visible amount.
+    bonnet_draw_inset_m: float = 0.005
     #: The bay cavity under the bonnet: how far below the skin, and how much of it there is.
     bay_drop_m: float = 0.20
     bay_half_width_m: float = 0.50
@@ -167,9 +172,9 @@ class CarGeometry:
                     self.bonnet_centre_z_m,
                 ),
                 size_m=(
-                    2.0 * self.bonnet_half_width_m,
+                    2.0 * (self.bonnet_half_width_m - self.bonnet_draw_inset_m),
                     self.bonnet_thickness_m,
-                    self.bonnet_length_m,
+                    self.bonnet_length_m - 2.0 * self.bonnet_draw_inset_m,
                 ),
                 material="car_paint_black",
                 thermal_node="bonnet_fallback",
