@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: dji_matrice_300_rtk
+  source: local
+  real_name: DJI Matrice 300 RTK
+  uid: ''
+  title: DJI Matrice 300 RTK
+  author: 19vitali99
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/quadcopter-dji-matrice-300-rtk-6677d02d66df4b73aad0d8e7bb9e3d9c
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: cda07e97ef64aca9daae5a6079d316a4fc84b7190dbf1572e6d392cee00f1cd4
+  downloaded_at: '2026-09-30T16:00:21+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.

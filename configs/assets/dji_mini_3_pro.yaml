@@ -1,0 +1,149 @@
+# DJI Mini 3 Pro, from the CC-BY Sketchfab model by wishmaster88 (provenance beside this file).
+# Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py`;
+# roadmap AI.15. Sources: DJI Mini 3 Pro User Manual v1.6 (UM),
+# https://dl.djicdn.com/downloads/DJI_Mini_3_Pro/UM/DJI_Mini_3_Pro_User_Manual_EN.pdf, and the
+# support page https://www.dji.com/support/product/mini-3-pro.
+#
+# **Material evidence.** The source materials are named in pinyin -- waike = shell, huise = grey,
+# jinshu = metal, xianquan = coil, deng = lamp -- and the names were read as hints only. Each
+# material's Principled BSDF was dumped and the decision made from that, plus DJI's part facts:
+#
+#   material        base colour      metallic  alpha   where it is                  reading
+#   waike           texture (grey)   texture   1.0     shell, arms, blades, battery  moulded light grey plastic
+#   black-paint     0.005            0.0       1.0     sensor bezels, motor bases    black moulding
+#   huise-paint     0.20             0.0       1.0     battery label, a plate        mid-grey moulding
+#   huise2-paint.1  0.03             0.0       1.0     gimbal / sensor frame         dark grey moulding
+#   jinshu          0.60             1.0       1.0     motor bells, screws           anodised aluminium
+#   xianquan        copper           1.0       1.0     144 shells under each bell    motor windings
+#   deng            0.10             0.0       0.75    arm-tip status LEDs           translucent lens
+#   glass           0.0              0.0       0.30    camera and vision covers      glass
+#
+# **Two spellings of three names.** USD export sanitises `black-paint` to `black_paint` (and the
+# other two hyphenated names likewise); the audit reads the USD, while the thermal archive and so a
+# scene's part lookup read Blender's names. Both spellings are listed so both paths resolve.
+#
+# **`ESTIMATED` everywhere DJI publishes nothing**: the shell and arm polymer, the pigment's solar
+# absorptivity, the bells' anodising, the windings' enamel. The propeller material is DJI's.
+
+#
+# **Geometry (the low2high skill, ADR 0155)**: measured on the undissolved render mesh at 2 m on
+# a 1.36 mrad pixel -- 672 meshes, 194,281 faces, 0 faceted. Nothing to do.
+
+schema_version: 1
+asset:
+  name: dji_mini_3_pro
+  source_file: 3d_models/dji_mini_3_pro/source/dji_3_mini_pro.glb
+  # glTF is metres by specification, and the model agrees: the two rotor diagonals measure 246 mm
+  # against the UM's 247 mm diagonal distance (0.4 %), and the vertex extent is 282 x 298 x 85 mm
+  # with the blades turned as modelled (UM: 251 x 362 x 70 mm unfolded with propellers).
+  scale_to_metres: 1.0
+
+  materials:
+    # --- the shell, arms and battery case: light grey moulded PC / PC-ABS. ESTIMATED -- DJI
+    # publishes no shell material; retail colour "Gray". The blades share this texture and assert
+    # their own material in `parts:`.
+    waike: polycarbonate_light_grey
+
+    # --- darker mouldings. ESTIMATED by base colour.
+    black-paint: pet_black
+    black_paint: pet_black
+    huise-paint: polycarbonate_dark_grey
+    huise_paint: polycarbonate_dark_grey
+    huise2-paint.1: polycarbonate_dark_grey
+    huise2_paint_1: polycarbonate_dark_grey
+
+    # --- motor bells: metallic 1.0 in the shader. ESTIMATED anodised (eps 0.845), never bare
+    # aluminium (0.09): AT.18 -- a guessed mirror renders the motor as reflected sky.
+    jinshu: aluminium_anodised
+
+    # --- motor windings. ESTIMATED enamelled copper, eps ~0.9 like phantom4.yaml's `Copper`:
+    # bare copper is ~0.03 and would make the hottest parts on the aircraft read coldest.
+    xianquan: aircraft_aluminium_painted
+
+    # --- translucent lenses and covers: the library's only tau > 0 entry. Opaque in LWIR
+    # (eps 0.88); it matters in SWIR/NIR. `deng` is a polymer lens, not silica -- ESTIMATED.
+    deng: glass_windshield
+    glass: glass_windshield
+
+  # =============================================================================================
+  # The functional decomposition (ADR 0138): 14,955 render components over 194,281 faces, 0.113 m2.
+  parts:
+    # The centre of the four rotor stations. The fuselage is long along the nose-tail diagonal, so
+    # radius does not separate a nose sensor from an arm; every selector below is station-local.
+    centre: [0.024, 0.031, 0.0]
+    coverage_threshold: 0.95
+    parts:
+      # --- the battery: forms the rear underside of the fuselage, so unlike the Phantom 4's it is
+      # SEEN. 18.10 Wh 2S Li-ion, ~80.5 g (UM). The circle, the 38 mm height cut (below the upper
+      # shell's big component) and the area ceiling were chosen by search against the battery's
+      # own objects: they take 84 % of its area and 8.8 cm2 of adjacent lower shell. The 16 % left
+      # to `fuselage` is the pack's top face, hidden under the upper shell. ESTIMATED boundary.
+      - name: battery
+        target: battery
+        select: {near_xy: [0.050, 0.064], within_m: 0.030, z_max_m: 0.038, area_max_m2: 0.006}
+      # --- the four rotor stations. Measured from the 144 winding shells under each bell: two
+      # diagonals of 246 mm each (DJI: 247 mm). The front pair sits at z = 20 mm, the rear pair at
+      # 46 mm -- the rear arms fold from higher on the body. Nose bearing -129 deg (toward the
+      # gimbal), so front_left = the station at bearing -72 deg, front_right +175, rear_left +4.5,
+      # rear_right +99. Symmetry, the free correctness check: propellers 0.00361 m2 x4 (spread
+      # 0.0 %), arms 0.00404 x2 front and 0.00297 x2 rear, motors 0.00362/0.00361 front and
+      # 0.00509/0.00508 rear. The rear motors are larger because this model gives the rear arm
+      # tips a bigger motor mount; each pair agrees to 0.3 %, so it is geometry, not a selector.
+      # Motor: everything within 12 mm of the axis (bell, windings, base cup, arm-tip LED).
+      # Propeller: the waike shells of 5-10 cm2 within 45 mm (two blades, each two shells); the
+      # arm's own shell is 17-40 cm2 with its centroid 48-59 mm out, so area and radius both
+      # separate them. 6030F props, "Nylon + Glass fiber" (DJI repair) -- asserted below because
+      # the source puts blades and shell on the same textured `waike` material. The texture paints
+      # the blades black with orange tips, and the RGB companion is the IR frame's reference, so
+      # the black pigment's solar absorptivity (0.93) is used, not a guess at the retail grey.
+      - name: motor_front_left
+        target: motor
+        select: {near_xy: [0.0662, -0.0983], within_m: 0.012}
+      - name: propeller_front_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [0.0662, -0.0983], within_m: 0.045, materials: [waike], area_min_m2: 0.0005}
+      - name: motor_front_right
+        target: motor
+        select: {near_xy: [-0.1116, 0.0424], within_m: 0.012}
+      - name: propeller_front_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [-0.1116, 0.0424], within_m: 0.045, materials: [waike], area_min_m2: 0.0005}
+      - name: motor_rear_left
+        target: motor
+        select: {near_xy: [0.1343, 0.0399], within_m: 0.012}
+      - name: propeller_rear_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [0.1343, 0.0399], within_m: 0.045, materials: [waike], area_min_m2: 0.0005}
+      - name: motor_rear_right
+        target: motor
+        select: {near_xy: [0.0072, 0.1405], within_m: 0.012}
+      - name: propeller_rear_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [0.0072, 0.1405], within_m: 0.045, materials: [waike], area_min_m2: 0.0005}
+      # --- the 3-axis gimbal and its camera, under the nose. The 36 mm height cut keeps the nose cap
+      # above it (forward vision sensors) in the fuselage: a highlight render showed the cap is a
+      # separate moulding, not the camera housing.
+      - name: gimbal_camera
+        target: airframe
+        select: {near_xy: [-0.024, -0.028], within_m: 0.025, z_max_m: 0.036}
+      # --- the folding arms, after the station hardware has been claimed
+      - name: arm_front_left
+        target: airframe
+        select: {near_xy: [0.0662, -0.0983], within_m: 0.075, materials: [waike], area_min_m2: 0.0005}
+      - name: arm_front_right
+        target: airframe
+        select: {near_xy: [-0.1116, 0.0424], within_m: 0.075, materials: [waike], area_min_m2: 0.0005}
+      - name: arm_rear_left
+        target: airframe
+        select: {near_xy: [0.1343, 0.0399], within_m: 0.075, materials: [waike], area_min_m2: 0.0005}
+      - name: arm_rear_right
+        target: airframe
+        select: {near_xy: [0.0072, 0.1405], within_m: 0.075, materials: [waike], area_min_m2: 0.0005}
+      # --- everything else: upper and lower shells, the nose cap and its vision sensors
+      - name: fuselage
+        target: airframe
+        select: {}

@@ -71,11 +71,11 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **Three more drones** — a DJI Mini 3 Pro, Inspire 3 and Matrice 300 RTK join the asset library, each split into its real propellers, motors, arms, batteries and camera, with every part given an infrared material.
 - **Exhaust you can see in one band and barely in another** — a car's exhaust plume, rendered: a bright cone to a mid-wave camera, a faint wisp to a long-wave one.
 - **A wall in the evening sun and a road drying after rain** — two scenes whose every square of surface is solved separately, now rendered as time-lapses beside their visible-light twins.
 - **Clouds in both cameras, fast or path-traced** — the visible and infrared frames always agree about the cloud, and in the path-traced mode a drone flying into it disappears in both.
 - **Drone footage the way datasets film it** — ten seconds of continuous 60 Hz video of a quadcopter flying out to 250 m against cumulus, with a second drone too far away to fill a pixel.
-- **A solved drone** — the demo Phantom 4's motors now heat up over a climb, run hotter on the loaded side of a turn and stay warm after landing, because every part is solved as one thermal network.
 
 Full history in the [changelog](CHANGELOG.md).
 

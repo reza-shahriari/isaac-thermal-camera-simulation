@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: dji_mini_3_pro
+  source: local
+  real_name: DJI Mini 3 Pro
+  uid: ''
+  title: DJI Mini 3 Pro
+  author: wishmaster88
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/dji-3-mini-pro-a67e84ebcec145818e122cdf40705fb0
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: 094a23a9f714621f85aa97a5b6625453a201d6d4011b9132f38ff10ff8cf054e
+  downloaded_at: '2026-09-30T16:00:21+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.

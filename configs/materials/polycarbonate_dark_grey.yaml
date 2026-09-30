@@ -1,0 +1,26 @@
+# Dark grey / charcoal moulded polycarbonate -- the housing of a professional drone. DJI states the
+# Inspire 3's housing and landing gear are "PC plastics" (dji.com/support/product/inspire-3, FAQ);
+# the Matrice 300 RTK's shell is ESTIMATED to be the same class (no published material). Drafted by
+# the ingest-asset pipeline (AI.15), gated by the closure walk and the diff.
+#
+# MWIR/LWIR ESTIMATED as polycarbonate_light_grey's: pigment does not move the thermal bands
+# (GT.9). A charcoal pigment absorbs most of the short-wave flux, so solar absorptivity and the
+# NIR/SWIR emissivities are ESTIMATED near black PET's measured 0.94, a little lower for grey.
+schema_version: 2
+material:
+  name: polycarbonate_dark_grey
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "Material class: DJI Inspire 3 FAQ ('the housing is made of PC plastics', https://www.dji.com/support/product/inspire-3). MWIR/LWIR ESTIMATED from the library's Fresnel-computed thermoplastics (pet_black, pvc_white); thermal: polycarbonate handbook values; NIR/SWIR/solar ESTIMATED for a charcoal pigment, below black PET's USGS-measured 0.936."
+  description: "Unpainted dark grey / charcoal moulded PC: professional-drone housings and landing gear"
+  thermal:
+    density_kg_m3: 1200
+    specific_heat_j_kgk: 1200
+    conductivity_w_mk: 0.20
+    thickness_m: 0.0025   # ESTIMATED: a larger airframe's housing wall
+    solar_absorptivity: 0.85   # ESTIMATED: charcoal
+  optical:
+    emissivity_per_band: {nir: 0.85, swir: 0.87, mwir: 0.95, lwir: 0.94}
+    roughness_per_band: {nir: 0.30, swir: 0.26, mwir: 0.15, lwir: 0.10}   # ESTIMATED, matte moulded finish
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the thermoplastic class (pet_black)
+    transmittance_per_band: {nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0}

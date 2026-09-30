@@ -1,0 +1,154 @@
+# DJI Matrice 300 RTK, from the CC-BY Sketchfab model by 19vitali99 (provenance beside this
+# file). Schema: irsim.materials.mapping.AssetConfig. Produced and checked with
+# `scripts/prep_asset.py --dissolve-deg 3`; roadmap AI.15. Sources: M300 RTK User Manual v4.0 (UM),
+# https://dl.djicdn.com/downloads/matrice-300/20230518UM/M300_RTK_User_Manual_EN_v4.0.pdf, and
+# Maintenance Manual v1.6 (MM), https://dl.djicdn.com/downloads/matrice-300/20230728/M300_RTK_Maintenance_Manual_v1.6_EN.pdf.
+#
+# **The file holds more than the aircraft**: it stands on its landing gear on a hard transport
+# case, which `parts.exclude` removes (AI.14). Every source material is distinct -- Maya's
+# `lambertN` -- so unlike the Inspire 3 no part needs to assert a material: the map below, read off
+# the dumped shaders, is per face and finer than any part would be.
+#
+#   material            base colour         metallic  alpha   where                     reading
+#   lambert18/19        0.10-0.13 grey      0.0       1.0     shell, motor housings     dark grey PC (ESTIMATED)
+#   lambert20           0.04                0.0       1.0     the eight folded blades   CF-reinforced composite
+#   lambert27           0.055               0.0       1.0     arm and gear tubes        carbon fibre (MM: "carbon tube")
+#   lambert25           0.05                0.0       1.0     tube joints, arm locks    black moulding
+#   lambert23/24        0.06-0.08           0.0       1.0     the two TB60 packs        dark grey PC shell
+#   lambert3/4/5/8/11   0.02-0.8            0.8-1.0   1.0     trim, plates, fasteners   anodised, never bare (AT.18)
+#   Copper              copper              1.0       1.0     120 shells per motor      enamelled windings
+#   Glass_*, lambert28/29, Yellow_lamp      0.0       0.25-1  lenses, LEDs, beacon      glass / polymer lens
+#   lambert32-35        0.02-0.05           0.0       1.0     the transport case        excluded; PP, ESTIMATED as black PET
+
+#
+# **Geometry (the low2high skill, ADR 0155)**: measured on the undissolved render mesh at 2 m on
+# a 1.36 mrad pixel -- 46 meshes, 904,034 faces, 5 faceted. Three are the excluded case. OPEN:
+# the two TB60 shells (lambert23, 364 faces: 14.2 % of edge length over 1.36 mm, worst 56.8 deg;
+# lambert24: 1.0 %) round their corners with one or two facets. That is a silhouette step at 2 m
+# and none past ~3 m; rung 2 (subdivision with creases) on the `batteries` part is the fix.
+
+schema_version: 1
+asset:
+  name: dji_matrice_300_rtk
+  source_file: 3d_models/dji_matrice_300_rtk/source/quadcopter_dji_matrice_300_rtk.glb
+  # The glTF's unit is nobody's: the two rotor diagonals measure 9.570 units each against the UM's
+  # 895 mm diagonal wheelbase, so one unit is 93.5 mm. Two independent checks agree: the folded
+  # 2110 blades reach 24-27 cm from their hubs at this scale (published radius 26.7 cm), and the
+  # prop-less envelope comes out 786 x 664 mm against the UM's 810 x 670 mm. A decimal unit would
+  # make the aircraft 9.6 cm or 9.6 m across.
+  scale_to_metres: 0.0935
+
+  materials:
+    # --- shell and motor housings: dark grey moulded PC. ESTIMATED -- DJI publishes no body
+    # material; the MM's "top shell" is sealed plastic, and no source supports magnesium.
+    lambert18: polycarbonate_dark_grey
+    lambert19: polycarbonate_dark_grey
+    # --- 2110 blades: "carbon fiber reinforced composite" (retailers); arm and gear tubes: MM.
+    lambert20: carbon_fibre
+    lambert27: carbon_fibre
+    lambert25: pet_black
+    # --- metallic trim: ESTIMATED anodised (eps 0.845). A guessed bare metal would render as
+    # reflected sky (AT.18); nothing here is polished enough to assert it.
+    lambert3: aluminium_anodised
+    lambert4: aluminium_anodised
+    lambert5: aluminium_anodised
+    lambert8: aluminium_anodised
+    lambert11: aluminium_anodised
+    # --- windings: ESTIMATED enamelled copper, eps ~0.9, as phantom4.yaml's `Copper`.
+    Copper: aircraft_aluminium_painted
+    # --- other mouldings, by base colour
+    lambert1: pet_black
+    lambert7: polycarbonate_dark_grey
+    lambert12: pet_black
+    lambert21: pet_black
+    lambert23: polycarbonate_dark_grey
+    lambert24: polycarbonate_dark_grey
+    lambert26: pet_black
+    lambert30: pet_black
+    lambert31: pet_black
+    # --- lenses, sensor covers, LED lenses and the beacon: the library's only tau > 0 entry
+    Glass_2: glass_windshield
+    Glass_Camera_1: glass_windshield
+    Glass_Camera_2: glass_windshield
+    Glass_Camera_3: glass_windshield
+    Glass_camera_4: glass_windshield
+    Glass_camera_5: glass_windshield
+    Glass_sensor: glass_windshield
+    Yellow_lamp: glass_windshield
+    lambert28: glass_windshield
+    lambert29: glass_windshield
+    # --- the transport case: excluded from the parts, but still in the un-split USD and so
+    # still mapped. Polypropylene, ESTIMATED as the library's black moulded polymer.
+    lambert32: pet_black
+    lambert33: pet_black
+    lambert34: pet_black
+    lambert35: pet_black
+
+  # =============================================================================================
+  # The functional decomposition (ADR 0138): 119,544 render components over 904,036 faces.
+  parts:
+    # Midpoint of the four rotor stations.
+    centre: [0.0029, -0.0324, 0.0]
+    coverage_threshold: 0.95
+    # AI.14: the aircraft stands, on its own landing gear, on top of its hard transport case. The
+    # case is 4.07 m2 of the file's 5.49 -- 74 % -- so leaving it unclaimed would fail the
+    # coverage gate and claiming it would hang a suitcase under the aircraft in every render.
+    # Its four materials are used by nothing else (checked: every lambert32-35 shell has its
+    # centroid below z = 0.39 m, the skid tops). Excluded, it stays in the un-split USD and
+    # leaves the part-split one.
+    exclude:
+      - {materials: [lambert32, lambert33, lambert34, lambert35]}
+    parts:
+      # --- the two TB60 packs (274 Wh each, 12S LiPo, self-heating to 16-20 C; UM), found by
+      # material alone: lambert23 + lambert24 total 0.171 m2 against ~0.175 for two 20 x 11 x 7 cm
+      # packs (TB60 dimensions are unpublished -- ESTIMATED from 1.35 kg of 12S LiPo).
+      - name: batteries
+        target: battery
+        select: {materials: [lambert23, lambert24]}
+      # --- the four rotor stations, from the 120 winding shells under each bell. Diagonals 9.570
+      # units each = 895 mm (below). Nose is -y (the H20 and the FPV camera), so +x is LEFT. The
+      # 2110 propellers are modelled folded, blades reaching 24-27 cm from the hub (published
+      # radius 26.7 cm); carbon-fibre-reinforced composite. The motor takes everything else within
+      # 6 cm: bell, windings, mount, the vertical arm-end fairing and the red/green ESC LEDs.
+      # Symmetry: propellers 0.04315 m2 x4 (0.0 %), motors 0.07314 front / 0.07356 rear (0.6 %).
+      - name: propeller_front_left
+        target: propeller
+        select: {near_xy: [0.3567, -0.3289], within_m: 0.28, materials: [lambert20]}
+      - name: motor_front_left
+        target: motor
+        select: {near_xy: [0.3567, -0.3289], within_m: 0.06}
+      - name: propeller_front_right
+        target: propeller
+        select: {near_xy: [-0.3513, -0.3288], within_m: 0.28, materials: [lambert20]}
+      - name: motor_front_right
+        target: motor
+        select: {near_xy: [-0.3513, -0.3288], within_m: 0.06}
+      - name: propeller_rear_left
+        target: propeller
+        select: {near_xy: [0.319, 0.2641], within_m: 0.28, materials: [lambert20]}
+      - name: motor_rear_left
+        target: motor
+        select: {near_xy: [0.319, 0.2641], within_m: 0.06}
+      - name: propeller_rear_right
+        target: propeller
+        select: {near_xy: [-0.3135, 0.2639], within_m: 0.28, materials: [lambert20]}
+      - name: motor_rear_right
+        target: motor
+        select: {near_xy: [-0.3135, 0.2639], within_m: 0.06}
+      # --- carbon tubes and their black joints make both the landing gear and the arms: height
+      # separates them. The arms and arm locks sit at z >= 0.65 m; the gear legs run down from the
+      # body to the skids resting on the case at z = 0.38.
+      - name: landing_gear
+        target: airframe
+        select: {materials: [lambert27, lambert25], z_max_m: 0.64}
+      # --- the Zenmuse H20 under the nose, below the body's underside (z < 0.605 m)
+      - name: gimbal_camera
+        target: airframe
+        select: {near_xy: [0.005, -0.20], within_m: 0.09, z_max_m: 0.605}
+      - name: arms
+        target: airframe
+        select: {materials: [lambert27, lambert25]}
+      # --- everything else: the shell, top antennas and RTK module, FPV camera, sensors, beacons
+      - name: fuselage
+        target: airframe
+        select: {}

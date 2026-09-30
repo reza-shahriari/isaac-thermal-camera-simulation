@@ -136,6 +136,15 @@ Then, per source material, one line in `materials:` mapping to a library entry:
 
 Re-run prep until the audit passes its ≥ 0.95 coverage gate with **zero wrong confident hits**.
 
+Two name traps, both met on the DJI drones (AI.15):
+
+* **USD sanitises names**: `black-paint` reaches the audit as `black_paint`, while the thermal archive
+  and the component pass keep Blender's `black-paint`. Map **both spellings** of any name with a
+  character outside `[A-Za-z0-9_]`, or one of the two paths misses.
+* **One texture atlas for everything** (the Inspire 3's `default` covers 324 of 345 objects): map
+  the atlas to what most of its area is, then let each part that is something else say so with
+  `material:` (step 6). Evidence per part is the product research, not the atlas name.
+
 ## 6. Decompose into functional parts (ADR 0138)
 
 A part is hardware a temperature can name — propeller, motor, battery, fuselage — never "the white
@@ -162,6 +171,29 @@ Run `python scripts/mesh_facets.py <model> --range-m <closest> --ifov-mrad <pixe
 render geometry. If any part is faceted (typical of game and phone-game models) or the model is
 far over the render budget (typical of CAD), follow the `low2high` skill on the part-split scene
 before exporting. A model that passes needs nothing.
+
+Two optional fields (AI.14, ADR 0173):
+
+* **`material:` on a part** asserts a library material for **every** face of that part, which is
+  written as `thermal:material` on its prims in the part-split USD and outranks the source map.
+  Use it only where the source material cannot tell substances apart. Split out anything the part
+  must not paint first, e.g. a lens as its own part before the gimbal that holds it.
+* **`exclude:`** takes selectors for geometry that is not the asset: a transport case, a display
+  stand, a ground plane. It is tried before every part and leaves the coverage totals. Prefer a
+  material selector when the foreign object has its own materials (the Matrice 300's case).
+
+Measure selectors, don't eyeball them. Score a candidate against objects you identified in a
+highlight render (capture %, plus what else it takes), then render every face coloured by its
+assigned part before exporting. Symmetric stations must come out the same size: that is the
+cheapest check there is. A tilted rotor station (the Inspire 3's arms are pitched 20°) makes
+height cuts per-station. Check the **thermal archive's** part report as well as the render
+split's. The archive is planar-dissolved, so a shell's **face count** and its vertex-mean
+**centroid** differ between the two passes. Never select on `faces_*`, and don't put a radius
+cut within a few millimetres of a shell you need; separate by area instead. On the Inspire 3, a
+`faces_min` sent half of every blade into the motor in the archive only.
+
+If the mesh emit refuses ("changed area by more than 2.0 %"), pass `--dissolve-deg 3` and record
+it in the config's header. The number is part of the reproduction.
 
 ## 7. Export the library artefacts
 

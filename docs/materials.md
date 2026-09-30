@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 79 materials. 56 of them were measured and imported by a script; the rest are
+The library has 82 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -212,11 +212,14 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `metal_sheet_painted_green` | painted | 0.83 | 0.78 | 0.92 | 0.93 | 0.90 | measured: SLUM (MWIR from its class) |
 | `metal_sheet_painted_grey` | painted | 0.84 | 0.82 | 0.92 | 0.94 | 0.88 | measured: SLUM (MWIR from its class) |
 | `metal_sheet_painted_patina` | painted | 0.35 | 0.67 | 0.92 | 0.94 | 0.54 | measured: SLUM (MWIR from its class) |
+| `nylon_glass_filled_black` | as manufactured | 0.93 | 0.93 | 0.94 | 0.93 | 0.93 | literature, partly estimated |
 | `painted_aluminium_green` | painted | 0.58 | 0.70 | 0.65 | 0.97 | 0.56 | measured: USGS + UCSB |
 | `painted_composite` | painted | 0.30 | 0.40 | 0.90 | 0.92 | 0.35 | literature, partly estimated |
 | `pet_black` | as manufactured | 0.94 | 0.95 | 0.96 | 0.94 | 0.94 | measured: USGS + polymer n, k |
 | `playa_dry_mud` | natural | 0.46 | 0.44 | 0.81 | 0.95 | 0.55 | measured: USGS + UCSB |
 | `plywood` | as manufactured | 0.19 | 0.40 | 0.89 | 0.95 | 0.44 | measured: USGS + UCSB |
+| `polycarbonate_dark_grey` | as manufactured | 0.85 | 0.87 | 0.95 | 0.94 | 0.85 | literature, partly estimated |
+| `polycarbonate_light_grey` | as manufactured | 0.50 | 0.60 | 0.95 | 0.94 | 0.55 | literature, partly estimated |
 | `propeller_rubber` | as manufactured | 0.94 | 0.92 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
 | `pvc_roofing_blue` | as manufactured | 0.80 | 0.84 | 0.96 | 0.94 | 0.86 | measured: SLUM (MWIR from its class) |
 | `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.94 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |

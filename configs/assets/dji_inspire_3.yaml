@@ -1,0 +1,187 @@
+# DJI Inspire 3, from the CC-BY Sketchfab model by Polyman_3D (provenance beside this file).
+# Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py
+# --dissolve-deg 3` (see below); roadmap AI.15. Sources: DJI Inspire 3 User Manual v2.0 (UM),
+# https://www.lensrentals.com/product-assets/72d0a925-0292-4cb2-8e36-7bf82f253f87/DJI_Inspire_3_User_Manual_V2.0_ENI.pdf,
+# and DJI's FAQ, https://www.dji.com/support/product/inspire-3.
+#
+# **Why this asset needed AI.14.** 324 of its 345 objects share one texture-atlas material,
+# `default` -- PC shell, carbon arms, nylon propellers, aluminium motors and the camera alike. A
+# source-material map can only say "all of it is one thing", so the map below gives the atlas the
+# shell's material and every part that is something else says so with `material:`. The part-split
+# USD carries those as `thermal:material` overrides, which the resolver reads first.
+#
+# The other source materials, by their dumped shaders:
+#
+#   material     base colour          metallic  alpha   where                        reading
+#   default      atlas texture         texture   1.0     almost everything            by part, below
+#   material     orange (0.8,.48,.11)  0.0       1.0     the four hub caps            -> motor parts
+#   material_0   white                 0.0       1.0     ten specks on the gimbal     decals
+#   material_3   black                 0.0       1.0     hub centres, lens bezel      black moulding
+#   material_4   black                 0.0       0.24    the lens front element       glass
+#
+# **`--dissolve-deg 3`, not the default 5.** At 5 deg the planar dissolve moved two curved shell
+# prims' area by 2.4 % and the emit refused, as it should; 3 deg keeps the archive to +0.09 %.
+
+#
+# **Geometry (the low2high skill, ADR 0155)**: measured on the undissolved render mesh at 2 m on
+# a 1.36 mrad pixel -- 345 meshes, 514,246 faces, 0 faceted. Nothing to do. The frame's ~20 deg
+# nose-down pitch against a level body is the artist's pose and is kept, not redesigned.
+
+schema_version: 1
+asset:
+  name: dji_inspire_3
+  source_file: 3d_models/dji_inspire_3/source/dji_inspire_3.glb
+  # The glTF is authored in centimetres. Two published figures bracket 0.01 from opposite sides:
+  # the rotor diagonal measures 662-678 mm in 3D (depending on which hub feature is paired;
+  # the frame is pitched) against the UM's 685 mm landing / 695 mm flight wheelbase, 2-5 % short;
+  # and a blade's span gives a ~42 cm propeller against the 1671's 16 in (40.6 cm), 3 % long.
+  # Millimetres or metres would be 10x out; nothing favours a fitted non-decimal factor.
+  scale_to_metres: 0.01
+
+  materials:
+    # --- the atlas: the dark grey PC housing ("the housing is made of PC plastics", DJI FAQ),
+    # which is what remains once the parts have asserted theirs.
+    default: polycarbonate_dark_grey
+    # --- the hub caps' orange: every one of them sits inside a motor part, which asserts its own.
+    material: polycarbonate_dark_grey
+    material_0: polycarbonate_dark_grey   # decals: 0.1 cm2 in all
+    material_3: pet_black
+    material_4: glass_windshield          # alpha 0.24: the lens front element
+
+  # =============================================================================================
+  # The functional decomposition (ADR 0138): 6,703 render components over 514,253 faces, 0.843 m2.
+  parts:
+    # Midpoint of the four rotor stations. The body is 36 cm nose to tail, so radius separates
+    # nothing here either; every selector is a station-local or body-local circle.
+    centre: [0.0, 0.0792, 0.0]
+    coverage_threshold: 0.95
+    parts:
+      # --- under the nose: the Zenmuse X9-8K Air and its DL lens. The lens glass (`material_4`,
+      # alpha 0.24) is its own part so it keeps the glass mapping; the part material below would
+      # otherwise paint it. X9 housing ESTIMATED magnesium/aluminium, painted dark grey -- DJI does
+      # not publish it; metal_sheet_painted_grey carries the right solar absorptivity (0.88) and
+      # an areal heat capacity within 15 % of a painted aluminium housing. The selector was scored
+      # against the gimbal's objects: 100 % of them, and the rest is lens rings and gimbal motors.
+      - name: camera_lens
+        target: airframe
+        select: {near_xy: [0.0, -0.11], within_m: 0.08, z_max_m: 0.13, materials: [material_4]}
+      - name: gimbal_camera
+        target: airframe
+        material: metal_sheet_painted_grey
+        select: {near_xy: [0.0, -0.11], within_m: 0.08, z_max_m: 0.13}
+      # --- the two TB51 packs (98.8 Wh each, self-heating below 18 C; UM), modelled as one block
+      # standing at the rear top. Scored: 99.8 % of the block, plus 88 cm2 of its bay.
+      - name: batteries
+        target: battery
+        material: polycarbonate_dark_grey
+        select: {near_xy: [0.0, 0.105], within_m: 0.07, z_min_m: 0.17}
+      # --- the four rotor stations, at the orange hub caps. Nose is -y (the X9 lens), so +x is
+      # the aircraft's LEFT. The carbon frame is modelled pitched ~20 deg nose-down against a level
+      # body -- front hubs at z = 8 cm, rear at 24 cm -- so every cut is per station, and the
+      # front stations' mounts lean into the propeller's radius. Hence, per station: the foot (the
+      # one 84 cm2 shell 10-11 cm tall; DJI: landing gear is PC); the motor housing (the only
+      # 40-65 cm2 shell within 4.5 cm -- a radius alone cannot separate it from a blade tip 3.6 cm
+      # out, and centroids move when the archive is dissolved); the rotor head (hub, orange cap,
+      # prop adapter, all within 3.4 cm); the propeller (blade shells of 3-60 cm2 out to 11 cm,
+      # above the station's height floor, which drops a bolt under each motor); and the motor
+      # mount (clamp ring and screws, <= 1.5 cm2 each, out to 8.5 cm). No selector counts faces:
+      # the thermal archive is planar-dissolved, so a shell's face count differs between the
+      # two passes and a `faces_min` put half of every blade into the motor in the archive only.
+      # 1671 propellers: "plastics and fiberglass" (DJI FAQ), black. 3511 motors: bells
+      # ESTIMATED anodised aluminium. Symmetry: see the numbers in AI.15's roadmap row -- the model
+      # is mirror-exact and every station part agrees with its three siblings.
+      - name: landing_foot_front_left
+        target: airframe
+        material: polycarbonate_dark_grey
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
+      - name: motor_front_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
+      - name: rotor_head_front_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.034}
+      - name: propeller_front_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.11, z_min_m: 0.05, area_min_m2: 0.0003, area_max_m2: 0.006}
+      - name: motor_mount_front_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.085}
+      - name: landing_foot_front_right
+        target: airframe
+        material: polycarbonate_dark_grey
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
+      - name: motor_front_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
+      - name: rotor_head_front_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.034}
+      - name: propeller_front_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.11, z_min_m: 0.05, area_min_m2: 0.0003, area_max_m2: 0.006}
+      - name: motor_mount_front_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.085}
+      - name: landing_foot_rear_left
+        target: airframe
+        material: polycarbonate_dark_grey
+        select: {near_xy: [0.219, 0.284], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
+      - name: motor_rear_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.219, 0.284], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
+      - name: rotor_head_rear_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.219, 0.284], within_m: 0.034}
+      - name: propeller_rear_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [0.219, 0.284], within_m: 0.11, z_min_m: 0.22, area_min_m2: 0.0003, area_max_m2: 0.006}
+      - name: motor_mount_rear_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.219, 0.284], within_m: 0.085}
+      - name: landing_foot_rear_right
+        target: airframe
+        material: polycarbonate_dark_grey
+        select: {near_xy: [-0.219, 0.284], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
+      - name: motor_rear_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.219, 0.284], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
+      - name: rotor_head_rear_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.219, 0.284], within_m: 0.034}
+      - name: propeller_rear_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {near_xy: [-0.219, 0.284], within_m: 0.11, z_min_m: 0.22, area_min_m2: 0.0003, area_max_m2: 0.006}
+      - name: motor_mount_rear_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.219, 0.284], within_m: 0.085}
+      # --- the carbon-fibre arm frame, one per side (DJI FAQ: "the aircraft arm is made of carbon
+      # fiber"), each a circle on its own tubes. Scored: 100 % of the left frame's objects and
+      # nothing from the body. Left/right differ by 1.4 % where the circles trim the hinges.
+      - name: arm_left
+        target: airframe
+        material: carbon_fibre
+        select: {near_xy: [0.2, 0.08], within_m: 0.16}
+      - name: arm_right
+        target: airframe
+        material: carbon_fibre
+        select: {near_xy: [-0.2, 0.08], within_m: 0.16}
+      # --- everything else: the PC shell, arm hinges and servo, FPV camera, vision sensors
+      - name: fuselage
+        target: airframe
+        select: {}
