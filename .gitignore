@@ -30,6 +30,9 @@ _site/
 
 # Validation datasets are not in git (ADR 0003, roadmap ME.1); the index is.
 data/validation/*/
+# Public aerial-target datasets (Anti-UAV RGBT, the Drone Detection Dataset, HIT-UAV), 6.8 GB,
+# kept beside the tree for later evaluation of the sky-object renders; not tracked.
+/datasets/
 docs/validation/.*-clips.json
 
 # pytest-cov leaves these behind; they are a measurement of one run, not a property of the repo.
