@@ -202,7 +202,11 @@ def chord_through_cone(
     slab_lo = np.maximum(np.minimum(t_at_0, t_at_l), 0.0)  # nothing behind the camera
     slab_hi = np.maximum(t_at_0, t_at_l)
     if depth_m is not None:
-        slab_hi = np.minimum(slab_hi, np.asarray(depth_m, dtype=np.float64))
+        # A ray that hit nothing (sky) carries a NaN or infinite distance: it is blocked by
+        # nothing, and a NaN here would otherwise make every comparison below false and the
+        # chord 0 -- a plume drawn only in front of geometry and cut off against the sky.
+        depth = np.asarray(depth_m, dtype=np.float64)
+        slab_hi = np.minimum(slab_hi, np.where(np.isfinite(depth), depth, np.inf))
 
     disc = qb**2 - 4.0 * qa * qc
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -353,16 +357,25 @@ def inject_plumes(
     t_s: float,
     lut: BandLUT,
     quantity: Quantity = "lb",
+    *,
+    sky_mask: NDArray[np.bool_] | None = None,
 ) -> NDArray[np.floating]:
     """Composite every plume onto the post-stage-2 k× radiance plane.
 
     Returns the plane unchanged (the same object) when there are no plumes, so a scene without
     one pays nothing and its goldens are untouched.
+
+    ``sky_mask`` marks the pixels whose ray hit nothing. The G-buffer contract writes
+    ``distance_m = 0`` there, which read as a surface at the lens would block every chord: a
+    rendered plume stopped dead at the silhouette of whatever stood behind it (IG.21). A sky
+    pixel is blocked by nothing.
     """
     if not plumes:
         return radiance_ss
     out: Any = np.array(radiance_ss, dtype=np.float64, copy=True)
     depth = None if distance_m is None else np.asarray(distance_m, dtype=np.float64)
+    if depth is not None and sky_mask is not None:
+        depth = np.where(np.asarray(sky_mask, dtype=bool), np.inf, depth)
     for plume in plumes:
         window = plume_window(plume.cone, intrinsics, distortion)
         if window is None:

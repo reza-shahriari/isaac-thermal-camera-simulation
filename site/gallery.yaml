@@ -613,6 +613,23 @@ sections:
       has one infrared material; that is of order 1 K on the wet half.
     source: scripts/render_patch_scene.py
 
+  - id: exhaust-plume
+    title: IG.21 — one exhaust plume, two bands
+    lead: |
+      A tailpipe over the first four minutes of a drive, filmed through a mid-wave (InSb, 3–5 µm)
+      and a long-wave (microbolometer, 8–14 µm) camera on **one** 15–125 °C scale. The plume is
+      hot CO₂ and water vapour, which emit strongly in the mid-wave bands and weakly in the
+      long-wave window: near the pipe it stands 80.5 K over the background in MWIR and 10.8 K in
+      LWIR, and half-way along 25.0 K against 1.8 K. The metal pipe itself is bright in both.
+    media:
+      - video: car_exhaust_plume_mwir/car_exhaust_plume_pair.mp4
+        width: full
+        caption: MWIR, 11° lens, camera 3x further out — plume bright
+      - video: car_exhaust_plume_lwir/car_exhaust_plume_pair.mp4
+        width: full
+        caption: LWIR, 31° lens — the same plume, faint
+    source: scripts/render_patch_scene.py
+
   - id: exhaust-line
     title: TC.7 — the exhaust line as a gas stream in a wall
     lead: |

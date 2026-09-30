@@ -60,9 +60,16 @@ PRESETS: dict[str, dict[str, Any]] = {
     # bright in MWIR and faint in LWIR, from one authored cone. The scene's two targets have no
     # patches, so their prims are authored here: a box for the shell, a short pipe at the
     # plume's own origin (ENU; kind, centre, size, material, node, axis).
+    #
+    # The eye is placed for a 32 deg lens and moved out along the same line for a narrower one
+    # (`fov_ref_deg`), so the plume fills the same share of the frame in every band; and the span
+    # is one fixed pair for every band, because "bright in MWIR, faint in LWIR" is a statement on
+    # a common scale, which a per-band stretch would erase.
     "car_exhaust_plume": {
-        "eye": (-4.8, -4.6, 1.1),
-        "look": (-2.7, 0.0, 0.45),
+        "eye": (-4.8, -3.1, 0.95),
+        "look": (-2.6, 0.0, 0.35),
+        "fov_ref_deg": 32.0,
+        "span_c": (15.0, 125.0),
         "frames": 25,
         "interval_s": 10.0,
         "parts": (
@@ -106,6 +113,9 @@ preset = PRESETS.get(scene_path.stem, {})
 for key, default in (("frames", 48), ("interval_s", 150.0)):
     if getattr(args, key) is None:
         setattr(args, key, preset.get(key, default))
+eye_from_preset = args.eye is None
+if args.span_c is None and preset.get("span_c") is not None:
+    args.span_c = list(preset["span_c"])
 if args.eye is None or args.look is None:
     if not preset:
         parser.error(f"{scene_path.stem} has no camera preset: pass --eye and --look (ENU metres)")
@@ -161,6 +171,16 @@ def main() -> int:
     sensor = load_sensor_config(args.sensor)
     spec = sensor.sensor
     band = spec.band.band_id
+    if eye_from_preset and "fov_ref_deg" in preset:
+        # same subject, same share of the frame: slide the eye along its line of sight by the
+        # ratio of the half-field tangents
+        hfov = 2.0 * np.arctan(
+            0.5 * spec.fpa.width * spec.fpa.pitch_um * 1e-3 / spec.optics.focal_length_mm
+        )
+        scale = np.tan(np.radians(0.5 * preset["fov_ref_deg"])) / np.tan(0.5 * hfov)
+        look_enu = np.asarray(args.look, dtype=np.float64)
+        args.eye = list(look_enu + scale * (np.asarray(args.eye, dtype=np.float64) - look_enu))
+        print(f"eye moved {scale:.2f}x out for a {np.degrees(hfov):.1f} deg field: {args.eye}")
     out_dir = pathlib.Path(args.out or f"outputs/{scene_path.stem}_{band}")
     frames_dir = out_dir / "frames"
     frames_dir.mkdir(parents=True, exist_ok=True)
@@ -372,7 +392,7 @@ def main() -> int:
         ir = gray[quantise_display((plane - lo_k) / max(hi_k - lo_k, 1e-6))]
         ir_frame = overlay_readout(
             with_margin(ir),
-            [*lines, "LWIR apparent temperature, gray white-hot"],
+            [*lines, f"{band.upper()} apparent temperature, gray white-hot"],
             values,
             (lo_k, hi_k),
             palette=gray,

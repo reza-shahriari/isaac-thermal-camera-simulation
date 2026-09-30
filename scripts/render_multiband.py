@@ -143,11 +143,10 @@ UNSWEPT_SCENES: dict[str, str] = {
         "authoring the asset onto an Isaac stage is the in-engine half and is still open."
     ),
     "car_exhaust_plume.yaml": (
-        "PH.6's reference scene: a tailpipe at cruise load and the gas cone it blows, one "
-        "exhaust target and no camera or prims yet. Its numbers are tests/unit/test_plume.py's "
-        "-- tau 0.866 in MWIR against 0.979 in LWIR from one authored plume -- measured on a "
-        "synthetic G-buffer; the rendered frames are IG.2's, and when a driver places the car "
-        "and its camera it joins the sweep."
+        "PH.6's reference scene: a tailpipe at cruise load and the gas cone it blows. Filmed "
+        "by scripts/render_patch_scene.py --scene car_exhaust_plume --sensor ... (IG.21), which "
+        "moves the camera out for a narrow lens and keeps one span for every band -- the "
+        "comparison the scene exists for, which the sweep's per-band framing would not make."
     ),
     "vessel_pointwise_clear_day.yaml": (
         "PT.10's reference scene: a weather-deck field and two faces of one deckhouse prim on a "

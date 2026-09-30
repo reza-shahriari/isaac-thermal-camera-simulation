@@ -89,6 +89,7 @@ from irsim.optics.projection import (
 from irsim.optics.smear import smear_duty
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.frame import Outputs, run_frame
+from irsim.pipeline.plume import ExhaustPlume
 from irsim.pipeline.point_target import PointTarget, fill_fraction
 from irsim.pipeline.rotor_veil import RotorVeil
 from irsim.scene import Scene
@@ -304,6 +305,21 @@ class AnalyticTarget:
     material: str
     thermal_node: str
     sky_view_factor: float = 1.0
+
+
+#: USD camera space (+X right, +Y up, -Z forward) to OpenCV's (+x right, +y down, +z forward).
+_USD_TO_OPENCV = np.diag([1.0, -1.0, -1.0])
+
+
+def world_to_opencv_rotation(camera_to_world: Any) -> NDArray[np.float64]:
+    """The 3x3 that takes a world direction into the **OpenCV** camera frame (PH.6's frame).
+
+    ``camera_to_world`` is the array :class:`IrCamera` stores, which :func:`world_to_camera`
+    applies as ``p @ camera_to_world`` -- a USD camera-space vector. Flipping Y and Z turns that
+    into OpenCV's, which is the frame `irsim.pipeline.plume` (and every projection in the core)
+    works in; its rows are the camera's own axes written in world coordinates.
+    """
+    return np.asarray(_USD_TO_OPENCV @ np.asarray(camera_to_world, dtype=np.float64).T)
 
 
 def world_to_camera(
@@ -1063,6 +1079,21 @@ class IrCamera:
             )
         return out
 
+    def plumes(self) -> list[ExhaustPlume]:
+        """The scene's exhaust plumes in this camera's frame, as the gas stands now (PH.6).
+
+        Read after the frame's solver step (``planes`` advances the bridge), so a plume's tip
+        temperature is the tailpipe's own solved outlet gas at this frame's instant. A scene with
+        no plume costs nothing: `run_frame` returns the plane untouched for an empty list.
+        """
+        world = self.scene.plumes_at(self._t_rel_s)
+        if not world:
+            return []
+        if self._camera_position is None or self._camera_to_world is None:
+            raise RuntimeError("call open() first (the camera pose comes from the stage)")
+        rotation = world_to_opencv_rotation(self._camera_to_world)
+        return [p.in_camera(rotation, self._camera_position) for p in world]
+
     def rotor_veils(self) -> list[RotorVeil]:
         """ADR 0081's veils for this frame: one per mounted disc, projected and occluded.
 
@@ -1211,7 +1242,12 @@ class IrCamera:
         self.state.t_s = self.scene.t0_s + self._t_rel_s
         self._last_frame_t_s = self.state.t_s
         outputs = run_frame(
-            planes, self.config, self.state, self.point_targets(), self.rotor_veils()
+            planes,
+            self.config,
+            self.state,
+            self.point_targets(),
+            self.rotor_veils(),
+            plumes=self.plumes(),
         )
         marked = self.debug_unmapped and self._last is not None and bool(self._last.unmapped.any())
         if marked:
