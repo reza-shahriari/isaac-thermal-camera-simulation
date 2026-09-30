@@ -34,6 +34,36 @@ from typing import Any
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 
+
+def _checkerboard(
+    nx: int, ny: int, square_m: float, centre: tuple[float, float, float]
+) -> tuple[tuple[Any, ...], ...]:
+    """SC.33's heated target: ``nx`` x ``ny`` squares in the vertical x-z plane at ``centre``.
+
+    Alternate squares go to the two thermal nodes of `calibration_checkerboard.yaml` and to two
+    paints, so the corners show in the infrared (12 K) and in the visible (black against white).
+    Each square is a 10 mm thick tile; neighbours share an edge and never overlap.
+    """
+    parts = []
+    for i in range(nx):
+        for j in range(ny):
+            warm = (i + j) % 2 == 0
+            x = centre[0] + (i - 0.5 * (nx - 1)) * square_m
+            z = centre[2] + (j - 0.5 * (ny - 1)) * square_m
+            parts.append(
+                (
+                    f"sq_{i:02d}_{j:02d}",
+                    "box",
+                    (x, centre[1], z),
+                    (square_m, 0.01, square_m),
+                    "car_paint_black" if warm else "car_paint_white",
+                    "warm_squares" if warm else "cool_squares",
+                    "Y",
+                )
+            )
+    return tuple(parts)
+
+
 #: Per-scene camera placements, in the config's own ENU metres (x east, y north, z up), and the
 #: time-lapse each scene is about. Plain data so the defaults resolve before Kit boots.
 PRESETS: dict[str, dict[str, Any]] = {
@@ -85,12 +115,22 @@ PRESETS: dict[str, dict[str, Any]] = {
             ),
         ),
     },
+    # SC.33: the heated board square-on from 1.1 m, through the calibrated wide Boson, so the
+    # barrel bows the outer rows of corners by tens of pixels. A static board: a short clip.
+    "calibration_checkerboard": {
+        "eye": (0.0, -1.1, 1.2),
+        "look": (0.0, 0.0, 1.2),
+        "sensor": "configs/sensors/example_boson_640_wide_calibrated.yaml",
+        "frames": 20,
+        "interval_s": 1.0,
+        "parts": _checkerboard(13, 11, 0.12, (0.0, 0.0, 1.2)),
+    },
 }
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--scene", required=True, help="a name under configs/scenes/, or a path")
 parser.add_argument("--out", default=None, help="default outputs/<scene>_<band>")
-parser.add_argument("--sensor", default=str(REPO / "configs/sensors/flir_boson_640_lwir.yaml"))
+parser.add_argument("--sensor", default=None, help="default: the preset's, else the Boson 640")
 parser.add_argument("--frames", type=int, default=None)
 parser.add_argument("--interval-s", type=float, default=None, help="scene seconds per frame")
 parser.add_argument("--eye", type=float, nargs=3, default=None, help="camera, ENU metres")
@@ -114,6 +154,8 @@ for key, default in (("frames", 48), ("interval_s", 150.0)):
     if getattr(args, key) is None:
         setattr(args, key, preset.get(key, default))
 eye_from_preset = args.eye is None
+if args.sensor is None:
+    args.sensor = str(REPO / preset.get("sensor", "configs/sensors/flir_boson_640_lwir.yaml"))
 if args.span_c is None and preset.get("span_c") is not None:
     args.span_c = list(preset["span_c"])
 if args.eye is None or args.look is None:

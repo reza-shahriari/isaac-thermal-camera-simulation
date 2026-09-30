@@ -173,6 +173,13 @@ UNSWEPT_SCENES: dict[str, str] = {
         "from a synthetic G-buffer through the mesh bridge; the rendered ones are IG.2's, and "
         "binding a mesh field to a real asset's triangles is the follow-on to WM.7."
     ),
+    "calibration_checkerboard.yaml": (
+        "IG.23's lens round trip: a heated checkerboard with no physics of its own to show in a "
+        "second band. Filmed by scripts/render_patch_scene.py --scene calibration_checkerboard "
+        "through the calibrated wide Boson its preset names, and measured by "
+        "scripts/measure_calibration_render.py -- a sweep would film it through four uncalibrated "
+        "cameras, which is not the question."
+    ),
     "quad_flight_pointwise.yaml": (
         "PT.9's regenerated aerial scene: the deck, the belly and two arms of a quadrotor as "
         "patched surfaces, no camera and no prims yet. scripts/quad_flight_pointwise.py writes "

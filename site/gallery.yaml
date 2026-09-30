@@ -298,6 +298,26 @@ sections:
         label: NIR
     source: scripts/render_aerial_demo.py
 
+  - id: calibration-roundtrip
+    title: IG.23 — your lens, in the rendered frame
+    lead: |
+      A camera file can carry the unit's own OpenCV calibration. Here a Boson 640 on a wide lens,
+      with a strong barrel pasted into its file, films a heated calibration checkerboard: the rows
+      of corners bow 9.2 px in the infrared and 9.3 px in the visible frame, and undistorting with
+      the **same** numbers — nothing fitted — straightens them to 0.13 and 0.11 px. The two bands'
+      corners agree to 0.09 px, so the visible companion goes through the same lens.
+    media:
+      - image: calibration_checkerboard_lwir/calibration_roundtrip.png
+        width: full
+        caption: "top: LWIR as rendered | undistorted · bottom: visible, the same · red: each corner row's chord"
+      - video: calibration_checkerboard_lwir/calibration_checkerboard_pair.mp4
+        width: full
+        caption: the heated board, LWIR left and visible right, through the calibrated lens
+    note: |
+      The coefficients are illustrative, chosen so the barrel is plain; replace the block with
+      your own unit's `cv2.calibrateCamera` output.
+    source: scripts/measure_calibration_render.py
+
   - id: car-hot-soak
     title: IG.22 — the engine stops, the bonnet keeps warming
     lead: |

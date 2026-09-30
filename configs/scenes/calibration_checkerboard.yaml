@@ -1,0 +1,28 @@
+# A heated checkerboard, the target a thermal camera is calibrated against. Schema v20.
+# Roadmap SC.33's in-engine half (ADR 0164); rendered by scripts/render_patch_scene.py, measured
+# by scripts/measure_calibration_render.py.
+#
+# THE POINT OF THIS SCENE is the lens, not the board. A real IR calibration target is squares
+# held at two temperatures, so the corners show in the thermal band; this one is two thermal
+# nodes, 12 K apart, alternating over 13 x 11 squares of 120 mm. Filmed through
+# configs/sensors/example_boson_640_wide_calibrated.yaml, whose `calibration.geometric` block
+# carries a strong barrel (k1 -0.25), the straight rows of corners come out bowed in both the
+# infrared and its visible companion, and `cv2.undistort` with the same numbers straightens
+# them. The squares are drawn by the driver's preset, not declared here: the scene is only what
+# heats them.
+
+schema_version: 20
+scene:
+  name: calibration_checkerboard
+  description: "a heated 13 x 11 checkerboard, 12 K between its two square sets, for a lens round trip"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 45.0, longitude_deg: 30.0, altitude_m: 120.0}
+  start_utc: "2024-06-22T08:00:00Z"
+
+  targets:
+    # The heated set: a resistive film held 12 K over the air, as a bench target's is.
+    - {name: warm_squares, solver: airframe, offset_k: 12.0}
+    # The unheated set, at the air temperature.
+    - {name: cool_squares, solver: airframe, offset_k: 0.0}
