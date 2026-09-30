@@ -376,6 +376,8 @@ class IrCamera:
         cloud_seed: int | None = None,
         cloud_deck: bool = False,
         weather_fx_clouds: Any = None,
+        cloud_occlusion: bool = True,
+        companion_only_prim_paths: Sequence[str] = (),
         sea: Any = None,
         background_prim_paths: Sequence[str] = (),
         moving_prim_paths: Sequence[str] = (),
@@ -487,6 +489,17 @@ class IrCamera:
         # knob: the whole chain is told that N seconds really passed, so the FFC fires on its real
         # schedule, the fixed pattern drifts by a real amount and the temporal noise decorrelates
         # exactly as it would between two frames that far apart (ADR 0074).
+        #: AT.31 (ADR 0169): whether the cloud is marched to every geometry pixel's own hit. The
+        #: real-time tier turns it off, with its visible cloud on the dome, so neither band
+        #: occludes a target; sky pixels are marched either way and do not change.
+        self.cloud_occlusion = bool(cloud_occlusion)
+        #: AT.31: prims that exist for the visible companion only -- weather-fx's path-traced cloud
+        #: volumes. They are mesh boxes to the renderer, so left visible they reach the G-buffer:
+        #: a drone inside the layer is replaced by the box around it, and every sky pixel behind a
+        #: tile becomes a hit with no thermal node. The infrared band already has that cloud, as
+        #: the march on the same field; so these are hidden for the G-buffer render and shown for
+        #: a separate companion render (:meth:`get_outputs`).
+        self.companion_only_prim_paths = tuple(companion_only_prim_paths)
         if frame_period_s is not None and not frame_period_s > 0.0:
             raise ValueError("frame_period_s must be positive")
         self.frame_period_s = (
@@ -561,6 +574,9 @@ class IrCamera:
 
         stage = self._stage if self._stage is not None else omni.usd.get_context().get_stage()
         self._stage = stage
+        # AT.31: companion-only prims start hidden, so the settle frames and every G-buffer render
+        # see the scene the infrared band describes.
+        self._show_companion_only(False)
         if self._up_axis is None:
             axis = str(UsdGeom.GetStageUpAxis(stage))
             self._up_axis = axis if axis in UP_AXIS_VECTOR else "Y"
@@ -805,8 +821,10 @@ class IrCamera:
         planes.update(self._illumination_planes(aovs, geometry))
         # AT.14: the cloud between the camera and every hit, marched on the shared field. Sky
         # pixels carry theirs in the temperature already; these planes are for the geometry.
-        occlusion = self.bridge.cloud_occlusion(
-            elevation, azimuth, geometry.distance_m, geometry.sky_mask
+        occlusion = (
+            self.bridge.cloud_occlusion(elevation, azimuth, geometry.distance_m, geometry.sky_mask)
+            if self.cloud_occlusion
+            else None
         )
         if occlusion is not None:
             planes["cloud_transmittance"] = np.asarray(occlusion.transmittance, dtype=np.float32)
@@ -1169,22 +1187,24 @@ class IrCamera:
         no pose callback, nothing changes.
         """
         companion: NDArray[np.uint8] | None = None
-        if rgb_subframes > 1 and pose_at is not None and self.capture_rgb:
+        if self.companion_only_prim_paths and self.capture_rgb:
+            # AT.31: the companion is rendered with the cloud volumes shown, the G-buffer below
+            # with them hidden -- one extra render per frame, the path-traced tier's cost.
             if self._reader is None:
                 raise RuntimeError("call open() first (it needs a running Kit application)")
-            window = exposure_window_s(self.sensor.sensor, self.frame_period_s)
-            exposures: list[NDArray[np.uint8]] = []
-            for dt in subframe_offsets_s(window, int(rgb_subframes)):
-                pose_at(float(dt))
-                self._reader.step(frames=1, rt_subframes=rt_subframes)
-                exposure = self._native_rgb(self._reader.read().rgb)
-                if exposure is None:
-                    break
-                exposures.append(exposure)
-            pose_at(0.0)
-            if exposures:
-                mean = np.asarray(accumulate_subframes(exposures), dtype=np.float64)
-                companion = np.clip(np.rint(mean), 0.0, 255.0).astype(np.uint8)
+            self._show_companion_only(True)
+            try:
+                if rgb_subframes > 1 and pose_at is not None:
+                    companion = self._exposed_companion(rt_subframes, rgb_subframes, pose_at)
+                else:
+                    self._reader.step(frames=1, rt_subframes=rt_subframes)
+                    companion = self._native_rgb(self._reader.read().rgb)
+            finally:
+                self._show_companion_only(False)
+        elif rgb_subframes > 1 and pose_at is not None and self.capture_rgb:
+            if self._reader is None:
+                raise RuntimeError("call open() first (it needs a running Kit application)")
+            companion = self._exposed_companion(rt_subframes, rgb_subframes, pose_at)
         planes = self.planes(step=step, rt_subframes=rt_subframes)
         if companion is not None and self._last is not None:
             self._last.rgb = companion
@@ -1224,6 +1244,43 @@ class IrCamera:
                 outputs = replace(outputs, display8=overlay_unmapped(outputs.display8, native))
         self._t_rel_s += self.frame_period_s
         return outputs
+
+    def _exposed_companion(
+        self, rt_subframes: int, rgb_subframes: int, pose_at: Callable[[float], None]
+    ) -> NDArray[np.uint8] | None:
+        """IG.19's sub-frame exposure of the companion; ``pose_at(0.0)`` restores the pose."""
+        assert self._reader is not None
+        window = exposure_window_s(self.sensor.sensor, self.frame_period_s)
+        exposures: list[NDArray[np.uint8]] = []
+        for dt in subframe_offsets_s(window, int(rgb_subframes)):
+            pose_at(float(dt))
+            self._reader.step(frames=1, rt_subframes=rt_subframes)
+            exposure = self._native_rgb(self._reader.read().rgb)
+            if exposure is None:
+                break
+            exposures.append(exposure)
+        pose_at(0.0)
+        if not exposures:
+            return None
+        mean = np.asarray(accumulate_subframes(exposures), dtype=np.float64)
+        return np.clip(np.rint(mean), 0.0, 255.0).astype(np.uint8)
+
+    def _show_companion_only(self, visible: bool) -> None:
+        """Show or hide :attr:`companion_only_prim_paths`, in the stage's session layer."""
+        if not self.companion_only_prim_paths or self._stage is None:
+            return
+        from pxr import Usd, UsdGeom
+
+        with Usd.EditContext(self._stage, self._stage.GetSessionLayer()):
+            for path in self.companion_only_prim_paths:
+                prim = self._stage.GetPrimAtPath(path)
+                if not prim or not prim.IsValid():
+                    continue
+                imageable = UsdGeom.Imageable(prim)
+                if visible:
+                    imageable.MakeVisible()
+                else:
+                    imageable.MakeInvisible()
 
     @property
     def rgb_problem(self) -> str | None:

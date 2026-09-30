@@ -28,7 +28,88 @@ import numpy as np
 
 from irsim.atmosphere.weather_fx import WeatherFxDeck, ensure_weather_fx_on_path
 
-__all__ = ["StageOnlyContext", "WeatherFxSky", "author_weather_fx_sky", "weather_state"]
+__all__ = [
+    "CLOUD_TIERS",
+    "StageOnlyContext",
+    "WeatherFxSky",
+    "author_weather_fx_sky",
+    "VOLUME_EXTENSIONS",
+    "cloud_render_path",
+    "prepare_path_traced_volumes",
+    "tier_occludes",
+    "weather_state",
+]
+
+#: AT.31 (ADR 0169): the two cloud tiers, one switch for both bands. ``path_traced`` draws the
+#: cloud as weather-fx's 3-D volumes in the visible band and marches the infrared to every
+#: pixel's own hit, so a target behind or inside a cloud is occluded in **both**; ``real_time``
+#: keeps the visible cloud on the dome at infinity and skips the infrared march to the hit, so a
+#: target is occluded in **neither**. The cloud itself is in both bands in both tiers: the
+#: infrared sky pixels are marched on the same field from the same origin either way.
+CLOUD_TIERS = ("path_traced", "real_time")
+
+
+#: The extensions ADR 0144's probe enabled when a VDB cloud first rendered on this build. Without
+#: them the density file reaches the material as a 1-D texture ("assigned an incompatible
+#: texture ... (Type: '1D')", measured on the first AT.31 render) and the volume draws nothing.
+VOLUME_EXTENSIONS = ("omni.volume", "omni.hydra.index", "omni.index")
+
+
+def prepare_path_traced_volumes() -> dict[str, str]:
+    """Enable what a path-traced VDB cloud needs, and set its render settings unconditionally.
+
+    weather-fx's ``CloudVolumeEffect`` sets its ``VOLUME_SETTINGS`` only where a setting already
+    exists -- right inside the Kit app it was written for, where the renderer's defaults are
+    registered, and a silent no-op in a headless app where ``/rtx/pathtracing/ptvol/*`` has not
+    been read yet. ADR 0144's probe set them outright; so does this. Returns what each extension
+    did, for the driver's log.
+    """
+    import carb.settings
+    import omni.kit.app
+
+    ensure_weather_fx_on_path()
+    from weather_fx.backends.viewport.clouds_volume import MIN_PATH_BOUNCES, VOLUME_SETTINGS
+
+    manager = omni.kit.app.get_app().get_extension_manager()
+    report: dict[str, str] = {}
+    for name in VOLUME_EXTENSIONS:
+        if manager.is_extension_enabled(name):
+            report[name] = "already on"
+            continue
+        try:
+            manager.set_extension_enabled_immediate(name, True)
+            report[name] = "enabled"
+        except Exception as exc:  # noqa: BLE001 - a build without it should say so, not stop
+            report[name] = f"enable failed: {type(exc).__name__}: {exc}"
+    settings = carb.settings.get_settings()
+    for path, value in VOLUME_SETTINGS.items():
+        settings.set(path, value)
+    path, floor = MIN_PATH_BOUNCES
+    if int(settings.get(path) or 0) < int(floor):
+        settings.set(path, int(floor))
+    return report
+
+
+def _check_tier(tier: str) -> str:
+    if tier not in CLOUD_TIERS:
+        raise ValueError(f"cloud tier must be one of {CLOUD_TIERS}, got {tier!r}")
+    return tier
+
+
+def cloud_render_path(tier: str) -> str:
+    """weather-fx's ``clouds.render_path`` for a tier: ``"volume"`` or ``"dome"``.
+
+    Explicit rather than weather-fx's ``"auto"``, which reads the renderer's mode: a headless
+    driver captures its colour frame under the path tracer whichever tier it asked for (it is the
+    only mode that lights a colour AOV on this build), and ``auto`` would then pick volumes for a
+    real-time tier whose infrared band is not occluding -- the disagreement ADR 0169 removes.
+    """
+    return "volume" if _check_tier(tier) == "path_traced" else "dome"
+
+
+def tier_occludes(tier: str) -> bool:
+    """Whether the infrared band marches the cloud to each geometry pixel's hit in this tier."""
+    return _check_tier(tier) == "path_traced"
 
 
 @dataclass
@@ -90,12 +171,40 @@ class WeatherFxSky:
     conditions: Any
     deck: WeatherFxDeck | None
     effect: Any
+    #: AT.31: which tier this sky was authored for, and weather-fx's volume effect when it is the
+    #: path-traced one and there is cloud to draw (``None`` otherwise).
+    tier: str = "path_traced"
+    volumes: Any = None
+
+    @property
+    def occludes(self) -> bool:
+        """Whether the infrared band should march the cloud to each hit: the tier's answer."""
+        return tier_occludes(self.tier)
+
+    @property
+    def companion_only_paths(self) -> tuple[str, ...]:
+        """Prims the visible companion renders and the infrared G-buffer must not see (AT.31).
+
+        weather-fx's volumes are mesh boxes marked as volumes; to the G-buffer they are geometry,
+        so a drone inside the layer would read as the box around it. The infrared band has the
+        same cloud as its march, so the camera hides these for the G-buffer render and shows
+        them for the companion's own (``IrCamera(companion_only_prim_paths=...)``).
+        """
+        if self.volumes is None:
+            return ()
+        from weather_fx.backends.viewport.clouds_volume import CLOUDS_ROOT
+
+        return (str(CLOUDS_ROOT),)
 
     def describe(self) -> str:
         return str(self.conditions.describe())
 
     def stats(self) -> dict[str, Any]:
-        return dict(self.effect.stats())
+        out = dict(self.effect.stats())
+        out["cloud_tier"] = self.tier
+        if self.volumes is not None:
+            out["cloud_volumes"] = dict(self.volumes.stats())
+        return out
 
 
 def weather_state(
@@ -156,6 +265,7 @@ def author_weather_fx_sky(
     up_axis: int | None = None,
     od_ratio: float | None = None,
     anchor_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    tier: str = "path_traced",
 ) -> WeatherFxSky:
     """Put weather-fx's sky on ``stage`` and return the cloud the infrared band should march.
 
@@ -168,8 +278,22 @@ def author_weather_fx_sky(
 
     The returned ``deck`` is ``None`` for a cloudless state -- a clear sky needs no march, and
     passing a deck that covers nothing would cost a march per pixel to learn that.
+
+    ``tier`` (AT.31, ADR 0169) is the one switch for both bands. ``path_traced`` sets the state's
+    ``clouds.render_path`` to ``"volume"`` and attaches weather-fx's ``CloudVolumeEffect`` beside
+    the sky; ``real_time`` sets it to ``"dome"`` and attaches no volumes. Either way the state's
+    clock is set to ``"manual"``, so the dome and the volumes are built on the calling thread and
+    are in the stage before the first frame -- a headless driver has no loop to collect them
+    later. The caller reads :attr:`WeatherFxSky.occludes` for the infrared half, so the two
+    cannot be chosen apart.
     """
     ensure_weather_fx_on_path()
+    state = state.with_updates("clouds", render_path=cloud_render_path(tier))
+    # Both tiers bake synchronously. Under the default `wall` clock the sky installs a quick
+    # cloudless first bake and finishes the real one in a worker that only the extension's own
+    # `update` loop collects -- which a headless driver never runs, so the real-time tier's dome
+    # stayed clear for the whole render while the infrared marched an overcast (measured, AT.31).
+    state = state.with_updates("general", time_source="manual")
     from weather_fx.backends.viewport.sky import SkyEffect
     from weather_fx.core.sky import conditions_from_state
 
@@ -204,4 +328,19 @@ def author_weather_fx_sky(
             int(up_axis),
         )
         deck.origin_m = (float(origin[0]), float(origin[1]), float(origin[2]))
-    return WeatherFxSky(state=state, conditions=conditions, deck=deck, effect=effect)
+
+    volumes = None
+    if tier == "path_traced" and conditions.cloud is not None:
+        from weather_fx.backends.viewport.clouds_volume import CloudVolumeEffect
+
+        prepare_path_traced_volumes()
+
+        # The same context as the sky, so the volumes follow the same anchor and drift the dome
+        # is baked around and the infrared deck marches from (AT.30).
+        volumes = CloudVolumeEffect(directory=str(texture_dir) if texture_dir else None)
+        volumes.attach(context)
+        volumes.apply_state(state, {"general", "clouds"})
+        volumes.update(0.0, 0.0)  # place the tiles around the anchor
+    return WeatherFxSky(
+        state=state, conditions=conditions, deck=deck, effect=effect, tier=tier, volumes=volumes
+    )

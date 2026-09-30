@@ -271,6 +271,16 @@ parser.add_argument(
     help="keep the scene's measured weather file for the thermal solve, and let weather-fx "
     "drive the sky only",
 )
+# AT.31 (ADR 0169): one switch for both bands' clouds. `path_traced` draws weather-fx's 3-D volumes
+# in the visible frame and marches the infrared to each hit, so a drone behind a cloud is dimmed in
+# both; `real_time` keeps the visible cloud on the dome and skips that march, so it is dimmed in
+# neither. The cloud is in the sky in both bands either way.
+parser.add_argument(
+    "--cloud-tier",
+    default="path_traced",
+    choices=("path_traced", "real_time"),
+    help="path_traced: 3-D cloud volumes and infrared occlusion; real_time: dome cloud, none",
+)
 parser.add_argument("--no-overlay", action="store_true", help="bare frames, no readout")
 # IG.13: the float32 planes and their sidecar are the *frame*; the videos beside them are the
 # look. An 8-bit display PNG has had the AGC, the palette and a 256-level quantisation applied to
@@ -517,7 +527,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
 
         # AT.30: the dome is baked around the observer and the infrared march starts there too.
         weather_sky = author_weather_fx_sky(
-            stage, state, texture_dir=out, anchor_m=tuple(float(v) for v in track.observer_m)
+            stage,
+            state,
+            texture_dir=out,
+            anchor_m=tuple(float(v) for v in track.observer_m),
+            tier=args.cloud_tier,
         )
         print(f"weather-fx: {weather_sky.describe()}")
         stats = weather_sky.stats()
@@ -748,6 +762,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # The infrared band marches the same cloud the dome was baked from. `None` leaves the
         # background clear, which is what a cloudless weather means.
         weather_fx_clouds=None if weather_sky is None else weather_sky.deck,
+        # AT.31: the tier decides the infrared half from the same switch as the visible one, and
+        # the path-traced cloud volumes are drawn in the companion only -- the infrared has the
+        # same cloud as its march, and to the G-buffer a volume box is just a box.
+        cloud_occlusion=True if weather_sky is None else weather_sky.occludes,
+        companion_only_prim_paths=() if weather_sky is None else weather_sky.companion_only_paths,
         frame_period_s=interval_s,
         strict_patch_coverage=False,
         strict_materials=True,

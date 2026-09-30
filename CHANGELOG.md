@@ -6,6 +6,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Clouds in both cameras, fast or path-traced (`AT.31`).** `--cloud-tier path_traced` draws weather-fx's 3-D cloud volumes in the visible frame and hides a drone behind or inside a cloud in both bands; `--cloud-tier real_time` paints the cloud on the sky dome and hides it in neither. Either way the cloud is in both pictures -- before this, a headless render's visible frame had no cloud at all. ADR 0171.
 - **An aerial clip that looks like real drone footage (`EV.14`).** Ten seconds of continuous 60 Hz video of a quadcopter flying out from 50 m to 250 m against cumulus, with a second, distant drone smaller than a pixel -- the way public drone datasets are filmed, instead of a close-range time-lapse. `render_quad_outbound.py --reference`; ADR 0168.
 - **The camera's contrast no longer jumps when something hot enters the frame (`SC.10`).** Its automatic gain now settles over a few frames, as a real camera core's does, instead of re-mapping the whole picture in one; the Boson preset uses FLIR's factory damping. `isp.agc_damping`; ADR 0170.
 - **Seven ground components in the library (`AI.13`).** Brake disc, tyre, tail light, rear-window heater, differential, EV drive motor and EV pack, with mass, heat capacity, cited dissipation and what they heat, so a car's hidden parts can be wired into a solved network the way the drone's are.

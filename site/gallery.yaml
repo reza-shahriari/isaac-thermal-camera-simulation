@@ -755,6 +755,27 @@ sections:
       pixels.
     source: scripts/render_quad_outbound.py
 
+  - id: cloud-tiers
+    title: One switch for the cloud, in both bands
+    lead: |
+      A Phantom 4 flying at 30–110 m inside a 60 % stratus layer, rendered twice with only
+      `--cloud-tier` changed. **Path-traced**: weather-fx's 3-D cloud volumes in the visible frame,
+      the infrared marched to the drone — the drone is lost in lit cloud in the colour frame and
+      its infrared transmittance is 0.33–0.65. **Real-time**: the cloud painted on the sky dome, no
+      march to the hit — the drone shows dark in front of a grey overcast in both bands. The cloud
+      is in both pictures either way, and the infrared sky is identical between the two runs.
+    media:
+      - video: phantom4_cloud_tiers/path_traced/phantom4_pair.mp4
+        width: full
+        caption: Path-traced tier — LWIR left, visible right; the drone is inside the cloud in both
+      - video: phantom4_cloud_tiers/real_time/phantom4_pair.mp4
+        width: full
+        caption: Real-time tier — the same frames with the cloud on the dome; the drone is in front of it
+    note: |
+      The path-traced tier costs one extra render per frame (33 s against 23 s here), because the
+      volume boxes must be kept out of the infrared G-buffer: to it they are just boxes.
+    source: scripts/render_phantom4.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |
