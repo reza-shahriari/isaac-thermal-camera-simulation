@@ -56,8 +56,23 @@ def scratch_repo(root: pathlib.Path) -> pathlib.Path:
     if root.exists():
         shutil.rmtree(root)
     (root / "configs").mkdir(parents=True)
-    for name in ("src", "data", "scripts"):
+    for name in ("src", "scripts"):
         (root / name).symlink_to(REPO / name)
+    # data/ is linked entry by entry, with a real spectra/materials/ underneath: a material made
+    # from a picked curve copies that curve into it (B11), and the copy must land here, not in
+    # the repository's own data.
+    data = root / "data"
+    data.mkdir()
+    for entry in (REPO / "data").iterdir():
+        if entry.name != "spectra":
+            (data / entry.name).symlink_to(entry)
+    (data / "spectra").mkdir()
+    for entry in (REPO / "data" / "spectra").iterdir():
+        if entry.name != "materials":
+            (data / "spectra" / entry.name).symlink_to(entry)
+    (data / "spectra" / "materials").mkdir()
+    for entry in (REPO / "data" / "spectra" / "materials").iterdir():
+        (data / "spectra" / "materials" / entry.name).symlink_to(entry)
     shutil.copytree(REPO / "configs" / "materials", root / "configs" / "materials")
     (root / "configs" / "assets").mkdir()
     return root
@@ -800,6 +815,71 @@ def main() -> None:
     check(
         not (repo / "configs" / "materials" / "leaky_glass.yaml").exists(),
         "and nothing was written for it",
+    )
+
+    # --- 7b. the library's other two forms, and the plot (B11, ADR 0175) -----------------------
+    result = bpy.ops.irsim.new_material(
+        "EXEC_DEFAULT",
+        name="grey_smoke",
+        reference="estimated",
+        optical_form="grey",
+        eps_grey=0.95,
+        assign_after=False,
+    )
+    grey = library_state.find(ctx, "grey_smoke")
+    check(
+        result == {"FINISHED"}
+        and grey is not None
+        and all(
+            close(getattr(grey, f"eps_{b}"), 0.95, 1e-6) for b in ("nir", "swir", "mwir", "lwir")
+        ),
+        "a one-value material is written and reads 0.95 in every band",
+    )
+    check(grey is not None and grey.forms == "grey 0.95", "and the panel says it is grey")
+
+    picked = args.scratch / "picked_lw.csv"
+    picked.write_text(
+        "# source: smoke test\n"
+        + "\n".join(f"{7.0 + 0.05 * i:.2f},0.93" for i in range(141))
+        + "\n",
+        encoding="utf-8",
+    )
+    bpy.ops.irsim.check_curve("EXEC_DEFAULT", filepath=str(picked))
+    check(
+        "covers LWIR" in ctx.window_manager.irsim_curve_check,
+        f"a picked curve is checked by irsim ({ctx.window_manager.irsim_curve_check})",
+    )
+    result = bpy.ops.irsim.new_material(
+        "EXEC_DEFAULT",
+        name="curve_smoke",
+        reference="smoke test curve",
+        optical_form="curve",
+        curve_file=str(picked),
+        curve_quantity="emissivity",
+        eps_lwir=0.5,  # typed, but the curve covers LWIR: the bridge leaves it out
+        assign_after=False,
+    )
+    curved = library_state.find(ctx, "curve_smoke")
+    copied = repo / "data" / "spectra" / "materials" / "curve_smoke.csv"
+    check(
+        result == {"FINISHED"} and curved is not None and close(curved.eps_lwir, 0.93, 1e-6),
+        "a material from a picked curve reads the curve in LWIR, not the typed 0.5",
+    )
+    check(curved is not None and close(curved.curve_lwir, 1.0, 1e-9), "and all of LWIR is curve")
+    check(
+        copied.is_file() and not copied.is_symlink(), "the curve is copied into the data directory"
+    )
+    check(
+        not (REPO / "data" / "spectra" / "materials" / "curve_smoke.csv").exists(),
+        "and the real data directory is untouched",
+    )
+    bpy.ops.irsim.plot_material("EXEC_DEFAULT", material="aluminium_weathered")
+    wm = ctx.window_manager
+    check(
+        wm.irsim_plot_material == "aluminium_weathered"
+        and bpy.data.images.get(wm.irsim_plot_image) is not None
+        and bpy.data.images[wm.irsim_plot_image].size[0] > 0,
+        "a material is plotted across the bands into a Blender image",
     )
 
     # --- 8. export -------------------------------------------------------------------------------

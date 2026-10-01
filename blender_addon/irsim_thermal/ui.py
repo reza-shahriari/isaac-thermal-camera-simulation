@@ -274,7 +274,7 @@ class LibraryPanel(_Base, Panel):
         item = wm.irsim_library[index] if 0 <= index < len(wm.irsim_library) else None
         if item is None:
             return
-        self._details(layout.box(), item)
+        self._details(layout.box(), item, wm)
 
         col = layout.column(align=True)
         if context.mode == "EDIT_MESH":
@@ -300,11 +300,13 @@ class LibraryPanel(_Base, Panel):
             layout.operator("irsim.load_asset_map", text="From an existing asset...", icon="IMPORT")
 
     @staticmethod
-    def _details(box, item) -> None:
+    def _details(box, item, wm) -> None:
         box.label(text=item.description[:90] or item.name)
         row = box.row()
         row.label(text=f"Source: {item.source}")
         row.label(text=f"Surface: {item.surface_treatment}")
+        if item.forms:
+            box.label(text=f"Authored as {item.forms}", icon="GRAPH" if item.spectral else "NONE")
         if item.error:
             box.label(text=item.error[:120], icon="ERROR")
         grid = box.grid_flow(row_major=True, columns=5, even_columns=True, align=True)
@@ -315,6 +317,18 @@ class LibraryPanel(_Base, Panel):
             grid.label(text=label)
             for band in BANDS:
                 grid.label(text=f"{getattr(item, f'{what}_{band}'):.2f}")
+        if item.spectral:
+            # How much of each band the curve supplied: under 100 % the rest is a per-band or
+            # grey fill, assumed flat (ADR 0175).
+            grid.label(text="curve")
+            for band in BANDS:
+                grid.label(text=f"{100.0 * getattr(item, f'curve_{band}'):.0f} %")
+        row = box.row()
+        op = row.operator("irsim.plot_material", text="Plot across the bands", icon="GRAPH")
+        op.material = item.name
+        image = bpy.data.images.get(wm.irsim_plot_image) if wm.irsim_plot_image else None
+        if image is not None and wm.irsim_plot_material == item.name:
+            box.template_icon(icon_value=image.preview_ensure().icon_id, scale=12.0)
         col = box.column(align=True)
         col.label(text=f"Solar absorptivity {item.solar_absorptivity:.2f}")
         col.label(

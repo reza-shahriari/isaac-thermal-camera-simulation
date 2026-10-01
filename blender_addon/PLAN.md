@@ -33,9 +33,12 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
    drift from the one the solver enforces. So every library read and every file written goes
    through `irsim_thermal/bridge.py`, which runs under the project interpreter and calls the
    project's own loaders.
-4. **The new-material form authors ε and τ per band; ρ is shown as derived.** It cannot author
-   both ε and ρ, and the bridge refuses anything the library walk would refuse. Values are
-   rounded to six significant figures, because Blender stores the form in single precision.
+4. **The new-material form authors ε, in any of the library's three forms (per band, one value or
+   a curve, ADR 0175), and τ per band; ρ is shown as derived.** It cannot author both ε and ρ,
+   and the bridge refuses anything the library walk would refuse. A curve's per-band fill is
+   pruned by the bridge, not by the person, because only the loader knows what the curve
+   covers. Values are rounded to six significant figures, because Blender stores the form in
+   single precision.
 5. **Size is never forced.** By default the size is shown in metres next to a familiar object.
    Guidance appears only when asked. A warning needs both of these: the size is outside the typical
    range for the kind of object, **and** a unit factor (10, 100, 1000, 2.54, 0.3048) brings it
@@ -93,15 +96,15 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 | B8 | **Main-object flag.** If `TC.11` wants "solve this asset fully" to be a property of the asset rather than the scene, the add-on offers it. Evolve/freeze (`TC.12`) and the exchange switch (`TC.10`) are scene settings, not asset ones | open | `TC.10`–`TC.12` |
 | B9 | The project site shows the tutorial | ✅ 2026-09-28: `docs/tutorials/` is a section of the site (`scripts/build_site.py`), every step linked to the next | — |
 | B10 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | ✅ 2026-09-28, in the owner's own session through the Blender MCP (the Sketchfab Phantom 4, 48 parts with the hidden ones): three screenshots in the tutorial, and the fixes below | — |
-| B11 | **Spectral curves and grey values (ADR 0175).** Today the new-material form authors `emissivity_per_band` only, and the browser shows a curve material as four numbers with a `spectral` flag. Bring it up to the library's three forms: (1) one grey emissivity for every band; (2) per band, as now; (3) a curve, picked as a CSV or a list of segments (each marked emission or reflectance), validated by the project's loader, plotted in the panel with the band edges and the sensor's response over it. Also show per band whether the value came from the curve, the table or the grey fill, with its `curve_fraction`. A material that is grey or curve-only must round-trip through *Load materials from an asset* and the export unchanged. | open | `AT.36` (bridge exposes the forms and validates a curve); `AT.34` for real curves to show |
+| B11 | **Spectral curves and grey values (ADR 0175).** The new-material form authors emissivity *Per band*, as *One value* or as a *Curve* (one or two picked CSVs, each emission or opaque reflectance), with *Check curve* reading the file through irsim's loader. Typed band values fill only where the curve has no data, and the bridge removes those the curve covers and says so. A picked curve is copied to `data/spectra/materials/<name>.csv` with a provenance line. The library panel shows each material's forms, the curve's share of each band, and a *Plot across the bands* image. | ✅ 2026-10-01: 77 bridge tests and 149 headless-Blender checks (5 + 7 new). The smoke test found that the bridge resolved curves against the `irsim` package's data root, not the repository it was pointed at; it now uses that repository (or `$IRSIM_DATA_DIR`) for every load. | `AT.36` (done with it) |
 
 ## Verification
 
 ```bash
-# Blender-free logic and the bridge (72 tests; the bridge writes only to temporary directories)
+# Blender-free logic and the bridge (77 tests; the bridge writes only to temporary directories)
 ~/IsaacSim/_build/linux-x86_64/release/python.sh -m pytest blender_addon/tests -q
 
-# End to end in a headless Blender, against a scratch copy of the repository (142 checks)
+# End to end in a headless Blender, against a scratch copy of the repository (149 checks)
 blender_addon/tests/run_blender_smoke.sh            # add --skip-audit to leave out prep_asset
 
 # The real Phantom 4 (needs the git-ignored 3d_models/phantom4.fbx): a .blend to open, CPU

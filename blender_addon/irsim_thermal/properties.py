@@ -90,6 +90,8 @@ class IrsimLibraryItem(PropertyGroup):
     file: StringProperty()
     angular: StringProperty()
     spectral: BoolProperty()
+    #: ADR 0175: which forms the material authors -- curve, per band, grey -- as one line.
+    forms: StringProperty()
     error: StringProperty(description="Why a band could not be evaluated, if one could not")
 
     eps_nir: FloatProperty()
@@ -104,6 +106,11 @@ class IrsimLibraryItem(PropertyGroup):
     tau_swir: FloatProperty()
     tau_mwir: FloatProperty()
     tau_lwir: FloatProperty()
+    #: The share of each band's value the curve supplied (`BandProperties.curve_fraction`).
+    curve_nir: FloatProperty()
+    curve_swir: FloatProperty()
+    curve_mwir: FloatProperty()
+    curve_lwir: FloatProperty()
 
     solar_absorptivity: FloatProperty()
     density_kg_m3: FloatProperty()
@@ -379,9 +386,17 @@ def register():
     bpy.types.WindowManager.irsim_library = CollectionProperty(type=IrsimLibraryItem)
     bpy.types.WindowManager.irsim_library_status = StringProperty(default="")
     bpy.types.WindowManager.irsim_library_hash = StringProperty(default="")
+    # The last plot drawn for the panel (B11): which material, in which Blender image.
+    bpy.types.WindowManager.irsim_plot_material = StringProperty(default="")
+    bpy.types.WindowManager.irsim_plot_image = StringProperty(default="")
+    # The last picked curve the bridge checked, as one line for the new-material form.
+    bpy.types.WindowManager.irsim_curve_check = StringProperty(default="")
 
 
 def unregister():
+    del bpy.types.WindowManager.irsim_curve_check
+    del bpy.types.WindowManager.irsim_plot_image
+    del bpy.types.WindowManager.irsim_plot_material
     del bpy.types.WindowManager.irsim_library_hash
     del bpy.types.WindowManager.irsim_library_status
     del bpy.types.WindowManager.irsim_library

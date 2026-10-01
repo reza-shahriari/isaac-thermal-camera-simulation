@@ -10,6 +10,11 @@ library, and every file it writes into the repository, goes through this script,
                         derives them (so a spectral material shows its band-integrated values),
                         and the joint table (``configs/thermal/joints.yaml``) a contact names.
 * ``check-material`` -- validate a draft exactly as the loader will, and return its derived bands.
+* ``check-curve``    -- read a spectral CSV the person picked through the library's own loader:
+                        its span, range of values, which nominal bands it covers, a plot sample.
+* ``plot-material``  -- draw one material's authored quantity across the bands as a PNG the
+                        panel shows: the curve where it has data, its per-band or grey fill
+                        dashed where it does not, the nominal bands shaded.
 * ``write-material`` -- the same, then write ``configs/materials/<name>.yaml`` and reload the
                         whole library; a file that breaks the library is removed again.
 * ``list-assets``    -- the asset configs there are, and which ones this add-on wrote.
@@ -98,8 +103,76 @@ def _bands_of(material: Any, band_ids: tuple[str, ...]) -> dict[str, dict[str, A
             "reflectance": p.reflectance,
             "transmittance": p.transmittance,
             "authored": p.authored,
+            # ADR 0175: the share of the band the curve supplied; the rest is per-band or grey.
+            "curve_fraction": p.curve_fraction,
         }
     return out
+
+
+#: Points in the plot sample of a curve. Log-spaced, because a curve may run 0.35-14 µm and the
+#: short-wave detail would otherwise be a few points.
+CURVE_SAMPLE_POINTS = 240
+
+
+def _curve_sample(curve: Any) -> dict | None:
+    """``{wavelength_um, value}`` for drawing a material's curve; ``None`` in its gaps."""
+    import numpy as np
+
+    if curve is None:
+        return None
+    lo, hi = curve.support_um
+    lam = np.geomspace(lo, hi, CURVE_SAMPLE_POINTS)
+    values = curve.values(lam)
+    return {
+        "wavelength_um": [round(float(x), 5) for x in lam],
+        "value": [None if np.isnan(v) else round(float(v), 6) for v in values],
+    }
+
+
+def _forms_of(material: Any) -> dict:
+    """Which of ADR 0175's three forms a material authors, and what each covers."""
+    optical = material.spec.optical
+    segments = []
+    if material.curve is not None:
+        for seg, flip, spec_seg in zip(
+            material.curve.segments,
+            material.curve.complement,
+            optical.spectral_segments,
+            strict=True,
+        ):
+            lo, hi = seg.support_um
+            segments.append(
+                {
+                    "file": spec_seg.file,
+                    "quantity": spec_seg.quantity,
+                    "complement": bool(flip),
+                    "lo_um": lo,
+                    "hi_um": hi,
+                }
+            )
+    table = optical.band_table
+    return {
+        "curve": segments,
+        "per_band": dict(table) if table else None,
+        "grey": optical.grey_value,
+        "summary": _forms_summary(segments, table, optical.grey_value),
+    }
+
+
+def _forms_summary(segments: list[dict], table: Any, grey: float | None) -> str:
+    """One line for the panel, e.g. 'curve 0.35-2.5 µm (1 - R), 8-14 µm; per band MWIR, LWIR'."""
+    parts = []
+    if segments:
+        spans = ", ".join(
+            f"{s['lo_um']:.3g}-{s['hi_um']:.3g} µm" + (" (1 - R)" if s["complement"] else "")
+            for s in segments
+        )
+        parts.append(f"curve {spans}")
+    if table:
+        parts.append("per band " + ", ".join(b.upper() for b in table))
+    if grey is not None:
+        parts.append(f"grey {grey:.3g}")
+    return "; ".join(parts)
 
 
 def _band_ids() -> tuple[str, ...]:
@@ -136,6 +209,8 @@ def _material_record(material: Any, repo: pathlib.Path, band_ids: tuple[str, ...
         "optical": {
             "authored": optical.authored,
             "spectral": optical.spectral_file is not None,
+            "forms": _forms_of(material),
+            "curve_sample": _curve_sample(material.curve),
             "angular": angular,
             "roughness": dict(optical.roughness_per_band or {}),
         },
@@ -147,12 +222,114 @@ def _material_dir(args: argparse.Namespace, repo: pathlib.Path) -> pathlib.Path:
     return pathlib.Path(args.material_dir) if args.material_dir else repo / "configs" / "materials"
 
 
+def _data_dir(args: argparse.Namespace, repo: pathlib.Path) -> pathlib.Path:
+    """Where curve files resolve and where a picked curve is copied.
+
+    ``--data-dir``, else ``$IRSIM_DATA_DIR``, else ``<repo>/data`` -- the loader's own order, but
+    rooted at the repository the bridge was pointed at rather than wherever the ``irsim``
+    package happens to live, so a curve is read back from exactly where it was copied.
+    """
+    import os
+
+    raw = args.data_dir or os.environ.get("IRSIM_DATA_DIR") or str(repo / "data")
+    return pathlib.Path(raw).expanduser().resolve()
+
+
+_SPECTRAL_KEYS = ("spectral_emissivity", "spectral_reflectance")
+
+
+def _segments(optical: dict) -> list[tuple[str, int | None, dict | str]]:
+    """``(key, index or None, entry)`` for every curve file a draft's optical block names."""
+    out: list[tuple[str, int | None, dict | str]] = []
+    for key in _SPECTRAL_KEYS:
+        value = optical.get(key)
+        if isinstance(value, str):
+            out.append((key, None, value))
+        elif isinstance(value, list):
+            out.extend((key, i, entry) for i, entry in enumerate(value))
+    return out
+
+
+def _entry_file(entry: dict | str) -> str:
+    return entry if isinstance(entry, str) else str(entry.get("file", ""))
+
+
+def _set_entry_file(optical: dict, key: str, index: int | None, new: str) -> None:
+    if index is None:
+        optical[key] = new
+        return
+    entry = optical[key][index]
+    optical[key][index] = new if isinstance(entry, str) else {**entry, "file": new}
+
+
+def _resolved(raw: str, data_dir: pathlib.Path) -> pathlib.Path:
+    p = pathlib.Path(raw).expanduser()
+    return (p if p.is_absolute() else data_dir / p).resolve()
+
+
+def _order_segments(optical: dict) -> None:
+    """Sort a list of curve segments by where each file starts, as the loader requires."""
+    from irsim.materials.spectra import load_property_spectrum
+
+    for key in _SPECTRAL_KEYS:
+        value = optical.get(key)
+        if not isinstance(value, list) or len(value) < 2:
+            continue
+        try:
+            starts = [load_property_spectrum(_entry_file(e)).support_um[0] for e in value]
+        except (ValueError, FileNotFoundError) as exc:
+            raise RefusalError(str(exc), kind="invalid") from exc
+        optical[key] = [e for _, e in sorted(zip(starts, value, strict=True), key=lambda t: t[0])]
+
+
+def _prune_covered_bands(optical: dict, data_dir: pathlib.Path) -> list[str]:
+    """Drop per-band values for registry bands the draft's curve wholly covers (ADR 0175).
+
+    The form lets a person type all four band values and pick a curve; the library refuses a band
+    value the curve covers as a second authoring. Rather than make the person work out which
+    bands those are, the bridge reads the curve and removes them -- and says which it removed.
+    """
+    from irsim.config.bands import NOMINAL_RANGES_UM
+    from irsim.materials.spectra import SpectralCurve, load_property_spectrum
+
+    segments = _segments(optical)
+    if not segments:
+        return []
+    own = "emissivity" if "spectral_emissivity" in optical else "reflectance"
+    files, flips = [], []
+    for _, _, entry in segments:
+        try:
+            files.append(load_property_spectrum(_resolved(_entry_file(entry), data_dir)))
+        except (ValueError, FileNotFoundError) as exc:
+            raise RefusalError(str(exc), kind="invalid") from exc
+        quantity = entry if isinstance(entry, str) else entry.get("quantity", own)
+        flips.append(isinstance(entry, dict) and quantity != own)
+    order = sorted(range(len(files)), key=lambda i: files[i].support_um[0])
+    try:
+        curve = SpectralCurve(tuple(files[i] for i in order), tuple(flips[i] for i in order))
+    except ValueError as exc:
+        raise RefusalError(str(exc), kind="invalid") from exc
+    removed = []
+    for key in ("emissivity_per_band", "reflectance_per_band"):
+        table = optical.get(key)
+        if not isinstance(table, dict):
+            continue
+        for band in list(table):
+            rng = NOMINAL_RANGES_UM.get(band)  # type: ignore[call-overload]
+            if rng is not None and curve.covers_interval(*rng):
+                del table[band]
+                removed.append(band)
+        if not table:
+            del optical[key]
+    return removed
+
+
 def cmd_library(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
     from irsim.materials.library import MaterialLibrary
     from irsim.materials.mapping import MIRROR_EMISSIVITY
 
     material_dir = _material_dir(args, repo)
-    library = MaterialLibrary.load(material_dir)
+    library = MaterialLibrary.load(material_dir, _data_dir(args, repo))
     band_ids = _band_ids()
     return {
         "ok": True,
@@ -181,7 +358,10 @@ def _joint_records() -> list[dict]:
 
 
 def _validated_material(
-    draft: dict, material_dir: pathlib.Path, repo: pathlib.Path
+    draft: dict,
+    material_dir: pathlib.Path,
+    repo: pathlib.Path,
+    data_dir: pathlib.Path | None = None,
 ) -> tuple[dict, Any, list[str]]:
     """``(document, loaded Material, warnings)`` for a draft, or a :class:`RefusalError`.
 
@@ -198,13 +378,21 @@ def _validated_material(
 
     if not isinstance(draft, dict) or "material" not in draft:
         raise RefusalError("the payload needs a 'material' block")
+    data_dir = data_dir if data_dir is not None else repo / "data"
+    optical = draft["material"].get("optical") or {}
+    # A picked curve is validated where it lies: every file is given to the loader by absolute
+    # path, so a CSV outside data/ is read as it is and copied in only on write.
+    for key, index, entry in _segments(optical):
+        _set_entry_file(optical, key, index, str(_resolved(_entry_file(entry), data_dir)))
+    _order_segments(optical)
+    pruned = _prune_covered_bands(optical, data_dir) if draft.get("prune_covered") else []
     doc = {"schema_version": MATERIAL_SCHEMA_VERSION, "material": draft["material"]}
     try:
         spec = MaterialConfig.model_validate(doc).material
     except ValidationError as exc:
         raise RefusalError(_pydantic_message(exc), kind="invalid") from exc
 
-    existing = MaterialLibrary.load(material_dir)
+    existing = MaterialLibrary.load(material_dir, data_dir)
     if spec.name in existing:
         raise RefusalError(
             f"a material named {spec.name!r} already exists ({existing[spec.name].path.name}). "
@@ -217,7 +405,7 @@ def _validated_material(
         path = pathlib.Path(tmp) / f"{spec.name}.yaml"
         path.write_text(_material_yaml(doc, spec.source), encoding="utf-8")
         try:
-            material = load_material(path)
+            material = load_material(path, data_dir)
         except (ValueError, FileNotFoundError) as exc:
             raise RefusalError(str(exc), kind="invalid") from exc
         bands = _bands_of(material, band_ids)
@@ -230,6 +418,12 @@ def _validated_material(
         )
 
     warnings = []
+    if pruned:
+        warnings.append(
+            "The curve covers " + ", ".join(b.upper() for b in pruned) + " wholly, so the typed "
+            "value" + ("s for those bands were" if len(pruned) > 1 else " for it was") + " left "
+            "out: the curve is the material there (ADR 0175)."
+        )
     lwir = bands.get("lwir", {}).get("emissivity")
     if lwir is not None and lwir < MIRROR_EMISSIVITY:
         warnings.append(
@@ -256,16 +450,20 @@ def _material_yaml(doc: dict, source: str) -> str:
         header.append("# source: estimated -- values entered by hand; replace them with a citation")
         header.append("# or a measurement when one exists.")
     header.append(
-        "# Schema: irsim.config.materials. Emissivity and transmittance are authored per band; "
-        "reflectance"
+        "# Schema: irsim.config.materials. Emissivity is authored -- as a curve, per band and/or"
     )
-    header.append("# is derived as 1 - emissivity - transmittance (CLAUDE.md #4).")
+    header.append(
+        "# one grey value (ADR 0175) -- with transmittance per band; reflectance is derived as"
+    )
+    header.append("# 1 - emissivity - transmittance (CLAUDE.md #4).")
     body = yaml.safe_dump(doc, sort_keys=False, default_flow_style=False, allow_unicode=True)
     return "\n".join(header) + "\n" + body
 
 
 def cmd_check_material(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
-    _, material, warnings = _validated_material(payload, _material_dir(args, repo), repo)
+    _, material, warnings = _validated_material(
+        payload, _material_dir(args, repo), repo, _data_dir(args, repo)
+    )
     return {
         "ok": True,
         "name": material.name,
@@ -274,20 +472,158 @@ def cmd_check_material(args: argparse.Namespace, repo: pathlib.Path, payload: An
     }
 
 
+def _copy_curves_in(doc: dict, data_dir: pathlib.Path, name: str, reference: str) -> list[str]:
+    """Copy every curve file outside ``data_dir`` to ``spectra/materials/`` and point at it.
+
+    The library resolves curve paths against the data root and a file elsewhere would not travel
+    with the repository, so a CSV the person picked is copied in, with a header that says where it
+    came from and that the material's ``reference`` is its citation. A target that already exists
+    is refused rather than overwritten. Returns the files written.
+    """
+    import shutil
+
+    optical = doc["material"]["optical"]
+    segments = _segments(optical)
+    written = []
+    for n, (key, index, entry) in enumerate(segments):
+        src = pathlib.Path(_entry_file(entry))
+        inside = src.resolve().is_relative_to(data_dir)
+        if inside:
+            rel = src.resolve().relative_to(data_dir)
+        else:
+            suffix = "" if len(segments) == 1 else f"_{n + 1}"
+            rel = pathlib.Path("spectra") / "materials" / f"{name}{suffix}.csv"
+            target = data_dir / rel
+            if target.exists():
+                raise RefusalError(f"{target} already exists", kind="exists")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            today = datetime.date.today().isoformat()
+            head = (
+                f"# Copied by the {MARKER} on {today} from {src.name} for material {name}.\n"
+                f"# source: {reference.strip() or 'see the material file'} (the material's "
+                "reference; the copy is otherwise unmodified).\n"
+            )
+            with target.open("w", encoding="utf-8") as out:
+                out.write(head)
+                with src.open(encoding="utf-8") as fh:
+                    shutil.copyfileobj(fh, out)
+            written.append(str(target))
+        _set_entry_file(optical, key, index, rel.as_posix())
+    return written
+
+
+def cmd_check_curve(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
+    """Read one picked CSV through ``load_property_spectrum`` and describe it for the form."""
+    import numpy as np
+
+    from irsim.config.bands import NOMINAL_RANGES_UM
+    from irsim.materials.spectra import SpectralCurve, load_property_spectrum
+
+    if not isinstance(payload, dict) or not payload.get("file"):
+        raise RefusalError("the payload needs a 'file'")
+    path = _resolved(str(payload["file"]), _data_dir(args, repo))
+    try:
+        spectrum = load_property_spectrum(path)
+    except (ValueError, FileNotFoundError) as exc:
+        raise RefusalError(str(exc), kind="invalid") from exc
+    curve = SpectralCurve((spectrum,), (False,))
+    lo, hi = spectrum.support_um
+    head = path.read_text(encoding="utf-8", errors="replace")[:4000].lower()
+    return {
+        "ok": True,
+        "file": str(path),
+        "lo_um": lo,
+        "hi_um": hi,
+        "rows": int(spectrum.wavelength_um.size),
+        "min": float(np.min(spectrum.values)),
+        "max": float(np.max(spectrum.values)),
+        "covers": {
+            b: curve.covers_interval(*NOMINAL_RANGES_UM[b])  # type: ignore[index]
+            for b in _band_ids()
+            if b in NOMINAL_RANGES_UM
+        },
+        "has_source": "# source:" in head,
+        "sample": _curve_sample(curve),
+    }
+
+
+#: The panel shows the plot as an icon; this is its pixel size.
+PLOT_SIZE_PX = (640, 300)
+
+
+def cmd_plot_material(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
+    """Write ``payload['out']`` (PNG): the material's ε(λ) or ρ(λ) as the library resolves it."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    from irsim.config.bands import NOMINAL_RANGES_UM
+    from irsim.materials.library import MaterialLibrary
+
+    if not isinstance(payload, dict) or not payload.get("name") or not payload.get("out"):
+        raise RefusalError("the payload needs 'name' and 'out'")
+    library = MaterialLibrary.load(_material_dir(args, repo), _data_dir(args, repo))
+    if payload["name"] not in library:
+        raise RefusalError(f"no material named {payload['name']!r}")
+    material = library[payload["name"]]
+    optical = material.spec.optical
+    table = optical.band_table or {}
+    grey = optical.grey_value
+
+    w, h = PLOT_SIZE_PX
+    fig, ax = plt.subplots(figsize=(w / 100, h / 100), dpi=100)
+    shades = ("#e8eef7", "#f4ece2")
+    for i, band in enumerate(_band_ids()):
+        rng = NOMINAL_RANGES_UM.get(band)  # type: ignore[call-overload]
+        if rng is None:
+            continue
+        ax.axvspan(*rng, color=shades[i % 2], zorder=0)
+        ax.text(sum(rng) / 2, 1.02, band.upper(), ha="center", va="bottom", fontsize=8)
+        fill = table.get(band, grey)
+        covered = material.curve is not None and material.curve.covers_interval(*rng)
+        if fill is not None and not covered:
+            ax.hlines(fill, *rng, colors="#b0592b", linestyles="dashed", linewidth=1.5, zorder=2)
+    if material.curve is not None:
+        lo, hi = material.curve.support_um
+        lam = np.geomspace(lo, hi, 1200)
+        ax.plot(lam, material.curve.values(lam), color="#1f4e8c", linewidth=1.4, zorder=3)
+    ax.set_xscale("log")
+    ax.set_xlim(0.3, 16.0)
+    ax.set_ylim(0.0, 1.08)
+    ticks = [0.4, 0.75, 1, 1.7, 3, 5, 7.5, 10, 13.5]
+    ax.set_xticks(ticks, [f"{t:g}" for t in ticks], fontsize=7)
+    ax.tick_params(axis="y", labelsize=7)
+    ax.set_xlabel("wavelength (µm)", fontsize=8)
+    ax.set_ylabel(optical.authored, fontsize=8)
+    ax.set_title(material.name, fontsize=9, loc="left")
+    fig.tight_layout()
+    out = pathlib.Path(payload["out"]).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out)
+    plt.close(fig)
+    return {"ok": True, "file": str(out), "summary": _forms_of(material)["summary"]}
+
+
 def cmd_write_material(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
     from irsim.materials.library import MaterialLibrary
 
     material_dir = _material_dir(args, repo)
-    doc, material, warnings = _validated_material(payload, material_dir, repo)
+    data_dir = _data_dir(args, repo)
+    doc, material, warnings = _validated_material(payload, material_dir, repo, data_dir)
     target = material_dir / f"{material.name}.yaml"
     if target.exists():
         raise RefusalError(f"{target} already exists", kind="exists")
+    curves = _copy_curves_in(doc, data_dir, material.name, material.spec.reference)
     target.write_text(_material_yaml(doc, material.spec.source), encoding="utf-8")
     try:
-        library = MaterialLibrary.load(material_dir)
+        library = MaterialLibrary.load(material_dir, data_dir)
         written = library[material.name]
     except Exception as exc:
         target.unlink(missing_ok=True)
+        for path in curves:
+            pathlib.Path(path).unlink(missing_ok=True)
         raise RefusalError(
             f"the library no longer loads with this file, so it was removed: {exc}"
         ) from exc
@@ -295,6 +631,7 @@ def cmd_write_material(args: argparse.Namespace, repo: pathlib.Path, payload: An
         "ok": True,
         "name": material.name,
         "file": str(target),
+        "curves": curves,
         "bands": _bands_of(written, _band_ids()),
         "warnings": warnings,
     }
@@ -367,7 +704,7 @@ def cmd_read_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -
     path = _assets_dir(args, repo) / f"{name}.yaml"
     if not re.fullmatch(r"[A-Za-z0-9_]+", name) or not path.is_file():
         raise RefusalError(f"there is no asset config named {name!r}", kind="missing")
-    library = MaterialLibrary.load(_material_dir(args, repo))
+    library = MaterialLibrary.load(_material_dir(args, repo), _data_dir(args, repo))
     try:
         asset = load_asset_mapping(path, known_materials=library.names)
     except ValidationError as exc:
@@ -409,7 +746,7 @@ def cmd_write_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) 
         AssetConfig.model_validate(doc)
     except ValidationError as exc:
         raise RefusalError(_pydantic_message(exc), kind="invalid") from exc
-    library = MaterialLibrary.load(_material_dir(args, repo))
+    library = MaterialLibrary.load(_material_dir(args, repo), _data_dir(args, repo))
     unknown = sorted(set(asset["materials"].values()) - set(library.names))
     if unknown:
         raise RefusalError(f"these are not library materials: {unknown}", kind="invalid")
@@ -480,7 +817,7 @@ def cmd_write_structure(args: argparse.Namespace, repo: pathlib.Path, payload: A
     hidden = list(payload.get("hidden_parts", []))
     names = set(part_areas) | {str(h.get("name", "")) for h in hidden}
     joints = load_joint_table().joints
-    library = MaterialLibrary.load(_material_dir(args, repo))
+    library = MaterialLibrary.load(_material_dir(args, repo), _data_dir(args, repo))
     problems: list[str] = []
 
     for h in hidden:
@@ -548,6 +885,8 @@ def cmd_write_structure(args: argparse.Namespace, repo: pathlib.Path, payload: A
 
 COMMANDS = {
     "library": cmd_library,
+    "check-curve": cmd_check_curve,
+    "plot-material": cmd_plot_material,
     "check-material": cmd_check_material,
     "write-material": cmd_write_material,
     "list-assets": cmd_list_assets,
@@ -566,6 +905,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--material-dir", default=None, help="default: <repo>/configs/materials")
     ap.add_argument("--assets-dir", default=None, help="default: <repo>/configs/assets")
     ap.add_argument("--models-dir", default=None, help="default: <repo>/3d_models")
+    ap.add_argument("--data-dir", default=None, help="default: <repo>/data")
     args = ap.parse_args(argv)
 
     repo = args.repo.expanduser().resolve()

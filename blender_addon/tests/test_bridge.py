@@ -132,7 +132,7 @@ def test_authoring_reflectance_as_well_is_refused(tmp_path, small_library) -> No
     bad["material"]["optical"]["reflectance_per_band"] = {b: 0.1 for b in BANDS}
     result = call(tmp_path, "check-material", bad, "--material-dir", str(small_library))
     assert not result["ok"]
-    assert "exactly one optical property" in result["error"]
+    assert "exactly one optical quantity" in result["error"]
 
 
 def test_a_material_that_leaves_a_band_out_is_refused(tmp_path, small_library) -> None:
@@ -403,3 +403,121 @@ def test_a_structure_is_replaced_only_when_asked_and_never_one_written_by_hand(t
     refused = write_structure(tmp_path, structure(overwrite=True))
     assert not refused["ok"] and refused["kind"] == "handwritten"
     assert path.read_text(encoding="utf-8").startswith("# measured on the real car")
+
+
+# --- ADR 0175: a curve, a band table or a grey value (roadmap AT.36) -------------------------
+
+
+def _curve_csv(path: pathlib.Path, lo: float, hi: float, value: float, header: bool = True) -> None:
+    import numpy as np
+
+    lam = np.round(np.arange(lo, hi + 0.005, 0.01), 4)
+    rows = "\n".join(f"{a},{value}" for a in lam)
+    path.write_text(("# source: a test curve\n" if header else "") + rows + "\n", encoding="utf-8")
+
+
+def test_each_material_reports_its_forms_and_how_much_the_curve_supplies(tmp_path) -> None:
+    result = call(tmp_path, "library")
+    by_name = {m["name"]: m for m in result["materials"]}
+    slum = by_name["aluminium_weathered"]["optical"]
+    segments = slum["forms"]["curve"]
+    assert [s["complement"] for s in segments] == [True, False]  # SW as 1 - R, then LW
+    assert segments[0]["lo_um"] < 0.4 and segments[1]["hi_um"] == pytest.approx(14.0, abs=0.01)
+    assert set(slum["forms"]["per_band"]) == {"mwir", "lwir"}
+    assert "curve" in slum["forms"]["summary"] and "per band MWIR, LWIR" in slum["forms"]["summary"]
+    bands = by_name["aluminium_weathered"]["bands"]
+    assert bands["nir"]["curve_fraction"] == 1.0
+    assert bands["mwir"]["curve_fraction"] == 0.0
+    assert 0.85 < bands["lwir"]["curve_fraction"] < 1.0
+    sample = slum["curve_sample"]
+    assert len(sample["wavelength_um"]) == len(sample["value"]) == bridge.CURVE_SAMPLE_POINTS
+    assert None in sample["value"]  # the 2.5-8 um gap is drawn as a gap, not interpolated
+    assert by_name["carbon_fibre"]["optical"]["curve_sample"] is None
+
+
+def test_a_picked_curve_is_checked_by_the_library_s_own_loader(tmp_path) -> None:
+    good = tmp_path / "lw.csv"
+    _curve_csv(good, 7.0, 14.0, 0.93)
+    result = call(tmp_path, "check-curve", {"file": str(good)})
+    assert result["ok"], result
+    assert result["lo_um"] == pytest.approx(7.0) and result["hi_um"] == pytest.approx(14.0)
+    assert result["covers"]["lwir"] and not result["covers"]["mwir"]
+    assert result["has_source"]
+    bad = tmp_path / "bad.csv"
+    bad.write_text("8.0,0.9\n9.0,1.4\n", encoding="utf-8")  # emissivity above one
+    refused = call(tmp_path, "check-curve", {"file": str(bad)})
+    assert not refused["ok"] and refused["kind"] == "invalid"
+    assert "[0, 1]" in refused["error"]
+
+
+def test_a_grey_material_is_written_and_reads_one_value_in_every_band(tmp_path, small_library):
+    grey = draft()
+    grey["material"]["optical"] = {
+        "emissivity": 0.95,
+        "roughness_per_band": {b: 0.1 for b in BANDS},
+        "angular_model": {"type": "constant"},
+    }
+    result = call(tmp_path, "write-material", grey, "--material-dir", str(small_library))
+    assert result["ok"], result
+    for band in BANDS:
+        assert result["bands"][band]["emissivity"] == pytest.approx(0.95)
+    listed = call(tmp_path, "library", None, "--material-dir", str(small_library))
+    forms = next(m for m in listed["materials"] if m["name"] == "nylon_black")["optical"]["forms"]
+    assert forms["grey"] == pytest.approx(0.95) and forms["curve"] == []
+
+
+def test_a_picked_curve_is_copied_in_and_the_bands_it_covers_are_left_to_it(
+    tmp_path, small_library
+) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "nk").symlink_to(REPO / "data" / "nk")  # the small library's own n/k tables
+    picked = tmp_path / "elsewhere"
+    picked.mkdir()
+    _curve_csv(picked / "lw.csv", 7.0, 14.0, 0.93)
+    _curve_csv(picked / "sw.csv", 0.35, 2.5, 0.20)  # a reflectance, joined as 1 - R
+    payload = draft()
+    payload["prune_covered"] = True
+    payload["material"]["optical"]["spectral_emissivity"] = [
+        str(picked / "lw.csv"),  # out of order on purpose: the bridge sorts the segments
+        {"file": str(picked / "sw.csv"), "quantity": "reflectance"},
+    ]
+    del payload["material"]["optical"]["transmittance_per_band"]
+    result = call(
+        tmp_path,
+        "write-material",
+        payload,
+        "--material-dir",
+        str(small_library),
+        "--data-dir",
+        str(data),
+    )
+    assert result["ok"], result
+    assert sorted(pathlib.Path(p).name for p in result["curves"]) == [
+        "nylon_black_1.csv",
+        "nylon_black_2.csv",
+    ]
+    assert any("left out" in w for w in result["warnings"])
+    text = (small_library / "nylon_black.yaml").read_text(encoding="utf-8")
+    assert "spectra/materials/nylon_black_1.csv" in text and str(picked) not in text
+    import yaml
+
+    optical = yaml.safe_load(text)["material"]["optical"]
+    assert set(optical["emissivity_per_band"]) == {"mwir"}  # the one band no curve covers
+    assert optical["spectral_emissivity"][0]["quantity"] == "reflectance"  # sorted: SW first
+    assert result["bands"]["nir"]["emissivity"] == pytest.approx(0.80)
+    assert result["bands"]["lwir"]["emissivity"] == pytest.approx(0.93)
+    assert result["bands"]["mwir"]["emissivity"] == pytest.approx(0.90)
+    copied = (data / "spectra" / "materials" / "nylon_black_1.csv").read_text(encoding="utf-8")
+    assert copied.startswith(f"# Copied by the {bridge.MARKER}")
+    assert "# source:" in copied
+
+
+def test_a_material_is_drawn_for_the_panel(tmp_path) -> None:
+    out = tmp_path / "plot.png"
+    result = call(tmp_path, "plot-material", {"name": "aluminium_weathered", "out": str(out)})
+    assert result["ok"], result
+    assert out.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    assert "curve" in result["summary"]
+    missing = call(tmp_path, "plot-material", {"name": "no_such", "out": str(out)})
+    assert not missing["ok"] and "no material" in missing["error"]

@@ -40,6 +40,7 @@ def load(context: bpy.types.Context) -> int:
         item.surface_treatment = record["surface_treatment"]
         item.file = record["file"]
         item.spectral = bool(record["optical"]["spectral"])
+        item.forms = str((record["optical"].get("forms") or {}).get("summary", ""))
         angular = record["optical"]["angular"]
         item.angular = angular.get("type", "")
         thermal = record["thermal"]
@@ -61,6 +62,7 @@ def load(context: bpy.types.Context) -> int:
             setattr(item, f"eps_{band}", float(values.get("emissivity", 0.0)))
             setattr(item, f"rho_{band}", float(values.get("reflectance", 0.0)))
             setattr(item, f"tau_{band}", float(values.get("transmittance", 0.0)))
+            setattr(item, f"curve_{band}", float(values.get("curve_fraction", 0.0)))
         item.error = "; ".join(errors)
     wm = context.window_manager
     wm.irsim_joints.clear()
@@ -97,7 +99,39 @@ class RefreshLibrary(Operator):
         return {"FINISHED"}
 
 
-classes = (RefreshLibrary,)
+class PlotMaterial(Operator):
+    """Draw this material across the bands: its curve, and its per-band or grey values"""
+
+    bl_idname = "irsim.plot_material"
+    bl_label = "Plot"
+
+    material: bpy.props.StringProperty(options={"SKIP_SAVE"})
+
+    def execute(self, context):
+        import os
+
+        repo, python = prefs.settings(context)
+        out = os.path.join(bpy.app.tempdir or "/tmp", f"irsim_plot_{self.material}.png")
+        try:
+            run_bridge(python, repo, "plot-material", {"name": self.material, "out": out})
+        except BridgeError as exc:
+            self.report({"ERROR"}, f"Not drawn: {exc}")
+            return {"CANCELLED"}
+        name = f"irsim_plot_{self.material}"
+        image = bpy.data.images.get(name)
+        if image is None:
+            image = bpy.data.images.load(out, check_existing=False)
+            image.name = name
+        else:
+            image.filepath = out
+            image.reload()
+        image.preview_ensure().reload()
+        wm = context.window_manager
+        wm.irsim_plot_material, wm.irsim_plot_image = self.material, image.name
+        return {"FINISHED"}
+
+
+classes = (RefreshLibrary, PlotMaterial)
 
 
 def register():
