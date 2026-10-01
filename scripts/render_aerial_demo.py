@@ -183,7 +183,7 @@ def main() -> int:
     ifov_mrad = 1e3 * spec.fpa.pitch_um * 1e-3 / spec.optics.focal_length_mm
     analytic = [] if args.no_point_targets else analytic_targets(demo, ifov_mrad)
 
-    table = MaterialTable.from_library(MaterialLibrary.load(), spec.band.band_id)
+    table = MaterialTable.for_sensor(MaterialLibrary.load(), spec)
     resolver = MaterialResolver(load_mapping_rules(), list(table.names))
     resolutions = resolver.resolve_all(prim_records(root="/World/Targets"))
     unresolved = [r.path for r in resolutions if not r.mapped]

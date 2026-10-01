@@ -25,6 +25,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
+    from irsim.config.sensor import SensorConfig, SensorSpec
     from irsim.materials.library import MaterialLibrary
     from irsim.radiometry.band_average import WeightingForm
     from irsim.radiometry.spectral_response import SpectralResponse
@@ -233,6 +234,37 @@ class MaterialTable:
             names=(UNMAPPED_NAME, *names),
             library_hash=library.content_hash(),
         )
+
+    @classmethod
+    def for_sensor(
+        cls,
+        library: MaterialLibrary,
+        sensor: SensorSpec | SensorConfig,
+        angle_lut: bool = False,
+        data_dir: object = None,
+    ) -> MaterialTable:
+        """Pack the library for **this camera**: its band, its R(λ), its detector's weighting.
+
+        :meth:`from_library` with only a band name averages every curve over the band's nominal
+        top-hat in energy form -- the right number for a camera that does not exist. A 6-13 µm
+        camera and a 7.5-13.5 µm one are both ``lwir``, and only the response tells them apart
+        (AT.33, ADR 0175); a photon FPA counts photons, so it averages under B_q (ADR 0021). A
+        material without a curve packs the same value either way.
+        """
+        from irsim.config.loader import resolve_data_dir
+        from irsim.config.sensor import SensorConfig as _SensorConfig
+        from irsim.materials.spectra import weighting_for_fpa
+        from irsim.radiometry.band import Band
+
+        spec = sensor.sensor if isinstance(sensor, _SensorConfig) else sensor
+        # The same resolution and edge check the LUT builder applies, so table and LUT describe
+        # one camera.
+        path = pathlib.Path(spec.band.spectral_response)
+        if not path.is_absolute():
+            path = resolve_data_dir(data_dir) / path  # type: ignore[arg-type]
+        response = Band.from_spec(spec.band, path).response
+        form = weighting_for_fpa(spec.fpa.type)
+        return cls.from_library(library, spec.band.band_id, response, form, angle_lut, data_dir)
 
     # -- files ----------------------------------------------------------------------------
     def save(self, path: str | os.PathLike[str]) -> tuple[pathlib.Path, pathlib.Path]:

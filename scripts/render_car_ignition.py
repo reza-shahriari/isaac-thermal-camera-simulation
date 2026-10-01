@@ -203,7 +203,7 @@ def main() -> int:
         stage=stage,
     )
 
-    table = MaterialTable.from_library(MaterialLibrary.load(), spec.band.band_id)
+    table = MaterialTable.for_sensor(MaterialLibrary.load(), spec)
     resolver = MaterialResolver(load_mapping_rules(), list(table.names))
     resolutions = resolver.resolve_all(prim_records(root="/World"))
     unresolved = [r.path for r in resolutions if not r.mapped]

@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -365,8 +365,14 @@ def ground_reflectance(
     environment: EnvironmentSpec,
     band: str,
     data_dir: str | os.PathLike[str] | None = None,
+    response: SpectralResponse | None = None,
+    form: Literal["energy", "photon"] = "energy",
 ) -> float:
     """ρ_B of the environment's ground material in ``band`` -- its albedo (AT.20, ADR 0153).
+
+    ``response`` is the camera's R(λ): a ground material with a curve is averaged under it, so
+    a camera whose range is not the band's nominal one reads its own albedo (AT.33, ADR 0175);
+    ``form`` is the camera's weighting, photon for a photon FPA (ADR 0021).
 
     Kirchhoff-closed by the library (ρ = 1 − ε − τ, CLAUDE.md #4), so the ground's albedo is the
     same number a surface of that material reflects anywhere else in the scene, and a new band is
@@ -383,7 +389,7 @@ def ground_reflectance(
             f"environment {environment.name!r} names ground material {name!r}, which is not in "
             f"the library ({MATERIAL_DIR})"
         )
-    return float(load_material(path, data_dir).band_properties(band).reflectance)
+    return float(load_material(path, data_dir).band_properties(band, response, form).reflectance)
 
 
 def scene_lapse_rate_k_per_m(spec: SceneSpec) -> float:
@@ -796,7 +802,15 @@ class Scene:
                         else (spec.site.latitude_deg, spec.site.longitude_deg)
                     ),
                     ground_albedo=(
-                        0.0 if skylight is None else ground_reflectance(environment, band, data_dir)
+                        0.0
+                        if skylight is None
+                        else ground_reflectance(
+                            environment,
+                            band,
+                            data_dir,
+                            (responses or {}).get(band),
+                            "energy" if quantity == "lb" else "photon",
+                        )
                     ),
                 )
         spec, object_assets = _expand_objects(spec)

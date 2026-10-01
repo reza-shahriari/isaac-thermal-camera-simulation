@@ -289,7 +289,7 @@ def main() -> int:
     xform.AddOrientOp().Set(Gf.Quatf(float(q[0]), Gf.Vec3f(*(float(v) for v in q[1:]))))
     cam.GetClippingRangeAttr().Set(Gf.Vec2f(0.05, 1.0e5))
 
-    table = MaterialTable.from_library(MaterialLibrary.load(), band)
+    table = MaterialTable.for_sensor(MaterialLibrary.load(), spec)
     resolver = MaterialResolver(load_mapping_rules(), list(table.names))
     records = [r for r in prim_records(root="/World") if r.path in prim_to_node]
     resolutions = resolver.resolve_all(records)
