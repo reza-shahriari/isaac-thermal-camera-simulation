@@ -6,7 +6,8 @@ pixel's face straight to its cluster. Its conduction is a sheet's: the heat cros
 a rod under a unit gradient is ``k δ · circumference`` to a few percent, and the operator is
 symmetric with no self-links. Solved against the fine field on the same tube, the coarse field
 tracks the fine one's cluster means to within a tenth of the transient's amplitude, at a
-hundredth of the cells.
+hundredth of the cells. TC.17 (ADR 0176): a planar-dissolved tube, whose faces run its whole
+length, is bisected before it is clustered, and then conducts and makes contact as a sheet should.
 """
 
 from __future__ import annotations
@@ -185,3 +186,119 @@ def test_a_scene_solves_a_coarse_arm_next_to_a_fine_one(tmp_path) -> None:  # ty
     c_fine, c_coarse = contrast(s_fine), contrast(s_coarse)
     assert np.sign(c_fine) == np.sign(c_coarse) and abs(c_fine) > 0.5
     assert abs(c_coarse - c_fine) < 0.5 * abs(c_fine) + 0.5, (c_fine, c_coarse)
+
+
+# --- TC.17: a face longer than a cell is bisected before it is clustered -------------------------
+#
+# A planar-dissolved archive (the DJI Inspire 3's arm tubes) is the opposite of the tube above:
+# each side facet is two triangles running the tube's whole length. A face joins one cell whole,
+# so clustered as-is every side cell sits at the middle of the tube.
+
+STRIP = cylinder_mesh(
+    np.array([0.0, 0.0, 0.0]),
+    0.01,
+    0.30,
+    axis=(1.0, 0.0, 0.0),
+    n_phi=48,
+    n_z=1,
+    capped=True,
+)
+
+
+def _clustered_whole(vertices: np.ndarray, faces: np.ndarray, cell: float) -> CoarseMeshPatch:
+    """The pre-TC.17 clustering, kept as the control: faces clustered as they come."""
+    v, f = np.asarray(vertices, dtype=np.float64), np.asarray(faces, dtype=np.intp)
+    a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
+    voxel = np.floor((a + b + c) / 3.0 / cell).astype(np.int64)
+    octant = (np.cross(b - a, c - a) >= 0.0).astype(np.int64)
+    _, cluster = np.unique(np.concatenate([voxel, octant], axis=1), axis=0, return_inverse=True)
+    return CoarseMeshPatch(v, f, np.asarray(cluster, dtype=np.intp).reshape(-1), cell)
+
+
+def _edge_use(faces: np.ndarray) -> np.ndarray:
+    key = np.sort(np.stack([faces, np.roll(faces, -1, axis=1)], axis=-1).reshape(-1, 2), axis=1)
+    return np.unique(key, axis=0, return_counts=True)[1]
+
+
+def test_long_faces_are_bisected_on_the_same_surface_without_a_seam() -> None:
+    from irsim.thermal.mesh_coarse import split_long_edges
+    from irsim.thermal.mesh_field import closest_point_on_mesh
+
+    v, f = split_long_edges(STRIP.vertices, STRIP.faces, CELL)
+    edges = np.concatenate(
+        [np.linalg.norm(v[f[:, k]] - v[f[:, (k + 1) % 3]], axis=-1) for k in range(3)]
+    )
+    assert edges.max() <= CELL
+    before = TriangleMeshPatch.uniform(STRIP.vertices, STRIP.faces, 1).area_m2
+    after = TriangleMeshPatch.uniform(v, f, 1).area_m2
+    assert after == pytest.approx(before, rel=1e-12), "no area moves"
+    _, _, distance = closest_point_on_mesh(STRIP.vertices, STRIP.faces, v)
+    assert distance.max() < 1e-12, "every new vertex lies on the surface it split"
+    # the capped strip tube is closed; conforming refinement keeps every edge on exactly two faces
+    assert set(_edge_use(STRIP.faces)) == {2} and set(_edge_use(f)) == {2}, "no T-junction"
+
+
+def test_a_strip_tube_conducts_along_its_length_once_its_faces_are_split() -> None:
+    """The sheet check of `test_the_coarse_conduction_is_a_sheet_s`, on the dissolved tube: under
+    a unit axial gradient the flux across the mid-plane is k δ · 2πr. Clustered whole, the side
+    cells sit at x = ±L/6, joined by diagonal edges the tube's whole length, and the operator is
+    out by orders of magnitude (~460x too conductive here)."""
+    k, delta, radius = 200.0, 0.001, 0.01
+
+    def midplane_flux(patch: CoarseMeshPatch) -> float:
+        op = coarse_lateral_operator(patch, k, delta)
+        if op is None:
+            return 0.0
+        x = patch.cell_centres()[:, 0]
+        coo = op.conductance_w_k.tocoo()
+        left = x < 0.0
+        return float(
+            sum(
+                g * (x[j] - x[i])
+                for i, j, g in zip(coo.row, coo.col, coo.data, strict=True)
+                if left[i] and not left[j]
+            )
+        )
+
+    expected = k * delta * 2.0 * np.pi * radius
+    split = coarsen_mesh(STRIP.vertices, STRIP.faces, CELL)
+    whole = _clustered_whole(STRIP.vertices, STRIP.faces, CELL)
+    side = np.abs(np.linalg.norm(split.cell_centres()[:, 1:], axis=-1) - radius) < 0.25 * CELL
+    assert np.ptp(split.cell_centres()[side, 0]) > 0.25, "side cells run the tube's length"
+    assert midplane_flux(split) == pytest.approx(expected, rel=0.10)
+    control = midplane_flux(whole) / expected
+    assert abs(np.log10(control)) > 1.0, f"control: whole strips are out by {control:.0f}x"
+
+
+def test_a_contact_finds_the_ends_of_two_strip_tubes_that_meet() -> None:
+    """Two dissolved tubes butt-jointed at x = 0, as an Inspire 3 arm meets its junction: the
+    contactor finds cells within the gap at the joint and only there. Clustered whole, the
+    nearest cells are a tube's half-length apart and the contact is refused."""
+    from irsim.thermal.coupling import proximity_contactor
+
+    def tube(x0: float) -> tuple[np.ndarray, np.ndarray]:
+        t = cylinder_mesh(
+            np.array([x0, 0.0, 0.0]),
+            0.01,
+            0.30,
+            axis=(1.0, 0.0, 0.0),
+            n_phi=48,
+            n_z=1,
+            capped=False,
+        )
+        return t.vertices, t.faces
+
+    (va, fa), (vb, fb) = tube(-0.15), tube(0.15)
+    a, b = coarsen_mesh(va, fa, CELL), coarsen_mesh(vb, fb, CELL)
+    k_ab = proximity_contactor(a, b, 1000.0, 0.001, gap_m=1.5 * CELL).tocoo()
+    assert k_ab.sum() == pytest.approx(1.0)  # h_c · A
+    assert np.abs(a.cell_centres()[k_ab.row, 0]).max() < 2.0 * CELL
+    assert np.abs(b.cell_centres()[k_ab.col, 0]).max() < 2.0 * CELL
+    with pytest.raises(ValueError, match="do not touch"):
+        proximity_contactor(
+            _clustered_whole(va, fa, CELL),
+            _clustered_whole(vb, fb, CELL),
+            1000.0,
+            0.001,
+            gap_m=1.5 * CELL,
+        )

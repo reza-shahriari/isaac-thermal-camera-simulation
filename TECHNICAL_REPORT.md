@@ -1068,6 +1068,10 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   scene over the budget is refused rather than left to run for hours. `self_occluding: false`
   falls back to the analytic (1 + cos beta)/2 sky view, honest for an airframe in free air and
   wrong for the gimbal that genuinely sits in the body's shadow.
+  The dissolve also leaves long faces (a tube's side becomes two triangles its whole length), and
+  a coarse cell takes whole faces, so `coarsen_mesh` bisects every edge longer than a cell first
+  (`TC.17`, ADR 0176). A dissolved tube still gets cells, and a contact still finds them, along its
+  length. Checked on a strip tube against the sheet flux k δ·2πr (10 %) and on a butt joint.
 - **A mesh whose faces carry several materials renders as one of them** (`AI.4`, ADR 0128
   addendum). The instance-id plane carries one id per prim (ADR 0014) and the material table is
   indexed by it, so one prim is one material however many `materialBind` subsets the asset
