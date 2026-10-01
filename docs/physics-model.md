@@ -288,6 +288,57 @@ A 55 cm slab and a 57 cm slab are optically identical for every one of them. The
 
 **Temperature.** $\varepsilon$ varies with temperature too — metals rising roughly in proportion to $T$, non-metals falling. That is a lookup $\varepsilon(\lambda,T)$ and not a circularity, since §6 produces $T$ without needing it. Below ~600 K the variation is smaller than the uncertainty the authored values already carry and is ignored here; at plume and fire temperatures it is not (Appendix A).
 
+### 4.6 Weather changes the surface state
+
+§4.5 makes the surface state the property a material names. Weather changes that state during a scene,
+and for many surfaces the change is the largest optical event they ever see.
+
+**Wet.** Water's own numbers in the §4.5 table decide it. Water's 1/e absorption depth is 3–19 µm across
+LWIR [R100], so a film of a few tens of micrometres is, in LWIR, *water*. Its emissivity follows water's
+Fresnel curve (§4.2, the same optics `PH.3` uses for a puddle) rather than the dry material's: 0.987 at
+nadir, 0.66 at 80°. Its reflection is **specular**, because the film levels the roughness that made the
+dry surface diffuse. Water's LWIR reflectance is 0.013 at normal incidence, 0.05 at 60°, 0.20 at 75°,
+0.34 at 80° and 0.57 at 85°. A wet road or a puddle ahead of a vehicle camera is therefore a mirror for
+the cold sky at the angles that camera sees it — the dark sheen of wet-road LWIR imagery, which tends to
+the sky's radiance at long range [R113] — even though the road's emissivity at nadir barely changes.
+Measured on urban surfaces, wetting raises asphalt, concrete and granite emissivity by more than 0.02 in
+8–10 µm, 0.9–2.3 K of apparent temperature [R112]. In MWIR the same film is up to 89 µm deep and in SWIR
+millimetres deep, so a film that is optically water in LWIR is a partly transparent layer in the short
+bands.
+
+For a film of depth $d$ covering a fraction $f$ of the surface, per band, with
+$\delta_B = \lambda/(4\pi k_{\text{water}})$ the band's 1/e depth and $\mu$ the cosine of the refracted
+angle:
+
+$$
+\varepsilon_{\text{film}} = \big(1-\rho_{w}(\theta)\big)\Big[\big(1-e^{-d/(\delta_B\mu)}\big)
++ e^{-d/(\delta_B\mu)}\,\varepsilon_{\text{dry}}\Big],\qquad
+\varepsilon_{\text{wet}} = (1-f)\,\varepsilon_{\text{dry}} + f\,\varepsilon_{\text{film}},\qquad
+f = \min(1, d/h)
+$$
+
+The first factor is the film's own emission plus the substrate's through it, both behind water's top
+interface. $h$ is the surface's macrotexture depth (asphalt about 0.5–1 mm), and $f$ is also the
+specular fraction. The form neglects interference and the film–substrate interface, both small on a
+rough substrate. It is **approximate**: no published model was found that predicts a specific wet
+road, so it is held to its limits ($d \to 0$ recovers the dry surface, $d \gg \delta_B$ recovers water)
+and to the measured rise. In the reflective bands a wet surface is darker, because light trapped by
+total internal reflection in the film is absorbed by the substrate [R111], and the same film model
+gives that.
+
+The film already exists: `PH.1` keeps it per cell in kg m⁻², rain fills it and evaporation empties it.
+What is missing is that nothing optical reads it. The rule: **the film is the state.** A surface is not
+authored as "wet asphalt"; it is asphalt with a film the solver carries.
+
+**Dew and frost.** A surface below the dew point gains film by condensation, and below 0 °C it gains
+frost, whose emissivity is ice's. A clear night's dew is 0.14 ± 0.12 mm [R114], already optically water
+in LWIR. That is why a car parked overnight reads, at dawn, as a uniform water-emissivity skin over
+every panel, metal included. The latent model computes the negative evaporation; dew onto a *dry*
+surface is not yet admitted (`irsim.thermal.latent`).
+
+**Snow cover** is the snow material capped at 0 °C (§6, `PH.10`). Fine-grained snow is 0.98–0.99 emissive
+over 8–13 µm and nearly Lambertian; coarse grains fall to about 0.93 at 75° viewing [R106].
+
 ---
 
 <a name="5-scene-radiance"></a>
@@ -481,6 +532,37 @@ These are scripted, not predicted, and they are where most of the useful signal 
 
 That last row is worth implementing. Thermal shadows and residual heat traces are a signature phenomenon of the band and they routinely confuse detectors trained only on synthetic data that lacks them.
 
+### 6.7 What the weather does to a surface's energy
+
+**Precipitation carries heat.** Rain reaches a surface at the drop temperature, close to the wet bulb
+(§7.8), and the water that lands brings its sensible heat:
+
+$$
+Q_{\text{P}} = \dot m_{\text{P}}\,c_w\,\big(T_{\text{rain}} - T_s\big)
+$$
+
+At 10 mm h⁻¹ ($\dot m_{\text{P}}$ = 2.8 × 10⁻³ kg m⁻² s⁻¹) on a road 5 K above the drops this is
+−58 W m⁻². That is comparable to the whole net radiation under an overcast sky, and convective rain has
+been measured cooling soil 6.5 °C at 5 cm depth in twelve minutes [R103]. With the evaporation `PH.1`
+already carries, it is why prolonged rain drives every wet surface toward one temperature and thermal
+contrast collapses. Snow lands at the snow temperature. On a surface above freezing it also takes $L_f$
+per kilogram while it melts, which is `PH.10`'s cap run from the other side.
+
+**A cloud's shadow is local.** The weather series attenuates the direct beam by the cloud fraction,
+uniformly (`AT.16`). A cumulus field instead puts each point either in the beam or in a shadow whose
+depth is $e^{-\tau_{\text{vis}}}$ along the sun ray through the same field the camera sees. The direct
+beam on a facet is therefore
+
+$$
+Q_{\text{beam}}(\mathbf x) = \text{DNI}_{\text{clear}}\,\cos\theta_i\,e^{-\tau_{\text{vis}}(\mathbf x\to\odot)}
+$$
+
+with the diffuse part unchanged. The one-weather constraint: the field's area mean of $e^{-\tau}$ equals
+the series' beam attenuation. The field drifts with the wind, so shadows move, and surfaces answer with
+their own time constants. In LWIR a cloud shadow is a cool footprint that **lags** the shadow and is
+deepest on low-inertia surfaces — one of the most recognisable things in real aerial thermal footage,
+and absent from a model that dims the whole scene at once.
+
 ---
 
 <a name="7-atmosphere"></a>
@@ -529,6 +611,23 @@ Two things to take from this table:
 - In fog and haze it is the **dominant** effect, and it is exactly where LWIR's advantage over visible comes from — which is the entire commercial argument for thermal cameras on cars. Getting the *relative* band behaviour right matters far more than getting absolute $\tau$ right to 1%.
 
 Note that LWIR is not universally best: the table shows SWIR beating LWIR in humid clear air (water vapour continuum absorption hits 8–12 µm hard), and LWIR beating everything in fog. A simulator that reproduces this crossover is doing real work.
+
+**Two corrections to the fog rows, and one to how visibility is read** (spec issues S59, S60):
+
+- **The MWIR and SWIR fog columns describe haze-sized droplets, not fog.** Fog droplets are 3–20 µm in
+  effective radius; Mie theory on the standard fog size distributions [R84] puts NIR, SWIR and MWIR
+  extinction at **1.0–1.3 times the visible**, not below it, and measured transmission through real fog
+  agrees — 4 µm gives no meaningful advantage over 1.55 µm, while 10 µm gains more than 20 dB in
+  continental fog [R88][R85]. Only LWIR beats the eye in fog, and by how much depends on droplet size
+  (§7.7): the LWIR/visible ratio is about 0.35 for a young radiation fog ($r_{\text{eff}} \approx 3$ µm),
+  0.72 at 6 µm, and above 1 for advection fog. The table's MWIR/SWIR fog entries are reproduced only by
+  droplets near 0.5–1.5 µm — small-droplet artificial fog, which is what fog-chamber benchmarks
+  generate. They are kept as a record and are not a target.
+- **Visibility is the meteorological optical range, defined at 5 % transmittance** [R91]:
+  $\sigma_{\text{vis}} = -\ln 0.05/V = 2.996/V$. Koschmieder's 3.912/V is the 2 % contrast threshold of a
+  human observer, a different quantity, and applying it to a reported visibility overstates the
+  extinction by 31 %. `isaac-weather-fx` already converts at 5 %, so a weather state read with 3.912
+  is two weathers.
 
 ### 7.3 Humidity dependence
 
@@ -640,10 +739,355 @@ in both tiers the infrared frame shows the cloud, from the same field, to the sa
    ARM Infrared Cloud Imager, roadmap `XD.6`): the cloud-minus-clear radiance and the width of
    cloud edges fall inside the spread of the real sky at matching air temperature and humidity.
 
-**Not modelled, and flagged.** Multiple scattering beyond the ratio; sunlight scattered by cloud
-toward the camera on a target pixel (sky pixels carry it, ADR 0153); cloud shadows on the ground
-and target thermal solves (the weather attenuates irradiance uniformly by cloud fraction);
-precipitation; ice.
+**The shape of a cloud is a requirement on the field.** Both bands read one field, so a cloud that
+looks wrong looks wrong in both, and no radiometry in either band can repair it. Real cumulus give
+four measurable targets:
+
+| property | real cumulus | sources |
+|---|---|---|
+| projected outline, area–perimeter dimension $D$ | 1.3–1.4 (1.35 for 1–10⁶ km²; 1.28 for trade cumulus at 15 m resolution) | [R62][R63] |
+| size distribution $n(l)\propto l^{-b}$, $l=\sqrt{A}$ | $b$ = 1.7–2.0 from ~50 m to a break at 0.5–1 km | [R64][R65][R66] |
+| edge | liquid water steps over ~0.3 m at the boundary; water, droplet number and size decline over the outer ~10 % of the cloud | [R67][R68] |
+| depth to chord, shallow cumulus | 0.4–1 | [R69] |
+
+The edge row decides what a camera sees. At a cumulus visible extinction of 0.05–0.12 m⁻¹ [R70] the
+optical skin — the depth at which a ray reaches unit optical depth — is 8–20 m, and the LWIR
+absorption skin of a ray is about twice that, 15–40 m ($r = 0.5$; the flux coefficient 100–160 m² kg⁻¹
+of liquid water [R71] is the diffusivity factor times the ray's). A 60 m voxel holds
+the whole visible surface of a cloud inside one cell: read trilinearly it is a 60 m ramp, "soft and
+blobby"; read nearest it is a staircase. The real field is neither — it is nearly binary at metre
+scale.
+
+**Envelope plus detail.** The production answer, adopted here, keeps the stored field coarse and
+makes the edge at sample time. A low-resolution *envelope* says where cloud may be and how far a
+point is from its edge, and a tiling high-frequency noise *erodes* the envelope's edge when the field
+is sampled — never multiplying the core, which would hollow it [R72][R73]. Detail then costs
+arithmetic rather than memory: Guerrilla's voxel clouds reach 0.5 m effective precision from 8 m
+voxels [R74]. Two consequences are physics, not rendering:
+
+1. **Detail is filtered to the pixel.** A pixel at range $R$ with instantaneous field of view
+   $\theta_p$ integrates a footprint $R\theta_p$. Detail finer than that cannot be resolved and, sampled
+   without filtering, aliases into noise — the static a broken-cumulus field shows toward the horizon
+   when 15 m detail is marched at 100 m steps. The field is sampled with its detail amplitude
+   band-limited to the footprint, and the march's step is tied to the finest scale that survives.
+   Each band filters to **its own** pixel. That keeps the one-field rule: the field is one function,
+   and each camera integrates it over its own pixel, as it physically does.
+2. **The step is set by the skin, not the grid.** A ray must resolve the 8–20 m skin where it enters
+   a cloud, or the emission and the in-scattered light both come out wrong at the edge, where they
+   matter most. Inside the envelope the march steps at most half the finest surviving detail;
+   outside it the march skips.
+
+**Two sources, one contract.** A cloud field may be *procedural* — an envelope from fractal and
+cellular noise, as `isaac-weather-fx` builds it — or a *volume asset*: a cloud from a large-eddy
+simulation, which carries liquid water and temperature in physical units [R75][R76], or a sculpted
+cloud, which carries shape only [R77]. Both answer the same questions: visible extinction
+$\sigma_{\text{vis}}(\mathbf x)$ in m⁻¹, the phase (liquid, ice) and, where the source has them, the
+liquid water content and temperature. Both are eroded by the same detail. The project keeps both until
+one is accepted against real imagery, and neither may reach a band the other cannot.
+
+**Band ratios from microphysics.** Where the field carries an effective radius $r_e$, the band ratio
+is not a constant. With $\sigma_{\text{vis}} = 3\,\text{LWC}/(2\rho_w r_e)$ [R57] and a band's mass
+absorption coefficient $\kappa_B$ for a pencil beam,
+
+$$
+r^{a}_{B} = \frac{\kappa_B\,\text{LWC}}{\sigma_{\text{vis}}} = \tfrac{2}{3}\,\kappa_B\,\rho_w\,r_e
+$$
+
+At $r_e$ = 10 µm and the ray coefficient 0.075 m² g⁻¹ this is 0.50, the constant used since ADR 0126.
+It is the large-droplet limit: a droplet much thicker than water's 16 µm absorption depth at 10 µm
+absorbs what it intercepts, $\kappa_B \propto 1/r_e$, and the ratio sits at one half. Smaller droplets
+are not opaque at 10 µm, $\kappa_B$ tends to the volume absorption of water, and the ratio falls with
+$r_e$. A continental cloud of small droplets is therefore less absorbing in LWIR, for the same visible
+optical depth, than a maritime one. $\kappa_B(r_e)$ is band data computed once by Mie
+(`irsim.atmosphere.mie`). The constant stays the default; a field that carries $r_e$ uses the
+relation.
+
+**The visible companion's cloud.** The visible frame is not radiometric output, but it is the
+reference the infrared frame is read against, so its cloud is held to physical criteria:
+
+1. **A cloud never darkens the sky behind it by scattering back less than it removes.** At a thin
+   edge the observed radiance is
+   $L_{\text{sky}}(1-\tau) + \tau\varpi\,[\,p(\Theta)E_\odot T_\odot + \langle L_{\text{sky}}\rangle_p\,]$.
+   The last term is the sky light — including the sky directly behind the cloud — that a strongly
+   forward phase function sends on to the camera. Dropping it, or replacing it with an ambient that
+   vanishes at low density (a two-stream *reflectance* does), puts a rim darker than the sky around
+   every cloud. The test is a **white furnace**: a non-absorbing cloud ($\varpi = 1$) under a uniform
+   sky with no sun must vanish [R78].
+2. **Energy-conserving steps.** Each step adds $\varpi L_{\text{in}}(1-T_{\text{step}})$ — the closed
+   form of the in-scattering integral over a step of constant extinction — so no step size can make a
+   step brighter than its opacity allows [R79]. The same closed form is the infrared emission per
+   step, $(1-\varpi)B(T)(1-T_{\text{step}})$.
+3. **Premultiplied composite.** The march yields an associated colour $C$ and an opacity $\alpha$, and
+   the cloud is composed over the sky as $C + (1-\alpha)L_{\text{sky}}$. Any resampling — a coarse dome
+   upsampled to the screen — is done on $C$ and $\alpha$ before that, never on a colour already divided
+   by $\alpha$ [R80].
+4. **Enough scattering orders.** Thick cumulus is white because light scatters in it of order a
+   hundred times [R81]. A path tracer capped at a few volume bounces renders it grey: RTX's volume
+   scattering cap `ptvol/maxBounces` defaults to 2 [R83]. A march approximates the missing orders with
+   Wrenninge's octaves, with contribution ≤ attenuation for energy conservation [R82].
+5. **Aerial perspective.** A cloud at range $R$ is seen through the air. Its contrast against the
+   horizon falls with the air's transmittance over $R$, which is what makes a distant cloud hazy and a
+   near one crisp.
+
+RTX volumes scatter but cannot emit [R83]. The infrared cloud is therefore never the renderer's: it is
+always this section's march over the shared field.
+
+**Not modelled, and flagged.** Multiple scattering in the thermal bands beyond the scaled ratio;
+sunlight scattered by cloud toward the camera on a target pixel (sky pixels carry it, ADR 0153); ice
+microphysics beyond a per-genus phase. Cloud shadows on surfaces are §6.7; precipitation is §7.8.
+
+### 7.6 One march for every medium
+
+§7.1–7.3 treat the clear air as a horizontally uniform column with closed-form slant integrals
+(`AT.1`). Everything else the weather puts between the camera and the hit has **structure**: a cloud,
+a fog bank with a top, a haze layer capped by the boundary layer, a rain shaft, falling snow. The only
+way to honour structure is to integrate along the ray, and §7.5 already does that for one medium. The
+rule is that there is **one** such integral and every structured medium enters it:
+
+$$
+L(0) = \mathcal T(0,R)\,\big[\tau_{\text{air}}(R)L_{\text{hit}} + L_{\text{path,air}}(R)\big]
++ \tau_{\text{air}}(R_m)\int_0^R \sum_m \beta^{a}_{B,m}(s)\,L_B\big(T_m(s)\big)\,\mathcal T(0,s)\,ds
+$$
+
+$$
+\mathcal T(0,s) = \exp\Big(-\int_0^s \sum_m \beta^{e}_{B,m}(s')\,ds'\Big),\qquad
+\beta^{e}_{B,m} = r^{e}_{B,m}\,\sigma_{\text{vis},m},\qquad
+\beta^{a}_{B,m} = r^{a}_{B,m}\,\sigma_{\text{vis},m}
+$$
+
+Each medium $m$ supplies three things from the one weather state:
+
+- a **visible extinction field** $\sigma_{\text{vis},m}(\mathbf x)$ in m⁻¹ — the quantity the visible
+  companion renders, so the two bands cannot disagree about where the medium is;
+- a **class** (haze, fog droplet, cloud liquid, cloud ice, rain, snow);
+- a **temperature** $T_m(\mathbf x)$.
+
+The band supplies, per class, two ratios as data: $r^{e}$, the extinction the pixel loses, and
+$r^{a} \le r^{e}$, the part of it that is absorption and therefore emits. Adding a band is a new row of
+ratios; adding a medium is a new class row and a field. Neither touches the integrator (*bands are
+data*).
+
+The gap between $r^e$ and $r^a$ is scattering. Light scattered *out* of the pixel is lost; light
+scattered *into* it from elsewhere is not carried, except where a class says how (rain's diffraction
+halo, §7.8). This is the non-scattering (Schwarzschild) approximation with scaled absorption that §7.5
+already makes for cloud [R59]. It is right where absorption dominates, or where the in-scattered field
+is close to the emitted one (thermal bands inside a medium near air temperature). It is **wrong in the
+reflective bands in daylight**, where sunlight scattered into the pixel by fog, rain or cloud is first
+order. That term is carried separately, as for cloud bases (ADR 0153), and flagged where it is not.
+
+**What stays closed-form.** The clear air keeps §7.1–7.3 and the layered column; integrating a uniform
+medium numerically buys nothing and costs a march. The structured media are composed with it as §7.5
+does for cloud: the hit and the air in front of it are attenuated by the media's transmittance, and the
+media's emission is attenuated by the air between the camera and the range $R_m$ at which that emission
+is centred.
+
+**Sampling.** Inside a medium a step is at most half its finest surviving structure; outside every
+medium's bounds a ray is not sampled. Detail finer than a pixel's footprint at the sample's range is
+filtered to that footprint (§7.5). A ray is dropped once $\mathcal T < e^{-12}$ in the **band**.
+
+### 7.7 Fog, mist and haze have structure
+
+§7.1–7.3 make haze and fog a property of the column: a visibility, a ratio per band, an exponential
+profile. Four things that decide what a camera sees in fog are missing from that.
+
+**Fog is a layer with a top.**
+
+- Radiation fog is usually shallower than 200 m; one recent campaign measured tops of 83–115 m [R89].
+- It becomes optically thick once its liquid water path passes about 30 g m⁻² [R90].
+- Its liquid water and extinction rise with height, peaking near 80 % of its depth [R89][R85].
+- Above the top the air is clear.
+
+A fog is therefore a §7.6 medium, not a column property:
+
+$$
+\sigma_{\text{vis}}(\mathbf x) = \sigma_0\,f(z/z_{\text{top}})\,\big(1 + a\,n(x,y)\big)
+$$
+
+with a profile $f$ that rises toward the top and a horizontal modulation $n$. The difference is the whole
+picture from a drone: above the layer the ground is seen through $z_{\text{top}}/\sin\theta$ of fog, not
+through the camera's range of it, and the fog top is a surface with an edge. Horizontal patchiness
+follows the ground — soil moisture and terrain set fog on 100 m–1 km scales [R93] — and is authored,
+not inferred.
+
+**Droplet size sets the band ratio, and fog type sets the droplet size.** Infrared extinction in fog is
+nearly proportional to liquid water content: at 11 µm, about 133 km⁻¹ per g m⁻³, within a factor of two
+over 341 measured droplet spectra [R86][R87]. Visible extinction is $1500\,W/r_{\text{eff}}$ (km⁻¹,
+$W$ in g m⁻³, $r_{\text{eff}}$ in µm). The LWIR/visible ratio is therefore about
+$0.089\,r_{\text{eff}}$[µm] until it saturates near 1.1 above ~10 µm. By Mie over a modified-gamma
+distribution, with this project's own code and water constants:
+
+| $r_{\text{eff}}$ (µm) | 1 | 2 | 3 | 4 | 6 | 8 | 10 | 15 |
+|---|---|---|---|---|---|---|---|---|
+| LWIR / visible | 0.085 | 0.21 | 0.35 | 0.48 | 0.72 | 0.89 | 1.00 | 1.10 |
+| MWIR / visible | 0.28 | 0.87 | 1.24 | 1.36 | 1.28 | 1.18 | 1.13 | 1.09 |
+| SWIR / visible | 1.11 | 1.23 | 1.10 | 1.07 | 1.05 | 1.04 | 1.04 | 1.03 |
+
+Typical sizes by fog type:
+
+- young radiation fog: 2–4 µm;
+- mature radiation fog: 8–10 µm near the surface [R89];
+- advection fog: 16–20 µm [R84].
+
+The ratio is band data indexed by $r_{\text{eff}}$, and a fog medium carries $r_{\text{eff}}$. "LWIR sees
+through fog" is true of young radiation fog and largely false of advection fog — which is what thermal
+detection ranges show in practice (maritime aerosols, the largest, give the shortest [R97]). A path's transmittance is
+the band integral of spectral $e^{-\beta L}$, not $e^{-\bar\beta L}$; the band-class machinery of §7.1
+carries that.
+
+**Fog temperature.** Fog air is saturated and its droplets are at air temperature to first order. Fog is
+not isothermal, though:
+
+- A thin fog sits inside a surface-based inversion, colder than the air above it — 12 °C at the ground
+  and 14–16 °C above 40–60 m in one measured case [R89].
+- A thick, mixed fog follows the saturated adiabat, 5.3–6.5 K km⁻¹, so its top is about 1 K colder than
+  its base, under warmer air.
+
+A drone looking down at a fog layer therefore sees the fog top — the coldest point in the column — and
+not the surface air temperature. $T_{\text{fog}}(z)$ is part of the medium.
+
+**Scattering in MWIR.** Fog's single-scattering albedo is 0.33–0.55 in LWIR but 0.68–0.86 in MWIR (Mie
+on [R84]). In MWIR an optically thick fog is a partly reflecting layer, not a blackbody, and
+$(1-\tau)B(T)$ overstates its emission when it is seen from above or looked up through at a cold sky.
+§7.6 carries $r^a < r^e$ for this. The in-scattered sky and ground are not carried (flagged).
+
+**Mist and haze.** The WMO thresholds [R91][R92]:
+
+| | visibility | condition |
+|---|---|---|
+| fog | below 1 km | — |
+| mist | 1–5 km | RH > 95 % |
+| haze | ≤ 5 km | dry particles |
+
+Haze keeps the layered model's exponential profile, with the standard models giving its scale. At 23 km
+visibility LOWTRAN 7's boundary layer falls 0.158 → 0.099 → 0.062 km⁻¹ at 0, 1 and 2 km, a 2.1 km scale
+height; at visibility ≤ 10 km it is uniform through the lowest kilometre [R94]. A haze layer capped at
+the boundary-layer top is a §7.6 medium where a ray leaves it within the scene; otherwise the closed form
+suffices.
+
+### 7.8 Rain and snow along the line of sight
+
+**Rain extinction is flat across the spectrum.** Raindrops, 0.1–6 mm across, are hundreds of wavelengths
+wide even at 10 µm, so each intercepts twice its geometric cross-section ($Q_{\text{ext}}\to 2$) in every
+band [R95]. The distribution is Marshall–Palmer [R96]:
+
+$$
+N(D) = N_0 e^{-\Lambda D},\qquad N_0 = 8000\ \text{m}^{-3}\,\text{mm}^{-1},\qquad
+\Lambda = 4.1\,R^{-0.21}\ \text{mm}^{-1}
+$$
+
+The extinction over it is
+
+$$
+\sigma_{\text{rain}} = \frac{\pi}{2}\int N(D)\,D^2\,dD = \frac{\pi N_0}{\Lambda^3}
+= 0.365\,R^{0.63}\ \text{km}^{-1}\qquad (R\ \text{in mm h}^{-1})
+$$
+
+Mie over the distribution holds this within 2 % from 0.55 to 12 µm. It is the law LOWTRAN 7 implements
+[R94]. At 25 mm h⁻¹ it is 2.8 km⁻¹, so $\tau$(200 m) = 0.57 **in every band**: **LWIR's fog advantage
+does not exist in rain** [R95][R97]. The empirical optical-link laws, fitted near 0.8–1.55 µm [R98][R99],
+agree in magnitude; no 8–12 µm fit was found.
+
+**What is absorbed differs, and the pixel decides what is lost.** Half the extinction is diffraction
+into a narrow forward lobe. The other half is light the drop intercepts:
+
+- In the thermal bands the drop absorbs it. Water's 1/e depth is 16 µm at 10 µm and 69 µm at 4 µm
+  [R100], so a millimetre drop is opaque.
+- In the visible the drop refracts it away.
+
+Absorption is therefore 48 % of the extinction in LWIR, 46 % in MWIR, 22–36 % at 1.55 µm, about 1 % at
+1 µm and nil in the visible [R95].
+
+The diffracted half is not lost to the image. It lands in a lobe of half-width about $1.22\lambda/D$, and
+whether it stays in the pixel depends on the pixel. The share of a drop's lobe inside a pixel of IFOV
+$\theta_p$ is the Airy encircled energy
+
+$$
+f_B(D) = 1 - J_0^2(x) - J_1^2(x),\qquad x = \frac{\pi D\theta_p}{2\lambda}
+$$
+
+averaged over the distribution with weight $D^2$. For $\theta_p$ = 1 mrad at 10 mm h⁻¹ it is 70 % at
+0.55 µm, 48 % at 1 µm, 30 % at 1.55 µm, 7 % at 4 µm and 1 % at 10 µm. So rain's ratios are
+
+$$
+r^{e}_{B} = 1 - \tfrac12\bar f_B,\qquad r^{a}_{B} = \text{the absorbed share}
+$$
+
+The light diffracted out of a pixel lands in its neighbours: it is a **blur, not a loss**. With $H_B$ the
+diffraction kernel, scaled by where along the path the drops sit,
+
+$$
+L_{\text{obs}} = e^{-r^e\sigma s}L + \big(e^{-\sigma s/2} - e^{-r^e\sigma s}\big)\,(H_B\otimes L)
++ L_{\text{path}}
+$$
+
+This is the aerosol-MTF form [R101]: fine detail is attenuated by the full extinction, a large uniform
+area by the intercepted half only. In LWIR the halo is 5–25 mrad wide, so rain softens a target's edges
+more than it dims a large warm area. The form is single-scattering, adequate to optical depths of about
+two.
+
+**Rain emits at the wet bulb.** A falling drop reaches the psychrometric wet-bulb temperature within an
+e-folding fall of 4 m (1 mm drop) to 57 m (4 mm) [R102]. Below the cloud base a rain shaft is therefore
+at $T_{\text{wb}}(z)$, which `irsim.thermal.latent.wet_bulb_temperature_k` already solves. Convective rain
+from cold tops arrives colder still: 3.8 °C below the wet bulb on average in one survey [R103]; that
+offset is ESTIMATED and authored per event. The path emits through $r^a$ only. LOWTRAN 7 uses the full
+extinction as path emissivity when multiple scattering is off [R94], which roughly doubles rain's LWIR
+emission: at 25 mm h⁻¹ over 100 m, 0.246 against 0.127 from absorption.
+
+**Snow** extinguishes nearly flat too, and far harder per millimetre of water. The optical-link law
+[R98][R99] is
+
+$$
+\sigma_{\text{snow}} = a\,S^{b}\ \text{dB km}^{-1}
+$$
+
+$$
+\text{dry: } a = 5.42\times10^{-5}\lambda_{\text{nm}} + 5.4959,\ b = 1.38;\qquad
+\text{wet: } a = 1.023\times10^{-4}\lambda_{\text{nm}} + 3.7855,\ b = 0.72
+$$
+
+with $S$ the water-equivalent rate in mm h⁻¹. Its $\lambda$ term was fitted at 0.8–1.55 µm. Extrapolated
+to 10 µm it gives LWIR/visible 1.09 (dry) to 1.25 (wet); measurements give IR/visible 1.05–1.43 [R104].
+Dry snow at 2 mm h⁻¹ is 3.6 km⁻¹, against rain's 0.57 km⁻¹ at the same rate.
+
+Visibility tracks snowfall with a scatter of 3–10× at a given rate [R105]. Where the weather gives a
+visibility in snow, $\sigma_{\text{vis}}$ comes from it and the law is the fallback. Snowflakes are at
+the ice bulb and never above 0 °C, and ice is above 0.98 emissive in LWIR [R106]. The absorbed share is
+one half, as for rain (ESTIMATED: a flake is thick against ice's LWIR absorption depth).
+
+**A weather states precipitation and visibility once.** A reported visibility in rain already includes
+the rain. The aerosol or fog part of $\sigma_{\text{vis}}$ is the remainder after the precipitation's
+own visible extinction, at the effective $Q \approx 1.15$–1.2 a visual observation implies [R98]. Folding
+rain into a "fog" visibility gives LWIR the fog advantage it does not have in rain (spec issue S61).
+
+**Single drops and flakes.** Close to the camera a drop is resolved: a 2 mm drop subtends 1 mrad at 2 m.
+
+*In the visible* a drop is a bright refracting lens with a 165° field of view [R107], integrated over the
+exposure into a streak.
+
+*A thermal camera* sees an opaque emitter at the wet bulb, and a microbolometer integrates it through its
+thermal time constant $\tau_{\text{th}}$ (about 10 ms). A drop of size $D$ falling at $v$ covers a pixel
+for $D/v$, so its peak contrast is
+
+$$
+c = 1 - \exp\!\big(-D/(v\,\tau_{\text{th}})\big)
+$$
+
+This is independent of range, since angular size and angular speed both scale as $1/r$ [R108]:
+
+- A 2 mm raindrop at 6.5 m s⁻¹ keeps **3 %**, smeared into a 40–90 mm streak. Falling rain is close to
+  invisible to an uncooled LWIR camera as individual drops, and present only as the medium.
+- A 5 mm snowflake at 1 m s⁻¹ keeps **39 %**: snow is seen as flakes.
+- A cooled photon detector integrates for $t_{\text{int}}$ instead. Its drop is a streak of length
+  $v\,t_{\text{int}}$ with contrast $D/(v\,t_{\text{int}})$.
+
+Fall speeds for these figures:
+
+- rain: $v = 9.65 - 10.3\,e^{-0.6D}$ m s⁻¹, $D$ in mm, above ~0.5 mm [R109];
+- snow: per habit, e.g. $0.8\,D^{0.16}$ m s⁻¹ for unrimed aggregates of dendrites [R110].
+
+Within the range where a particle subtends at least a tenth of a pixel, particles are rendered
+individually, **at the positions the visible companion draws**, so the two bands show the same flakes.
+The statistical medium begins beyond that range, so nothing is counted twice.
 
 ---
 
@@ -882,6 +1326,27 @@ with $h_c(v)$ the same forced-convection correlation §6.2 uses for surfaces, $T
 **One weather object, extended to the camera.** $T_{\text{air}}$, $v$ and $Q_{\text{sol}}$ come from the *same* weather series that drives §6 and §7. A scene must not fly a camera through still air while its surfaces are being wind-cooled.
 
 **Fidelity, stated plainly.** The airflow field around a particular airframe is not computable in this model. $h_c(v)A_{\text{cam}}$ is one lumped coefficient fitted to a published bias-versus-wind curve that was measured on a different airframe, in a different attitude, looking down rather than up. It reproduces the **sign, the order of magnitude and the time constant**, and it is wrong in detail — a Level-B empirical fit in the sense of §4.2, and it must be switchable off. It earns its place anyway: at +3.86 °C the effect is some seventy times a Boson's NETD, larger than most of what §10 models carefully, and a simulator that omits it renders drone footage that is rock-steady in a way real drone footage never is.
+
+### 9.6 Water and snow on the window
+
+In rain or snow the camera's own front window collects drops. In LWIR a drop is opaque — water's 1/e depth
+is 16 µm at 10 µm — and it sits far out of focus. It does not image as a shape. It blocks a fraction
+$a$ of the beam footprint of every pixel whose rays cross it, and adds its own emission there:
+
+$$
+L_{\text{obs}}(\mathbf x) = \big(1-a(\mathbf x)\big)\,L_{\text{scene}}(\mathbf x) + a(\mathbf x)\,L_B(T_{\text{drop}})
+$$
+
+$a(\mathbf x)$ is the drop area inside pixel $\mathbf x$'s footprint on the window divided by that
+footprint's area. At the entrance pupil every footprint is the whole aperture and $a$ is uniform. On a
+window ahead of the pupil the footprints move with field angle, so a drop shades a soft-edged region of
+the frame. Measured behind a LWIR windscreen camera, a drop lowered responsivity to about 90 % without
+blurring the image [R115], which is this form with $a \approx 0.1$.
+
+$T_{\text{drop}}$ is the window's temperature: near the wet bulb once wind and evaporation have settled
+it, which ties this section to §9.5's camera node. Snow on the window is opaque in every band. In the
+reflective bands a drop is transparent and refracts instead, a blur this model does not carry.
+Hydrophobic coatings that bead the water are not modelled.
 
 ---
 
@@ -1558,7 +2023,14 @@ Qualitative but decisive. Each of these should emerge without being scripted:
 - [ ] Overcast sky flattens the image; clear night sky darkens vehicle roofs and glass
 - [ ] Wet asphalt reads colder than dry; shaded ground reads colder than sunlit
 - [ ] A departed vehicle leaves a warm tyre trace and a cool body shadow
-- [ ] Fog kills visible and SWIR before LWIR
+- [ ] Fog kills visible and SWIR before LWIR — and MWIR and SWIR no later than the visible (§7.2, §7.7)
+- [ ] Rain degrades every band alike: no LWIR advantage in rain (§7.8)
+- [ ] From above, a radiation fog reads at its top's temperature, colder than the ground air, with the
+      ground seen through the layer's depth rather than the camera's range
+- [ ] Falling snow is visible as flakes to an uncooled LWIR camera; falling rain is not (§7.8)
+- [ ] A wet road mirrors the cold sky at grazing angles; it dries from the sunlit side first (§4.6)
+- [ ] A moving cumulus shadow leaves a cool footprint that lags the shadow (§6.7)
+- [ ] Clouds have rough outlines, sharp edges and no sampling static at the horizon, in both bands (§7.5)
 - [ ] Humid clear air degrades LWIR more than SWIR
 - [ ] MWIR shows solar glint at midday and looks like LWIR at night
 - [ ] SWIR at night is usable from airglow alone, without any modelled light source
@@ -1756,6 +2228,64 @@ Steps 1–5 give a defensible LWIR camera. Steps 6–9 are what separate it from
 - [R60] G. Hong, P. Yang, B. A. Baum, A. J. Heymsfield, K.-M. Xu, *Parameterization of shortwave and longwave radiative properties of ice clouds for use in climate models*, J. Climate 22, 6287–6312 (2009), Tables A1–A2.
 - [R61] G. W. Petty, *A First Course in Atmospheric Radiation*, 2nd ed., Sundog (2006), ch. 8 — the Schwarzschild emission–absorption equation along a path.
 
+**Weather: cloud shape and rendering, fog, haze, rain, snow and wet surfaces** (added 2026-10-01; the
+search notes are `docs/research/2026-10-01-weather-in-the-infrared.md`)
+
+- [R62] S. Lovejoy, *Area–perimeter relation for rain and cloud areas*, Science 216, 185–187 (1982). doi:10.1126/science.216.4542.185 — D = 1.35 over 1–1.2 × 10⁶ km².
+- [R63] G. Zhao, L. Di Girolamo, *Statistics on the macrophysical properties of trade wind cumuli over the tropical western Atlantic*, J. Geophys. Res. 112, D10204 (2007). doi:10.1029/2006JD007371 — D = 1.28 and size exponent 2.19 from 15 m ASTER.
+- [R64] R. A. J. Neggers, H. J. J. Jonker, A. P. Siebesma, *Size statistics of cumulus cloud populations in large-eddy simulations*, J. Atmos. Sci. 60, 1060–1074 (2003). doi:10.1175/1520-0469(2003)60<1060:SSOCCP>2.0.CO;2 — b = 1.70 below a scale break.
+- [R65] R. Wood, P. R. Field, *The distribution of cloud horizontal sizes*, J. Climate 24, 4800–4816 (2011). doi:10.1175/2011JCLI4056.1 — chord exponent 1.66 ± 0.04.
+- [R66] J. T. Dawe, P. H. Austin, *Statistical analysis of an LES shallow cumulus cloud ensemble using a cloud tracking algorithm*, Atmos. Chem. Phys. 12, 1101–1119 (2012). doi:10.5194/acp-12-1101-2012 — 1.88–1.96, break near 1 km.
+- [R67] H. E. Gerber, G. M. Frick, J. B. Jensen, J. G. Hudson, *Entrainment, mixing, and microphysics in trade-wind cumulus*, J. Meteor. Soc. Japan 86A, 87–106 (2008). doi:10.2151/jmsj.86A.87 — LWC steps over ~30 cm at 10 cm resolution.
+- [R68] Y. Wang, B. Geerts, J. French, *Dynamics of the cumulus cloud margin: an observational study*, J. Atmos. Sci. 66, 3660–3677 (2009). doi:10.1175/2009JAS3129.1 — decline over the outer ~10 % (1624 passes).
+- [R69] V. P. Ghate, M. A. Miller, P. Zhu, *Differences between nonprecipitating tropical and trade wind marine shallow cumuli*, Mon. Wea. Rev. 144, 681–701 (2016). doi:10.1175/MWR-D-15-0110.1 — depth/chord 0.9 (Manus), 0.4 (Azores).
+- [R70] M. Hess, P. Koepke, I. Schult, *Optical properties of aerosols and clouds: the software package OPAC*, Bull. Amer. Meteor. Soc. 79, 831–844 (1998) — cumulus visible extinction 0.05–0.12 m⁻¹; haze scale heights.
+- [R71] R. Wood, *Stratocumulus clouds*, Mon. Wea. Rev. 140, 2373–2423 (2012). doi:10.1175/MWR-D-11-00121.1 — longwave liquid-water absorption 100–160 m² kg⁻¹.
+- [R72] A. Schneider, N. Vos, *The real-time volumetric cloudscapes of Horizon: Zero Dawn*, SIGGRAPH 2015 Advances in Real-Time Rendering. https://advances.realtimerendering.com/s2015/ — envelope, Perlin–Worley base, Worley detail, remap erosion.
+- [R73] A. Schneider, *Nubis, Evolved: real-time volumetric clouds for skies, environments, and VFX*, SIGGRAPH 2022 Advances. https://www.guerrilla-games.com/read/nubis-evolved
+- [R74] A. Schneider, *Nubis³: methods (and madness) to model and render immersive real-time voxel-based clouds*, SIGGRAPH 2023 Advances. https://www.guerrilla-games.com/read/nubis-cubed — 0.5 m effective precision from 8 m voxels.
+- [R75] W. I. Gustafson Jr. et al., *The Large-Eddy Simulation (LES) Atmospheric Radiation Measurement (ARM) Symbiotic Simulation and Observation (LASSO) activity for continental shallow convection*, Bull. Amer. Meteor. Soc. 101, E462–E479 (2020). doi:10.1175/BAMS-D-19-0065.1; data doi:10.5439/1342961 (CC BY 4.0) — WRF-LES, 100 m horizontal, 30 m vertical below 5 km, 25 km periodic domain, QCLOUD every 10 min. https://adc.arm.gov/lassobrowser
+- [R76] N. Villefranque et al., *A path-tracing Monte Carlo library for 3-D radiative transfer in highly resolved cloudy atmospheres*, J. Adv. Model. Earth Syst. 11 (2019), arXiv:1902.01137; htrdr Atmosphere Starter Pack (GPLv3+). https://www.meso-star.com/projects/htrdr/htrdr-atmosphere-spk.html — Meso-NH SGP cumulus at 25 m isotropic, liquid water and temperature in K.
+- [R77] Walt Disney Animation Studios, *Cloud Data Set* (2017), CC BY-SA 3.0. https://www.disneyanimation.com/resources/clouds/ — 1987 × 1351 × 2449 voxels and four lower resolutions; density in arbitrary units.
+- [R78] S. Hillaire, *Physically based sky, atmosphere and cloud rendering in Frostbite*, SIGGRAPH 2016 Physically Based Shading course notes. https://sebh.github.io/publications/ — sky ambient in clouds, dual-lobe phase, multiple-scattering octaves.
+- [R79] S. Hillaire, *Physically-based & unified volumetric rendering in Frostbite*, SIGGRAPH 2015 Advances. https://www.ea.com/frostbite/news/physically-based-unified-volumetric-rendering-in-frostbite — energy-conserving step integration.
+- [R80] T. Porter, T. Duff, *Compositing digital images*, Computer Graphics 18(3), 253–259 (SIGGRAPH 1984) — associated (premultiplied) colour.
+- [R81] M. Wrenninge, *Art-directable multiple volumetric scattering*, SIGGRAPH 2015 Talks. doi:10.1145/2775280.2792512 — thick media need upwards of 100 scattering orders.
+- [R82] M. Wrenninge, C. Kulla, V. Lundqvist, *Oz: the great and volumetric*, SIGGRAPH 2013 Talks, art. 46 — octaves with a = b = c = ½.
+- [R83] NVIDIA, *RTX path tracing mode*, Omniverse materials and rendering documentation. https://docs.omniverse.nvidia.com/materials-and-rendering/latest/rtx-renderer_pt.html — `ptvol/*` settings (`maxBounces` default 2, `maxCollisionCount` 1024), VDB materials on a cube mesh; volumes do not emit.
+- [R84] E. P. Shettle, R. W. Fenn, *Models for the aerosols of the lower atmosphere and the effects of humidity variations on their optical properties*, AFGL-TR-79-0214 (1979) — advection and radiation fog size distributions.
+- [R85] R. G. Pinnick et al., *Vertical structure in atmospheric fog and haze and its effects on visible and infrared extinction*, J. Atmos. Sci. 35, 2020–2032 (1978).
+- [R86] R. G. Pinnick, S. G. Jennings, P. Chylek, H. J. Auvermann, *Verification of a linear relation between IR extinction, absorption and liquid water content of fogs*, J. Atmos. Sci. 36, 1577–1586 (1979).
+- [R87] C. Klein, A. Dabas, *Relationship between optical extinction and liquid water content in fogs*, Atmos. Meas. Tech. 7, 1277–1287 (2014). doi:10.5194/amt-7-1277-2014 — c_e(11 µm) = 0.31.
+- [R88] A. Breton et al., *Free-space optical transmission measurements from 0.532 to 10 µm in real controlled fog*, Opt. Lett. 51(16), 4729–4732 (2026). doi:10.1364/OL.609352 — 4 µm no better than 1.55 µm; 10 µm > 20 dB in continental fog.
+- [R89] K. Nurowska, P. Makuch, K. M. Markowicz, *Measurement report: microphysical and optical characteristics of radiation fog*, Atmos. Chem. Phys. 25, 13493–13525 (2025). doi:10.5194/acp-25-13493-2025 — tops 83–115 m; r_eff 8–10 µm near the surface; LWC peak near 80 % of depth.
+- [R90] E. G. Wærsted et al., *Radiation in fog: quantification of the impact on fog liquid water based on ground-based remote sensing*, Atmos. Chem. Phys. 17, 10811–10835 (2017). doi:10.5194/acp-17-10811-2017
+- [R91] WMO, *Guide to Instruments and Methods of Observation*, WMO-No. 8, Vol. I ch. 9 — MOR at 5 % of a collimated beam; quoted in S. Liandrat et al., *A review of Cerema PAVIN fog & rain platform*, ITS World Congress 2022.
+- [R92] WMO, *Aerodrome Reports and Forecasts: a Users' Handbook to the Codes*, WMO-No. 782 (2019) — fog, mist and haze thresholds.
+- [R93] D. Lin, M. Katurji, L. E. Revell, B. Khan, A. Sturman, *Investigating multiscale meteorological controls and impact of soil moisture heterogeneity on radiation fog in complex terrain*, Atmos. Chem. Phys. 23, 14451–14479 (2023). doi:10.5194/acp-23-14451-2023
+- [R94] F. X. Kneizys et al., *Users guide to LOWTRAN 7*, AFGL-TR-88-0177 (1988); Fortran source (TNRAIN, RNSCAT) at https://github.com/space-physics/lowtran — Marshall–Palmer rain at Q = 2, absorption share 0.5, rain at air temperature; boundary-layer haze profiles.
+- [R95] T. S. Chu, D. C. Hogg, *Effects of precipitation on propagation at 0.63, 3.5, and 10.6 microns*, Bell Syst. Tech. J. 47, 723–759 (1968).
+- [R96] J. S. Marshall, W. McK. Palmer, *The distribution of raindrops with size*, J. Meteor. 5, 165–166 (1948).
+- [R97] FLIR Systems, *Seeing through fog and rain with a thermal imaging camera*, technical note TN_0001. http://www.flirmedia.com/MMC/CVS/Tech_Notes/TN_0001_EN.pdf — detection ranges by ICAO visibility category.
+- [R98] ITU-R Recommendations P.1814-1 (2025) and P.1817-1 (2012), propagation data and prediction methods for terrestrial free-space optical links — rain and snow attenuation laws; rain-rate visibility code.
+- [R99] M. Al Naboulsi, H. Sizun, F. de Fornel, *Propagation of optical and infrared waves in the atmosphere*, URSI General Assembly 2005, F01P.7 — Carbonneau's rain law and the dry/wet snow laws.
+- [R100] D. J. Segelstein, *The complex refractive index of water*, M.S. thesis, Univ. Missouri–Kansas City (1981); G. M. Hale, M. R. Querry, Appl. Opt. 12, 555–563 (1973) — k = 0.0508 at 10 µm.
+- [R101] D. Sadot, N. S. Kopeika, *Imaging through the atmosphere: practical instrumentation-based theory and verification of aerosol modulation transfer function*, J. Opt. Soc. Am. A 10, 172–179 (1993); R. F. Lutomirski, Appl. Opt. 17, 3915–3921 (1978).
+- [R102] K. Loftus, R. D. Wordsworth, *The physics of falling raindrops in diverse planetary atmospheres*, J. Geophys. Res. Planets 126, e2020JE006653 (2021); after G. D. Kinzer, R. Gunn, J. Meteor. 8, 71–83 (1951) — drops at the wet bulb.
+- [R103] S. Zhang, C. Meurey, J.-C. Calvet, *Identification of soil-cooling rains in southern France from soil temperature and soil moisture observations*, Atmos. Chem. Phys. 19, 5005–5020 (2019). doi:10.5194/acp-19-5005-2019
+- [R104] M. A. Seagraves, *Visible and infrared extinction in falling snow*, Appl. Opt. 25, 1166–1169 (1986). doi:10.1364/AO.25.001166
+- [R105] R. M. Rasmussen et al., *The estimation of snowfall rate using visibility*, J. Appl. Meteor. 38, 1542–1563 (1999).
+- [R106] S. G. Warren, *Optical properties of ice and snow*, Phil. Trans. R. Soc. A 377, 20180161 (2019). doi:10.1098/rsta.2018.0161; after M. Hori et al., Remote Sens. Environ. 100, 486–502 (2006).
+- [R107] K. Garg, S. K. Nayar, *Vision and rain*, Int. J. Comput. Vis. 75, 3–27 (2007). doi:10.1007/s11263-006-0028-6
+- [R108] B. Oswald-Tranta, *Temperature reconstruction of infrared images with motion deblurring*, J. Sens. Sens. Syst. 7, 13–20 (2018). doi:10.5194/jsss-7-13-2018
+- [R109] D. Atlas, R. C. Srivastava, R. S. Sekhon, *Doppler radar characteristics of precipitation at vertical incidence*, Rev. Geophys. 11, 1–35 (1973) — fit to Gunn & Kinzer (1949).
+- [R110] J. D. Locatelli, P. V. Hobbs, *Fall speeds and masses of solid precipitation particles*, J. Geophys. Res. 79, 2185–2197 (1974).
+- [R111] J. Lekner, M. C. Dorf, *Why some things are darker when wet*, Appl. Opt. 27, 1278–1280 (1988).
+- [R112] X. Zhong et al., *Investigating the effects of surface moisture content on thermal infrared emissivity of urban underlying surfaces*, Constr. Build. Mater. 327, 127023 (2022). doi:10.1016/j.conbuildmat.2022.127023
+- [R113] A. Rankin et al., *Unmanned ground vehicle perception using thermal infrared cameras*, Proc. SPIE 8045 (2011). https://robotics.jpl.nasa.gov/media/documents/spie-2011-rankin-final.pdf — puddles reflect the sky in LWIR.
+- [R114] F. Ritter, M. Berkelhammer, D. Beysens, *Dew frequency across the US from a network of in situ radiometers*, Hydrol. Earth Syst. Sci. 23, 1179–1197 (2019). doi:10.5194/hess-23-1179-2019
+- [R115] G. Jobert et al., *Windshield integration of thermal and color fusion for automatic emergency braking in low visibility conditions*, arXiv:2410.04928 (2024) — a drop on the window lowers LWIR responsivity to ~90 % without blur.
+
 **Related open work**
 
 - TCIsaacSim (reza-shahriari) — the thermal-camera Isaac Sim repo you found; same author who opened Discussion #298. Useful as a starting scaffold; note that it predates Isaac Sim 6.0's SPG framework.
@@ -1777,3 +2307,4 @@ State these limitations up front in any documentation you write. It is what sepa
 9. **Emissivity is temperature-independent.** $\varepsilon(\lambda)$ is authored once per material; the real quantity is $\varepsilon(\lambda,T)$, metals rising with $T$ and non-metals falling (§4.5). Below ~600 K the error sits inside the authored values' own uncertainty; for plumes and fire it does not.
 10. **The sensor's environmental coupling is an empirical fit.** §9.5 reproduces the sign, magnitude and time constant of wind-driven camera drift from a lumped coefficient anchored on published UAV measurements [R44][R45]. It is not a thermal model of any particular airframe and must not be quoted as one.
 11. **Surface state is authored, not derived.** Emissivity depends on finish, and on coating thickness in the thin-film regime (§4.5b); neither is recoverable from a mesh. The library names a state and cites it — there is no model here that predicts $\varepsilon$ from geometry.
+12. **Weather media do not scatter light into the beam.** §7.6 removes what a fog, a cloud or a rain shaft scatters out of a pixel and does not add what they scatter in, except rain's diffraction halo (§7.8). That is right for the thermal bands near air temperature and wrong for sunlit fog, rain and cloud in the reflective bands, where in-scattered sunlight is first order. The wet-surface film optics (§4.6) and the precipitation near field (§7.8) are approximations held to their limits and to a few measurements, not validated models.

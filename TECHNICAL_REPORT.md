@@ -881,6 +881,20 @@ site/               the project site's source: gallery.yaml (what to show) + ass
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
+- **Weather beyond the clear column and the cloud is incomplete, and two of its numbers are wrong**
+  (`WX` lane; spec issues `S59`–`S65`; physics-model §4.6, §6.7, §7.5–7.8, §9.6, written 2026-10-01).
+  - **Visibility is read 31 % too opaque.** `irsim.atmosphere.extinction` converts with Koschmieder's
+    3.912/V, while meteorological optical range — and `isaac-weather-fx` — is defined at 5 %
+    transmittance (2.996/V). Fixed by `WX.11`.
+  - **The fog band ratios describe haze-sized droplets.** MWIR and SWIR see through fog better than the
+    eye here, which no natural fog allows. Fixed by `WX.12`.
+  - **Rain and snow neither attenuate nor emit along a ray.** A rain preset reaches the infrared band as
+    fog, with an LWIR advantage rain does not give.
+  - **The surface water film changes no optics.** No wet sheen, no wet emissivity.
+  - **Cloud shadows are uniform, and rain carries no heat into a surface.**
+  - **The cloud field is coarser than a cloud's optical skin.** The submodule pin (`544a7d4`) predates
+    upstream's edge detail. `WX.2`–`WX.9` take the clouds to physics-model §7.5's criteria.
+
 - **A camera whose range differs from its band's nominal one only partly gets its own physics.** The radiometry follows its response exactly. Material curves are averaged under that response (`AT.32`, `AT.33`), and 57 of the 82 materials have one (`AT.34`); plastics, rubber, fabrics and most paints still read their band's one number, and glass's curve is a proxy shape: ECOSTRESS forbids redistribution and the USGS archive could not be fetched here (`XD.14`). The atmosphere follows the camera's range through its spectral classes, anchored once per band (`AT.35`, ADR 0177); its per-band presets themselves are still fitted to the nominal band, not measured per camera.
 - **A part's asserted material covers every face of the part** (`AI.14`, ADR 0173). A part that spans substances must be split first (the Inspire 3's lens is its own part). The un-split `<asset>.usdc` still maps a texture atlas to one material; only the part-split asset carries per-part truth.
 - **Separate shells inside one part conduct only where coarse cells merge them** (`AI.17`). Lateral conduction follows shared mesh edges, so two touching pieces of one part are joined only where a 2 cm cell happens to take faces from both. The DJI parts are split along the main heat paths, with contacts at the joints. Still inside one part: the Inspire's tube, junction and tie rod in `arm_root_*`, and the Matrice's strut and skid in each leg. A general intra-part bond is not built.

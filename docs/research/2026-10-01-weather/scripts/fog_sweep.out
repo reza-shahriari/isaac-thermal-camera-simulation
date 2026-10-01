@@ -1,0 +1,70 @@
+alpha=6 gamma=1, r_eff=0.5um, r_mode=0.33um: A=8.5031e+07  r_eff=0.50 um  LWC=0.000 g/m3  beta055=0.18/km  V=22335 m
+   0.55           beta=   0.175/km  ratio=1.000
+   NIR 0.7-1.0    beta=   0.125/km  ratio=0.712
+   SWIR 0.9-1.7   beta=   0.065/km  ratio=0.370
+   MWIR 3-5       beta=   0.010/km  ratio=0.058
+   LWIR 8-14      beta=   0.006/km  ratio=0.031
+   10.0           beta=   0.002/km  ratio=0.013
+alpha=6 gamma=1, r_eff=1.0um, r_mode=0.67um: A=6.643e+05  r_eff=1.00 um  LWC=0.000 g/m3  beta055=0.55/km  V=7117 m
+   0.55           beta=   0.550/km  ratio=1.000
+   NIR 0.7-1.0    beta=   0.675/km  ratio=1.228
+   SWIR 0.9-1.7   beta=   0.609/km  ratio=1.107
+   MWIR 3-5       beta=   0.154/km  ratio=0.279
+   LWIR 8-14      beta=   0.047/km  ratio=0.085
+   10.0           beta=   0.020/km  ratio=0.037
+alpha=6 gamma=1, r_eff=2.0um, r_mode=1.33um: A=5189.9  r_eff=2.00 um  LWC=0.002 g/m3  beta055=1.97/km  V=1986 m
+   0.55           beta=   1.969/km  ratio=1.000
+   NIR 0.7-1.0    beta=   2.076/km  ratio=1.054
+   SWIR 0.9-1.7   beta=   2.430/km  ratio=1.234
+   MWIR 3-5       beta=   1.708/km  ratio=0.867
+   LWIR 8-14      beta=   0.419/km  ratio=0.213
+   10.0           beta=   0.221/km  ratio=0.112
+alpha=6 gamma=1, r_eff=3.0um, r_mode=2.00um: A=303.75  r_eff=3.00 um  LWC=0.008 g/m3  beta055=4.31/km  V=908 m
+   0.55           beta=   4.306/km  ratio=1.000
+   NIR 0.7-1.0    beta=   4.467/km  ratio=1.037
+   SWIR 0.9-1.7   beta=   4.741/km  ratio=1.101
+   MWIR 3-5       beta=   5.322/km  ratio=1.236
+   LWIR 8-14      beta=   1.500/km  ratio=0.348
+   10.0           beta=   0.929/km  ratio=0.216
+alpha=6 gamma=1, r_eff=4.0um, r_mode=2.67um: A=40.546  r_eff=4.00 um  LWC=0.019 g/m3  beta055=7.54/km  V=519 m
+   0.55           beta=   7.541/km  ratio=1.000
+   NIR 0.7-1.0    beta=   7.765/km  ratio=1.030
+   SWIR 0.9-1.7   beta=   8.037/km  ratio=1.066
+   MWIR 3-5       beta=  10.222/km  ratio=1.356
+   LWIR 8-14      beta=   3.638/km  ratio=0.482
+   10.0           beta=   2.540/km  ratio=0.337
+alpha=6 gamma=1, r_eff=6.0um, r_mode=4.00um: A=2.373  r_eff=6.00 um  LWC=0.063 g/m3  beta055=16.64/km  V=235 m
+   0.55           beta=  16.644/km  ratio=1.000
+   NIR 0.7-1.0    beta=  17.019/km  ratio=1.023
+   SWIR 0.9-1.7   beta=  17.455/km  ratio=1.049
+   MWIR 3-5       beta=  21.343/km  ratio=1.282
+   LWIR 8-14      beta=  11.965/km  ratio=0.719
+   10.0           beta=   9.872/km  ratio=0.593
+alpha=6 gamma=1, r_eff=8.0um, r_mode=5.33um: A=0.31676  r_eff=8.00 um  LWC=0.148 g/m3  beta055=29.25/km  V=134 m
+   0.55           beta=  29.254/km  ratio=1.000
+   NIR 0.7-1.0    beta=  29.804/km  ratio=1.019
+   SWIR 0.9-1.7   beta=  30.435/km  ratio=1.040
+   MWIR 3-5       beta=  34.542/km  ratio=1.181
+   LWIR 8-14      beta=  26.056/km  ratio=0.891
+   10.0           beta=  24.154/km  ratio=0.826
+alpha=6 gamma=1, r_eff=10.0um, r_mode=6.67um: A=0.06643  r_eff=10.00 um  LWC=0.290 g/m3  beta055=45.39/km  V=86 m
+   0.55           beta=  45.390/km  ratio=1.000
+   NIR 0.7-1.0    beta=  46.102/km  ratio=1.016
+   SWIR 0.9-1.7   beta=  46.959/km  ratio=1.035
+   MWIR 3-5       beta=  51.381/km  ratio=1.132
+   LWIR 8-14      beta=  45.316/km  ratio=0.998
+   10.0           beta=  45.721/km  ratio=1.007
+alpha=6 gamma=1, r_eff=15.0um, r_mode=10.00um: A=0.003888  r_eff=15.00 um  LWC=0.977 g/m3  beta055=101.07/km  V=39 m
+   0.55           beta= 101.067/km  ratio=1.000
+   NIR 0.7-1.0    beta= 102.217/km  ratio=1.011
+   SWIR 0.9-1.7   beta= 103.713/km  ratio=1.026
+   MWIR 3-5       beta= 110.556/km  ratio=1.094
+   LWIR 8-14      beta= 110.739/km  ratio=1.096
+   10.0           beta= 124.169/km  ratio=1.229
+alpha=6 gamma=1, r_eff=20.0um, r_mode=13.33um: A=0.00051899  r_eff=20.00 um  LWC=2.317 g/m3  beta055=178.44/km  V=22 m
+   0.55           beta= 178.444/km  ratio=1.000
+   NIR 0.7-1.0    beta= 180.297/km  ratio=1.010
+   SWIR 0.9-1.7   beta= 182.482/km  ratio=1.023
+   MWIR 3-5       beta= 192.425/km  ratio=1.078
+   LWIR 8-14      beta= 197.040/km  ratio=1.104
+   10.0           beta= 222.160/km  ratio=1.245
