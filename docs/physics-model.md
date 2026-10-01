@@ -212,6 +212,8 @@ DIRSIG states the operational form directly: the model computes the complementar
 
 **Implication for material authoring:** author **one** spectral optical property per band and derive the other. Authoring both is how simulators end up violating energy conservation.
 
+The rule is per wavelength, not per file. A material may give its one quantity as a measured curve where one exists, a per-band value where it does not, and a grey value beyond both (§12.3). It may even tabulate one curve segment as the opaque complement, since short-wave libraries measure reflectance and long-wave libraries measure emission. What is forbidden is two values at the same wavelength, whether they are ε and ρ or two copies of ε.
+
 ### 4.2 Angular dependence — the thing that makes it look right
 
 Emissivity falls off toward grazing incidence for dielectrics, which is why a smooth curved object shows a cooler-looking rim in LWIR at uniform temperature. A January 2026 validation study makes the point sharply: the imaginary part of the complex refractive index governs absorption and, through Kirchhoff's law, the angular emissivity responsible for radiometric falloff toward a sphere's edges — a purely real refractive index does not reproduce it [R1].
@@ -1234,7 +1236,7 @@ To add SWIR: copy the file, change `regime: reflective`, `type: photon`, load an
 
 ### 12.3 Material schema
 
-Materials must be **per-band spectral**, not per-band scalar, if you ever want MWIR right:
+Materials should be **spectral** where data exists, not per-band scalar, if you ever want MWIR right, or want a camera whose range is not a nominal band's to read its own value. The schema takes the one authored quantity (emissivity or reflectance, §4.1) in up to three forms, layered wavelength by wavelength:
 
 ```yaml
 materials:
@@ -1247,10 +1249,31 @@ materials:
       solar_absorptivity: 0.94
     optical:
       spectral_emissivity: "spectra/car_paint_black.csv"   # λ, ε(λ) 0.3–15 µm
+      # or segments: [{file: "sw.csv", quantity: reflectance}, "lw.csv"]
+      emissivity_per_band: { mwir: 0.88 }   # only where the curve has no data
+      emissivity: 0.90                     # grey: everything else
       roughness_per_band:  { nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12 }
       angular_model: { type: fresnel, n_k_file: "nk/acrylic_paint.csv" }
       transmittance_per_band: { nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0 }
 ```
+
+For a camera with response R(λ), the band value is the Planck × response average (§3.2, ADR 0010) of
+
+$$
+\varepsilon(\lambda)=\begin{cases}
+\varepsilon_{\text{curve}}(\lambda) & \text{where a segment has data}\\
+\varepsilon_{B} & \text{else, the camera band's per-band value}\\
+\varepsilon_{\text{grey}} & \text{else}
+\end{cases}
+$$
+
+- **Any non-empty combination of the three forms is valid.** A grey value alone is a grey body in every band. A table alone is the old four numbers. A curve alone is a spectral material.
+- **The camera's own response is used**, so the same curve gives a 6–13 µm camera and a 7.5–13.5 µm camera different values. A material without a curve gives both the same value, because nothing more is known.
+- **Gaps are never extrapolated.** A band the curve does not cover and nothing fills is refused.
+- **Each number is authored once.** A per-band value for a band the curve already fully covers is refused, since the curve would silently overrule it.
+- **The share of the band weight the curve supplied is reported** as `curve_fraction`. Below 1, the value assumes the material is flat across the gap.
+
+ADR 0175 records the choice.
 
 Note `roughness_per_band` decreasing with wavelength — that is §4.3 made concrete, and it is the parameter that makes vehicles reflect the sky correctly in LWIR.
 

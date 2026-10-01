@@ -137,7 +137,7 @@ def _with_constant_angular(material):  # type: ignore[no-untyped-def]
     return type(material)(
         spec=material.spec.model_copy(update={"optical": optical}),
         path=material.path,
-        spectrum=material.spectrum,
+        curve=material.curve,
         n_k_path=material.n_k_path,
     )
 
