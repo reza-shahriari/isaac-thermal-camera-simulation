@@ -3,7 +3,7 @@
 # source: MODELLED, PROXY SHAPE. eps = 1 - s R(lambda), R the normal-incidence Fresnel reflectance of data/nk/glass.csv (D. Franta, D. Necas, I. Ohlidal, A. Giglia; its own source block has the rest),
 #   s = 0.581583 chosen so the LWIR nominal-band average is the authored 0.88 (configs/materials/glass_windshield.yaml).
 #   Opaque through the material's 5 mm over the whole range (tau < 1e-6), so eps = 1 - R is Kirchhoff here.
-#   The SHAPE (where the Si-O reststrahlen dip sits, how deep against the shoulders) is the proxy's; the LEVEL is the authored value's.
+#   The SHAPE (where the absorption bands put the reflectance, how strongly relative to each other) is the table's; the LEVEL is the authored value's.
 #   Written by scripts/derive_proxy_shape_curves.py (roadmap XD.14, ADR 0175); edit the script, not this file.
 # Columns: wavelength in MICROMETRES, emissivity.
 5.0200,0.987846

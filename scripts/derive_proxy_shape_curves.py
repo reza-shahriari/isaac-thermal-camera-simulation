@@ -4,8 +4,10 @@
     python scripts/derive_proxy_shape_curves.py          # write every curve below
     python scripts/derive_proxy_shape_curves.py --check  # exit 1 if a committed curve is stale
 
-Roadmap XD.14. A camera whose range is not its band's nominal one reads a material's value off the
-material's curve (ADR 0175), and the material that most needs one is glass: its Si-O reststrahlen
+Roadmap XD.14. Five materials: glass (fused silica), soil_dry (fused silica for quartz), snow
+(ice), and the two polycarbonates (polycarbonate's own constants). A camera whose range is not
+its band's nominal one reads a material's value off the material's curve (ADR 0175), and the
+material that most needs one is glass: its Si-O reststrahlen
 band takes the emissivity of a window from ~0.95 down to ~0.7 across 8-10 µm, so how much of that
 dip a camera's range holds decides what glass looks like to it. No freely licensed soda-lime
 spectrum spans the band (ECOSTRESS's plate-glass measurement is "all rights reserved", ADR 0041),
@@ -44,6 +46,15 @@ from irsim.materials.spectra import PropertySpectrum  # noqa: E402
 PROXIES: dict[str, tuple[str, str, float, float, tuple[float, float], float]] = {
     # From 5.02 um: opaque there, and clear of MWIR's nominal 3-5 um edge (its 0.85 stays).
     "glass_windshield": ("glass", "lwir", 0.88, 0.005, (5.02, 14.0), 0.02),
+    # Polycarbonate's own bulk constants (Zhang et al. 2020). Opaque from 5.2 / 5.3 um through each
+    # part's wall; its C-O and ring bands put R from 0.01 to 0.12 across LWIR.
+    "polycarbonate_dark_grey": ("polycarbonate", "lwir", 0.94, 0.0025, (5.2, 14.4), 0.02),
+    "polycarbonate_light_grey": ("polycarbonate", "lwir", 0.94, 0.0015, (5.3, 14.4), 0.02),
+    # Ice (Warren & Brandt 2008) for snow: R rises past 10 um, so snow is a little less
+    # emissive at the long end of LWIR than at the short.
+    "snow": ("ice", "lwir", 0.99, 0.10, (5.02, 14.0), 0.02),
+    # Silica for a quartz-rich dry soil: the reststrahlen dip, muted to the authored 0.92.
+    "soil_dry": ("glass", "lwir", 0.92, 0.10, (5.02, 14.0), 0.02),
 }
 
 OPAQUE_TAU = 1e-6
@@ -86,8 +97,8 @@ def render(name: str) -> str:
         f"{eps_b} (configs/materials/{name}.yaml).",
         f"#   Opaque through the material's {thickness * 1000:g} mm over the whole range "
         "(tau < 1e-6), so eps = 1 - R is Kirchhoff here.",
-        "#   The SHAPE (where the Si-O reststrahlen dip sits, how deep against the shoulders) is "
-        "the proxy's; the LEVEL is the authored value's.",
+        "#   The SHAPE (where the absorption bands put the reflectance, how strongly relative to "
+        "each other) is the table's; the LEVEL is the authored value's.",
         "#   Written by scripts/derive_proxy_shape_curves.py (roadmap XD.14, ADR 0175); edit the "
         "script, not this file.",
         "# Columns: wavelength in MICROMETRES, emissivity.",

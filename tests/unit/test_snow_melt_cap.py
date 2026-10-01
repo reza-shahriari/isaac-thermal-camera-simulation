@@ -254,7 +254,7 @@ def test_the_library_snow_emissivity_sits_in_the_band_the_step_asked_for() -> No
     assert 0.98 <= hemi.value <= 0.99, hemi.value
     assert hemi.value == pytest.approx(0.9874, abs=1e-3)
     # the angular fall-off really is what puts it under the band value
-    assert hemi.value < snow.spec.optical.emissivity_per_band["lwir"]
+    assert hemi.value < snow.band_properties("lwir").emissivity  # a curve since XD.14
 
 
 def test_the_alpine_tier4_band_is_recorded_and_not_claimed() -> None:

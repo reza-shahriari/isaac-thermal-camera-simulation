@@ -19,6 +19,9 @@ material:
     # in the SWIR. So eps runs 0.15 in NIR and 0.90 in SWIR -- a swing of 0.75 between two
     # adjacent bands, larger than any other material in this library, and the reason snow and
     # cloud look identical in the visible and completely different at 1.6 um.
-    emissivity_per_band: {nir: 0.15, swir: 0.90, mwir: 0.98, lwir: 0.99}
+    # LWIR is a curve (XD.14, ADR 0175): the SHAPE of ice (Warren & Brandt 2008) for granular snow, at the authored LWIR LEVEL
+    # held in scripts/derive_proxy_shape_curves.py, which writes the file (MODELLED).
+    spectral_emissivity: spectra/materials/snow_lw.csv
+    emissivity_per_band: {nir: 0.15, swir: 0.90, mwir: 0.98}
     roughness_per_band: {nir: 0.70, swir: 0.70, mwir: 0.60, lwir: 0.55}
     angular_model: {type: empirical, a: 0.03, p: 4.0}

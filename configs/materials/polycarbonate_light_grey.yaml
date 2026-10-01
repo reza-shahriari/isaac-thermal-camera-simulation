@@ -22,7 +22,10 @@ material:
     thickness_m: 0.0015   # ESTIMATED: a small-drone shell wall
     solar_absorptivity: 0.55   # ESTIMATED: mid-light grey
   optical:
-    emissivity_per_band: {nir: 0.50, swir: 0.60, mwir: 0.95, lwir: 0.94}
+    # LWIR is a curve (XD.14, ADR 0175): the SHAPE of polycarbonate's own bulk constants (Zhang et al. 2020), at the authored LWIR LEVEL
+    # held in scripts/derive_proxy_shape_curves.py, which writes the file (MODELLED).
+    spectral_emissivity: spectra/materials/polycarbonate_light_grey_lw.csv
+    emissivity_per_band: {nir: 0.50, swir: 0.60, mwir: 0.95}
     roughness_per_band: {nir: 0.30, swir: 0.26, mwir: 0.15, lwir: 0.10}   # ESTIMATED, matte moulded finish
     angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the thermoplastic class (pet_black)
     transmittance_per_band: {nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0}
