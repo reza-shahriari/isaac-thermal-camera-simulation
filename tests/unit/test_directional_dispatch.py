@@ -51,8 +51,15 @@ def boson():  # type: ignore[no-untyped-def]
     return load_spectral_response(DATA / "spectra" / "responses" / "boson_vox.csv")
 
 
+def _own(band, boson):  # type: ignore[no-untyped-def]
+    """The Boson is an LWIR response; any other band uses its own nominal one. Pairing a band's
+    label with another band's response reads one band's curve against the other's τ, which
+    closure refuses once the material has a curve (ADR 0175: glass, XD.14)."""
+    return boson if band == "lwir" else None
+
+
 def _dispatch(material, band, cos_theta, boson):  # type: ignore[no-untyped-def]
-    return directional_emissivity(material, band, cos_theta, boson, data_dir=DATA)
+    return directional_emissivity(material, band, cos_theta, _own(band, boson), data_dir=DATA)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -308,7 +315,7 @@ def test_level_a_keeps_the_authored_band_emissivity_at_normal(library, boson) ->
     """
     glass = library["glass_windshield"]
     for band in ("nir", "swir", "mwir", "lwir"):
-        authored = float(glass.band_properties(band, boson).emissivity)
+        authored = float(glass.band_properties(band, _own(band, boson)).emissivity)
         got = float(_dispatch(glass, band, np.float32(1.0), boson))
         assert got == pytest.approx(authored, abs=1e-6), (band, got, authored)
 
@@ -371,7 +378,7 @@ def test_level_a_leaves_kirchhoff_closable_on_a_semi_transparent_material(librar
     glass = library["glass_windshield"]
     cos_theta = np.cos(np.radians(np.linspace(0.0, 90.0, 46))).astype(np.float32)
     for band in ("nir", "swir", "mwir", "lwir"):
-        props = glass.band_properties(band, boson)
+        props = glass.band_properties(band, _own(band, boson))
         eps = np.asarray(_dispatch(glass, band, cos_theta, boson), dtype=np.float64)
         rho = 1.0 - eps - float(props.transmittance)
         assert np.all(rho >= -1e-9), (band, float(rho.min()))
