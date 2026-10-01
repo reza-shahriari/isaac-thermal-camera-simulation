@@ -71,9 +71,14 @@ def test_the_importer_has_written_materials() -> None:
 @pytest.mark.parametrize("name", paired())
 def test_the_short_wave_is_the_committed_usgs_curve(library, name: str) -> None:
     curve = _eps_curve(name)
-    authored = library[name].spec.optical.emissivity_per_band
+    m = library[name]
     for band in ("nir", "swir"):
-        assert authored[band] == pytest.approx(_band(curve, band), abs=6e-4), band
+        props = m.band_properties(band)
+        assert props.emissivity == pytest.approx(_band(curve, band), abs=6e-4), band
+        # AT.34 (ADR 0175): read from the committed curve, no typed number beside it.
+        assert props.curve_fraction == 1.0 and band not in (
+            m.spec.optical.emissivity_per_band or {}
+        )
     # And the nominal NIR/SWIR bands lie wholly inside the measurement: nothing extrapolated.
     for band in ("nir", "swir"):
         lo, hi = nominal_response(band).support_um
@@ -130,7 +135,8 @@ def test_no_unlicensed_curve_is_committed() -> None:
 
 
 def _eps(library, name: str) -> dict[str, float]:
-    return dict(library[name].spec.optical.emissivity_per_band)
+    m = library[name]
+    return {b: m.band_properties(b).emissivity for b in ("nir", "swir", "mwir", "lwir")}
 
 
 @pytest.mark.parametrize("name", ["leaf_maple", "conifer_needles"])

@@ -57,8 +57,14 @@ from fetch_nk_tables import RII_RAW  # noqa: E402
 from import_material_spectra import REPO, reference_of, write_nk  # noqa: E402
 
 sys.path.insert(0, str(REPO / "src"))
+from irsim.config.bands import NOMINAL_RANGES_UM  # noqa: E402
 from irsim.materials.library import nominal_response  # noqa: E402
-from irsim.materials.spectra import PropertySpectrum, solar_absorptance  # noqa: E402
+from irsim.materials.spectra import (  # noqa: E402
+    PropertySpectrum,
+    SpectralCurve,
+    load_property_spectrum,
+    solar_absorptance,
+)
 from irsim.radiometry.solar import AM15_DIRECT_FILE, load_solar_spectrum  # noqa: E402
 from irsim.radiometry.spectral_response import SpectralResponse  # noqa: E402
 
@@ -444,6 +450,71 @@ def fmt(values) -> str:
     return "{" + ", ".join(f"{b}: {v:.3f}" for b, v in zip(BANDS, values, strict=True)) + "}"
 
 
+def optical_block(curves: list[tuple[str, str]], values) -> str:
+    """The ``optical:`` lines that name the committed curves (AT.34, ADR 0175).
+
+    ``curves`` is ``[(path under data/, quantity), ...]`` in increasing wavelength; ``values`` the
+    four computed band values. A band whose whole nominal range a curve covers is read from the
+    curve by the library, so its number is **not** written -- writing it would be a second
+    authoring the loader refuses. The rest stay as the per-band fill.
+    """
+    files = [load_property_spectrum(REPO / "data" / rel) for rel, _ in curves]
+    curve = SpectralCurve(tuple(files), tuple(q != "emissivity" for _, q in curves))
+    keep = [
+        (b, v)
+        for b, v in zip(BANDS, values, strict=True)
+        if not curve.covers_interval(*NOMINAL_RANGES_UM[b])
+    ]
+    lines = ["    spectral_emissivity:   # the committed measured curves, see the header"]
+    for rel, quantity in curves:
+        if quantity == "emissivity":
+            lines.append(f"      - {rel}")
+        else:
+            lines.append(f"      - {{file: {rel}, quantity: {quantity}}}   # opaque: 1 - R")
+    if keep:
+        table = "{" + ", ".join(f"{b}: {v:.3f}" for b, v in keep) + "}"
+        lines.append(
+            f"    emissivity_per_band: {table}   # computed; only where no curve is committed"
+        )
+    return "\n".join(lines)
+
+
+def relink(text: str, curves: list[tuple[str, str]], header: tuple[str, str] | None) -> str:
+    """Rewrite a material this script wrote to name its committed curves, changing nothing else.
+
+    The four computed band values are read back from the file, so no source is re-fetched: what
+    changes is only *where the library reads NIR and SWIR from* (ADR 0175). ``header`` is the
+    one header sentence that described the old form, and its replacement.
+    """
+    import re
+
+    match = re.search(
+        r"^    emissivity_per_band: \{(.*)\}   # computed, see the header$", text, re.M
+    )
+    if match is None:
+        if "spectral_emissivity:" in text:
+            return text  # already relinked
+        raise ValueError("no computed emissivity_per_band line to relink")
+    values = dict(
+        (k.strip(), float(v)) for k, v in (item.split(":") for item in match.group(1).split(","))
+    )
+    block = optical_block(curves, [values[b] for b in BANDS])
+    text = text[: match.start()] + block + text[match.end() :]
+    if header is not None:
+        old, new = header
+        if text.count(old) != 1:
+            raise ValueError(f"header sentence not found once: {old!r}")
+        text = text.replace(old, new)
+    return text
+
+
+PAIRED_HEADER = (
+    "# NIR and SWIR are the library's band averages of 1 - R of the USGS curve beside this "
+    "material.",
+    "# NIR and SWIR are read from the USGS curve beside this material, as 1 - R (ADR 0175).",
+)
+
+
 def build(name: str, usgs_root: pathlib.Path, sun) -> dict:
     spec = PAIRED[name]
     cls = CLASSES[spec["class"]]
@@ -533,7 +604,7 @@ YAML = """\
 #
 # Written by scripts/import_paired_spectra.py (roadmap XD.13) -- edit the script, not this file.
 # Paired measurements: {pairing}.
-# NIR and SWIR are the library's band averages of 1 - R of the USGS curve beside this material.
+# NIR and SWIR are read from the USGS curve beside this material, as 1 - R (ADR 0175).
 # The solar absorptivity is its AM1.5 average over the {solar_lo:.4g}-{solar_hi:.4g} um measured
 # ({share:.0f} % of the direct energy in 0.3-4 um). MWIR and LWIR come from the second source
 # named in `reference`.
@@ -551,7 +622,7 @@ material:
     thickness_m: {thickness}   # ESTIMATED: a typical part or layer
     solar_absorptivity: {alpha:.3f}   # computed from the USGS curve, not typed
   optical:
-    emissivity_per_band: {eps}   # computed, see the header
+{optical}
     roughness_per_band: {roughness}   # ESTIMATED, as the class's existing material
     angular_model: {angular}
 """
@@ -569,7 +640,8 @@ def write_yaml(m: dict) -> pathlib.Path:
         for k, v in m.items()
         if k not in ("eps", "roughness", "angular")
     }
-    text = YAML.format(**plain, eps=fmt(m["eps"]), roughness="{" + roughness + "}", angular=angular)
+    optical = optical_block([(f"spectra/materials/usgs/{m['name']}.csv", "reflectance")], m["eps"])
+    text = YAML.format(**plain, optical=optical, roughness="{" + roughness + "}", angular=angular)
     path = REPO / "configs" / "materials" / f"{m['name']}.yaml"
     path.write_text(text, encoding="utf-8")
     return path
@@ -577,12 +649,27 @@ def write_yaml(m: dict) -> pathlib.Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--usgs", required=True, help="the unzipped ASCIIdata_splib07a folder")
+    parser.add_argument("--usgs", help="the unzipped ASCIIdata_splib07a folder")
     parser.add_argument("--only", choices=sorted(PAIRED))
+    parser.add_argument(
+        "--relink",
+        action="store_true",
+        help="rewrite the written materials to name their committed curves (AT.34); no fetch",
+    )
     args = parser.parse_args()
+    names = [args.only] if args.only else list(PAIRED)
+    if args.relink:
+        for name in names:
+            path = REPO / "configs" / "materials" / f"{name}.yaml"
+            curves = [(f"spectra/materials/usgs/{name}.csv", "reflectance")]
+            path.write_text(relink(path.read_text(encoding="utf-8"), curves, PAIRED_HEADER))
+            print(f"relinked {name}")
+        return 0
+    if args.usgs is None:
+        parser.error("--usgs is required unless --relink")
     root = pathlib.Path(args.usgs)
     sun = load_solar_spectrum(REPO / "data" / AM15_DIRECT_FILE)
-    for name in [args.only] if args.only else list(PAIRED):
+    for name in names:
         m = build(name, root, sun)
         write_yaml(m)
         e = m["eps"]

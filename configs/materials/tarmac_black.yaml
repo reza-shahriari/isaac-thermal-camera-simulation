@@ -3,7 +3,7 @@
 # Written by scripts/import_slum.py (roadmap XD.13) -- edit the script, not this file.
 # SLUM sample A008: NIR, SWIR, LWIR and the solar absorptivity are measured on this one sample
 # (short-wave reflectance and long-wave emissivity, beside this material under
-# data/spectra/materials/slum/). LWIR covers the 8.0-13.5 um measured (92 % of the band); the
+# data/spectra/materials/slum/, one curve in `optical`). Below 8.0 um LWIR uses its band value; the
 # solar absorptivity covers 0.35-2.5 um (97 % of the AM1.5 direct
 # energy in 0.3-4 um). MWIR, which SLUM did not measure, comes from the source in `reference`.
 schema_version: 2
@@ -20,6 +20,9 @@ material:
     thickness_m: 0.05   # ESTIMATED: a typical part or layer
     solar_absorptivity: 0.868   # computed from the SLUM curve, not typed
   optical:
-    emissivity_per_band: {nir: 0.857, swir: 0.853, mwir: 0.969, lwir: 0.953}   # computed, see the header
+    spectral_emissivity:   # the committed measured curves, see the header
+      - {file: spectra/materials/slum/tarmac_black_sw.csv, quantity: reflectance}   # opaque: 1 - R
+      - spectra/materials/slum/tarmac_black_lw.csv
+    emissivity_per_band: {mwir: 0.969, lwir: 0.953}   # computed; only where no curve is committed
     roughness_per_band: {nir: 0.8, swir: 0.8, mwir: 0.75, lwir: 0.7}   # ESTIMATED, as the class
     angular_model: {type: empirical, a: 0.05, p: 4.0}   # ESTIMATED, as the class

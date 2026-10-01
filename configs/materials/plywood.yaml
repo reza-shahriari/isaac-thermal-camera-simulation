@@ -2,7 +2,7 @@
 #
 # Written by scripts/import_paired_spectra.py (roadmap XD.13) -- edit the script, not this file.
 # Paired measurements: fresh pine plywood (USGS) with Douglas fir lumber (UCSB), both softwood faces.
-# NIR and SWIR are the library's band averages of 1 - R of the USGS curve beside this material.
+# NIR and SWIR are read from the USGS curve beside this material, as 1 - R (ADR 0175).
 # The solar absorptivity is its AM1.5 average over the 0.35-2.5 um measured
 # (97 % of the direct energy in 0.3-4 um). MWIR and LWIR come from the second source
 # named in `reference`.
@@ -20,6 +20,8 @@ material:
     thickness_m: 0.012   # ESTIMATED: a typical part or layer
     solar_absorptivity: 0.443   # computed from the USGS curve, not typed
   optical:
-    emissivity_per_band: {nir: 0.191, swir: 0.400, mwir: 0.890, lwir: 0.954}   # computed, see the header
+    spectral_emissivity:   # the committed measured curves, see the header
+      - {file: spectra/materials/usgs/plywood.csv, quantity: reflectance}   # opaque: 1 - R
+    emissivity_per_band: {mwir: 0.890, lwir: 0.954}   # computed; only where no curve is committed
     roughness_per_band: {nir: 0.7, swir: 0.7, mwir: 0.6, lwir: 0.55}   # ESTIMATED, as the class's existing material
     angular_model: {type: empirical, a: 0.05, p: 4.0}   # ESTIMATED, as the class

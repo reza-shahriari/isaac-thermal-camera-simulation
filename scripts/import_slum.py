@@ -48,8 +48,9 @@ from import_paired_spectra import (  # noqa: E402
     UCSB_REF,
     band_value,
     energy_share,
-    fmt,
     fresnel_curve,
+    optical_block,
+    relink,
     ucsb_curve,
 )
 
@@ -347,7 +348,7 @@ YAML = """\
 # Written by scripts/import_slum.py (roadmap XD.13) -- edit the script, not this file.
 # SLUM sample {sample}: NIR, SWIR, LWIR and the solar absorptivity are measured on this one sample
 # (short-wave reflectance and long-wave emissivity, beside this material under
-# data/spectra/materials/slum/). LWIR covers the 8.0-13.5 um measured (92 % of the band); the
+# data/spectra/materials/slum/, one curve in `optical`). Below 8.0 um LWIR uses its band value; the
 # solar absorptivity covers {solar_lo:.4g}-{solar_hi:.4g} um ({share:.0f} % of the AM1.5 direct
 # energy in 0.3-4 um). MWIR, which SLUM did not measure, comes from the source in `reference`.
 schema_version: 2
@@ -364,10 +365,25 @@ material:
     thickness_m: {thickness}   # ESTIMATED: a typical part or layer
     solar_absorptivity: {alpha:.3f}   # computed from the SLUM curve, not typed
   optical:
-    emissivity_per_band: {eps}   # computed, see the header
+{optical}
     roughness_per_band: {roughness}   # ESTIMATED, as the class
     angular_model: {{type: empirical, a: {a}, p: {p}}}   # ESTIMATED, as the class
 """
+
+
+SLUM_HEADER = (
+    "# data/spectra/materials/slum/). LWIR covers the 8.0-13.5 um measured (92 % of the band); the",
+    "# data/spectra/materials/slum/, one curve in `optical`). Below 8.0 um LWIR uses its band "
+    "value; the",
+)
+
+
+def curves_of(name: str) -> list[tuple[str, str]]:
+    """The two committed SLUM curves as one segmented curve (ADR 0175): SW as 1 - R, then LW."""
+    return [
+        (f"spectra/materials/slum/{name}_sw.csv", "reflectance"),
+        (f"spectra/materials/slum/{name}_lw.csv", "emissivity"),
+    ]
 
 
 def build(name: str, sw: tuple, lw: tuple, sun) -> str:
@@ -410,7 +426,7 @@ def build(name: str, sw: tuple, lw: tuple, sun) -> str:
         k=k,
         thickness=thickness,
         alpha=alpha,
-        eps=fmt((nir, swir, mwir, lwir)),
+        optical=optical_block(curves_of(name), (nir, swir, mwir, lwir)),
         roughness="{" + roughness + "}",
         a=a,
         p=p,
@@ -426,7 +442,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--only", choices=sorted(SLUM))
     parser.add_argument("--cache", type=pathlib.Path, help="a folder already holding the CSVs")
+    parser.add_argument(
+        "--relink",
+        action="store_true",
+        help="rewrite the written materials to name their committed curves (AT.34); no fetch",
+    )
     args = parser.parse_args()
+    if args.relink:
+        for name in [args.only] if args.only else list(SLUM):
+            path = REPO / "configs" / "materials" / f"{name}.yaml"
+            path.write_text(relink(path.read_text(encoding="utf-8"), curves_of(name), SLUM_HEADER))
+            print(f"relinked {name}")
+        return 0
     sw = columns(fetch("LUMA_SLUM_SW.csv", args.cache))
     lw = columns(fetch("LUMA_SLUM_IR.csv", args.cache))
     sun = load_solar_spectrum(REPO / "data" / AM15_DIRECT_FILE)

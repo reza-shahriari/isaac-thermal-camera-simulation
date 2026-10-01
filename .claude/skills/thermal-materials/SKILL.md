@@ -149,6 +149,19 @@ car_paint_black:
     transmittance_per_band: { nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0 }
 ```
 
+**Three forms of the one authored quantity (ADR 0175).** `spectral_emissivity` (a curve: one file, or
+disjoint segments such as `[{file: sw.csv, quantity: reflectance}, lw.csv]` where the reflectance segment
+is the opaque complement), `emissivity_per_band` and a grey `emissivity: 0.93` may be combined. The library
+resolves each wavelength as curve → the camera band's value → grey, and averages under the **camera's own
+response** (`MaterialTable.for_sensor`). So:
+
+- Prefer a curve whenever measured data exists. It is the only form under which a 6–13 µm and a
+  7.5–13.5 µm camera read different values.
+- Do not write a per-band value for a band the curve already covers. The loader refuses it as a second
+  authoring.
+- Gaps are refused, never extrapolated. Fill one with a per-band or grey value and read
+  `BandProperties.curve_fraction` to see how much of the band rests on the fill.
+
 The `source` field matters more than it looks. When a validation comparison disagrees with reality, the
 first question is always "which of these numbers did we actually measure?" — and without this field
 nobody can answer it six months later.

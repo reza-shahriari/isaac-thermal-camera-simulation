@@ -72,7 +72,7 @@ be typed four times.
   O(jump × dλ) there: 2.2e-4 in ε for a 0.45 jump, about 15 mK apparent
   (`tests/unit/test_material_optical_forms.py`).
 - A filled value assumes the material is flat across the gap. `curve_fraction` says how much of
-  the band rests on that assumption.
+  the band rests on that assumption. For the SLUM materials under the Boson the median is 0.92 (`AT.34`).
 - `Material.spectrum` remains for the one-plain-file case. The general form is `Material.curve`,
   a `SpectralCurve`.
 - The Blender add-on's new-material form can still author only the per-band table. Adding the

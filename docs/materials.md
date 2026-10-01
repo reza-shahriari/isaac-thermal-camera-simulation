@@ -146,10 +146,10 @@ measured leaves absorb more sunlight than the generic leaf row assumed.
 | `concrete_pavement` | Concrete | 0.96 / 0.92 | 0.93 / 0.90 | 0.71 / 0.65 |
 | `cinder_block` | Concrete | 0.96 / 0.92 | 0.95 / 0.90 | 0.65 / 0.65 |
 | `leaf_maple` | Vegetation (leaf) | 0.96 / 0.97 | 0.96 / 0.96 | 0.69 / 0.50 |
-| `conifer_needles` | Vegetation (leaf) | 0.98 / 0.97 | 0.98 / 0.96 | 0.63 / 0.50 |
+| `conifer_needles` | Vegetation (leaf) | 0.98 / 0.97 | 0.99 / 0.96 | 0.63 / 0.50 |
 | `playa_dry_mud` | Soil (dry) | 0.95 / 0.92 | 0.81 / 0.90 | 0.55 / 0.75 |
 | `sand_beach` | Soil (dry) | 0.90 / 0.92 | 0.87 / 0.90 | 0.72 / 0.75 |
-| `seawater` | Water | 0.98 / 0.96 | 0.98 / 0.98 | 0.97 / 0.93 |
+| `seawater` | Water | 0.99 / 0.96 | 0.98 / 0.98 | 0.97 / 0.93 |
 | `snow_melting` | Snow | 0.99 / 0.99 | 0.99 / 0.98 | 0.32 / 0.15 |
 
 <!-- end of comparison table -->
@@ -195,7 +195,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `concrete_pavement` | weathered | 0.69 | 0.66 | 0.93 | 0.96 | 0.71 | measured: USGS + UCSB |
 | `concrete_weathered` | weathered | 0.61 | 0.61 | 0.93 | 0.95 | 0.63 | measured: SLUM (MWIR from its class) |
 | `concrete_white` | weathered | 0.52 | 0.48 | 0.93 | 0.95 | 0.58 | measured: SLUM (MWIR from its class) |
-| `conifer_needles` | natural | 0.35 | 0.60 | 0.98 | 0.98 | 0.63 | measured: USGS + UCSB |
+| `conifer_needles` | natural | 0.35 | 0.60 | 0.99 | 0.98 | 0.63 | measured: USGS + UCSB |
 | `copper_polished` | polished | 0.05 | 0.03 | 0.01 | 0.01 | 0.19 | measured optical constants |
 | `cotton_clothing` | as manufactured | 0.45 | 0.55 | 0.93 | 0.95 | 0.70 | literature, partly estimated |
 | `etics_render` | weathered | 0.88 | 0.88 | 0.90 | 0.91 | 0.30 | literature, partly estimated |
@@ -203,14 +203,14 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `glass_windshield` | as manufactured | 0.15 | 0.22 | 0.85 | 0.88 | 0.10 | literature, partly estimated |
 | `gold_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.15 | measured optical constants |
 | `granite_rough` | weathered | 0.48 | 0.50 | 0.96 | 0.92 | 0.52 | measured: SLUM (MWIR from its class) |
-| `granite_weathered` | weathered | 0.42 | 0.46 | 0.96 | 0.93 | 0.46 | measured: SLUM (MWIR from its class) |
+| `granite_weathered` | weathered | 0.42 | 0.45 | 0.96 | 0.93 | 0.46 | measured: SLUM (MWIR from its class) |
 | `grass_dry` | natural | 0.67 | 0.67 | 0.91 | 0.96 | 0.76 | measured: USGS + UCSB |
 | `human_skin` | natural | 0.50 | 0.70 | 0.97 | 0.98 | 0.65 | literature, partly estimated |
 | `iron_weathered` | weathered | 0.94 | 0.93 | 0.96 | 0.97 | 0.95 | measured: SLUM (MWIR from its class) |
 | `leaf_maple` | natural | 0.38 | 0.64 | 0.96 | 0.96 | 0.69 | measured: USGS + UCSB |
 | `magnesium_polished` | polished | 0.06 | 0.13 | 0.05 | 0.04 | 0.06 | measured optical constants |
 | `metal_sheet_painted_green` | painted | 0.83 | 0.78 | 0.92 | 0.93 | 0.90 | measured: SLUM (MWIR from its class) |
-| `metal_sheet_painted_grey` | painted | 0.84 | 0.82 | 0.92 | 0.94 | 0.88 | measured: SLUM (MWIR from its class) |
+| `metal_sheet_painted_grey` | painted | 0.84 | 0.82 | 0.92 | 0.93 | 0.88 | measured: SLUM (MWIR from its class) |
 | `metal_sheet_painted_patina` | painted | 0.35 | 0.67 | 0.92 | 0.94 | 0.54 | measured: SLUM (MWIR from its class) |
 | `nylon_glass_filled_black` | as manufactured | 0.93 | 0.93 | 0.94 | 0.93 | 0.93 | literature, partly estimated |
 | `painted_aluminium_green` | painted | 0.58 | 0.70 | 0.65 | 0.97 | 0.56 | measured: USGS + UCSB |
@@ -222,22 +222,22 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `polycarbonate_light_grey` | as manufactured | 0.50 | 0.60 | 0.95 | 0.94 | 0.55 | literature, partly estimated |
 | `propeller_rubber` | as manufactured | 0.94 | 0.92 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
 | `pvc_roofing_blue` | as manufactured | 0.80 | 0.84 | 0.96 | 0.94 | 0.86 | measured: SLUM (MWIR from its class) |
-| `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.94 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |
+| `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.95 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |
 | `pvc_roofing_light_grey` | as manufactured | 0.56 | 0.65 | 0.96 | 0.93 | 0.57 | measured: SLUM (MWIR from its class) |
 | `pvc_white` | as manufactured | 0.31 | 0.55 | 0.96 | 0.96 | 0.38 | measured: USGS + polymer n, k |
-| `roof_shingle_dark` | weathered | 0.90 | 0.92 | 0.97 | 0.97 | 0.90 | measured: USGS + UCSB |
+| `roof_shingle_dark` | weathered | 0.90 | 0.91 | 0.97 | 0.97 | 0.90 | measured: USGS + UCSB |
 | `roof_tar_black` | weathered | 0.97 | 0.97 | 0.97 | 0.97 | 0.97 | measured: USGS + UCSB |
 | `roof_tile_cement_grey` | as manufactured | 0.86 | 0.90 | 0.93 | 0.94 | 0.87 | measured: SLUM (MWIR from its class) |
 | `roof_tile_cement_red` | as manufactured | 0.65 | 0.64 | 0.93 | 0.94 | 0.73 | measured: SLUM (MWIR from its class) |
 | `roof_tile_ceramic_black` | as manufactured | 0.84 | 0.51 | 0.86 | 0.92 | 0.85 | measured: SLUM (MWIR from its class) |
 | `roof_tile_ceramic_red` | as manufactured | 0.59 | 0.55 | 0.86 | 0.93 | 0.69 | measured: SLUM (MWIR from its class) |
-| `roof_tile_ceramic_weathered` | as manufactured | 0.75 | 0.67 | 0.86 | 0.94 | 0.81 | measured: SLUM (MWIR from its class) |
+| `roof_tile_ceramic_weathered` | as manufactured | 0.75 | 0.67 | 0.86 | 0.95 | 0.81 | measured: SLUM (MWIR from its class) |
 | `roofing_felt_grey` | weathered | 0.93 | 0.94 | 0.97 | 0.93 | 0.93 | measured: SLUM (MWIR from its class) |
 | `rubber_tyre` | as manufactured | 0.95 | 0.94 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
 | `rusted_steel` | oxidised | 0.62 | 0.68 | 0.82 | 0.85 | 0.80 | literature, partly estimated |
 | `sand_beach` | natural | 0.68 | 0.57 | 0.87 | 0.90 | 0.72 | measured: USGS + UCSB |
 | `sandstone_beige` | weathered | 0.56 | 0.43 | 0.85 | 0.90 | 0.60 | measured: SLUM (MWIR from its class) |
-| `seawater` | natural | 0.98 | 0.98 | 0.98 | 0.98 | 0.97 | measured: USGS + UCSB |
+| `seawater` | natural | 0.98 | 0.98 | 0.98 | 0.99 | 0.97 | measured: USGS + UCSB |
 | `silver_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | measured optical constants |
 | `slate_roof` | weathered | 0.91 | 0.91 | 0.83 | 0.90 | 0.91 | measured: SLUM (MWIR from its class) |
 | `snow` | natural | 0.15 | 0.90 | 0.98 | 0.99 | 0.15 | literature, partly estimated |
