@@ -607,7 +607,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
 
     # --- materials, through the per-asset map (ADR 0128) ----------------------------------------
     library = MaterialLibrary.load()
-    table = MaterialTable.from_library(library, band)
+    table = MaterialTable.for_sensor(library, sensor)
     asset_map = load_asset_mapping(args.asset, known_materials=library.names)
     resolver = MaterialResolver(
         load_mapping_rules(known_materials=library.names), list(table.names), asset=asset_map
