@@ -182,6 +182,19 @@ Two optional fields (AI.14, ADR 0173):
   stand, a ground plane. It is tried before every part and leaves the coverage totals. Prefer a
   material selector when the foreign object has its own materials (the Matrice 300's case).
 
+**First decide the granularity (AI.16, ADR 0174)** by asking how the artist built the file:
+* **one object per physical piece** (a blade, a foot, a motor can, often several shells each; typical
+  of product-visualisation glTFs such as the DJI models): set `granularity: object`. Selectors then
+  judge whole objects and no piece is ever cut across parts. Shell by shell, the Inspire 3 had 41
+  pieces split.
+* **one object per material** ("all the white plastic", "all eight blades": the Phantom 4, the
+  Matrice 300): keep the default `component`. Only shells separate the hardware there.
+
+Then check it. For every source object, tabulate which parts its faces landed in (faces.npz maps
+object → component → part). Under `component`, any physical piece that shows up in two parts is a
+selector cut falling through it. An asymmetry the symmetry check catches is a defect until proven
+otherwise. The Mini's "rear motors 40 % larger" were arm shells, not geometry.
+
 Measure selectors, don't eyeball them. Score a candidate against objects you identified in a
 highlight render (capture %, plus what else it takes), then render every face coloured by its
 assigned part before exporting. Symmetric stations must come out the same size: that is the

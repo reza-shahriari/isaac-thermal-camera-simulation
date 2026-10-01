@@ -86,6 +86,9 @@ class Component:
     lo: tuple[float, float, float]
     hi: tuple[float, float, float]
     material_name: str | None = None
+    #: The source object (render pass) or archive prim (thermal pass) the shell belongs to -- the
+    #: two carry the same names. Needed only by ``PartsConfig.granularity: object`` (AI.16).
+    source: str | None = None
 
     def __post_init__(self) -> None:
         if self.faces <= 0:
@@ -110,6 +113,35 @@ class Component:
         laid out on a circle and an asset frame's up axis is the one the scene declares.
         """
         return math.hypot(self.centroid[0] - centre[0], self.centroid[1] - centre[1])
+
+
+def object_unit(members: Sequence[Component]) -> Component:
+    """One source object's shells as a single :class:`Component`, for ``granularity: object``.
+
+    Area and faces add; the bounds are the union; the material is the one with the most area.
+    The centroid is **area-weighted** over the shells, not a vertex mean: the thermal archive is
+    planar-dissolved, which moves a vertex mean but preserves area, so this is the centroid both
+    passes agree on.
+    """
+    import numpy as np
+
+    area = np.array([c.area_m2 for c in members], dtype=np.float64)
+    cent = np.array([c.centroid for c in members], dtype=np.float64)
+    weights = area if area.sum() > 0.0 else np.ones_like(area)
+    by_material: dict[str, float] = {}
+    for c in members:
+        if c.material_name is not None:
+            by_material[c.material_name] = by_material.get(c.material_name, 0.0) + c.area_m2
+    return Component(
+        index=min(c.index for c in members),
+        faces=sum(c.faces for c in members),
+        area_m2=float(area.sum()),
+        centroid=_xyz((cent * weights[:, None]).sum(axis=0) / weights.sum()),
+        lo=_xyz(np.min([c.lo for c in members], axis=0)),
+        hi=_xyz(np.max([c.hi for c in members], axis=0)),
+        material_name=max(by_material.items(), key=lambda kv: kv[1])[0] if by_material else None,
+        source=members[0].source,
+    )
 
 
 class _Frozen(BaseModel):
@@ -328,6 +360,50 @@ class PartsConfig(_Frozen):
     #: totals, and never split into a part, so it leaves the part-split USD without the gate having
     #: to be lowered to let it through. Empty is every asset written before the field existed.
     exclude: list[PartSelector] = Field(default_factory=list)
+    #: AI.16: what one selector judges. ``component`` (the default, and every asset before the
+    #: field) judges each connected shell -- right for an asset grouped by *material*, where one
+    #: prim is "all the white plastic" and only its shells are hardware. ``object`` judges each
+    #: source object whole -- right for an asset whose artist modelled one object per physical
+    #: piece but built it from several shells: the Inspire 3's blades are three shells each, and
+    #: shell-by-shell a geometric cut put 3 % of every blade in its rotor head and split two
+    #: camera objects 55/45 with the fuselage. Under ``object`` no source object is ever split.
+    granularity: Literal["component", "object"] = "component"
+
+    def claim_all(self, components: Iterable[Component]) -> dict[int, PartSpec | None]:
+        """``{component index: part or None}`` for every component, at this config's granularity.
+
+        ``None`` is either excluded or unclaimed; :meth:`excludes_unit` tells them apart. The one
+        place both granularities are implemented, so the report and both splits agree.
+        """
+        comps = list(components)
+        if self.granularity == "component":
+            return {c.index: self.claim(c) for c in comps}
+        out: dict[int, PartSpec | None] = {}
+        for unit, members in self._units(comps):
+            hit = self.claim(unit)
+            for c in members:
+                out[c.index] = hit
+        return out
+
+    def excluded_indices(self, components: Iterable[Component]) -> set[int]:
+        """The indices of components ``exclude`` removes, at this config's granularity."""
+        comps = list(components)
+        if self.granularity == "component":
+            return {c.index for c in comps if self.excludes(c)}
+        return {
+            c.index for unit, members in self._units(comps) if self.excludes(unit) for c in members
+        }
+
+    def _units(self, comps: list[Component]) -> list[tuple[Component, list[Component]]]:
+        groups: dict[str, list[Component]] = {}
+        for c in comps:
+            if c.source is None:
+                raise ValueError(
+                    f"granularity 'object' needs each component's source object; component "
+                    f"{c.index} has none -- re-emit the components with this version of prep_asset"
+                )
+            groups.setdefault(c.source, []).append(c)
+        return [(object_unit(members), members) for members in groups.values()]
 
     def excludes(self, component: Component) -> bool:
         """Whether ``component`` is geometry that is not part of the asset."""
@@ -550,15 +626,18 @@ def assign_parts(
     excluded_area = 0.0
     excluded_faces = 0
 
-    for c in components:
-        if config.excludes(c):
+    comps = list(components)
+    claimed = config.claim_all(comps)
+    excluded = config.excluded_indices(comps)
+    for c in comps:
+        if c.index in excluded:
             excluded_area += c.area_m2
             excluded_faces += c.faces
             assignments.append(PartAssignment(c.index, None, None, c.area_m2, c.faces))
             continue
         total_area += c.area_m2
         total_faces += c.faces
-        hit = config.claim(c)
+        hit = claimed[c.index]
         if hit is None:
             unassigned_area += c.area_m2
             unassigned_faces += c.faces
@@ -687,6 +766,7 @@ def split_by_part(meshes: Any, config: PartsConfig) -> tuple[dict[str, Any], Par
     per_part_faces: dict[str, list[tuple[Any, Any]]] = {}
     per_part_material: dict[str, dict[str, float]] = {}
     all_components: list[Component] = []
+    where: list[tuple[Any, Any]] = []  # (mesh, face mask) per component index
     running = 0
 
     for name in sorted(meshes):
@@ -694,26 +774,32 @@ def split_by_part(meshes: Any, config: PartsConfig) -> tuple[dict[str, Any], Par
         for component, mask in mesh_components(
             name, mesh.vertices_m, mesh.faces, mesh.material_name
         ):
-            stat = Component(
-                index=running,
-                faces=component.faces,
-                area_m2=component.area_m2,
-                centroid=component.centroid,
-                lo=component.lo,
-                hi=component.hi,
-                material_name=component.material_name,
+            all_components.append(
+                Component(
+                    index=running,
+                    faces=component.faces,
+                    area_m2=component.area_m2,
+                    centroid=component.centroid,
+                    lo=component.lo,
+                    hi=component.hi,
+                    material_name=component.material_name,
+                    source=name,
+                )
             )
+            where.append((mesh, mask))
             running += 1
-            all_components.append(stat)
-            hit = config.claim(stat)
-            if hit is None:
-                continue
-            per_part_faces.setdefault(hit.name, []).append(
-                (mesh.vertices_m, np.asarray(mesh.faces)[mask])
-            )
-            if stat.material_name:
-                bucket = per_part_material.setdefault(hit.name, {})
-                bucket[stat.material_name] = bucket.get(stat.material_name, 0.0) + stat.area_m2
+
+    claimed = config.claim_all(all_components)
+    for stat, (mesh, mask) in zip(all_components, where, strict=True):
+        hit = claimed[stat.index]
+        if hit is None:
+            continue
+        per_part_faces.setdefault(hit.name, []).append(
+            (mesh.vertices_m, np.asarray(mesh.faces)[mask])
+        )
+        if stat.material_name:
+            bucket = per_part_material.setdefault(hit.name, {})
+            bucket[stat.material_name] = bucket.get(stat.material_name, 0.0) + stat.area_m2
 
     _, report = assign_parts(all_components, config)
 

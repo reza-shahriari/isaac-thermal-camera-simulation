@@ -477,6 +477,8 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
                     "lo": [float(v) for v in pts.min(axis=0)],
                     "hi": [float(v) for v in pts.max(axis=0)],
                     "material_name": dominant,
+                    # the object it came from: `granularity: object` (AI.16) claims whole objects
+                    "object": obj.name,
                 }
             )
 
@@ -1007,10 +1009,8 @@ def part_assignment(stats: Sequence[Mapping[str, Any]], parts: Any) -> dict[str,
     """
     from irsim.io.asset_parts import Component
 
-    part_of: dict[str, str] = {}
-    excluded = 0
-    for entry in stats:
-        component = Component(
+    components = [
+        Component(
             index=int(entry["index"]),
             faces=int(entry["faces"]),
             area_m2=float(entry["area_m2"]),
@@ -1018,18 +1018,17 @@ def part_assignment(stats: Sequence[Mapping[str, Any]], parts: Any) -> dict[str,
             lo=tuple(entry["lo"]),
             hi=tuple(entry["hi"]),
             material_name=entry["material_name"],
+            source=entry.get("object"),
         )
-        if parts.excludes(component):
-            excluded += 1
-            continue
-        spec = parts.claim(component)
-        if spec is not None:
-            part_of[str(component.index)] = spec.name
+        for entry in stats
+    ]
+    claimed = parts.claim_all(components)
+    part_of = {str(i): spec.name for i, spec in claimed.items() if spec is not None}
     return {
         "parts": list(parts.names),
         "part_of_component": part_of,
         "materials": dict(parts.materials),
-        "excluded_components": excluded,
+        "excluded_components": len(parts.excluded_indices(components)),
     }
 
 
@@ -1313,6 +1312,14 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             # background mode, booting no Kit (ADR 0128's whole point).
             components = out_dir / f"{asset.name}.components.json"
             if not components.exists() or not components.with_suffix(".faces.npz").exists():
+                stale = True
+            else:
+                # a measurement from before AI.16 has no source objects to group by
+                head = json.loads(components.read_text(encoding="utf-8"))[:1]
+                stale = (
+                    asset.parts.granularity == "object" and bool(head) and "object" not in head[0]
+                )
+            if stale:
                 cmd = blender_command(
                     args.blender,
                     source,

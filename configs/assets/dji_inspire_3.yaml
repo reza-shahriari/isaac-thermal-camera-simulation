@@ -52,127 +52,117 @@ asset:
   # The functional decomposition (ADR 0138): 6,703 render components over 514,253 faces, 0.843 m2.
   parts:
     # Midpoint of the four rotor stations. The body is 36 cm nose to tail, so radius separates
-    # nothing here either; every selector is a station-local or body-local circle.
+    # nothing here; every selector is a station-local or body-local circle.
     centre: [0.0, 0.0792, 0.0]
     coverage_threshold: 0.95
+    # AI.16: selectors judge each source OBJECT whole, not each connected shell. This artist
+    # modelled one object per physical piece but built many of them from several shells (a blade
+    # is three), and shell by shell a geometric cut split 41 of the 345 objects across parts --
+    # 3 % of every blade in its rotor head, two camera objects 55/45 with the fuselage, each
+    # landing foot 8 % into the motor. Judged whole, no object is ever split.
+    granularity: object
     parts:
-      # --- under the nose: the Zenmuse X9-8K Air and its DL lens. The lens glass (`material_4`,
-      # alpha 0.24) is its own part so it keeps the glass mapping; the part material below would
-      # otherwise paint it. X9 housing ESTIMATED magnesium/aluminium, painted dark grey -- DJI does
-      # not publish it; metal_sheet_painted_grey carries the right solar absorptivity (0.88) and
-      # an areal heat capacity within 15 % of a painted aluminium housing. The selector was scored
-      # against the gimbal's objects: 100 % of them, and the rest is lens rings and gimbal motors.
+      # --- under the nose: the Zenmuse X9-8K Air, its DL lens and the gimbal that carries them.
+      # The lens glass (`material_4`, alpha 0.24) is its own part so it keeps the glass mapping;
+      # the gimbal's asserted material would otherwise paint it. X9 housing ESTIMATED
+      # magnesium/aluminium painted dark grey -- DJI does not publish it; metal_sheet_painted_grey
+      # carries the right solar absorptivity (0.88) and an areal heat capacity within 15 % of a
+      # painted aluminium housing. The gimbal is every object centred within 10 cm of the camera
+      # and below 14.5 cm: camera body, lens rings, the gimbal arm, its yaw-motor disc (z 12.4-14.1)
+      # and the damping plate (14.3). The body's underside starts at 15.
       - name: camera_lens
         target: airframe
-        select: {near_xy: [0.0, -0.11], within_m: 0.08, z_max_m: 0.13, materials: [material_4]}
+        select: {materials: [material_4]}
       - name: gimbal_camera
         target: airframe
         material: metal_sheet_painted_grey
-        select: {near_xy: [0.0, -0.11], within_m: 0.08, z_max_m: 0.13}
+        select: {near_xy: [0.0, -0.11], within_m: 0.10, z_max_m: 0.145}
+
       # --- the two TB51 packs (98.8 Wh each, self-heating below 18 C; UM), modelled as one block
-      # standing at the rear top. Scored: 99.8 % of the block, plus 88 cm2 of its bay.
+      # standing at the rear top: the three objects whose centres lie in it.
       - name: batteries
         target: battery
         material: polycarbonate_dark_grey
         select: {near_xy: [0.0, 0.105], within_m: 0.07, z_min_m: 0.17}
+
       # --- the four rotor stations, at the orange hub caps. Nose is -y (the X9 lens), so +x is
       # the aircraft's LEFT. The carbon frame is modelled pitched ~20 deg nose-down against a level
-      # body -- front hubs at z = 8 cm, rear at 24 cm -- so every cut is per station, and the
-      # front stations' mounts lean into the propeller's radius. Hence, per station: the foot (the
-      # one 84 cm2 shell 10-11 cm tall; DJI: landing gear is PC); the motor housing (the only
-      # 40-65 cm2 shell within 4.5 cm -- a radius alone cannot separate it from a blade tip 3.6 cm
-      # out, and centroids move when the archive is dissolved); the rotor head (hub, orange cap,
-      # prop adapter, all within 3.4 cm); the propeller (blade shells of 3-60 cm2 out to 11 cm,
-      # above the station's height floor, which drops a bolt under each motor); and the motor
-      # mount (clamp ring and screws, <= 1.5 cm2 each, out to 8.5 cm). No selector counts faces:
-      # the thermal archive is planar-dissolved, so a shell's face count differs between the
-      # two passes and a `faces_min` put half of every blade into the motor in the archive only.
-      # 1671 propellers: "plastics and fiberglass" (DJI FAQ), black. 3511 motors: bells
-      # ESTIMATED anodised aluminium. Symmetry: see the numbers in AI.15's roadmap row -- the model
-      # is mirror-exact and every station part agrees with its three siblings.
+      # body -- front hubs at z = 8 cm, rear at 24 cm -- so every cut is station-local. Judged per
+      # object (above), a station is four kinds of hardware:
+      #   * the landing foot: the one ~92 cm2 object over 9 cm tall (DJI: the landing gear is PC);
+      #   * the propeller: the two 111 cm2 blade objects (1671, "plastics and fiberglass", black);
+      #     the arm-tube ends nearby are 91 cm2, or 111 cm2 but 13 cm out;
+      #   * the motor mount: the 67 cm2 arm-end housing, 5.5-7 cm tall and ~10 cm long;
+      #   * the motor: everything else within 7.5 cm -- the 3511's stacked bell and stator rings
+      #     (4 cm across), the orange cap, the hub, the clamp and its screws. Bells ESTIMATED
+      #     anodised aluminium.
       - name: landing_foot_front_left
         target: airframe
         material: polycarbonate_dark_grey
-        select: {near_xy: [0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
-      - name: motor_front_left
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
-      - name: rotor_head_front_left
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [0.2982, -0.1256], within_m: 0.034}
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.05, area_min_m2: 0.0085, area_max_m2: 0.010, extent_z_min_m: 0.09}
       - name: propeller_front_left
         target: propeller
         material: nylon_glass_filled_black
-        select: {near_xy: [0.2982, -0.1256], within_m: 0.11, z_min_m: 0.05, area_min_m2: 0.0003, area_max_m2: 0.006}
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.11, area_min_m2: 0.0105, area_max_m2: 0.012}
       - name: motor_mount_front_left
         target: motor
         material: aluminium_anodised
-        select: {near_xy: [0.2982, -0.1256], within_m: 0.085}
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.0060, area_max_m2: 0.0075, extent_z_min_m: 0.05}
+      - name: motor_front_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.2982, -0.1256], within_m: 0.075}
       - name: landing_foot_front_right
         target: airframe
         material: polycarbonate_dark_grey
-        select: {near_xy: [-0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
-      - name: motor_front_right
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [-0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
-      - name: rotor_head_front_right
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [-0.2982, -0.1256], within_m: 0.034}
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.05, area_min_m2: 0.0085, area_max_m2: 0.010, extent_z_min_m: 0.09}
       - name: propeller_front_right
         target: propeller
         material: nylon_glass_filled_black
-        select: {near_xy: [-0.2982, -0.1256], within_m: 0.11, z_min_m: 0.05, area_min_m2: 0.0003, area_max_m2: 0.006}
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.11, area_min_m2: 0.0105, area_max_m2: 0.012}
       - name: motor_mount_front_right
         target: motor
         material: aluminium_anodised
-        select: {near_xy: [-0.2982, -0.1256], within_m: 0.085}
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.045, area_min_m2: 0.0060, area_max_m2: 0.0075, extent_z_min_m: 0.05}
+      - name: motor_front_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.2982, -0.1256], within_m: 0.075}
       - name: landing_foot_rear_left
         target: airframe
         material: polycarbonate_dark_grey
-        select: {near_xy: [0.219, 0.284], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
-      - name: motor_rear_left
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [0.219, 0.284], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
-      - name: rotor_head_rear_left
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [0.219, 0.284], within_m: 0.034}
+        select: {near_xy: [0.219, 0.284], within_m: 0.05, area_min_m2: 0.0085, area_max_m2: 0.010, extent_z_min_m: 0.09}
       - name: propeller_rear_left
         target: propeller
         material: nylon_glass_filled_black
-        select: {near_xy: [0.219, 0.284], within_m: 0.11, z_min_m: 0.22, area_min_m2: 0.0003, area_max_m2: 0.006}
+        select: {near_xy: [0.219, 0.284], within_m: 0.11, area_min_m2: 0.0105, area_max_m2: 0.012}
       - name: motor_mount_rear_left
         target: motor
         material: aluminium_anodised
-        select: {near_xy: [0.219, 0.284], within_m: 0.085}
+        select: {near_xy: [0.219, 0.284], within_m: 0.045, area_min_m2: 0.0060, area_max_m2: 0.0075, extent_z_min_m: 0.05}
+      - name: motor_rear_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.219, 0.284], within_m: 0.075}
       - name: landing_foot_rear_right
         target: airframe
         material: polycarbonate_dark_grey
-        select: {near_xy: [-0.219, 0.284], within_m: 0.045, area_min_m2: 0.007, extent_z_min_m: 0.09}
-      - name: motor_rear_right
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [-0.219, 0.284], within_m: 0.045, area_min_m2: 0.004, area_max_m2: 0.0065}
-      - name: rotor_head_rear_right
-        target: motor
-        material: aluminium_anodised
-        select: {near_xy: [-0.219, 0.284], within_m: 0.034}
+        select: {near_xy: [-0.219, 0.284], within_m: 0.05, area_min_m2: 0.0085, area_max_m2: 0.010, extent_z_min_m: 0.09}
       - name: propeller_rear_right
         target: propeller
         material: nylon_glass_filled_black
-        select: {near_xy: [-0.219, 0.284], within_m: 0.11, z_min_m: 0.22, area_min_m2: 0.0003, area_max_m2: 0.006}
+        select: {near_xy: [-0.219, 0.284], within_m: 0.11, area_min_m2: 0.0105, area_max_m2: 0.012}
       - name: motor_mount_rear_right
         target: motor
         material: aluminium_anodised
-        select: {near_xy: [-0.219, 0.284], within_m: 0.085}
+        select: {near_xy: [-0.219, 0.284], within_m: 0.045, area_min_m2: 0.0060, area_max_m2: 0.0075, extent_z_min_m: 0.05}
+      - name: motor_rear_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.219, 0.284], within_m: 0.075}
+
       # --- the carbon-fibre arm frame, one per side (DJI FAQ: "the aircraft arm is made of carbon
-      # fiber"), each a circle on its own tubes. Scored: 100 % of the left frame's objects and
-      # nothing from the body. Left/right differ by 1.4 % where the circles trim the hinges.
+      # fiber"): every object centred within 16 cm of the side's tubes.
       - name: arm_left
         target: airframe
         material: carbon_fibre
@@ -181,6 +171,7 @@ asset:
         target: airframe
         material: carbon_fibre
         select: {near_xy: [-0.2, 0.08], within_m: 0.16}
+
       # --- everything else: the PC shell, arm hinges and servo, FPV camera, vision sensors
       - name: fuselage
         target: airframe
