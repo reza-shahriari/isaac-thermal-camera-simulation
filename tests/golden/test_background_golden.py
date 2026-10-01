@@ -186,6 +186,10 @@ def test_the_transmittance_golden_would_have_caught_at_10(
     Re-pinned by AT.24 (0.3877 -> 0.3880): the SWIR class weights are now integrated on a
     0.0045 µm grid rather than 0.01 µm below 2 µm (spec issue S58), which moved the value by
     0.08 % -- three hundred times the table's tolerance, so the table caught that too.
+
+    Re-pinned by AT.35 (0.3880 -> 0.3938, ADR 0177): the class scale is solved on the nominal
+    band and shared by every camera, so the InGaAs response's 200 m value is no longer forced to
+    the preset's -- 1.5 % at 5 km, and the table caught it again.
     """
     _cfg, lut, resp = bands["swir"]
     atmosphere = LayeredAtmosphere(
@@ -193,5 +197,5 @@ def test_the_transmittance_golden_would_have_caught_at_10(
     )
     now = float(atmosphere.transmittance("swir", 0.0, 5000.0, 0.0))
     before_at_10 = 0.414804696154634
-    assert now == pytest.approx(0.387987003431900, rel=1e-9)
+    assert now == pytest.approx(0.39379364173807235, rel=1e-9)
     assert abs(now - before_at_10) > 1e-6 * 1000  # a thousand times the table's own tolerance

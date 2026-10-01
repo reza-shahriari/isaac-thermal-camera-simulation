@@ -511,6 +511,8 @@ If you don't, use this practical procedure:
 2. For each, obtain band-averaged transmittance vs. range from published curves. MODTRAN runs for EO/IR analysis of ground-level horizontal paths are typically parameterised exactly this way — e.g. a 2 km horizontal path, 1976 US Standard atmosphere, rural aerosols, 16 km visibility [R17].
 3. Fit $\gamma_B$ per band per atmosphere. Store a small table indexed by (band, atmosphere, humidity, visibility).
 
+**Which camera the table describes.** A per-band $\gamma_B$ or $\tau$ describes the **band's nominal range**, not any one camera. When the band is split into spectral classes (ADR 0113), the classes' common scale is fitted once, on the nominal top-hat. Every camera in the band then uses those per-class extinctions over its own response. A camera whose range holds less absorbing edge, such as 8–12 µm inside LWIR, therefore sees *further* than the nominal band, and one that reaches into the 6.3 µm water band sees less. Re-fitting the scale per camera would force every camera to the same 200 m transmittance and invert that order (ADR 0177).
+
 **Automotive-relevant magnitudes** (0–300 m horizontal, ground level):
 
 | Condition | LWIR $\tau$ @200 m | MWIR $\tau$ @200 m | SWIR $\tau$ @200 m | Visible $\tau$ @200 m |

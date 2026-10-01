@@ -175,12 +175,18 @@ def test_lwir_and_nir_are_untouched_and_mwir_moves_by_a_rounding_error() -> None
     node past the nominal 0.75–1.0 µm band (an odd interval count at 0.01 µm) and so weighted its
     classes on a cliff; the grid now ends on the band edge and is finer below 2 µm, which moved
     the NIR class weights by 6e-4 and these pins with them. LWIR and MWIR are bit-identical.
+
+    **Re-pinned by AT.35 (ADR 0177).** The free classes' scale is now solved on each band's
+    nominal top-hat and shared by every camera in the band, rather than re-solved per camera so
+    that each camera's own τ(200 m) equalled the preset's. A shipped response reaching past its
+    nominal range now keeps the extra absorption its edge classes carry: at 5 km LWIR (Boson)
+    +4e-4 relative, NIR +3.9 %, MWIR (InSb) −4.3 %.
     """
     atmosphere = _atmosphere()
     expected = {
-        "lwir": (0.930057013277753, 0.599481209005659, 0.303552327459639),
-        "nir": (0.974267827601158, 0.528805583608480, 0.086486778159457),
-        "mwir": (0.797018961895581, 0.361438188342700, 0.159372797288951),
+        "lwir": (0.9301704358867935, 0.5997486300899415, 0.30392506738000974),
+        "nir": (0.9761532758265058, 0.5491752769557374, 0.09440886205835204),
+        "mwir": (0.790470498867265, 0.34601416271723795, 0.14959637339188497),
     }
     for band, (near, mid, far) in expected.items():
         got = [float(atmosphere.transmittance(band, 0.0, d, 0.0)) for d in (200.0, 5000.0, 20000.0)]
@@ -209,11 +215,14 @@ def test_swir_stops_swallowing_the_point_nine_four_water_band() -> None:
     assert float(weights[names.index("h2o_0p94")]) == pytest.approx(0.169, abs=2e-3)
 
     atmosphere = _atmosphere()
+    # Re-pinned by AT.35 (ADR 0177): the InGaAs response's 200 m value is no longer forced to
+    # the preset's, since the scale is solved on the nominal 0.9-1.7 µm band (0.8245 -> 0.8262,
+    # 5 km 0.3880 -> 0.3938). The AT.10 ratio below is that step's own record and unchanged.
     assert float(atmosphere.transmittance("swir", 0.0, 200.0, 0.0)) == pytest.approx(
-        0.824515063844224, rel=1e-12
+        0.8261554458290594, rel=1e-12
     )
     assert float(atmosphere.transmittance("swir", 0.0, 5000.0, 0.0)) == pytest.approx(
-        0.387987003431900, rel=1e-9
+        0.39379364173807235, rel=1e-9
     )
     before, after = 0.414804696154634, 0.387987003431900
     assert after / before == pytest.approx(0.935, abs=2e-3)
