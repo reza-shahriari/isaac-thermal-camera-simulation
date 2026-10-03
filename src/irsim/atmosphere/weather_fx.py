@@ -207,6 +207,13 @@ class WeatherFxDeck:
     #: what keeps a horizon-grazing frame from costing minutes.
     min_steps: int = 64
     max_steps: int = 512
+    #: Samples per :attr:`sample_pitch_m` along the longest ray (ADR 0178). Two would be the
+    #: Nyquist spacing of a smooth trilinear field, but a cloud's boundary is clipped to a step a
+    #: few metres wide (docs/physics-model.md §7.5), so the residual falls only as 1/n: on the
+    #: bridge deck the band emissivity's p99 error against a 4096-step reference is 0.024 at
+    #: one, 0.009-0.011 at two and 0.006-0.007 at three. On the production grid the cap above
+    #: binds first at either, so three costs nothing there.
+    samples_per_pitch: float = 3.0
     #: Longest path followed through the slab, metres. Beyond it the transmittance of anything
     #: this field can hold has underflowed, and a level ray would otherwise march forever.
     max_path_m: float = 12_000.0
@@ -239,22 +246,31 @@ class WeatherFxDeck:
 
     @property
     def sample_pitch_m(self) -> float:
-        """The finest spacing the grid carries: the smaller of a cell and a level."""
-        return float(min(self.field.cell_m, self.field.thickness_m / self.field.levels))
+        """The finest spacing the field carries, as the field itself reports it (ADR 0178).
+
+        weather-fx's ``finest_pitch_m``: the smallest of a cell, a level and the edge detail's own
+        cell -- 15 m at the production grid, where the cell is 60 m. Sizing the march by the grid
+        alone stepped over the detail, the part of a cloud's edge that is structure rather than a
+        ramp, and left the band emissivity 0.024 off a dense reference at the 99th percentile on
+        the bridge deck. A volume-asset source answers the same property with its voxel, so this
+        line does not change when the source does (docs/physics-model.md §7.5).
+        """
+        return float(self.field.finest_pitch_m)
 
     def steps_for(self, span_m: Any) -> int:
-        """Steps that put two samples per grid pitch along the longest ray in ``span_m``.
+        """Steps that put :attr:`samples_per_pitch` samples per finest pitch along the longest
+        ray in ``span_m``.
 
-        Two per pitch is the Nyquist spacing of a trilinear field: one per pitch left the band
-        emissivity 0.019 out at the 99th percentile against a dense reference on the test deck,
-        two leaves it under 0.01, which is a quarter kelvin of cloud. One count for the whole
-        array, because a vectorised march wants one loop; it is set by the longest crossing, so
-        the shallowest ray in a frame is sampled at that spacing and the steep ones finer.
-        Bounded by :attr:`min_steps` and :attr:`max_steps`.
+        One count for the whole array, because a vectorised march wants one loop; it is set by
+        the longest crossing, so the shallowest ray in a frame is sampled at that spacing and the
+        steep ones finer. Bounded by :attr:`min_steps` and :attr:`max_steps`. On the production
+        grid (60 m cells, a 12.5 m finest pitch) the cap binds for every frame, and the spacing
+        is then the longest crossing over 512 -- p99 emissivity 0.005-0.009 against a 4096-step
+        reference, half what sizing by the grid left (ADR 0178).
         """
         arr = np.asarray(span_m, dtype=np.float64)
         longest = float(np.max(arr)) if arr.size else 0.0
-        want = math.ceil(2.0 * longest / max(self.sample_pitch_m, 1.0))
+        want = math.ceil(self.samples_per_pitch * longest / max(self.sample_pitch_m, 1.0))
         return int(min(self.max_steps, max(self.min_steps, want)))
 
     def march(
@@ -273,8 +289,8 @@ class WeatherFxDeck:
         baked once and read at a texel's blur, and wrong for a per-pixel infrared frame: the
         sampling error is then coherent across neighbouring pixels and prints as rings and bands
         through every cloud -- measured at 3.6 K at the 99th percentile against a 512-step
-        reference, in concentric contours. This march is **stratified and uniform** -- one sample
-        per grid pitch along the longest ray, every ray offset by a hash of its own direction --
+        reference, in concentric contours. This march is **stratified and uniform** -- three samples
+        per finest pitch along the longest ray, every ray offset by a hash of its own direction --
         so what error remains is white and below the detector's noise, and the same density
         array is integrated, so the two bands still cannot disagree about *where* the cloud is.
 
