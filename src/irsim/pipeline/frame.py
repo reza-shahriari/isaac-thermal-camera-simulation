@@ -51,7 +51,7 @@ from irsim.pipeline.atmosphere import (
 )
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.detector import bolometer_lag, lag_interval_s
-from irsim.pipeline.optics import motion_for_integration
+from irsim.pipeline.optics import motion_decay, motion_for_integration
 from irsim.pipeline.plume import ExhaustPlume, inject_plumes
 from irsim.pipeline.point_target import PointTarget, inject_point_targets
 from irsim.pipeline.radiance import band_radiance, stage_illumination
@@ -379,6 +379,7 @@ def run_frame(
         supersample=k,
         psf=psf,
         motion_px=motion_for_integration(planes, sensor),
+        motion_decay_frames=motion_decay(sensor),
     )
     # stages 4-5 (detector noise, correlated noise)
     signal = _detector_signal(flux, config, state)

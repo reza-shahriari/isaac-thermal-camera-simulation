@@ -88,3 +88,47 @@ silhouettes. There is no sub-frame *scene* motion — the target moves, the worl
   on a spinning propeller rather than a slewing mount.
 * Propellers are modelled: a blade at flight rpm sweeps its whole disc within one integration, so
   the annulus it smears into is this operator's job and the reason ADR 0074 left props out.
+
+## Amendment, 2026-10-03 — a bolometer smears with its membrane, not a box (EV.16)
+
+**Option 5 was wrong for the bolometer, and the spec said so.** §9.2 states that a bolometer's motion
+smear *is* its τ_th response, and `optics/mtf.py` and `optics/psf.py` both say `mtf_motion`'s box is
+for photon detectors only. This ADR instead gave the bolometer a centred box over the whole frame
+period. The membrane is a first-order system: the reading at the frame's instant weights the flux of
+`s` seconds earlier by `e^(−s/τ)/τ`. The frame-to-frame IIR (§9.2, `detector/lowpass.py`) already
+carries the part older than one frame period exactly; the part *within* the frame carries the same
+exponential, truncated to `[0, T]`. The box had the right total and the wrong shape. It spread the
+Boson's smear evenly over 16.7 ms where the 8 ms membrane puts half its weight in the most recent
+4.6 ms.
+
+Found on the first EV.16 render: a quadrotor crossing the frame edge at 10 px/frame drew a flat
+10 px streak.
+
+**Decision.** `apply_motion_smear(..., decay_frames=τ/T)` lays the bolometer's kernel down
+**trailing**, not centred. Tap weights are the exponential's exact mass over each slice of the frame,
+at the slice midpoints. `smear_decay_frames` gives `τ/T` for a detector with no integration time (0.48
+for the Boson at 60 Hz) and `None` for a photon FPA, which keeps the centred box over its shutter
+window. `apply_optics` takes `motion_decay_frames`; `optics_stage` and `run_frame` pass
+`irsim.pipeline.optics.motion_decay(sensor)`.
+
+**Trailing is not a timing error here.** Option 4's argument holds for a shutter: the window's
+midpoint is the frame's instant. A bolometer genuinely lags, by its own time constant, so the head
+sits at the feature's current position and the tail lies behind it.
+
+**Measured** (`tests/unit/test_motion_smear.py`, `test_run_frame_motion_smear.py`,
+`test_motion_wired.py`), on a line moving 11 px/frame:
+
+| | box (before) | membrane (after) |
+|---|---|---|
+| energy within d px behind the head | `(d+½)/11` | `(1 − e^(−(d+½)/(11·0.48))) / (1 − e^(−1/0.48))`, within 0.05 |
+| half-energy extent | ≥ 5 px | ≤ 3 px |
+| brightest pixel | 0.09 | > 1.8 × the box's |
+| 10–90 edge width | 8.8 px | 7.7 px |
+
+`run_frame` on the Boson now equals `apply_optics` with the membrane kernel to 1e-6 and differs from
+the box render.
+
+**Not changed.** The visible companion's sub-frame exposure (`optics/exposure.py`, IG.19) still spans
+the whole frame period for a bolometer. That is now a box beside an exponential, which is the
+same total exposure in a different shape. No driver that films a bolometer requests sub-frames today;
+revisit when one does.

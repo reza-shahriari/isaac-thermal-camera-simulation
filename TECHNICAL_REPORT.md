@@ -751,6 +751,7 @@ window (`integration_time_ms` is `None` for one) so it smears over the whole fra
 photon detector integrates briefly and is sharper — §16's "lateral motion smears LWIR, not cooled
 MWIR". Held to the cascade term it implements: within **0.015** of `|sinc(s·f)|` across the sweep.
 **Corrected 2026-09-28 (`SC.28`):** the paragraph above was true of `apply_optics` and of the stage twin, and false of every rendered frame -- `run_frame` never passed the plane, so the aircraft stage's 11 pixels of blur were still unmodelled until then. The entry point now carries it and a test holds it to the stage.
+**Corrected 2026-10-03 (ADR 0077 amendment, found on the `EV.16` render):** a bolometer does not smear as a box. Its membrane weights the last frame by `e^(−s/τ)`, and §9.2 always said its smear *is* that response. The box spread the Boson's smear evenly over 16.7 ms, where the 8 ms membrane puts half its weight in the latest 4.6 ms. The bolometer kernel is now that exponential, trailing behind the motion, with the frame-to-frame IIR carrying the older part as before. On 11 px/frame of motion, half the energy now sits within 3 px of the head instead of ≥ 5 px, the head is about twice as bright, and the 10–90 edge width goes from 8.8 to 7.7 px. A cooled photon FPA keeps the centred box over its shutter window.
 
 **A spinning rotor is a veil, not geometry (ADR 0081).** ADR 0077 claimed propellers would be the
 smear operator's job. They are not: a blade tip at 3000 rpm does **112 m/s**, sweeping 109 pixels

@@ -86,3 +86,42 @@ def test_a_zero_motion_plane_is_the_same_frame_as_no_plane(
     out_zero = run_frame(zero, config, PipelineState(housing_temp_k=300.0))
     out_without = run_frame(without, config, PipelineState(housing_temp_k=300.0))
     assert np.array_equal(out_zero.flux, out_without.flux)
+
+
+def test_a_bolometer_frame_smears_with_its_membrane_not_a_box(
+    config: PipelineConfig, gbuffer_moving_edge: list[dict[str, np.ndarray]]
+) -> None:
+    """ADR 0077 amendment: the Boson's smear is its 8 ms membrane, trailing, inside `run_frame`.
+
+    Red before the amendment: the entry point laid a centred box over the whole frame period, so
+    its flux equalled the box render and not the exponential one.
+    """
+    from irsim.optics.stage import apply_optics
+    from irsim.pipeline.optics import motion_decay, motion_for_integration
+
+    decay = motion_decay(config.sensor.sensor)
+    assert decay == pytest.approx(8.0e-3 * 60.0)
+    planes = dict(gbuffer_moving_edge[0])
+    out = run_frame(planes, config, PipelineState(housing_temp_k=300.0)).flux.astype(np.float64)
+    staged = dict(planes)
+    staged.update(band_radiance_stage(staged, config, PipelineState(housing_temp_k=300.0)))
+    sensor = config.sensor.sensor
+    motion = motion_for_integration(staged, sensor)
+
+    def render(decay_frames: float | None) -> np.ndarray:
+        return np.asarray(
+            apply_optics(
+                np.asarray(staged["radiance"]),
+                sensor,
+                float(config.lut.lookup(np.float64(300.0), config.quantity)[()]),
+                supersample=config.supersample,
+                motion_px=motion,
+                motion_decay_frames=decay_frames,
+            ),
+            dtype=np.float64,
+        )
+
+    membrane, box = render(decay), render(None)
+    scale = float(np.abs(membrane).max())
+    assert float(np.abs(out - membrane).max()) / scale < 1e-6
+    assert float(np.abs(out - box).max()) / scale > 1e-4, "the frame still carries the box"

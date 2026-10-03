@@ -18,6 +18,17 @@ period*. A cooled photon detector integrates for a short window inside the frame
 the rest, so it smears only over that window and is correspondingly sharper. This is the
 mechanism behind the §16 checklist line "lateral motion smears LWIR, not cooled MWIR".
 
+**A bolometer's smear is not a box (ADR 0077 amendment).** The membrane is a first-order system,
+so the reading at the frame's instant weights the flux of ``s`` seconds earlier by
+``e^(-s/tau_th) / tau_th``. The part older than one frame period is the frame-to-frame IIR
+(:mod:`irsim.detector.lowpass`); the part *within* the frame is this operator, and it carries the
+same exponential, truncated to ``[0, T]`` -- a bright head at the feature's current position and a
+fading tail behind it, not a flat streak the length of the frame's travel. With
+``decay_frames = tau_th / T`` this operator lays the within-frame part down; ``None`` keeps the
+centred box, which is right for a photon detector's shutter window. §9.2 has always said the
+bolometer smear *is* the tau_th response; the box spread the Boson's smear evenly over the whole
+16.7 ms, about twice as wide at the half-energy point as the membrane.
+
 **Spatially varying, necessarily.** A single convolution would be wrong for the scenes this
 simulator is built for: under a tracking mount the target is stationary on the focal plane and the
 sky sweeps past it, so one kernel cannot serve both. Each pixel is averaged along **its own**
@@ -34,7 +45,13 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ["MAX_SMEAR_TAPS", "NEGLIGIBLE_SMEAR_PX", "smear_duty", "apply_motion_smear"]
+__all__ = [
+    "MAX_SMEAR_TAPS",
+    "NEGLIGIBLE_SMEAR_PX",
+    "apply_motion_smear",
+    "smear_decay_frames",
+    "smear_duty",
+]
 
 #: Below this much movement the smear is a sub-pixel effect the detector's own box filter already
 #: covers, and the operator returns its input untouched rather than paying for a no-op gather.
@@ -64,12 +81,33 @@ def smear_duty(frame_period_s: float, integration_time_s: float | None) -> float
     return min(float(integration_time_s) / float(frame_period_s), 1.0)
 
 
+def smear_decay_frames(
+    frame_period_s: float,
+    integration_time_s: float | None,
+    thermal_time_constant_s: float | None,
+) -> float | None:
+    """``tau_th / T`` for a bolometer, ``None`` for a detector with a shutter window.
+
+    A photon FPA (an integration time) smears as a box over its window, so it gets ``None``. A
+    bolometer (no integration time) smears with its membrane's exponential, so it gets its time
+    constant in frame periods -- 0.48 for the Boson's 8 ms at 60 Hz.
+    """
+    if frame_period_s <= 0.0:
+        raise ValueError("frame_period_s must be positive")
+    if integration_time_s is not None:
+        return None
+    if thermal_time_constant_s is None or not thermal_time_constant_s > 0.0:
+        raise ValueError("a bolometer needs a positive thermal time constant to smear with")
+    return float(thermal_time_constant_s) / float(frame_period_s)
+
+
 def apply_motion_smear(
     image: Any,
     motion_px: Any,
     duty: float,
     *,
     max_taps: int = MAX_SMEAR_TAPS,
+    decay_frames: float | None = None,
 ) -> NDArray[np.float64]:
     """Average each pixel along its own motion vector over the integration window.
 
@@ -82,6 +120,12 @@ def apply_motion_smear(
     what crossed it during the window, and the position the frame is labelled with is the middle
     of that window; a trailing segment would displace every moving feature by half its smear, a
     shift that looks like a timing error and is one.
+
+    **With ``decay_frames`` it is the bolometer's kernel instead**: trailing, not centred, with
+    tap weights ``e^(-u / decay_frames)`` integrated over each tap's slice ``u`` of the frame
+    (``u = 0`` now, ``u = 1`` one frame ago) and normalised. A bolometer's reading really does lag
+    its scene -- the mean delay is the membrane's, not a timing error -- so the head sits where the
+    feature is and the tail lies behind it, along the direction it came from.
 
     Returns float64. The caller's dtype discipline applies at the stage boundary, not here.
     """
@@ -112,8 +156,27 @@ def apply_motion_smear(
         )
     direction = np.nan_to_num(direction, nan=0.0, posinf=0.0, neginf=0.0)
 
+    if decay_frames is not None and not decay_frames > 0.0:
+        raise ValueError("decay_frames must be positive")
     rows, cols = np.indices(img.shape, dtype=np.float64)
     total = np.zeros_like(img)
+    if decay_frames is not None:
+        # Slice edges in frame fractions, the exact exponential mass of each slice, placed at the
+        # slice's midpoint. `motion_px` is the displacement over the last frame, positive along
+        # travel, so what this pixel saw u of a frame ago is now u * length further along.
+        edges = np.arange(taps + 1, dtype=np.float64) / taps
+        mass = np.exp(-edges[:-1] / decay_frames) - np.exp(-edges[1:] / decay_frames)
+        mass = mass / mass.sum()
+        for u, weight in zip((edges[:-1] + edges[1:]) / 2.0, mass, strict=True):
+            shift = u * length
+            total += weight * map_coordinates(
+                img,
+                [rows + shift * direction[..., 1], cols + shift * direction[..., 0]],
+                order=1,
+                mode="nearest",
+                prefilter=False,
+            )
+        return np.asarray(total)
     # Midpoint rule: taps at the centres of `taps` equal sub-intervals, not at the segment's
     # endpoints. Endpoint sampling looks natural and is wrong -- N taps spanning length s sit a
     # distance s/(N-1) apart, so the comb implements a boxcar of length s + s/(N-1), and the

@@ -14,6 +14,7 @@ have caught.
 
 from __future__ import annotations
 
+import math
 import pathlib
 
 import numpy as np
@@ -22,6 +23,7 @@ import pytest
 from irsim.optics.smear import (
     NEGLIGIBLE_SMEAR_PX,
     apply_motion_smear,
+    smear_decay_frames,
     smear_duty,
 )
 
@@ -292,3 +294,66 @@ def test_a_scene_without_motion_costs_nothing() -> None:
         apply_optics(radiance, sensor, 0.0, supersample=1),
         apply_optics(radiance, sensor, 0.0, supersample=1, motion_px=None),
     )
+
+
+# --- the bolometer's membrane kernel (ADR 0077 amendment) ---------------------------------------
+
+#: The Boson: 8 ms membrane, 60 Hz frame.
+BOSON_DECAY = 8.0e-3 * 60.0
+
+
+def moving_line(px_per_frame: float, decay: float | None) -> np.ndarray:
+    """One row of a bright vertical line at column 60, moving +x, smeared."""
+    image = np.zeros((8, 96))
+    image[:, 60] = 1.0
+    motion = np.zeros((8, 96, 2))
+    motion[..., 0] = px_per_frame
+    return apply_motion_smear(image, motion, 1.0, decay_frames=decay)[4]
+
+
+def test_the_membrane_kernel_trails_and_leaves_nothing_ahead() -> None:
+    """The head stays where the line is now; the tail lies behind it, along where it came from.
+    A centred or leading kernel would put signal ahead of the line, which no membrane can."""
+    row = moving_line(11.0, BOSON_DECAY)
+    assert float(row[62:].sum()) < 1e-12, "signal ahead of the line"
+    assert float(row[:60].sum()) > 0.5, "the tail is behind"
+    assert float(row.sum()) == pytest.approx(1.0, rel=1e-9)
+
+
+def test_the_membrane_kernel_is_the_truncated_exponential() -> None:
+    """Energy within d pixels behind the head is the exponential's CDF over the frame,
+    F(d) = (1 - e^(-(d/L)/a)) / (1 - e^(-1/a)), a = tau/T -- to the bilinear taps' resolution."""
+    length = 11.0
+    row = moving_line(length, BOSON_DECAY)
+    # Summed backwards from the line's own column. Bilinear taps split each sample over two
+    # pixels, so the sum through column 60 - d holds the energy out to d + 1/2 pixels of travel.
+    behind = np.cumsum(row[60::-1])
+    for d in (2.0, 4.0, 6.0, 9.0):
+        expected = (1.0 - math.exp(-((d + 0.5) / length) / BOSON_DECAY)) / (
+            1.0 - math.exp(-1.0 / BOSON_DECAY)
+        )
+        measured = float(behind[int(d)])
+        assert measured == pytest.approx(expected, abs=0.05), (d, measured, expected)
+
+
+def test_the_membrane_concentrates_what_the_box_spreads() -> None:
+    """Same travel, same mean delay class: the membrane puts half its energy within ~3 px of the
+    head where the box needs half the travel, and its brightest pixel is about twice the box's."""
+    exp_row, box_row = moving_line(11.0, BOSON_DECAY), moving_line(11.0, None)
+
+    def half_extent(row: np.ndarray) -> int:
+        centre = int(np.argmax(np.cumsum(row) >= 1.0))  # the leading edge
+        return int(np.argmax(np.cumsum(row[centre::-1]) >= 0.5))
+
+    assert half_extent(exp_row) <= 3
+    assert half_extent(box_row) >= 5
+    assert float(exp_row.max()) > 1.8 * float(box_row.max())
+
+
+def test_the_decay_is_the_bolometer_s_and_only_the_bolometer_s() -> None:
+    assert smear_decay_frames(1.0 / 60.0, None, 8.0e-3) == pytest.approx(BOSON_DECAY)
+    assert smear_decay_frames(1.0 / 60.0, 2.0e-3, None) is None  # a photon FPA keeps its box
+    with pytest.raises(ValueError, match="thermal time constant"):
+        smear_decay_frames(1.0 / 60.0, None, None)
+    with pytest.raises(ValueError, match="decay_frames"):
+        apply_motion_smear(np.zeros((8, 8)), np.ones((8, 8, 2)), 1.0, decay_frames=0.0)

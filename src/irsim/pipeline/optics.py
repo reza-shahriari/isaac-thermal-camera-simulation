@@ -20,7 +20,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.config.sensor import SensorSpec
-from irsim.optics.smear import smear_duty
+from irsim.optics.smear import smear_decay_frames, smear_duty
 from irsim.optics.stage import apply_optics
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 
@@ -55,6 +55,22 @@ def motion_for_integration(planes: Planes, sensor: SensorSpec) -> NDArray[np.flo
     return np.asarray(motion, dtype=np.float64) * duty
 
 
+def motion_decay(sensor: SensorSpec) -> float | None:
+    """The bolometer's ``tau_th / T`` for the smear kernel; ``None`` for a photon FPA's box.
+
+    The frame period is the detector's own, ``1 / frame_rate_hz``, for the reason
+    :func:`motion_for_integration` gives: a time-lapse's capture step is not what it smears over.
+    """
+    tau_ms = getattr(sensor.fpa, "thermal_time_constant_ms", None)
+    return smear_decay_frames(
+        1.0 / float(sensor.fpa.frame_rate_hz),
+        None
+        if sensor.fpa.integration_time_ms is None
+        else float(sensor.fpa.integration_time_ms) * 1e-3,
+        None if tau_ms is None else float(tau_ms) * 1e-3,
+    )
+
+
 def optics_stage(planes: Planes, config: PipelineConfig, state: PipelineState) -> Planes:
     """Stage-3 entry point: supersampled ``radiance`` → ``flux`` on the detector grid."""
     return {
@@ -65,6 +81,7 @@ def optics_stage(planes: Planes, config: PipelineConfig, state: PipelineState) -
             supersample=config.supersample,
             psf=config.psf,
             motion_px=motion_for_integration(planes, config.sensor.sensor),
+            motion_decay_frames=motion_decay(config.sensor.sensor),
         )
     }
 

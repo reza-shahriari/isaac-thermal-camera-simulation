@@ -25,6 +25,7 @@ docs/physics-model.md §8.3 (``mtf_motion``), §9.2, §16; ADR 0077, ADR 0014 ad
 
 from __future__ import annotations
 
+import math
 import pathlib
 
 import numpy as np
@@ -35,7 +36,7 @@ from irsim.materials.mapping import Resolution
 from irsim.optics.projection import Intrinsics
 from irsim.optics.smear import apply_motion_smear, smear_duty
 from irsim.pipeline.core import PipelineConfig
-from irsim.pipeline.optics import motion_for_integration
+from irsim.pipeline.optics import motion_decay, motion_for_integration
 from irsim.scene import Scene
 from irsim_isaac.pipeline.gbuffer_isaac import RawAovs
 from irsim_isaac.pipeline.ir_camera import IrCamera
@@ -435,7 +436,10 @@ def test_a_crossing_target_smears_lwir_and_leaves_cooled_mwir_sharp() -> None:
         motion[..., 0] = px_per_frame
         scaled = motion_for_integration({"motion_px": motion}, sensor)
         assert scaled is not None
-        return rise_width(np.asarray(apply_motion_smear(edge, scaled, 1.0)))
+        # The pipeline's own kernel: the membrane's exponential for the bolometer, the shutter's
+        # box for the photon FPA (ADR 0077 amendment).
+        decay = motion_decay(sensor)
+        return rise_width(np.asarray(apply_motion_smear(edge, scaled, 1.0, decay_frames=decay)))
 
     # The control: the same estimator on the same edge with nothing applied. A 10-90 width has a
     # floor of a pixel or two on a discretised step, so "sharp" has to be measured rather than
@@ -445,10 +449,14 @@ def test_a_crossing_target_smears_lwir_and_leaves_cooled_mwir_sharp() -> None:
     lwir = smeared_width("flir_boson_640_lwir.yaml")
     mwir = smeared_width("example_mwir_insb_640.yaml")
 
-    # A box smear of width w turns a step into a linear ramp of width w, whose 10-90 portion is
-    # 0.8 w -- so the number to expect for the bolometer is 8.8 px, not 11. Stating it that way
-    # rather than widening a tolerance around 11 keeps the test measuring the smear.
-    assert lwir == pytest.approx(0.8 * px_per_frame, abs=1.5), lwir
+    # The bolometer's membrane turns a step into the exponential's CDF over the frame, so its
+    # 10-90 width is the gap between the CDF's 10 % and 90 % points: with a = tau/T,
+    # s_p = -a ln(1 - p (1 - e^(-1/a))) of a frame -- 7.7 px of 11 for the Boson's 8 ms, where a
+    # box over the whole frame would give 0.8 w = 8.8 px. Stating it that way rather than
+    # widening a tolerance around 11 keeps the test measuring the smear.
+    a = 8.0e-3 * 60.0
+    s10, s90 = (-a * math.log(1.0 - p * (1.0 - math.exp(-1.0 / a))) for p in (0.1, 0.9))
+    assert lwir == pytest.approx((s90 - s10) * px_per_frame, abs=1.0), lwir
     assert lwir - sharp > 6.0, (lwir, sharp)
 
     # The cooled detector, on the same scene at the same velocity, is within a pixel of sharp.

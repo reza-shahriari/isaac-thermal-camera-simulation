@@ -75,6 +75,7 @@ def apply_optics(
     supersample: int | None = None,
     psf: NDArray[np.float64] | None = None,
     motion_px: NDArray[np.floating] | None = None,
+    motion_decay_frames: float | None = None,
 ) -> NDArray[np.float32]:
     """Scene band radiance on the k× grid → pixel power Φ (H, W) float32.
 
@@ -86,12 +87,14 @@ def apply_optics(
 
     ``motion_px`` is the supersampled displacement per frame, already scaled by the integration
     duty (:func:`irsim.optics.smear.smear_duty`) by the caller -- a bolometer integrates the whole
-    frame, a cooled photon detector a fraction of it.
+    frame, a cooled photon detector a fraction of it. ``motion_decay_frames`` is the bolometer's
+    ``tau_th / T`` (:func:`irsim.optics.smear.smear_decay_frames`): with it the smear is the
+    membrane's trailing exponential rather than a box (ADR 0077 amendment).
     """
     k = sensor.optics.supersample_factor if supersample is None else supersample
     blurred = apply_psf(radiance_ss, psf) if psf is not None else radiance_ss
     if motion_px is not None:
-        blurred = apply_motion_smear(blurred, motion_px, 1.0)
+        blurred = apply_motion_smear(blurred, motion_px, 1.0, decay_frames=motion_decay_frames)
     radiance = box_downsample(blurred, k)
     _check_native(radiance, sensor, "downsampled radiance")
     a_d = sensor.detector_active_area_m2
