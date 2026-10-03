@@ -794,6 +794,14 @@ voxels [R74]. Two consequences are physics, not rendering:
    matter most. Inside the envelope the march steps at most half the finest surviving detail;
    outside it the march skips.
 
+**The field is a function, and the camera marches it (`WX.23`, ADR 0185).** The cloud the visible
+camera sees is evaluated per pixel along each ray, on the GPU, from a two-dimensional weather map, a
+per-genus height profile and two tiling noises: the construction of real-time volumetric clouds
+[R117]. Nothing is painted on a dome at a fixed texel size, so the cloud is as sharp as the screen in
+every direction and the camera can move through it. The same function read on the CPU with emission in
+place of scattering is the infrared cloud, which is the one-field rule above in its strongest form: one
+definition, two bands, held equal by a test (the GPU density is the numpy density to 0.05).
+
 **Two sources, one contract.** A cloud field may be *procedural* — an envelope from fractal and
 cellular noise, as `isaac-weather-fx` builds it — or a *volume asset*: a cloud from a large-eddy
 simulation, which carries liquid water and temperature in physical units [R75][R76], or a sculpted
@@ -2374,6 +2382,7 @@ search notes are `docs/research/2026-10-01-weather-in-the-infrared.md`)
 - [R114] F. Ritter, M. Berkelhammer, D. Beysens, *Dew frequency across the US from a network of in situ radiometers*, Hydrol. Earth Syst. Sci. 23, 1179–1197 (2019). doi:10.5194/hess-23-1179-2019
 - [R115] G. Jobert et al., *Windshield integration of thermal and color fusion for automatic emergency braking in low visibility conditions*, arXiv:2410.04928 (2024) — a drop on the window lowers LWIR responsivity to ~90 % without blur.
 - [R116] S. Hillaire, *A scalable and production ready sky and atmosphere rendering technique*, Computer Graphics Forum 39(4), 13–22 (EGSR 2020). doi:10.1111/cgf.14050 — the sky-view table, the multiple-scattering table and the aerial-perspective volume.
+- [R117] A. Schneider, N. Vos, *The real-time volumetric cloudscapes of Horizon: Zero Dawn*, SIGGRAPH 2015 Advances in Real-Time Rendering; A. Schneider, *Nubis: authoring real-time volumetric cloudscapes with the Decima Engine*, SIGGRAPH 2017 — weather map, height profile, Perlin-Worley shape and Worley detail erosion; the construction Unreal Engine's volumetric clouds follow.
 
 **Related open work**
 

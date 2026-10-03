@@ -915,6 +915,38 @@ sections:
           cloud seen through the air in front of it.
     source: scripts/cloud_look.py
 
+  - id: cloud-function
+    title: The cloud as a function, marched per pixel
+    lead: |
+      An audit of the shipped clouds in Isaac Sim (`outputs/cloud_audit/`) showed why they still
+      looked wrong after four steps of corrections: the real-time sky is a cloud painted on a dome
+      texture, about fifteen camera pixels per cloud texel and a different sharpness in every
+      direction, and the path tracer's cloud is a 60 m voxel grid. Since `WX.23` the cloud is a
+      function instead (ADR 0185), the way Unreal Engine's volumetric clouds are built: a weather
+      map says where the clouds are and how tall, a height profile gives each its flat base and
+      rounded top, and two tiling noises erode the edge. A GPU kernel marches that function along
+      every camera pixel's ray in 6–13 ms a frame, lights it by the sun's two-stream chord and a mix
+      of sky and ground light, and the sky model composes it through the air in front of it. The
+      same function is what the infrared march will read, so there is nothing picture-based left to
+      convert. Not yet in the live viewport or the path tracer; the look is a first pass.
+    media:
+      - image: cloud_function/four_headings.png
+        width: full
+        caption: >-
+          The rotation test. One sky at 14:30 UTC, 35 % cumulus, a 70° camera 22° up, pointed
+          north, east, south and west (clockwise from top left; the sun is in the west). The dome
+          could not give these four frames the same sharpness.
+      - video: cloud_function/cloud_function_pan.mp4
+        caption: >-
+          The camera turns through a full circle at 14:30 UTC, 90 frames, 1280 × 720.
+      - video: cloud_function/cloud_function_day.mp4
+        caption: >-
+          One heading (300°) from 05:30 to 20:18 UTC on 21 June at Munich, 60 frames: the sun
+          rises behind the camera, crosses the frame in the afternoon, and sets in it, with the
+          silver lining and the dark bases that follow from the two-stream chord. Auto-exposed
+          through an ACES curve as a stand-in camera, not the RTX tonemapper.
+    source: scripts/cloud_look.py
+
   - id: cloud-shape
     title: Clouds the size real clouds are
     lead: |

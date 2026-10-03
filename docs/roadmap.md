@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 80 open steps
+#### Then, in order — 83 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WX.7`** | WX | A | L | 8 | ready |
 | 2 | **`WX.8`** | WX | A | M | 7 | `WX.7` |
 | 3 | **`WX.11`** | WX | A | S | 2 | ready |
-| 4 | **`WX.21`** | WX | A | M | 1 | ready |
-| 5 | **`WX.22`** | WX | A | L | 1 | ready |
-| 6 | **`WX.10`** | WX | A | M | — | ready |
-| 7 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.21`, `WX.22` |
-| 8 | **`XD.6`** | XD | A | L | — | ready |
-| 9 | **`AT.26`** | AT | B | S | — | ready |
-| 10 | **`IG.16`** | IG | B | M | — | ready |
-| 11 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 12 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
-| 13 | **`TC.15`** | TC | C | M | 1 | ready |
-| 14 | **`WX.12`** | WX | C | M | 1 | `WX.11` |
-| 15 | **`PT.27`** | PT | C | S | — | ready |
+| 4 | **`WX.24`** | WX | A | L | 2 | ready |
+| 5 | **`WX.25`** | WX | A | M | 1 | ready |
+| 6 | **`WX.26`** | WX | A | M | 1 | ready |
+| 7 | **`WX.22`** | WX | A | L | 1 | ready |
+| 8 | **`WX.10`** | WX | A | M | — | ready |
+| 9 | **`WX.27`** | WX | A | M | — | `WX.24` |
+| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.24`, `WX.25`, `WX.26` |
+| 11 | **`XD.6`** | XD | A | L | — | ready |
+| 12 | **`AT.26`** | AT | B | S | — | ready |
+| 13 | **`IG.16`** | IG | B | M | — | ready |
+| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
 
-…and 65 more — `python scripts/next_step.py --queue 40`.
+…and 68 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -284,7 +284,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `TC.9`–`TC.12`, `TC.16`, `PH.1`–`PH.8`, `PH.13`, `PT.25`, `PT.26`, `AT.24`, `IG.20`, `IG.21`, `IG.22` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half, staged by `IG.20` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.18`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.36`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`, `EV.15`, `WX.1`–`WX.11`, `WX.21`, `WX.22` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.18`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.36`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`, `EV.15`, `WX.1`–`WX.11`, `WX.21`–`WX.27` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`, `XD.5`, `XD.7`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -609,7 +609,7 @@ the impact of haze, fog, rain and snow in IR viewport."* The order is the owner'
 
 1. physics first (`WX.1`);
 2. then clouds — the visible companion first, the infrared after it, with **both** cloud sources built to
-   parity so one can be accepted later (`WX.2`–`WX.10`, `WX.21`, `WX.22`);
+   parity so one can be accepted later (`WX.2`–`WX.10`, `WX.21`–`WX.27`);
 3. then fog, rain and snow (`WX.11`–`WX.20`).
 
 The evidence is `docs/research/2026-10-01-weather-in-the-infrared.md`; the physics is
@@ -662,7 +662,7 @@ repository green on `make check`.
 | WX.6 | ✅ **done** (ADR 0184), shape only; the tiling is `WX.22`. weather-fx `7d15e58`: `core.morphology` measures a field from above; the coverage map carries 200 m features and three octaves of thermals; stratocumulus is isotropic. | 35 % cumulus at 15 m: D 1.31–1.34, b 2.58 → 1.91 (1.73 at 15 %). Stratocumulus stripe ratio 4.1 → 1.17 (isotropic scatter 0.84–1.23). | WX.4 | M | A |
 | WX.7 | **The volume-asset source to parity** (in `isaac-weather-fx`): hero clouds in the real-time dome as well as the path tracer; several assets with per-instance yaw; large-eddy import (LASSO, htrdr) with σ_vis from liquid water and r_e, and temperature kept; placement by the coverage map; one `CloudSource` contract for both sources. | A hero or LES cloud appears in both tiers and both bands at one position (masks agree to a pixel); an LES field's optical depth equals 3 LWP/(2 ρ_w r_e) column by column; two instances of one asset differ by their yaw. | WX.3 | L | A |
 | WX.8 | **The infrared band over either source.** The march reads the contract: volume-asset clouds occlude targets and emit at their own temperature (LES T where present, else the deck's adiabat with the moist rate in cloud); the band ratio from r_e through a Mie κ_B(r_e) table. | A target behind an LES cloud reads as the cloud; an isothermal LES cloud closes to 1e-9; the r_e = 10 µm ratio reproduces 0.50 to 0.02; a target-free sky reproduces AT.14's numbers on the procedural source. | WX.2, WX.7 | M | A |
-| WX.9 | **The comparison and the switch.** `clouds.model: procedural · volumes · mixed`; one command renders one scene each way as RGB and IR side by side, encoded to video and placed on the site, for the owner to accept one (ADR on acceptance). | Three clips from one seed and one camera path; each pair passes WX.3's criteria and agrees on cloud pixels between bands. | WX.5, WX.6, WX.8, WX.21, WX.22 | M | A |
+| WX.9 | **The comparison and the switch.** `clouds.model: procedural · volumes · mixed`; one command renders one scene each way as RGB and IR side by side, encoded to video and placed on the site, for the owner to accept one (ADR on acceptance). | Three clips from one seed and one camera path; each pair passes WX.3's criteria and agrees on cloud pixels between bands. | WX.8, WX.22, WX.24, WX.25, WX.26 | M | A |
 | WX.10 | **Cloud shadows on surfaces** (§6.7): the direct beam on a facet through the shared field, e^{−τ} along the sun ray, its area mean held to the series' attenuation. | A patch under a 50 % cumulus field shows shadowed and lit cells whose mean equals the uniform model's to 1 %; a drifting shadow leaves a cool footprint that lags it by the patch's time constant. | WX.2 | M | A |
 | WX.11 | **Visibility read at 5 %** (`S60`; tell `AT.35`'s owner first: this moves `gamma_aerosol`). `KOSCHMIEDER` 3.912 → MOR 2.996 in `irsim.atmosphere.extinction`; ADR 0049 amended; preset visibilities and goldens refit. | A weather-fx visibility V gives σ_vis = 2.996/V on both sides of the submodule (fails today: 31 % apart); §7.2's haze row refit at its new visibility. | — | S | A |
 | WX.12 | **Fog band ratios from droplet size** (`S59`, §7.7): a Mie table of band/visible extinction by r_eff; a fog medium carries r_eff from its type and stage; the `droplet` regime retired. | MWIR, SWIR and NIR fog extinction ≥ the visible for any r_eff ≥ 2 µm (fails today: 0.24–0.60); LWIR/visible 0.35 ± 0.05 at r_eff 3 µm and 1.10 ± 0.05 at 15 µm; Tier 3 "MWIR/SWIR no later than the visible in fog". | WX.11 | M | C |
@@ -674,9 +674,13 @@ repository green on `make check`.
 | WX.18 | **The wet surface reads its film** (§4.6, `S63`): ε_wet and the specular fraction from film depth and macrotexture per band; dew and frost onto dry surfaces. | A 0.1 mm film reads water's ε(θ) in LWIR to 0.005 and is specular; a dry patch is bit-identical; a clear night forms dew on a car roof by dawn; Tier 3 "a wet road mirrors the cold sky at grazing angles". | — | M | C |
 | WX.19 | **Precipitation carries heat** (§6.7): Q_P = ṁ c_w (T_rain − T_s), snow at its own temperature and L_f while melting. | −58 ± 2 W m⁻² at 10 mm h⁻¹ on a road 5 K above the drops; zero with no rain; an energy budget that closes to 1e-6 with the film. | — | S | C |
 | WX.20 | **Water and snow on the window** (§9.6): a blocked fraction of each pixel's beam footprint at the drop's temperature, from the pupil's position. | One drop covering 10 % of the aperture lowers responsivity to 0.90 ± 0.01 with no change of MTF (Jobert et al. 2024); a drop on a window ahead of the pupil shades a soft-edged region. | WX.15 | M | C |
-| WX.21 | **A dome that resolves the camera's pixel** (in `isaac-weather-fx`; split from `WX.5`): the real-time dome's cloud baked to at most two camera pixels per texel over the companion's frustum, rather than 256 rows over 180°. Edge integration (`WX.4`) and aerial perspective (`WX.5`) cost per marched texel, so the bake must stay interactive. | Dome texel ≤ 2 camera pixels at 50° HFOV (today ≈ 9); a re-bake while the clouds drift within the budget the weather-fx stage sets today. | WX.5 | M | A |
+| WX.21 | ✅ **closed without building — withdrawn** (ADR 0185). It was *a dome that resolves the camera's pixel*; the dome is no longer what the camera looks at, since the cloud is marched per pixel (`WX.23`). | Not built. The audit that withdrew it: `outputs/cloud_audit/`. | WX.5 | M | A |
 | WX.22 | **A field that does not repeat** (in `isaac-weather-fx`; split from `WX.6`): the procedural field aperiodic over the camera's range. The sun light maps, the path tracer's tiled volumes and the cover calibration all assume one periodic tile and move with it. | Mask autocorrelation at the old tile period < 0.1 (today 1.0 by construction); light maps and volumes agree with the dome beyond one tile; D and b still within §7.5's targets. | WX.6 | L | A |
-| WX.21 | **A dome that resolves the camera's pixel** (in `isaac-weather-fx`; split from `WX.5`): the real-time dome's cloud baked at the companion camera's own angular pitch over its frustum (a frustum-fitted layer or a finer band of rows), with `WX.4`'s edge rays and `WX.5`'s air kept per texel. | Dome texel ≤ 2 camera pixels at 50° HFOV over the companion's frustum (today ≈ 9); a frame's cloud matches `cloud_look.py`'s per-pixel render of the same sky within 5 % rms of luminance; the bake fits the drift re-bake budget. | WX.5 | M | A |
+| WX.23 | ✅ **done** (ADR 0185). weather-fx `ec6ead3`: `core.cloudscape` (weather map, height profile, shape and detail noise; numpy reference) and `gpu.cloud_march` (Warp: two-stream sun, sky/ground mix, premultiplied out), composed through the sky model's aerial perspective; `tools/render_cloudscape.py`. | GPU density = numpy to 0.05 max / 1e-3 mean over 20k points; furnace 2 %; four headings 90° apart at one sharpness; 6–13 ms per 1280×720 frame on the A6000. The look is a first pass (`WX.27`). | WX.6 | L | A |
+| WX.24 | **The per-pixel cloud in the live Isaac viewport** (in `isaac-weather-fx`): the layer composited over the camera's frame through depth, in RTX Real-Time, with the clear sky and the aerial perspective on the GPU too; the dome kept only to light the scene. | A viewport camera turning 360° shows one sharpness everywhere; ≥ 20 fps at 1280×720 on the A6000; a frame saved from the camera equals the live view. | WX.23 | L | A |
+| WX.25 | **The same function in the path tracer** (in `isaac-weather-fx`): the cloudscape exported as fine NanoVDB tiles with air in front of it, and bases no longer coloured by the ground's bounce. | Path-traced and real-time frames of one sky agree in median luminance within 15 % and in cloud layout per pixel (IoU ≥ 0.8); no olive tint on bases (chroma within 0.03 of neutral grey). | WX.23 | M | A |
+| WX.26 | **The infrared march reads the function.** `WeatherFxDeck` marches `Cloudscape.density` with emission at the height's temperature; both sources (`CloudField`, `Cloudscape`) behind ADR 0178's contract. | IR and RGB frames of one sky agree on cloud pixels (IoU ≥ 0.9); §7.5's IR criteria hold as for `CloudField`. | WX.23 | M | A |
+| WX.27 | **The look to the owner's eye** (in `isaac-weather-fx`): detail erosion frequencies and strength, lobe sizes and per-genus profiles tuned against reference photographs, judged by the owner on the viewport. | The owner accepts a cumulus, a stratocumulus and a sunset frame; §7.5's D and b targets still met on the new field. | WX.24 | M | A |
 
 ---
 
