@@ -765,13 +765,25 @@ is sampled — never multiplying the core, which would hollow it [R72][R73]. Det
 arithmetic rather than memory: Guerrilla's voxel clouds reach 0.5 m effective precision from 8 m
 voxels [R74]. Two consequences are physics, not rendering:
 
-1. **Detail is filtered to the pixel.** A pixel at range $R$ with instantaneous field of view
-   $\theta_p$ integrates a footprint $R\theta_p$. Detail finer than that cannot be resolved and, sampled
-   without filtering, aliases into noise — the static a broken-cumulus field shows toward the horizon
-   when 15 m detail is marched at 100 m steps. The field is sampled with its detail amplitude
-   band-limited to the footprint, and the march's step is tied to the finest scale that survives.
-   Each band filters to **its own** pixel. That keeps the one-field rule: the field is one function,
-   and each camera integrates it over its own pixel, as it physically does.
+1. **The pixel integrates radiance (`WX.4`, ADR 0181).** A pixel at range $R$ with instantaneous
+   field of view $\theta_p$ integrates the radiance over a footprint $R\theta_p$. Near the horizon that
+   footprint is also stretched across the cloud layer by $1/\sin e$. Sampled once, an edge crossing
+   the pixel aliases into noise: the static a broken-cumulus field shows toward the horizon.
+
+   The integral is taken in **radiance**, not in density. Blurring the density to the footprint was
+   measured to make the static worse: 26.6 % rms against a supersampled reference became 46.5 %, with
+   a −17 % bias. Opacity is not linear in density. A half-covered pixel is half cloud and half sky,
+   not a half-dense cloud over all of it, and along a kilometres-long grazing ray a half-dense cloud
+   is still opaque.
+
+   So each band marches one ray per pixel and marches again, through several rays, only the pixels
+   an edge crosses:
+   - **infrared:** every sample of the supersampled grid below 15° elevation, and one ray per 2 × 2
+     block above it;
+   - **visible dome:** 2 × 2 rays per texel, and 4 × 4 below 15°.
+
+   Each band integrates over **its own** pixel, which keeps the one-field rule: the field is one
+   function, and each camera integrates it as it physically does.
 2. **The step is set by the skin, not the grid.** A ray must resolve the 8–20 m skin where it enters
    a cloud, or the emission and the in-scattered light both come out wrong at the edge, where they
    matter most. Inside the envelope the march steps at most half the finest surviving detail;
@@ -925,8 +937,9 @@ media's emission is attenuated by the air between the camera and the range $R_m$
 is centred.
 
 **Sampling.** Inside a medium a step is at most half its finest surviving structure; outside every
-medium's bounds a ray is not sampled. Detail finer than a pixel's footprint at the sample's range is
-filtered to that footprint (§7.5). A ray is dropped once $\mathcal T < e^{-12}$ in the **band**.
+medium's bounds a ray is not sampled. A pixel whose footprint a medium's edge crosses is integrated
+by marching several rays through it, not by blurring the medium (§7.5). A ray is dropped once
+$\mathcal T < e^{-12}$ in the **band**.
 
 ### 7.7 Fog, mist and haze have structure
 

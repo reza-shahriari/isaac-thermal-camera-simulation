@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 81 open steps
+#### Then, in order — 80 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WX.7`** | WX | A | L | 8 | ready |
 | 2 | **`WX.8`** | WX | A | M | 7 | `WX.7` |
 | 3 | **`WX.11`** | WX | A | S | 2 | ready |
-| 4 | **`WX.4`** | WX | A | M | 2 | ready |
-| 5 | **`WX.5`** | WX | A | M | 1 | ready |
-| 6 | **`WX.6`** | WX | A | M | 1 | `WX.4` |
-| 7 | **`WX.10`** | WX | A | M | — | ready |
-| 8 | **`WX.9`** | WX | A | M | — | `WX.5`, `WX.6`, `WX.8` |
-| 9 | **`XD.6`** | XD | A | L | — | ready |
-| 10 | **`AT.26`** | AT | B | S | — | ready |
-| 11 | **`IG.16`** | IG | B | M | — | ready |
-| 12 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 13 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
-| 14 | **`TC.15`** | TC | C | M | 1 | ready |
-| 15 | **`WX.12`** | WX | C | M | 1 | `WX.11` |
+| 4 | **`WX.5`** | WX | A | M | 1 | ready |
+| 5 | **`WX.6`** | WX | A | M | 1 | ready |
+| 6 | **`WX.10`** | WX | A | M | — | ready |
+| 7 | **`WX.9`** | WX | A | M | — | `WX.5`, `WX.6`, `WX.8` |
+| 8 | **`XD.6`** | XD | A | L | — | ready |
+| 9 | **`AT.26`** | AT | B | S | — | ready |
+| 10 | **`IG.16`** | IG | B | M | — | ready |
+| 11 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 12 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 13 | **`TC.15`** | TC | C | M | 1 | ready |
+| 14 | **`WX.12`** | WX | C | M | 1 | `WX.11` |
+| 15 | **`PT.27`** | PT | C | S | — | ready |
 
-…and 66 more — `python scripts/next_step.py --queue 40`.
+…and 65 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -657,7 +657,7 @@ repository green on `make check`.
 | WX.1 | ✅ **done.** The physics before any code: §4.6 wet surfaces, §6.7 rain's heat and local shadows, §7.2 note (fog rows, visibility at 5 %), §7.5 cloud-shape targets, detail filtered to the pixel, two sources, the companion's five criteria, §7.6 one march for every medium, §7.7 fog layers, §7.8 rain and snow, §9.6 window drops; `S59`–`S65`; this lane. | **Sourced.** [R62]–[R115]; band-ratio and rain tables from this repository's Mie code; notes and scripts in `docs/research/2026-10-01-weather/`. | — | M | A |
 | WX.2 | ✅ **done** (ADR 0178). Submodule `11bf843`: `CloudField`/`HeroClouds.finest_pitch_m`. `sample_pitch_m` reads it, three samples per pitch (`samples_per_pitch`), 512 cap. `path_traced_volume_settings()` reads upstream's tables (32 volume bounces). | p99 ε vs 4096 steps: bridge deck 0.024 → 0.007; production 20°–60° 0.018 → 0.009 (1.8× time), 5°–30° 0.012 → 0.005. Origin test on a fan of rays. | — | M | A |
 | WX.3 | ✅ **done** (ADR 0180). weather-fx `ac7b3b9`: sky/ground light (energy-conserving), single scattering, two-stream along each sun chord (`S = I − dI/dτ`); light maps hold optical depth; 32 volume bounces (`WX.2`). `cloud_look.py`. | Furnace 1e-4 (was black); thin edges ≥ 1.01 of the sky (outside 15° of the sun); τ > 30 bases 0.82–0.89 of a lit flank; deck 1.005 of two-stream (was 0.92). | WX.2 | L | A |
-| WX.4 | **Detail filtered to the pixel** (§7.5). `density(x, y, z, footprint_m=)` band-limits the detail to a footprint; the dome bake passes its texel's, the infrared march its own pixel's, and the march steps at half the finest surviving scale. | **Horizon static:** at elevation < 10°, high-frequency energy against a 4×4 supersampled reference falls below 10 % of today's, in both bands; near clouds keep their 15 m detail (unchanged within noise above 30° at short range); the infrared march's cost on a broken-cumulus frame at most 2× WX.2's. | WX.2 | M | A |
+| WX.4 | ✅ **done** (ADR 0181). The pixel integrates radiance: edge pixels are marched again. `march_on_native_grid` (IR: every sample below 15°, 2×2 blocks above); dome `_integrate_cloud_edges` (weather-fx `5853dcc`, `dome_edge_rays`). Density filtering, the original plan, measured worse. | IR static energy 0.1 % (5°) and 0.5 % (30°) of one ray's, at 1.09× and 1.87× the rays. Dome: 9.1 % below 10°, 4.2× rays (bake 4.1 → 8.0 s). | WX.2 | M | A |
 | WX.5 | **Aerial perspective and a dome that resolves the camera's pixel** (in `isaac-weather-fx`): cloud radiance composed through the atmosphere's transmittance to its emission range; the real-time dome's cloud baked to at most two camera pixels per texel over the companion's frustum. | A cloud's contrast against the horizon falls with range as the air's transmittance (within 5 % at 5, 15, 30 km); dome texel ≤ 2 camera pixels at 50° HFOV (today ≈ 9). | WX.3 | M | A |
 | WX.6 | **The shape to §7.5's targets** (in `isaac-weather-fx`): measure outline dimension, size exponent and edge width on rendered cloud masks; break the horizontal tiling; remove the stratocumulus stripes. | Area–perimeter dimension 1.3–1.4; size exponent 1.7–2.0 below a 0.5–1 km break; autocorrelation at the tile period < 0.1 (today 1.0 by construction); no along-wind stripe in the 2-D spectrum above the noise floor. | WX.4 | M | A |
 | WX.7 | **The volume-asset source to parity** (in `isaac-weather-fx`): hero clouds in the real-time dome as well as the path tracer; several assets with per-instance yaw; large-eddy import (LASSO, htrdr) with σ_vis from liquid water and r_e, and temperature kept; placement by the coverage map; one `CloudSource` contract for both sources. | A hero or LES cloud appears in both tiers and both bands at one position (masks agree to a pixel); an LES field's optical depth equals 3 LWP/(2 ρ_w r_e) column by column; two instances of one asset differ by their yaw. | WX.3 | L | A |

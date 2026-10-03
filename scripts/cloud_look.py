@@ -33,6 +33,7 @@ field measured, and the weather-fx commit the frames came from.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import math
 import pathlib
@@ -96,6 +97,35 @@ def tone(radiance: np.ndarray, exposure: float, target: float) -> np.ndarray:
     return (np.clip(srgb, 0.0, 1.0) * 255.0 + 0.5).astype(np.uint8)
 
 
+def _pixel_radiance(sky, conditions, rays: np.ndarray, stride: int, exposure: float) -> np.ndarray:
+    """Each output pixel's radiance: one ray per pixel at ``stride`` 1; otherwise the pixel
+    integrated over a ``stride``-times grid by marching its cloud edges again
+    (``irsim.atmosphere.cloud_deck.march_on_native_grid``, the infrared camera's own rule, WX.4)
+    and box-averaging, as a detector does."""
+    if stride <= 1:
+        return sky.sky_radiance_rgb(rays.reshape(-1, 3), conditions).reshape(rays.shape)
+    sys.path.insert(0, str(ROOT / "src"))
+    from irsim.atmosphere.cloud_deck import march_on_native_grid
+
+    luma = np.array([0.2126, 0.7152, 0.0722])
+    scale = exposure / sky.DOME_HIGHLIGHT_TARGET
+    el = np.arcsin(np.clip(rays[..., 1], -1.0, 1.0))
+    az = np.arctan2(rays[..., 0], -rays[..., 2])
+
+    def evaluate(e, a):
+        e, a = np.asarray(e), np.asarray(a)
+        d = np.stack([np.cos(e) * np.sin(a), np.sin(e), -np.cos(e) * np.cos(a)], axis=-1)
+        rgb = sky.sky_radiance_rgb(d.reshape(-1, 3), conditions).reshape(e.shape + (3,))
+        # The first plane is what decides an edge: luminance on the display's scale, where the
+        # metered highlight is about 1, so 0.02 is a just-visible step.
+        return (rgb @ luma * scale, rgb[..., 0], rgb[..., 1], rgb[..., 2])
+
+    _, r, g, b = march_on_native_grid(evaluate, el, az, stride, threshold=0.02)
+    rgb = np.stack([r, g, b], axis=-1)
+    rows, cols = el.shape[0] // stride, el.shape[1] // stride
+    return rgb.reshape(rows, stride, cols, stride, 3).mean(axis=(1, 3))
+
+
 def render(args: argparse.Namespace) -> None:
     commit = _use_weather_fx(args.weather_fx_root)
     from PIL import Image
@@ -104,7 +134,10 @@ def render(args: argparse.Namespace) -> None:
 
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    rays = camera_directions(args.width, args.height, args.hfov, args.elevation, args.azimuth)
+    stride = max(1, int(args.stride))
+    rays = camera_directions(
+        args.width * stride, args.height * stride, args.hfov, args.elevation, args.azimuth
+    )
     hours = np.linspace(args.start_hour, args.end_hour, args.frames)
     frames = []
     for index, hour in enumerate(hours):
@@ -131,9 +164,15 @@ def render(args: argparse.Namespace) -> None:
             strict=False,
         )
         conditions = sky.conditions_from_state(state)
+        if args.drift_mps:
+            # The wind carries the field along +X at the given speed from the first frame.
+            elapsed = (float(hour) - args.start_hour) * 3600.0
+            conditions = dataclasses.replace(
+                conditions, cloud_offset_m=(args.drift_mps * elapsed, 0.0, 0.0)
+            )
         exposure = sky.dome_exposure(sky.environment_map(conditions, height=128), conditions)
-        radiance = sky.sky_radiance_rgb(rays.reshape(-1, 3), conditions)
-        image = tone(radiance.reshape(rays.shape), exposure, sky.DOME_HIGHLIGHT_TARGET)
+        radiance = _pixel_radiance(sky, conditions, rays, stride, exposure)
+        image = tone(radiance, exposure, sky.DOME_HIGHLIGHT_TARGET)
         Image.fromarray(image).save(out / f"frame_{index:04d}.png")
         frames.append(
             {
@@ -171,6 +210,8 @@ def render(args: argparse.Namespace) -> None:
         "camera": {
             k: getattr(args, k) for k in ("width", "height", "hfov", "elevation", "azimuth")
         },
+        "stride": stride,
+        "drift_mps": args.drift_mps,
         "tone": f"1 - exp(-{TONE_GAIN} L e / DOME_HIGHLIGHT_TARGET), sRGB; not the RTX tonemapper",
         "frames": frames,
     }
@@ -242,6 +283,16 @@ def main() -> None:
     one.add_argument("--seed", type=int, default=17)
     one.add_argument("--temperature", type=float, default=22.0)
     one.add_argument("--dewpoint", type=float, default=12.0)
+    one.add_argument(
+        "--stride",
+        type=int,
+        default=1,
+        help="integrate each pixel over a stride x stride grid, marching only its cloud edges "
+        "again (WX.4); 1 is one ray per pixel",
+    )
+    one.add_argument(
+        "--drift-mps", type=float, default=0.0, help="wind carrying the field along +X, m/s"
+    )
     pair = sub.add_parser("compose", help="put two renders of one scene side by side as a video")
     pair.add_argument("left")
     pair.add_argument("right")

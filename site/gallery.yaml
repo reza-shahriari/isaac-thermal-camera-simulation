@@ -876,6 +876,26 @@ sections:
       layer of its depth is.
     source: scripts/cloud_look.py
 
+  - id: cloud-static
+    title: A pixel integrates the cloud; it does not sample it
+    lead: |
+      Broken cumulus near the horizon used to shimmer: each pixel was one ray, so it read cloud or
+      sky by the luck of where that ray landed, and a cloud edge crossing the pixel became noise.
+      A detector pixel averages the radiance over its footprint, and near the horizon that
+      footprint spans kilometres of the cloud layer. Since `WX.4` the pixels an edge crosses are
+      marched again through several rays and averaged (ADR 0181) — in the infrared at a Boson's
+      pitch the static energy falls to 0.1 % of what it was at 5° elevation and 0.5 % at 30°, for
+      1.09× and 1.87× the rays. Blurring the cloud's density to the pixel was tried first and made
+      it worse: opacity is not linear in density.
+    media:
+      - video: cloud_look_static/cloud_static_before_after.mp4
+        width: full
+        caption: >-
+          The same band of sky from the horizon to 12°, 35 % cumulus drifting at 10 m/s, 36 frames
+          over three minutes. Left, one ray per pixel; right, each pixel integrated over a 4 × 4
+          grid with only its cloud edges marched again — the infrared camera's own rule.
+    source: scripts/cloud_look.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |

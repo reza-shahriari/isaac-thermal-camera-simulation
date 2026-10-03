@@ -49,7 +49,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from irsim.atmosphere.cloud import SkyFixedCloud, generate_sky_cloud, sky_angles
-from irsim.atmosphere.cloud_deck import CloudDeck, resample_bilinear
+from irsim.atmosphere.cloud_deck import CloudDeck, march_on_native_grid
 from irsim.atmosphere.sea import SeaModel
 from irsim.atmosphere.sky import SkyModel
 from irsim.pipeline.atmosphere import CloudOcclusion
@@ -64,6 +64,13 @@ __all__ = [
     "elevation_from_rays",
     "azimuth_from_rays",
 ]
+
+#: WX.4 (docs/physics-model.md §7.5): a native pixel whose marched sky differs from a neighbour's
+#: by more than this is marched again at its samples. 0.5 K is a 0.02 change of emissivity on a
+#: cloud about 25 K above the clear sky behind it.
+EDGE_THRESHOLD_K = 0.5
+#: The same, for the transmittance of the cloud in front of a hit.
+EDGE_THRESHOLD_TRANSMITTANCE = 0.02
 
 #: Thermal tick rate. Surface temperature is a minutes-scale quantity; 1 Hz is already far finer
 #: than anything the energy balance resolves, and it decouples the result from the frame rate.
@@ -500,15 +507,18 @@ class AerialThermalBridge:
         # horizon, and the first one that did not was the aircraft filmed from below.
         el = np.maximum(np.asarray(elev, dtype=np.float64), 0.0)
         az = np.asarray(azim, dtype=np.float64)
-        k = self.deck_stride
-        if k <= 1 or el.ndim != 2 or min(el.shape) < 2 * k:
-            return np.asarray(
-                self.sky.apparent_temperature_field_from_deck(t_abs, el, az, self.deck)
-            )
-        coarse = self.sky.apparent_temperature_field_from_deck(
-            t_abs, el[::k, ::k], az[::k, ::k], self.deck
+        sky, deck = self.sky, self.deck
+
+        def evaluate(e: Any, a: Any) -> tuple[Any, ...]:
+            return (sky.apparent_temperature_field_from_deck(t_abs, e, a, deck),)
+
+        # WX.4: the pixels a cloud edge crosses are marched again, so each detector pixel
+        # integrates the cloud rather than sampling it (march_on_native_grid). 0.5 K is a 0.02
+        # change of emissivity on a cloud about 25 K above the clear sky behind it.
+        (temperature,) = march_on_native_grid(
+            evaluate, el, az, self.deck_stride, threshold=EDGE_THRESHOLD_K
         )
-        return resample_bilinear(coarse, el.shape)
+        return temperature
 
     def cloud_occlusion(
         self, elevation_rad: Any, azimuth_rad: Any, distance_m: Any, sky_mask: Any
@@ -527,16 +537,22 @@ class AerialThermalBridge:
         az = np.asarray(azimuth_rad, dtype=np.float64)
         sky = np.asarray(sky_mask, dtype=bool)
         rng = np.where(sky, np.inf, np.asarray(distance_m, dtype=np.float64))
-        k = self.deck_stride
-        if k <= 1 or el.ndim != 2 or min(el.shape) < 2 * k:
-            m = self.sky.cloud_occlusion(t_abs, el, az, self.deck, rng)
-            return CloudOcclusion(m.transmittance, m.path_radiance, m.emission_range_m)
-        m = self.sky.cloud_occlusion(t_abs, el[::k, ::k], az[::k, ::k], self.deck, rng[::k, ::k])
-        return CloudOcclusion(
-            resample_bilinear(m.transmittance, el.shape),
-            resample_bilinear(m.path_radiance, el.shape),
-            resample_bilinear(m.emission_range_m, el.shape),
+        model, deck = self.sky, self.deck
+
+        def evaluate(e: Any, a: Any, r: Any) -> tuple[Any, ...]:
+            m = model.cloud_occlusion(t_abs, e, a, deck, r)
+            return (m.transmittance, m.path_radiance, m.emission_range_m)
+
+        # WX.4: refined where the cloud's transmittance changes across a pixel, as the sky is.
+        transmittance, path_radiance, emission_range = march_on_native_grid(
+            evaluate,
+            el,
+            az,
+            self.deck_stride,
+            threshold=EDGE_THRESHOLD_TRANSMITTANCE,
+            extras=(rng,),
         )
+        return CloudOcclusion(transmittance, path_radiance, emission_range)
 
     def sky_temperature(self, elevation_rad: Any) -> NDArray[np.float64]:
         """MS.2's apparent sky temperature; elevations must be above the horizon."""
