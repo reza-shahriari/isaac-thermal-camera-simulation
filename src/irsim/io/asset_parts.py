@@ -158,6 +158,12 @@ class PartSelector(_Frozen):
 
     #: Source material names, matched case-insensitively. Empty means "any material".
     materials: list[str] = Field(default_factory=list)
+    #: Source object names (``Component.source``: the object in the render pass, the archive prim
+    #: in the thermal pass, which carry the same names), matched case-insensitively. Empty means
+    #: "any object". For an asset whose parts *are* its objects -- one a person separated and
+    #: named in Blender, as the add-on exports them -- this says which part is which by the name
+    #: the person gave it, with no geometric cut to drift when the model is edited.
+    objects: list[str] = Field(default_factory=list)
     #: Planar station centre; pair with :attr:`within_m` to select one rotor station's hardware.
     near_xy: tuple[float, float] | None = None
     within_m: float | None = Field(default=None, gt=0.0)
@@ -175,7 +181,7 @@ class PartSelector(_Frozen):
     extent_z_min_m: float | None = Field(default=None, ge=0.0)
     extent_z_max_m: float | None = Field(default=None, gt=0.0)
 
-    @field_validator("materials")
+    @field_validator("materials", "objects")
     @classmethod
     def _lower(cls, v: list[str]) -> list[str]:
         return [s.strip().lower() for s in v if s.strip()]
@@ -186,6 +192,8 @@ class PartSelector(_Frozen):
             name = (component.material_name or "").lower()
             if name not in self.materials:
                 return False
+        if self.objects and (component.source or "").lower() not in self.objects:
+            return False
         if self.near_xy is not None or self.within_m is not None:
             if self.near_xy is None or self.within_m is None:
                 raise ValueError("near_xy and within_m must be given together")
