@@ -915,6 +915,32 @@ sections:
           cloud seen through the air in front of it.
     source: scripts/cloud_look.py
 
+  - id: cloud-shape
+    title: Clouds the size real clouds are
+    lead: |
+      Satellite studies measure real cumulus from above. Their outlines have an area–perimeter
+      dimension of 1.3–1.4, and their sizes fall as a power law with exponent 1.7–2.0 below about
+      a kilometre. Since `WX.6` the field is measured the same way (ADR 0184). Its outlines were
+      already right, but its sizes were not: an exponent of 2.58, meaning clouds about a kilometre
+      across plus specks. With thermals of several sizes in the map that places them, 35 % cumulus
+      gives 1.91. Stratocumulus had been stretched 6 : 1 along one axis of the field, whatever the
+      wind. It is now a broken sheet of cells, as real stratocumulus is.
+    media:
+      - image: cloud_shape/plan_before_after.png
+        width: full
+        caption: >-
+          The field from above, as visible optical depth, two 15.36 km tiles side by side. From top:
+          35 % cumulus before and after; 60 % stratocumulus before and after. The tiles still repeat;
+          that is `WX.22`.
+      - video: cloud_shape/stratocumulus_before_after.mp4
+        caption: >-
+          60 % stratocumulus from the ground, 25° up with a 70° field of view, from 10:00 to 16:00 UTC
+          in 24 frames. Left: weather-fx `582bf47`. Right: `7d15e58`.
+      - video: cloud_shape/cumulus_before_after.mp4
+        caption: >-
+          The same camera over 35 % cumulus.
+    source: scripts/cloud_look.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |

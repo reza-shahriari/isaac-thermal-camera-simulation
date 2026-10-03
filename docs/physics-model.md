@@ -750,6 +750,11 @@ four measurable targets:
 | edge | liquid water steps over ~0.3 m at the boundary; water, droplet number and size decline over the outer ~10 % of the cloud | [R67][R68] |
 | depth to chord, shallow cumulus | 0.4–1 | [R69] |
 
+The procedural field is measured against the first two rows from above (`WX.6`, ADR 0184). The mask
+is the columns at visible optical depth ≥ 1, at 15 m, over three seeds. 35 % cumulus gives
+$D$ = 1.31–1.34 and $b$ = 1.91 (60–800 m); at 15 % cover, $b$ = 1.73. Broken stratocumulus is
+isotropic, as mesoscale cells are [R71]. The field still repeats every 15.36 km tile (`WX.22`).
+
 The edge row decides what a camera sees. At a cumulus visible extinction of 0.05–0.12 m⁻¹ [R70] the
 optical skin — the depth at which a ray reaches unit optical depth — is 8–20 m, and the LWIR
 absorption skin of a ray is about twice that, 15–40 m ($r = 0.5$; the flux coefficient 100–160 m² kg⁻¹
