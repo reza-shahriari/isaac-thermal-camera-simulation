@@ -1,4 +1,4 @@
-"""The add-on's Blender-free logic: names, the size check, and area coverage.
+"""The add-on's Blender-free logic: names, the size check, area coverage, the material picker.
 
 Each test is built on a case that has actually happened or that the owner raised: the Phantom 4
 arriving in centimetres (ADR 0128), a real 300 m ship that must not be flagged (2026-09-28), a
@@ -11,7 +11,7 @@ import re
 
 import numpy as np
 import pytest
-from irsim_thermal import coverage, geometry, naming, sizing
+from irsim_thermal import coverage, geometry, naming, picker, sizing
 
 SAFE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -274,3 +274,114 @@ def test_default_gaps_follow_the_model_size_with_a_floor() -> None:
     assert geometry.default_gaps(0.46) == pytest.approx((9.2e-4, 0.046))  # the Phantom 4
     assert geometry.default_gaps(0.05)[0] == pytest.approx(5e-4)  # never below half a millimetre
     assert geometry.default_gaps(4.5)[1] == pytest.approx(0.45)  # a car: its bonnet gap and more
+
+
+# --- the material picker (B13) -------------------------------------------------------------------
+
+
+def _material(name, lwir, description="", surface="as_manufactured", spectral=False, error=""):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        name=name,
+        description=description,
+        surface_treatment=surface,
+        spectral=spectral,
+        error=error,
+        eps_nir=0.1,
+        eps_swir=0.2,
+        eps_mwir=lwir - 0.05,
+        eps_lwir=lwir,
+    )
+
+
+LIBRARY = [
+    _material("abs_plastic_white", 0.95, "White ABS, as on a drone shell"),
+    _material("aluminium_polished", 0.04, "Mirror-finished aluminium", "polished", spectral=True),
+    _material("bare_aluminium", 0.09, "Unpainted aluminium sheet", "oxidised"),
+    _material("car_paint_black", 0.93, "Automotive paint, gloss black", "painted"),
+    _material("carbon_fibre", 0.90, "Carbon-fibre reinforced polymer"),
+    _material("broken_curve", 0.0, "A curve that failed to load", error="no data in band"),
+]
+
+
+def _names(keep):
+    return [m.name for m, k in zip(LIBRARY, keep, strict=True) if k]
+
+
+def test_search_finds_every_word_in_any_order() -> None:
+    # the way a person types: part of a word, the words reversed, a description word
+    assert _names(picker.shown(LIBRARY, query="polished al")) == ["aluminium_polished"]
+    assert _names(picker.shown(LIBRARY, query="al polished")) == ["aluminium_polished"]
+    assert _names(picker.shown(LIBRARY, query="alu")) == ["aluminium_polished", "bare_aluminium"]
+    assert _names(picker.shown(LIBRARY, query="drone")) == ["abs_plastic_white"]
+    assert _names(picker.shown(LIBRARY, query="PAINT black")) == ["car_paint_black"]
+    assert _names(picker.shown(LIBRARY, query="carbonfibre")) == ["carbon_fibre"]
+    # its surface; and a word matches from its start: not bare aluminium's "Unpainted"
+    assert _names(picker.shown(LIBRARY, query="painted")) == ["car_paint_black"]
+    assert sum(picker.shown(LIBRARY, query="  ")) == len(LIBRARY)
+    assert not any(picker.shown(LIBRARY, query="titanium"))
+
+
+def test_the_band_filter_finds_the_mirror_like_materials() -> None:
+    # "what in the library is mirror-like in LWIR?": the case behind the Phantom 4's motors
+    keep = picker.shown(LIBRARY, band="lwir", eps_max=0.2)
+    assert _names(keep) == ["aluminium_polished", "bare_aluminium"]
+    # a material whose band could not be evaluated is not passed off as a value in the range
+    assert "broken_curve" not in _names(keep)
+    assert _names(picker.shown(LIBRARY, band="lwir", eps_min=0.92)) == [
+        "abs_plastic_white",
+        "car_paint_black",
+    ]
+    # the band matters: in MWIR (0.05 lower here) car paint falls under 0.9
+    assert "car_paint_black" not in _names(picker.shown(LIBRARY, band="mwir", eps_min=0.9))
+    # without a range, the band does not hide anything
+    assert sum(picker.shown(LIBRARY, band="nir")) == len(LIBRARY)
+
+
+def test_favourites_and_curves_filters() -> None:
+    fav = ["carbon_fibre", "abs_plastic_white"]
+    assert _names(picker.shown(LIBRARY, favourites=fav, only_favourites=True)) == [
+        "abs_plastic_white",
+        "carbon_fibre",
+    ]
+    assert _names(picker.shown(LIBRARY, only_curves=True)) == ["aluminium_polished"]
+    # filters combine
+    assert not any(picker.shown(LIBRARY, favourites=fav, only_favourites=True, only_curves=True))
+
+
+def test_favourites_come_first_then_the_chosen_order() -> None:
+    names = [m.name for m in LIBRARY]
+    by_name = [names[i] for i in picker.order(LIBRARY)]
+    assert by_name == sorted(names)
+    fav = ["carbon_fibre"]
+    assert [names[i] for i in picker.order(LIBRARY, favourites=fav)][0] == "carbon_fibre"
+    high = [names[i] for i in picker.order(LIBRARY, sort="EPS_HIGH")]
+    assert high[:2] == ["abs_plastic_white", "car_paint_black"]
+    assert high[-1] == "broken_curve"  # no value: last either way
+    low = [names[i] for i in picker.order(LIBRARY, sort="EPS_LOW")]
+    assert low[:2] == ["aluminium_polished", "bare_aluminium"]
+    assert low[-1] == "broken_curve"
+    # positions is the inverse UIList.filter_items wants
+    seq = picker.order(LIBRARY, sort="EPS_HIGH")
+    pos = picker.positions(seq)
+    assert all(seq[pos[i]] == i for i in range(len(LIBRARY)))
+
+
+def test_favourite_and_recent_lists() -> None:
+    stored = picker.join_names(["carbon_fibre", "abs_plastic_white"])
+    assert picker.parse_names(stored) == ["carbon_fibre", "abs_plastic_white"]
+    assert picker.parse_names(" a, ,b,a ,") == ["a", "b"]  # blanks and repeats dropped
+    assert picker.parse_names("") == []
+    assert picker.toggle(["a", "b"], "a") == ["b"]
+    assert picker.toggle(["b"], "a") == ["b", "a"]
+    recent: list[str] = []
+    for name in ["a", "b", "c", "a", "d", "e", "f", "g"]:
+        recent = picker.remember(recent, name)
+    assert recent == ["g", "f", "e", "d", "a", "c"]  # most recent first, one of each, at most 6
+    assert len(recent) == picker.RECENT
+
+
+def test_the_search_menu_line_says_the_band() -> None:
+    assert picker.label(LIBRARY[0], "lwir") == "abs_plastic_white   ε 0.95 LWIR"
+    assert "not available" in picker.label(LIBRARY[-1], "lwir")

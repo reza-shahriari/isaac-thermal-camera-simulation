@@ -5,6 +5,10 @@ Either may be left empty: the repository is then ``$IRSIM_REPO``, or found by wa
 file (which works when Blender loads the add-on straight out of the repository, as the tutorial
 recommends), and the interpreter is ``$IRSIM_PYTHON``, the repository's ``.venv``, the project's
 documented Isaac Sim interpreter (ADR 0002), or ``python3`` on the path.
+
+The material picker's favourites and recently used materials (B13) are kept here too, so they
+follow the person from file to file. When the add-on runs without being installed (the headless
+smoke test) they live for the session only, on the window manager's picker settings.
 """
 
 import os
@@ -15,6 +19,7 @@ import bpy
 from bpy.props import StringProperty
 from bpy.types import AddonPreferences, Operator
 
+from . import picker
 from .bridge_client import BridgeError, run_bridge
 
 PACKAGE = __package__ or "irsim_thermal"
@@ -65,6 +70,21 @@ def settings(context: bpy.types.Context) -> tuple[str, str]:
     return repo, python
 
 
+def _picks_store(context: bpy.types.Context):
+    return _addon_prefs(context) or context.window_manager.irsim_picker
+
+
+def picked(context: bpy.types.Context, which: str) -> list[str]:
+    """The material names in ``which`` (``"favourites"`` or ``"recent"``)."""
+    return picker.parse_names(getattr(_picks_store(context), which))
+
+
+def set_picked(context: bpy.types.Context, which: str, names: list[str]) -> None:
+    setattr(_picks_store(context), which, picker.join_names(names))
+    if _addon_prefs(context) is not None:
+        context.preferences.is_dirty = True  # saved with the preferences, like any other setting
+
+
 class TestConnection(Operator):
     """Ask the irsim interpreter for the material library, to prove both settings work"""
 
@@ -102,6 +122,16 @@ class IrsimPreferences(AddonPreferences):
         subtype="FILE_PATH",
         default="",
     )
+    favourites: StringProperty(
+        name="Favourite materials",
+        description="Library materials starred in the picker, comma-separated",
+        default="",
+    )
+    recent: StringProperty(
+        name="Recently used materials",
+        description="The materials last assigned, most recent first, comma-separated",
+        default="",
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -114,6 +144,8 @@ class IrsimPreferences(AddonPreferences):
         if not self.python_path:
             col.label(text=f"Using: {python or 'not found'}", icon="INFO")
         col.operator("irsim.test_connection", icon="CHECKMARK")
+        col.separator()
+        col.prop(self, "favourites")
 
 
 classes = (TestConnection, IrsimPreferences)

@@ -160,6 +160,8 @@ class FakeLayout:
                         raise AttributeError(f"template_list: no property {prop!r}")
             if name in self.CONTAINERS:
                 return FakeLayout(self.calls)
+            if name in ("panel", "panel_prop"):  # a collapsible section: (header, body), open
+                return FakeLayout(self.calls), FakeLayout(self.calls)
             if name == "operator":
                 return FakeOperator(args[0] if args else kwargs["operator"])
             return None
@@ -198,7 +200,11 @@ def ui_checks(ctx) -> None:
         ui.ConnectionsPanel,
         ui.ExportPanel,
     )
-    helpers = {"_details": ui.LibraryPanel._details, "_size": ui.ExportPanel._size}
+    helpers = {
+        "_details": ui.LibraryPanel._details,
+        "_picker": ui.LibraryPanel._picker,
+        "_size": ui.ExportPanel._size,
+    }
     s = ctx.scene.irsim
     s.size_help, s.size_kind, s.known_dimension_m = True, "multirotor", 0.0
     for state in ("loaded", "known dimension", "empty library"):
@@ -658,6 +664,108 @@ def types_ns(ui):
     )
 
 
+def picker_checks(ctx) -> None:
+    """B13: search, the band filter, favourites, recently used, and assigning by name."""
+    import types
+
+    from irsim_thermal import assign, prefs, ui
+
+    wm = ctx.window_manager
+    s = wm.irsim_picker
+    lib = wm.irsim_library
+    lister = types.SimpleNamespace(bitflag_filter_item=1 << 30)
+
+    def listed() -> list[str]:
+        flags, pos = ui.LibraryList.filter_items(lister, ctx, wm, "irsim_library")
+        rows = sorted((pos[i], lib[i].name) for i in range(len(lib)) if flags[i])
+        return [name for _, name in rows]
+
+    check(len(listed()) == len(lib), f"with no filter the list shows all {len(lib)} materials")
+    s.query = "alu"
+    shown = listed()
+    check(
+        "bare_aluminium" in shown and "carbon_fibre" not in shown,
+        f"searching 'alu' finds the aluminiums and not carbon fibre ({len(shown)} shown)",
+    )
+    s.query = ""
+    s.band, s.eps_max = "LWIR", 0.2
+    shown = listed()
+    check(
+        "bare_aluminium" in shown
+        and all(lib[n].eps_lwir <= 0.2 for n in shown)
+        and "carbon_fibre" not in shown,
+        f"the band filter shows only materials at most 0.2 in LWIR ({len(shown)})",
+    )
+    s.sort = "EPS_LOW"
+    shown = listed()
+    check(
+        [lib[n].eps_lwir for n in shown] == sorted(lib[n].eps_lwir for n in shown),
+        "sorted least emissive first",
+    )
+    s.eps_max, s.sort = 1.0, "NAME"
+
+    prefs.set_picked(ctx, "favourites", [])
+    bpy.ops.irsim.toggle_favourite(material="carbon_fibre")
+    check(prefs.picked(ctx, "favourites") == ["carbon_fibre"], "a star makes a favourite")
+    check(listed()[0] == "carbon_fibre", "a favourite comes first in the list")
+    s.only_favourites = True
+    check(listed() == ["carbon_fibre"], "favourites only shows just the starred one")
+    s.only_favourites = False
+    bpy.ops.irsim.toggle_favourite(material="carbon_fibre")
+    check(prefs.picked(ctx, "favourites") == [], "a second click takes the star away")
+
+    part = add("cube", "picker_part", location=(0.0, 0.0, 60.0), size=2.0)
+    part.data.materials.append(new_material("picker_grey"))
+    select_only(part)
+    result = bpy.ops.irsim.assign_search(material="abs_plastic_white")
+    check(
+        result == {"FINISHED"}
+        and part.material_slots[0].material.irsim_material == "abs_plastic_white",
+        "assign by name gives the selected part the material",
+    )
+    check(
+        prefs.picked(ctx, "recent")[0] == "abs_plastic_white",
+        "the material just assigned is first in recently used",
+    )
+    bpy.ops.irsim.assign(material="carbon_fibre", scope="PARTS")
+    recent = prefs.picked(ctx, "recent")
+    check(
+        recent[:2] == ["carbon_fibre", "abs_plastic_white"] and len(set(recent)) == len(recent),
+        "recently used is most recent first, each material once",
+    )
+    lib_names = [it.name for it in lib]
+    check(
+        lib_names[ctx.scene.irsim.active_library_index] == "abs_plastic_white",
+        "after assign by name the list shows that material",
+    )
+    items = assign._search_items(None, ctx)
+    check(
+        len(items) == len(lib) and all("ε" in i[1] or "not available" in i[1] for i in items),
+        "the search menu lists every material with its emissivity",
+    )
+    for menu in assign.MENUS:
+        hooks = getattr(bpy.types, menu)._dyn_ui_initialize()
+        check(assign._context_menu in hooks, f"the right-click menu has it ({menu})")
+
+    s.query = "white"
+    for state in ("filtered", "unfiltered"):
+        try:
+            calls: list = []
+            me = types.SimpleNamespace(
+                layout=FakeLayout(calls),
+                _details=ui.LibraryPanel._details,
+                _picker=ui.LibraryPanel._picker,
+            )
+            ui.LibraryPanel.draw(me, ctx)
+            me2 = types.SimpleNamespace(layout=FakeLayout(calls))
+            ui.LibraryList.draw_item(me2, ctx, me2.layout, wm, lib[0], 0, None, "", 0)
+            check("panel_prop" in calls, f"the library panel draws its picker ({state})")
+        except Exception as exc:  # noqa: BLE001
+            check(False, f"the library panel draws its picker ({state}): {exc}")
+        s.query = ""
+    bpy.data.objects.remove(part)
+
+
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
@@ -1103,6 +1211,9 @@ def main() -> None:
 
     # --- 11. connections and hidden parts --------------------------------------------------------
     structure_checks(ctx, repo)
+
+    # --- 12. the material picker -----------------------------------------------------------------
+    picker_checks(ctx)
 
     print(f"\n{len(failures)} failure(s)")
     if failures:

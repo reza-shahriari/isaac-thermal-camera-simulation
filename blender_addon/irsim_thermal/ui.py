@@ -3,7 +3,7 @@
 import bpy
 from bpy.types import Panel, UIList
 
-from . import library_state, sizing
+from . import library_state, picker, prefs, sizing
 from .properties import BANDS
 
 MIRROR = 0.2
@@ -51,15 +51,51 @@ class PartsList(UIList):
 
 
 class LibraryList(UIList):
+    """The library, searched, filtered and sorted by the panel's picker settings (B13): a star
+    on each row, favourites first, and the emissivity of the band the picker shows."""
+
     bl_idname = "IRSIM_UL_library"
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index=0):
+        band = context.window_manager.irsim_picker.band.lower()
+        starred = item.name in prefs.picked(context, "favourites")
         row = layout.row(align=True)
+        op = row.operator(
+            "irsim.toggle_favourite",
+            text="",
+            icon="SOLO_ON" if starred else "SOLO_OFF",
+            emboss=False,
+        )
+        op.material = item.name
+        # only a warning gets an icon: the star is already there, and the sidebar is narrow
         mark = "ERROR" if item.error else ("QUESTION" if item.source == "estimated" else "NONE")
-        row.label(text=item.name, icon=mark if mark != "NONE" else "MATERIAL")
+        row.label(text=item.name, icon=mark)
         sub = row.row()
-        sub.alert = item.eps_lwir < MIRROR
-        sub.label(text=f"ε {item.eps_lwir:.2f}")
+        eps = picker.emissivity(item, band)
+        sub.alert = eps < MIRROR
+        sub.label(text="ε  --" if item.error else f"ε {eps:.2f}")
+
+    def draw_filter(self, context, layout):
+        """The panel draws the search and filter above the list instead."""
+
+    def filter_items(self, context, data, propname):
+        items = getattr(data, propname)
+        s = context.window_manager.irsim_picker
+        favourites = prefs.picked(context, "favourites")
+        band = s.band.lower()
+        keep = picker.shown(
+            items,
+            query=s.query,
+            band=band,
+            eps_min=s.eps_min,
+            eps_max=s.eps_max,
+            favourites=favourites,
+            only_favourites=s.only_favourites,
+            only_curves=s.only_curves,
+        )
+        flags = [self.bitflag_filter_item if k else 0 for k in keep]
+        order = picker.order(items, sort=s.sort, band=band, favourites=favourites)
+        return flags, picker.positions(order)
 
 
 class IssuesList(UIList):
@@ -261,6 +297,7 @@ class LibraryPanel(_Base, Panel):
         if not len(wm.irsim_library):
             layout.operator("irsim.refresh_library", icon="IMPORT")
             return
+        self._picker(layout, context)
         layout.template_list(
             "IRSIM_UL_library",
             "",
@@ -298,6 +335,52 @@ class LibraryPanel(_Base, Panel):
         op.start_from = item.name
         if context.mode == "OBJECT":
             layout.operator("irsim.load_asset_map", text="From an existing asset...", icon="IMPORT")
+
+    @staticmethod
+    def _picker(layout, context) -> None:
+        """Assign by name, the recently used materials, and the search and filter (B13)."""
+        wm = context.window_manager
+        s = wm.irsim_picker
+        faces = context.mode == "EDIT_MESH"
+        layout.operator(
+            "irsim.assign_search",
+            text="Assign to selected faces by name..." if faces else "Assign by name...",
+            icon="VIEWZOOM",
+        )
+        recent = prefs.picked(context, "recent")[:4]
+        if recent:
+            layout.label(text="Recently used (click to assign):")
+            flow = layout.grid_flow(row_major=True, columns=2, even_columns=True, align=True)
+            for name in recent:
+                op = flow.operator("irsim.assign", text=name)
+                op.material, op.scope = name, "FACES" if faces else "PARTS"
+        layout.prop(s, "query", text="", icon="VIEWZOOM", placeholder="Search the library")
+        filtered = (
+            s.eps_min > 0.0 or s.eps_max < 1.0 or s.only_favourites or s.only_curves or s.query
+        )
+        header, body = layout.panel_prop(s, "show_filter")
+        header.label(text=f"Filter and sort ({s.band})" if not filtered else "Filter (on)")
+        if body is not None:
+            row = body.row(align=True)
+            row.prop(s, "band", expand=True)
+            body.prop(s, "sort")
+            row = body.row(align=True)
+            row.prop(s, "eps_min")
+            row.prop(s, "eps_max")
+            body.prop(s, "only_favourites")
+            body.prop(s, "only_curves")
+        if filtered:
+            keep = picker.shown(
+                list(wm.irsim_library),
+                query=s.query,
+                band=s.band.lower(),
+                eps_min=s.eps_min,
+                eps_max=s.eps_max,
+                favourites=prefs.picked(context, "favourites"),
+                only_favourites=s.only_favourites,
+                only_curves=s.only_curves,
+            )
+            layout.label(text=f"{sum(keep)} of {len(keep)} materials shown")
 
     @staticmethod
     def _details(box, item, wm) -> None:

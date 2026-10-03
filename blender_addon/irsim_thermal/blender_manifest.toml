@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "irsim_thermal"
-version = "0.4.0"
+version = "0.5.0"
 name = "irsim Thermal Materials"
 tagline = "Give every part of a model its infrared material for irsim"
 maintainer = "irsim project"

@@ -87,6 +87,15 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
     nothing in irsim reads. Until 2026-10-01 that file was the only record (the asset format had
     no place for it). Hidden parts are guide prims in the USD, which `prep_asset.py`'s import
     skips; the solver takes them from the config, so that is no longer a gap.
+13. **Finding a material is search, stars and a band filter, not categories (B13).** The library
+    has no category field -- a material is a name, a description and its numbers -- and a list of
+    categories kept in the add-on would go stale the day the next ten materials arrive. Search
+    over the name, description and surface finds `paint`, `steel` or `polished` as well as a
+    category would, and the band filter answers the question a category cannot ("what is
+    mirror-like in LWIR?"). Favourites and recently used are the *person's*, not the model's or
+    the project's, so they are kept in Blender's add-on preferences: they follow the person to the
+    next file and never enter the repository or a `.blend`. If the owner wants categories, the
+    place for them is a field in the material schema, which is a project-side step.
 
 ## Steps
 
@@ -103,15 +112,16 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 | B9 | The project site shows the tutorial | ✅ 2026-09-28: `docs/tutorials/` is a section of the site (`scripts/build_site.py`), every step linked to the next | — |
 | B10 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | ✅ 2026-09-28, in the owner's own session through the Blender MCP (the Sketchfab Phantom 4, 48 parts with the hidden ones): three screenshots in the tutorial, and the fixes below | — |
 | B12 | **Connections and hidden parts reach irsim (AI.11, AI.12, AI.18).** The export writes the asset config's `parts:` block -- each object a named part, the contacts, the hidden parts -- and reopening an asset brings its hidden parts back as boxes inside the part that encloses them and its contacts back as confirmed connections. A hidden part may name one of irsim's components (motor, ESC, LiPo pack, flight controller, engine, EV pack and motor, brake disc, differential...), whose cited numbers it takes unless the person types their own; nine library placeholders name theirs. The new-material form opens on *Curve* (the owner: "i want to have curves instead of specific band selection"). | ✅ 2026-10-01: 81 bridge tests and 163 headless-Blender checks (4 + 13 new), including `prep_asset.py --emit-mesh --emit-parts` on the export: 6 named parts, coverage 100 %, the split's audit passing. That run found a collision in `prep_asset.py`'s split -- a part named like the object it is met the joined mesh of the same name -- fixed there. | `AI.18` (done with it) |
+| B13 | **An easier material picker** (the owner: "an easier material picker (search, favourites, or filtering by band) is a nice idea"). *Assign by name...* -- in the library panel and on the viewport's right-click menu in Object and Edit Mode -- finds a material by a few typed letters, shows each one's emissivity, and assigns it to the selected parts or faces at once. The four most recently used materials are one-click buttons. The list has a search field, a star per row (favourites first everywhere), and a *Filter and sort* section: the band whose emissivity it shows, an emissivity range, sort by name or emissivity, favourites only, measured curves only. Decision 13. | ✅ 2026-10-03: 87 tests (6 new, the search, filter, order and lists in `picker.py`) and 180 headless-Blender checks (17 new: search, band filter, sort, stars, recently used, assign by name, the right-click menus, the panel drawing). The first test run found that a plain substring search for `painted` also found "Unpainted aluminium"; words now match from their start. | — |
 | B11 | **Spectral curves and grey values (ADR 0175).** The new-material form authors emissivity *Per band*, as *One value* or as a *Curve* (one or two picked CSVs, each emission or opaque reflectance), with *Check curve* reading the file through irsim's loader. Typed band values fill only where the curve has no data, and the bridge removes those the curve covers and says so. A picked curve is copied to `data/spectra/materials/<name>.csv` with a provenance line. The library panel shows each material's forms, the curve's share of each band, and a *Plot across the bands* image. | ✅ 2026-10-01: 77 bridge tests and 149 headless-Blender checks (5 + 7 new). The smoke test found that the bridge resolved curves against the `irsim` package's data root, not the repository it was pointed at; it now uses that repository (or `$IRSIM_DATA_DIR`) for every load. | `AT.36` (done with it) |
 
 ## Verification
 
 ```bash
-# Blender-free logic and the bridge (81 tests; the bridge writes only to temporary directories)
+# Blender-free logic and the bridge (87 tests; the bridge writes only to temporary directories)
 ~/IsaacSim/_build/linux-x86_64/release/python.sh -m pytest blender_addon/tests -q
 
-# End to end in a headless Blender, against a scratch copy of the repository (163 checks)
+# End to end in a headless Blender, against a scratch copy of the repository (180 checks)
 blender_addon/tests/run_blender_smoke.sh            # add --skip-audit to leave out prep_asset
 
 # The real Phantom 4 (needs the git-ignored 3d_models/phantom4.fbx): a .blend to open, CPU
@@ -169,6 +179,23 @@ What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
    still shows it. Waiting for the owner: the repository's name, and whether it is public.
 
 ## Log
+
+- **2026-10-03 (B13)**: after B12 the owner chose the next step from three offered: an easier
+  material picker. With close to a hundred materials the list had become a scroll.
+  - Search matches every typed word against the start of the words of the name, description and
+    surface, in any order; the name run together also counts (`carbonfibre`). A plain substring
+    match was tried first and found "Unpainted aluminium" for `painted`.
+  - The band filter and the emissivity column use the band the person picks; a material whose band
+    could not be evaluated is never passed off as inside a range, and sorts last.
+  - Favourites and recently used live in the add-on preferences (decision 13); run uninstalled,
+    as the smoke test does, the add-on keeps them for the session on the window manager.
+  - The library panel's list draws its own filter above it, so the list's built-in filter popover
+    is switched off.
+  - Checked in the owner's Blender on the Phantom 4 (a scratch copy; their favourites and recent
+    lists put back empty afterwards), which gave the tutorial its screenshot and two changes: the
+    *Filter and sort* section opens from a property (`panel_prop`), since a plain layout panel's
+    open state cannot be set from Python; and a row has a star but no material icon, which was
+    cutting the names short in the narrow sidebar.
 
 - **2026-10-01 (B12)**: the owner asked for the add-on to be brought up to date, approved hidden
   parts and contacts reaching irsim, and asked for curves rather than per-band values. The

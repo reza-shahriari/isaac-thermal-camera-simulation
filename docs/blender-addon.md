@@ -21,7 +21,7 @@ is. The add-on is where that person works.
 
 | | |
 |---|---|
-| **Assign materials** | Pick a part (or some faces) and choose from the [material library](materials.md), where each material's emissivity is a measured curve wherever one exists. A shared Blender material is copied, never changed behind your back. |
+| **Assign materials** | Pick a part (or some faces) and choose from the [material library](materials.md), where each material's emissivity is a measured curve wherever one exists. Find one by typing a few letters, from your favourites or recently used ones, or by filtering on its emissivity in any band. A shared Blender material is copied, never changed behind your back. |
 | **See the result** | A thermal view shades every part by its long-wave emissivity, so a mirror-like part stands out at once. |
 | **Start from an existing map** | A model the project already knows opens with its material map applied. |
 | **Add a material** | Type a new material's numbers; irsim checks them with its own rules (for example that emissivity, reflectance and transmittance add up to one) before anything is written. |
@@ -63,7 +63,7 @@ The export writes three things:
 
 ## Status
 
-Version 0.4.0, for Blender 5.2. Tested by 81 tests of its Blender-free logic and bridge, and 163
+Version 0.5.0, for Blender 5.2. Tested by 87 tests of its Blender-free logic and bridge, and 180
 checks in a headless Blender against a scratch copy of the repository, including irsim's own
 asset preparation splitting an export into its named parts; the full Phantom 4 (2.5 million faces)
 is exported and passes the project's asset audit. It lives in this repository under

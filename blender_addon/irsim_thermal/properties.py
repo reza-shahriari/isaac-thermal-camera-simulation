@@ -22,6 +22,9 @@
   ``irsim_components``): the material library, the joint table and the component library as the
   bridge last reported them. Never saved: all three live in the repository, and a stale copy in a
   ``.blend`` would be a second library.
+* **On the window manager** too (``WindowManager.irsim_picker``): how the library list is being
+  searched and filtered (B13). Never saved; a file opens with the whole library shown. The
+  favourites and recently used materials are the add-on's preferences (``prefs.py``).
 """
 
 import bpy
@@ -384,8 +387,71 @@ class IrsimSceneSettings(PropertyGroup):
     )
 
 
+def _redraw(self, context):
+    for area in context.screen.areas if context.screen else ():
+        area.tag_redraw()
+
+
+class IrsimPickerSettings(PropertyGroup):
+    """How the library list is searched, filtered and sorted (B13; the logic is ``picker.py``)."""
+
+    query: StringProperty(
+        name="Search",
+        description=(
+            "Words to find in a material's name, description or surface, in any order "
+            "(e.g. 'polished al', 'paint black')"
+        ),
+        options={"TEXTEDIT_UPDATE"},
+        update=_redraw,
+    )
+    band: EnumProperty(
+        name="Band",
+        description="The band whose emissivity the list shows, filters and sorts by",
+        items=[(b.upper(), b.upper(), f"Emissivity in {b.upper()}") for b in BANDS],
+        default="LWIR",
+    )
+    eps_min: FloatProperty(
+        name="ε from",
+        description="Show materials at least this emissive in the band",
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        precision=2,
+    )
+    eps_max: FloatProperty(
+        name="to",
+        description="Show materials at most this emissive in the band",
+        default=1.0,
+        min=0.0,
+        max=1.0,
+        precision=2,
+    )
+    sort: EnumProperty(
+        name="Sort",
+        items=[
+            ("NAME", "Name", "Alphabetical"),
+            ("EPS_HIGH", "ε high first", "Most emissive in the band first"),
+            ("EPS_LOW", "ε low first", "Least emissive (most mirror-like) in the band first"),
+        ],
+        default="NAME",
+    )
+    only_favourites: BoolProperty(
+        name="Favourites only", description="Show only starred materials", default=False
+    )
+    only_curves: BoolProperty(
+        name="Measured curve only",
+        description="Show only materials whose emissivity comes from a spectral curve",
+        default=False,
+    )
+    show_filter: BoolProperty(name="Filter and sort", default=False)
+    # Used only when the add-on runs uninstalled (no preferences to keep them in): prefs.picked
+    favourites: StringProperty(default="")
+    recent: StringProperty(default="")
+
+
 classes = (
     IrsimLibraryItem,
+    IrsimPickerSettings,
     IrsimIssue,
     IrsimJoint,
     IrsimConnection,
@@ -418,6 +484,7 @@ def register():
     bpy.types.WindowManager.irsim_components = CollectionProperty(type=IrsimComponentItem)
     bpy.types.WindowManager.irsim_library = CollectionProperty(type=IrsimLibraryItem)
     bpy.types.WindowManager.irsim_library_status = StringProperty(default="")
+    bpy.types.WindowManager.irsim_picker = PointerProperty(type=IrsimPickerSettings)
     bpy.types.WindowManager.irsim_library_hash = StringProperty(default="")
     # The last plot drawn for the panel (B11): which material, in which Blender image.
     bpy.types.WindowManager.irsim_plot_material = StringProperty(default="")
@@ -431,6 +498,7 @@ def unregister():
     del bpy.types.WindowManager.irsim_plot_image
     del bpy.types.WindowManager.irsim_plot_material
     del bpy.types.WindowManager.irsim_library_hash
+    del bpy.types.WindowManager.irsim_picker
     del bpy.types.WindowManager.irsim_library_status
     del bpy.types.WindowManager.irsim_library
     del bpy.types.WindowManager.irsim_components
