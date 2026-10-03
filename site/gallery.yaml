@@ -849,6 +849,33 @@ sections:
       volume boxes must be kept out of the infrared G-buffer: to it they are just boxes.
     source: scripts/render_phantom4.py
 
+  - id: cloud-light
+    title: The visible cloud, lit by physics
+    lead: |
+      The visible companion is the frame an infrared one is read against, so its cloud is held to
+      physics-model §7.5's criteria. Before `WX.3`, weather-fx lit a cloud only by the sun, through
+      one envelope that made every base as bright as a sunlit top: under a uniform sky with the sun
+      off, a white cloud rendered black. Now each step of the dome's march in-scatters three lights,
+      energy-conserving (ADR 0180): the sky and the ground, the sun scattered once, and the
+      two-stream field along the sunlight's chord through the point. A white cloud under a uniform
+      sky vanishes to 1e-4; thin edges are at least 1.01 of the sky behind them; thick bases are
+      0.82–0.89 of a sunlit flank; a deck seen from above has 1.005 of its two-stream albedo.
+    media:
+      - video: cloud_look/cloud_look_before_after.mp4
+        width: full
+        caption: >-
+          One day over Munich on 21 June, 35 % cumulus, a camera looking west at 12° elevation:
+          48 frames from 09:00 UTC (sun 53.6°) to 19:12 (sun 0.4°). Left, weather-fx before the
+          change; right, after. The noise and stripes near the horizon are the next step's (`WX.4`,
+          detail filtered to the pixel), not this one's.
+    note: |
+      Rendered by `scripts/cloud_look.py` on the CPU from weather-fx's own sky, exposed by
+      its own meter, through a stand-in tone curve that is not the RTX tonemapper — compare the two
+      halves with each other, not with an Isaac Sim viewport. Not modelled: light a finite cloud
+      loses through its sides, so the base of a small cumulus is as bright as two-stream says a
+      layer of its depth is.
+    source: scripts/cloud_look.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |

@@ -823,18 +823,61 @@ reference the infrared frame is read against, so its cloud is held to physical c
    by $\alpha$ [R80].
 4. **Enough scattering orders.** Thick cumulus is white because light scatters in it of order a
    hundred times [R81]. A path tracer capped at a few volume bounces renders it grey: RTX's volume
-   scattering cap `ptvol/maxBounces` defaults to 2 [R83]. A march approximates the missing orders with
-   Wrenninge's octaves, with contribution ≤ attenuation for energy conservation [R82].
+   scattering cap `ptvol/maxBounces` defaults to 2 [R83]. A march approximates the missing orders —
+   with Wrenninge's octaves, contribution ≤ attenuation for energy conservation [R82], or, as the
+   dome does since `WX.3`, with the two-stream field along each sun chord (below).
 5. **Aerial perspective.** A cloud at range $R$ is seen through the air. Its contrast against the
    horizon falls with the air's transmittance over $R$, which is what makes a distant cloud hazy and a
    near one crisp.
+
+**How the dome meets them (`WX.3`, ADR 0180).** Each step of the visible march in-scatters, with
+criterion 2's weight $\varpi\,\mathcal T\,(1-e^{-\Delta\tau})$, three lights:
+
+- **The sky and the ground**, $h\,\bar L_\uparrow + (1-h)\,\bar L_\downarrow$: $h$ is the step's height
+  fraction in the slab, and $\bar L_\uparrow$, $\bar L_\downarrow$ are the clear sky's own solid-angle
+  means over the upper and the lower hemisphere. Summed over a ray the weights are $\varpi(1-\mathcal T)$,
+  so under a uniform sky the cloud returns exactly what it removes (criterion 1's furnace).
+- **The sun, scattered once**: $\dfrac{p(\Theta)}{4\mu_\odot}\,e^{-\tau_\odot}$ in units of $E_h/\pi$, the
+  radiance of a white ground in the same sun, with $p$ Henyey–Greenstein at $g = 0.85$ normalised so
+  that isotropic is 1. It is exact as $\tau \to 0$ and it is the whole of a silver lining.
+- **The sun, scattered many times**: the δ-Eddington two-stream field of a conservative layer, taken
+  along the sunlight's own chord through the point. With $\tau_\odot$ the optical depth to the cloud's
+  edge toward the sun and $\tau_a$ away from it, $\tau_c = \tau_\odot + \tau_a$, $\tau^* = (1-g)\tau_c$ and
+  $f = \tau_\odot/\tau_c$:
+  $$
+  I_B = R\,(1-f),\qquad I_F = T\,f,\qquad R = \frac{\tau^*}{2+\tau^*},\qquad T = \frac{2}{2+\tau^*} - e^{-\tau_c}.
+  $$
+  In chord form these are the plane-parallel $R = (1-g)\tau_v/(2\mu_\odot + (1-g)\tau_v)$ and its diffuse
+  transmission exactly, since a plane-parallel chord is $\tau_v/\mu_\odot$. The ray reads the stream
+  leaving the face it entered: the backward one through a lit face, where $f$ rises along the ray; the
+  forward one through a dark face; both along a grazing ray. It in-scatters the source that stream
+  implies, $S = I - dI/d\tau$ (from $dI/d\tau = I - S$, with $\tau$ increasing away from the camera).
+  That source returns $R$ from above and $T$ from below for a uniform layer of any depth, and it
+  returns only its own optical depth's share along a ray that grazes an edge.
+
+The light maps store optical depth, not transmittance: interpolated transmittance put the depth above
+a cloud base at 0.6 of a fine integration. On a 35 % cumulus field at a 58° sun the march meets the
+criteria as follows:
+
+- **White furnace:** within $10^{-4}$.
+- **Thin edges** ($\tau < 0.3$, above 20°): at least 1.01 of the clear sky behind them.
+- **Thick bases** ($\tau > 30$): 0.82–0.89 of a sunlit flank's luminance.
+- **Uniform deck seen from above:** 1.005 of its two-stream albedo.
+
+The path-traced volumes get `ptvol/maxBounces` = 32 (`WX.2`).
+
+The thin-edge criterion is applied outside the 15° round the sun. Inside it, a wisp shadowed by its own
+cloud is compared with an aureole that the same cloud also shadows, and that shadow on the air is not
+modelled.
 
 RTX volumes scatter but cannot emit [R83]. The infrared cloud is therefore never the renderer's: it is
 always this section's march over the shared field.
 
 **Not modelled, and flagged.** Multiple scattering in the thermal bands beyond the scaled ratio;
 sunlight scattered by cloud toward the camera on a target pixel (sky pixels carry it, ADR 0153); ice
-microphysics beyond a per-genus phase. Cloud shadows on surfaces are §6.7; precipitation is §7.8.
+microphysics beyond a per-genus phase. In the visible dome, the light a finite cloud loses through its
+sides (the march is one-dimensional along each sun chord, so the base of a small cumulus is as bright as
+two-stream says a layer of its depth is) and a cloud's shadow on the air beyond it. Cloud shadows on surfaces are §6.7; precipitation is §7.8.
 
 ### 7.6 One march for every medium
 
