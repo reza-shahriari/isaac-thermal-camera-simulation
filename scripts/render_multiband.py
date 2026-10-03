@@ -105,6 +105,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "measurement is the clip -- 600 frames, the AGC's frame-to-frame drift and a sub-pixel "
         "companion -- and one frame per band would say nothing the outbound sweep does not."
     ),
+    "aerial_clear_exit.yaml": (
+        "EV.16's clear-sky exit clip: the outbound quad's aircraft in a cloudless sky, filmed as "
+        "continuous 60 Hz video by `render_quad_outbound.py --clear-exit` as it recedes and then "
+        "leaves the frame. Its measurement is the frame edge over time -- where the aircraft is "
+        "drawn against where the track puts it -- which one frame per band cannot show."
+    ),
     "sky_only.yaml": (
         "SC.20's Tier 4 reference: nothing but sky, so the camera's own radial shading is all "
         "a frame holds. It is measured, not filmed: `scripts/validate_sky_flat.py` renders it "
