@@ -521,3 +521,76 @@ def test_a_material_is_drawn_for_the_panel(tmp_path) -> None:
     assert "curve" in result["summary"]
     missing = call(tmp_path, "plot-material", {"name": "no_such", "out": str(out)})
     assert not missing["ok"] and "no material" in missing["error"]
+
+
+# --- B12: the structure goes into the asset config (AI.11, AI.12, AI.18) ------------------------
+
+
+def with_aabb(payload: dict) -> dict:
+    """What the export adds to each hidden part: its box in the model's axes, and a status."""
+    for h in payload["hidden_parts"]:
+        h["aabb"] = {"centre_m": h["box"]["centre_m"], "size_m": h["box"]["size_m"]}
+        h.setdefault("status", "ESTIMATED")
+    return payload
+
+
+def car_export(tmp_path, **hidden_changes) -> tuple[dict, pathlib.Path]:
+    s = with_aabb(structure())
+    s["hidden_parts"][0].update(hidden_changes)
+    payload = asset_payload(name="test_car", parts=sorted(s["part_areas"]), structure=s)
+    assets = tmp_path / "assets"
+    return call(tmp_path, "write-asset", payload, "--assets-dir", str(assets)), assets
+
+
+def test_the_library_read_carries_irsims_components(tmp_path) -> None:
+    components = {c["name"]: c for c in call(tmp_path, "library")["components"]}
+    esc = components["esc"]
+    assert esc["mass_kg"] == pytest.approx(0.012)
+    assert esc["dissipation_rated_w"] == pytest.approx(9.0)
+    assert esc["material"] == "abs_plastic_white" and esc["status"] == "ESTIMATED"
+    assert len(esc["source"]) > 20  # every component says where its numbers came from
+
+
+def test_an_exports_structure_lands_in_the_asset_config_and_irsim_reads_it(tmp_path) -> None:
+    result, assets = car_export(tmp_path)
+    assert result["ok"], result
+    assert (result["parts"], result["contacts"], result["hidden_parts"]) == (3, 1, 1)
+    from irsim.materials.mapping import load_asset_mapping
+
+    parts = load_asset_mapping(assets / "test_car.yaml").parts
+    assert parts.granularity == "object"
+    assert [(p.name, p.select.objects) for p in parts.parts] == [
+        ("body", ["body"]),
+        ("bonnet", ["bonnet"]),
+        ("floor_pan", ["floor_pan"]),
+    ]
+    (contact,) = parts.contacts
+    assert (contact.a, contact.b, contact.joint, contact.area_m2) == (
+        "engine",
+        "floor_pan",
+        "dry_default",
+        0.05,
+    )
+    (engine,) = parts.hidden_parts
+    assert engine.mass_kg == 120.0 and engine.component is None
+    assert engine.centre_m == (1.2, 0.0, 0.5) and engine.size_m == (0.6, 0.5, 0.5)
+    read = call(tmp_path, "read-asset", {"name": "test_car"}, "--assets-dir", str(assets))
+    assert read["parts"] == ["body", "bonnet", "floor_pan"]
+    assert read["contacts"][0]["joint"] == "dry_default"
+    assert read["hidden_parts"][0]["mass_kg"] == 120.0
+
+
+def test_a_hidden_part_may_take_everything_from_its_component(tmp_path) -> None:
+    """No mass and no material of its own: both come from irsim's component library."""
+    result, assets = car_export(tmp_path, mass_kg=0.0, material="", component="piston_engine")
+    assert result["ok"], result
+    from irsim.materials.mapping import load_asset_mapping
+
+    (engine,) = load_asset_mapping(assets / "test_car.yaml").parts.hidden_parts
+    assert engine.component == "piston_engine" and engine.mass_kg is None
+
+
+def test_a_component_irsim_does_not_have_is_refused_and_nothing_is_written(tmp_path) -> None:
+    result, assets = car_export(tmp_path, mass_kg=0.0, component="warp_core")
+    assert not result["ok"] and "not in the component library" in result["error"]
+    assert not (assets / "test_car.yaml").exists()

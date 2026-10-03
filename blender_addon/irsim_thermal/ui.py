@@ -3,7 +3,7 @@
 import bpy
 from bpy.types import Panel, UIList
 
-from . import sizing
+from . import library_state, sizing
 from .properties import BANDS
 
 MIRROR = 0.2
@@ -370,7 +370,22 @@ class HiddenPartsPanel(_Base, Panel):
         box.label(text=ob.name, icon="MESH_CUBE")
         box.prop(comp, "kind")
         box.prop(ob, "dimensions", text="Size")
+        box.prop_search(
+            comp, "component", context.window_manager, "irsim_components", text="Component"
+        )
+        found = library_state.find_component(context, comp.component)
+        if found is not None:
+            # short lines: the sidebar is narrow and a label is cut off, never wrapped
+            col = box.column(align=True)
+            col.label(text=f"Its numbers ({found.status.lower()}):", icon="INFO")
+            col.label(text=f"{found.mass_kg:g} kg, {found.specific_heat_j_kgk:g} J/kg·K")
+            col.label(text=f"heat {found.dissipation_idle_w:g}–{found.dissipation_rated_w:g} W")
+            col.label(text="A number below overrides it;")
+            col.label(text="0 keeps the component's.")
+        elif comp.component:
+            box.label(text=f"{comp.component!r} is not in irsim's components", icon="ERROR")
         box.prop(comp, "mass_kg")
+        box.prop(comp, "specific_heat_j_kgk")
         box.prop(comp, "heat_idle_w")
         box.prop(comp, "heat_rated_w")
         box.prop(comp, "values_source")

@@ -148,8 +148,8 @@ def refresh(context: bpy.types.Context) -> coverage.Summary:
         missing = []
         if not any(s.material and s.material.irsim_material for s in ob.material_slots):
             missing.append("a material")
-        if comp.mass_kg <= 0.0:
-            missing.append("a mass")
+        if comp.mass_kg <= 0.0 and not comp.component:
+            missing.append("a mass, or an irsim component to take one from")
         if comp.heat_rated_w < comp.heat_idle_w:
             missing.append("full-load heat at least its idle heat")
         if missing:

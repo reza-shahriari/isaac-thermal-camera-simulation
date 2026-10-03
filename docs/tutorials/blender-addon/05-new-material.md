@@ -10,18 +10,21 @@ in:
   the surface, not to the substance under it.
 - **Heat storage**: density, specific heat, conductivity, the thickness of the skin that holds the
   heat, and solar absorptivity.
-- **Emissivity as**: one of three forms.
-  - **Per band**: one ε for each of NIR, SWIR, MWIR and LWIR.
-  - **One value**: the same ε in every band, for a surface that behaves as a grey body.
+- **Emissivity as**: the form opens on **Curve**, because a measured curve is how the library's
+  materials are now stored.
   - **Curve**: a measured spectrum. Pick a CSV with wavelength in µm and the value, one pair per
     line. Say whether the file holds emissivity or the reflectance of an opaque surface. A second
     file can cover another range, for example a short-wave reflectance file beside a long-wave
     emissivity file. **Check curve** reads the file with irsim's own loader and says which bands
     it covers. The per-band ε you type is used only where the curve has no data. irsim leaves
     out the bands the curve already covers, and says so.
+  - **One value**: the same ε in every band, for a surface that behaves as a grey body and that
+    nobody has measured.
+  - **Per band (no curve)**: one ε for each of NIR, SWIR, MWIR and LWIR, when you have numbers
+    but no curve. Starting from an existing material opens on this form, with its values.
 
   A curve is the only form under which two cameras with different wavelength ranges, say
-  6–13 µm and 7.5–13.5 µm, see the material differently. Use one when you have measured data.
+  6–13 µm and 7.5–13.5 µm, see the material differently. Use one whenever you have measured data.
 - **Transmittance τ** per band. **Reflectance ρ is shown, not typed in**: it is always 1 − ε − τ.
   That is how irsim keeps every material physically consistent.
 

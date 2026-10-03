@@ -74,6 +74,7 @@ def scratch_repo(root: pathlib.Path) -> pathlib.Path:
     for entry in (REPO / "data" / "spectra" / "materials").iterdir():
         (data / "spectra" / "materials" / entry.name).symlink_to(entry)
     shutil.copytree(REPO / "configs" / "materials", root / "configs" / "materials")
+    (root / "configs" / "components").symlink_to(REPO / "configs" / "components")
     (root / "configs" / "assets").mkdir()
     return root
 
@@ -407,6 +408,41 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
         and (pack_centre - Vector((0.0, 0.0, 0.75))).length < 1e-6,
         f"at its real size {tuple(round(v, 4) for v in pack_size)} m, inside the lid, a battery",
     )
+    # B12: irsim's own components (AI.12). The library brings them; a part naming one takes its
+    # cited numbers, so it needs no mass of its own, and its material defaults to the component's.
+    wm = ctx.window_manager
+    check(
+        {"lipo_pack", "esc", "brushless_motor"} <= {c.name for c in wm.irsim_components},
+        f"irsim's {len(wm.irsim_components)} components arrive with the library",
+    )
+    mapped = {e["file"]: e.get("component") for e in hidden_parts.catalog()}
+    check(
+        mapped["drone_battery"] == "lipo_pack" and mapped["drone_esc"] == "esc",
+        "the drone battery and speed controller placeholders name their irsim components",
+    )
+    select_only(lid)
+    check(
+        bpy.ops.irsim.add_component(
+            component="drone_esc", part_name="esc one", irsim_component="esc"
+        )
+        == {"FINISHED"},
+        "a speed controller is added with irsim's ESC and no numbers of its own",
+    )
+    esc = ctx.scene.objects.get("esc_one")
+    esc_materials = {s.material.irsim_material for s in esc.material_slots if s.material}
+    check(
+        esc.irsim_component.component == "esc"
+        and esc.irsim_component.mass_kg == 0.0
+        and esc_materials == {"abs_plastic_white"},
+        f"it names the component and takes its material ({sorted(esc_materials)})",
+    )
+    scene_stats.refresh(ctx)
+    check(
+        ("HIDDEN", "esc_one") not in {(i.kind, i.name) for i in ctx.scene.irsim.issues},
+        "the checklist does not ask a part with a component for a mass",
+    )
+    pack.irsim_component.component = "lipo_pack"  # the pack's own 0.468 kg overrides the library's
+
     # The whole library: every entry has its file, the menu is grouped, and each one arrives at
     # its catalog size along its catalog axis.
     entries = hidden_parts.catalog()
@@ -513,6 +549,84 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
         "the hidden parts are in the USD as guides, which no camera renders",
     )
     check(purposes.get("block") == UsdGeom.Tokens.default_, "the ordinary parts are not")
+
+    # B12: the asset config itself carries what the solver reads (AI.11), read back by irsim.
+    from irsim_thermal import prefs
+    from irsim_thermal.bridge_client import run_bridge
+
+    repo_s, python = prefs.settings(ctx)
+    read = run_bridge(python, repo_s, "read-asset", {"name": "smoke_structure"})
+    contacts = {frozenset((c["a"], c["b"])): c for c in read["contacts"]}
+    hidden = {h["name"]: h for h in read["hidden_parts"]}
+    check(
+        {"block", "lid", "plate_a", "plate_b"} <= set(read["parts"]),
+        f"every exported object is a named part of the asset ({len(read['parts'])})",
+    )
+    check(
+        contacts.get(frozenset(("block", "lid")), {}).get("joint") == "bolted_ferrous_new"
+        and frozenset(("plate_a", "plate_b")) not in contacts,
+        "the confirmed contact is in the asset config with its joint, the rejected one is not",
+    )
+    check(
+        hidden.get("engine_block", {}).get("mass_kg") == 80.0
+        and hidden.get("battery_pack", {}).get("component") == "lipo_pack"
+        and hidden.get("battery_pack", {}).get("mass_kg") == 0.468
+        and hidden.get("esc_one", {}).get("component") == "esc"
+        and hidden.get("esc_one", {}).get("mass_kg") is None,
+        "the hidden parts are in it: own numbers, a component, or both with the own ones winning",
+    )
+    pack_c, pack_s = hidden_parts.world_box(ctx.scene.objects["battery_pack"])
+    check(
+        all(
+            abs(a - b) < 1e-5
+            for a, b in zip(hidden["battery_pack"]["centre_m"], pack_c, strict=True)
+        )
+        and all(
+            abs(a - b) < 1e-5 for a, b in zip(hidden["battery_pack"]["size_m"], pack_s, strict=True)
+        ),
+        "each placed where it is in Blender, in the model's own metres",
+    )
+    # And irsim's own preparation takes it from there: the archive, then the split into exactly
+    # those named parts (AI.18), then the material audit of the split. A part named like the object
+    # it is collided with the joined mesh in prep_asset's split until B12 renamed the latter.
+    import subprocess
+
+    argv = [
+        python,
+        *export.audit_argv(str(repo), "smoke_structure", export._blender_executable()),
+        "--emit-mesh",
+        "--emit-parts",
+    ]
+    run = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, timeout=900)
+    out = run.stdout + run.stderr
+    check(
+        run.returncode == 0
+        and f"parts: {len(read['parts'])} named, coverage 100.0%" in out
+        and "smoke_structure_parts (the part-split USD)" in out
+        and out.count("RESULT: PASS") >= 2,
+        "irsim's prep_asset splits the export into its named parts and the split passes its audit",
+    )
+    if run.returncode != 0:
+        print(out[-3000:])
+
+    # Reopened: a hidden part and the contacts that were lost come back from the asset config.
+    bpy.data.objects.remove(ctx.scene.objects["engine_block"])
+    ctx.scene.irsim_connections.clear()
+    ctx.view_layer.objects.active = ctx.scene.objects["block"]
+    result = bpy.ops.irsim.load_asset_map(asset="smoke_structure", structure=True)
+    back = ctx.scene.objects.get("engine_block")
+    check(
+        result == {"FINISHED"}
+        and back is not None
+        and back.irsim_component.is_hidden_part
+        and back.irsim_component.mass_kg == 80.0
+        and back.parent == ctx.scene.objects["block"],
+        "reopening the asset brings the hidden engine back, inside the block, with its mass",
+    )
+    check(
+        connection(ctx, "block", "lid", "CONTACT").joint == "bolted_ferrous_new",
+        "and the contact back, confirmed, with its joint",
+    )
 
     # Looked up again: a reference held across changes to the list may point at freed memory.
     connection(ctx, "block", "lid", "CONTACT").joint = "welded_magic"
@@ -783,8 +897,12 @@ def main() -> None:
     )
 
     # --- 7. a new material ----------------------------------------------------------------------
+    form_rna = bpy.ops.irsim.new_material.get_rna_type()
+    default_form = form_rna.properties["optical_form"].default
+    check(default_form == "curve", f"a new material opens on a measured curve ({default_form})")
     result = bpy.ops.irsim.new_material(
         "EXEC_DEFAULT",
+        optical_form="per_band",
         name="nylon_black_smoke",
         about="Black moulded nylon, smoke test",
         reference="estimated from similar polymers",
@@ -801,13 +919,20 @@ def main() -> None:
         "the real library is untouched",
     )
     try:
-        bpy.ops.irsim.new_material("EXEC_DEFAULT", name="nylon_black_smoke", assign_after=False)
+        bpy.ops.irsim.new_material(
+            "EXEC_DEFAULT", optical_form="per_band", name="nylon_black_smoke", assign_after=False
+        )
         check(False, "a duplicate name is refused")
     except RuntimeError as exc:
         check("already exists" in str(exc), "a duplicate name is refused")
     try:
         bpy.ops.irsim.new_material(
-            "EXEC_DEFAULT", name="leaky_glass", eps_swir=0.5, tau_swir=0.6, assign_after=False
+            "EXEC_DEFAULT",
+            optical_form="per_band",
+            name="leaky_glass",
+            eps_swir=0.5,
+            tau_swir=0.6,
+            assign_after=False,
         )
         check(False, "ε + τ > 1 is refused")
     except RuntimeError as exc:

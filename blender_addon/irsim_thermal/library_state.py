@@ -19,6 +19,11 @@ def find(context: bpy.types.Context, name: str):
     return None
 
 
+def find_component(context: bpy.types.Context, name: str):
+    """irsim's component of this name, as the library last loaded it, or None."""
+    return context.window_manager.irsim_components.get(name) if name else None
+
+
 def emissivity_lwir(context: bpy.types.Context) -> dict[str, float]:
     return {item.name: item.eps_lwir for item in library_items(context) if not item.error}
 
@@ -72,6 +77,14 @@ def load(context: bpy.types.Context) -> int:
         joint.h_c_w_m2_k = float(record["h_c_w_m2_k"])
         joint.status = record["status"]
         joint.source = record["source"]
+    wm.irsim_components.clear()
+    for record in result.get("components", []):
+        comp = wm.irsim_components.add()
+        comp.name = record["name"]
+        for key in ("kind", "description", "material", "status", "source"):
+            setattr(comp, key, str(record.get(key) or ""))
+        for key in ("mass_kg", "specific_heat_j_kgk", "dissipation_idle_w", "dissipation_rated_w"):
+            setattr(comp, key, float(record.get(key) or 0.0))
     wm.irsim_library_hash = result.get("library_hash", "")
     wm.irsim_library_status = f"{len(items)} materials from {result['material_dir']}"
     if previous and context.scene:

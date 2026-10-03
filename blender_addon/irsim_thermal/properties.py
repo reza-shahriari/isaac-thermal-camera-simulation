@@ -15,11 +15,13 @@
   A connection points at its two objects, so renaming a part keeps it; deleting one leaves a
   connection the checklist reports.
 * **On each hidden part** (``Object.irsim_component``): what it is (motor, battery, engine...),
-  its mass and heat output, and where those numbers came from. A hidden part is a box mesh the
-  camera never sees -- the engine inside a downloaded car shell, the battery inside a drone.
-* **On the window manager** (``WindowManager.irsim_library``, ``irsim_joints``): the library and
-  the joint table as the bridge last reported them. Never saved: both live in the repository, and
-  a stale copy in a ``.blend`` would be a second library.
+  its mass and heat output, and where those numbers came from, or the irsim component (AI.12) it
+  takes them from. A hidden part is a real object that no camera renders -- the engine inside a
+  downloaded car shell, the battery inside a drone.
+* **On the window manager** (``WindowManager.irsim_library``, ``irsim_joints``,
+  ``irsim_components``): the material library, the joint table and the component library as the
+  bridge last reported them. Never saved: all three live in the repository, and a stale copy in a
+  ``.blend`` would be a second library.
 """
 
 import bpy
@@ -244,6 +246,35 @@ class IrsimComponent(PropertyGroup):
     reference: StringProperty(
         name="Reference", description="Where the numbers came from, or what they were guessed from"
     )
+    #: B12: an entry of irsim's component library (configs/components/, AI.12). Its mass, heat
+    #: capacity and dissipation are the defaults; a number set above overrides that one only.
+    component: StringProperty(
+        name="irsim component",
+        description=(
+            "A component from irsim's library (configs/components/) whose cited mass, heat "
+            "capacity and heat this part takes. Any number you set yourself overrides it"
+        ),
+        default="",
+    )
+    specific_heat_j_kgk: FloatProperty(
+        name="Specific heat",
+        description=("J/(kg K). 0 = from the component, or else from the part's library material"),
+        min=0.0,
+    )
+
+
+class IrsimComponentItem(PropertyGroup):
+    """One entry of irsim's component library as the bridge reported it (``name`` is its name)."""
+
+    kind: StringProperty()
+    description: StringProperty()
+    mass_kg: FloatProperty()
+    specific_heat_j_kgk: FloatProperty()
+    dissipation_idle_w: FloatProperty()
+    dissipation_rated_w: FloatProperty()
+    material: StringProperty()
+    status: StringProperty()
+    source: StringProperty()
 
 
 class IrsimSceneSettings(PropertyGroup):
@@ -359,6 +390,7 @@ classes = (
     IrsimJoint,
     IrsimConnection,
     IrsimComponent,
+    IrsimComponentItem,
     IrsimSceneSettings,
 )
 
@@ -383,6 +415,7 @@ def register():
     bpy.types.Scene.irsim_connections = CollectionProperty(type=IrsimConnection)
     bpy.types.Object.irsim_component = PointerProperty(type=IrsimComponent)
     bpy.types.WindowManager.irsim_joints = CollectionProperty(type=IrsimJoint)
+    bpy.types.WindowManager.irsim_components = CollectionProperty(type=IrsimComponentItem)
     bpy.types.WindowManager.irsim_library = CollectionProperty(type=IrsimLibraryItem)
     bpy.types.WindowManager.irsim_library_status = StringProperty(default="")
     bpy.types.WindowManager.irsim_library_hash = StringProperty(default="")
@@ -400,6 +433,7 @@ def unregister():
     del bpy.types.WindowManager.irsim_library_hash
     del bpy.types.WindowManager.irsim_library_status
     del bpy.types.WindowManager.irsim_library
+    del bpy.types.WindowManager.irsim_components
     del bpy.types.WindowManager.irsim_joints
     del bpy.types.Object.irsim_component
     del bpy.types.Scene.irsim_connections

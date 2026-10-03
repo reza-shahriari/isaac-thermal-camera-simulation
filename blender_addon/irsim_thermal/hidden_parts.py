@@ -27,6 +27,7 @@ measured, and *Reference* says from where.
 
 import json
 import pathlib
+import textwrap
 
 import bmesh
 import bpy
@@ -34,7 +35,7 @@ from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, StringPr
 from bpy.types import Operator
 from mathutils import Matrix, Vector
 
-from . import assign, naming, scene_stats
+from . import assign, library_state, naming, scene_stats
 from .properties import COMPONENT_KINDS, VALUE_SOURCES
 
 #: Object colour of a hidden part (shown when the viewport colours by object).
@@ -72,6 +73,33 @@ def make_box(name: str, size: Vector) -> bpy.types.Mesh:
     return me
 
 
+def draw_numbers(layout, op, context) -> None:
+    """The component and the numbers, shared by both dialogs: a component's values show beside
+    the fields, which then override it one at a time (0 keeps the component's)."""
+    wm = context.window_manager
+    layout.prop_search(op, "irsim_component", wm, "irsim_components")
+    comp = library_state.find_component(context, op.irsim_component)
+    if comp is not None:
+        box = layout.box()
+        for i, line in enumerate(textwrap.wrap(comp.description, 70)[:3]):
+            box.label(text=line, icon="INFO" if i == 0 else "BLANK1")
+        box.label(
+            text=f"{comp.mass_kg:g} kg, {comp.specific_heat_j_kgk:g} J/kg·K, "
+            f"heat {comp.dissipation_idle_w:g}–{comp.dissipation_rated_w:g} W ({comp.status})"
+        )
+        box.label(text="Numbers below override it; 0 keeps the component's")
+    elif op.irsim_component:
+        layout.label(text=f"{op.irsim_component!r} is not in irsim's components", icon="ERROR")
+    layout.prop_search(op, "material", wm, "irsim_library")
+    layout.separator()
+    layout.prop(op, "mass_kg")
+    layout.prop(op, "specific_heat_j_kgk")
+    layout.prop(op, "heat_idle_w")
+    layout.prop(op, "heat_rated_w")
+    layout.prop(op, "values_source")
+    layout.prop(op, "reference")
+
+
 class AddHiddenPart(Operator):
     """Add a part the model does not have, such as an engine inside a car shell, as a box"""
 
@@ -87,7 +115,12 @@ class AddHiddenPart(Operator):
     material: StringProperty(
         name="Material", description="The library material its outside is made of"
     )
+    irsim_component: StringProperty(
+        name="irsim component",
+        description="A component from irsim's library whose cited numbers this part takes",
+    )
     mass_kg: FloatProperty(name="Mass", min=0.0, unit="MASS")
+    specific_heat_j_kgk: FloatProperty(name="Specific heat (J/kg·K)", min=0.0)
     heat_idle_w: FloatProperty(name="Idle heat", min=0.0, unit="POWER")
     heat_rated_w: FloatProperty(name="Max heat", min=0.0, unit="POWER")
     values_source: EnumProperty(name="Numbers are", items=VALUE_SOURCES, default="ESTIMATED")
@@ -115,13 +148,7 @@ class AddHiddenPart(Operator):
         layout.prop(self, "part_name")
         layout.prop(self, "kind")
         layout.prop(self, "size")
-        layout.prop_search(self, "material", context.window_manager, "irsim_library")
-        layout.separator()
-        layout.prop(self, "mass_kg")
-        layout.prop(self, "heat_idle_w")
-        layout.prop(self, "heat_rated_w")
-        layout.prop(self, "values_source")
-        layout.prop(self, "reference")
+        draw_numbers(layout, self, context)
         host = context.active_object
         if host is not None and host.select_get():
             layout.label(text=f"Placed in the middle of {host.name}; moves with it", icon="INFO")
@@ -173,9 +200,16 @@ def make_hidden(context, ob, host, values) -> None:
     comp.is_hidden_part = True
     for key in ("kind", "mass_kg", "heat_idle_w", "heat_rated_w", "values_source", "reference"):
         setattr(comp, key, getattr(values, key))
-    if values.material:
+    comp.component = getattr(values, "irsim_component", "") or ""
+    comp.specific_heat_j_kgk = float(getattr(values, "specific_heat_j_kgk", 0.0) or 0.0)
+    material = values.material
+    if not material and comp.component:  # the component's own case material, if it names one
+        found = library_state.find_component(context, comp.component)
+        if found is not None and library_state.find(context, found.material) is not None:
+            material = found.material
+    if material:
         ob.data.materials.clear()
-        ob.data.materials.append(assign.plain_material(values.material))
+        ob.data.materials.append(assign.plain_material(material))
     for other in context.selected_objects:
         other.select_set(False)
     ob.select_set(True)
@@ -238,6 +272,12 @@ def placeholder_size(e: dict) -> str:
     return f"{s[0]:g} m along {e.get('axis', 'X')}, {ends} m"
 
 
+def _take_component(self, context) -> None:
+    """Choosing a placeholder preselects the irsim component its catalog entry names, if any."""
+    e = entry(self.component)
+    self.irsim_component = (e or {}).get("component", "")
+
+
 def import_component(context, file: str) -> bpy.types.Object:
     """Import ``components/<file>.fbx`` as one mesh object at its own size, at the world origin.
 
@@ -276,12 +316,17 @@ class AddComponent(Operator):
     bl_label = "Add from library"
     bl_options = {"REGISTER", "UNDO"}
 
-    component: EnumProperty(name="Component", items=_component_items)
+    component: EnumProperty(name="Component", items=_component_items, update=_take_component)
     part_name: StringProperty(name="Name", description="Empty: the component's own name")
     material: StringProperty(
         name="Material", description="The library material its outside is made of"
     )
+    irsim_component: StringProperty(
+        name="irsim component",
+        description="A component from irsim's library whose cited numbers this part takes",
+    )
     mass_kg: FloatProperty(name="Mass", min=0.0, unit="MASS")
+    specific_heat_j_kgk: FloatProperty(name="Specific heat (J/kg·K)", min=0.0)
     heat_idle_w: FloatProperty(name="Idle heat", min=0.0, unit="POWER")
     heat_rated_w: FloatProperty(name="Max heat", min=0.0, unit="POWER")
     values_source: EnumProperty(name="Numbers are", items=VALUE_SOURCES, default="ESTIMATED")
@@ -301,6 +346,7 @@ class AddComponent(Operator):
             entries = catalog()
             if entries:
                 self.component = entries[0]["file"]
+        _take_component(self, context)
         return context.window_manager.invoke_props_dialog(
             self, width=460, title="Add a hidden part from the library", confirm_text="Add"
         )
@@ -314,13 +360,7 @@ class AddComponent(Operator):
             layout.label(text=f"{e.get('category', '')}: {e['note']}")
             layout.label(text=f"Placeholder {e.get('shape', 'box')}, {placeholder_size(e)}")
         layout.prop(self, "part_name")
-        layout.prop_search(self, "material", context.window_manager, "irsim_library")
-        layout.separator()
-        layout.prop(self, "mass_kg")
-        layout.prop(self, "heat_idle_w")
-        layout.prop(self, "heat_rated_w")
-        layout.prop(self, "values_source")
-        layout.prop(self, "reference")
+        draw_numbers(layout, self, context)
         host = _host(context)
         where = f"in the middle of {host.name}; moves with it" if host else "at the 3D cursor"
         layout.label(text=f"Real size, placed {where}", icon="INFO")

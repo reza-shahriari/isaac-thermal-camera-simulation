@@ -280,6 +280,7 @@ class ExportAsset(Operator):
                 "scale_to_metres": 1.0,
                 "materials": dict(sorted(mapping.items())),
                 "parts": sorted(ob.name for ob in parts if ob.visible_get()),
+                "structure": structure or parts_only(exported),
                 "overwrite": settings.replace_export,
                 "notes": [
                     f"Coverage at export: {100 * summary.coverage:.1f} % of "
@@ -311,8 +312,9 @@ class ExportAsset(Operator):
                     )
                     return {"CANCELLED"}
                 written_structure = (
-                    f" + {done['contacts']} contacts, {done['facing']} facing pairs, "
-                    f"{done['hidden_parts']} hidden parts"
+                    f" ({result.get('parts', 0)} parts, {done['contacts']} contacts and "
+                    f"{done['hidden_parts']} hidden parts in the asset config; "
+                    f"{done['facing']} facing pairs beside the USD)"
                 )
             else:
                 stale = structure_path(pathlib.Path(repo), name)
@@ -336,8 +338,30 @@ def _area(ob: bpy.types.Object) -> float:
     return float(scene_stats.part_stats(ob).total_area_m2)
 
 
+#: irsim's hidden-part status has two values; a published datasheet figure is a measurement, by
+#: whoever published it, and the reference that says so stays in the structure file.
+STATUS = {"MEASURED": "MEASURED", "PUBLISHED": "MEASURED", "ESTIMATED": "ESTIMATED"}
+
+
+def _centre(objects) -> list[float]:
+    if not objects:
+        return [0.0, 0.0, 0.0]
+    lo, hi = scene_stats.world_bounds(objects)
+    return [float(x) for x in (lo + hi) / 2]
+
+
+def parts_only(exported) -> dict:
+    """The structure of an export with no connections or hidden parts: its named parts alone."""
+    return {"part_areas": {ob.name: _area(ob) for ob in exported}, "centre": _centre(exported)}
+
+
 def structure_payload(context, name: str, exported, hidden) -> dict | None:
-    """The contacts, facing pairs and hidden parts to write, or ``None`` when there are none."""
+    """The contacts, facing pairs and hidden parts to write, or ``None`` when there are none.
+
+    One payload serves both files: the bridge writes the contacts and hidden parts into the asset
+    config's ``parts:`` block (AI.11) and the rest -- facing pairs, idle heat, references, what
+    nobody reviewed -- into the add-on's own structure file.
+    """
     names = {ob.name for ob in exported} | {ob.name for ob in hidden}
     contacts, facing = [], []
     for c in context.scene.irsim_connections:
@@ -362,7 +386,8 @@ def structure_payload(context, name: str, exported, hidden) -> dict | None:
             facing.append(record)
     if not (contacts or facing or hidden):
         return None
-    from .hidden_parts import box_record
+    from . import library_state
+    from .hidden_parts import box_record, world_box
 
     hidden_records = []
     for ob in hidden:
@@ -370,13 +395,33 @@ def structure_payload(context, name: str, exported, hidden) -> dict | None:
         thermals = sorted(
             {s.material.irsim_material for s in ob.material_slots if s.material} - {""}
         )
+        material = thermals[0] if thermals else ""
+        centre, size = world_box(ob)
+        c_p = comp.specific_heat_j_kgk
+        if c_p <= 0.0 and not comp.component:  # nothing else to take it from: the material's
+            item = library_state.find(context, material)
+            c_p = item.specific_heat_j_kgk if item is not None else 0.0
         hidden_records.append(
             {
                 "name": ob.name,
                 "kind": comp.kind.lower(),
-                "material": thermals[0] if thermals else "",
+                "material": material,
                 "inside": ob.parent.name if ob.parent is not None else None,
                 "box": box_record(ob),
+                # What the asset config carries (HiddenPartSpec): the box around the part in the
+                # model's own axes, and only the numbers that override its component.
+                "aabb": {
+                    "centre_m": [float(x) for x in centre],
+                    "size_m": [float(x) for x in size],
+                },
+                "component": comp.component or None,
+                "specific_heat_j_kgk": float(f"{c_p:.6g}") if c_p > 0.0 else None,
+                "dissipation_w": (
+                    float(f"{comp.heat_rated_w:.6g}")
+                    if comp.heat_rated_w > 0.0 or not comp.component
+                    else None
+                ),
+                "status": STATUS[comp.values_source],
                 "mass_kg": float(f"{comp.mass_kg:.6g}"),
                 "heat_w": {
                     "idle": float(f"{comp.heat_idle_w:.6g}"),
@@ -389,6 +434,7 @@ def structure_payload(context, name: str, exported, hidden) -> dict | None:
         )
     return {
         "name": name,
+        "centre": _centre(exported),
         "part_areas": {ob.name: _area(ob) for ob in exported},
         "contacts": sorted(contacts, key=lambda r: r["parts"]),
         "facing": sorted(facing, key=lambda r: r["parts"]),

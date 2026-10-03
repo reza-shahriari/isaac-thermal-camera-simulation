@@ -8,7 +8,8 @@ library, and every file it writes into the repository, goes through this script,
 
 * ``library``        -- every material, with ε/ρ/τ per band as ``Material.band_properties``
                         derives them (so a spectral material shows its band-integrated values),
-                        and the joint table (``configs/thermal/joints.yaml``) a contact names.
+                        the joint table (``configs/thermal/joints.yaml``) a contact names, and the
+                        component library (``configs/components/``) a hidden part may name.
 * ``check-material`` -- validate a draft exactly as the loader will, and return its derived bands.
 * ``check-curve``    -- read a spectral CSV the person picked through the library's own loader:
                         its span, range of values, which nominal bands it covers, a plot sample.
@@ -18,15 +19,18 @@ library, and every file it writes into the repository, goes through this script,
 * ``write-material`` -- the same, then write ``configs/materials/<name>.yaml`` and reload the
                         whole library; a file that breaks the library is removed again.
 * ``list-assets``    -- the asset configs there are, and which ones this add-on wrote.
-* ``read-asset``     -- one asset config's map, loaded and checked by the project loader.
+* ``read-asset``     -- one asset config's map, loaded and checked by the project loader, with
+                        its parts block's contacts and hidden parts when it has one.
 * ``write-asset``    -- validate and write ``configs/assets/<name>.yaml``
                         (``irsim.materials.mapping.AssetConfig``), then reload it with every target
-                        checked against the library.
-* ``write-structure`` -- the contacts, facing pairs and hidden parts, checked against the parts,
-                        the joint table and the library, written to
-                        ``3d_models/<name>/<name>.structure.yaml``. The asset config has no
-                        place for them yet (roadmap row AI.11); when it has, the export moves them
-                        there and this file goes away.
+                        checked against the library. With a ``structure``, the config also gets a
+                        ``parts:`` block: each exported object a named part (``objects:``, AI.18),
+                        and the contacts and hidden parts the solver reads (AI.11, AI.12).
+* ``write-structure`` -- the add-on's own record beside the USD,
+                        ``3d_models/<name>/<name>.structure.yaml``: the facing pairs, each hidden
+                        part's idle heat and reference, and which contacts nobody has reviewed --
+                        what the asset config has no field for. With ``check_only`` it is the
+                        pre-export check of the contacts and hidden parts.
 
 Protocol, so a banner on stdout can never be mistaken for a result::
 
@@ -46,6 +50,7 @@ import pathlib
 import re
 import sys
 import tempfile
+import textwrap
 import traceback
 from typing import Any
 
@@ -339,7 +344,34 @@ def cmd_library(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> d
         "material_dir": str(material_dir),
         "materials": [_material_record(library[n], repo, band_ids) for n in sorted(library)],
         "joints": _joint_records(),
+        "components": _component_records(repo),
     }
+
+
+def _components(repo: pathlib.Path) -> Any:
+    """The repository's component library (AI.12), or an empty mapping when it has none."""
+    from irsim.config.components import load_component_library
+
+    folder = repo / "configs" / "components"
+    return load_component_library(folder) if folder.is_dir() else {}
+
+
+def _component_records(repo: pathlib.Path) -> list[dict]:
+    return [
+        {
+            "name": c.name,
+            "kind": c.kind,
+            "description": c.description,
+            "mass_kg": c.mass_kg,
+            "specific_heat_j_kgk": c.specific_heat_j_kgk,
+            "dissipation_idle_w": c.dissipation_idle_w,
+            "dissipation_rated_w": c.dissipation_rated_w,
+            "material": c.material or "",
+            "status": c.status,
+            "source": " ".join(c.source.split()),
+        }
+        for c in sorted(_components(repo).values(), key=lambda c: c.name)
+    ]
 
 
 def _joint_records() -> list[dict]:
@@ -661,7 +693,7 @@ def _asset_yaml(doc: dict, parts: list[str], notes: list[str]) -> str:
             line += f" {name},"
         header.append(line.rstrip(","))
     for note in notes:
-        header.append(f"# {note}")
+        header.extend(f"# {line}" for line in textwrap.wrap(note, 96))
     header.append(
         "# Re-exporting from the add-on replaces this file; hand edits belong in a copy under a "
         "new name."
@@ -719,6 +751,52 @@ def cmd_read_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -
         "scale_to_metres": asset.scale_to_metres,
         "materials": dict(asset.materials),
         "by_addon": _by_addon(path),
+        "parts": [s.name for s in (asset.parts.parts if asset.parts else [])],
+        "contacts": [
+            {"a": c.a, "b": c.b, "joint": c.joint, "area_m2": c.area_m2}
+            for c in (asset.parts.contacts if asset.parts else [])
+        ],
+        "hidden_parts": [h.model_dump() for h in (asset.parts.hidden_parts if asset.parts else [])],
+    }
+
+
+def _parts_block(structure: dict) -> dict:
+    """The asset config's ``parts:`` block (``irsim.io.asset_parts.PartsConfig``) for an export.
+
+    Every exported object is a part of its own name, selected by that name (AI.18) and judged
+    whole (AI.16); its contacts and hidden parts (AI.11) name those parts. A hidden part names its
+    component (AI.12) when it has one, and carries only the numbers the person set, which then
+    override the component's.
+    """
+    hidden = []
+    for h in structure.get("hidden_parts", []):
+        record: dict[str, Any] = {
+            "name": h["name"],
+            "centre_m": [float(f"{x:.6g}") for x in h["aabb"]["centre_m"]],
+            "size_m": [float(f"{x:.6g}") for x in h["aabb"]["size_m"]],
+        }
+        for key in ("component", "mass_kg", "specific_heat_j_kgk", "dissipation_w", "material"):
+            value = h.get(key)
+            if value not in (None, "", 0, 0.0):
+                record[key] = value
+        record["status"] = h.get("status", "ESTIMATED")
+        hidden.append(record)
+    return {
+        "centre": [float(f"{x:.6g}") for x in structure.get("centre", (0.0, 0.0, 0.0))],
+        "granularity": "object",
+        "parts": [
+            {"name": n, "select": {"objects": [n]}} for n in sorted(structure.get("part_areas", {}))
+        ],
+        "contacts": [
+            {
+                "a": c["parts"][0],
+                "b": c["parts"][1],
+                "joint": c["joint"],
+                "area_m2": float(f"{c['area_m2']:.6g}"),
+            }
+            for c in structure.get("contacts", [])
+        ],
+        "hidden_parts": hidden,
     }
 
 
@@ -741,6 +819,12 @@ def cmd_write_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) 
         "scale_to_metres": float(payload.get("scale_to_metres", 1.0)),
         "materials": dict(payload.get("materials", {})),
     }
+    structure = payload.get("structure")
+    if structure:
+        problems = _structure_problems(repo, args, structure)
+        if problems:
+            raise RefusalError("\n".join(problems), kind="invalid")
+        asset["parts"] = _parts_block(structure)
     doc = {"schema_version": ASSET_SCHEMA_VERSION, "asset": asset}
     try:
         AssetConfig.model_validate(doc)
@@ -764,12 +848,38 @@ def cmd_write_asset(args: argparse.Namespace, repo: pathlib.Path, payload: Any) 
         if not payload.get("overwrite"):
             raise RefusalError(f"{target.name} exists (from an earlier export)", kind="exists")
     assets_dir.mkdir(parents=True, exist_ok=True)
-    target.write_text(
-        _asset_yaml(doc, list(payload.get("parts", [])), list(payload.get("notes", []))),
-        encoding="utf-8",
-    )
-    reloaded = load_asset_mapping(target, known_materials=library.names)
-    return {"ok": True, "file": str(target), "materials": dict(reloaded.materials)}
+    notes = list(payload.get("notes", []))
+    if structure:
+        unreviewed = [
+            " / ".join(c["parts"]) for c in structure.get("contacts", []) if not c.get("reviewed")
+        ]
+        notes.append(
+            "`parts:` -- every exported object is a part of its own name (selected by that name, "
+            "judged whole); `contacts:` and `hidden_parts:` are what the thermal solve reads "
+            "(AI.11). A hidden part's box is the axis-aligned box around it as placed in Blender; "
+            "the numbers it carries override its component's."
+        )
+        if unreviewed:
+            notes.append(
+                f"Contacts the finder proposed and nobody reviewed: {', '.join(unreviewed)}."
+            )
+    previous = target.read_text(encoding="utf-8") if target.exists() else None
+    target.write_text(_asset_yaml(doc, list(payload.get("parts", [])), notes), encoding="utf-8")
+    try:
+        reloaded = load_asset_mapping(target, known_materials=library.names)
+    except (ValidationError, ValueError) as exc:  # the project loader has the last word
+        if previous is None:
+            target.unlink()
+        else:
+            target.write_text(previous, encoding="utf-8")
+        message = _pydantic_message(exc) if isinstance(exc, ValidationError) else str(exc)
+        raise RefusalError(message, kind="invalid") from exc
+    out = {"ok": True, "file": str(target), "materials": dict(reloaded.materials)}
+    if reloaded.parts is not None:
+        out["parts"] = len(reloaded.parts.parts)
+        out["contacts"] = len(reloaded.parts.contacts)
+        out["hidden_parts"] = len(reloaded.parts.hidden_parts)
+    return out
 
 
 def _structure_yaml(name: str, doc: dict) -> str:
@@ -789,43 +899,44 @@ def _structure_yaml(name: str, doc: dict) -> str:
         "#               in the model's frame, in metres, with its mass and heat output.",
         "# `reviewed: false` marks what the finder proposed and nobody has looked at yet.",
         "#",
-        "# The asset config has no place for these yet (roadmap AI.11). Until it has, this file",
-        "# sits beside the exported USD and nothing in irsim reads it.",
+        "# The contacts and hidden parts irsim solves with are in configs/assets/<name>.yaml",
+        "# (its `parts:` block, AI.11). This file is the add-on's fuller record of the same",
+        "# export -- the facing pairs, each hidden part's idle heat and reference, what nobody",
+        "# has reviewed -- and nothing in irsim reads it. Edit in Blender and export again.",
     ]
     body = yaml.safe_dump(doc, sort_keys=False, default_flow_style=None, allow_unicode=True)
     return "\n".join(header) + "\n" + body
 
 
-def cmd_write_structure(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
-    """Check the connections and hidden parts the way AI.11's loader is specified to, then write.
-
-    With ``check_only`` it stops after the check: the export asks first, so a refusal arrives
-    before the USD or the asset config is written.
-
-    Refused, as the roadmap row lists: a contact naming a part that is not there, a joint not in
-    the table, a contact area larger than either part's area, a hidden part without a mass. Also
-    refused: a hidden part whose material is not in the library, or whose heat at full load is
-    below its heat at idle.
+def _structure_problems(repo: pathlib.Path, args: argparse.Namespace, payload: dict) -> list[str]:
+    """Contacts and hidden parts checked the way AI.11's loader checks them, before anything is
+    written: a contact naming a part that is not there, a joint not in the table, a contact area
+    larger than either part, a hidden part with neither a mass nor a component (AI.12) to take one
+    from, a component or material the libraries do not have, or less heat at full load than idle.
     """
     from irsim.config.joints import load_joint_table
     from irsim.materials.library import MaterialLibrary
 
-    name = str(payload.get("name", ""))
-    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
-        raise RefusalError(f"asset name {name!r} is not valid", kind="invalid")
     part_areas = {str(k): float(v) for k, v in payload.get("part_areas", {}).items()}
     hidden = list(payload.get("hidden_parts", []))
     names = set(part_areas) | {str(h.get("name", "")) for h in hidden}
     joints = load_joint_table().joints
     library = MaterialLibrary.load(_material_dir(args, repo), _data_dir(args, repo))
+    components = _components(repo)
     problems: list[str] = []
 
     for h in hidden:
         what = f"hidden part {h.get('name')!r}"
-        if not float(h.get("mass_kg", 0.0)) > 0.0:
-            problems.append(f"{what} has no mass")
-        if h.get("material") not in library.names:
-            problems.append(f"{what}: {h.get('material')!r} is not a library material")
+        component = str(h.get("component") or "")
+        if component and component not in components:
+            problems.append(f"{what}: {component!r} is not in the component library")
+        if not component and not float(h.get("mass_kg", 0.0)) > 0.0:
+            problems.append(f"{what} has no mass, and no component to take one from")
+        material = h.get("material") or (
+            components[component].material if component in components else None
+        )
+        if material not in library.names:
+            problems.append(f"{what}: {material!r} is not a library material")
         heat = h.get("heat_w", {})
         if float(heat.get("rated", 0.0)) < float(heat.get("idle", 0.0)):
             problems.append(f"{what} makes less heat at full load than at idle")
@@ -854,6 +965,22 @@ def cmd_write_structure(args: argparse.Namespace, repo: pathlib.Path, payload: A
                         f"{what}: a contact of {area:.4g} m2 is larger than the smaller part "
                         f"({smaller:.4g} m2)"
                     )
+    return problems
+
+
+def cmd_write_structure(args: argparse.Namespace, repo: pathlib.Path, payload: Any) -> dict:
+    """The add-on's own record of the structure, after the same check the asset config gets.
+
+    With ``check_only`` it stops after the check: the export asks first, so a refusal arrives
+    before the USD or the asset config is written. Otherwise it writes what the asset config has
+    no field for -- facing pairs, idle heat, references, which contacts nobody has reviewed --
+    beside the USD. The contacts and hidden parts the solver reads are in the asset config.
+    """
+    name = str(payload.get("name", ""))
+    if not re.fullmatch(r"[a-z][a-z0-9_]*", name):
+        raise RefusalError(f"asset name {name!r} is not valid", kind="invalid")
+    hidden = list(payload.get("hidden_parts", []))
+    problems = _structure_problems(repo, args, payload)
     if problems:
         raise RefusalError("\n".join(problems), kind="invalid")
     if payload.get("check_only"):

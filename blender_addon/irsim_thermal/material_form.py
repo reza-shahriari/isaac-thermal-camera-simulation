@@ -1,8 +1,9 @@
 """A form for a new library material, checked by irsim before anything is written.
 
-The form asks for **emissivity** in one of the library's three forms (ADR 0175) -- one value per
-band, one grey value for every band, or a measured curve picked as a CSV (up to two segments, a
-short-wave reflectance joined as 1 − R) with per-band values filling where the curve has no data --
+The form asks for **emissivity** in one of the library's three forms (ADR 0175) -- by default a
+measured curve picked as a CSV (up to two segments, a short-wave reflectance joined as 1 − R) with
+per-band values filling only where the curve has no data; or, when nobody has measured the
+surface, one grey value for every band or one value per band --
 and **transmittance per band**, and shows reflectance as it will be derived, ρ = 1 − ε − τ. It
 cannot ask for reflectance as well: authoring two of the three is the mistake CLAUDE.md #4 exists
 to prevent, and ``irsim.config.materials`` refuses it. On *Create* the
@@ -41,14 +42,17 @@ SOURCES = (
     ("measured", "Measured", "Your own measurement of this surface"),
 )
 NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+#: Curve first and by default: the owner, 2026-10-01, "i want to have curves instead of specific
+#: band selection". A measured curve is the material; band values only fill where it has no data.
+#: *One value* and *Per band* remain for a surface nobody has measured, and say so.
 OPTICAL_FORMS = (
-    ("per_band", "Per band", "One emissivity for each band"),
-    ("grey", "One value", "The same emissivity in every band (a grey body)"),
     (
         "curve",
         "Curve",
-        "A measured spectral curve (CSV), with per-band values where it has no data",
+        "A measured spectral curve (CSV), with per-band values only where it has no data",
     ),
+    ("grey", "One value", "The same emissivity in every band (a grey body), when no curve exists"),
+    ("per_band", "Per band (no curve)", "One emissivity for each band, when no curve exists"),
 )
 CURVE_QUANTITIES = (
     ("emissivity", "Emissivity", "The file tabulates emissivity"),
@@ -94,7 +98,7 @@ class NewMaterial(Operator):
         name="Solar absorptivity", default=0.5, min=0.0, max=1.0, precision=3
     )
 
-    optical_form: EnumProperty(name="Emissivity as", items=OPTICAL_FORMS, default="per_band")
+    optical_form: EnumProperty(name="Emissivity as", items=OPTICAL_FORMS, default="curve")
     eps_grey: FloatProperty(name="ε (every band)", default=0.9, min=0.0, max=1.0, precision=3)
     curve_file: StringProperty(name="Curve", subtype="FILE_PATH", description="λ (µm), value CSV")
     curve_quantity: EnumProperty(name="Holds", items=CURVE_QUANTITIES, default="emissivity")
@@ -150,6 +154,9 @@ class NewMaterial(Operator):
             setattr(self, f"tau_{band}", getattr(item, f"tau_{band}"))
         if item.angular in {"constant", "empirical"}:
             self.angular = item.angular
+        # The copy carries the original's band values, so it opens on them; picking a curve
+        # (the default form for a new material) replaces them where the curve has data.
+        self.optical_form = "per_band"
         self.name = ""
 
     def invoke(self, context, event):

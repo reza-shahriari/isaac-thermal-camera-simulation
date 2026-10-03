@@ -668,6 +668,12 @@ def split_by_part_usd(
     bpy.context.view_layer.objects.active = meshes[0]
     if len(meshes) > 1:
         bpy.ops.object.join()
+    # The joined object keeps its first mesh's name, and a part may carry exactly that name (AI.18:
+    # parts selected by object name, as the Blender add-on exports them). Peeling a piece off and
+    # naming it after its part would then collide with the object it came from -- Blender would
+    # call the piece `block.001` and the lookup below would miss. A neutral name avoids that.
+    joined = bpy.context.view_layer.objects.active
+    joined.name = joined.data.name = "__irsim_unsplit__"
 
     # 3. peel off one part at a time
     made: list[str] = []
