@@ -217,6 +217,74 @@ def test_a_warm_pan_leaves_a_patch_on_the_road_beneath_it_and_only_with_the_exch
     assert group is not None and group.last_flux_w_m2["road"][under].mean() > 20.0
 
 
+# --- the spin-up -------------------------------------------------------------------------------
+
+
+def _engine_night(t_s: float) -> FacetForcing:
+    """The night, plus 150 W/m² from an engine behind the pan: it stays warm all night."""
+    return FacetForcing(
+        t_air_k=280.0, h_w_m2_k=8.0, q_longwave_down_w_m2=250.0, q_internal_w_m2=150.0
+    )
+
+
+def _group_at(t0_s: float, init_k: float | None = None) -> tuple[dict[str, object], ObjectExchange]:
+    """The road and a heated pan as one group starting at ``t0_s`` (from 280 K unless given)."""
+    ground, hot = road(8, 2.0), pan(0.25, half_m=0.6, n=3)
+    n_r, n_p = ground.n_cells, hot.n_cells
+    start = 280.0 if init_k is None else init_k
+    asphalt = PlanarThermalField(
+        ground, _props(n_r, 2.0e5, 0.95), lambda t: _night(), t0_s, np.full(n_r, start), 10.0
+    )
+    steel = PlanarThermalField(
+        hot, _props(n_p, 2.0e4, 0.9), _engine_night, t0_s, np.full(n_p, start), 10.0
+    )
+    group = ObjectExchange(
+        [ExchangeBody.from_planar("road", ground, 0.95), ExchangeBody.from_planar("pan", hot, 0.9)]
+    )
+    return {"road": group.register("road", asphalt), "pan": group.register("pan", steel)}, group
+
+
+def test_the_group_spin_up_is_the_exchanged_run_that_ends_at_t0() -> None:
+    """The oracle is the lockstep itself: spinning the group up for two hours on a 10 s step
+    gives, bit for bit, the state of the same group started two hours earlier from the air
+    temperature and advanced to t₀. So the spin-up is the exchange, not an approximation of it."""
+    spun, group = _group_at(0.0, init_k=300.0)  # the start it is given is thrown away
+    states = group.spin_up(2.0, dt_s=10.0)
+    ran, _ = _group_at(-7200.0)
+    ran["road"].advance_to(0.0)
+    for name in ("road", "pan"):
+        expect = ran[name].field.latest_state_k
+        assert np.array_equal(spun[name].field.latest_state_k, expect), name
+        assert np.array_equal(states[name], expect)
+        assert spun[name].latest_t_s == 0.0 and spun[name].n_ticks == 1
+
+
+def test_a_spun_up_road_opens_the_scene_with_the_pan_already_on_it() -> None:
+    """ADR 0157's limitation, closed: at t₀, before a single tick, the cells under the heated pan
+    already stand warmer than the open road -- the night they spent under it is in their state."""
+    fields, group = _group_at(0.0)
+    group.spin_up(6.0, dt_s=60.0)
+    t0 = np.asarray(fields["road"].temperature_at(0.0), dtype=np.float64)
+    centres = fields["road"].patch.cell_centres()
+    under = (np.abs(centres[:, 0]) < 0.6) & (np.abs(centres[:, 1]) < 0.6)
+    assert t0[under].mean() - t0[~under].mean() > 1.0, (t0[under].mean(), t0[~under].mean())
+    # and the run continues from there without a seam: the next tick moves by millikelvin
+    fields["road"].advance_to(10.0)
+    t1 = np.asarray(fields["road"].temperature_at(10.0), dtype=np.float64)
+    assert np.max(np.abs(t1 - t0)) < 0.05
+
+
+def test_a_spin_up_after_the_run_began_is_refused() -> None:
+    fields, group = _group_at(0.0)
+    fields["road"].advance_to(10.0)
+    with pytest.raises(RuntimeError, match="already ticked"):
+        group.spin_up(1.0)
+    with pytest.raises(RuntimeError, match="only at t0"):
+        fields["pan"].field.restart(np.full(9, 300.0))
+    with pytest.raises(ValueError, match="positive"):
+        _group_at(0.0)[1].spin_up(0.0)
+
+
 # --- refusals ----------------------------------------------------------------------------------
 
 

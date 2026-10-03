@@ -109,15 +109,20 @@ def test_the_switch_leaves_a_car_shaped_patch_on_the_road_at_night(
     assert set(on.object_exchange.names) == {"asphalt", "pan"}
     for name in ("asphalt", "pan"):
         assert isinstance(on.surface_fields[name], ExchangedField)
+    # the group is spun up together (ADR 0157 amendment): the patch is there before any tick,
+    # because the road stood under the pan all evening. 0.58 K at t0, measured; 0 before.
+    opening, under = _road_cells(on, on.t0_s)
+    assert on.surface_fields["asphalt"].n_ticks == 1
+    assert opening[under].mean() - opening[~under].mean() > 0.4
     t = on.t0_s + 3600.0
     flat, under = _road_cells(off, t)
     assert np.ptp(flat) == 0.0, "no occluder, no exchange: one temperature"
     warm, under = _road_cells(on, t)
     assert on.surface_fields["pan"].latest_t_s == t, "the pan moved with the road"
     excess = warm[under].mean() - warm[~under].mean()
-    # 0.25 K after one hour, measured: 0.1 m of asphalt has a time constant of hours, so the
-    # patch grows slowly -- which is also why it is still there at dawn
-    assert excess > 0.2, (warm[under].mean(), warm[~under].mean())
+    # 0.54 K after one hour, measured (0.25 K when the exchange began at t0): 0.1 m of asphalt
+    # has a time constant of hours, so the patch it carries in decays slowly
+    assert excess > 0.4, (warm[under].mean(), warm[~under].mean())
     assert warm[under].mean() > flat[0], "the road under the pan is warmer than without it"
     # the pan sees the road too: it cools less than the same pan over an unsolved surround
     pan_on = np.asarray(on.surface_fields["pan"].temperature_at(t), dtype=np.float64).mean()

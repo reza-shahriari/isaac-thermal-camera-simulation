@@ -1570,6 +1570,9 @@ def _join_object_exchange(
             surface_fields[body.name] = group.register(body.name, surface_fields[body.name])
         else:
             mesh_fields[body.name] = group.register(body.name, mesh_fields[body.name])
+    # The exchange is part of the surfaces' history, not a term switched on at t0: a road that
+    # stood under a car all night starts the scene with its patch (ADR 0157 amendment).
+    group.spin_up(spec.thermal.spin_up_hours, wrap=build.wrap)
     return group
 
 

@@ -81,3 +81,32 @@ after an hour, and with the switch off every road cell is one temperature. At th
   parallel-rectangle sources they model, and the scenes that use them do not set the switch.
 * Cost is TC.9's trace, once per scene at build (a 300-face pair in a minute), plus one
   matrix-vector product per tick.
+
+## Amendment, 2026-10-03 — the group is spun up together
+
+The "exchange begins at t₀" limitation is closed. `ObjectExchange.spin_up` runs §6.4's spin-up
+for the whole group: the same integration as `facets.spin_up` (`spin_up_hours` of weather ending
+at t₀, from the air temperature at the start, 60 s step, through the scene's weather wrap), with
+the members in lockstep and each step's exchange flux, from one snapshot, added to every member's
+`q_internal`. Each member's `ThermalField` is then restarted at t₀ from the result
+(`ThermalField.restart`, legal only before the first tick). The scene does this whenever
+`object_exchange: true`; with the switch off nothing changes, bit for bit.
+
+Why not a separate switch: a group spun up apart and joined at t₀ is not a cheaper version of the
+exchange. It is a state that no history could have produced, and the first hour of the scene is
+a transient from it. With the switch on, the spin-up is part of what the switch means.
+
+Not cached: the per-field spin-up cache is keyed on one material and the weather. A group key
+would also need the geometry and the traced factors. The cost is one matrix-vector product per
+60 s step, about 1,440 for a 24 h spin-up, which is small beside the build's trace.
+
+Measured: the group spin-up equals, bit for bit, the same group started `hours` earlier from air
+temperature and advanced to t₀ on the same step (`tests/unit/test_object_exchange.py`). In the
+night scene of `tests/unit/test_scene_object_exchange.py` the road under the pan opens 0.58 K
+warmer than the open road; before this amendment it opened at 0 K. After an hour the difference
+is 0.54 K, against 0.25 K before.
+
+Still open from this ADR: layered surfaces, cabin panels and prescribed maps are refused, not
+joined. TC.11's full-object solve also starts from each part's separate spin-up, and so its
+contacts and internal exchange begin at t₀. That limitation is the "per-part spin-up equalises
+its contacts on the first tick" already recorded for TC.13.

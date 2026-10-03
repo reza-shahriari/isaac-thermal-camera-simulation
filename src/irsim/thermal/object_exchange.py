@@ -188,6 +188,7 @@ class ObjectExchange:
         self.face_emissivity: NDArray[np.float64] = emit @ self.cell_emissivity
         self._emit = emit
         self._fields: dict[str, Any] = {}
+        self._inner_forcing: dict[str, Callable[[float], FacetForcing]] = {}
         self._snapshot_t: float | None = None
         self._incoming: NDArray[np.float64] | None = None
         self.last_flux_w_m2: dict[str, NDArray[np.float64]] = {}
@@ -272,6 +273,7 @@ class ObjectExchange:
                     f"{name!r}: every member must share t0 and the tick; "
                     f"{first.t0_s}/{first.tick_s} against {field.t0_s}/{field.tick_s}"
                 )
+        self._inner_forcing[name] = field.field.forcing_at
         field.field.forcing_at = self._wrap(name, field.field.forcing_at, field.t0_s)
         self._fields[name] = field
         return ExchangedField(self, field)
@@ -307,12 +309,75 @@ class ObjectExchange:
 
         return forcing
 
-    def advance_to(self, t_s: float) -> None:
-        """Every member forward to ``t_s``, one tick at a time, from one snapshot per tick."""
+    def _members_in_order(self) -> list[Any]:
         if len(self._fields) != len(self.names):
             missing = [n for n in self.names if n not in self._fields]
             raise ValueError(f"the exchange cannot step before every body has a field: {missing}")
-        fields = [self._fields[n] for n in self.names]
+        return [self._fields[n] for n in self.names]
+
+    def spin_up(
+        self,
+        hours: float,
+        dt_s: float = 60.0,
+        wrap: Callable[[Callable[[float], FacetForcing]], Callable[[float], FacetForcing]]
+        | None = None,
+    ) -> dict[str, NDArray[np.float64]]:
+        """Spin the whole group up together and restart every member at t₀ from the result.
+
+        docs/physics-model.md §6.1 and §6.4's spin-up; ADR 0157, amendment of 2026-10-03. The
+        same integration as :func:`~irsim.thermal.facets.spin_up` -- ``hours`` of weather ending
+        at t₀, from the air temperature at the start, on a ``dt_s`` step -- except that the
+        members advance in lockstep and each step's exchange flux, from one snapshot, is added
+        to every member's ``q_internal``. So a road that has stood under a warm pan all night
+        opens the scene with the pan's patch already on it, rather than growing it over the
+        first hours of the run.
+
+        ``wrap`` is the scene's wrap of a forcing into its weather series (the spin-up starts
+        before a 48 h file does); the exchange itself reads only the members' own forcings.
+        Every member must be registered and none advanced past t₀. Returns the state each
+        member was restarted from, in float64.
+        """
+        if hours <= 0.0 or dt_s <= 0.0:
+            raise ValueError("hours and dt_s must be positive")
+        fields = self._members_in_order()
+        advanced = [n for n, f in zip(self.names, fields, strict=True) if f.field.n_ticks != 1]
+        if advanced:
+            raise RuntimeError(f"spin-up after the run began: {advanced} already ticked")
+        from irsim.thermal.facets import FacetSolver
+
+        t0 = float(fields[0].t0_s)
+        start = t0 - hours * 3600.0
+        steps = int(round(hours * 3600.0 / dt_s))
+        inner = [self._inner_forcing[n] for n in self.names]
+        forcings = inner if wrap is None else [wrap(f) for f in inner]
+        sizes = [b.n_cells for b in self.bodies]
+        solvers = [
+            FacetSolver(
+                f.field.properties,
+                fa(start).arrays(n)[0],
+                conduction=f.field.conduction,
+            )
+            for f, fa, n in zip(fields, forcings, sizes, strict=True)
+        ]
+        for i in range(steps):
+            t = start + i * dt_s
+            incoming = self.incoming_w_m2(np.concatenate([s.temperatures_k for s in solvers]))
+            for k, (solver, fa, n) in enumerate(zip(solvers, forcings, sizes, strict=True)):
+                cells = self.cells_of(k)
+                base = fa(t)
+                q_lw = base.arrays(n)[3]
+                q_int = np.broadcast_to(np.asarray(base.q_internal_w_m2, dtype=np.float64), (n,))
+                q = self.cell_emissivity[cells] * (incoming[cells] - self.cover[cells] * q_lw)
+                solver.advance(dataclasses.replace(base, q_internal_w_m2=q_int + q), dt_s)
+        out: dict[str, NDArray[np.float64]] = {}
+        for name, f, solver in zip(self.names, fields, solvers, strict=True):
+            f.field.restart(solver.temperatures_k)
+            out[name] = np.array(solver.temperatures_k, dtype=np.float64)
+        return out
+
+    def advance_to(self, t_s: float) -> None:
+        """Every member forward to ``t_s``, one tick at a time, from one snapshot per tick."""
+        fields = self._members_in_order()
         tick = float(fields[0].tick_s)
         while True:
             latest = [float(f.latest_t_s) for f in fields]
