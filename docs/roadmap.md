@@ -184,27 +184,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 83 open steps
+#### Then, in order — 82 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WX.7`** | WX | A | L | 8 | ready |
 | 2 | **`WX.8`** | WX | A | M | 7 | `WX.7` |
 | 3 | **`WX.11`** | WX | A | S | 2 | ready |
-| 4 | **`WX.24`** | WX | A | L | 2 | ready |
-| 5 | **`WX.25`** | WX | A | M | 1 | ready |
-| 6 | **`WX.26`** | WX | A | M | 1 | ready |
-| 7 | **`WX.22`** | WX | A | L | 1 | ready |
-| 8 | **`WX.10`** | WX | A | M | — | ready |
-| 9 | **`WX.27`** | WX | A | M | — | `WX.24` |
-| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.24`, `WX.25`, `WX.26` |
-| 11 | **`XD.6`** | XD | A | L | — | ready |
-| 12 | **`AT.26`** | AT | B | S | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 4 | **`WX.25`** | WX | A | M | 1 | ready |
+| 5 | **`WX.26`** | WX | A | M | 1 | ready |
+| 6 | **`WX.22`** | WX | A | L | 1 | ready |
+| 7 | **`WX.10`** | WX | A | M | — | ready |
+| 8 | **`WX.27`** | WX | A | M | — | ready |
+| 9 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
+| 10 | **`XD.6`** | XD | A | L | — | ready |
+| 11 | **`AT.26`** | AT | B | S | — | ready |
+| 12 | **`IG.16`** | IG | B | M | — | ready |
+| 13 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 14 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 15 | **`TC.15`** | TC | C | M | 1 | ready |
 
-…and 68 more — `python scripts/next_step.py --queue 40`.
+…and 67 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -677,7 +677,7 @@ repository green on `make check`.
 | WX.21 | ✅ **closed without building — withdrawn** (ADR 0185). It was *a dome that resolves the camera's pixel*; the dome is no longer what the camera looks at, since the cloud is marched per pixel (`WX.23`). | Not built. The audit that withdrew it: `outputs/cloud_audit/`. | WX.5 | M | A |
 | WX.22 | **A field that does not repeat** (in `isaac-weather-fx`; split from `WX.6`): the procedural field aperiodic over the camera's range. The sun light maps, the path tracer's tiled volumes and the cover calibration all assume one periodic tile and move with it. | Mask autocorrelation at the old tile period < 0.1 (today 1.0 by construction); light maps and volumes agree with the dome beyond one tile; D and b still within §7.5's targets. | WX.6 | L | A |
 | WX.23 | ✅ **done** (ADR 0185). weather-fx `ec6ead3`: `core.cloudscape` (weather map, height profile, shape and detail noise; numpy reference) and `gpu.cloud_march` (Warp: two-stream sun, sky/ground mix, premultiplied out), composed through the sky model's aerial perspective; `tools/render_cloudscape.py`. | GPU density = numpy to 0.05 max / 1e-3 mean over 20k points; furnace 2 %; four headings 90° apart at one sharpness; 6–13 ms per 1280×720 frame on the A6000. The look is a first pass (`WX.27`). | WX.6 | L | A |
-| WX.24 | **The per-pixel cloud in the live Isaac viewport** (in `isaac-weather-fx`): the layer composited over the camera's frame through depth, in RTX Real-Time, with the clear sky and the aerial perspective on the GPU too; the dome kept only to light the scene. | A viewport camera turning 360° shows one sharpness everywhere; ≥ 20 fps at 1280×720 on the A6000; a frame saved from the camera equals the live view. | WX.23 | L | A |
+| WX.24 | ✅ **done** (ADR 0186). weather-fx `f25c3a8`: `clouds.render_path = "pixel"` marches the cloudscape for the viewport's camera each frame and emits it from a quad at the far end of its frustum, in RTX Real-Time and the path tracer alike; sky and air tabulated for the GPU (`core/layer_tables.py`); `examples/capture_pixel_clouds.py`. | In Isaac Sim, 1280×720, A6000: 44–48 fps real-time (layer 15 ms); four headings at one sharpness; real-time = path-traced clouds at midday; emission = dome at π × intensity. One camera; dome clear. | WX.23 | L | A |
 | WX.25 | **The same function in the path tracer** (in `isaac-weather-fx`): the cloudscape exported as fine NanoVDB tiles with air in front of it, and bases no longer coloured by the ground's bounce. | Path-traced and real-time frames of one sky agree in median luminance within 15 % and in cloud layout per pixel (IoU ≥ 0.8); no olive tint on bases (chroma within 0.03 of neutral grey). | WX.23 | M | A |
 | WX.26 | **The infrared march reads the function.** `WeatherFxDeck` marches `Cloudscape.density` with emission at the height's temperature; both sources (`CloudField`, `Cloudscape`) behind ADR 0178's contract. | IR and RGB frames of one sky agree on cloud pixels (IoU ≥ 0.9); §7.5's IR criteria hold as for `CloudField`. | WX.23 | M | A |
 | WX.27 | **The look to the owner's eye** (in `isaac-weather-fx`): detail erosion frequencies and strength, lobe sizes and per-genus profiles tuned against reference photographs, judged by the owner on the viewport. | The owner accepts a cumulus, a stratocumulus and a sunset frame; §7.5's D and b targets still met on the new field. | WX.24 | M | A |

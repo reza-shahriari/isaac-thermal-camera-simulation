@@ -915,6 +915,39 @@ sections:
           cloud seen through the air in front of it.
     source: scripts/cloud_look.py
 
+  - id: cloud-pixel-isaac
+    title: The per-pixel cloud inside Isaac Sim
+    lead: |
+      Everything in this section is rendered by Isaac Sim's own renderer. With
+      `clouds.render_path = "pixel"` the cloud function of `WX.23` is marched on the GPU for the
+      viewport's camera every frame, composed over the clear sky through the air in front of it,
+      and emitted by a quad that rides with the camera at the far end of its frustum (`WX.24`,
+      ADR 0186). The renderer draws the scene in front of that quad by itself, and an emissive
+      surface is the same thing to RTX Real-Time and to the path tracer, so both modes show one
+      sky. At 1280 × 720 on an RTX A6000 the real-time viewport runs at 44–48 frames a second with
+      the camera turning. One camera for now; the dome behind the quad stays clear, so reflections
+      and ground shadows do not see the clouds yet.
+    media:
+      - image: cloud_pixel_isaac/headings_realtime_pathtraced.png
+        width: full
+        caption: >-
+          One sky at 14:30 UTC, 35 % cumulus, the camera 22° up and turned north, east, south and
+          west. Top row RTX Real-Time, bottom row the path tracer: the same clouds, at the same
+          sharpness, in every direction.
+      - image: cloud_pixel_isaac/hours_realtime_pathtraced.png
+        width: full
+        caption: >-
+          One heading (300°) at 07:00, 11:00, 17:00 and 19:00 UTC. The clouds agree between the
+          modes; with the sun in frame the exposure does not, because real-time auto-exposes and
+          the path tracer does not.
+      - video: cloud_pixel_isaac/isaac_pan.mp4
+        caption: >-
+          A full turn of the camera in RTX Real-Time, 90 frames, 1280 × 720.
+      - video: cloud_pixel_isaac/isaac_day.mp4
+        caption: >-
+          05:30 to 20:18 UTC at one heading in RTX Real-Time, 60 frames.
+    source: scripts/cloud_look.py
+
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

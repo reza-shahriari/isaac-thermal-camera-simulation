@@ -165,6 +165,9 @@ class StageOnlyContext:
     cloud_drift_m: Any = None
     #: Published by the sky effect after a bake (the fog effect reads it); None until then.
     sky_horizon_rgb: Any = None
+    #: Published by the sky effect after a bake too: the dome's exposure and white-balance gains,
+    #: which the per-pixel cloud layer (`clouds.render_path = "pixel"`, ADR 0186) reads.
+    sky_dome: Any = None
     #: The manager's clock, seconds, which the precipitation effect winds its gusts from. A
     #: headless driver authors one sky per run and has no such clock; zero.
     time: float = 0.0
