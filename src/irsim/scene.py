@@ -1442,6 +1442,28 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
     return spec.model_copy(update={"thermal": new_thermal}), assets
 
 
+def duty_schedule(t0_s: float, at_s: Any, values: Any) -> Callable[[float], float]:
+    """A duty authored as ``at_s`` (seconds after t0) and ``values`` (TC.11, TC.13).
+
+    Linear between points and held after the last, as authored. Before the first point the
+    schedule says nothing: in the run it holds its first value, as it always has, but in the
+    spin-up (before t0) it is **off** -- an aircraft whose flight starts at t0 was not powered
+    for the hours before it, so its components must not dissipate through the object's history
+    (ADR 0157 amendment of 2026-10-03). A schedule that starts before t0 (a negative ``at_s``) is
+    followed into the spin-up from its first point.
+    """
+    times = t0_s + np.asarray(at_s, dtype=np.float64)
+    vals = np.asarray(values, dtype=np.float64)
+    off_before = min(float(times[0]), t0_s)
+
+    def f(t_s: float) -> float:
+        if t_s < off_before - 1e-9:
+            return 0.0
+        return float(np.interp(t_s, times, vals))
+
+    return f
+
+
 def _build_full_objects(
     spec: SceneSpec,
     build: _ThermalBuild,
@@ -1480,13 +1502,7 @@ def _build_full_objects(
             exchange = ObjectExchange(bodies)
 
         def schedule(at_s: Any, values: Any) -> Any:
-            times = t0_s + np.asarray(at_s, dtype=np.float64)
-            vals = np.asarray(values, dtype=np.float64)
-
-            def f(t_s: float, _t: Any = times, _v: Any = vals) -> float:
-                return float(np.interp(t_s, _t, _v))
-
-            return f
+            return duty_schedule(t0_s, at_s, values)
 
         duty: Any = None
         if obj.duty_s is not None and obj.duty is not None:
@@ -1521,6 +1537,9 @@ def _build_full_objects(
             exchange=exchange,
             components=components,
         )
+        # The object's history is one solve's: contacts, hidden parts and the internal exchange
+        # all run through the spin-up, so no contact equalises on the first tick (TC.11).
+        solve.coupled.spin_up(thermal.spin_up_hours, wrap=build.wrap)
         hold = hold_from_s(t0_s, True if obj.evolve is None else obj.evolve, obj.freeze_at_s)
         if hold is not None:
             solve.coupled.field.hold_from_s = hold

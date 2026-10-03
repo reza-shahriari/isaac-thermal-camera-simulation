@@ -144,3 +144,36 @@ Measured (`tests/unit/test_object_exchange.py`):
   cabin with no exchange.
 * The parked-car cabin scene joins all five of its panels and steps the cabin with the group
   (`tests/unit/test_scene_object_exchange.py`).
+
+## Amendment, 2026-10-03 (third) — a fully solved object is spun up whole (TC.11)
+
+A `solve: full` object (TC.11) used to start from its parts' separate spin-ups, each part alone
+against an adiabatic back and its hidden components at the parts' mean temperature. Its contacts,
+lumped links and internal exchange therefore began at t₀, and its first tick was a transient:
+on `phantom4_solved.yaml` some cells jumped 7.8 K, and the 99th percentile was 4.6 K.
+
+`CoupledFields.spin_up` now runs §6.4's spin-up on the whole solve, through its own operator,
+and restarts it at t₀. Contacts, lumped links and lateral conduction are all in that operator.
+The internal exchange during the spin-up is computed from the state being spun up, through
+`_forcing_given`. Reading the field's own state instead would hold the exchange at its t₀ value
+for the whole spin-up, which is the bug this guards. The scene calls it for every object.
+
+**What a component does before t₀.** The duty schedules were authored for the run from t₀, and
+`np.interp` holds the first value before the first point. Applied to the spin-up, that would
+have kept the Phantom 4's flight controller at rated power for the six hours before take-off.
+`scene.duty_schedule` therefore keeps the run as it was, but in the spin-up a scheduled
+component is off until its schedule's first point. A schedule authored with a negative `at_s`
+is followed into the spin-up from that point. A component with no schedule is rated at all
+times, so it is on in the spin-up too.
+
+Measured:
+
+* An object's spin-up equals, bit for bit, the same object started that many hours earlier and
+  run to t₀ (`tests/unit/test_object_exchange.py`).
+* On the Phantom 4, the first-tick jump falls from 7.8 K to 1.6 K at the largest cell, and from
+  4.6 K to 0.14 K at the 99th percentile.
+* The bells open at 30.1 °C, against 28.8 °C before.
+* The bells' first-minute rise falls from 1.48 K to 0.52 K, a station mean. Most of the old
+  figure was the contacts equalising, not the throttle.
+* The rise by the end of the climb (5 min) goes from 13.65 K to 12.47 K. From landing on the
+  flight is unchanged to 0.01 K.

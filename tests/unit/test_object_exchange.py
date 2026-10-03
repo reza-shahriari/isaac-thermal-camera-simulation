@@ -449,6 +449,62 @@ def test_a_part_of_an_object_with_its_own_exchange_is_refused() -> None:
         outer.register("a", coupled.fields["a"])
 
 
+# --- TC.11: an object's own spin-up -------------------------------------------------------------
+
+
+def _object_at(t0_s: float) -> object:
+    """A road and a heated pan as one coupled object with its own internal exchange (TC.11)."""
+    from irsim.thermal.coupling import CoupledFields, FieldMember
+
+    ground, hot = road(8, 2.0), pan(0.25, half_m=0.6, n=3)
+    exchange = ObjectExchange(
+        [ExchangeBody.from_planar("road", ground, 0.95), ExchangeBody.from_planar("pan", hot, 0.9)]
+    )
+    return CoupledFields(
+        [
+            FieldMember("road", ground, _props(64, 2e5, 0.95), lambda t: _night(), 280.0),
+            FieldMember("pan", hot, _props(hot.n_cells, 2e4, 0.9), _engine_night, 280.0),
+        ],
+        t0_s=t0_s,
+        tick_s=10.0,
+        exchange=exchange,
+        exchange_members=("road", "pan"),
+    )  # fmt: skip
+
+
+def test_an_objects_spin_up_is_its_own_run_that_ends_at_t0() -> None:
+    """The internal exchange during the spin-up is computed from the state being spun up: the
+    result equals, bit for bit, the object started two hours earlier and run to t₀. Reading the
+    field's own (t₀) state instead -- the bug this guards -- would hold the exchange at its
+    starting value for all two hours, and the two would differ by kelvins."""
+    spun = _object_at(0.0)
+    state = spun.spin_up(2.0, dt_s=10.0)  # type: ignore[attr-defined]
+    ran = _object_at(-7200.0)
+    ran.advance_to(0.0)  # type: ignore[attr-defined]
+    expect = ran.field.latest_state_k  # type: ignore[attr-defined]
+    assert np.array_equal(state, expect)
+    assert np.array_equal(spun.field.latest_state_k, expect)  # type: ignore[attr-defined]
+    assert spun.field.n_ticks == 1  # type: ignore[attr-defined]
+    spun.advance_to(10.0)  # type: ignore[attr-defined]
+    with pytest.raises(RuntimeError, match="before its first tick"):
+        spun.spin_up(1.0)  # type: ignore[attr-defined]
+
+
+def test_a_scheduled_component_is_off_before_its_schedule_in_the_spin_up() -> None:
+    """A flight that starts at t₀ was not powered for the hours before it; the run itself still
+    holds the first value before the first point, as it always has."""
+    from irsim.scene import duty_schedule
+
+    t0 = 1000.0
+    f = duty_schedule(t0, [0.0, 60.0], [0.5, 1.0])
+    assert f(t0 - 3600.0) == 0.0 and f(t0 - 1.0) == 0.0
+    assert f(t0) == 0.5 and f(t0 + 30.0) == 0.75 and f(t0 + 600.0) == 1.0
+    late = duty_schedule(t0, [120.0, 180.0], [0.2, 0.4])
+    assert late(t0 - 1.0) == 0.0 and late(t0) == 0.2, "the run holds, the spin-up does not"
+    early = duty_schedule(t0, [-1800.0, 0.0], [1.0, 1.0])
+    assert early(t0 - 3600.0) == 0.0 and early(t0 - 900.0) == 1.0, "authored history is kept"
+
+
 # --- refusals ----------------------------------------------------------------------------------
 
 
