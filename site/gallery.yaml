@@ -896,6 +896,25 @@ sections:
           grid with only its cloud edges marched again — the infrared camera's own rule.
     source: scripts/cloud_look.py
 
+  - id: cloud-air
+    title: A distant cloud is seen through the air
+    lead: |
+      A cloud 30 km away is behind 30 km of air. The air dims the cloud and adds its own light,
+      so far cumulus fades toward the horizon's colour while a cloud overhead stays crisp. The
+      dome used to compose every cloud as if it were at the eye. Since `WX.5` it composes each
+      cloud through the sky's own scattering integral, kept at 16 distances out to 64 km
+      (ADR 0182). The air in a cloud's shadow is dark, so a cloud near the sun is not veiled by
+      sunlit haze that is not there. At 64 km the air light is the sky itself, within 1.5 %.
+    media:
+      - video: cloud_look_air/cloud_air_before_after.mp4
+        width: full
+        caption: >-
+          One ground camera looking west, 12° up with a 70° field of view, over 35 % cumulus. 48
+          frames from 09:00 to 19:12 UTC on 21 June at Munich, while the sun falls from 53.6° to
+          0.4°. Left: weather-fx `5853dcc`, the cloud composed at the eye. Right: `582bf47`, the
+          cloud seen through the air in front of it.
+    source: scripts/cloud_look.py
+
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky
     lead: |

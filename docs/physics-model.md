@@ -838,9 +838,12 @@ reference the infrared frame is read against, so its cloud is held to physical c
    scattering cap `ptvol/maxBounces` defaults to 2 [R83]. A march approximates the missing orders —
    with Wrenninge's octaves, contribution ≤ attenuation for energy conservation [R82], or, as the
    dome does since `WX.3`, with the two-stream field along each sun chord (below).
-5. **Aerial perspective.** A cloud at range $R$ is seen through the air. Its contrast against the
-   horizon falls with the air's transmittance over $R$, which is what makes a distant cloud hazy and a
-   near one crisp.
+5. **Aerial perspective.** A cloud at range $R$ is seen through the air:
+   $T_{\text{air}}(R)\,C + \alpha\,L_{\text{air}}(0,R)$, its own light attenuated by the air in front of
+   it plus the light that air scatters toward the camera. That is what makes a distant cloud hazy and a
+   near one crisp. Koschmieder's law, contrast $= T_{\text{air}}(R)$, is the case of uniform air only.
+   In a real atmosphere the aerosol sits low, so a ray that climbs out of it keeps more contrast than
+   its transmittance says; the measurements below show by how much.
 
 **How the dome meets them (`WX.3`, ADR 0180).** Each step of the visible march in-scatters, with
 criterion 2's weight $\varpi\,\mathcal T\,(1-e^{-\Delta\tau})$, three lights:
@@ -879,8 +882,31 @@ criteria as follows:
 The path-traced volumes get `ptvol/maxBounces` = 32 (`WX.2`).
 
 The thin-edge criterion is applied outside the 15° round the sun. Inside it, a wisp shadowed by its own
-cloud is compared with an aureole that the same cloud also shadows, and that shadow on the air is not
-modelled.
+cloud is compared with the clear sky's aureole, and the same cloud shadows that aureole too. The dome
+shadows only the air in front of a cloud (below), not the clear sky behind it.
+
+**Aerial perspective in the dome (`WX.5`, ADR 0182).** The march reports an emission range $\bar R$:
+the mean distance along the ray, weighted by what each step adds. The composite becomes
+$T_{\text{air}}(\bar R)\,C + \alpha\,L_{\text{air}}(0,\bar R) + (1-\alpha)\,L_{\text{sky}}$. It is still
+premultiplied, so criterion 3 holds.
+
+$T_{\text{air}}$ and $L_{\text{air}}$ are the sky's own scattering integral, kept at 16 range slices out
+to 64 km on the sky view's angles. This is Hillaire's aerial-perspective volume [R116], so at the far
+end of a ray they are the sky view itself.
+
+$L_{\text{air}}$ is kept in two parts: the share of the direct beam scattered once, and the share
+scattered many times. The direct share is scaled by the sun's transmittance through the cloud field,
+read from the field's light map at four points along the path below the cloud base. The air in a
+cloud's shadow is therefore dark. Without that, a cloud near the sun was veiled by an aureole of air
+that is in fact in its shadow, by up to 28 kcd/m², and read brighter than the clear sky.
+
+Measured (upstream `tests/test_cloud_light.py`):
+
+- **The far limit:** at 64 km the air light is the sky view to within 1.5 % from 30° up.
+- **Contrast against Koschmieder:** a black object near the horizon keeps 1.02 times $T_{\text{air}}$ at
+  5 km. As the ray climbs out of the aerosol it keeps 1.07 times at 15 km and 1.16 times at 30 km.
+- **Distance:** a cloud 20 km off moves to within 0.6 of its old distance from the horizon's colour. A
+  cloud overhead changes by under 15 %.
 
 RTX volumes scatter but cannot emit [R83]. The infrared cloud is therefore never the renderer's: it is
 always this section's march over the shared field.
@@ -889,7 +915,8 @@ always this section's march over the shared field.
 sunlight scattered by cloud toward the camera on a target pixel (sky pixels carry it, ADR 0153); ice
 microphysics beyond a per-genus phase. In the visible dome, the light a finite cloud loses through its
 sides (the march is one-dimensional along each sun chord, so the base of a small cumulus is as bright as
-two-stream says a layer of its depth is) and a cloud's shadow on the air beyond it. Cloud shadows on surfaces are §6.7; precipitation is §7.8.
+two-stream says a layer of its depth is); a cloud's shadow on the air beyond it and on the clear sky
+around it, and so light shafts; the air above a cloud base, taken as sunlit. Cloud shadows on surfaces are §6.7; precipitation is §7.8.
 
 ### 7.6 One march for every medium
 
@@ -2341,6 +2368,7 @@ search notes are `docs/research/2026-10-01-weather-in-the-infrared.md`)
 - [R113] A. Rankin et al., *Unmanned ground vehicle perception using thermal infrared cameras*, Proc. SPIE 8045 (2011). https://robotics.jpl.nasa.gov/media/documents/spie-2011-rankin-final.pdf — puddles reflect the sky in LWIR.
 - [R114] F. Ritter, M. Berkelhammer, D. Beysens, *Dew frequency across the US from a network of in situ radiometers*, Hydrol. Earth Syst. Sci. 23, 1179–1197 (2019). doi:10.5194/hess-23-1179-2019
 - [R115] G. Jobert et al., *Windshield integration of thermal and color fusion for automatic emergency braking in low visibility conditions*, arXiv:2410.04928 (2024) — a drop on the window lowers LWIR responsivity to ~90 % without blur.
+- [R116] S. Hillaire, *A scalable and production ready sky and atmosphere rendering technique*, Computer Graphics Forum 39(4), 13–22 (EGSR 2020). doi:10.1111/cgf.14050 — the sky-view table, the multiple-scattering table and the aerial-perspective volume.
 
 **Related open work**
 

@@ -71,7 +71,7 @@ Option 4, in each band's own pixel.
 
 ## Revisit when
 
-* The dome's resolution rises (`WX.5`) and the edge texels make the bake too slow. The integration
+* The dome's resolution rises (`WX.21`) and the edge texels make the bake too slow. The integration
   could then run on the dome's coarser rows only.
 * A renderer offers per-pixel accumulation for the dome. The path tracer already converges the
   volumes that way.
