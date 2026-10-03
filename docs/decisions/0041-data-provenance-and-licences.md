@@ -1,6 +1,6 @@
 # ADR 0041 — Provenance and licences of checked-in optical data
 
-**Status:** Accepted
+**Status:** Accepted; amended by [ADR 0179](0179-ecostress-curves-with-jpls-credit-line-as-a-last-resort.md) (ECOSTRESS, with its credit line, where no CC0 or public-domain source exists)
 **Date:** 2026-09-15
 
 ## Context

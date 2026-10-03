@@ -1,0 +1,100 @@
+# Spectral emissivity of rubber tyre, 5.1-14 um.
+#
+# source: MODELLED, MEASURED SHAPE. eps = 1 - s R(lambda), R the measured reflectance of ECOSTRESS sample 0833UUURBR 'Black unspecified rubber' (manmade.roofingmaterial.rubber.solid.all.0833uuurbr.jhu.becknic.spectrum.txt), Directional (10 Degree) Hemispherical Reflectance.
+#   s = 0.581827 holds the LWIR nominal-band average at the authored 0.95 (configs/materials/rubber_tyre.yaml): the SHAPE is the sample's, the LEVEL the library's.
+#   Reproduced from the ECOSTRESS Spectral Library through the courtesy of the Jet Propulsion Laboratory, California Institute of Technology, Pasadena, California. Copyright (c) 2017, California Institute of Technology. ALL RIGHTS RESERVED.
+#   Cite: Meerdink, S. K., Hook, S. J., Roberts, D. A., & Abbott, E. A. (2019), The ECOSTRESS spectral library version 1.0, Remote Sensing of Environment 230, 111196; Baldridge, A. M., Hook, S. J., Grove, C. I., & Rivera, G. (2009), The ASTER spectral library version 2.0, Remote Sensing of Environment 113, 711-715.
+#   Sample: Unspecified rubber from a building roof. Sample was black and weathered  Original ASTER Spectral Library name was jhu.becknic.manmade.roofing.rubber.solid.0833uuu.spectrum.txt
+#   Used here as: CLASS PROXY: black weathered roofing rubber for a tyre.
+#   Written by scripts/import_ecostress.py (roadmap XD.14, ADR 0179); edit the script.
+# Columns: wavelength in MICROMETRES, emissivity.
+5.1,0.963858643
+5.2,0.963904607
+5.3,0.964094864
+5.4,0.964332832
+5.5,0.964502143
+5.6,0.964962950
+5.7,0.965183463
+5.8,0.965565142
+5.9,0.965196845
+6,0.965286446
+6.1,0.965121207
+6.2,0.965206154
+6.3,0.964266503
+6.4,0.963772532
+6.5,0.963373399
+6.6,0.963200596
+6.7,0.963629403
+6.8,0.964467234
+6.9,0.964000608
+7,0.963154050
+7.1,0.962916083
+7.2,0.962854409
+7.3,0.962474476
+7.4,0.962131780
+7.5,0.961400423
+7.6,0.960684775
+7.7,0.960202441
+7.8,0.959625850
+7.9,0.958666417
+8,0.957553382
+8.1,0.956190742
+8.2,0.955152181
+8.3,0.953673758
+8.4,0.952731198
+8.5,0.951666454
+8.6,0.950348616
+8.7,0.947243986
+8.8,0.943692513
+8.9,0.940879379
+9,0.939811144
+9.1,0.935917557
+9.2,0.931255958
+9.3,0.930314561
+9.4,0.933442464
+9.5,0.931352541
+9.6,0.921222348
+9.7,0.920810415
+9.8,0.928281657
+9.9,0.930384963
+10,0.934127857
+10.1,0.937528636
+10.2,0.940083439
+10.3,0.945226210
+10.4,0.949398492
+10.5,0.952907492
+10.6,0.955242364
+10.7,0.955852701
+10.8,0.954731520
+10.9,0.954164820
+11,0.953524810
+11.1,0.953793033
+11.2,0.955196400
+11.3,0.955645570
+11.4,0.956003394
+11.5,0.956149433
+11.6,0.957249086
+11.7,0.957240940
+11.8,0.957358470
+11.9,0.957772149
+12,0.958288811
+12.1,0.959055077
+12.2,0.958337103
+12.3,0.958094481
+12.4,0.960009274
+12.5,0.958259720
+12.6,0.958903221
+12.7,0.958266702
+12.8,0.957431780
+12.9,0.959426283
+13,0.959582213
+13.1,0.959348318
+13.2,0.958942203
+13.3,0.958672235
+13.4,0.958619289
+13.5,0.959443738
+13.6,0.958483141
+13.7,0.958365612
+13.8,0.958591943
+13.9,0.958202119
+14,0.958365612

@@ -85,12 +85,41 @@ constants), or, for painted metal, weathered metal and granite, from the **FLIR 
 table**: a compilation of published measurements printed in FLIR's camera manuals, which FLIR
 itself calls "recommendations only". Each file says which.
 
+### Spectral shapes from optical constants: glass, dry soil, snow, polycarbonate
+
+Five materials take the **shape** of their long-wave curve from published optical constants
+(RefractiveIndex.INFO, public domain): fused silica for glass and for quartz-rich dry soil, ice
+(Warren & Brandt 2008) for snow, and polycarbonate's own constants (Zhang et al. 2020). The
+**level** stays the library's literature value: the curve is scaled so that its average over the
+standard 7.5–13.5 µm band is exactly that value. A camera looking at a different range then sees
+the dip or rise where the substance really has one. Silicates, for example, absorb strongly near
+9 µm, so dry soil reads 0.90 to an 8–12 µm camera and 0.96 to a 10–13 µm one.
+[`scripts/derive_proxy_shape_curves.py`](../scripts/derive_proxy_shape_curves.py) writes the
+curves, and each file says what stood in for what.
+
+### Spectral shapes measured where nothing freer exists: ECOSTRESS
+
+Concrete, dry asphalt, the two rubbers and the four paints take the **shape** of their long-wave
+curve from a measured sample in the **ECOSTRESS spectral library** (NASA JPL; Meerdink et al.
+2019; Baldridge et al. 2009). As with the materials above, their **level** stays the literature
+value, so nothing a standard 7.5–13.5 µm camera sees has changed. All four paints share one gloss
+enamel sample, because paint's thermal-infrared emissivity is set by its binder, not its colour.
+Where the sample stands in for something else (roofing rubber for a tyre), the file says so.
+Concrete's quartz aggregate, for example, makes it read 0.91 to an 8–12 µm camera and 0.94 to a
+10–13 µm one.
+
+ECOSTRESS gives no licence, so the project uses it only where no public-domain or CC0 source
+covers a material, and every curve carries JPL's credit line: *Reproduced from the ECOSTRESS
+Spectral Library through the courtesy of the Jet Propulsion Laboratory, California Institute of
+Technology, Pasadena, California. Copyright (c) 2017, California Institute of Technology. ALL
+RIGHTS RESERVED.* ([ADR 0179](decisions/0179-ecostress-curves-with-jpls-credit-line-as-a-last-resort.md))
+[`scripts/import_ecostress.py`](../scripts/import_ecostress.py) writes the curves.
+
 ### The rest: literature starting values
 
-The remaining 23 materials (car paints, rubber, human skin, cotton, glass, carbon fibre and
-others) carry the literature values the project started with, in
-[physics model §16.2](physics-model.md). Where a value was estimated rather than looked up, the
-file marks it `ESTIMATED`.
+The remaining materials (human skin, cotton, carbon fibre, nylon, ABS and others) carry the
+literature values the project started with, in [physics model §16.2](physics-model.md). Where a
+value was estimated rather than looked up, the file marks it `ESTIMATED`.
 
 ## How you can be sure the values are right
 
@@ -169,18 +198,18 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | material | surface | NIR | SWIR | MWIR | LWIR | sunlight absorbed | where the optics come from |
 |---|---|---|---|---|---|---|---|
 | `abs_plastic_white` | as manufactured | 0.12 | 0.22 | 0.90 | 0.95 | 0.25 | literature, partly estimated |
-| `aircraft_aluminium_painted` | painted | 0.25 | 0.35 | 0.88 | 0.90 | 0.30 | literature, partly estimated |
+| `aircraft_aluminium_painted` | painted | 0.25 | 0.35 | 0.88 | 0.90 | 0.30 | LWIR shape from ECOSTRESS; level literature |
 | `aluminium_anodised` | anodised | 0.15 | 0.25 | 0.82 | 0.84 | 0.35 | literature, partly estimated |
 | `aluminium_polished` | polished | 0.04 | 0.03 | 0.03 | 0.04 | 0.08 | literature, partly estimated |
 | `aluminium_weathered` | weathered | 0.80 | 0.72 | 0.89 | 0.81 | 0.75 | measured: SLUM (MWIR from its class) |
-| `asphalt_dry` | weathered | 0.92 | 0.90 | 0.92 | 0.94 | 0.90 | literature, partly estimated |
+| `asphalt_dry` | weathered | 0.92 | 0.90 | 0.92 | 0.94 | 0.90 | LWIR shape from ECOSTRESS; level literature |
 | `asphalt_road_aged` | weathered | 0.86 | 0.80 | 0.97 | 0.97 | 0.89 | measured: USGS + UCSB |
 | `asphalt_road_stone` | weathered | 0.76 | 0.74 | 0.97 | 0.96 | 0.78 | measured: SLUM (MWIR from its class) |
 | `bare_aluminium` | oxidised | 0.08 | 0.05 | 0.06 | 0.09 | 0.15 | literature, partly estimated |
 | `brick_red` | as manufactured | 0.77 | 0.75 | 0.67 | 0.95 | 0.83 | measured: USGS + UCSB |
 | `brick_tan` | as manufactured | 0.83 | 0.82 | 0.92 | 0.96 | 0.86 | measured: USGS + UCSB |
-| `car_paint_black` | painted | 0.94 | 0.94 | 0.88 | 0.90 | 0.94 | literature, partly estimated |
-| `car_paint_white` | painted | 0.30 | 0.40 | 0.88 | 0.90 | 0.28 | literature, partly estimated |
+| `car_paint_black` | painted | 0.94 | 0.94 | 0.88 | 0.90 | 0.94 | LWIR shape from ECOSTRESS; level literature |
+| `car_paint_white` | painted | 0.30 | 0.40 | 0.88 | 0.90 | 0.28 | LWIR shape from ECOSTRESS; level literature |
 | `carbon_fibre` | as manufactured | 0.90 | 0.88 | 0.88 | 0.90 | 0.90 | literature, partly estimated |
 | `cement_brick_black` | weathered | 0.88 | 0.86 | 0.93 | 0.94 | 0.91 | measured: SLUM (MWIR from its class) |
 | `cement_brick_yellow` | weathered | 0.67 | 0.62 | 0.93 | 0.94 | 0.70 | measured: SLUM (MWIR from its class) |
@@ -190,7 +219,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `clay_brick_light_red` | as manufactured | 0.46 | 0.30 | 0.67 | 0.94 | 0.57 | measured: SLUM (MWIR from its class) |
 | `clay_brick_painted` | as manufactured | 0.36 | 0.36 | 0.67 | 0.95 | 0.44 | measured: SLUM (MWIR from its class) |
 | `clay_brick_weathered` | as manufactured | 0.59 | 0.50 | 0.67 | 0.94 | 0.68 | measured: SLUM (MWIR from its class) |
-| `concrete` | weathered | 0.65 | 0.72 | 0.90 | 0.92 | 0.65 | literature, partly estimated |
+| `concrete` | weathered | 0.65 | 0.72 | 0.90 | 0.92 | 0.65 | LWIR shape from ECOSTRESS; level literature |
 | `concrete_new` | weathered | 0.77 | 0.73 | 0.93 | 0.91 | 0.79 | measured: SLUM (MWIR from its class) |
 | `concrete_pavement` | weathered | 0.69 | 0.66 | 0.93 | 0.96 | 0.71 | measured: USGS + UCSB |
 | `concrete_weathered` | weathered | 0.61 | 0.61 | 0.93 | 0.95 | 0.63 | measured: SLUM (MWIR from its class) |
@@ -200,7 +229,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `cotton_clothing` | as manufactured | 0.45 | 0.55 | 0.93 | 0.95 | 0.70 | literature, partly estimated |
 | `etics_render` | weathered | 0.88 | 0.88 | 0.90 | 0.91 | 0.30 | literature, partly estimated |
 | `fibre_cement_shingle` | as manufactured | 0.95 | 0.96 | 0.93 | 0.94 | 0.95 | measured: SLUM (MWIR from its class) |
-| `glass_windshield` | as manufactured | 0.15 | 0.22 | 0.85 | 0.88 | 0.10 | literature, partly estimated |
+| `glass_windshield` | as manufactured | 0.15 | 0.22 | 0.85 | 0.88 | 0.10 | LWIR shape from n, k; level literature |
 | `gold_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.15 | measured optical constants |
 | `granite_rough` | weathered | 0.48 | 0.50 | 0.96 | 0.92 | 0.52 | measured: SLUM (MWIR from its class) |
 | `granite_weathered` | weathered | 0.42 | 0.45 | 0.96 | 0.93 | 0.46 | measured: SLUM (MWIR from its class) |
@@ -214,13 +243,13 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `metal_sheet_painted_patina` | painted | 0.35 | 0.67 | 0.92 | 0.94 | 0.54 | measured: SLUM (MWIR from its class) |
 | `nylon_glass_filled_black` | as manufactured | 0.93 | 0.93 | 0.94 | 0.93 | 0.93 | literature, partly estimated |
 | `painted_aluminium_green` | painted | 0.58 | 0.70 | 0.65 | 0.97 | 0.56 | measured: USGS + UCSB |
-| `painted_composite` | painted | 0.30 | 0.40 | 0.90 | 0.92 | 0.35 | literature, partly estimated |
+| `painted_composite` | painted | 0.30 | 0.40 | 0.90 | 0.92 | 0.35 | LWIR shape from ECOSTRESS; level literature |
 | `pet_black` | as manufactured | 0.94 | 0.95 | 0.96 | 0.94 | 0.94 | measured: USGS + polymer n, k |
 | `playa_dry_mud` | natural | 0.46 | 0.44 | 0.81 | 0.95 | 0.55 | measured: USGS + UCSB |
 | `plywood` | as manufactured | 0.19 | 0.40 | 0.89 | 0.95 | 0.44 | measured: USGS + UCSB |
-| `polycarbonate_dark_grey` | as manufactured | 0.85 | 0.87 | 0.95 | 0.94 | 0.85 | literature, partly estimated |
-| `polycarbonate_light_grey` | as manufactured | 0.50 | 0.60 | 0.95 | 0.94 | 0.55 | literature, partly estimated |
-| `propeller_rubber` | as manufactured | 0.94 | 0.92 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
+| `polycarbonate_dark_grey` | as manufactured | 0.85 | 0.87 | 0.95 | 0.94 | 0.85 | LWIR shape from n, k; level literature |
+| `polycarbonate_light_grey` | as manufactured | 0.50 | 0.60 | 0.95 | 0.94 | 0.55 | LWIR shape from n, k; level literature |
+| `propeller_rubber` | as manufactured | 0.94 | 0.92 | 0.94 | 0.95 | 0.94 | LWIR shape from ECOSTRESS; level literature |
 | `pvc_roofing_blue` | as manufactured | 0.80 | 0.84 | 0.96 | 0.94 | 0.86 | measured: SLUM (MWIR from its class) |
 | `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.95 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |
 | `pvc_roofing_light_grey` | as manufactured | 0.56 | 0.65 | 0.96 | 0.93 | 0.57 | measured: SLUM (MWIR from its class) |
@@ -233,16 +262,16 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `roof_tile_ceramic_red` | as manufactured | 0.59 | 0.55 | 0.86 | 0.93 | 0.69 | measured: SLUM (MWIR from its class) |
 | `roof_tile_ceramic_weathered` | as manufactured | 0.75 | 0.67 | 0.86 | 0.95 | 0.81 | measured: SLUM (MWIR from its class) |
 | `roofing_felt_grey` | weathered | 0.93 | 0.94 | 0.97 | 0.93 | 0.93 | measured: SLUM (MWIR from its class) |
-| `rubber_tyre` | as manufactured | 0.95 | 0.94 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
+| `rubber_tyre` | as manufactured | 0.95 | 0.94 | 0.94 | 0.95 | 0.94 | LWIR shape from ECOSTRESS; level literature |
 | `rusted_steel` | oxidised | 0.62 | 0.68 | 0.82 | 0.85 | 0.80 | literature, partly estimated |
 | `sand_beach` | natural | 0.68 | 0.57 | 0.87 | 0.90 | 0.72 | measured: USGS + UCSB |
 | `sandstone_beige` | weathered | 0.56 | 0.43 | 0.85 | 0.90 | 0.60 | measured: SLUM (MWIR from its class) |
 | `seawater` | natural | 0.98 | 0.98 | 0.98 | 0.99 | 0.97 | measured: USGS + UCSB |
 | `silver_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | measured optical constants |
 | `slate_roof` | weathered | 0.91 | 0.91 | 0.83 | 0.90 | 0.91 | measured: SLUM (MWIR from its class) |
-| `snow` | natural | 0.15 | 0.90 | 0.98 | 0.99 | 0.15 | literature, partly estimated |
+| `snow` | natural | 0.15 | 0.90 | 0.98 | 0.99 | 0.15 | LWIR shape from n, k; level literature |
 | `snow_melting` | natural | 0.41 | 0.98 | 0.99 | 0.99 | 0.32 | measured: USGS + UCSB |
-| `soil_dry` | natural | 0.70 | 0.74 | 0.90 | 0.92 | 0.75 | literature, partly estimated |
+| `soil_dry` | natural | 0.70 | 0.74 | 0.90 | 0.92 | 0.75 | LWIR shape from n, k; level literature |
 | `soil_wet` | natural | 0.85 | 0.90 | 0.95 | 0.96 | 0.85 | literature, partly estimated |
 | `steel_polished` | polished | 0.36 | 0.25 | 0.08 | 0.02 | 0.39 | measured optical constants |
 | `tarmac_black` | weathered | 0.86 | 0.85 | 0.97 | 0.95 | 0.87 | measured: SLUM (MWIR from its class) |

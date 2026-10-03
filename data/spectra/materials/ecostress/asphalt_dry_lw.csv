@@ -1,0 +1,100 @@
+# Spectral emissivity of asphalt dry, 5.1-14 um.
+#
+# source: MODELLED, MEASURED SHAPE. eps = 1 - s R(lambda), R the measured reflectance of ECOSTRESS sample 0095UUUASP 'Construction Asphalt' (manmade.road.pavingasphalt.solid.all.0095uuuasp.jhu.becknic.spectrum.txt), Directional (10 Degree) Hemispherical Reflectance.
+#   s = 1.575089 holds the LWIR nominal-band average at the authored 0.94 (configs/materials/asphalt_dry.yaml): the SHAPE is the sample's, the LEVEL the library's.
+#   Reproduced from the ECOSTRESS Spectral Library through the courtesy of the Jet Propulsion Laboratory, California Institute of Technology, Pasadena, California. Copyright (c) 2017, California Institute of Technology. ALL RIGHTS RESERVED.
+#   Cite: Meerdink, S. K., Hook, S. J., Roberts, D. A., & Abbott, E. A. (2019), The ECOSTRESS spectral library version 1.0, Remote Sensing of Environment 230, 111196; Baldridge, A. M., Hook, S. J., Grove, C. I., & Rivera, G. (2009), The ASTER spectral library version 2.0, Remote Sensing of Environment 113, 711-715.
+#   Sample: Road Asphalts and Tar. Gray and black construction asphalt.  The sample was soiled and weathered, with some limestone and quartz aggregate showing. Original ASTER Spectral Library name was jhu.becknic.manmade.asphalt.paving.solid.0095uuu.spectrum.txt
+#   Used here as: weathered grey-black road asphalt.
+#   Written by scripts/import_ecostress.py (roadmap XD.14, ADR 0179); edit the script.
+# Columns: wavelength in MICROMETRES, emissivity.
+5.1,0.901871937
+5.2,0.900430730
+5.3,0.919257773
+5.4,0.917057373
+5.5,0.922987584
+5.6,0.937073608
+5.7,0.935596174
+5.8,0.948089782
+5.9,0.958797239
+6,0.961112620
+6.1,0.959432000
+6.2,0.958710609
+6.3,0.952077908
+6.4,0.926385052
+6.5,0.916753381
+6.6,0.924175201
+6.7,0.933737568
+6.8,0.944897076
+6.9,0.947804691
+7,0.945108138
+7.1,0.943351913
+7.2,0.949686923
+7.3,0.949519963
+7.4,0.944719091
+7.5,0.943114075
+7.6,0.943118800
+7.7,0.939414190
+7.8,0.938179320
+7.9,0.932764163
+8,0.921514875
+8.1,0.906842919
+8.2,0.893596418
+8.3,0.899408497
+8.4,0.907249292
+8.5,0.915123163
+8.6,0.928553950
+8.7,0.920673778
+8.8,0.916581696
+8.9,0.915250745
+9,0.913973348
+9.1,0.911761923
+9.2,0.911133462
+9.3,0.912006061
+9.4,0.920050042
+9.5,0.927284428
+9.6,0.928983949
+9.7,0.930749624
+9.8,0.934068337
+9.9,0.935515844
+10,0.937919430
+10.1,0.940152907
+10.2,0.941241294
+10.3,0.942699826
+10.4,0.944635611
+10.5,0.947198282
+10.6,0.947903922
+10.7,0.948543408
+10.8,0.947113227
+10.9,0.946681652
+11,0.945161691
+11.1,0.942121769
+11.2,0.936423096
+11.3,0.940551405
+11.4,0.950189376
+11.5,0.952718970
+11.6,0.954394865
+11.7,0.957154421
+11.8,0.963240566
+11.9,0.962908222
+12,0.964373055
+12.1,0.966924700
+12.2,0.968312354
+12.3,0.967989460
+12.4,0.964814080
+12.5,0.960895258
+12.6,0.960214819
+12.7,0.959543831
+12.8,0.954862666
+12.9,0.957905739
+13,0.960194343
+13.1,0.960312475
+13.2,0.962336465
+13.3,0.963357123
+13.4,0.967846127
+13.5,0.966726239
+13.6,0.967696494
+13.7,0.973872419
+13.8,0.975784577
+13.9,0.961651301
+14,0.974981282

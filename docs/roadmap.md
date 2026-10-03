@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.3` is phase A, size L, and unblocks 10 other step(s).
 
-#### Then, in order — 83 open steps
+#### Then, in order — 82 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -197,14 +197,14 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 7 | **`WX.6`** | WX | A | M | 1 | `WX.4` |
 | 8 | **`WX.10`** | WX | A | M | — | ready |
 | 9 | **`WX.9`** | WX | A | M | — | `WX.5`, `WX.6`, `WX.8` |
-| 10 | **`XD.14`** | XD | A | M | — | ready |
-| 11 | **`XD.6`** | XD | A | L | — | ready |
-| 12 | **`AT.26`** | AT | B | S | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 10 | **`XD.6`** | XD | A | L | — | ready |
+| 11 | **`AT.26`** | AT | B | S | — | ready |
+| 12 | **`IG.16`** | IG | B | M | — | ready |
+| 13 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 14 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 15 | **`TC.15`** | TC | C | M | 1 | ready |
 
-…and 68 more — `python scripts/next_step.py --queue 40`.
+…and 67 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -852,7 +852,7 @@ effort in the whole plan.
 | XD.11 | **Python-readable label sources** for the detector half: BIRDSAI (real and AirSim-synthetic aerial TIR with a published baseline), HIT-UAV and MONET (CC BY 4.0, readable boxes), RGBT-Tiny (115 sequences over sky and sea, > 81 % of targets under 16×16 px). | Each set indexed with ADR 0068's provenance fields before download; a loader yields ≥ 100 boxes as NumPy with no MATLAB dependency, and a hash-pinned box count per set fails if the archive changes. Halmstad's MATLAB MCOS boxes stop being the recorded blocker for ME.7. | XD.1 | M | X |
 | XD.12 | **Ask the Halmstad authors for the Y16 originals.** Their Data-in-Brief paper states the Boson was run in raw Y16 16-bit mode and that "the raw format is used in the database", then that "all videos are in mp4 format" — the 16 bits existed at capture and the encode destroyed them. | If they survive, the **primary** reference set becomes radiometric, on the **aerial** lane, with the **exact** Boson core the sensor configs model, under a CC licence. Time-boxed (open question 1); the plan does not depend on the answer. | — | S | X |
 | XD.13 | 🟡 **A four-band emissivity source.** Done: 7 polished metals (published n, k); 19 surfaces paired from USGS and UCSB or polymer n, k; 30 urban surfaces from SLUM (same sample, both wavebands). Left: paper, fabrics, PE, ABS, rubber (ECOSTRESS unreachable; FLIR's table is the fallback). | After: each covered material's band average reproduces §16.2 within the library's own sample spread, or the gap is named. | — | M | X |
-| XD.14 | 🟡 **Five done; the rest needs a licence call.** Curves from CC0 RefractiveIndex.INFO constants, shape from the table, level the authored value: glass and dry soil (silica), snow (ice), both polycarbonates (PC's own). Open: rubber, nylon, ABS, fabrics, skin, paints, concrete. ECOSTRESS has them, reproducible with JPL's credit line but no licence (ADR 0041 wants CC0); USGS splib07a is public domain but refuses this machine. | **Measured.** Nominal bands unchanged. 8–12 / 10–13 µm: glass 0.847 / 0.945, soil 0.898 / 0.963, snow 0.994 / 0.988. | AT.34 | M | A |
+| XD.14 | ✅ **done** (ADR 0179). Thirteen classes gained LWIR curves, each the measured shape at the authored level: glass and dry soil (silica), snow (ice), both polycarbonates (PC) from CC0 n, k; concrete, asphalt, two rubbers and four paints from ECOSTRESS with JPL's credit line, used only where nothing freer exists. Left typed: skin, cotton, nylon, ABS, carbon fibre, render (no source). | **Measured.** Nominal bands unchanged. 8–12 / 10–13 µm: glass 0.847 / 0.945, soil 0.898 / 0.963, concrete 0.909 / 0.943, paint 0.901 / 0.889. | AT.34 | M | A |
 
 ---
 

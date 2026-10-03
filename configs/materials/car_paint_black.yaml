@@ -6,7 +6,7 @@ material:
   name: car_paint_black
   source: literature
   surface_treatment: painted
-  reference: "docs/physics-model.md section 16.2; thickness from section 12.3"
+  reference: "LWIR shape from ECOSTRESS (CLASS PROXY: gloss spray enamel for automotive paint); docs/physics-model.md section 16.2; thickness from section 12.3"
   description: "Painted body panel (any dark colour); colour changes solar absorptivity, not epsilon"
   thermal:
     density_kg_m3: 7800
@@ -15,7 +15,10 @@ material:
     thickness_m: 0.0012
     solar_absorptivity: 0.94
   optical:
-    spectral_emissivity: spectra/materials/car_paint_black.csv   # relative to the data root
+    # LWIR is a curve (XD.14, ADR 0179): an ECOSTRESS sample's SHAPE at the authored
+    # 0.9 LEVEL; the curve file names the sample and carries JPL's credit line.
+    spectral_emissivity: spectra/materials/ecostress/car_paint_black_lw.csv
+    emissivity_per_band: {nir: 0.94, swir: 0.94, mwir: 0.88}   # the replaced sketch's own band values
     roughness_per_band: {nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12}   # section 4.3, ESTIMATED
     # Level B, FITTED against Level A on the M7.5 paint proxy (PMMA, data/nk/paint_proxy.csv),
     # which is what §4.2 asks for -- "fit (a, p) once per material class against Level A and bake

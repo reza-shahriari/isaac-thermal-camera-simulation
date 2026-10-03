@@ -6,7 +6,7 @@ material:
   name: concrete
   source: literature
   surface_treatment: weathered
-  reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
+  reference: "LWIR shape from ECOSTRESS (grey construction concrete with quartz and limestone aggregate); docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Pavement, kerbs, structures. Holds heat: the classic night-time warm slab"
   thermal:
     density_kg_m3: 2300
@@ -17,6 +17,9 @@ material:
   optical:
     # NIR/SWIR ESTIMATED: dry concrete reflects roughly 0.35 in the near infrared and a little
     # less further out, so eps = 1 - rho lands near 0.65 and 0.72.
-    emissivity_per_band: {nir: 0.65, swir: 0.72, mwir: 0.90, lwir: 0.92}
+    # LWIR is a curve (XD.14, ADR 0179): an ECOSTRESS sample's SHAPE at the authored
+    # 0.92 LEVEL; the curve file names the sample and carries JPL's credit line.
+    spectral_emissivity: spectra/materials/ecostress/concrete_lw.csv
+    emissivity_per_band: {nir: 0.65, swir: 0.72, mwir: 0.90}
     roughness_per_band: {nir: 0.85, swir: 0.85, mwir: 0.80, lwir: 0.75}
     angular_model: {type: empirical, a: 0.05, p: 4.0}

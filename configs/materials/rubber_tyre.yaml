@@ -6,7 +6,7 @@ material:
   name: rubber_tyre
   source: literature
   surface_treatment: as_manufactured
-  reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
+  reference: "LWIR shape from ECOSTRESS (CLASS PROXY: black weathered roofing rubber for a tyre); docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   description: "Carbon-black tyre tread and sidewall. Low conductivity, so it holds friction heat"
   thermal:
     density_kg_m3: 1100
@@ -16,6 +16,9 @@ material:
     solar_absorptivity: 0.94
   optical:
     # NIR/SWIR ESTIMATED: carbon black absorbs almost everything from the visible outwards.
-    emissivity_per_band: {nir: 0.95, swir: 0.94, mwir: 0.94, lwir: 0.95}
+    # LWIR is a curve (XD.14, ADR 0179): an ECOSTRESS sample's SHAPE at the authored
+    # 0.95 LEVEL; the curve file names the sample and carries JPL's credit line.
+    spectral_emissivity: spectra/materials/ecostress/rubber_tyre_lw.csv
+    emissivity_per_band: {nir: 0.95, swir: 0.94, mwir: 0.94}
     roughness_per_band: {nir: 0.60, swir: 0.55, mwir: 0.45, lwir: 0.40}
     angular_model: {type: empirical, a: 0.10, p: 5.0}
