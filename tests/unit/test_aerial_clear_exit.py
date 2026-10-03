@@ -42,6 +42,7 @@ from irsim_isaac.quad_outbound import (
     CLEAR_EXIT_FAR_M,
     CLEAR_EXIT_HOLD_S,
     CLEAR_EXIT_MARGIN_PX,
+    CLEAR_EXIT_MISSION_S,
     CLEAR_EXIT_NEAR_M,
     CLEAR_EXIT_OUTBOUND_S,
     CLEAR_EXIT_SPEED_M_S,
@@ -272,3 +273,53 @@ def test_the_driver_flies_the_band_the_module_declares() -> None:
         match = re.search(rf'"{flag}",\s*type=float,\s*default=([0-9.]+)', src)
         assert match, flag
         assert float(match.group(1)) == value, flag
+
+
+# -- the thermal state: in flight, not on the pad -------------------------------------------------
+
+
+def _mission(target: str) -> tuple[list[float], list[float]]:
+    spec = yaml.safe_load(SCENE.read_text())["scene"]
+    for t in spec["targets"]:
+        if t["name"] == target:
+            return t["throttle_s"], t["throttle"]
+    raise AssertionError(f"no {target} target")
+
+
+def _speed_at(t: float) -> float:
+    surfaces = yaml.safe_load(SCENE.read_text())["scene"]["thermal"]["surfaces"]
+    deck = next(srf for srf in surfaces if srf["name"] == "deck")
+    return float(np.interp(t, deck["speed_s"], deck["speed_m_s"]))
+
+
+def test_the_clip_starts_at_cruise_not_on_the_pad() -> None:
+    """At t = 0 the mission idles on the pad (throttle 0.15, 1 m/s over the skin): motors 1 K over
+    air under a deck baking in still air, which is not a drone flying away at 25 m/s. The clip
+    starts at cruise, where the throttle and the airspeed are a flying aircraft's."""
+    times, throttle = _mission("motor")
+    clip = CLEAR_EXIT_MISSION_S + np.linspace(0.0, 20.0, 21)
+    u = np.interp(clip, times, throttle)
+    assert float(u.min()) >= 0.6, u.min()
+    assert float(np.interp(0.0, times, throttle)) < 0.2  # the pad, which the clip must avoid
+    for t in clip:
+        assert _speed_at(float(t)) >= 10.0
+    assert _speed_at(0.0) <= 1.0
+
+
+def test_at_cruise_the_motors_run_well_above_air_and_the_pack_above_it_too() -> None:
+    """ADR 0072's law, T = T_air + dT_max u^2, at the clip's throttle: the motors ~20 K over air,
+    the pack ~6 K. On the pad the same law gives 1 K and 0.3 K, which is what the first render
+    showed and what a real flying quadrotor never does."""
+    from irsim.thermal.aerial import BATTERY, MOTOR
+
+    times, throttle = _mission("motor")
+    u = float(np.interp(CLEAR_EXIT_MISSION_S, times, throttle))
+    motor_rise = MOTOR.delta_t_max_k * u**MOTOR.exponent
+    pack_rise = BATTERY.delta_t_max_k * u**BATTERY.exponent
+    assert motor_rise == pytest.approx(19.6, abs=0.1)
+    assert pack_rise == pytest.approx(6.5, abs=0.1)
+    assert motor_rise > 15.0 > pack_rise > 5.0
+
+
+def test_the_driver_starts_the_clip_where_the_module_says() -> None:
+    assert f"args.mission_start_s = {CLEAR_EXIT_MISSION_S}" in DRIVER.read_text()

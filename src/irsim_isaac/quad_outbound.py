@@ -405,6 +405,11 @@ CLEAR_EXIT_OUTBOUND_S = 15.0
 CLEAR_EXIT_SPEED_M_S = 15.0
 CLEAR_EXIT_HOLD_S = 1.0
 
+#: The mission second the clip starts at: cruise, throttle 0.66 and 15 m/s over the skin in the
+#: scene's flight profile. At t = 0 the same profile is on the pad (throttle 0.15, 1 m/s), which
+#: is the wrong thermal state for an aircraft filmed flying away at up to 25 m/s.
+CLEAR_EXIT_MISSION_S = 900.0
+
 #: How far past the frame edge the aircraft's nearest tip goes before the exit is over, in
 #: native pixels. The optics' blur and the bolometer's lag both carry a target's signal a pixel or
 #: two beyond its geometric edge; three puts the last of it outside the frame.

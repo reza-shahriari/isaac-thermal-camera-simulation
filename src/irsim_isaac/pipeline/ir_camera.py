@@ -68,6 +68,7 @@ all-device frame lands when M10.7b does.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import timedelta
@@ -423,8 +424,14 @@ class IrCamera:
         mesh_fields: Sequence[MeshBinding] = (),
         heading_deg: float = 0.0,
         device: str = "cpu",
+        start_rel_s: float = 0.0,
     ) -> None:
         band = sensor.sensor.band.band_id
+        # EV.16: the scene time of the first frame, seconds after `scene.t0_s`. A clip of a
+        # drone in flight starts where the scene's mission says it is flying, not on the pad;
+        # every solver walks forward from its spin-up to this instant on the first frame.
+        if not (math.isfinite(float(start_rel_s)) and float(start_rel_s) >= 0.0):
+            raise ValueError("start_rel_s must be finite and not negative")
         if pipeline.sensor is not sensor:
             raise ValueError("the PipelineConfig was built for a different SensorConfig")
         if pipeline.supersample != sensor.sensor.optics.supersample_factor:
@@ -543,7 +550,7 @@ class IrCamera:
             if frame_period_s is None
             else float(frame_period_s)
         )
-        self._t_rel_s = 0.0
+        self._t_rel_s = float(start_rel_s)
         self._last_frame_t_s: float | None = None
         self._reader: AovReader | None = None
         self._render_product: Any = None

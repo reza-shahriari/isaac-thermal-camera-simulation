@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 83 open steps
+#### Then, in order — 82 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -194,17 +194,17 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 4 | **`WX.25`** | WX | A | M | 1 | ready |
 | 5 | **`WX.26`** | WX | A | M | 1 | ready |
 | 6 | **`WX.22`** | WX | A | L | 1 | ready |
-| 7 | **`EV.16`** | EV | A | S | — | ready |
-| 8 | **`WX.10`** | WX | A | M | — | ready |
-| 9 | **`WX.27`** | WX | A | M | — | ready |
-| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
-| 11 | **`XD.6`** | XD | A | L | — | ready |
-| 12 | **`AT.26`** | AT | B | S | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 7 | **`WX.10`** | WX | A | M | — | ready |
+| 8 | **`WX.27`** | WX | A | M | — | ready |
+| 9 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
+| 10 | **`XD.6`** | XD | A | L | — | ready |
+| 11 | **`AT.26`** | AT | B | S | — | ready |
+| 12 | **`IG.16`** | IG | B | M | — | ready |
+| 13 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 14 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 15 | **`TC.15`** | TC | C | M | 1 | ready |
 
-…and 68 more — `python scripts/next_step.py --queue 40`.
+…and 67 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -827,7 +827,7 @@ requirement into an external, cited number, and it can return a negative.
 | EV.13 | **Publish the paired RAW-16 / AGC-8 artefact** (open question 7 gates the publication, not the format). No public thermal set offers the pairing and the literature names the 16→8 mapping as the dominant sim-to-real factor. | The float planes invert to apparent temperature within the project's existing 10 mK encode/decode budget while the 8-bit stream fails the same bound — the fp16 negative control that already discriminates. Note honestly that this is a self-consistency check on irsim's own encode/decode, not an external radiometric check; XD.5 is the external one. | IG.13 | M | X |
 | EV.14 | ✅ **done.** `aerial_reference_clip.yaml` + `render_quad_outbound.py --reference`: 600 frames at 60 Hz, 50→250 m, cumulus behind, damped AGC, sub-pixel companion at 1.25–1.45 km. ADR 0168. | **Measured**: 26.7→5.4 px; companion in frame 600/600, +0.26–0.56 K over cloud; AGC mean step median 0.01 codes (p95 0.03), lag-1 0.9995. Real-set band: EV.3–EV.7. | AT.21, AT.22, SC.28, SC.29 | M | A |
 | EV.15 | ✅ **done.** `irsim.io.labels`: `frame_labels(part_id, legend, targets, category_of, points)` → `Box` (xyxy, COCO xywh, YOLO cxcywh, RLE mask, visibility), `PointLabel(φ)`; `write_frame_labels` (COCO json + YOLO txt per frame), `split_manifest` / `write_split_manifest`. | **Measured.** Boxes equal the mask's extent to the pixel and the RLE decodes to the mask; an absent target gets no box; a sub-pixel target is a point with its φ; visibility is the mask's share inside the frame; a seeded split reproduces; loads in pycocotools when present. Drivers not wired. | — | S | A |
-| EV.16 | **Clear-sky exit clip.** `render_quad_outbound.py --clear-exit` (`aerial_clear_exit.yaml`): heavy-lift quad 12→150 m in 15 s at 60 Hz, cloud 0.00 (`cloudless_midlat_summer_48h.csv`), then out of the left edge at 15 m/s, then 1 s of empty sky. | `test_aerial_clear_exit.py`: on the boresight while tracking; ends half-span + 3 px past the edge; agrees with the stage's quaternion; sky colder than at 0.05 cloud. The sidecar puts the predicted column beside the drawn one. | EV.14 | S | A |
+| EV.16 | ✅ **done.** `render_quad_outbound.py --clear-exit`: heavy-lift quad at cruise (mission 900 s), 12→150 m in 15 s at 60 Hz, cloud 0.00, out of the left edge at 15 m/s, 1 s of empty sky; `--far-m 30 --exit-speed-m-s 5` at close range. | **Measured**: drawn centre 0.03 px from prediction (median), nothing drawn after exit; motors 46–48 °C over a 40 °C deck. Bolometer smear is now its membrane (ADR 0077 amendment). | EV.14 | S | A |
 
 ---
 

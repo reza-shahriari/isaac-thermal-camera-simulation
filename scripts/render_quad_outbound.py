@@ -119,6 +119,13 @@ parser.add_argument(
     default=1.0,
     help="--clear-exit: seconds of empty sky after the aircraft has gone",
 )
+parser.add_argument(
+    "--mission-start-s",
+    type=float,
+    default=None,
+    help="mission seconds at the first frame (default 0; --clear-exit: 900, at cruise). The "
+    "track starts here; the throttle, the airspeed and every solver read the mission clock",
+)
 parser.add_argument("--out", default=None)
 parser.add_argument(
     "--frames", type=int, default=None, help="default 300; --reference: 10 s; --clear-exit: all"
@@ -277,6 +284,19 @@ if args.clear_exit:
     # The weather carries no cloud, so a cloud field would cover nothing; not generating one says
     # so in the sidecar rather than leaving a seed that drew an empty sky.
     args.no_cloud = True
+    # **In flight, not on the pad.** The scene's mission is on the pad at t = 0 -- throttle 0.15,
+    # 1 m/s of air over the skin -- and a clip of the aircraft flying away at 25 m/s from that
+    # state shows idling motors 1 K over air under a deck baking in still air. At 900 s the
+    # mission is at cruise: throttle 0.66 (motors +19.6 K, ESCs +13 K, pack +6.5 K over air) and
+    # 15 m/s across the skin, which is what a drone flying out of a camera's field looks like.
+    # Literal here because Kit has not booted; `CLEAR_EXIT_MISSION_S` owns it and the test holds
+    # the two together.
+    if args.mission_start_s is None:
+        args.mission_start_s = 900.0
+if args.mission_start_s is None:
+    args.mission_start_s = 0.0
+if args.mission_start_s < 0.0:
+    parser.error("--mission-start-s cannot be negative")
 if args.reference:
     # The reference band, not the airframe's own: the sets it is compared with film at standoff.
     # Literal here because Kit has not booted yet; `reference_track` owns the same numbers and
@@ -350,10 +370,10 @@ def exit_summary(history: list[dict[str, Any]], track: Any, width_px: int) -> di
         "exit_pan_deg": round(track.exit_pan_deg, 4),
         "hold_s": track.hold_s,
         "last_drawn_frame": last_drawn,
-        "last_drawn_t_s": None if last_drawn is None else history[last_drawn]["t_rel_s"],
+        "last_drawn_clip_s": None if last_drawn is None else history[last_drawn]["clip_s"],
         "first_empty_frame": empty[0]["frame"] if empty else None,
         "empty_frames": len(empty),
-        "track_exit_end_t_s": round(track.duration_s + track.exit_s, 4),
+        "track_exit_end_clip_s": round(track.duration_s + track.exit_s, 4),
     }
     if empty and "t_app_p001_k" in empty[0]:
         # 0.1 / 99.9 percentiles: the extremes are defect pixels, not sky.
@@ -704,7 +724,9 @@ def main() -> int:
         else:
             from irsim.pipeline.sensor_chain import attach_sensor_chain
 
-            pipeline = attach_sensor_chain(pipeline, scene.weather, t0_s=scene.t0_s)
+            pipeline = attach_sensor_chain(
+                pipeline, scene.weather, t0_s=scene.t0_s + args.mission_start_s
+            )
 
     surface_tilts = {srf.name: float(srf.tilt_deg) for srf in scene.spec.thermal.surfaces}
     bindings = [] if args.no_fields else bindings_from_scene(scene)
@@ -788,6 +810,7 @@ def main() -> int:
         # for a target that is in fact crossing the frame, and a zero smear asserted from the
         # wrong premise is worse than no smear declared.
         frame_period_s=args.interval_s,
+        start_rel_s=args.mission_start_s,
     ).open(settle_frames=args.settle)
 
     # **The span is taken from the target's own cells, over the whole sequence.** A per-frame AGC
@@ -803,7 +826,7 @@ def main() -> int:
     # structure is four -- so the airframe lands in the bottom eight display codes and the frame
     # that was supposed to show per-part temperature shows a silhouette.
     cell_lo, cell_hi = np.inf, -np.inf
-    for t_rel in np.linspace(0.0, span_s, 64):
+    for t_rel in args.mission_start_s + np.linspace(0.0, span_s, 64):
         nodes = probe.advance_targets(float(t_rel), 0.0)
         lo_k = min(lo_k, min(nodes.values()))
         hi_k = max(hi_k, max(nodes.values()))
@@ -877,7 +900,9 @@ def main() -> int:
             coldest = float(
                 np.min(
                     sky_model.lut.apparent_temperature(
-                        sky_model.clear_radiance(probe.t0_s, np.array([top_el])),
+                        sky_model.clear_radiance(
+                            probe.t0_s + args.mission_start_s, np.array([top_el])
+                        ),
                         sky_model.quantity,
                     )
                 )
@@ -911,6 +936,7 @@ def main() -> int:
             "far_m": track.far_m,
             "elevation_deg": track.elevation_deg,
             "interval_s": args.interval_s,
+            "mission_start_s": args.mission_start_s,
             "point_wise": not args.no_fields,
         },
     )
@@ -940,12 +966,14 @@ def main() -> int:
     t_render = time.time()
     for index in range(args.frames):
         t_rel = camera.t_rel_s
+        # Two clocks: the mission's drives the thermal state, the clip's drives the geometry.
+        t_clip = t_rel - args.mission_start_s
         throttle = throttle_at(scene, t_rel)
-        range_m = track.range_at(t_rel)
+        range_m = track.range_at(t_clip)
         # Move the mount, then tell the camera it moved: the ray directions, the sky elevations
         # and every view cosine are built from a cached pose, and a slewing camera that does not
         # refresh renders geometry from here and radiometry from where it used to be.
-        stage.aim_camera(t_rel)
+        stage.aim_camera(t_clip)
         camera.refresh_pose()
         if not args.no_rotors:
             camera.rotor_mounts.update(rotor_mounts(throttle))
@@ -964,6 +992,7 @@ def main() -> int:
         record: dict[str, float] = {
             "frame": index,
             "t_rel_s": round(t_rel, 3),
+            "clip_s": round(t_clip, 4),
             "range_m": round(range_m, 3),
             "throttle": round(throttle, 4),
             "span_px": round(1e3 * SPAN_M / range_m / ifov_mrad, 2),
@@ -990,9 +1019,9 @@ def main() -> int:
             # The two are independent -- one is the track's arithmetic, the other the instance
             # plane -- so a frame edge in the wrong place, or a target still drawn after it has
             # gone, shows as a disagreement in the sidecar rather than as a plausible picture.
-            h_deg, v_deg = target_image_angles_deg(track, t_rel)
+            h_deg, v_deg = target_image_angles_deg(track, t_clip)
             ifov_rad = ifov_mrad * 1e-3
-            record["pan_deg"] = round(track.pan_deg_at(t_rel), 4)
+            record["pan_deg"] = round(track.pan_deg_at(t_clip), 4)
             record["target_u_px"] = round(
                 0.5 * spec.fpa.width + math.tan(math.radians(h_deg)) / ifov_rad, 2
             )
@@ -1010,7 +1039,7 @@ def main() -> int:
                         round(float(cols[0]) / k, 1),
                         round(float(cols[-1] + 1) / k, 1),
                     ]
-                if track.pan_deg_at(t_rel) > 0.0:
+                if track.pan_deg_at(t_clip) > 0.0:
                     status = "   out of frame" if not cols.size else "   leaving the frame"
         if analytic:
             # EV.14: where the companion landed, or where it fell outside the frame. Recomputed
@@ -1150,6 +1179,7 @@ def main() -> int:
         "render_s": round(render_s, 2),
         "frames": args.frames,
         "interval_s": args.interval_s,
+        "mission_start_s": args.mission_start_s,
         "flight_span_s": span_s,
         "fps": args.fps,
         "sensor": spec.name,

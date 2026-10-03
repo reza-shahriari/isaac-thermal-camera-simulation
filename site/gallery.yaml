@@ -828,6 +828,45 @@ sections:
       pixels.
     source: scripts/render_quad_outbound.py
 
+  - id: aerial-clear-exit
+    title: A drone flies out into a cloudless sky, and out of the frame
+    lead: |
+      `EV.16`: the heavy-lift quadrotor at cruise flies from **12 m to 150 m** in 15 s of
+      continuous 60 Hz video (111 px across down to 8.9), then crosses the left edge of the field
+      at 15 m/s and leaves, then a second of empty sky. The sky has **no cloud at all**: what you
+      see behind the drone is the air's own long-wave emission at each pixel's elevation,
+      −22 °C at the top of the frame to +5 °C at the bottom. The thermal state is the mission at
+      cruise: the four motor bells are the hottest parts at **46–48 °C**, above the 40 °C sunlit
+      deck, 37 °C arms and 30.5 °C belly, under 26.5 °C air. Every frame records where the
+      drone should be beside where the renderer drew it: a median of **0.03 px** apart, and
+      nothing drawn from the first frame after it has left.
+    media:
+      - video: aerial_clear_exit/aerial_clear_exit_sky.mp4
+        width: full
+        caption: >-
+          Fixed span −25.6 to 42.4 °C, white-hot. The drone leaves at 2 px a frame; the
+          bolometer's 8 ms membrane leaves a short fading tail behind it, not a streak
+      - video: aerial_clear_exit/aerial_clear_exit_agc.mp4
+        width: half
+        caption: >-
+          The camera's own AGC. Once the drone has gone it stretches the empty sky, which is the
+          frame a detector has to stay quiet on
+      - video: aerial_clear_exit/aerial_clear_exit_rgb.mp4
+        width: half
+        caption: The visible companion, the same instants
+      - video: aerial_clear_exit_near/aerial_clear_exit_sky.mp4
+        width: full
+        caption: >-
+          The same exit at close range: 12 m to 30 m, then out sideways at 5 m/s (3.4 px a frame)
+          while the drone is 44 px across, so the frame edge visibly cuts it on the way out.
+          Drawn within 0.15 px of prediction (median)
+    note: |
+      The exit is a camera pan, not the drone moving, as for every clip on this stage (ADR 0123),
+      so the sun's bearing in the frame turns by the pan's 16.7°. The motor bells take no
+      sunlight: their temperature is ADR 0072's throttle law alone. The three fixed points at
+      the LUT floor are the camera's dead pixels.
+    source: scripts/render_quad_outbound.py
+
   - id: cloud-tiers
     title: One switch for the cloud, in both bands
     lead: |
