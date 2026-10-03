@@ -110,3 +110,37 @@ Still open from this ADR: layered surfaces, cabin panels and prescribed maps are
 joined. TC.11's full-object solve also starts from each part's separate spin-up, and so its
 contacts and internal exchange begin at t₀. That limitation is the "per-part spin-up equalises
 its contacts on the first tick" already recorded for TC.13.
+
+## Amendment, 2026-10-03 (second) — every surface with a patch or a mesh joins
+
+The refusal of layered surfaces, cabin panels and prescribed maps is lifted. A refused scene was
+safe, but it meant a car with a cabin, or a layered road, could not have its exchange at all.
+`ObjectExchange` now steps **solves**, not surfaces. A body is a slice of one solve's state, so:
+
+* A **layered surface** joins by its top layer, its slice of the stack's `CoupledFields`. The
+  flux lands on that slice and the stack conducts it down.
+* A **cabin panel** joins by its slice of the cabin's solve. The cabin's own handle, which
+  carries the air node, is handed out as a proxy too, so it cannot step past the group.
+* A **prescribed map** is a fixed emitter. It radiates onto the others from its map and takes
+  nothing back, because its temperature is a measurement that already holds whatever it
+  received. It is not restarted by the spin-up.
+
+A solve that carries several bodies is wrapped once and stepped once per tick. The group
+spin-up integrates each solve whole, in the same way as that solve's own spin-up (the stack, the
+cabin), with the exchange on its exchanged slices. Its result replaces the solve's own
+spin-up.
+
+Still refused: a part of a TC.11 object. Its parts already exchange inside their own solve, so
+joining one to the scene's group would count those pairs twice. As a result an object's parts
+do not yet exchange with the scene's other surfaces; that is a known limitation.
+
+Measured (`tests/unit/test_object_exchange.py`):
+
+* The road under a 310 K map evolves exactly as it does under a solved 310 K pan too heavy to
+  move: the two agree to 1e-9 K.
+* A layered road under a heated pan opens with the patch in its top layer, more than 1 K, and
+  also in the layer below, more than 0.1 K.
+* A cabin floor over a 330 K plate carries more than 1 K into the cabin air, against the same
+  cabin with no exchange.
+* The parked-car cabin scene joins all five of its panels and steps the cabin with the group
+  (`tests/unit/test_scene_object_exchange.py`).

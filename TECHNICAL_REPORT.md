@@ -954,12 +954,16 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   exhaust radiates into a floor pan held at body temperature, so the floor never warms. Nothing
   carries heated air rearward, and there are no rear-mounted sources (lights, rear-window heater,
   differential, EV drive). Roadmap: `TC.14`, `TC.15`, `PH.14`, `AI.13`.
-- **Not every surface can join the exchange.** Heat exchange between objects is one scene switch
-  since `TC.10` (`thermal.object_exchange`). Its group is spun up together, so a road that stood
-  under a car all night opens the scene with the car's patch already on it: 0.58 K in the test
-  scene (ADR 0157, 2026-10-03 amendment). Layered surfaces, cabin panels and prescribed maps are
-  still refused by name rather than joined. Inside one object, TC.11's full solve still starts
-  from each part's separate spin-up, so its contacts and internal exchange begin at t₀.
+- **An object's parts do not exchange with the rest of the scene.** Heat exchange between
+  objects is one scene switch since `TC.10` (`thermal.object_exchange`). Every surface with a
+  patch or a mesh joins it: layered surfaces by their top layer, cabin panels by their slice of
+  the cabin's solve, and prescribed maps as fixed emitters. The group is spun up together, so a
+  road that stood under a car all night opens the scene with the car's patch already on it,
+  0.58 K in the test scene (ADR 0157 and its 2026-10-03 amendments). A `TC.11` object's parts are
+  the exception. They exchange inside their own solve and are refused from the scene's group,
+  which would count those pairs twice, so a fully solved car does not yet warm the road beneath
+  it. Inside one object, TC.11's full solve still starts from each part's separate spin-up, so
+  its contacts and internal exchange begin at t₀.
 - **No hot-gas absorption in SWIR or NIR** (`PH.5`, ADR 0098 addendum). RadCal *sets* CO₂ to zero
   above 1.75 µm and H₂O above 1.08 µm -- sound for fire heat transfer, unsound for a short-wave
   camera, where real overtone bands live. The generator records how much of each band falls inside

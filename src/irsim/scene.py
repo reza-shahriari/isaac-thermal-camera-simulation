@@ -1544,11 +1544,13 @@ def _join_object_exchange(
     proxies, so advancing any one of them advances them all from one snapshot per tick.
 
     The bodies radiate from the side their patch or mesh faces, with the surface's own library
-    emissivity; the factors are traced once here, at build. The schema has already refused the
-    surfaces that cannot join (layered, cabin, prescribed), so a name found in neither field
-    dict is a bug, not a configuration.
+    emissivity; the factors are traced once here, at build. A layered surface joins by its top
+    layer and a cabin panel by its slice of the cabin's solve, each solve stepped once; a
+    prescribed map is a fixed emitter. A handle on a joined solve that is not itself a body --
+    the cabin's, which carries its node -- is handed out as a proxy too, so it cannot be
+    stepped past the group.
     """
-    from irsim.thermal.object_exchange import ExchangeBody, ObjectExchange
+    from irsim.thermal.object_exchange import ExchangeBody, ExchangedField, ObjectExchange
 
     assert spec.thermal is not None
     bodies = []
@@ -1570,6 +1572,9 @@ def _join_object_exchange(
             surface_fields[body.name] = group.register(body.name, surface_fields[body.name])
         else:
             mesh_fields[body.name] = group.register(body.name, mesh_fields[body.name])
+    for name, fld in list(surface_fields.items()):
+        if name not in group.names and group.owns(fld):
+            surface_fields[name] = ExchangedField(group, fld)
     # The exchange is part of the surfaces' history, not a term switched on at t0: a road that
     # stood under a car all night starts the scene with its patch (ADR 0157 amendment).
     group.spin_up(spec.thermal.spin_up_hours, wrap=build.wrap)

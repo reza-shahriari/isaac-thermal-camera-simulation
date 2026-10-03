@@ -285,6 +285,170 @@ def test_a_spin_up_after_the_run_began_is_refused() -> None:
         _group_at(0.0)[1].spin_up(0.0)
 
 
+# --- members that are not a plain field --------------------------------------------------------
+
+
+def _under(fld: object) -> np.ndarray:
+    centres = fld.patch.cell_centres()  # type: ignore[attr-defined]
+    return (np.abs(centres[:, 0]) < 0.6) & (np.abs(centres[:, 1]) < 0.6)
+
+
+def test_a_prescribed_map_radiates_like_a_body_that_cannot_change() -> None:
+    """A temperature map is a fixed emitter: the road beneath a 310 K map evolves exactly as it
+    does beneath a solved 310 K pan too heavy to move (1e15 J m⁻² K⁻¹), and the map itself is
+    never altered by what it receives."""
+    from irsim.thermal.maps import PrescribedPatchField
+
+    ground, hot = road(8, 2.0), pan(0.25, half_m=0.6, n=3)
+    n_r, n_p = ground.n_cells, hot.n_cells
+
+    def group_with(steel: object) -> tuple[object, ObjectExchange]:
+        asphalt = PlanarThermalField(
+            ground, _props(n_r, 2.0e5, 0.95), lambda t: _night(), 0.0, np.full(n_r, 281.0), 10.0
+        )
+        group = ObjectExchange(
+            [
+                ExchangeBody.from_planar("road", ground, 0.95),
+                ExchangeBody.from_planar("pan", hot, 0.9),
+            ]
+        )
+        out = group.register("road", asphalt)
+        group.register("pan", steel)
+        return out, group
+
+    mapped, _ = group_with(PrescribedPatchField(hot, np.full(n_p, 310.0), 0.0))
+    heavy, _ = group_with(
+        PlanarThermalField(
+            hot, _props(n_p, 1.0e15, 0.9), lambda t: _night(), 0.0, np.full(n_p, 310.0), 10.0
+        )
+    )
+    mapped.advance_to(1800.0)  # type: ignore[attr-defined]
+    heavy.advance_to(1800.0)  # type: ignore[attr-defined]
+    a = mapped.field.latest_state_k  # type: ignore[attr-defined]
+    b = heavy.field.latest_state_k  # type: ignore[attr-defined]
+    assert np.max(np.abs(a - b)) < 1e-9
+    under = _under(mapped)
+    assert a[under].mean() - a[~under].mean() > 0.3
+
+    # spun up, the map holds and the road beneath it opens warm
+    fresh = PrescribedPatchField(hot, np.full(n_p, 310.0), 0.0)
+    road_field, group = group_with(fresh)
+    states = group.spin_up(6.0)
+    assert set(states) == {"road"}, "a map is not solved, so nothing is restarted"
+    assert np.array_equal(fresh.prescribed_k, np.full(n_p, 310.0))
+    t0 = road_field.field.latest_state_k  # type: ignore[attr-defined]
+    assert t0[under].mean() - t0[~under].mean() > 1.0
+
+
+def test_a_layered_road_takes_the_exchange_on_its_top_layer_and_conducts_it_down() -> None:
+    """A layered surface joins by its top layer: the heated pan's patch is in the top layer at
+    t₀, and the layer below it is warmer under the pan too -- the heat went in at the surface and
+    down through the stack, which only happens if the flux landed on the right slice."""
+    from irsim.thermal.balance import ThermalProperties
+    from irsim.thermal.layers import LayerStack, layered_field
+
+    ground, hot = road(8, 2.0), pan(0.25, half_m=0.6, n=3)
+    stack = LayerStack.uniform(3, 1.2, 2300.0, 920.0, 0.15)
+    coupled = layered_field(
+        "road", ground, ThermalProperties(2.0e5, 0.95, 0.9), stack, lambda t: _night(), 0.0, 281.0,
+        10.0, lateral=False,
+    )  # fmt: skip
+    steel = PlanarThermalField(
+        hot, _props(hot.n_cells, 2.0e4, 0.9), _engine_night, 0.0, np.full(hot.n_cells, 280.0), 10.0
+    )
+    group = ObjectExchange(
+        [ExchangeBody.from_planar("road", ground, 0.95), ExchangeBody.from_planar("pan", hot, 0.9)]
+    )
+    top = group.register("road", coupled.fields["road"])
+    group.register("pan", steel)
+    assert group.owns(coupled)
+    group.spin_up(6.0)
+    under = _under(top)
+    surface = np.asarray(top.temperature_at(0.0), dtype=np.float64)
+    below = np.asarray(coupled.fields["road:layer1"].temperature_at(0.0), dtype=np.float64)
+    assert surface[under].mean() - surface[~under].mean() > 1.0
+    assert below[under].mean() - below[~under].mean() > 0.1
+    top.advance_to(60.0)
+    assert group.last_flux_w_m2["road"].shape == (ground.n_cells,)
+    assert coupled.field.latest_t_s == 60.0 and steel.latest_t_s == 60.0
+    # the stack stepped through anything but the group is refused, as a plain member is
+    with pytest.raises(RuntimeError, match="through the group"):
+        coupled.advance_to(70.0)
+
+
+def test_a_cabin_floor_over_a_hot_plate_carries_its_heat_into_the_cabin() -> None:
+    """A cabin panel joins by its slice of the cabin's solve: a 330 K plate under the car's floor
+    warms the floor, and through it the cabin air, against the same cabin with no exchange."""
+    from irsim.thermal.balance import ThermalProperties
+    from irsim.thermal.cabin import CabinNode, CabinPanel, cabin_field
+    from irsim.thermal.coupling import FieldMember
+    from irsim.thermal.maps import PrescribedPatchField
+
+    paint, glass = ThermalProperties(8.0e3, 0.9, 0.6), ThermalProperties(1.2e4, 0.85, 0.1)
+    floor = pan(0.3, half_m=0.6, n=3)  # facing down, 0.3 m above the plate
+    window = PlanarPatch(
+        origin_m=np.array([5.0, 0.0, 1.5]), u_axis=EX, v_axis=EY, n_u=2, n_v=2, du_m=0.5,
+        dv_m=0.5, thickness_m=0.005,
+    )  # fmt: skip
+    node = CabinNode(
+        [CabinPanel("floor", paint, floor.area_m2), CabinPanel("glazing", glass, 1.0, 0.17)],
+        glazing_area_m2=1.0,
+        glazing_panel="glazing",
+    )
+
+    def cabin(spin: float | None) -> object:
+        members = [
+            FieldMember("floor", floor, _props(9, 8.0e3, 0.9), lambda t: _night(), 280.0),
+            FieldMember("glazing", window, _props(4, 1.2e4, 0.85), lambda t: _night(), 280.0),
+        ]  # fmt: skip
+        return cabin_field(
+            node, members, lambda t: 280.0, lambda t: 0.0, 0.0, 10.0, spin_up_hours=spin
+        )
+
+    alone = cabin(6.0)
+    joined = cabin(None)
+    plate = road(6, 1.6)
+    group = ObjectExchange(
+        [
+            ExchangeBody.from_planar("floor", floor, 0.9),
+            ExchangeBody.from_planar("plate", plate, 0.95),
+        ]
+    )
+    group.register("floor", joined.fields["floor"])  # type: ignore[attr-defined]
+    group.register("plate", PrescribedPatchField(plate, np.full(plate.n_cells, 330.0), 0.0))
+    group.spin_up(6.0)
+    warm = joined.node_temperature_k("cabin")  # type: ignore[attr-defined]
+    cold = alone.node_temperature_k("cabin")  # type: ignore[attr-defined]
+    assert warm - cold > 1.0, (warm, cold)
+    floor_on = joined.fields["floor"].temperature_at(0.0).mean()  # type: ignore[attr-defined]
+    floor_off = alone.fields["floor"].temperature_at(0.0).mean()  # type: ignore[attr-defined]
+    assert floor_on - floor_off > warm - cold, "the floor stands between the plate and the air"
+
+
+def test_a_part_of_an_object_with_its_own_exchange_is_refused() -> None:
+    from irsim.thermal.coupling import CoupledFields, FieldMember
+
+    ground, hot = road(4), pan(0.3, n=2)
+    inner = ObjectExchange(
+        [ExchangeBody.from_planar("a", ground, 0.9), ExchangeBody.from_planar("b", hot, 0.9)]
+    )
+    coupled = CoupledFields(
+        [
+            FieldMember("a", ground, _props(16, 1e5, 0.9), lambda t: _night(), 280.0),
+            FieldMember("b", hot, _props(4, 1e5, 0.9), lambda t: _night(), 280.0),
+        ],
+        t0_s=0.0,
+        tick_s=10.0,
+        exchange=inner,
+        exchange_members=("a", "b"),
+    )
+    outer = ObjectExchange(
+        [ExchangeBody.from_planar("a", ground, 0.9), ExchangeBody.from_planar("c", pan(1.0), 0.9)]
+    )
+    with pytest.raises(ValueError, match="count those pairs twice"):
+        outer.register("a", coupled.fields["a"])
+
+
 # --- refusals ----------------------------------------------------------------------------------
 
 

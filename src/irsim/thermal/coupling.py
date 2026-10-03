@@ -438,6 +438,16 @@ class PatchView:
         return self._coupled.field
 
     @property
+    def cells(self) -> slice:
+        """This member's cells in the shared solver's state."""
+        return self._slice
+
+    @property
+    def internal_exchange(self) -> bool:
+        """Whether the solve already exchanges radiation between its own members (TC.11)."""
+        return self._coupled.exchange is not None
+
+    @property
     def t0_s(self) -> float:
         return self._coupled.field.t0_s
 

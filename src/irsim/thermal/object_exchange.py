@@ -188,7 +188,7 @@ class ObjectExchange:
         self.face_emissivity: NDArray[np.float64] = emit @ self.cell_emissivity
         self._emit = emit
         self._fields: dict[str, Any] = {}
-        self._inner_forcing: dict[str, Callable[[float], FacetForcing]] = {}
+        self._solves: list[_Solve] = []
         self._snapshot_t: float | None = None
         self._incoming: NDArray[np.float64] | None = None
         self.last_flux_w_m2: dict[str, NDArray[np.float64]] = {}
@@ -257,24 +257,52 @@ class ObjectExchange:
     # -- the lockstep ------------------------------------------------------------------------
 
     def register(self, name: str, field: Any) -> ExchangedField:
-        """Join a solved field to the group and wrap its forcing; returns the proxy to use."""
+        """Join a field to the group; returns the proxy the scene hands out in its place.
+
+        ``field`` is any of the scene's surface fields: a plain field (its whole state is the
+        body), a `PatchView` of a coupled solve -- a layered surface's top layer, a cabin panel
+        -- whose slice of that solve is the body, or a `PrescribedPatchField`, whose map is a
+        fixed emitter that radiates onto the others and takes nothing back (its temperature is
+        a measurement, already carrying whatever it received). A solve that carries several
+        bodies is wrapped once and stepped once per tick.
+        """
         k = self.index(name)
         if name in self._fields:
             raise ValueError(f"{name!r} is already registered")
-        if int(field.field.properties.n_facets) != self.bodies[k].n_cells:
+        n_body = self.bodies[k].n_cells
+        fixed = getattr(field, "prescribed_k", None)
+        if fixed is not None:
+            cells = np.asarray(fixed, dtype=np.float64)
+            if cells.shape != (n_body,):
+                raise ValueError(f"{name!r}: the map has {cells.size} cells, the body {n_body}")
+            self._solves.append(_Solve(None, None, cells, [(k, slice(0, n_body))]))
+            self._fields[name] = field
+            return ExchangedField(self, field)
+        if getattr(field, "internal_exchange", False):
             raise ValueError(
-                f"{name!r}: the field has {field.field.properties.n_facets} cells, the body "
-                f"{self.bodies[k].n_cells}"
+                f"{name!r} is a part of an object whose parts already exchange inside their own "
+                "solve (TC.11); joining it here would count those pairs twice"
             )
-        if self._fields:
-            first = next(iter(self._fields.values()))
-            if abs(field.t0_s - first.t0_s) > 1e-9 or abs(field.tick_s - first.tick_s) > 1e-12:
+        solved = field.field
+        sl = getattr(field, "cells", None)
+        if sl is None:
+            sl = slice(0, int(solved.properties.n_facets))
+        if sl.stop - sl.start != n_body:
+            raise ValueError(
+                f"{name!r}: the field has {sl.stop - sl.start} cells, the body {n_body}"
+            )
+        for other in (h.field for h in self._solves if h.field is not None):
+            if abs(solved.t0_s - other.t0_s) > 1e-9 or abs(solved.tick_s - other.tick_s) > 1e-12:
                 raise ValueError(
                     f"{name!r}: every member must share t0 and the tick; "
-                    f"{first.t0_s}/{first.tick_s} against {field.t0_s}/{field.tick_s}"
+                    f"{other.t0_s}/{other.tick_s} against {solved.t0_s}/{solved.tick_s}"
                 )
-        self._inner_forcing[name] = field.field.forcing_at
-        field.field.forcing_at = self._wrap(name, field.field.forcing_at, field.t0_s)
+        host = next((h for h in self._solves if h.field is solved), None)
+        if host is None:
+            host = _Solve(solved, solved.forcing_at, None, [])
+            solved.forcing_at = self._wrap(host)
+            self._solves.append(host)
+        host.bodies.append((k, sl))
         self._fields[name] = field
         return ExchangedField(self, field)
 
@@ -282,38 +310,60 @@ class ObjectExchange:
     def members(self) -> Mapping[str, Any]:
         return dict(self._fields)
 
-    def _wrap(
-        self, name: str, inner: Callable[[float], FacetForcing], t0_s: float
-    ) -> Callable[[float], FacetForcing]:
-        k = self.index(name)
-        cells = self.cells_of(k)
-        eps, cover = self.cell_emissivity[cells], self.cover[cells]
-        n = self.bodies[k].n_cells
+    def owns(self, field: Any) -> bool:
+        """Whether ``field``'s solver is stepped by this group (a cabin's own handle, say)."""
+        solved = getattr(field, "field", None)
+        return any(h.field is not None and h.field is solved for h in self._solves)
+
+    def _add_flux(
+        self, host: _Solve, base: FacetForcing, incoming: NDArray[np.float64]
+    ) -> FacetForcing:
+        """``base`` with every body's exchange flux added to its cells' ``q_internal``."""
+        assert host.field is not None
+        n = int(host.field.properties.n_facets)
+        q_lw = base.arrays(n)[3]
+        q_int = np.array(np.broadcast_to(np.asarray(base.q_internal_w_m2, dtype=np.float64), (n,)))
+        for k, sl in host.bodies:
+            cells = self.cells_of(k)
+            q = self.cell_emissivity[cells] * (incoming[cells] - self.cover[cells] * q_lw[sl])
+            self.last_flux_w_m2[self.names[k]] = q
+            q_int[sl] += q
+        return dataclasses.replace(base, q_internal_w_m2=q_int)
+
+    def _wrap(self, host: _Solve) -> Callable[[float], FacetForcing]:
+        assert host.field is not None and host.inner is not None
+        inner, t0_s = host.inner, float(host.field.t0_s)
 
         def forcing(t_s: float) -> FacetForcing:
             base = inner(t_s)
-            if t_s < t0_s - 1e-9:  # the spin-up: the group does not exist yet
+            if t_s < t0_s - 1e-9:  # a spin-up of its own, outside the group
                 return base
             if self._snapshot_t is None or abs(t_s - self._snapshot_t) > 1e-9:
+                names = [self.names[k] for k, _ in host.bodies]
                 raise RuntimeError(
-                    f"{name!r} asked for its forcing at {t_s} s outside the exchange group's "
+                    f"{names} asked for a forcing at {t_s} s outside the exchange group's "
                     "tick: advance an exchanged field through the group (its proxy), not on "
                     "its own, so every member sees the same snapshot"
                 )
             assert self._incoming is not None
-            q_lw = base.arrays(n)[3]
-            q_int = np.broadcast_to(np.asarray(base.q_internal_w_m2, dtype=np.float64), (n,))
-            q = eps * (self._incoming[cells] - cover * q_lw)
-            self.last_flux_w_m2[name] = q
-            return dataclasses.replace(base, q_internal_w_m2=q_int + q)
+            return self._add_flux(host, base, self._incoming)
 
         return forcing
 
-    def _members_in_order(self) -> list[Any]:
+    def _check_complete(self) -> None:
         if len(self._fields) != len(self.names):
             missing = [n for n in self.names if n not in self._fields]
             raise ValueError(f"the exchange cannot step before every body has a field: {missing}")
-        return [self._fields[n] for n in self.names]
+
+    def _temperatures(self, states: Sequence[NDArray[np.float64] | None]) -> NDArray[np.float64]:
+        """Every body's cells, in body order, from each solve's state (or its fixed map)."""
+        out = np.empty(self.cell_areas_m2.shape[0])
+        for host, state in zip(self._solves, states, strict=True):
+            src = host.fixed_k if state is None else state
+            assert src is not None
+            for k, sl in host.bodies:
+                out[self.cells_of(k)] = src[sl]
+        return out
 
     def spin_up(
         self,
@@ -322,79 +372,105 @@ class ObjectExchange:
         wrap: Callable[[Callable[[float], FacetForcing]], Callable[[float], FacetForcing]]
         | None = None,
     ) -> dict[str, NDArray[np.float64]]:
-        """Spin the whole group up together and restart every member at t₀ from the result.
+        """Spin the whole group up together and restart every solve at t₀ from the result.
 
-        docs/physics-model.md §6.1 and §6.4's spin-up; ADR 0157, amendment of 2026-10-03. The
+        docs/physics-model.md §6.1 and §6.4's spin-up; ADR 0157, amendments of 2026-10-03. The
         same integration as :func:`~irsim.thermal.facets.spin_up` -- ``hours`` of weather ending
         at t₀, from the air temperature at the start, on a ``dt_s`` step -- except that the
-        members advance in lockstep and each step's exchange flux, from one snapshot, is added
-        to every member's ``q_internal``. So a road that has stood under a warm pan all night
+        solves advance in lockstep and each step's exchange flux, from one snapshot, is added
+        to every body's ``q_internal``. So a road that has stood under a warm pan all night
         opens the scene with the pan's patch already on it, rather than growing it over the
-        first hours of the run.
+        first hours of the run. A coupled solve (a layered stack, a cabin) is spun up whole, as
+        its own spin-up does, with the exchange on its exchanged slice; a prescribed map holds
+        its value throughout.
 
         ``wrap`` is the scene's wrap of a forcing into its weather series (the spin-up starts
-        before a 48 h file does); the exchange itself reads only the members' own forcings.
-        Every member must be registered and none advanced past t₀. Returns the state each
-        member was restarted from, in float64.
+        before a 48 h file does). Every body must be registered and no solve advanced past t₀.
+        Returns each solved body's state at t₀, in float64.
         """
         if hours <= 0.0 or dt_s <= 0.0:
             raise ValueError("hours and dt_s must be positive")
-        fields = self._members_in_order()
-        advanced = [n for n, f in zip(self.names, fields, strict=True) if f.field.n_ticks != 1]
+        self._check_complete()
+        solved = [h for h in self._solves if h.field is not None]
+        advanced = [
+            self.names[h.bodies[0][0]]
+            for h in solved
+            if h.field is not None and h.field.n_ticks != 1
+        ]
         if advanced:
             raise RuntimeError(f"spin-up after the run began: {advanced} already ticked")
         from irsim.thermal.facets import FacetSolver
 
-        t0 = float(fields[0].t0_s)
+        t0 = float(solved[0].field.t0_s) if solved and solved[0].field is not None else 0.0
         start = t0 - hours * 3600.0
         steps = int(round(hours * 3600.0 / dt_s))
-        inner = [self._inner_forcing[n] for n in self.names]
-        forcings = inner if wrap is None else [wrap(f) for f in inner]
-        sizes = [b.n_cells for b in self.bodies]
-        solvers = [
-            FacetSolver(
-                f.field.properties,
-                fa(start).arrays(n)[0],
-                conduction=f.field.conduction,
+        forcings: list[Callable[[float], FacetForcing] | None] = []
+        solvers: list[Any] = []
+        for h in self._solves:
+            if h.field is None or h.inner is None:
+                forcings.append(None)
+                solvers.append(None)
+                continue
+            fa = h.inner if wrap is None else wrap(h.inner)
+            n = int(h.field.properties.n_facets)
+            forcings.append(fa)
+            solvers.append(
+                FacetSolver(
+                    h.field.properties, fa(start).arrays(n)[0], conduction=h.field.conduction
+                )
             )
-            for f, fa, n in zip(fields, forcings, sizes, strict=True)
-        ]
         for i in range(steps):
             t = start + i * dt_s
-            incoming = self.incoming_w_m2(np.concatenate([s.temperatures_k for s in solvers]))
-            for k, (solver, fa, n) in enumerate(zip(solvers, forcings, sizes, strict=True)):
-                cells = self.cells_of(k)
-                base = fa(t)
-                q_lw = base.arrays(n)[3]
-                q_int = np.broadcast_to(np.asarray(base.q_internal_w_m2, dtype=np.float64), (n,))
-                q = self.cell_emissivity[cells] * (incoming[cells] - self.cover[cells] * q_lw)
-                solver.advance(dataclasses.replace(base, q_internal_w_m2=q_int + q), dt_s)
+            states = [None if s is None else s.temperatures_k for s in solvers]
+            incoming = self.incoming_w_m2(self._temperatures(states))
+            for h, step_forcing, solver in zip(self._solves, forcings, solvers, strict=True):
+                if solver is None or step_forcing is None:
+                    continue
+                solver.advance(self._add_flux(h, step_forcing(t), incoming), dt_s)
         out: dict[str, NDArray[np.float64]] = {}
-        for name, f, solver in zip(self.names, fields, solvers, strict=True):
-            f.field.restart(solver.temperatures_k)
-            out[name] = np.array(solver.temperatures_k, dtype=np.float64)
+        for h, solver in zip(self._solves, solvers, strict=True):
+            if solver is None or h.field is None:
+                continue
+            h.field.restart(solver.temperatures_k)
+            for k, sl in h.bodies:
+                out[self.names[k]] = np.array(solver.temperatures_k[sl], dtype=np.float64)
         return out
 
     def advance_to(self, t_s: float) -> None:
-        """Every member forward to ``t_s``, one tick at a time, from one snapshot per tick."""
-        fields = self._members_in_order()
-        tick = float(fields[0].tick_s)
+        """Every solve forward to ``t_s``, one tick at a time, from one snapshot per tick."""
+        self._check_complete()
+        solved = [h.field for h in self._solves if h.field is not None]
+        if not solved:
+            return
+        tick = float(solved[0].tick_s)
         while True:
-            latest = [float(f.latest_t_s) for f in fields]
+            latest = [float(f.latest_t_s) for f in solved]
             if max(latest) - min(latest) > 1e-9:
                 raise RuntimeError(
-                    "exchange members are out of step "
-                    f"({dict(zip(self.names, latest, strict=True))}): one "
-                    "was advanced on its own"
+                    f"exchange members are out of step ({latest}): one was advanced on its own"
                 )
             now = latest[0]
             if now >= t_s - 1e-12:
                 return
-            temps = np.concatenate([f.field.latest_state_k for f in fields])
-            self._incoming = self.incoming_w_m2(temps)
+            states = [None if h.field is None else h.field.latest_state_k for h in self._solves]
+            self._incoming = self.incoming_w_m2(self._temperatures(states))
             self._snapshot_t = now
-            for f in fields:
+            for f in solved:
                 f.advance_to(now + tick)
+
+
+@dataclass(eq=False)
+class _Solve:
+    """One solver the group steps, and the bodies that are slices of its state.
+
+    ``field`` is the `ThermalField` (``None`` for a prescribed map, whose ``fixed_k`` stands
+    in), ``inner`` its forcing before the group wrapped it.
+    """
+
+    field: Any
+    inner: Callable[[float], FacetForcing] | None
+    fixed_k: NDArray[np.float64] | None
+    bodies: list[tuple[int, slice]]
 
 
 class ExchangedField:
