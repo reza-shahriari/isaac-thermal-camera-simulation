@@ -1,0 +1,27 @@
+name: Feature request
+description: A camera, band, material, scene, output or tool you need.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What do you want to do?
+      description: The task or study you are working on, and what is missing for it.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would solve it?
+      description: The feature you have in mind. A sketch of the config or output is welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: Data and references
+      description: Datasheets, papers, measured data or real imagery that show how it should behave.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

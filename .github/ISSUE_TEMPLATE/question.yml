@@ -1,0 +1,21 @@
+name: Question
+description: Ask how to do something, or why the simulator behaves the way it does.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The [technical report](https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/TECHNICAL_REPORT.md)
+        and the [physics model](https://github.com/reza-shahriari/isaac-thermal-camera-simulation/blob/main/docs/physics-model.md)
+        answer many questions already.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What you are trying to do, and what you have already read or tried.

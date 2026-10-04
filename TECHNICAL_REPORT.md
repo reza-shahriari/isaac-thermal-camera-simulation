@@ -1173,6 +1173,8 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
 
 ## Contributing
 
+For people outside the project: `CONTRIBUTING.md` says what is welcome (issues, physics corrections, validation data; no pull requests under the current licence), `SECURITY.md` how to report a vulnerability privately, and `CODE_OF_CONDUCT.md` the conduct rules. The rest of this section is for people working in the tree.
+
 Read `CLAUDE.md` first — it defines the non-negotiables (engine-free core, checked in both directions by
 `tests/unit/test_layering.py`, float32 everywhere
 temperature flows, noise in radiance space, Kirchhoff closure) and the per-step workflow.

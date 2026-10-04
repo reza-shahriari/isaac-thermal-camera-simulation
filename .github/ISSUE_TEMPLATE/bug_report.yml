@@ -1,0 +1,67 @@
+name: Bug report
+description: Something crashes, gives wrong numbers, or does not match the documentation.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please search existing issues first. For a security problem, use the
+        private "Security vulnerability" link instead of this form.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: The exact command and the config files involved (sensor, scene, material), or the smallest ones that show the problem.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Error or output
+      description: The full traceback or log. It is formatted as code automatically.
+      render: text
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Radiometry (Planck, bands, lookup tables)
+        - Materials
+        - Thermal solver / weather
+        - Atmosphere / sky / sea
+        - Optics
+        - Detector / noise
+        - ISP / display
+        - Isaac Sim integration / rendering
+        - Scripts / tools / site
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: physics
+    attributes:
+      label: Physics details (if the numbers are wrong)
+      description: The value you got, the value you expected, and the source of the expected value. Quote the docs/physics-model.md section if you can.
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Output of `git rev-parse --short HEAD`.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, and Isaac Sim version and GPU if used.
+      placeholder: "Ubuntu 22.04, Python 3.11, no Isaac Sim"
+    validations:
+      required: true
