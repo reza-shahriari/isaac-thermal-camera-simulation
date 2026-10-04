@@ -7,6 +7,48 @@ before touching the clouds again: what the weather system must do, what is built
 wrong in the picture and where each fault comes from, why the problem is hard, and what any fix
 must keep so the same cloud can later be shown in the infrared.
 
+**Update, 2026-10-04: the cumulus is now built from simulated cloud patches.** The faults of §5
+were worked through in `isaac-weather-fx` on 3 and 4 October, with a sheet rendered by Isaac Sim
+in both render modes after every change (`outputs/cloud_look/`):
+
+| Change | What it fixed | What it did not |
+|---|---|---|
+| Density graded, crisp top, soft base (`9fd49dd`) | F2, F3: no clipped solid | the shape |
+| Scattering octaves, jittered light samples (`b7b32cc`) | F4, part of F5: no contour bands | the shape |
+| Jitter per frame, accumulated over frames (`7186afd`) | grain | the shape |
+| One auto exposure for both modes (`af589d8`) | F8 | the shape |
+| **Simulated patches replace the noise function for cumulus (`b4de1e2`)** | **F1, F6: the shape** | see below |
+| Open-wall simulations, boxes fit their cells, less deep-scatter light (`77e71ea`) | flat cut faces; evenly white clouds | flat bases |
+| Patches cut at their widest level (`2cf3a6d`) | round bottoms: a flat base | uniform skin |
+| Erosion varies across a cloud (`20f975d`) | the cotton look | one size class |
+| A fine lattice of small clouds (`f50c574`) | every cloud one size | frame time (+40 %, to be re-measured) |
+| **The veil: cloud in front of scene surfaces (`f2afa0d`)** | **F9: the cloud was a backdrop** | one camera; grain in the path tracer when a veil is drawn |
+
+The owner rejected the first four together ("the shape not changed at all ... some cloud seen
+in mobile games"): a 2D map pushed up into 3D and rounded by a few noise lobes stays a rounded
+block whatever its skin and its light. What changed the picture was the shape's source. A fluid
+solver (Blender's gas solver, run headless by `tools/simulate_cloud_patches.py`) grows patches of
+cumulus from warm bubbles, with wind shear and evaporating edges; a patch is a density grid of
+10 m cells, 1-2 MB. The cloudscape places one per cell of a lattice the weather map keeps, on one
+base, and the per-pixel march of ADR 0186 draws them. Blender makes the shape once, offline;
+Isaac Sim renders every frame, in RTX Real-Time and the path tracer alike (38 fps at 1280 x 720
+on the A6000). It is still a density in metres with a numpy reference, so §7's contract holds.
+
+The veil works like this: each frame the march reads the scene's depth on the GPU (replicator's
+`distance_to_camera`, 0.4 ms) and keeps the cloud in front of every surface apart; a second quad
+half a metre in front of the camera emits that cloud at that cloud's opacity, and the renderer
+blends it over the scene, the same in both modes. A ball 10 km away behind a cumulus is hidden
+by it; one 1.5 km away under the base is not (`outputs/cloud_look/s5_final/`).
+
+The owner accepted this cumulus ("much much better") and set what comes before the infrared
+conversion: the new controls in the UI (spacing, size mix, erosion), congestus at this quality
+with mixed skies (towers in front of towers), and a storm sky that covers everything. Still open
+besides: the solver is a smoke solver, so a patch has no water content or temperature of its own
+(they come from height above the base); the patches are frozen snapshots; cover saturates near
+0.4-0.5; frame time was measured on a shared GPU only (19-30 fps at 1280 x 720); the infrared
+does not read the cloudscape yet (`WX.26`). §4's table, §5 and §8-§9 below
+describe the state before this work and are kept as the record of why.
+
 The order of work the owner set: **the visible (RGB) picture first, inside Isaac Sim, good in
 both RTX Real-Time and the path tracer; the infrared conversion later**, but nothing done for RGB
 may make that conversion impossible.
