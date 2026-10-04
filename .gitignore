@@ -47,3 +47,6 @@ ASCIIdata_splib07a/
 # redistributed), and a stray download cache.
 papers/
 .cache_spectra/
+
+# Thermal Model Zoo bundles (scripts/zoo_bundle.py): build output, published from the zoo repo
+zoo_bundles/
