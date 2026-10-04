@@ -146,6 +146,95 @@ def _rotate(degrees: Sequence[float]) -> None:
     print(f"rotated {tuple(degrees)} deg (XYZ) about the origin")
 
 
+def _cut(cuts: Sequence[Mapping[str, Any]]) -> None:
+    """Split chosen pieces along planes: the asset's ``cuts`` (:class:`CutSpec`).
+
+    Runs after the turn, the rescale and the weld, identically in every pass: the part split
+    indexes faces by the order the component pass saw them in. A piece is a set of faces of the
+    named materials joined by shared edges; one that passes the area and centroid filters is
+    bisected along the plane and its new edges split, so its two sides share no edge. The plane is
+    in world metres and is carried into each object's local frame, because the rescale applies
+    location and scale but not the importer's rotations.
+    """
+    import bmesh
+    import bpy
+    import mathutils
+
+    total = 0
+    for spec in cuts:
+        materials = {m.lower() for m in spec.get("materials") or []}
+        box = [(spec.get(f"{a}_min"), spec.get(f"{a}_max")) for a in "xyz"]
+        point = mathutils.Vector(spec["point"])
+        normal = mathutils.Vector(spec["normal"]).normalized()
+        for obj in [o for o in bpy.data.objects if o.type == "MESH"]:
+            world = obj.matrix_world
+            slots = [(s.material.name.lower() if s.material else "") for s in obj.material_slots]
+            bm = bmesh.new()
+            bm.from_mesh(obj.data)
+            bm.faces.ensure_lookup_table()
+
+            def wanted(
+                face: Any, slots: list[str] = slots, materials: set[str] = materials
+            ) -> bool:
+                if not materials:
+                    return True
+                i = face.material_index
+                return i < len(slots) and slots[i] in materials
+
+            seen: set[int] = set()
+            targets: list[Any] = []
+            for seed in bm.faces:
+                if seed.index in seen or not wanted(seed):
+                    continue
+                piece, stack = [], [seed]
+                seen.add(seed.index)
+                while stack:
+                    face = stack.pop()
+                    piece.append(face)
+                    for edge in face.edges:
+                        for other in edge.link_faces:
+                            if other.index not in seen and wanted(other):
+                                seen.add(other.index)
+                                stack.append(other)
+                area, moment = 0.0, mathutils.Vector((0.0, 0.0, 0.0))
+                for face in piece:
+                    corners = [world @ v.co for v in face.verts]
+                    for k in range(1, len(corners) - 1):
+                        tri = (corners[k] - corners[0]).cross(corners[k + 1] - corners[0])
+                        a = 0.5 * tri.length
+                        area += a
+                        moment += a * (corners[0] + corners[k] + corners[k + 1]) / 3.0
+                if area <= 0.0 or area < float(spec.get("area_min_m2") or 0.0):
+                    continue
+                centre = moment / area
+                if any(
+                    (lo is not None and centre[i] < lo) or (hi is not None and centre[i] > hi)
+                    for i, (lo, hi) in enumerate(box)
+                ):
+                    continue
+                targets.extend(piece)
+            if targets:
+                local_point = world.inverted() @ point
+                local_normal = (world.to_3x3().transposed() @ normal).normalized()
+                verts = {v for f in targets for v in f.verts}
+                edges = {e for f in targets for e in f.edges}
+                done = bmesh.ops.bisect_plane(
+                    bm,
+                    geom=[*verts, *edges, *targets],
+                    dist=1e-9,
+                    plane_co=local_point,
+                    plane_no=local_normal,
+                )
+                new_edges = [g for g in done["geom_cut"] if isinstance(g, bmesh.types.BMEdge)]
+                if new_edges:
+                    bmesh.ops.split_edges(bm, edges=new_edges)
+                    total += len(new_edges)
+                bm.to_mesh(obj.data)
+            bm.free()
+    if cuts:
+        print(f"cut along {len(cuts)} plane(s): {total:,} edges split")
+
+
 def _weld(distance_m: float) -> None:
     """Merge vertices closer than ``distance_m`` in every mesh: the asset's ``weld_m`` (AI.18).
 
@@ -439,7 +528,10 @@ def world_polygon_areas(
 
 
 def emit_components(
-    out_path: pathlib.Path, weld_m: float = 0.0, rotate_deg: Sequence[float] = (0.0, 0.0, 0.0)
+    out_path: pathlib.Path,
+    weld_m: float = 0.0,
+    rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
+    cuts: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, object]:
     """Write per-connected-component statistics for the whole asset.
 
@@ -538,6 +630,8 @@ def emit_components(
                     "weld_m": weld_m,
                     # likewise the turn (rotate_deg): every centroid moves with it
                     "rotate_deg": [float(d) for d in rotate_deg],
+                    # and the cuts: each one changes which shells exist
+                    "cuts": list(cuts),
                 }
             )
 
@@ -900,6 +994,7 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--scale", type=float, required=True)
     ap.add_argument("--weld-m", type=float, default=0.0)
     ap.add_argument("--rotate-deg", type=float, nargs=3, default=(0.0, 0.0, 0.0))
+    ap.add_argument("--cuts-json", default="[]", help="the asset's cuts, as JSON")
     ap.add_argument("--out-meshes", type=pathlib.Path, default=None)
     ap.add_argument("--out-components", type=pathlib.Path, default=None)
     ap.add_argument("--split-assignment", type=pathlib.Path, default=None)
@@ -922,6 +1017,8 @@ def run_worker(argv: Sequence[str]) -> int:
     _rotate(args.rotate_deg)
     _rescale(args.scale)
     _weld(args.weld_m)
+    cuts = json.loads(args.cuts_json)
+    _cut(cuts)
     if args.out_material_slots is not None:
         # A measure-only pass: the planner runs under the project interpreter, which Blender's
         # does not share, so the two halves talk through files exactly as the part split does.
@@ -950,7 +1047,7 @@ def run_worker(argv: Sequence[str]) -> int:
     print(f"wrote {args.out_usd}")
     print(f"wrote {args.out_prims} ({len(records)} prim records)")
     if args.out_components is not None:
-        emit_components(args.out_components, args.weld_m, args.rotate_deg)
+        emit_components(args.out_components, args.weld_m, args.rotate_deg, cuts)
     if args.out_meshes is not None:
         emit_meshes(args.out_meshes, args.dissolve_deg, args.max_area_error)
     export_side_artefacts(args.save_blend, args.emit_fbx)
@@ -975,6 +1072,16 @@ def _rotate_args(rotate_deg: Sequence[float]) -> list[str]:
     return ["--rotate-deg", *(repr(float(d)) for d in rotate_deg)] if any(rotate_deg) else []
 
 
+def _cuts_args(cuts: Sequence[Mapping[str, Any]]) -> list[str]:
+    """``--cuts-json`` for every pass, or nothing for an asset that cuts nothing."""
+    return ["--cuts-json", json.dumps(list(cuts), sort_keys=True)] if cuts else []
+
+
+def _cut_dicts(asset: Any) -> list[dict[str, Any]]:
+    """An asset's cuts as the plain dicts the worker reads (and the component cache records)."""
+    return [c.model_dump(mode="json") for c in asset.cuts]
+
+
 def blender_split_command(
     blender: str,
     source: pathlib.Path,
@@ -986,6 +1093,7 @@ def blender_split_command(
     emit_fbx: pathlib.Path | None = None,
     weld_m: float = 0.0,
     rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
+    cuts: Sequence[Mapping[str, Any]] = (),
 ) -> list[str]:
     """The argv for the part-splitting pass. Separate from :func:`blender_command` because it is a
     different job: that one prepares an asset, this one regroups a prepared one."""
@@ -1014,6 +1122,7 @@ def blender_split_command(
         repr(float(scale)),
         *_weld_args(weld_m),
         *_rotate_args(rotate_deg),
+        *_cuts_args(cuts),
         "--split-assignment",
         str(assignment),
         "--split-face-ids",
@@ -1031,6 +1140,7 @@ def blender_material_slots_command(
     out_slots: pathlib.Path,
     weld_m: float = 0.0,
     rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
+    cuts: Sequence[Mapping[str, Any]] = (),
 ) -> list[str]:
     """The argv for `AI.6`'s measuring pass: per-face material slot and area, no export."""
     return [
@@ -1053,6 +1163,7 @@ def blender_material_slots_command(
         repr(float(scale)),
         *_weld_args(weld_m),
         *_rotate_args(rotate_deg),
+        *_cuts_args(cuts),
         "--out-material-slots",
         str(out_slots),
     ]
@@ -1066,6 +1177,7 @@ def blender_material_split_command(
     out_usd: pathlib.Path,
     weld_m: float = 0.0,
     rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
+    cuts: Sequence[Mapping[str, Any]] = (),
 ) -> list[str]:
     """The argv for `AI.6`'s splitting pass: one prim per material, exported as USD."""
     return [
@@ -1088,6 +1200,7 @@ def blender_material_split_command(
         repr(float(scale)),
         *_weld_args(weld_m),
         *_rotate_args(rotate_deg),
+        *_cuts_args(cuts),
         "--split-material-plan",
         str(plan),
         "--split-out-usd",
@@ -1172,6 +1285,7 @@ def blender_command(
     emit_fbx: pathlib.Path | None = None,
     weld_m: float = 0.0,
     rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
+    cuts: Sequence[Mapping[str, Any]] = (),
 ) -> list[str]:
     """The exact argv the driver runs. Split out so a test can check it without Blender."""
     extra: list[str] = []
@@ -1208,6 +1322,7 @@ def blender_command(
         repr(float(scale)),
         *_weld_args(weld_m),
         *_rotate_args(rotate_deg),
+        *_cuts_args(cuts),
         *extra,
     ]
 
@@ -1339,6 +1454,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             emit_fbx=out_dir / f"{asset.name}.fbx" if args.emit_fbx else None,
             weld_m=asset.weld_m,
             rotate_deg=asset.rotate_deg,
+            cuts=_cut_dicts(asset),
         )
         print(f"$ {' '.join(cmd)}")
         try:
@@ -1423,6 +1539,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                     (asset.parts.granularity == "object" and "object" not in head[0])
                     or float(head[0].get("weld_m", 0.0)) != asset.weld_m
                     or tuple(head[0].get("rotate_deg", (0.0, 0.0, 0.0))) != asset.rotate_deg
+                    or head[0].get("cuts", []) != _cut_dicts(asset)
                 )
             if stale:
                 cmd = blender_command(
@@ -1433,6 +1550,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                     asset.scale_to_metres,
                     weld_m=asset.weld_m,
                     rotate_deg=asset.rotate_deg,
+                    cuts=_cut_dicts(asset),
                 ) + ["--out-components", str(components)]
                 print("measuring components: " + " ".join(cmd[:5]) + " ...")
                 if subprocess.run(cmd, check=False).returncode != 0:
@@ -1461,6 +1579,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 emit_fbx=out_dir.parent / name / f"{name}.fbx" if args.emit_fbx else None,
                 weld_m=asset.weld_m,
                 rotate_deg=asset.rotate_deg,
+                cuts=_cut_dicts(asset),
             )
             print("splitting geometry by part: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:
@@ -1499,6 +1618,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 slots_json,
                 asset.weld_m,
                 asset.rotate_deg,
+                _cut_dicts(asset),
             )
             print("measuring material slots: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:
@@ -1518,6 +1638,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             out_dir.parent / name / f"{name}.usdc",
             weld_m=asset.weld_m,
             rotate_deg=asset.rotate_deg,
+            cuts=_cut_dicts(asset),
         )
         print("splitting geometry by material: " + " ".join(cmd[:5]) + " ...")
         if subprocess.run(cmd, check=False).returncode != 0:

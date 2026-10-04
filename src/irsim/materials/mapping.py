@@ -154,6 +154,42 @@ def load_mapping_rules(
     return rules
 
 
+class CutSpec(_Frozen):
+    """One plane that cuts chosen pieces of an asset in two before any prep pass reads it.
+
+    A part is claimed piece by piece (ADR 0138), so one continuous moulding is one part however
+    much of the aircraft it spans: the DJI Avata 2's upper shell carries all four duct rings, and
+    each lower duct lip runs under two propellers. A cut splits such a piece along a plane --
+    bisect, then separate the two sides along the new edges -- so each side is its own piece and a
+    selector can give it to its own part. It separates surfaces, so conduction no longer crosses
+    the cut; a part that must still exchange heat across it says so with a ``contacts:`` entry.
+
+    The plane is ``point`` and ``normal`` in metres in the asset frame (after ``rotate_deg`` and
+    the rescale). Only pieces made of ``materials`` (empty: any), of at least ``area_min_m2``,
+    and with their area-weighted centroid inside the optional ``x/y/z_min/max`` box are cut, so a
+    cut through a ring need not slice the propeller inside it. Cuts apply in order, each to the
+    pieces the previous ones left.
+    """
+
+    point: tuple[float, float, float]
+    normal: tuple[float, float, float]
+    materials: list[str] = Field(default_factory=list)
+    area_min_m2: float = Field(default=0.0, ge=0.0)
+    x_min: float | None = None
+    x_max: float | None = None
+    y_min: float | None = None
+    y_max: float | None = None
+    z_min: float | None = None
+    z_max: float | None = None
+
+    @field_validator("normal")
+    @classmethod
+    def _nonzero(cls, v: tuple[float, float, float]) -> tuple[float, float, float]:
+        if not any(v):
+            raise ValueError("a cut plane needs a non-zero normal")
+        return v
+
+
 class AssetMapping(_Frozen):
     """Per-asset truth about one imported model (ADR 0128).
 
@@ -180,6 +216,10 @@ class AssetMapping(_Frozen):
     is applied identically in every prep pass. ``(0, 0, 0)``, the default, leaves the model as
     imported.
 
+    ``cuts`` (:class:`CutSpec`) split chosen pieces along planes, after the turn, the rescale and
+    the weld and identically in every pass, so one moulding can become several parts. Empty, the
+    default, cuts nothing.
+
     ``parts`` is the asset's **functional** decomposition -- propellers, motors, the battery --
     and is independent of ``materials``, which is its *compositional* one. The two answer different
     questions and neither derives from the other: "the white plastic" is one material and four
@@ -193,6 +233,7 @@ class AssetMapping(_Frozen):
     scale_to_metres: float = Field(default=1.0, gt=0.0)
     weld_m: float = Field(default=0.0, ge=0.0)
     rotate_deg: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    cuts: list[CutSpec] = Field(default_factory=list)
     materials: dict[str, str] = Field(default_factory=dict)
     parts: PartsConfig | None = None
 

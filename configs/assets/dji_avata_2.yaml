@@ -46,6 +46,20 @@ asset:
   # real pieces -- one per propeller, brace, duct half, chassis. The count is the same at 0.01 and
   # 0.001 mm, so the weld closes only seams, never a gap between two pieces.
   weld_m: 0.0001
+  # Each propeller gets its own duct. The model has no such piece: the upper half of all four duct
+  # rings is one continuous surface with the upper shell (as DJI moulds it), and each side's lower
+  # lip runs under two propellers. Four cuts make the ducts, along the moulding's own seams:
+  #   * x = +-24 mm from the centreline (-0.75 mm): the shell's area per mm falls from 2.6 cm2 at
+  #     |x| 18-20 to 0.25 cm2 by 24 -- the body wall ends there and the ring webs begin;
+  #   * y = -23.7 mm, midway between the front (-68.6) and rear (+21.2) rotor stations, at the waist
+  #     of each side's figure-eight, where the rings and the lips are narrowest. Only pieces
+  #     centred outboard of |x| = 30 mm are cut here, so the body and the battery stay whole.
+  # The four cuts only separate the frame's surfaces: each duct's joint to the frame is a contact.
+  cuts:
+    - {point: [0.02325, 0.0, 0.0], normal: [1.0, 0.0, 0.0], materials: [Black_plastic], area_min_m2: 0.015}
+    - {point: [-0.02475, 0.0, 0.0], normal: [1.0, 0.0, 0.0], materials: [Black_plastic], area_min_m2: 0.015}
+    - {point: [0.0, -0.0237, 0.0], normal: [0.0, 1.0, 0.0], materials: [Black_plastic, Procedural_pearl_black_painted_plastic], area_min_m2: 0.004, x_min: 0.03}
+    - {point: [0.0, -0.0237, 0.0], normal: [0.0, 1.0, 0.0], materials: [Black_plastic, Procedural_pearl_black_painted_plastic], area_min_m2: 0.004, x_max: -0.03}
 
   materials:
     # --- the monoblock frame/guard, the chassis and the small fittings: black moulded
@@ -84,16 +98,20 @@ asset:
     centre: [-0.0007, -0.0237, 0.0]
     coverage_threshold: 0.95
     # AI.16: the artist built one object per MATERIAL (11 objects; `Procedural_pearl...` is all
-    # four propellers, both lower ducts and the four braces), so only pieces separate the hardware:
+    # four propellers, all four lower duct lips and the four braces), so only pieces separate the
+    # hardware:
     # `granularity: component`, the default.
 
     # --- AI.17: what touches what along each station's heat path. A motor sits on its chassis pad
     # and on the end of its brace; the brace's inner end meets the chassis (measured gap 0.0 mm;
-    # the frame is 5-12 mm away), the chassis fixes to the frame, and each lower duct clips to the
-    # frame's rings. Footprints ESTIMATED from the measured pieces, not from a teardown: an
-    # ~18 mm motor base (pi x 9^2 mm2 = 2.5 cm2), a brace end ~1 cm2 at the motor and ~2 cm2 at the
-    # chassis, the chassis's screw bosses ~3 cm2, a duct's lip along two rings ~5 cm2. `dry_default`
-    # throughout (ADR 0097).
+    # the frame is 5-12 mm away); the chassis fixes to the frame. Each duct was cut from the frame
+    # and from its neighbour (`cuts:`), so both joints are authored where the cuts run: the ring
+    # web where it meets the body, and the waist where the front and rear rings meet. Footprints
+    # ESTIMATED from the measured pieces, not from a teardown: an ~18 mm motor base (pi x 9^2 mm2 =
+    # 2.5 cm2), a brace end ~1 cm2 at the motor and ~2 cm2 at the chassis, the chassis's screw
+    # bosses ~3 cm2, a ring web ~2 mm x 50 mm = 1 cm2, the waist ~2 x (2 mm x 15 mm) = 0.6 cm2.
+    # `dry_default` throughout (ADR 0097) -- for the cut joints, which are continuous moulding in
+    # the real part, that understates the conduction: the conservative side.
     contacts:
       - {a: motor_front_left, b: chassis, joint: dry_default, area_m2: 0.00025}
       - {a: motor_front_right, b: chassis, joint: dry_default, area_m2: 0.00025}
@@ -108,8 +126,12 @@ asset:
       - {a: arm_rear_left, b: chassis, joint: dry_default, area_m2: 0.0002}
       - {a: arm_rear_right, b: chassis, joint: dry_default, area_m2: 0.0002}
       - {a: chassis, b: frame, joint: dry_default, area_m2: 0.0003}
-      - {a: duct_left, b: frame, joint: dry_default, area_m2: 0.0005}
-      - {a: duct_right, b: frame, joint: dry_default, area_m2: 0.0005}
+      - {a: duct_front_left, b: frame, joint: dry_default, area_m2: 0.0001}
+      - {a: duct_front_right, b: frame, joint: dry_default, area_m2: 0.0001}
+      - {a: duct_rear_left, b: frame, joint: dry_default, area_m2: 0.0001}
+      - {a: duct_rear_right, b: frame, joint: dry_default, area_m2: 0.0001}
+      - {a: duct_front_left, b: duct_rear_left, joint: dry_default, area_m2: 0.00006}
+      - {a: duct_front_right, b: duct_rear_right, joint: dry_default, area_m2: 0.00006}
 
     parts:
       # --- under the nose: the 1/1.3" camera on its single-axis (tilt) gimbal (UM). The lens is
@@ -123,6 +145,12 @@ asset:
       - name: gimbal_camera
         target: airframe
         select: {near_xy: [-0.0008, -0.097], within_m: 0.026, area_max_m2: 0.002}
+
+      # --- the frame: what the cuts leave of the upper shell, 93.2 cm2 from nose to tail between
+      # x = -24 and +24 mm. Claimed before the battery, whose selector would otherwise take it.
+      - name: frame
+        target: airframe
+        select: {materials: [Black_plastic], area_min_m2: 0.008}
 
       # --- the battery: 2150 mAh 4S Li-ion, 31.7 Wh, ~145 g (specs), slid into the body from the
       # back (UM: "battery buckles on the battery's sides"). It is the closed 28 x 38 x 95 mm
@@ -139,7 +167,8 @@ asset:
       # --- the four rotor stations, at the motor axes: x = +58.0 / -59.4 mm, y = -68.6 (front) /
       # +21.2 (rear), diagonal 147.8 mm (DJI publishes none). Nose toward -y, so the aircraft's
       # left is +x. Per station, by piece:
-      #   * propeller: the one 28.5 cm2 pearl-black piece on the axis -- three blades and the hub.
+      #   * propeller: the one 28.5 cm2 pearl-black piece on the axis -- three blades and the hub. The
+  #     cap at 35 cm2 keeps out the front duct's lower lip (42 cm2), centred 1.5 mm off the axis.
       #     3032S (DJI); asserted glass-filled nylon -- ESTIMATED, DJI does not publish it;
       #   * motor: every piece under 12 cm2 within 13 mm of the axis -- bell (10.1 cm2), base
       #     (9.3), bottom cap (2.1), the cap under the propeller (3.7), the 36 winding pieces and
@@ -149,19 +178,19 @@ asset:
       - name: propeller_front_left
         target: propeller
         material: nylon_glass_filled_black
-        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [0.0580, -0.0686], within_m: 0.010, area_min_m2: 0.002}
+        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [0.0580, -0.0686], within_m: 0.010, area_min_m2: 0.002, area_max_m2: 0.0035}
       - name: propeller_front_right
         target: propeller
         material: nylon_glass_filled_black
-        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [-0.0594, -0.0686], within_m: 0.010, area_min_m2: 0.002}
+        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [-0.0594, -0.0686], within_m: 0.010, area_min_m2: 0.002, area_max_m2: 0.0035}
       - name: propeller_rear_left
         target: propeller
         material: nylon_glass_filled_black
-        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [0.0580, 0.0212], within_m: 0.010, area_min_m2: 0.002}
+        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [0.0580, 0.0212], within_m: 0.010, area_min_m2: 0.002, area_max_m2: 0.0035}
       - name: propeller_rear_right
         target: propeller
         material: nylon_glass_filled_black
-        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [-0.0594, 0.0212], within_m: 0.010, area_min_m2: 0.002}
+        select: {materials: [Procedural_pearl_black_painted_plastic], near_xy: [-0.0594, 0.0212], within_m: 0.010, area_min_m2: 0.002, area_max_m2: 0.0035}
       - name: motor_front_left
         target: motor
         select: {near_xy: [0.0580, -0.0686], within_m: 0.013, area_max_m2: 0.0012}
@@ -192,22 +221,21 @@ asset:
         target: airframe
         select: {materials: [Black_plastic.001], area_min_m2: 0.01}
 
-      # --- the lower half of each side's two ducts: one 86.9 cm2 pearl-black piece per side, the lip
-      # under both rings.
-      - name: duct_left
+      # --- one duct per propeller, made by the four `cuts:` above: the ring's upper half (29.8 cm2,
+      # identical at all four) and its lower lip (42.3 front, 44.6 rear -- the rear lips run 8 mm
+      # further aft), every such piece of 25 cm2 or more within 20 mm of the station's axis.
+      - name: duct_front_left
         target: airframe
-        select: {materials: [Procedural_pearl_black_painted_plastic], area_min_m2: 0.008, near_xy: [0.052, -0.0153], within_m: 0.01}
-      - name: duct_right
+        select: {materials: [Black_plastic, Procedural_pearl_black_painted_plastic], near_xy: [0.0580, -0.0686], within_m: 0.02, area_min_m2: 0.0025}
+      - name: duct_front_right
         target: airframe
-        select: {materials: [Procedural_pearl_black_painted_plastic], area_min_m2: 0.008, near_xy: [-0.0535, -0.0153], within_m: 0.01}
-
-      # --- the frame: the upper shell and the upper half of all four duct rings, one continuous
-      # 212 cm2 surface in the model as in DJI's design (the guard is moulded into the frame). The
-      # weld tolerance does not change it (0.1 / 0.01 / 0.001 mm), so it is one piece, not two that
-      # touch; it is kept whole rather than cut through.
-      - name: frame
+        select: {materials: [Black_plastic, Procedural_pearl_black_painted_plastic], near_xy: [-0.0594, -0.0686], within_m: 0.02, area_min_m2: 0.0025}
+      - name: duct_rear_left
         target: airframe
-        select: {materials: [Black_plastic], area_min_m2: 0.02}
+        select: {materials: [Black_plastic, Procedural_pearl_black_painted_plastic], near_xy: [0.0580, 0.0212], within_m: 0.02, area_min_m2: 0.0025}
+      - name: duct_rear_right
+        target: airframe
+        select: {materials: [Black_plastic, Procedural_pearl_black_painted_plastic], near_xy: [-0.0594, 0.0212], within_m: 0.02, area_min_m2: 0.0025}
 
       # --- everything else: the camera cradle, the top plate, the nose bulkhead, the status window.
       - name: fuselage
