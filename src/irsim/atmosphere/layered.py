@@ -691,6 +691,48 @@ class LayeredAtmosphere:
             self._weights[band] = class_weights(band, response)
         return self._weights[band]
 
+    def _anchor_scale(
+        self,
+        band: str,
+        gamma_mol: float,
+        gamma_aer: float,
+        gamma_grey: float,
+        bases: Callable[[tuple[SpectralClass, ...]], NDArray[np.float64]],
+    ) -> float:
+        """The free classes' common scale, solved on the band's nominal top-hat (ADR 0177).
+
+        Chosen so that the nominal band's τ(200 m) is the preset's grey value -- the anchor the
+        presets were written for -- and then held fixed: any camera in the band applies the same
+        γ per class, so its τ differs from the nominal one exactly as its spectral classes do.
+        """
+        ref_classes = classes_for(band)
+        ref_weights = class_weights(band)
+        ref_base = bases(ref_classes)
+        ref_free = ~np.array([c.opaque for c in ref_classes])
+        target = math.exp(-gamma_grey * ANCHOR_DISTANCE_M) * float(ref_weights[ref_free].sum())
+
+        def anchored(scale: float) -> float:
+            g = np.where(ref_free, scale * ref_base, ref_base)
+            return float(
+                np.sum(
+                    ref_weights[ref_free] * np.exp(-(g[ref_free] + gamma_aer) * ANCHOR_DISTANCE_M)
+                )
+            )
+
+        if not ref_free.any() or ref_base[ref_free].max() <= 0.0:
+            return 1.0
+        hi = 1.0
+        while anchored(hi) > target and hi < 1e8:
+            hi *= 10.0
+        if anchored(0.0) < target - 1e-12:
+            raise ValueError(
+                f"band {band!r}: the aerosol alone makes tau(200 m) < the grey preset's; "
+                "class table and preset disagree"
+            )
+        if anchored(0.0) <= target:
+            return 0.0
+        return float(brentq(lambda x: anchored(x) - target, 0.0, hi))
+
     # -- the per-band exponential sum at time t ---------------------------------------
     def exponential_sum(self, band: str, t_s: float) -> ExponentialSum:
         sample = self._weather.at(t_s)
@@ -718,38 +760,28 @@ class LayeredAtmosphere:
                 for c in classes
             ]
         )
-        base = np.array(
-            [
-                (
-                    c.multiplier
-                    if c.opaque
-                    else c.multiplier * (gamma_mol if c.kind == "water" else 1.0)
-                )
-                for c in classes
-            ]
-        )
-        opaque = np.array([c.opaque for c in classes])
-        free = ~opaque
-        target = math.exp(-gamma_grey * ANCHOR_DISTANCE_M) * float(weights[free].sum())
 
-        def anchored(scale: float) -> float:
-            g = np.where(free, scale * base, base)
-            return float(np.sum(weights[free] * np.exp(-(g[free] + gamma_aer) * ANCHOR_DISTANCE_M)))
-
-        if not free.any() or base[free].max() <= 0.0:
-            scale = 1.0
-        else:
-            hi = 1.0
-            while anchored(hi) > target and hi < 1e8:
-                hi *= 10.0
-            if anchored(0.0) < target - 1e-12:
-                raise ValueError(
-                    f"band {band!r}: the aerosol alone makes tau(200 m) < the grey preset's; "
-                    "class table and preset disagree"
-                )
-            scale = (
-                0.0 if anchored(0.0) <= target else brentq(lambda x: anchored(x) - target, 0.0, hi)
+        def bases(cs: tuple[SpectralClass, ...]) -> NDArray[np.float64]:
+            return np.array(
+                [
+                    (
+                        c.multiplier
+                        if c.opaque
+                        else c.multiplier * (gamma_mol if c.kind == "water" else 1.0)
+                    )
+                    for c in cs
+                ]
             )
+
+        base = bases(classes)
+        free = ~np.array([c.opaque for c in classes])
+        # AT.35 (ADR 0177): the scale belongs to the **air**, so it is solved once per band, on
+        # the band's nominal top-hat -- the range the preset's per-band coefficients describe --
+        # and the same per-class γ then serves every camera in the band. Solved on each camera's
+        # own classes, it pinned every camera's τ(200 m) to the preset's, so a camera with less
+        # edge weight bought a murkier window: 8-12 µm read τ(5 km) 0.311 against 0.588 for
+        # 7.5-13.5 µm on `us_standard_clear`, backwards.
+        scale = self._anchor_scale(band, gamma_mol, gamma_aer, gamma_grey, bases)
         gamma_0 = np.where(free, scale * base, base)
         return ExponentialSum(
             weights=weights,

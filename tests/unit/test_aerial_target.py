@@ -91,8 +91,10 @@ def test_aerial_library_phenomenology_is_ordered() -> None:
     lwir = {n: lib[n].band_properties("lwir").emissivity for n in AERIAL_MATERIALS}
     # Paint and rubber are near-blackbodies; the same aluminium unpainted is a mirror.
     assert lwir["propeller_rubber"] > lwir["painted_composite"] > 0.9
+    # 1e-9, not 1e-12: since XD.14 this LWIR value is a curve's band integral held at the
+    # authored 0.90 (ADR 0179), exact to quadrature and nine written decimals, not a typed number.
     assert lib["aircraft_aluminium_painted"].band_properties("lwir").emissivity == pytest.approx(
-        0.90, abs=1e-12
+        0.90, abs=1e-9
     )
     assert lib["bare_aluminium"].band_properties("lwir").emissivity == pytest.approx(
         0.09, abs=1e-12

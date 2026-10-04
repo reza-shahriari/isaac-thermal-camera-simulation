@@ -106,6 +106,31 @@ class ThermalField:
         self._digest = hashlib.sha256()
         self._push(float(t0_s), self._solver.temperatures_k)
 
+    def restart(self, initial_k: Any) -> None:
+        """Replace the state at t₀ before any tick is taken (TC.10, ADR 0157 amendment).
+
+        For a start computed only once the field exists -- an exchange group's spin-up needs
+        every member built before it can run. Refused once a tick has been produced: the
+        history from t₀ would then belong to a different start.
+        """
+        if self._produced != 1:
+            raise RuntimeError(
+                f"a field can be restarted only at t0, before any tick; it has {self._produced}"
+            )
+        state = np.asarray(initial_k, dtype=np.float64)
+        if state.shape != (self.properties.n_facets,):
+            raise ValueError(f"restart state must be ({self.properties.n_facets},)")
+        self._solver = FacetSolver(
+            self.properties,
+            state,
+            conduction=self._solver.conduction,
+            film_kg_m2=self._solver.film_kg_m2,
+        )
+        self._ticks.clear()
+        self._produced = 0
+        self._digest = hashlib.sha256()
+        self._push(self.t0_s, self._solver.temperatures_k)
+
     def _push(self, t_s: float, temperatures_k: NDArray[np.float64]) -> None:
         """Record one tick: into the ring, into the running hash, and out to the hook."""
         self._ticks.append(_Tick(t_s, temperatures_k))

@@ -1,0 +1,30 @@
+# Black glass-fibre-reinforced nylon (PA6-GF30 class) -- a moulded drone propeller. DJI's repair
+# page gives the Mini 3 Pro's 6030F propeller as "Nylon + Glass fiber" (repair.dji.com, customId
+# 01700006559) and its FAQ says the Inspire 3's "is made of plastics and fiberglass"
+# (dji.com/support/product/inspire-3). Drafted by the ingest-asset pipeline (AI.15) under the
+# owner's 2026-09-26 rule: new materials allowed, gated by the closure walk and the diff.
+#
+# MWIR/LWIR ESTIMATED in the thermoplastic band: polyamide absorbs strongly through 3-14 um (C-H,
+# N-H, C=O), so it is at least as black there as the library's Fresnel-computed PET (0.958/0.942).
+# The carbon-black pigment moves only NIR/SWIR and the solar absorptivity, ESTIMATED at black PET's
+# USGS-measured 0.94. Thermal: PA6-GF30 datasheet class -- the glass raises density and
+# conductivity and lowers c_p against neat PA6. Thickness is a blade's mean section, which is what
+# makes a propeller follow the air so quickly.
+schema_version: 2
+material:
+  name: nylon_glass_filled_black
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "Material class: DJI Mini 3 Pro 6030F propeller, 'Nylon + Glass fiber' (https://repair.dji.com/help/content?customId=01700006559&spaceId=17&re=US&lang=en&documentType=&paperDocType=ARTICLE); DJI Inspire 3 FAQ ('the propeller is made of plastics and fiberglass', https://www.dji.com/support/product/inspire-3). Thermal: PA6-GF30 datasheet class. MWIR/LWIR ESTIMATED from the library's thermoplastics; NIR/SWIR/solar ESTIMATED at black PET's USGS-measured value (pet_black)."
+  description: "Black glass-filled nylon: moulded drone propellers"
+  thermal:
+    density_kg_m3: 1360
+    specific_heat_j_kgk: 1500
+    conductivity_w_mk: 0.30
+    thickness_m: 0.0020   # ESTIMATED: mean section across 6-16 inch blades
+    solar_absorptivity: 0.93   # ESTIMATED: carbon-black pigment
+  optical:
+    emissivity_per_band: {nir: 0.93, swir: 0.93, mwir: 0.94, lwir: 0.93}
+    roughness_per_band: {nir: 0.30, swir: 0.26, mwir: 0.15, lwir: 0.10}   # ESTIMATED, moulded finish
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the thermoplastic class (pet_black)
+    transmittance_per_band: {nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0}

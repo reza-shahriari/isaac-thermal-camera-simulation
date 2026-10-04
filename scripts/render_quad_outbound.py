@@ -29,9 +29,19 @@ that stays under a pixel for the whole clip and therefore goes through the analy
 path (ADR 0071). The capture interval is ``1 / frame_rate_hz``, so the bolometer's smear over its
 window and the chain's temporal noise run at their real rate rather than once per six seconds.
 
+**The clear-sky exit (EV.16).** ``--clear-exit`` is continuous video too, against a sky with no
+cloud in it at all (``configs/scenes/aerial_clear_exit.yaml``): the heavy-lift quad from 12 m to
+150 m in 15 s, then the mount stops tracking and the aircraft crosses the edge of the field at
+15 m/s and leaves, then a second of empty sky (:func:`irsim_isaac.quad_outbound.clear_exit_track`).
+Every frame records where the aircraft *should* be in the picture beside how many pixels the
+renderer actually gave it and where they sit, so the frame edge is checked from the render and
+not assumed. ``--far-m 30 --outbound-s 3`` is the same exit at close range, where the aircraft is
+44 px across and is visibly cut by the edge on its way out.
+
 Run with the Isaac interpreter (docs/decisions/0002), after `make luts`:
     IRSIM_GPU=0 python.sh scripts/render_quad_outbound.py --frames 300 --rgb
     IRSIM_GPU=0 python.sh scripts/render_quad_outbound.py --reference --rgb
+    IRSIM_GPU=0 python.sh scripts/render_quad_outbound.py --clear-exit --rgb
 """
 
 from __future__ import annotations
@@ -86,8 +96,33 @@ parser.add_argument(
     help="EV.14: 10 s of continuous video at the sensor's frame rate, 50-250 m, cumulus behind "
     "the target and a sub-pixel companion 1.2 km beyond it",
 )
+parser.add_argument(
+    "--clear-exit",
+    action="store_true",
+    help="EV.16: continuous video in a cloudless sky, 12-150 m, then out of the frame sideways",
+)
+parser.add_argument(
+    "--outbound-s",
+    type=float,
+    default=15.0,
+    help="--clear-exit: seconds from near to far before the aircraft leaves the frame",
+)
+parser.add_argument(
+    "--exit-speed-m-s",
+    type=float,
+    default=15.0,
+    help="--clear-exit: the aircraft's speed across the line of sight as it leaves",
+)
+parser.add_argument(
+    "--hold-s",
+    type=float,
+    default=1.0,
+    help="--clear-exit: seconds of empty sky after the aircraft has gone",
+)
 parser.add_argument("--out", default=None)
-parser.add_argument("--frames", type=int, default=None, help="default 300; --reference: 10 s")
+parser.add_argument(
+    "--frames", type=int, default=None, help="default 300; --reference: 10 s; --clear-exit: all"
+)
 parser.add_argument("--sensor", default=str(REPO / "configs/sensors/flir_boson_640_lwir.yaml"))
 parser.add_argument("--scene", default=None)
 parser.add_argument(
@@ -204,20 +239,44 @@ COMPANION_BEYOND_M = 1200.0
 COMPANION_OFFSET_DEG = 6.0
 COMPANION_AREA_M2 = 0.06
 
+#: The continuous clips: captured at the sensor's own frame period, not as a time-lapse.
+CONTINUOUS = bool(args.reference or args.clear_exit)
 if args.airframe is None:
-    args.airframe = "heavy_lift" if args.reference else "phantom3"
+    args.airframe = "heavy_lift" if CONTINUOUS else "phantom3"
 if args.reference and args.close_up:
     parser.error("--reference is the standoff clip; --close-up is the opposite measurement")
+if args.clear_exit and (args.reference or args.close_up):
+    parser.error("--clear-exit is its own clip; it does not combine with --reference or --close-up")
+if args.clear_exit and args.airframe != "heavy_lift":
+    parser.error("--clear-exit flies the heavy-lift frame its scene describes")
 _AIRFRAME = AIRFRAMES[args.airframe]
 if args.scene is None:
     args.scene = str(
         REPO
         / "configs"
         / "scenes"
-        / ("aerial_reference_clip.yaml" if args.reference else _AIRFRAME["scene"])
+        / (
+            "aerial_reference_clip.yaml"
+            if args.reference
+            else ("aerial_clear_exit.yaml" if args.clear_exit else _AIRFRAME["scene"])
+        )
     )
 if args.out is None:
-    args.out = "outputs/aerial_reference_clip" if args.reference else _AIRFRAME["out"]
+    args.out = (
+        "outputs/aerial_reference_clip"
+        if args.reference
+        else ("outputs/aerial_clear_exit" if args.clear_exit else _AIRFRAME["out"])
+    )
+if args.clear_exit:
+    # Literal here because Kit has not booted yet; `clear_exit_track` owns the same numbers and
+    # `test_aerial_clear_exit.py` holds the two together.
+    if args.near_m is None:
+        args.near_m = 12.0
+    if args.far_m is None:
+        args.far_m = 150.0
+    # The weather carries no cloud, so a cloud field would cover nothing; not generating one says
+    # so in the sidecar rather than leaving a seed that drew an empty sky.
+    args.no_cloud = True
 if args.reference:
     # The reference band, not the airframe's own: the sets it is compared with film at standoff.
     # Literal here because Kit has not booted yet; `reference_track` owns the same numbers and
@@ -274,6 +333,49 @@ def throttle_at(scene: object, t_rel_s: float) -> float:
     return 0.0
 
 
+def exit_summary(history: list[dict[str, Any]], track: Any, width_px: int) -> dict[str, Any]:
+    """EV.16: when the renderer stopped drawing the aircraft, against when the track says it left.
+
+    ``last_drawn_frame`` and ``first_empty_frame`` are read off the instance plane; the track's own
+    times sit beside them. The sky's apparent-temperature spread over the empty frames is the
+    no-target baseline: the clear sky's elevation gradient across the field plus noise, and
+    nothing else.
+    """
+    drawn = [h["frame"] for h in history if h.get("target_px", 0.0) > 0.0]
+    last_drawn = max(drawn) if drawn else None
+    empty = [h for h in history if last_drawn is not None and h["frame"] > last_drawn]
+    out: dict[str, Any] = {
+        "outbound_s": track.duration_s,
+        "exit_s": round(track.exit_s, 4),
+        "exit_pan_deg": round(track.exit_pan_deg, 4),
+        "hold_s": track.hold_s,
+        "last_drawn_frame": last_drawn,
+        "last_drawn_t_s": None if last_drawn is None else history[last_drawn]["t_rel_s"],
+        "first_empty_frame": empty[0]["frame"] if empty else None,
+        "empty_frames": len(empty),
+        "track_exit_end_t_s": round(track.duration_s + track.exit_s, 4),
+    }
+    if empty and "t_app_p001_k" in empty[0]:
+        # 0.1 / 99.9 percentiles: the extremes are defect pixels, not sky.
+        out["empty_sky_t_app_p001_p999_k"] = [
+            round(min(h["t_app_p001_k"] for h in empty), 3),
+            round(max(h["t_app_p999_k"] for h in empty), 3),
+        ]
+    # How far the drawn columns' centre sits from the pinhole's prediction, while the aircraft is
+    # wholly in frame. A few tenths of a pixel is the rasteriser; more is a frame-convention bug.
+    whole = [
+        abs(0.5 * (h["target_cols_px"][0] + h["target_cols_px"][1]) - h["target_u_px"])
+        for h in history
+        if "target_cols_px" in h
+        and h["target_cols_px"][0] > 1.0
+        and h["target_cols_px"][1] < width_px - 1.0
+    ]
+    if whole:
+        out["centre_error_px_median"] = round(float(sorted(whole)[len(whole) // 2]), 3)
+        out["centre_error_px_max"] = round(float(max(whole)), 3)
+    return out
+
+
 def main() -> int:
     import numpy as np
 
@@ -301,6 +403,7 @@ def main() -> int:
     from irsim_isaac.display_span import DisplaySpan, span_from_dn16
     from irsim_isaac.pipeline.illumination_isaac import SceneIllumination
     from irsim_isaac.pipeline.ir_camera import IrCamera
+    from irsim_isaac.pipeline.material_ids import BACKGROUND_INSTANCE_ID
     from irsim_isaac.pipeline.materials_usd import prim_records
     from irsim_isaac.pipeline.point_bridge import bindings_from_scene
     from irsim_isaac.quad_outbound import (
@@ -309,8 +412,10 @@ def main() -> int:
         REFERENCE_SWEEP_DEG,
         OutboundTrack,
         build_quad_outbound,
+        clear_exit_track,
         companion_angle_deg,
         distant_companion_position,
+        target_image_angles_deg,
     )
 
     if args.airframe == "phantom3":
@@ -346,20 +451,23 @@ def main() -> int:
     spec = sensor.sensor
     quantity = spec.quantity
     # EV.14: continuous video at the camera's own rate, unless a caller asked for something else.
-    if args.reference:
+    if CONTINUOUS:
         rate = float(spec.fpa.frame_rate_hz)
         if args.interval_s is None:
             args.interval_s = 1.0 / rate
-        if args.frames is None:
+        if args.frames is None and args.reference:
             args.frames = int(round(REFERENCE_DURATION_S / args.interval_s))
         # The literal default stays 30 (the sweep's watch-length test reads it); the reference
         # clip plays at the camera's own rate unless the command line asked for another.
         if not any(a == "--fps" or a.startswith("--fps=") for a in sys.argv[1:]):
             args.fps = rate
-    if args.frames is None:
+    if args.frames is None and not args.clear_exit:
         args.frames = 300
     if args.interval_s is None:
         args.interval_s = 6.0
+    ifov_mrad = 1e3 * spec.fpa.pitch_um * 1e-3 / spec.optics.focal_length_mm
+    vfov_deg = math.degrees(2.0 * math.atan(0.5 * spec.fpa.height * ifov_mrad * 1e-3))
+    hfov_deg = math.degrees(2.0 * math.atan(0.5 * spec.fpa.width * ifov_mrad * 1e-3))
     lut = load_band_lut_for_config(sensor, REPO / "data" / "lut")
     response = load_band_response_for_config(sensor, REPO / "data")
     skylight = skylight_for_sensor(sensor, quantity)
@@ -375,8 +483,25 @@ def main() -> int:
 
     scene = load_scene()
 
+    exit_track = None
+    if args.clear_exit:
+        try:
+            exit_track = clear_exit_track(
+                hfov_deg,
+                ifov_mrad,
+                near_m=args.near_m,
+                far_m=args.far_m,
+                outbound_s=args.outbound_s,
+                exit_speed_m_s=args.exit_speed_m_s,
+                hold_s=args.hold_s,
+            )
+        except ValueError as exc:
+            print(f"--clear-exit: {exc}", file=sys.stderr)
+            return 1
+        if args.frames is None:
+            args.frames = int(math.ceil(exit_track.end_s / args.interval_s)) + 1
     span_s = args.frames * args.interval_s
-    track = OutboundTrack(
+    track = exit_track or OutboundTrack(
         near_m=args.near_m,
         far_m=args.far_m,
         duration_s=span_s,
@@ -389,9 +514,6 @@ def main() -> int:
         else (140.0 if args.close_up else 55.0),
     )
 
-    ifov_mrad = 1e3 * spec.fpa.pitch_um * 1e-3 / spec.optics.focal_length_mm
-    vfov_deg = math.degrees(2.0 * math.atan(0.5 * spec.fpa.height * ifov_mrad * 1e-3))
-    hfov_deg = math.degrees(2.0 * math.atan(0.5 * spec.fpa.width * ifov_mrad * 1e-3))
     # **Refused, not clipped.** There is no ground plane on this stage, so ground in the picture
     # would be ADR 0060's analytic T_ground painted across the bottom of a sky-target frame -- a
     # horizon that is not a horizon, in the one scene whose whole claim is that it is sky-only.
@@ -545,7 +667,7 @@ def main() -> int:
         print(f"scene has no solver for: {sorted(missing)}", file=sys.stderr)
         return 1
 
-    table = MaterialTable.from_library(MaterialLibrary.load(), spec.band.band_id)
+    table = MaterialTable.for_sensor(MaterialLibrary.load(), spec)
     resolver = MaterialResolver(load_mapping_rules(), list(table.names))
     resolutions = resolver.resolve_all(prim_records(root="/World/Targets"))
     unresolved = [r.path for r in resolutions if not r.mapped]
@@ -852,10 +974,44 @@ def main() -> int:
             t_app = np.asarray(outputs.apparent_t)
             record["t_app_min_k"] = round(float(t_app.min()), 3)
             record["t_app_max_k"] = round(float(t_app.max()), 3)
+            if args.clear_exit:
+                # The extremes are the chain's defect pixels -- a dead one reads the LUT's 200 K
+                # floor on every frame -- so the empty-sky baseline is taken on percentiles.
+                lo, hi = np.percentile(t_app, [0.1, 99.9])
+                record["t_app_p001_k"] = round(float(lo), 3)
+                record["t_app_p999_k"] = round(float(hi), 3)
         if outputs.dn16 is not None:
             dn = np.asarray(outputs.dn16)
             record["dn16_min"] = float(dn.min())
             record["dn16_max"] = float(dn.max())
+        status = ""
+        if track.exit_s > 0.0:
+            # EV.16: where the pinhole puts the aircraft's centre, beside what the renderer drew.
+            # The two are independent -- one is the track's arithmetic, the other the instance
+            # plane -- so a frame edge in the wrong place, or a target still drawn after it has
+            # gone, shows as a disagreement in the sidecar rather than as a plausible picture.
+            h_deg, v_deg = target_image_angles_deg(track, t_rel)
+            ifov_rad = ifov_mrad * 1e-3
+            record["pan_deg"] = round(track.pan_deg_at(t_rel), 4)
+            record["target_u_px"] = round(
+                0.5 * spec.fpa.width + math.tan(math.radians(h_deg)) / ifov_rad, 2
+            )
+            record["target_v_px"] = round(
+                0.5 * spec.fpa.height - math.tan(math.radians(v_deg)) / ifov_rad, 2
+            )
+            if camera.last_frame is not None:
+                ids = np.asarray(camera.last_frame.instance_id)
+                k = ids.shape[1] / float(spec.fpa.width)
+                drawn = ids != BACKGROUND_INSTANCE_ID
+                record["target_px"] = round(float(drawn.sum()) / (k * k), 2)
+                cols = np.flatnonzero(drawn.any(axis=0))
+                if cols.size:
+                    record["target_cols_px"] = [
+                        round(float(cols[0]) / k, 1),
+                        round(float(cols[-1] + 1) / k, 1),
+                    ]
+                if track.pan_deg_at(t_rel) > 0.0:
+                    status = "   out of frame" if not cols.size else "   leaving the frame"
         if analytic:
             # EV.14: where the companion landed, or where it fell outside the frame. Recomputed
             # rather than cached by the camera, which keeps only the ones it could not see.
@@ -902,18 +1058,19 @@ def main() -> int:
             r: float = range_m,
             cell: dict = cells,
             node: dict = temps,
+            edge: str = status,
         ) -> Any:
             minutes, seconds = divmod(float(t), 60.0)
             return overlay_readout(
                 image,
                 [
                     f"T+{int(minutes):02d}:{seconds:05.2f}   range {r:6.1f} m   "
-                    f"span {1e3 * SPAN_M / r / ifov_mrad:5.1f} px",
+                    f"span {1e3 * SPAN_M / r / ifov_mrad:5.1f} px{edge}",
                     f"throttle {u * 100:3.0f}%   "
                     + "   ".join(f"{n} {cell[n] - 273.15:5.1f}C" for n in sunlit_shaded),
                     (
                         f"continuous, {args.fps:g} Hz   {caption}"
-                        if args.reference
+                        if CONTINUOUS
                         else f"1 frame / {args.interval_s:g} s time-lapse   {caption}"
                     ),
                 ],
@@ -967,7 +1124,11 @@ def main() -> int:
                     / (
                         f"aerial_reference_{kind}.mp4"
                         if args.reference
-                        else f"{args.airframe}_outbound_{kind}.mp4"
+                        else (
+                            f"aerial_clear_exit_{kind}.mp4"
+                            if args.clear_exit
+                            else f"{args.airframe}_outbound_{kind}.mp4"
+                        )
                     ),
                     fps=args.fps,
                 )
@@ -1042,6 +1203,7 @@ def main() -> int:
         "palette": palette_name,
         "videos": videos,
         "reference": bool(args.reference),
+        "clear_exit": exit_summary(history, track, spec.fpa.width) if args.clear_exit else None,
         "companion": companion,
         "display8_mean_step_median": round(float(np.median(steps)), 4),
         "display8_mean_step_p95": round(float(np.percentile(steps, 95)), 4),

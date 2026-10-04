@@ -55,7 +55,7 @@ from numpy.typing import NDArray
 
 from irsim.radiometry.constants import SIGMA_SB
 from irsim.thermal.conduction import ConductionOperator
-from irsim.thermal.facets import FacetForcing, FacetProperties
+from irsim.thermal.facets import FacetForcing, FacetProperties, FacetSolver
 from irsim.thermal.field import DEFAULT_TICK_S, ThermalField
 from irsim.thermal.spatial_sources import (
     RadiantRectangle,
@@ -438,6 +438,16 @@ class PatchView:
         return self._coupled.field
 
     @property
+    def cells(self) -> slice:
+        """This member's cells in the shared solver's state."""
+        return self._slice
+
+    @property
+    def internal_exchange(self) -> bool:
+        """Whether the solve already exchanges radiation between its own members (TC.11)."""
+        return self._coupled.exchange is not None
+
+    @property
     def t0_s(self) -> float:
         return self._coupled.field.t0_s
 
@@ -619,6 +629,11 @@ class CoupledFields:
 
     def _forcing(self, t_s: float) -> FacetForcing:
         """Every member's forcing at ``t_s``, concatenated cell for cell."""
+        return self._forcing_given(t_s, None)
+
+    def _forcing_given(self, t_s: float, state_k: NDArray[np.float64] | None) -> FacetForcing:
+        """The forcing with the internal exchange taken from ``state_k`` (``None``: the field's
+        latest tick). A spin-up runs its own solver, so it must say whose state it is."""
         forcings = [m.forcing_at(t_s) for m in self.members]
         parts = [f.arrays(m.patch.n_cells) for f, m in zip(forcings, self.members, strict=True)]
         t_air, h, q_solar, q_lw, q_int = (np.concatenate(col) for col in zip(*parts, strict=True))
@@ -629,7 +644,7 @@ class CoupledFields:
             ]
         )
         if self.exchange is not None:
-            q_int = self._with_exchange(q_int, q_lw)
+            q_int = self._with_exchange(q_int, q_lw, state_k)
         return FacetForcing(
             t_air_k=t_air,
             h_w_m2_k=h,
@@ -640,10 +655,13 @@ class CoupledFields:
         )
 
     def _with_exchange(
-        self, q_int: NDArray[np.float64], q_lw: NDArray[np.float64]
+        self,
+        q_int: NDArray[np.float64],
+        q_lw: NDArray[np.float64],
+        state_k: NDArray[np.float64] | None = None,
     ) -> NDArray[np.float64]:
         """``q_internal`` plus what the exchange members radiate onto each other (TC.11)."""
-        state = self.field.latest_state_k
+        state = self.field.latest_state_k if state_k is None else state_k
         slices = [self._slices[name] for name in self.exchange_members]
         temps = np.concatenate([state[lo:hi] for lo, hi in slices])
         lw = np.concatenate([q_lw[lo:hi] for lo, hi in slices])
@@ -654,6 +672,47 @@ class CoupledFields:
             out[lo:hi] += q[at : at + hi - lo]
             at += hi - lo
         return out
+
+    def spin_up(
+        self,
+        hours: float,
+        dt_s: float = 60.0,
+        wrap: Callable[[Any], Any] | None = None,
+    ) -> NDArray[np.float64]:
+        """Spin the whole solve up and restart it at t₀ from the result (TC.11, ADR 0157).
+
+        docs/physics-model.md §6.4's spin-up: ``hours`` of the members' own forcing ending at
+        t₀, from the air temperature at the start, on a ``dt_s`` step, through the solve's own
+        operator -- contacts, lumped links and lateral conduction -- and with the internal
+        exchange computed from the state being spun up, step by step. Without this a coupled
+        object starts from its parts' separate spin-ups and its contacts equalise on the first
+        tick. ``wrap`` is the scene's wrap into its weather series. Refused once a tick exists.
+        """
+        if hours <= 0.0 or dt_s <= 0.0:
+            raise ValueError("hours and dt_s must be positive")
+        if self.field.n_ticks != 1:
+            raise RuntimeError("a coupled solve can be spun up only before its first tick")
+        start = self.field.t0_s - hours * 3600.0
+        steps = int(round(hours * 3600.0 / dt_s))
+        box: list[FacetSolver] = []
+
+        def own(t_s: float) -> FacetForcing:
+            return self._forcing_given(t_s, box[0].temperatures_k if box else None)
+
+        forcing = own if wrap is None else wrap(own)
+        # the start is the air temperature, which the exchange term does not touch
+        box.append(
+            FacetSolver(
+                self.field.properties,
+                forcing(start).arrays(self._n)[0],
+                conduction=self.field.conduction,
+            )
+        )
+        solver = box[0]
+        for i in range(steps):
+            solver.advance(forcing(start + i * dt_s), dt_s)
+        self.field.restart(solver.temperatures_k)
+        return np.array(solver.temperatures_k, dtype=np.float64)
 
     @property
     def n_cells(self) -> int:

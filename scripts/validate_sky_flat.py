@@ -94,7 +94,7 @@ def render_pair(
     band = sensor.sensor.band.band_id
     lut = BandLUT.build(load_spectral_response(sensor.sensor.band.spectral_response), n=4001)
     scene = Scene.from_file(scene_path, {band: lut}, quantity=sensor.sensor.quantity)
-    materials = MaterialTable.from_library(MaterialLibrary.load(), band)
+    materials = MaterialTable.for_sensor(MaterialLibrary.load(), sensor)
     config = PipelineConfig.from_sensor(
         sensor,
         materials,

@@ -1,28 +1,43 @@
-"""Material schema: one YAML per material, ``source`` required, author one optical property.
+"""Material schema: one YAML per material, ``source`` required, author one optical quantity.
 
 docs/physics-model.md §4.1, §12.3:
 
-    schema_version: 1
+    schema_version: 2
     material:
       name: car_paint_black
       source: literature                # measured | literature | estimated -- drives trust
       thermal: {density_kg_m3, specific_heat_j_kgk, conductivity_w_mk, thickness_m,
                 solar_absorptivity}
       optical:
-        spectral_emissivity: spectra/materials/car_paint_black.csv     # exactly ONE of these four:
-        # spectral_reflectance / emissivity_per_band / reflectance_per_band
+        # ONE quantity -- emissivity or reflectance -- in any of three forms, layered (ADR 0175):
+        spectral_emissivity: spectra/materials/car_paint_black.csv   # a curve, or a list of
+        #   segments: [lw.csv, {file: sw.csv, quantity: reflectance}] (an opaque complement)
+        emissivity_per_band: {mwir: 0.88}     # where the curve has no data, by band
+        emissivity: 0.9                       # one grey value for everything else
+        # -- or the same three keys spelled reflectance --
         transmittance_per_band: {nir: 0, swir: 0, mwir: 0, lwir: 0}   # optional, default 0
         roughness_per_band: {nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12}
         angular_model: {type: fresnel, n_k_file: nk/acrylic_paint.csv}
                      | {type: empirical, a, p} | {type: constant}
 
-Non-negotiable #4 as read for τ > 0 materials (ADR 0040): **one** of {ε, ρ} is authored (spectral
-file or scalar per band) and τ may be authored per band; the remaining quantity is always derived
-(ρ = 1 − ε − τ or ε = 1 − ρ − τ) by :mod:`irsim.materials.library`, and ε + τ > 1 (or ρ + τ > 1)
-is refused. Authoring both ε and ρ in any form is an error. Band keys are free strings (a material
-may declare a band no current sensor has); consumers ask for the bands they need.
+**Three forms, one quantity.** A camera's value is resolved wavelength by wavelength under its
+own response (:meth:`irsim.materials.library.Material.band_properties`): the curve where it has
+data, else the per-band value of the camera's band, else the grey value. Any non-empty subset of
+the three may be authored; a material with only a grey value is grey in every band, one with only
+a per-band table is today's four numbers, one with only a curve is a spectral material. What
+remains forbidden is authoring a number twice: a per-band value for a band whose whole nominal
+range the curve already covers is refused at load (the curve would silently overrule it).
 
-docs/physics-model.md §4.1, §4.4, §12.3, §16.2, CLAUDE.md #4
+Non-negotiable #4 as read for τ > 0 materials (ADR 0040): **one** of {ε, ρ} is authored (in any
+of its forms) and τ may be authored per band; the remaining quantity is always derived
+(ρ = 1 − ε − τ or ε = 1 − ρ − τ) by :mod:`irsim.materials.library`, and ε + τ > 1 (or ρ + τ > 1)
+is refused. Authoring both ε and ρ is an error -- except that one *segment* of a curve may be
+tabulated as the opaque complement (``quantity: reflectance`` inside ``spectral_emissivity``),
+because short-wave libraries measure reflectance and long-wave ones emission; the library refuses
+that segment wherever the material authors τ > 0. Band keys are free strings (a material may
+declare a band no current sensor has); consumers ask for the bands they need.
+
+docs/physics-model.md §4.1, §4.4, §12.3, §16.2, CLAUDE.md #4; ADR 0175
 """
 
 from __future__ import annotations
@@ -39,6 +54,7 @@ __all__ = [
     "EmpiricalAngular",
     "ConstantAngular",
     "AngularModel",
+    "SpectrumSegment",
     "OpticalSpec",
     "MaterialSpec",
     "MaterialConfig",
@@ -163,9 +179,28 @@ def _check_band_keys(values: dict[str, float] | None, what: str) -> dict[str, fl
     return values
 
 
+class SpectrumSegment(_Frozen):
+    """One file of a segmented curve (ADR 0175).
+
+    ``quantity`` says what the file tabulates. When it is the key's own quantity the segment is
+    read as it stands; when it is the other one the file is the opaque complement (ε = 1 − ρ),
+    which is how a short-wave reflectance measurement joins a long-wave emission one.
+    """
+
+    file: str = Field(min_length=1)
+    quantity: Literal["emissivity", "reflectance"]
+
+
+SpectralSource = str | list[str | SpectrumSegment]
+
+
 class OpticalSpec(_Frozen):
-    spectral_emissivity: str | None = None
-    spectral_reflectance: str | None = None
+    spectral_emissivity: SpectralSource | None = None
+    spectral_reflectance: SpectralSource | None = None
+    #: One grey value of the authored quantity, used wherever neither the curve nor the
+    #: per-band table says anything (ADR 0175). Alone, it makes the material grey in every band.
+    emissivity: Fraction | None = None
+    reflectance: Fraction | None = None
     emissivity_per_band: dict[str, Fraction] | None = None
     reflectance_per_band: dict[str, Fraction] | None = None
     transmittance_per_band: dict[str, Fraction] | None = None
@@ -210,51 +245,89 @@ class OpticalSpec(_Frozen):
 
     @model_validator(mode="after")
     def _exactly_one_authored(self) -> OpticalSpec:
-        authored = [
-            name
-            for name in (
-                "spectral_emissivity",
-                "spectral_reflectance",
-                "emissivity_per_band",
-                "reflectance_per_band",
-            )
-            if getattr(self, name) is not None
+        eps = [
+            n
+            for n in ("spectral_emissivity", "emissivity_per_band", "emissivity")
+            if getattr(self, n) is not None
         ]
-        if len(authored) != 1:
+        rho = [
+            n
+            for n in ("spectral_reflectance", "reflectance_per_band", "reflectance")
+            if getattr(self, n) is not None
+        ]
+        if bool(eps) == bool(rho):
             raise ValueError(
-                "author exactly one optical property -- spectral_emissivity, spectral_reflectance, "
-                f"emissivity_per_band or reflectance_per_band -- got {authored or 'none'} "
-                "(CLAUDE.md #4: the other is derived, never authored)"
+                "author exactly one optical quantity -- emissivity or reflectance, as a curve "
+                "(spectral_*), per band (*_per_band) and/or one grey value -- got "
+                f"{(eps + rho) or 'none'} (CLAUDE.md #4: the other is derived, never authored)"
             )
         for name in ("spectral_emissivity", "spectral_reflectance"):
-            path = getattr(self, name)
-            if path is not None and not path.strip():
-                raise ValueError(f"{name} must be a file path")
+            source = getattr(self, name)
+            if source is None:
+                continue
+            if isinstance(source, list) and not source:
+                raise ValueError(f"{name} must name at least one file")
+            for seg in source if isinstance(source, list) else [source]:
+                if isinstance(seg, str) and not seg.strip():
+                    raise ValueError(f"{name} must be a file path")
         if self.transmittance_derivation is not None and self.transmittance_per_band is None:
             raise ValueError(
                 "transmittance_derivation describes where transmittance_per_band came from, "
                 "and this material authors no transmittance_per_band"
             )
+        which = "emissivity" if eps else "reflectance"
         scalar = self.emissivity_per_band or self.reflectance_per_band
-        if scalar is not None and self.transmittance_per_band is not None:
-            for band, tau in self.transmittance_per_band.items():
-                if band in scalar and scalar[band] + tau > 1.0 + 1e-12:
-                    which = "emissivity" if self.emissivity_per_band else "reflectance"
-                    raise ValueError(
-                        f"band {band!r}: {which} {scalar[band]} + transmittance {tau} > 1 "
-                        "violates Kirchhoff closure (CLAUDE.md #4)"
-                    )
+        grey = self.emissivity if self.emissivity is not None else self.reflectance
+        for band, tau in (self.transmittance_per_band or {}).items():
+            value = scalar.get(band) if scalar is not None else None
+            # The grey value fills a band only where the table is silent, so that is the pair
+            # closure has to hold for.
+            if value is None:
+                value = grey
+            if value is not None and value + tau > 1.0 + 1e-12:
+                raise ValueError(
+                    f"band {band!r}: {which} {value} + transmittance {tau} > 1 "
+                    "violates Kirchhoff closure (CLAUDE.md #4)"
+                )
         return self
 
     @property
     def authored(self) -> Literal["emissivity", "reflectance"]:
-        if self.spectral_emissivity is not None or self.emissivity_per_band is not None:
+        if (
+            self.spectral_emissivity is not None
+            or self.emissivity_per_band is not None
+            or self.emissivity is not None
+        ):
             return "emissivity"
         return "reflectance"
 
     @property
+    def spectral_segments(self) -> tuple[SpectrumSegment, ...]:
+        """The authored curve as segments, each naming the quantity its file tabulates."""
+        source = self.spectral_emissivity or self.spectral_reflectance
+        if source is None:
+            return ()
+        own = self.authored
+        items = source if isinstance(source, list) else [source]
+        return tuple(
+            SpectrumSegment(file=s, quantity=own) if isinstance(s, str) else s for s in items
+        )
+
+    @property
     def spectral_file(self) -> str | None:
-        return self.spectral_emissivity or self.spectral_reflectance
+        """The curve's first file, or ``None`` when the material authors no curve."""
+        segments = self.spectral_segments
+        return segments[0].file if segments else None
+
+    @property
+    def band_table(self) -> dict[str, float] | None:
+        """The per-band table of the authored quantity, if any."""
+        return self.emissivity_per_band or self.reflectance_per_band
+
+    @property
+    def grey_value(self) -> float | None:
+        """The grey value of the authored quantity, if any."""
+        return self.emissivity if self.emissivity is not None else self.reflectance
 
     def transmittance(self, band: str) -> float:
         return float((self.transmittance_per_band or {}).get(band, 0.0))

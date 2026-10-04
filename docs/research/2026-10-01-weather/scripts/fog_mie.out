@@ -1,0 +1,28 @@
+Advection fog 1 (heavy), rm=10um: A=0.027  r_eff=20.00 um  LWC=0.372 g/m3  beta055=28.78/km  V=136 m
+   0.55           beta=  28.775/km  ratio=1.000
+   NIR 0.7-1.0    beta=  29.021/km  ratio=1.009
+   SWIR 0.9-1.7   beta=  29.406/km  ratio=1.022
+   MWIR 3-5       beta=  31.086/km  ratio=1.080
+   LWIR 8-14      beta=  31.386/km  ratio=1.091
+   10.0           beta=  34.817/km  ratio=1.210
+Advection fog 2 (moderate), rm=8um: A=0.065918  r_eff=16.00 um  LWC=0.191 g/m3  beta055=18.49/km  V=212 m
+   0.55           beta=  18.494/km  ratio=1.000
+   NIR 0.7-1.0    beta=  18.692/km  ratio=1.011
+   SWIR 0.9-1.7   beta=  18.977/km  ratio=1.026
+   MWIR 3-5       beta=  20.265/km  ratio=1.096
+   LWIR 8-14      beta=  19.942/km  ratio=1.078
+   10.0           beta=  22.060/km  ratio=1.193
+Radiation fog 3 (heavy), rm=4um: A=2.373  r_eff=6.00 um  LWC=0.063 g/m3  beta055=16.70/km  V=234 m
+   0.55           beta=  16.700/km  ratio=1.000
+   NIR 0.7-1.0    beta=  16.989/km  ratio=1.017
+   SWIR 0.9-1.7   beta=  17.491/km  ratio=1.047
+   MWIR 3-5       beta=  21.347/km  ratio=1.278
+   LWIR 8-14      beta=  11.965/km  ratio=0.716
+   10.0           beta=   9.872/km  ratio=0.591
+Radiation fog 4 (moderate), rm=2um: A=607.5  r_eff=3.00 um  LWC=0.016 g/m3  beta055=8.71/km  V=449 m
+   0.55           beta=   8.706/km  ratio=1.000
+   NIR 0.7-1.0    beta=   8.933/km  ratio=1.026
+   SWIR 0.9-1.7   beta=   9.483/km  ratio=1.089
+   MWIR 3-5       beta=  10.644/km  ratio=1.223
+   LWIR 8-14      beta=   3.000/km  ratio=0.345
+   10.0           beta=   1.858/km  ratio=0.213

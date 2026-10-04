@@ -1,8 +1,12 @@
 """A form for a new library material, checked by irsim before anything is written.
 
-The form asks for **emissivity and transmittance per band** and shows reflectance as it will be
-derived, ρ = 1 − ε − τ. It cannot ask for reflectance as well: authoring two of the three is the
-mistake CLAUDE.md #4 exists to prevent, and ``irsim.config.materials`` refuses it. On *Create* the
+The form asks for **emissivity** in one of the library's three forms (ADR 0175) -- by default a
+measured curve picked as a CSV (up to two segments, a short-wave reflectance joined as 1 − R) with
+per-band values filling only where the curve has no data; or, when nobody has measured the
+surface, one grey value for every band or one value per band --
+and **transmittance per band**, and shows reflectance as it will be derived, ρ = 1 − ε − τ. It
+cannot ask for reflectance as well: authoring two of the three is the mistake CLAUDE.md #4 exists
+to prevent, and ``irsim.config.materials`` refuses it. On *Create* the
 bridge validates the draft with the project's own schema, loads it as the library would, checks
 that every band closes, and only then writes ``configs/materials/<name>.yaml``.
 
@@ -38,6 +42,22 @@ SOURCES = (
     ("measured", "Measured", "Your own measurement of this surface"),
 )
 NAME = re.compile(r"^[a-z][a-z0-9_]*$")
+#: Curve first and by default: the owner, 2026-10-01, "i want to have curves instead of specific
+#: band selection". A measured curve is the material; band values only fill where it has no data.
+#: *One value* and *Per band* remain for a surface nobody has measured, and say so.
+OPTICAL_FORMS = (
+    (
+        "curve",
+        "Curve",
+        "A measured spectral curve (CSV), with per-band values only where it has no data",
+    ),
+    ("grey", "One value", "The same emissivity in every band (a grey body), when no curve exists"),
+    ("per_band", "Per band (no curve)", "One emissivity for each band, when no curve exists"),
+)
+CURVE_QUANTITIES = (
+    ("emissivity", "Emissivity", "The file tabulates emissivity"),
+    ("reflectance", "Reflectance", "The file tabulates reflectance of an opaque surface (1 - R)"),
+)
 
 
 def _band_label(band: str) -> str:
@@ -77,6 +97,15 @@ class NewMaterial(Operator):
     solar_absorptivity: FloatProperty(
         name="Solar absorptivity", default=0.5, min=0.0, max=1.0, precision=3
     )
+
+    optical_form: EnumProperty(name="Emissivity as", items=OPTICAL_FORMS, default="curve")
+    eps_grey: FloatProperty(name="ε (every band)", default=0.9, min=0.0, max=1.0, precision=3)
+    curve_file: StringProperty(name="Curve", subtype="FILE_PATH", description="λ (µm), value CSV")
+    curve_quantity: EnumProperty(name="Holds", items=CURVE_QUANTITIES, default="emissivity")
+    curve_file_2: StringProperty(
+        name="Second segment", subtype="FILE_PATH", description="Optional: another range"
+    )
+    curve_quantity_2: EnumProperty(name="Holds", items=CURVE_QUANTITIES, default="reflectance")
 
     eps_nir: FloatProperty(name="ε NIR", default=0.9, min=0.0, max=1.0, precision=3)
     eps_swir: FloatProperty(name="ε SWIR", default=0.9, min=0.0, max=1.0, precision=3)
@@ -125,6 +154,9 @@ class NewMaterial(Operator):
             setattr(self, f"tau_{band}", getattr(item, f"tau_{band}"))
         if item.angular in {"constant", "empirical"}:
             self.angular = item.angular
+        # The copy carries the original's band values, so it opens on them; picking a curve
+        # (the default form for a new material) replaces them where the curve has data.
+        self.optical_form = "per_band"
         self.name = ""
 
     def invoke(self, context, event):
@@ -161,12 +193,35 @@ class NewMaterial(Operator):
         box.label(text=f"Heat capacity per area: {capacity:,.0f} J/m²·K")
 
         box = layout.box()
-        box.label(text="Per band: emissivity and transmittance; reflectance is derived")
+        box.prop(self, "optical_form", expand=True)
+        if self.optical_form == "grey":
+            box.prop(self, "eps_grey")
+        elif self.optical_form == "curve":
+            for file_key, q_key in (
+                ("curve_file", "curve_quantity"),
+                ("curve_file_2", "curve_quantity_2"),
+            ):
+                row = box.row()
+                row.prop(self, file_key)
+                row.prop(self, q_key, text="")
+            row = box.row()
+            op = row.operator("irsim.check_curve", text="Check curve", icon="CHECKMARK")
+            op.filepath = self.curve_file
+            if self.curve_file_2:
+                op = row.operator("irsim.check_curve", text="Check second", icon="CHECKMARK")
+                op.filepath = self.curve_file_2
+            check = context.window_manager.irsim_curve_check
+            if check:
+                box.label(text=check[:110], icon="INFO")
+            box.label(text="Per-band ε below fills only the bands the curve does not cover")
         header = box.row()
         header.label(text="")
         for band in BANDS:
             header.label(text=_band_label(band))
-        for what, label in (("eps", "Emissivity ε"), ("tau", "Transmittance τ")):
+        rows = [("tau", "Transmittance τ")]
+        if self.optical_form != "grey":
+            rows.insert(0, ("eps", "Emissivity ε" if self.optical_form == "per_band" else "ε fill"))
+        for what, label in rows:
             row = box.row()
             row.label(text=label)
             for band in BANDS:
@@ -175,19 +230,21 @@ class NewMaterial(Operator):
         row.label(text="Reflectance ρ (derived)")
         bad = []
         for band in BANDS:
-            rho = 1.0 - getattr(self, f"eps_{band}") - getattr(self, f"tau_{band}")
+            eps = self.eps_grey if self.optical_form == "grey" else getattr(self, f"eps_{band}")
+            rho = 1.0 - eps - getattr(self, f"tau_{band}")
             cell = row.row()
             cell.alert = rho < -1e-9
-            cell.label(text=f"{rho:.3f}")
+            cell.label(text=f"{rho:.3f}" if self.optical_form != "curve" else "from curve")
             if rho < -1e-9:
                 bad.append(band.upper())
-        if bad:
+        if bad and self.optical_form != "curve":
             box.label(text=f"ε + τ > 1 in {', '.join(bad)}: not physical", icon="ERROR")
         row = box.row()
         row.label(text="Roughness")
         for band in BANDS:
             row.prop(self, f"rough_{band}", text="")
-        if self.eps_lwir < 0.2:
+        lwir = self.eps_grey if self.optical_form == "grey" else self.eps_lwir
+        if lwir < 0.2 and self.optical_form != "curve":
             box.label(
                 text="LWIR ε below 0.2: it will show reflections, not its own temperature",
                 icon="ERROR",
@@ -208,6 +265,8 @@ class NewMaterial(Operator):
             return float(f"{x:.6g}")
 
         return {
+            # The bridge drops the typed band values a picked curve already covers (ADR 0175).
+            "prune_covered": self.optical_form == "curve",
             "material": {
                 "name": self.name,
                 "source": self.source,
@@ -222,7 +281,7 @@ class NewMaterial(Operator):
                     "solar_absorptivity": v(self.solar_absorptivity),
                 },
                 "optical": {
-                    "emissivity_per_band": {b: v(getattr(self, f"eps_{b}")) for b in BANDS},
+                    **self._emissivity(v),
                     "transmittance_per_band": {b: v(getattr(self, f"tau_{b}")) for b in BANDS},
                     "roughness_per_band": {b: v(getattr(self, f"rough_{b}")) for b in BANDS},
                     "angular_model": (
@@ -231,10 +290,35 @@ class NewMaterial(Operator):
                         else {"type": "constant"}
                     ),
                 },
-            }
+            },
         }
 
+    def _emissivity(self, v) -> dict:
+        """The authored emissivity in the chosen form (ADR 0175)."""
+        if self.optical_form == "grey":
+            return {"emissivity": v(self.eps_grey)}
+        per_band = {"emissivity_per_band": {b: v(getattr(self, f"eps_{b}")) for b in BANDS}}
+        if self.optical_form == "per_band":
+            return per_band
+        segments = []
+        for file_key, q_key in (
+            ("curve_file", "curve_quantity"),
+            ("curve_file_2", "curve_quantity_2"),
+        ):
+            path = getattr(self, file_key)
+            if not path:
+                continue
+            path = bpy.path.abspath(path)
+            quantity = getattr(self, q_key)
+            segments.append(
+                path if quantity == "emissivity" else {"file": path, "quantity": quantity}
+            )
+        return {"spectral_emissivity": segments, **per_band}
+
     def execute(self, context):
+        if self.optical_form == "curve" and not self.curve_file:
+            self.report({"ERROR"}, "Pick a curve file, or choose another form")
+            return {"CANCELLED"}
         if not NAME.match(self.name):
             self.report({"ERROR"}, "Name: lower-case letters, digits and underscores only")
             return {"CANCELLED"}
@@ -264,7 +348,36 @@ class NewMaterial(Operator):
         return {"FINISHED"}
 
 
-classes = (NewMaterial,)
+class CheckCurve(Operator):
+    """Read the picked curve through irsim's own loader and say what it covers"""
+
+    bl_idname = "irsim.check_curve"
+    bl_label = "Check curve"
+
+    filepath: StringProperty(options={"SKIP_SAVE"})
+
+    def execute(self, context):
+        wm = context.window_manager
+        if not self.filepath:
+            wm.irsim_curve_check = "No file picked"
+            return {"CANCELLED"}
+        repo, python = prefs.settings(context)
+        try:
+            r = run_bridge(python, repo, "check-curve", {"file": bpy.path.abspath(self.filepath)})
+        except BridgeError as exc:
+            wm.irsim_curve_check = f"Refused: {exc}"
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        covers = [b.upper() for b, ok in r["covers"].items() if ok] or ["no whole band"]
+        wm.irsim_curve_check = (
+            f"{r['lo_um']:.3g}-{r['hi_um']:.3g} µm, {r['rows']} rows, values "
+            f"{r['min']:.2f}-{r['max']:.2f}; covers {', '.join(covers)}"
+            + ("" if r["has_source"] else "; no '# source:' line -- name it in Reference")
+        )
+        return {"FINISHED"}
+
+
+classes = (NewMaterial, CheckCurve)
 
 
 def register():

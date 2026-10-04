@@ -7,11 +7,13 @@
      committed.) The hidden parts are in it too, marked `purpose = "guide"`: you can select and
      move them in Isaac Sim, and no camera renders them.
    - `3d_models/<name>/<name>.blend`: a copy of your file, so you can come back and edit.
-   - `configs/assets/<name>.yaml`: the asset's material map. **Commit this file.**
-   - `3d_models/<name>/<name>.structure.yaml`, if there are any: the contacts, facing pairs and
-     hidden parts. Rejected connections are left out, and unreviewed ones are marked
-     `reviewed: false`. It sits beside the model until the asset format has a place for it
-     (roadmap row AI.11).
+   - `configs/assets/<name>.yaml`: the asset's material map, and its `parts:` block -- every
+     object a part of its own name, the **contacts** between parts and the **hidden parts**, which
+     is what irsim's thermal solve reads. Rejected connections are left out, and the ones nobody
+     reviewed are listed at the top of the file. **Commit this file.**
+   - `3d_models/<name>/<name>.structure.yaml`, if there are any: the add-on's fuller record of the
+     same export -- the facing pairs, each hidden part's idle heat and reference, and which
+     connections are unreviewed. irsim does not read it.
 
    Names that USD would change (spaces, dots) are renamed first, and the message lists them. That
    way the `.blend`, the USD and the YAML all say the same thing.
@@ -22,7 +24,12 @@
 
 Before anything is written, everything is checked: the coverage, the name, and every connection
 and hidden part (a joint that is not in the table, a contact larger than its parts, a hidden part
-without a mass). If anything is refused, nothing is written.
+with neither a mass nor an irsim component, a component irsim does not have). If anything is
+refused, nothing is written.
+
+To come back to an asset later, **Load materials from an asset** (step 4) also brings back its
+hidden parts, as boxes inside the parts that hold them, and its contacts, as confirmed
+connections.
 
 Exporting again under the same name needs **Replace earlier export**. The add-on never overwrites
 an asset config that was written by hand, or files in `3d_models/` that it did not write. Choose

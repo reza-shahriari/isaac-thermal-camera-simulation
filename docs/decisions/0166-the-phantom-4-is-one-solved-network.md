@@ -59,3 +59,12 @@ Putting the aircraft on the solve needed four decisions.
   candidate list otherwise.
 * Not measured here: the rendered frame (a run of `render_phantom4.py --scene phantom4_solved`),
   which the GPU lane owes.
+
+## Correction, 2026-10-03
+
+The first two figures above included a start-up transient. The object began from its parts'
+separate spin-ups, and its contacts equalised on the first tick. Since ADR 0157's third
+amendment the object is spun up whole. With that, the bells rise **0.5 K** in the climb's first
+minute (not 1.4 K) and **12.5 K** by its end (not 14 K), as station means. The figures from
+landing on are unchanged to 0.01 K. The bell-lag test held either way: it compares the
+first-minute rise with the five-minute rise.

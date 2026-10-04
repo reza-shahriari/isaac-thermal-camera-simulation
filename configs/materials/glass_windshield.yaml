@@ -1,6 +1,8 @@
 # Windshield glass: opaque in LWIR (epsilon 0.88), transparent in SWIR/NIR (section 4.4).
 # Authored: emissivity (= absorptance) per band plus transmittance per band; reflectance derived.
 # LWIR/MWIR from section 16.2; the SWIR/NIR triple is ESTIMATED (two-surface Fresnel ~0.08).
+# LWIR is a curve (XD.14, ADR 0175): the fused-silica proxy's reststrahlen SHAPE at the authored
+# 0.88 LEVEL, so a camera's own range decides how much of the 8-10 um dip it sees.
 schema_version: 2
 material:
   name: glass_windshield
@@ -14,7 +16,10 @@ material:
     thickness_m: 0.005
     solar_absorptivity: 0.10
   optical:
-    emissivity_per_band: {nir: 0.15, swir: 0.22, mwir: 0.85, lwir: 0.88}
+    # 5.02-14 um, where 5 mm is opaque. Its LWIR nominal-band average is the section 16.2 value 0.88,
+    # held in scripts/derive_proxy_shape_curves.py, which writes the file (MODELLED, PROXY SHAPE).
+    spectral_emissivity: spectra/materials/glass_windshield_lw.csv
+    emissivity_per_band: {nir: 0.15, swir: 0.22, mwir: 0.85}
     transmittance_per_band: {nir: 0.77, swir: 0.70, mwir: 0.02, lwir: 0.0}
     roughness_per_band: {nir: 0.05, swir: 0.05, mwir: 0.04, lwir: 0.03}
     # NOT derivable from the n/k table below, and this says so rather than letting the table sit

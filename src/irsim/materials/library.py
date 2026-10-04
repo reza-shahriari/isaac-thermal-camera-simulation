@@ -1,10 +1,13 @@
 """Material library: load ``configs/materials/*.yaml``, derive the third optical quantity (§4.1).
 
 For a material and a band the library returns the band-effective triple (ε_B, ρ_B, τ_B) with
-ε_B + ρ_B + τ_B = 1 by construction (ADR 0040, ADR 0046): the authored quantity comes from the
-scalar-per-band table or from the Planck-weighted band average of the spectral file (ADR 0010,
-the only sanctioned reduction); τ_B is the authored per-band transmittance (0 when absent); the
-remaining quantity is derived. An authored value that leaves no room (ε_B + τ_B > 1) is refused
+ε_B + ρ_B + τ_B = 1 by construction (ADR 0040, ADR 0046). The authored quantity is the
+Planck-weighted band average (ADR 0010, the only sanctioned reduction) of a spectrum assembled
+wavelength by wavelength under the camera's own response (ADR 0175): the curve where a segment
+has data, else the band's per-band value, else the grey value -- so a 6-13 µm camera and a
+7.5-13.5 µm one read different numbers off the same curve, and a material without a curve reads
+its band number exactly as before. τ_B is the authored per-band transmittance (0 when absent);
+the remaining quantity is derived. An authored value that leaves no room (ε_B + τ_B > 1) is refused
 here, after the band average, so a spectral file cannot smuggle a closure violation through.
 
 Band averages need a spectral response: pass the sensor's (``SpectralResponse``) or let the
@@ -27,12 +30,13 @@ from typing import Any, Literal
 
 import numpy as np
 import yaml
+from numpy.typing import NDArray
 
 from irsim.config.bands import NOMINAL_RANGES_UM
 from irsim.config.loader import file_sha256, resolve_data_dir
 from irsim.config.materials import FresnelAngular, MaterialConfig, MaterialSpec
-from irsim.materials.spectra import PropertySpectrum, load_property_spectrum
-from irsim.radiometry.band_average import WeightingForm
+from irsim.materials.spectra import PropertySpectrum, SpectralCurve, load_property_spectrum
+from irsim.radiometry.band_average import WeightingForm, band_average
 from irsim.radiometry.spectral_response import SpectralResponse
 
 __all__ = [
@@ -56,6 +60,10 @@ class BandProperties:
     reflectance: float
     transmittance: float
     authored: Literal["emissivity", "reflectance"]
+    #: Fraction of the band's Planck × response weight the curve supplied (ADR 0175); the rest
+    #: came from the per-band or grey value. 0 for a material without a curve. Report it: below
+    #: 1 the value carries the flat-within-the-gap assumption.
+    curve_fraction: float = 0.0
 
     def __post_init__(self) -> None:
         for name in ("emissivity", "reflectance", "transmittance"):
@@ -86,12 +94,19 @@ def nominal_response(band: str) -> SpectralResponse:
 class Material:
     spec: MaterialSpec
     path: pathlib.Path
-    spectrum: PropertySpectrum | None  # the authored spectral property, if any
+    curve: SpectralCurve | None  # the authored spectral quantity, if any
     n_k_path: pathlib.Path | None
 
     @property
     def name(self) -> str:
         return self.spec.name
+
+    @property
+    def spectrum(self) -> PropertySpectrum | None:
+        """The curve's file when it is one plain file (the pre-ADR-0175 form), else ``None``."""
+        if self.curve is None or len(self.curve.segments) != 1 or self.curve.complement[0]:
+            return None
+        return self.curve.segments[0]
 
     def band_properties(
         self,
@@ -100,27 +115,56 @@ class Material:
         form: WeightingForm = "energy",
         t_ref_k: float = 300.0,
     ) -> BandProperties:
-        """(ε_B, ρ_B, τ_B), closed to 1e-6; raises when the authored values leave no room."""
+        """(ε_B, ρ_B, τ_B), closed to 1e-6; raises when the authored values leave no room.
+
+        Pass the camera's ``response`` (its ``Band.response``) so the value is that camera's;
+        without one a registry band uses its nominal top-hat. ADR 0175 gives the layering.
+        """
         optical = self.spec.optical
         tau = optical.transmittance(band)
-        if self.spectrum is not None:
+        table = optical.band_table or {}
+        fill = table.get(band, optical.grey_value)
+        curve_fraction = 0.0
+        if self.curve is None or (
+            response is None and band not in NOMINAL_RANGES_UM and band in table
+        ):
+            if fill is None:
+                raise KeyError(f"{self.name}: no {optical.authored} authored for band {band!r}")
+            authored_value = float(fill)
+        else:
             resp = response if response is not None else nominal_response(band)
+            lo, hi = resp.support_um
             # threshold 0: the whole response file must be covered, not just where R is
             # appreciable. A library material is reused across cameras, so the stricter rule is
             # the right one here -- and it is the *same* rule, in one place (M7.3).
-            if not self.spectrum.covers(resp, threshold=0.0):
-                s_lo, s_hi = self.spectrum.support_um
-                lo, hi = resp.support_um
+            if self.curve.covers_interval(lo, hi):
+                curve = self.curve
+
+                def spectrum(grid: NDArray[np.float64]) -> NDArray[np.float64]:
+                    return curve.values(grid)
+
+                curve_fraction = 1.0
+            elif fill is None:
                 raise ValueError(
-                    f"{self.name}: spectral file covers {s_lo}-{s_hi} um, band {band!r} needs "
-                    f"{lo}-{hi} um (extend the table rather than extrapolate)"
+                    f"{self.name}: the curve covers {self.curve.spans_text()} um, band "
+                    f"{band!r} needs {lo}-{hi} um: extend the "
+                    f"table, or author a per-band or grey {optical.authored} to fill the rest "
+                    "(ADR 0175) rather than extrapolate"
                 )
-            authored_value = float(self.spectrum.band_effective(resp, t_ref_k, form, threshold=0.0))
-        else:
-            table = optical.emissivity_per_band or optical.reflectance_per_band or {}
-            if band not in table:
-                raise KeyError(f"{self.name}: no {optical.authored} authored for band {band!r}")
-            authored_value = float(table[band])
+            else:
+                curve = self.curve
+                filler = float(fill)
+
+                def spectrum(grid: NDArray[np.float64]) -> NDArray[np.float64]:
+                    v = curve.values(grid)
+                    return np.where(np.isnan(v), filler, v)
+
+                def coverage(grid: NDArray[np.float64]) -> NDArray[np.float64]:
+                    return curve.covered(grid).astype(np.float64)
+
+                # Linear in the spectrum, so the indicator's band average *is* the curve's share.
+                curve_fraction = band_average(resp, coverage, t_ref_k, form)
+            authored_value = float(band_average(resp, spectrum, t_ref_k, form))
         if authored_value + tau > 1.0 + CLOSURE_TOL:
             raise ValueError(
                 f"{self.name} band {band!r}: {optical.authored} {authored_value:.4f} + "
@@ -128,8 +172,8 @@ class Material:
             )
         derived = max(0.0, 1.0 - authored_value - tau)
         if optical.authored == "emissivity":
-            return BandProperties(authored_value, derived, tau, "emissivity")
-        return BandProperties(derived, authored_value, tau, "reflectance")
+            return BandProperties(authored_value, derived, tau, "emissivity", curve_fraction)
+        return BandProperties(derived, authored_value, tau, "reflectance", curve_fraction)
 
     @property
     def declared_bands(self) -> frozenset[str]:
@@ -139,10 +183,17 @@ class Material:
         """SHA-256 of the validated spec with data file paths replaced by their content hashes."""
         dump: dict[str, Any] = self.spec.model_dump(mode="json")
         opt = dump["optical"]
-        for key in ("spectral_emissivity", "spectral_reflectance"):
-            if opt.get(key) is not None:
-                assert self.spectrum is not None
-                opt[key] = file_sha256(self.spectrum.path)
+        if self.curve is not None:
+            hashes = [file_sha256(seg.path) for seg in self.curve.segments]
+            for key in ("spectral_emissivity", "spectral_reflectance"):
+                source = opt.get(key)
+                if isinstance(source, str):
+                    opt[key] = hashes[0]
+                elif isinstance(source, list):
+                    opt[key] = [
+                        h if isinstance(item, str) else {**item, "file": h}
+                        for h, item in zip(hashes, source, strict=True)
+                    ]
         if self.n_k_path is not None:
             opt["angular_model"]["n_k_file"] = file_sha256(self.n_k_path)
         canonical = json.dumps(dump, sort_keys=True, separators=(",", ":"))
@@ -159,6 +210,49 @@ def _resolve(raw: str, data_dir: pathlib.Path, what: str) -> pathlib.Path:
     return p
 
 
+def _load_curve(spec: MaterialSpec, root: pathlib.Path) -> SpectralCurve | None:
+    """Load the curve's segments and refuse what the schema could not see without the files.
+
+    Two refusals need the wavelengths (ADR 0175): a per-band value for a registry band whose whole
+    nominal range the curve already covers (a second authoring the curve would silently
+    overrule), and a complement segment (ε = 1 − ρ) over a band where the material authors τ > 0
+    (there the complement is 1 − ρ − τ, not 1 − ρ).
+    """
+    optical = spec.optical
+    segments = optical.spectral_segments
+    if not segments:
+        return None
+    files = tuple(
+        load_property_spectrum(_resolve(seg.file, root, f"{spec.name}.optical.spectral_*"))
+        for seg in segments
+    )
+    curve = SpectralCurve(
+        segments=files,
+        complement=tuple(seg.quantity != optical.authored for seg in segments),
+    )
+    nominal: dict[str, tuple[float, float]] = {str(k): v for k, v in NOMINAL_RANGES_UM.items()}
+    for band in sorted(optical.band_table or {}):
+        if band in nominal and curve.covers_interval(*nominal[band]):
+            lo, hi = nominal[band]
+            raise ValueError(
+                f"{spec.name}: {optical.authored}_per_band[{band!r}] is authored twice -- the "
+                f"curve already covers {band}'s nominal {lo}-{hi} um and would overrule it. "
+                "Delete the per-band value (ADR 0175)"
+            )
+    for seg_file, flip in zip(files, curve.complement, strict=True):
+        if not flip:
+            continue
+        s_lo, s_hi = seg_file.support_um
+        for band, tau in (optical.transmittance_per_band or {}).items():
+            rng = nominal.get(band)
+            if tau > 0.0 and rng is not None and rng[0] < s_hi and rng[1] > s_lo:
+                raise ValueError(
+                    f"{spec.name}: {seg_file.path.name} is an opaque complement but the material "
+                    f"transmits {tau} in {band!r}, which it overlaps (CLAUDE.md #4)"
+                )
+    return curve
+
+
 def load_material(
     path: str | os.PathLike[str], data_dir: str | os.PathLike[str] | None = None
 ) -> Material:
@@ -173,17 +267,13 @@ def load_material(
     if p.parent.resolve() == MATERIAL_DIR.resolve() and spec.name != p.stem:
         raise ValueError(f"material name {spec.name!r} does not match file name {p.stem!r}")
     root = resolve_data_dir(data_dir)
-    spectrum = None
-    if spec.optical.spectral_file is not None:
-        spectrum = load_property_spectrum(
-            _resolve(spec.optical.spectral_file, root, f"{spec.name}.optical.spectral_*")
-        )
+    curve = _load_curve(spec, root)
     n_k = None
     if isinstance(spec.optical.angular_model, FresnelAngular):
         n_k = _resolve(
             spec.optical.angular_model.n_k_file, root, f"{spec.name}.angular_model.n_k_file"
         )
-    return Material(spec=spec, path=p.resolve(), spectrum=spectrum, n_k_path=n_k)
+    return Material(spec=spec, path=p.resolve(), curve=curve, n_k_path=n_k)
 
 
 class MaterialLibrary(Mapping[str, Material]):

@@ -230,7 +230,9 @@ def test_a_hidden_part_with_only_a_component_takes_its_numbers_from_the_library(
 # --- the scene -----------------------------------------------------------------------------------
 
 
-def _asset(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+def _asset(
+    tmp_path: pathlib.Path, part_materials: dict[str, str] | None = None
+) -> tuple[pathlib.Path, pathlib.Path]:
     archive = write_asset_meshes(
         tmp_path / "toy.npz",
         {
@@ -247,6 +249,9 @@ def _asset(tmp_path: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
             "parts": _parts().model_dump(mode="json"),
         },
     }
+    for part in doc["asset"]["parts"]["parts"]:
+        if part_materials and part["name"] in part_materials:
+            part["material"] = part_materials[part["name"]]
     mapping = tmp_path / "toy.yaml"
     mapping.write_text(yaml.safe_dump(doc))
     return mapping, archive
@@ -269,8 +274,10 @@ THERMAL = """
 """
 
 
-def _scene(tmp_path: pathlib.Path, switch: str = "") -> Scene:
-    mapping, archive = _asset(tmp_path)
+def _scene(
+    tmp_path: pathlib.Path, switch: str = "", part_materials: dict[str, str] | None = None
+) -> Scene:
+    mapping, archive = _asset(tmp_path, part_materials)
     head, _, _ = HEAD.read_text().partition("  thermal:")
     head = head.replace('start_utc: "2024-06-21T16:00:00Z"', 'start_utc: "2024-06-21T23:00:00Z"')
     out = tmp_path / "toy_scene.yaml"
@@ -278,6 +285,18 @@ def _scene(tmp_path: pathlib.Path, switch: str = "") -> Scene:
         head.rstrip() + "\n" + THERMAL.format(switch=switch, mapping=mapping, archive=archive)
     )
     return Scene.from_file(out)
+
+
+def test_a_part_asserted_material_outranks_the_asset_map_in_the_scene(
+    tmp_path: pathlib.Path,
+) -> None:
+    """AI.14: the motor's source material says bare aluminium; the part says painted.
+
+    Without the rung the can keeps eps 0.09 and renders as reflected sky -- AT.18's trap.
+    """
+    scene = _scene(tmp_path, part_materials={"motor": "aircraft_aluminium_painted"})
+    assert scene.surface_materials["quad.motor"].name == "aircraft_aluminium_painted"
+    assert scene.surface_materials["quad.arm"].name == "carbon_fibre", "unasserted: the map"
 
 
 def test_a_scene_solves_its_object_whole_and_binds_its_parts(tmp_path: pathlib.Path) -> None:

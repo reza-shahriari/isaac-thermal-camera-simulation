@@ -21,12 +21,12 @@ is. The add-on is where that person works.
 
 | | |
 |---|---|
-| **Assign materials** | Pick a part (or some faces) and choose from the [material library](materials.md): 49 materials, each with its emissivity in the four camera bands. A shared Blender material is copied, never changed behind your back. |
+| **Assign materials** | Pick a part (or some faces) and choose from the [material library](materials.md), where each material's emissivity is a measured curve wherever one exists. Find one by typing a few letters, from your favourites or recently used ones, or by filtering on its emissivity in any band. A shared Blender material is copied, never changed behind your back. |
 | **See the result** | A thermal view shades every part by its long-wave emissivity, so a mirror-like part stands out at once. |
 | **Start from an existing map** | A model the project already knows opens with its material map applied. |
 | **Add a material** | Type a new material's numbers; irsim checks them with its own rules (for example that emissivity, reflectance and transmittance add up to one) before anything is written. |
 | **Find connections** | The add-on finds which parts touch and which face each other across a gap, because that is how heat moves between them. You review each one. |
-| **Add hidden parts** | A battery inside a drone, an engine inside a car shell: 97 placeholder components at real size, from drone parts to ship engines. They go into the USD as real objects that the cameras never render. |
+| **Add hidden parts** | A battery inside a drone, an engine inside a car shell: 97 placeholder components at real size, from drone parts to ship engines, each able to take the cited mass and heat of one of irsim's components. They go into the USD as real objects that the cameras never render, and into the asset config, where the thermal solve reads them. |
 | **Check and export** | A checklist names every unassigned face, mirror-like part and missing number. The export writes the USD, the asset config and the parts' connections, and refuses to overwrite a file it did not write. |
 
 ![The hidden parts panel, with the Phantom 4's battery, flight controller and speed controllers](tutorials/blender-addon/images/hidden_parts_panel.webp)
@@ -43,9 +43,12 @@ The export writes three things:
 
 - `3d_models/<name>/<name>.usdc`, the model, with hidden parts marked so cameras skip them
   (checked in Isaac Sim 6.0: a hidden part appears in neither the colour image nor the depth);
-- `configs/assets/<name>.yaml`, which part is made of which library material;
-- `3d_models/<name>/<name>.structure.yaml`, the connections and hidden parts with their mass and
-  heat.
+- `configs/assets/<name>.yaml`, which part is made of which library material, and its `parts:`
+  block: every object a named part, the contacts between parts with their joints and areas, and
+  the hidden parts with their component or their own mass and heat -- what the thermal solve
+  reads;
+- `3d_models/<name>/<name>.structure.yaml`, the add-on's fuller record: facing pairs, idle heat,
+  references, and what nobody reviewed.
 
 ## Start here
 
@@ -60,12 +63,13 @@ The export writes three things:
 
 ## Status
 
-Version 0.3.0, for Blender 5.2. Tested by 72 tests of its Blender-free logic and bridge, and 142
-checks in a headless Blender against a scratch copy of the repository; the full Phantom 4 (2.5
-million faces) is exported and passes the project's asset audit. It lives in this repository under
+Version 0.5.0, for Blender 5.2. Tested by 87 tests of its Blender-free logic and bridge, and 180
+checks in a headless Blender against a scratch copy of the repository, including irsim's own
+asset preparation splitting an export into its named parts; the full Phantom 4 (2.5 million faces)
+is exported and passes the project's asset audit. It lives in this repository under
 `blender_addon/` for now and may move to its own repository later.
 
 Known limits, stated in the plan: the hidden-part placeholders are boxes, cylinders and cones until
-someone models the real thing; their mass and heat are the user's to fill in; and connections and
-hidden parts go to the side file above, while the asset config has since gained its own place for
-them (roadmap `AI.11`), so writing them there directly is the next step.
+someone models the real thing; where irsim's component library has no match their mass and heat
+are the user's to fill in; and a hidden part's box in the asset config is the axis-aligned box
+around it, since the format carries no rotation.

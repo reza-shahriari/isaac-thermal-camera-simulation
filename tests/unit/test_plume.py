@@ -110,6 +110,53 @@ def test_the_depth_plane_cuts_the_chord_where_the_geometry_is() -> None:
     assert chord_through_cone(cone, ray, np.array([50.0]))[0][0] == pytest.approx(0.4, abs=1e-9)
 
 
+def test_a_ray_that_hit_nothing_is_blocked_by_nothing() -> None:
+    """The sky has no distance: the G-buffer writes NaN (or inf) there, never a surface.
+
+    Before IG.21 a NaN depth made the clip NaN and the chord 0, so a rendered plume stopped dead
+    at the silhouette of whatever stood behind it and vanished against the sky.
+    """
+    cone = PlumeCone((-1.0, 0.0, 10.0), (1.0, 0.0, 0.0), 2.0, 0.2, 0.2)
+    ray = np.array([[0.0, 0.0, 1.0]])
+    for sky in (np.nan, np.inf):
+        assert chord_through_cone(cone, ray, np.array([sky]))[0][0] == pytest.approx(0.4, abs=1e-9)
+
+
+def test_a_sky_pixel_s_zero_distance_does_not_hide_the_plume() -> None:
+    """The G-buffer writes ``distance_m = 0`` on sky pixels and says so in ``sky_mask``.
+
+    Before IG.21 `run_frame` passed the depth without the mask, so every chord against the sky
+    was clipped at 0 m and a rendered plume ended at the outline of the car behind it.
+    """
+    config = _config("example_mwir_insb_640.yaml")
+    sensor = config.sensor.sensor
+    h, w = sensor.fpa_shape
+    plume = _bench_plume()
+
+    def composite(depth: np.ndarray, sky: np.ndarray | None) -> np.ndarray:
+        return inject_plumes(
+            np.zeros((h, w)),
+            [plume],
+            Intrinsics.from_sensor(sensor, 1),
+            sensor.optics.distortion,
+            config.response,
+            config.gas_tables,
+            depth,
+            None,
+            sensor.band.band_id,
+            0.0,
+            config.lut,
+            config.quantity,
+            sky_mask=sky,
+        )
+
+    open_air = composite(np.full((h, w), 1000.0), None)
+    assert (open_air > 0.0).any()
+    np.testing.assert_array_equal(composite(np.zeros((h, w)), np.ones((h, w), bool)), open_air)
+    # and the contract is the mask's: a zero with no mask is a surface at the lens
+    assert not composite(np.zeros((h, w)), None).any()
+
+
 def test_entrainment_dilutes_temperature_and_species_by_the_same_factor() -> None:
     """One authored length, one conserved scalar: they cannot be set inconsistently."""
     plume = _plume(mixing_length_m=0.6)

@@ -273,7 +273,7 @@ def main() -> int:
         usd_stage.GetPrimAtPath(vessel.root_path)
     ).GetOrderedXformOps()[0]
 
-    table = MaterialTable.from_library(MaterialLibrary.load(), spec.band.band_id)
+    table = MaterialTable.for_sensor(MaterialLibrary.load(), spec)
     resolver = MaterialResolver(load_mapping_rules(), list(table.names))
     resolutions = resolver.resolve_all(prim_records(root="/World/Targets"))
 

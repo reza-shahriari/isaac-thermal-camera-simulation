@@ -298,6 +298,40 @@ sections:
         label: NIR
     source: scripts/render_aerial_demo.py
 
+  - id: calibration-roundtrip
+    title: IG.23 — your lens, in the rendered frame
+    lead: |
+      A camera file can carry the unit's own OpenCV calibration. Here a Boson 640 on a wide lens,
+      with a strong barrel pasted into its file, films a heated calibration checkerboard: the rows
+      of corners bow 9.2 px in the infrared and 9.3 px in the visible frame, and undistorting with
+      the **same** numbers — nothing fitted — straightens them to 0.13 and 0.11 px. The two bands'
+      corners agree to 0.09 px, so the visible companion goes through the same lens.
+    media:
+      - image: calibration_checkerboard_lwir/calibration_roundtrip.png
+        width: full
+        caption: "top: LWIR as rendered | undistorted · bottom: visible, the same · red: each corner row's chord"
+      - video: calibration_checkerboard_lwir/calibration_checkerboard_pair.mp4
+        width: full
+        caption: the heated board, LWIR left and visible right, through the calibrated lens
+    note: |
+      The coefficients are illustrative, chosen so the barrel is plain; replace the block with
+      your own unit's `cv2.calibrateCamera` output.
+    source: scripts/measure_calibration_render.py
+
+  - id: car-hot-soak
+    title: IG.22 — the engine stops, the bonnet keeps warming
+    lead: |
+      The overcast-night car with TC.6's solved engine: key on at 30 s, off at 20 minutes, one frame
+      a minute on a fixed 10–40 °C span. While the engine runs the bonnet warms over the bay; after
+      key-off the fan and the coolant flow stop, the block's heat soaks upward, and the bonnet's
+      hottest cell goes on climbing from 33.7 °C to 41.6 °C by minute 27 while the engine itself
+      cools from 92 °C to 86 °C — the hot soak a thermal camera sees on a parked car.
+    media:
+      - video: car_ignition_hot_soak/car_ignition_spanned.mp4
+        width: full
+        caption: T+0 to T+29 min, key-off at T+20 — LWIR, one frame per 60 s, fixed span
+    source: scripts/render_car_ignition.py
+
   - id: car-ignition
     title: A car that starts its engine
     lead: |
@@ -591,6 +625,45 @@ sections:
         width: half
         caption: 15:00 — wet 44.8 °C, dry 55.8 °C
 
+  - id: patch-scenes
+    title: IG.20 — the wall half in sun and the wet road, rendered
+    lead: |
+      Two phase-P scenes that had only ever been solved on a synthetic G-buffer, now on an Isaac
+      stage: every patched surface is a quad drawn from its own solved field, cell by cell. A
+      building's west wall from 18:00 to 20:00, half concrete and half insulated render, with a
+      neighbour's shadow across it — the lit concrete stands 6.9 K over the shaded, and the roof
+      cools from 10.2 K over the north wall to 3.6 K as the sun sets. An asphalt road at 14:00
+      with its west half watered — 47.9 °C wet against 55.5 °C dry twenty minutes in, with the
+      shading wall's cold strip along the south edge.
+    media:
+      - video: wall_half_in_sun_lwir/wall_half_in_sun_pair.mp4
+        width: full
+        caption: 18:00–20:00, one frame per 150 s — LWIR left on a fixed span, visible right
+      - video: wet_road_noon_lwir/wet_road_noon_pair.mp4
+        width: full
+        caption: 14:00–16:00, the west half wet from 14:00 — LWIR left, visible right
+    note: |
+      The wet cells keep dry asphalt's emissivity (≈0.93 against water's ≈0.96), since a surface
+      has one infrared material; that is of order 1 K on the wet half.
+    source: scripts/render_patch_scene.py
+
+  - id: exhaust-plume
+    title: IG.21 — one exhaust plume, two bands
+    lead: |
+      A tailpipe over the first four minutes of a drive, filmed through a mid-wave (InSb, 3–5 µm)
+      and a long-wave (microbolometer, 8–14 µm) camera on **one** 15–125 °C scale. The plume is
+      hot CO₂ and water vapour, which emit strongly in the mid-wave bands and weakly in the
+      long-wave window: near the pipe it stands 80.5 K over the background in MWIR and 10.8 K in
+      LWIR, and half-way along 25.0 K against 1.8 K. The metal pipe itself is bright in both.
+    media:
+      - video: car_exhaust_plume_mwir/car_exhaust_plume_pair.mp4
+        width: full
+        caption: MWIR, 11° lens, camera 3x further out — plume bright
+      - video: car_exhaust_plume_lwir/car_exhaust_plume_pair.mp4
+        width: full
+        caption: LWIR, 31° lens — the same plume, faint
+    source: scripts/render_patch_scene.py
+
   - id: exhaust-line
     title: TC.7 — the exhaust line as a gas stream in a wall
     lead: |
@@ -775,6 +848,163 @@ sections:
       The path-traced tier costs one extra render per frame (33 s against 23 s here), because the
       volume boxes must be kept out of the infrared G-buffer: to it they are just boxes.
     source: scripts/render_phantom4.py
+
+  - id: cloud-light
+    title: The visible cloud, lit by physics
+    lead: |
+      The visible companion is the frame an infrared one is read against, so its cloud is held to
+      physics-model §7.5's criteria. Before `WX.3`, weather-fx lit a cloud only by the sun, through
+      one envelope that made every base as bright as a sunlit top: under a uniform sky with the sun
+      off, a white cloud rendered black. Now each step of the dome's march in-scatters three lights,
+      energy-conserving (ADR 0180): the sky and the ground, the sun scattered once, and the
+      two-stream field along the sunlight's chord through the point. A white cloud under a uniform
+      sky vanishes to 1e-4; thin edges are at least 1.01 of the sky behind them; thick bases are
+      0.82–0.89 of a sunlit flank; a deck seen from above has 1.005 of its two-stream albedo.
+    media:
+      - video: cloud_look/cloud_look_before_after.mp4
+        width: full
+        caption: >-
+          One day over Munich on 21 June, 35 % cumulus, a camera looking west at 12° elevation:
+          48 frames from 09:00 UTC (sun 53.6°) to 19:12 (sun 0.4°). Left, weather-fx before the
+          change; right, after. The noise and stripes near the horizon are the next step's (`WX.4`,
+          detail filtered to the pixel), not this one's.
+    note: |
+      Rendered by `scripts/cloud_look.py` on the CPU from weather-fx's own sky, exposed by
+      its own meter, through a stand-in tone curve that is not the RTX tonemapper — compare the two
+      halves with each other, not with an Isaac Sim viewport. Not modelled: light a finite cloud
+      loses through its sides, so the base of a small cumulus is as bright as two-stream says a
+      layer of its depth is.
+    source: scripts/cloud_look.py
+
+  - id: cloud-static
+    title: A pixel integrates the cloud; it does not sample it
+    lead: |
+      Broken cumulus near the horizon used to shimmer: each pixel was one ray, so it read cloud or
+      sky by the luck of where that ray landed, and a cloud edge crossing the pixel became noise.
+      A detector pixel averages the radiance over its footprint, and near the horizon that
+      footprint spans kilometres of the cloud layer. Since `WX.4` the pixels an edge crosses are
+      marched again through several rays and averaged (ADR 0181) — in the infrared at a Boson's
+      pitch the static energy falls to 0.1 % of what it was at 5° elevation and 0.5 % at 30°, for
+      1.09× and 1.87× the rays. Blurring the cloud's density to the pixel was tried first and made
+      it worse: opacity is not linear in density.
+    media:
+      - video: cloud_look_static/cloud_static_before_after.mp4
+        width: full
+        caption: >-
+          The same band of sky from the horizon to 12°, 35 % cumulus drifting at 10 m/s, 36 frames
+          over three minutes. Left, one ray per pixel; right, each pixel integrated over a 4 × 4
+          grid with only its cloud edges marched again — the infrared camera's own rule.
+    source: scripts/cloud_look.py
+
+  - id: cloud-air
+    title: A distant cloud is seen through the air
+    lead: |
+      A cloud 30 km away is behind 30 km of air. The air dims the cloud and adds its own light,
+      so far cumulus fades toward the horizon's colour while a cloud overhead stays crisp. The
+      dome used to compose every cloud as if it were at the eye. Since `WX.5` it composes each
+      cloud through the sky's own scattering integral, kept at 16 distances out to 64 km
+      (ADR 0182). The air in a cloud's shadow is dark, so a cloud near the sun is not veiled by
+      sunlit haze that is not there. At 64 km the air light is the sky itself, within 1.5 %.
+    media:
+      - video: cloud_look_air/cloud_air_before_after.mp4
+        width: full
+        caption: >-
+          One ground camera looking west, 12° up with a 70° field of view, over 35 % cumulus. 48
+          frames from 09:00 to 19:12 UTC on 21 June at Munich, while the sun falls from 53.6° to
+          0.4°. Left: weather-fx `5853dcc`, the cloud composed at the eye. Right: `582bf47`, the
+          cloud seen through the air in front of it.
+    source: scripts/cloud_look.py
+
+  - id: cloud-pixel-isaac
+    title: The per-pixel cloud inside Isaac Sim
+    lead: |
+      Everything in this section is rendered by Isaac Sim's own renderer. With
+      `clouds.render_path = "pixel"` the cloud function of `WX.23` is marched on the GPU for the
+      viewport's camera every frame, composed over the clear sky through the air in front of it,
+      and emitted by a quad that rides with the camera at the far end of its frustum (`WX.24`,
+      ADR 0186). The renderer draws the scene in front of that quad by itself, and an emissive
+      surface is the same thing to RTX Real-Time and to the path tracer, so both modes show one
+      sky. At 1280 × 720 on an RTX A6000 the real-time viewport runs at 44–48 frames a second with
+      the camera turning. One camera for now; the dome behind the quad stays clear, so reflections
+      and ground shadows do not see the clouds yet.
+    media:
+      - image: cloud_pixel_isaac/headings_realtime_pathtraced.png
+        width: full
+        caption: >-
+          One sky at 14:30 UTC, 35 % cumulus, the camera 22° up and turned north, east, south and
+          west. Top row RTX Real-Time, bottom row the path tracer: the same clouds, at the same
+          sharpness, in every direction.
+      - image: cloud_pixel_isaac/hours_realtime_pathtraced.png
+        width: full
+        caption: >-
+          One heading (300°) at 07:00, 11:00, 17:00 and 19:00 UTC. The clouds agree between the
+          modes; with the sun in frame the exposure does not, because real-time auto-exposes and
+          the path tracer does not.
+      - video: cloud_pixel_isaac/isaac_pan.mp4
+        caption: >-
+          A full turn of the camera in RTX Real-Time, 90 frames, 1280 × 720.
+      - video: cloud_pixel_isaac/isaac_day.mp4
+        caption: >-
+          05:30 to 20:18 UTC at one heading in RTX Real-Time, 60 frames.
+    source: scripts/cloud_look.py
+
+  - id: cloud-function
+    title: The cloud as a function, marched per pixel
+    lead: |
+      An audit of the shipped clouds in Isaac Sim (`outputs/cloud_audit/`) showed why they still
+      looked wrong after four steps of corrections: the real-time sky is a cloud painted on a dome
+      texture, about fifteen camera pixels per cloud texel and a different sharpness in every
+      direction, and the path tracer's cloud is a 60 m voxel grid. Since `WX.23` the cloud is a
+      function instead (ADR 0185), the way Unreal Engine's volumetric clouds are built: a weather
+      map says where the clouds are and how tall, a height profile gives each its flat base and
+      rounded top, and two tiling noises erode the edge. A GPU kernel marches that function along
+      every camera pixel's ray in 6–13 ms a frame, lights it by the sun's two-stream chord and a mix
+      of sky and ground light, and the sky model composes it through the air in front of it. The
+      same function is what the infrared march will read, so there is nothing picture-based left to
+      convert. Not yet in the live viewport or the path tracer; the look is a first pass.
+    media:
+      - image: cloud_function/four_headings.png
+        width: full
+        caption: >-
+          The rotation test. One sky at 14:30 UTC, 35 % cumulus, a 70° camera 22° up, pointed
+          north, east, south and west (clockwise from top left; the sun is in the west). The dome
+          could not give these four frames the same sharpness.
+      - video: cloud_function/cloud_function_pan.mp4
+        caption: >-
+          The camera turns through a full circle at 14:30 UTC, 90 frames, 1280 × 720.
+      - video: cloud_function/cloud_function_day.mp4
+        caption: >-
+          One heading (300°) from 05:30 to 20:18 UTC on 21 June at Munich, 60 frames: the sun
+          rises behind the camera, crosses the frame in the afternoon, and sets in it, with the
+          silver lining and the dark bases that follow from the two-stream chord. Auto-exposed
+          through an ACES curve as a stand-in camera, not the RTX tonemapper.
+    source: scripts/cloud_look.py
+
+  - id: cloud-shape
+    title: Clouds the size real clouds are
+    lead: |
+      Satellite studies measure real cumulus from above. Their outlines have an area–perimeter
+      dimension of 1.3–1.4, and their sizes fall as a power law with exponent 1.7–2.0 below about
+      a kilometre. Since `WX.6` the field is measured the same way (ADR 0184). Its outlines were
+      already right, but its sizes were not: an exponent of 2.58, meaning clouds about a kilometre
+      across plus specks. With thermals of several sizes in the map that places them, 35 % cumulus
+      gives 1.91. Stratocumulus had been stretched 6 : 1 along one axis of the field, whatever the
+      wind. It is now a broken sheet of cells, as real stratocumulus is.
+    media:
+      - image: cloud_shape/plan_before_after.png
+        width: full
+        caption: >-
+          The field from above, as visible optical depth, two 15.36 km tiles side by side. From top:
+          35 % cumulus before and after; 60 % stratocumulus before and after. The tiles still repeat;
+          that is `WX.22`.
+      - video: cloud_shape/stratocumulus_before_after.mp4
+        caption: >-
+          60 % stratocumulus from the ground, 25° up with a 70° field of view, from 10:00 to 16:00 UTC
+          in 24 frames. Left: weather-fx `582bf47`. Right: `7d15e58`.
+      - video: cloud_shape/cumulus_before_after.mp4
+        caption: >-
+          The same camera over 35 % cumulus.
+    source: scripts/cloud_look.py
 
   - id: sky-flat-bowl
     title: What a camera adds to an empty sky

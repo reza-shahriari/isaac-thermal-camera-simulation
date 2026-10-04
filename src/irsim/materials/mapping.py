@@ -189,7 +189,11 @@ class AssetMapping(_Frozen):
 
     @property
     def targets(self) -> frozenset[str]:
-        return frozenset(self.materials.values())
+        """Every library material this asset names -- its map's, and its parts' own (AI.14)."""
+        named = set(self.materials.values())
+        if self.parts is not None:
+            named |= set(self.parts.materials.values())
+        return frozenset(named)
 
     def lookup(self, material_name: str | None) -> str | None:
         """The library material for a source material name, or None."""

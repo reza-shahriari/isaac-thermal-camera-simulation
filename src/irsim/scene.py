@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -365,8 +365,14 @@ def ground_reflectance(
     environment: EnvironmentSpec,
     band: str,
     data_dir: str | os.PathLike[str] | None = None,
+    response: SpectralResponse | None = None,
+    form: Literal["energy", "photon"] = "energy",
 ) -> float:
     """ρ_B of the environment's ground material in ``band`` -- its albedo (AT.20, ADR 0153).
+
+    ``response`` is the camera's R(λ): a ground material with a curve is averaged under it, so
+    a camera whose range is not the band's nominal one reads its own albedo (AT.33, ADR 0175);
+    ``form`` is the camera's weighting, photon for a photon FPA (ADR 0021).
 
     Kirchhoff-closed by the library (ρ = 1 − ε − τ, CLAUDE.md #4), so the ground's albedo is the
     same number a surface of that material reflects anywhere else in the scene, and a new band is
@@ -383,7 +389,7 @@ def ground_reflectance(
             f"environment {environment.name!r} names ground material {name!r}, which is not in "
             f"the library ({MATERIAL_DIR})"
         )
-    return float(load_material(path, data_dir).band_properties(band).reflectance)
+    return float(load_material(path, data_dir).band_properties(band, response, form).reflectance)
 
 
 def scene_lapse_rate_k_per_m(spec: SceneSpec) -> float:
@@ -796,7 +802,15 @@ class Scene:
                         else (spec.site.latitude_deg, spec.site.longitude_deg)
                     ),
                     ground_albedo=(
-                        0.0 if skylight is None else ground_reflectance(environment, band, data_dir)
+                        0.0
+                        if skylight is None
+                        else ground_reflectance(
+                            environment,
+                            band,
+                            data_dir,
+                            (responses or {}).get(band),
+                            "energy" if quantity == "lb" else "photon",
+                        )
                     ),
                 )
         spec, object_assets = _expand_objects(spec)
@@ -1361,8 +1375,9 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
     Each part becomes ``SurfaceSpec(name=<object>.<part>, material=..., mesh={asset: archive,
     prim: part, cell_m, ...})``, so the forcing, the spin-up, the per-cell mesh field and the
     bridge all work exactly as for a hand-written mesh surface. The material is the object's
-    override for the part, else the asset map's entry for the part's own mesh material; a part
-    with neither is refused by name. Returns the spec and the loaded asset mappings by object.
+    override for the part, else the part's own asserted material (AI.14), else the asset map's
+    entry for the part's own mesh material; a part with none is refused by name. Returns the
+    spec and the loaded asset mappings by object.
     """
     thermal = spec.thermal
     if thermal is None or not thermal.objects:
@@ -1386,7 +1401,11 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
                     f"object {obj.name!r}: part {part.name!r} is not in archive {archive!r}; "
                     f"prims: {sorted(meshes)}"
                 )
-            material = obj.materials.get(part.name) or asset.lookup(meshes[part.name].material_name)
+            material = (
+                obj.materials.get(part.name)
+                or part.material
+                or asset.lookup(meshes[part.name].material_name)
+            )
             if material is None:
                 raise ValueError(
                     f"object {obj.name!r}: part {part.name!r} has no library material -- its mesh "
@@ -1421,6 +1440,28 @@ def _expand_objects(spec: SceneSpec) -> tuple[SceneSpec, dict[str, Any]]:
         assets[obj.name] = asset
     new_thermal = thermal.model_copy(update={"surfaces": surfaces})
     return spec.model_copy(update={"thermal": new_thermal}), assets
+
+
+def duty_schedule(t0_s: float, at_s: Any, values: Any) -> Callable[[float], float]:
+    """A duty authored as ``at_s`` (seconds after t0) and ``values`` (TC.11, TC.13).
+
+    Linear between points and held after the last, as authored. Before the first point the
+    schedule says nothing: in the run it holds its first value, as it always has, but in the
+    spin-up (before t0) it is **off** -- an aircraft whose flight starts at t0 was not powered
+    for the hours before it, so its components must not dissipate through the object's history
+    (ADR 0157 amendment of 2026-10-03). A schedule that starts before t0 (a negative ``at_s``) is
+    followed into the spin-up from its first point.
+    """
+    times = t0_s + np.asarray(at_s, dtype=np.float64)
+    vals = np.asarray(values, dtype=np.float64)
+    off_before = min(float(times[0]), t0_s)
+
+    def f(t_s: float) -> float:
+        if t_s < off_before - 1e-9:
+            return 0.0
+        return float(np.interp(t_s, times, vals))
+
+    return f
 
 
 def _build_full_objects(
@@ -1461,13 +1502,7 @@ def _build_full_objects(
             exchange = ObjectExchange(bodies)
 
         def schedule(at_s: Any, values: Any) -> Any:
-            times = t0_s + np.asarray(at_s, dtype=np.float64)
-            vals = np.asarray(values, dtype=np.float64)
-
-            def f(t_s: float, _t: Any = times, _v: Any = vals) -> float:
-                return float(np.interp(t_s, _t, _v))
-
-            return f
+            return duty_schedule(t0_s, at_s, values)
 
         duty: Any = None
         if obj.duty_s is not None and obj.duty is not None:
@@ -1502,6 +1537,9 @@ def _build_full_objects(
             exchange=exchange,
             components=components,
         )
+        # The object's history is one solve's: contacts, hidden parts and the internal exchange
+        # all run through the spin-up, so no contact equalises on the first tick (TC.11).
+        solve.coupled.spin_up(thermal.spin_up_hours, wrap=build.wrap)
         hold = hold_from_s(t0_s, True if obj.evolve is None else obj.evolve, obj.freeze_at_s)
         if hold is not None:
             solve.coupled.field.hold_from_s = hold
@@ -1525,11 +1563,13 @@ def _join_object_exchange(
     proxies, so advancing any one of them advances them all from one snapshot per tick.
 
     The bodies radiate from the side their patch or mesh faces, with the surface's own library
-    emissivity; the factors are traced once here, at build. The schema has already refused the
-    surfaces that cannot join (layered, cabin, prescribed), so a name found in neither field
-    dict is a bug, not a configuration.
+    emissivity; the factors are traced once here, at build. A layered surface joins by its top
+    layer and a cabin panel by its slice of the cabin's solve, each solve stepped once; a
+    prescribed map is a fixed emitter. A handle on a joined solve that is not itself a body --
+    the cabin's, which carries its node -- is handed out as a proxy too, so it cannot be
+    stepped past the group.
     """
-    from irsim.thermal.object_exchange import ExchangeBody, ObjectExchange
+    from irsim.thermal.object_exchange import ExchangeBody, ExchangedField, ObjectExchange
 
     assert spec.thermal is not None
     bodies = []
@@ -1551,6 +1591,12 @@ def _join_object_exchange(
             surface_fields[body.name] = group.register(body.name, surface_fields[body.name])
         else:
             mesh_fields[body.name] = group.register(body.name, mesh_fields[body.name])
+    for name, fld in list(surface_fields.items()):
+        if name not in group.names and group.owns(fld):
+            surface_fields[name] = ExchangedField(group, fld)
+    # The exchange is part of the surfaces' history, not a term switched on at t0: a road that
+    # stood under a car all night starts the scene with its patch (ADR 0157 amendment).
+    group.spin_up(spec.thermal.spin_up_hours, wrap=build.wrap)
     return group
 
 

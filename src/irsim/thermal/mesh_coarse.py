@@ -15,6 +15,10 @@ normal are the area-weighted means, and the closest-point lookup a pixel or a co
 resolves a face straight to its cluster, so the field, the bridge, the contactors and the
 forcing all take a :class:`CoarseMeshPatch` where they take a fine one.
 
+Clustering assumes faces smaller than a cell, and a planar-dissolved archive breaks that: its
+tubes are strips running their whole length. So a face with an edge longer than ``cell_m`` is
+bisected first (TC.17, :func:`split_long_edges`) -- conforming, area-exact, on the same surface.
+
 Conduction between clusters is a finite-volume link across every mesh edge shared by faces of
 two different clusters: ``k δ · L_edge / d`` with ``d`` the distance between the two cluster
 centroids (floored at half a cell, since two centroids can sit closer than the cells they
@@ -36,14 +40,16 @@ from numpy.typing import NDArray
 from irsim.thermal.conduction import ConductionOperator
 from irsim.thermal.mesh_field import closest_point_on_mesh
 
-__all__ = ["CoarseMeshPatch", "coarse_lateral_operator", "coarsen_mesh"]
+__all__ = ["CoarseMeshPatch", "coarse_lateral_operator", "coarsen_mesh", "split_long_edges"]
 
 
 @dataclass(frozen=True)
 class CoarseMeshPatch:
     """A triangle mesh whose faces are grouped into thermal cells of about ``cell_m``.
 
-    The geometry stays the mesh's own (``vertices_m``, ``faces``): only the *cells* are coarse.
+    The surface stays the mesh's own (``vertices_m``, ``faces``): only the *cells* are coarse.
+    Built by :func:`coarsen_mesh`, the faces may be the source's with its long edges bisected
+    (TC.17) -- the same surface in smaller triangles, so a closest-point lookup is unchanged.
     ``face_cluster`` maps every face to its cell.
     """
 
@@ -213,15 +219,82 @@ class CoarseMeshPatch:
         return float(np.sum(flat * self._cell_area) / np.sum(self._cell_area))
 
 
+def split_long_edges(
+    vertices_m: Any, faces: Any, max_edge_m: float, *, max_rounds: int = 32
+) -> tuple[NDArray[np.float64], NDArray[np.intp]]:
+    """Bisect every edge longer than ``max_edge_m`` until none is, keeping the mesh conforming.
+
+    A round splits each long edge once at its midpoint -- one new vertex per edge, shared by
+    both faces on it, so no T-junction appears and conduction still finds every shared edge --
+    and re-triangulates each face by how many of its edges were split (red-green refinement: one
+    split makes two triangles, two make three across the shorter diagonal, three make four). The
+    new vertices lie on the faces they split, so the surface, its area and every face's winding
+    are unchanged; only the faces get smaller.
+    """
+    if max_edge_m <= 0.0:
+        raise ValueError(f"max_edge_m must be positive, got {max_edge_m}")
+    v = np.asarray(vertices_m, dtype=np.float64)
+    f = np.asarray(faces, dtype=np.intp)
+    for _ in range(max_rounds):
+        # edge k of a face runs from its vertex k to vertex k+1
+        ends = np.stack([f, np.roll(f, -1, axis=1)], axis=-1).reshape(-1, 2)
+        key = np.sort(ends, axis=1)
+        unique, inverse = np.unique(key, axis=0, return_inverse=True)
+        long_edge = np.linalg.norm(v[unique[:, 0]] - v[unique[:, 1]], axis=-1) > max_edge_m
+        if not np.any(long_edge):
+            return v, f
+        new_index = np.full(unique.shape[0], -1, dtype=np.intp)
+        new_index[long_edge] = v.shape[0] + np.arange(int(long_edge.sum()), dtype=np.intp)
+        v = np.concatenate([v, 0.5 * (v[unique[long_edge, 0]] + v[unique[long_edge, 1]])])
+        mid = new_index[inverse.reshape(-1)].reshape(-1, 3)
+        split = mid >= 0
+        count = split.sum(axis=1)
+        out = [f[count == 0]]
+        rows = np.arange(f.shape[0])
+        # one split edge: rotate it to edge 0 and cut from its midpoint to the opposite vertex
+        one = rows[count == 1]
+        k = np.argmax(split[one], axis=1)
+        a, b, c = (f[one, (k + s) % 3] for s in range(3))
+        m = mid[one, k]
+        out += [np.stack([a, m, c], 1), np.stack([m, b, c], 1)]
+        # two: rotate the unsplit edge to c->a; cut off the corner at b, then the quad a-mab-mbc-c
+        # across its shorter diagonal
+        two = rows[count == 2]
+        k = np.argmin(split[two], axis=1)  # the unsplit edge runs f[k] -> f[k+1]
+        a, b, c = (f[two, (k + s) % 3] for s in (1, 2, 0))
+        mab, mbc = mid[two, (k + 1) % 3], mid[two, (k + 2) % 3]
+        short = np.linalg.norm(v[a] - v[mbc], axis=-1) <= np.linalg.norm(v[mab] - v[c], axis=-1)
+        out.append(np.stack([mab, b, mbc], 1))
+        out.append(np.where(short[:, None], np.stack([a, mab, mbc], 1), np.stack([a, mab, c], 1)))
+        out.append(np.where(short[:, None], np.stack([a, mbc, c], 1), np.stack([mab, mbc, c], 1)))
+        # three: the four similar halves
+        three = rows[count == 3]
+        a, b, c = f[three, 0], f[three, 1], f[three, 2]
+        mab, mbc, mca = mid[three, 0], mid[three, 1], mid[three, 2]
+        out += [
+            np.stack([a, mab, mca], 1),
+            np.stack([mab, b, mbc], 1),
+            np.stack([mca, mbc, c], 1),
+            np.stack([mab, mbc, mca], 1),
+        ]
+        f = np.concatenate(out).astype(np.intp)
+    raise ValueError(f"edges still longer than {max_edge_m} m after {max_rounds} rounds")
+
+
 def coarsen_mesh(
     vertices_m: Any, faces: Any, cell_m: float, *, frame: str = "world"
 ) -> CoarseMeshPatch:
     """Cluster ``faces`` into cells of about ``cell_m``: by the voxel of each face's centroid and
-    the octant of its normal (so the two skins of a thin shell stay apart)."""
+    the octant of its normal (so the two skins of a thin shell stay apart).
+
+    TC.17: faces with an edge longer than ``cell_m`` are bisected first (:func:`split_long_edges`).
+    A face joins one cell whole, so a planar-dissolved tube -- strips running its full length,
+    as on the DJI Inspire 3's arms -- would otherwise put every cell at its middle: no gradient
+    along it, and no cell near either end for a contact to find.
+    """
     if cell_m <= 0.0:
         raise ValueError(f"cell_m must be positive, got {cell_m}")
-    v = np.asarray(vertices_m, dtype=np.float64)
-    f = np.asarray(faces, dtype=np.intp)
+    v, f = split_long_edges(vertices_m, faces, float(cell_m))
     a, b, c = v[f[:, 0]], v[f[:, 1]], v[f[:, 2]]
     cross = np.cross(b - a, c - a)
     centroid = (a + b + c) / 3.0

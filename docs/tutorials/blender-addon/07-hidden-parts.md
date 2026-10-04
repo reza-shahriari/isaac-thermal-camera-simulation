@@ -4,7 +4,7 @@ A downloaded model is a skin. A car has no engine, and a drone shell has no batt
 camera sees exactly the heat those parts make, through the shell. A **hidden part** is a real object
 put where the real thing sits, which carries what the solver needs to know about it.
 
-![The Phantom 4 with its battery, flight controller, video transmitter and four speed controllers added; the battery selected](images/hidden_parts_panel.webp)
+![The Phantom 4 with its battery, flight controller, video transmitter and four speed controllers added; the battery selected, taking irsim's lipo_pack component but keeping DJI's own mass](images/hidden_parts_panel.webp)
 
 ## Add one from the library
 
@@ -52,9 +52,22 @@ there is an estimate, and each one says so.
 - It does not count towards the material coverage.
 - It **is** a part for the connection finder ([step 6](06-connections.md)): the battery's contacts
   and facing pairs with the shell around it are the path by which its heat reaches the outside.
-- Its material, mass and heat are also written beside the model ([step 9](09-export.md)), where the
-  simulator will read them once the asset format carries them (roadmap row AI.11).
-- The checklist asks for anything missing: a material, a mass, or a max heat below the idle heat.
+- It goes into the asset config's `hidden_parts:` ([step 9](09-export.md)), which irsim's thermal
+  solve reads: its box, its material, and its component or its own mass and heat.
+- The checklist asks for anything missing: a material, a mass (unless it names an irsim
+  component), or a max heat below the idle heat.
 
-A library of components with cited numbers is planned (roadmap row AI.12). Until then the numbers
-are yours, which is why the add-on asks where they came from.
+## Take the numbers from irsim's component library
+
+irsim keeps a library of components with **cited** numbers (`configs/components/`): a brushless
+motor, a speed controller, a LiPo pack, a flight controller, a small piston engine, a micro
+turbine, an exhaust line, an EV pack and drive motor, a brake disc, a differential and more. Each
+says its mass, heat capacity, heat at idle and at full load, and where those came from.
+
+Both dialogs have an **irsim component** field, and the **Hidden parts** panel a **Component**
+field that is the same thing. Pick one and its numbers are shown under it; the part then takes them, and any number you type yourself overrides
+that one alone (leave it at 0 to keep the component's). Library placeholders that match a
+component pick it for you: the drone battery takes `lipo_pack`, the speed controller `esc`, the
+motor `brushless_motor`, and so on. In the picture the battery takes `lipo_pack` but keeps DJI's
+published 468 g in place of the component's 462 g. When nothing in the component library fits, the numbers are
+yours, which is why the add-on asks where they came from.

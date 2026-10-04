@@ -241,6 +241,11 @@ class PrescribedPatchField:
         self._cells = cells
 
     @property
+    def prescribed_k(self) -> NDArray[np.float64]:
+        """The map's cells in float64: what an exchange group (TC.10) radiates from them."""
+        return np.array(self._cells, dtype=np.float64)
+
+    @property
     def latest_t_s(self) -> float:
         """A prescribed field is valid at every time, so it is never behind a query."""
         return float("inf")

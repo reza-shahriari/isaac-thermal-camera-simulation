@@ -89,6 +89,7 @@ from irsim.optics.projection import (
 from irsim.optics.smear import smear_duty
 from irsim.pipeline.core import PipelineConfig, PipelineState, Planes
 from irsim.pipeline.frame import Outputs, run_frame
+from irsim.pipeline.plume import ExhaustPlume
 from irsim.pipeline.point_target import PointTarget, fill_fraction
 from irsim.pipeline.rotor_veil import RotorVeil
 from irsim.scene import Scene
@@ -304,6 +305,41 @@ class AnalyticTarget:
     material: str
     thermal_node: str
     sky_view_factor: float = 1.0
+
+
+#: USD camera space (+X right, +Y up, -Z forward) to OpenCV's (+x right, +y down, +z forward).
+_USD_TO_OPENCV = np.diag([1.0, -1.0, -1.0])
+
+
+def world_to_opencv_rotation(camera_to_world: Any) -> NDArray[np.float64]:
+    """The 3x3 that takes a world direction into the **OpenCV** camera frame (PH.6's frame).
+
+    ``camera_to_world`` is the array :class:`IrCamera` stores, which :func:`world_to_camera`
+    applies as ``p @ camera_to_world`` -- a USD camera-space vector. Flipping Y and Z turns that
+    into OpenCV's, which is the frame `irsim.pipeline.plume` (and every projection in the core)
+    works in; its rows are the camera's own axes written in world coordinates.
+    """
+    return np.asarray(_USD_TO_OPENCV @ np.asarray(camera_to_world, dtype=np.float64).T)
+
+
+def detector_period_s(sensor: Any) -> float:
+    """The detector's own frame, seconds: what it integrates over, whatever the capture rate."""
+    return 1.0 / float(sensor.fpa.frame_rate_hz)
+
+
+def capture_motion_scale(frame_period_s: float, detector_s: float) -> float:
+    """Displacement between two captures -> displacement over one detector frame.
+
+    ``motion_px`` is synthesised from the pose at the previous capture and this one (IG.6). At the
+    detector's own rate that *is* one frame's motion; in a time-lapse (ADR 0074) the captures are
+    seconds apart, and the detector still integrates for 1/60 s, so the step is scaled down by the
+    ratio of the two -- the aircraft's velocity times the detector frame, to first order in the
+    track's curvature (IG.24). Never scaled up: a capture faster than the detector is not a
+    thing this camera does.
+    """
+    if frame_period_s <= 0.0 or detector_s <= 0.0:
+        raise ValueError("periods must be positive")
+    return min(1.0, detector_s / frame_period_s)
 
 
 def world_to_camera(
@@ -810,6 +846,10 @@ class IrCamera:
         # `GeometryPlanes` rather than into the dict afterwards so the M0.6 contract validates it.
         motion = self._motion_plane(aovs, instance_id, labels)
         if motion is not None:
+            # IG.24: a time-lapse's capture step is not what the detector smears over
+            scale = capture_motion_scale(self.frame_period_s, detector_period_s(self.sensor.sensor))
+            if scale != 1.0:
+                motion = np.asarray(np.asarray(motion) * np.float32(scale), dtype=np.float32)
             geometry = replace(geometry, motion_px=motion)
         # Each pixel's own ray elevation rides inside the validated G-buffer (AT.1, IG.18): the
         # contract's `to_dict` returns every optional plane, so nothing is re-added by hand.
@@ -1063,6 +1103,21 @@ class IrCamera:
             )
         return out
 
+    def plumes(self) -> list[ExhaustPlume]:
+        """The scene's exhaust plumes in this camera's frame, as the gas stands now (PH.6).
+
+        Read after the frame's solver step (``planes`` advances the bridge), so a plume's tip
+        temperature is the tailpipe's own solved outlet gas at this frame's instant. A scene with
+        no plume costs nothing: `run_frame` returns the plane untouched for an empty list.
+        """
+        world = self.scene.plumes_at(self._t_rel_s)
+        if not world:
+            return []
+        if self._camera_position is None or self._camera_to_world is None:
+            raise RuntimeError("call open() first (the camera pose comes from the stage)")
+        rotation = world_to_opencv_rotation(self._camera_to_world)
+        return [p.in_camera(rotation, self._camera_position) for p in world]
+
     def rotor_veils(self) -> list[RotorVeil]:
         """ADR 0081's veils for this frame: one per mounted disc, projected and occluded.
 
@@ -1211,7 +1266,12 @@ class IrCamera:
         self.state.t_s = self.scene.t0_s + self._t_rel_s
         self._last_frame_t_s = self.state.t_s
         outputs = run_frame(
-            planes, self.config, self.state, self.point_targets(), self.rotor_veils()
+            planes,
+            self.config,
+            self.state,
+            self.point_targets(),
+            self.rotor_veils(),
+            plumes=self.plumes(),
         )
         marked = self.debug_unmapped and self._last is not None and bool(self._last.unmapped.any())
         if marked:
@@ -1250,7 +1310,9 @@ class IrCamera:
     ) -> NDArray[np.uint8] | None:
         """IG.19's sub-frame exposure of the companion; ``pose_at(0.0)`` restores the pose."""
         assert self._reader is not None
-        window = exposure_window_s(self.sensor.sensor, self.frame_period_s)
+        # IG.24: the detector's own window, not the capture interval -- a time-lapse camera that
+        # captures every 17 s still integrates each frame for 1/60 s, as `rotor_veils` has it
+        window = exposure_window_s(self.sensor.sensor, detector_period_s(self.sensor.sensor))
         exposures: list[NDArray[np.uint8]] = []
         for dt in subframe_offsets_s(window, int(rgb_subframes)):
             pose_at(float(dt))

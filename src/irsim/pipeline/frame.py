@@ -312,6 +312,7 @@ def run_frame(
             state.t_s,
             lut,
             q,
+            sky_mask=planes.get("sky_mask"),
         )
     # stage 2e: the gain state's intrascene ceiling (`PH.8`). Last thing in scene-radiance units
     # and the first place a fire stops being radiometry and starts being a camera problem. In

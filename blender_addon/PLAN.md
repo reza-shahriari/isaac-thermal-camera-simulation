@@ -33,9 +33,12 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
    drift from the one the solver enforces. So every library read and every file written goes
    through `irsim_thermal/bridge.py`, which runs under the project interpreter and calls the
    project's own loaders.
-4. **The new-material form authors ε and τ per band; ρ is shown as derived.** It cannot author
-   both ε and ρ, and the bridge refuses anything the library walk would refuse. Values are
-   rounded to six significant figures, because Blender stores the form in single precision.
+4. **The new-material form authors ε, in any of the library's three forms (per band, one value or
+   a curve, ADR 0175), and τ per band; ρ is shown as derived.** It cannot author both ε and ρ,
+   and the bridge refuses anything the library walk would refuse. A curve's per-band fill is
+   pruned by the bridge, not by the person, because only the loader knows what the curve
+   covers. Values are rounded to six significant figures, because Blender stores the form in
+   single precision.
 5. **Size is never forced.** By default the size is shown in metres next to a familiar object.
    Guidance appears only when asked. A warning needs both of these: the size is outside the typical
    range for the kind of object, **and** a unit factor (10, 100, 1000, 2.54, 0.3048) brings it
@@ -70,14 +73,29 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
     part it sits inside. It may be a placeholder from `irsim_thermal/components/` (a box, cylinder
     or cone at real size, 97 of them in twelve groups) that the owner later replaces with a
     detailed model.
-12. **Until the asset format has a place for them (`AI.11`), connections and hidden parts go in
-    `3d_models/<name>/<name>.structure.yaml`,** beside the USD and checked by the bridge first
-    with the refusals `AI.11` specifies (a missing part, a joint not in `joints.yaml`, a contact
-    larger than its parts, a hidden part without mass). Nothing in irsim reads that file yet; it
-    and the `.blend` copy keep the work until `AI.11` moves it into the asset config. **For
-    `AI.11`:** `scripts/prep_asset.py` reads an asset back through Blender's USD importer, which
-    skips guide prims by default, so the prepared thermal mesh has no hidden parts in it; the
-    project side will need to read them (`import_guide`, or from the USD directly).
+12. **Contacts and hidden parts go into the asset config, where the solver reads them (B12).**
+    The export writes a `parts:` block into `configs/assets/<name>.yaml`: every exported object
+    is a part of its own name, selected by that name (`objects:`, `AI.18`) and judged whole
+    (`AI.16`); `contacts:` and `hidden_parts:` (`AI.11`) name those parts. A hidden part names an
+    irsim component (`AI.12`) when it has one and carries only the numbers the person set, which
+    override the component's one at a time; its box is the axis-aligned box around it as placed,
+    since `HiddenPartSpec` has no rotation. The bridge checks all of it before anything is
+    written (a missing part, a joint not in `joints.yaml`, a contact larger than its parts, a
+    hidden part with neither mass nor component, a component or material nobody has) and irsim's
+    own loader has the last word after. `3d_models/<name>/<name>.structure.yaml` stays as the
+    add-on's fuller record -- facing pairs, idle heat, references, what nobody reviewed -- which
+    nothing in irsim reads. Until 2026-10-01 that file was the only record (the asset format had
+    no place for it). Hidden parts are guide prims in the USD, which `prep_asset.py`'s import
+    skips; the solver takes them from the config, so that is no longer a gap.
+13. **Finding a material is search, stars and a band filter, not categories (B13).** The library
+    has no category field -- a material is a name, a description and its numbers -- and a list of
+    categories kept in the add-on would go stale the day the next ten materials arrive. Search
+    over the name, description and surface finds `paint`, `steel` or `polished` as well as a
+    category would, and the band filter answers the question a category cannot ("what is
+    mirror-like in LWIR?"). Favourites and recently used are the *person's*, not the model's or
+    the project's, so they are kept in Blender's add-on preferences: they follow the person to the
+    next file and never enter the repository or a `.blend`. If the owner wants categories, the
+    place for them is a field in the material schema, which is a project-side step.
 
 ## Steps
 
@@ -88,19 +106,22 @@ it is made of, and fixes it, part by part, in Blender, where the geometry can al
 | B3 | Checklist (area-weighted coverage, mirror-like parts, default names); optional size guidance with *Apply scale*; export to USD + `.blend` + asset YAML; `prep_asset.py` audit in the background | ✅ 2026-09-28 | — |
 | B4 | Tutorial | ✅ 2026-09-28: a folder of pages, `docs/tutorials/blender-addon/` (the owner: "should have a folder for that not just in the github but also in the github.io site"), with pictures from the Phantom 4 demo and one real screenshot | — |
 | B5 | **Reopen from an asset config.** *Load materials from an asset* applies an existing map (the Phantom 4's hand-written one, or an earlier export's) to the Blender materials of the same names -- raw or USD-safe -- keeping existing assignments unless told otherwise | ✅ 2026-09-28 | — |
-| B6 | **Hidden parts.** Put a part the model lacks inside the shell: from the placeholder library (97 components in twelve groups, drone to ship and people, real size) or as a box; set its material, mass, idle and max heat, and where the numbers came from. Solid in Blender; a guide prim in the USD; its numbers in the structure file | ✅ 2026-09-28, with the person's own numbers. **Next:** detailed models in place of the placeholders (the owner's, "a unique beautiful engine"), and cited numbers once the project has a component library | `AI.12` (library); `AI.11` for irsim to read them |
-| B7 | **Connection finder.** Parts that touch (with contact area) and parts that face each other across a gap are found automatically, shown as a list and as crosses and lines in the viewport; the person confirms, rejects, changes the joint (from `configs/thermal/joints.yaml`) or the area, or adds one | ✅ 2026-09-28 | `AI.11` for irsim to read them; `TC.9` for the view factor itself |
+| B6 | **Hidden parts.** Put a part the model lacks inside the shell: from the placeholder library (97 components in twelve groups, drone to ship and people, real size) or as a box; set its material, mass, idle and max heat, and where the numbers came from. Solid in Blender; a guide prim in the USD; its numbers in the structure file | ✅ 2026-09-28, with the person's own numbers. Since B12 a hidden part may take irsim's cited component numbers instead. **Next:** detailed models in place of the placeholders (the owner's, "a unique beautiful engine") | `AI.12`, `AI.11`: both done, used by B12 |
+| B7 | **Connection finder.** Parts that touch (with contact area) and parts that face each other across a gap are found automatically, shown as a list and as crosses and lines in the viewport; the person confirms, rejects, changes the joint (from `configs/thermal/joints.yaml`) or the area, or adds one | ✅ 2026-09-28 | `AI.11`: done, contacts reach the asset config in B12; `TC.9` for the view factor itself |
 | B8 | **Main-object flag.** If `TC.11` wants "solve this asset fully" to be a property of the asset rather than the scene, the add-on offers it. Evolve/freeze (`TC.12`) and the exchange switch (`TC.10`) are scene settings, not asset ones | open | `TC.10`–`TC.12` |
 | B9 | The project site shows the tutorial | ✅ 2026-09-28: `docs/tutorials/` is a section of the site (`scripts/build_site.py`), every step linked to the next | — |
 | B10 | Checked in an interactive Blender: the panels on screen, and screenshots for the tutorial | ✅ 2026-09-28, in the owner's own session through the Blender MCP (the Sketchfab Phantom 4, 48 parts with the hidden ones): three screenshots in the tutorial, and the fixes below | — |
+| B12 | **Connections and hidden parts reach irsim (AI.11, AI.12, AI.18).** The export writes the asset config's `parts:` block -- each object a named part, the contacts, the hidden parts -- and reopening an asset brings its hidden parts back as boxes inside the part that encloses them and its contacts back as confirmed connections. A hidden part may name one of irsim's components (motor, ESC, LiPo pack, flight controller, engine, EV pack and motor, brake disc, differential...), whose cited numbers it takes unless the person types their own; nine library placeholders name theirs. The new-material form opens on *Curve* (the owner: "i want to have curves instead of specific band selection"). | ✅ 2026-10-01: 81 bridge tests and 163 headless-Blender checks (4 + 13 new), including `prep_asset.py --emit-mesh --emit-parts` on the export: 6 named parts, coverage 100 %, the split's audit passing. That run found a collision in `prep_asset.py`'s split -- a part named like the object it is met the joined mesh of the same name -- fixed there. | `AI.18` (done with it) |
+| B13 | **An easier material picker** (the owner: "an easier material picker (search, favourites, or filtering by band) is a nice idea"). *Assign by name...* -- in the library panel and on the viewport's right-click menu in Object and Edit Mode -- finds a material by a few typed letters, shows each one's emissivity, and assigns it to the selected parts or faces at once. The four most recently used materials are one-click buttons. The list has a search field, a star per row (favourites first everywhere), and a *Filter and sort* section: the band whose emissivity it shows, an emissivity range, sort by name or emissivity, favourites only, measured curves only. Decision 13. | ✅ 2026-10-03: 87 tests (6 new, the search, filter, order and lists in `picker.py`) and 180 headless-Blender checks (17 new: search, band filter, sort, stars, recently used, assign by name, the right-click menus, the panel drawing). The first test run found that a plain substring search for `painted` also found "Unpainted aluminium"; words now match from their start. | — |
+| B11 | **Spectral curves and grey values (ADR 0175).** The new-material form authors emissivity *Per band*, as *One value* or as a *Curve* (one or two picked CSVs, each emission or opaque reflectance), with *Check curve* reading the file through irsim's loader. Typed band values fill only where the curve has no data, and the bridge removes those the curve covers and says so. A picked curve is copied to `data/spectra/materials/<name>.csv` with a provenance line. The library panel shows each material's forms, the curve's share of each band, and a *Plot across the bands* image. | ✅ 2026-10-01: 77 bridge tests and 149 headless-Blender checks (5 + 7 new). The smoke test found that the bridge resolved curves against the `irsim` package's data root, not the repository it was pointed at; it now uses that repository (or `$IRSIM_DATA_DIR`) for every load. | `AT.36` (done with it) |
 
 ## Verification
 
 ```bash
-# Blender-free logic and the bridge (72 tests; the bridge writes only to temporary directories)
+# Blender-free logic and the bridge (87 tests; the bridge writes only to temporary directories)
 ~/IsaacSim/_build/linux-x86_64/release/python.sh -m pytest blender_addon/tests -q
 
-# End to end in a headless Blender, against a scratch copy of the repository (142 checks)
+# End to end in a headless Blender, against a scratch copy of the repository (180 checks)
 blender_addon/tests/run_blender_smoke.sh            # add --skip-audit to leave out prep_asset
 
 # The real Phantom 4 (needs the git-ignored 3d_models/phantom4.fbx): a .blend to open, CPU
@@ -158,6 +179,36 @@ What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
    still shows it. Waiting for the owner: the repository's name, and whether it is public.
 
 ## Log
+
+- **2026-10-03 (B13)**: after B12 the owner chose the next step from three offered: an easier
+  material picker. With close to a hundred materials the list had become a scroll.
+  - Search matches every typed word against the start of the words of the name, description and
+    surface, in any order; the name run together also counts (`carbonfibre`). A plain substring
+    match was tried first and found "Unpainted aluminium" for `painted`.
+  - The band filter and the emissivity column use the band the person picks; a material whose band
+    could not be evaluated is never passed off as inside a range, and sorts last.
+  - Favourites and recently used live in the add-on preferences (decision 13); run uninstalled,
+    as the smoke test does, the add-on keeps them for the session on the window manager.
+  - The library panel's list draws its own filter above it, so the list's built-in filter popover
+    is switched off.
+  - Checked in the owner's Blender on the Phantom 4 (a scratch copy; their favourites and recent
+    lists put back empty afterwards), which gave the tutorial its screenshot and two changes: the
+    *Filter and sort* section opens from a property (`panel_prop`), since a plain layout panel's
+    open state cannot be set from Python; and a row has a star but no material icon, which was
+    cutting the names short in the narrow sidebar.
+
+- **2026-10-01 (B12)**: the owner asked for the add-on to be brought up to date, approved hidden
+  parts and contacts reaching irsim, and asked for curves rather than per-band values. The
+  roadmap had nothing open for the add-on; this plan's B6/B7 were waiting on `AI.11`, now done.
+  - The asset config needed a way to say "this part is that object": `AI.18` added
+    `PartSelector.objects` on the project side (its own commit).
+  - The smoke test now runs irsim's own `prep_asset.py --emit-mesh --emit-parts` on the export.
+    The first run failed: the split joins every mesh into one object that keeps the first mesh's
+    name (`block`), then names each piece after its part -- also `block` -- so Blender called the
+    piece `block.001` and the lookup missed. The joined object is now renamed first.
+  - Rotation is not carried: a hidden part's box in the config is the axis-aligned box around it.
+    For an ESC turned 45° in an arm that box is larger than the board; its mass and heat are not
+    affected, its footprint on the arm is a little wide.
 
 - **2026-09-28 (fourth commit)**: hidden parts in the USD, the placeholder library, and the panels
   checked in the owner's own Blender.

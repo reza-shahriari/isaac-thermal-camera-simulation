@@ -19,6 +19,11 @@ def find(context: bpy.types.Context, name: str):
     return None
 
 
+def find_component(context: bpy.types.Context, name: str):
+    """irsim's component of this name, as the library last loaded it, or None."""
+    return context.window_manager.irsim_components.get(name) if name else None
+
+
 def emissivity_lwir(context: bpy.types.Context) -> dict[str, float]:
     return {item.name: item.eps_lwir for item in library_items(context) if not item.error}
 
@@ -40,6 +45,7 @@ def load(context: bpy.types.Context) -> int:
         item.surface_treatment = record["surface_treatment"]
         item.file = record["file"]
         item.spectral = bool(record["optical"]["spectral"])
+        item.forms = str((record["optical"].get("forms") or {}).get("summary", ""))
         angular = record["optical"]["angular"]
         item.angular = angular.get("type", "")
         thermal = record["thermal"]
@@ -61,6 +67,7 @@ def load(context: bpy.types.Context) -> int:
             setattr(item, f"eps_{band}", float(values.get("emissivity", 0.0)))
             setattr(item, f"rho_{band}", float(values.get("reflectance", 0.0)))
             setattr(item, f"tau_{band}", float(values.get("transmittance", 0.0)))
+            setattr(item, f"curve_{band}", float(values.get("curve_fraction", 0.0)))
         item.error = "; ".join(errors)
     wm = context.window_manager
     wm.irsim_joints.clear()
@@ -70,6 +77,14 @@ def load(context: bpy.types.Context) -> int:
         joint.h_c_w_m2_k = float(record["h_c_w_m2_k"])
         joint.status = record["status"]
         joint.source = record["source"]
+    wm.irsim_components.clear()
+    for record in result.get("components", []):
+        comp = wm.irsim_components.add()
+        comp.name = record["name"]
+        for key in ("kind", "description", "material", "status", "source"):
+            setattr(comp, key, str(record.get(key) or ""))
+        for key in ("mass_kg", "specific_heat_j_kgk", "dissipation_idle_w", "dissipation_rated_w"):
+            setattr(comp, key, float(record.get(key) or 0.0))
     wm.irsim_library_hash = result.get("library_hash", "")
     wm.irsim_library_status = f"{len(items)} materials from {result['material_dir']}"
     if previous and context.scene:
@@ -97,7 +112,39 @@ class RefreshLibrary(Operator):
         return {"FINISHED"}
 
 
-classes = (RefreshLibrary,)
+class PlotMaterial(Operator):
+    """Draw this material across the bands: its curve, and its per-band or grey values"""
+
+    bl_idname = "irsim.plot_material"
+    bl_label = "Plot"
+
+    material: bpy.props.StringProperty(options={"SKIP_SAVE"})
+
+    def execute(self, context):
+        import os
+
+        repo, python = prefs.settings(context)
+        out = os.path.join(bpy.app.tempdir or "/tmp", f"irsim_plot_{self.material}.png")
+        try:
+            run_bridge(python, repo, "plot-material", {"name": self.material, "out": out})
+        except BridgeError as exc:
+            self.report({"ERROR"}, f"Not drawn: {exc}")
+            return {"CANCELLED"}
+        name = f"irsim_plot_{self.material}"
+        image = bpy.data.images.get(name)
+        if image is None:
+            image = bpy.data.images.load(out, check_existing=False)
+            image.name = name
+        else:
+            image.filepath = out
+            image.reload()
+        image.preview_ensure().reload()
+        wm = context.window_manager
+        wm.irsim_plot_material, wm.irsim_plot_image = self.material, image.name
+        return {"FINISHED"}
+
+
+classes = (RefreshLibrary, PlotMaterial)
 
 
 def register():

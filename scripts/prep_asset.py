@@ -45,7 +45,7 @@ import json
 import pathlib
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -57,6 +57,10 @@ PRIM_AREA_FLOOR_FRACTION = 0.001
 #: Integer face attribute carrying a part index. It survives both `join` and `separate`, which
 #: is what lets `split_by_part_usd` regroup geometry without depending on face order (ADR 0138).
 ATTR_PART = "irsim_part"
+
+#: The per-prim override the resolver reads first (ADR 0047); `irsim_isaac.pipeline.materials_usd`
+#: reads the same name inside Kit.
+THERMAL_MATERIAL_ATTR = "thermal:material"
 
 #: Source formats the worker knows how to import.
 IMPORTERS: dict[str, str] = {
@@ -150,7 +154,10 @@ def _prim_records(usd_path: pathlib.Path) -> list[dict[str, object]]:
                 shadowed.append(str(prim.GetPath()))
             for subset in subsets:
                 material = UsdShade.MaterialBindingAPI(subset.GetPrim()).ComputeBoundMaterial()[0]
-                records.append(_record(subset.GetPrim(), material))
+                # the override is authored on the mesh and a subset inherits it, exactly as
+                # `materials_usd.walk_stage` reads it inside Kit -- a part's asserted material
+                # (AI.14) lands on a multi-material mesh and must reach every face group of it
+                records.append(_record(subset.GetPrim(), material, override_from=prim))
             continue
         records.append(_record(prim, binding.ComputeBoundMaterial()[0]))
     if shadowed:
@@ -161,12 +168,15 @@ def _prim_records(usd_path: pathlib.Path) -> list[dict[str, object]]:
     return records
 
 
-def _record(prim: object, material: object) -> dict[str, object]:
+def _record(
+    prim: object, material: object, override_from: object | None = None
+) -> dict[str, object]:
     name = None
     if material is not None and material.GetPrim().IsValid():  # type: ignore[attr-defined]
         name = str(material.GetPrim().GetName())  # type: ignore[attr-defined]
     override = None
-    attr = prim.GetAttribute("thermal:material")  # type: ignore[attr-defined]
+    carrier = prim if override_from is None else override_from
+    attr = carrier.GetAttribute(THERMAL_MATERIAL_ATTR)  # type: ignore[attr-defined]
     if attr and attr.IsValid():
         override = attr.Get()
     return {
@@ -357,6 +367,25 @@ def _connected_roots(n_vertices: int, edges: Any) -> Any:
     return np.array([find(i) for i in range(n_vertices)])
 
 
+def world_polygon_areas(
+    vertices_world: Any, triangles: Any, triangle_polygon: Any, n_polygons: int
+) -> Any:
+    """Each polygon's area in the stage frame, from its triangulation's world-space vertices.
+
+    Summing triangles rather than scaling Blender's per-polygon area is what makes this right
+    under any transform, including a non-uniform one, where no single factor converts the two.
+    """
+    import numpy as np
+
+    v = np.asarray(vertices_world, dtype=np.float64)
+    t = np.asarray(triangles, dtype=np.int64)
+    cross = np.cross(v[t[:, 1]] - v[t[:, 0]], v[t[:, 2]] - v[t[:, 0]])
+    tri_area = 0.5 * np.linalg.norm(cross, axis=1)
+    return np.bincount(
+        np.asarray(triangle_polygon, dtype=np.int64), weights=tri_area, minlength=n_polygons
+    )
+
+
 def emit_components(out_path: pathlib.Path) -> dict[str, object]:
     """Write per-connected-component statistics for the whole asset.
 
@@ -407,8 +436,16 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
         me.loops.foreach_get("vertex_index", loops)
         first = loops[starts]
 
-        areas = np.empty(npoly, dtype=np.float64)
-        me.polygons.foreach_get("area", areas)
+        # World-space areas, never `polygons.foreach_get("area")`: that is the LOCAL area, and a
+        # glTF imported at scale 1.0 keeps its node transforms (nothing is applied), so the
+        # DJI Mini 3 Pro's local areas summed to 40,701 m2 against its true 0.113.
+        me.calc_loop_triangles()
+        nt = len(me.loop_triangles)
+        tri = np.empty(nt * 3, dtype=np.int64)
+        me.loop_triangles.foreach_get("vertices", tri)
+        tri_poly = np.empty(nt, dtype=np.int64)
+        me.loop_triangles.foreach_get("polygon_index", tri_poly)
+        areas = world_polygon_areas(co, tri.reshape(nt, 3), tri_poly, npoly)
         mats = np.empty(npoly, dtype=np.int64)
         me.polygons.foreach_get("material_index", mats)
         slots = [ms.material.name if ms.material else None for ms in obj.material_slots]
@@ -440,6 +477,8 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
                     "lo": [float(v) for v in pts.min(axis=0)],
                     "hi": [float(v) for v in pts.max(axis=0)],
                     "material_name": dominant,
+                    # the object it came from: `granularity: object` (AI.16) claims whole objects
+                    "object": obj.name,
                 }
             )
 
@@ -601,6 +640,7 @@ def split_by_part_usd(
     assignment = json.loads(assignment_path.read_text(encoding="utf-8"))
     part_of_component: dict[str, str] = assignment["part_of_component"]
     names: list[str] = list(assignment["parts"])
+    asserted: dict[str, str] = dict(assignment.get("materials", {}))
     index_of = {n: i for i, n in enumerate(names)}
     with np.load(face_ids_path, allow_pickle=False) as data:
         face_ids = {k: np.asarray(data[k], dtype=np.int64) for k in data.files}
@@ -628,6 +668,12 @@ def split_by_part_usd(
     bpy.context.view_layer.objects.active = meshes[0]
     if len(meshes) > 1:
         bpy.ops.object.join()
+    # The joined object keeps its first mesh's name, and a part may carry exactly that name (AI.18:
+    # parts selected by object name, as the Blender add-on exports them). Peeling a piece off and
+    # naming it after its part would then collide with the object it came from -- Blender would
+    # call the piece `block.001` and the lookup below would miss. A neutral name avoids that.
+    joined = bpy.context.view_layer.objects.active
+    joined.name = joined.data.name = "__irsim_unsplit__"
 
     # 3. peel off one part at a time
     made: list[str] = []
@@ -648,7 +694,14 @@ def split_by_part_usd(
         bpy.ops.object.select_all(action="DESELECT")
         current.select_set(True)
         bpy.context.view_layer.objects.active = current
+        # Face selection must be the ONLY selection: the glTF importer leaves every vertex
+        # selected, and in vertex-select mode edit mode rebuilds face selection from the vertices
+        # -- so the first `separate` took the whole DJI Mini 3 Pro and fourteen parts came out
+        # empty. The Phantom 4's FBX import happened to leave nothing selected.
+        me.vertices.foreach_set("select", np.zeros(len(me.vertices), dtype=np.int8))
+        me.edges.foreach_set("select", np.zeros(len(me.edges), dtype=np.int8))
         me.polygons.foreach_set("select", selected.astype(np.int8))
+        bpy.context.tool_settings.mesh_select_mode = (False, False, True)
         before = set(bpy.data.objects.keys())
         bpy.ops.object.mode_set(mode="EDIT")
         bpy.ops.mesh.separate(type="SELECTED")
@@ -668,6 +721,37 @@ def split_by_part_usd(
         print(f"  dropping {o.name}: {len(o.data.polygons):,} faces no part claimed")
         bpy.data.objects.remove(o, do_unlink=True)
 
+    # 4b. parts at the top of the stage. A glTF arrives under its own node chain (Sketchfab's
+    #     `Sketchfab_model/root/GLTF_SceneRootNode/...`) and a separated piece keeps its parent,
+    #     so the parts would land deep in the tree -- where neither a scene's `prim_root/<part>/
+    #     <part>` binding nor the material stamp below finds them. Unparent keeping the world
+    #     transform, then drop the empties that held the chain.
+    for name in made:
+        piece = bpy.data.objects[name]
+        if piece.parent is not None:
+            world = piece.matrix_world.copy()
+            piece.parent = None
+            piece.matrix_world = world
+    for o in [o for o in bpy.data.objects if o.type == "EMPTY"]:
+        bpy.data.objects.remove(o, do_unlink=True)
+
+    # 4c. a separated piece keeps EVERY material slot of the joined mesh. Where a part's faces all
+    #     use one slot that is not the first, Blender's USD export binds slot 0 to the mesh and
+    #     writes no subset -- the Inspire 3's lens glass came out bound to the texture atlas, in
+    #     the render as well as in the audit. Drop the slots a part does not use.
+    for name in made:
+        piece = bpy.data.objects[name]
+        bpy.ops.object.select_all(action="DESELECT")
+        piece.select_set(True)
+        bpy.context.view_layer.objects.active = piece
+        bpy.ops.object.material_slot_remove_unused()
+
+    # 5. a part's asserted material (AI.14) rides on the object in the master .blend, where an
+    #    operator reopening it can see it, and on the part's prims in the USD, where it matters
+    for name in made:
+        if name in asserted:
+            bpy.data.objects[name][THERMAL_MATERIAL_ATTR] = asserted[name]
+
     out_usd.parent.mkdir(parents=True, exist_ok=True)
     bpy.ops.wm.usd_export(
         filepath=str(out_usd),
@@ -675,8 +759,39 @@ def split_by_part_usd(
         generate_preview_surface=True,
         root_prim_path="/World",
     )
-    print(f"wrote {out_usd} ({len(made)} part prims)")
+    stamped = _stamp_part_materials(out_usd, {n: asserted[n] for n in made if n in asserted})
+    records = _prim_records(out_usd)
+    prims_json = out_usd.with_suffix(".prims.json")
+    prims_json.write_text(json.dumps(records, indent=1), encoding="utf-8")
+    print(f"wrote {out_usd} ({len(made)} part prims, {stamped} carrying an asserted material)")
+    print(f"wrote {prims_json} ({len(records)} prim records)")
     return {"parts": len(made), "names": made}
+
+
+def _stamp_part_materials(usd_path: pathlib.Path, materials: Mapping[str, str]) -> int:
+    """Author ``thermal:material`` on every mesh under each part that asserts one (AI.14).
+
+    Written with ``pxr`` after the export rather than through Blender's custom-property export,
+    which namespaces a property as ``userProperties:…`` -- a name the resolver does not read.
+    Blender exports object ``<part>`` as ``/World/<part>`` holding mesh ``<part>``; every mesh
+    under the part's Xform is stamped, so the rule does not depend on that nesting.
+    """
+    from pxr import Sdf, Usd, UsdGeom
+
+    if not materials:
+        return 0
+    stage = Usd.Stage.Open(str(usd_path))
+    stamped = 0
+    for part, material in materials.items():
+        root = stage.GetPrimAtPath(f"/World/{part}")
+        if not root.IsValid():
+            raise RuntimeError(f"part {part!r} is not at /World/{part} in {usd_path}")
+        for prim in Usd.PrimRange(root):
+            if prim.IsA(UsdGeom.Mesh):
+                prim.CreateAttribute(THERMAL_MATERIAL_ATTR, Sdf.ValueTypeNames.String).Set(material)
+                stamped += 1
+    stage.GetRootLayer().Save()
+    return stamped
 
 
 def total_error_signed(before: float, after: float) -> float:
@@ -701,6 +816,17 @@ def export_side_artefacts(save_blend: pathlib.Path | None, emit_fbx: pathlib.Pat
         print(f"wrote {save_blend}")
     if emit_fbx is not None:
         emit_fbx.parent.mkdir(parents=True, exist_ok=True)
+        # A glTF's images arrive *packed* in the scene with no file behind them, and the FBX
+        # exporter copies textures from disk -- so a glTF-sourced FBX came out untextured
+        # ("missing .../textures/packed/Image_0, not copying"). Write them out beside it first.
+        for img in bpy.data.images:
+            if img.packed_file is None:
+                continue
+            ext = ".jpg" if img.file_format == "JPEG" else ".png"
+            target = emit_fbx.parent / "textures" / f"{bpy.path.clean_name(img.name)}{ext}"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            img.filepath_raw = str(target)
+            img.save()
         bpy.ops.export_scene.fbx(filepath=str(emit_fbx), use_selection=False, path_mode="COPY")
         print(f"wrote {emit_fbx}")
 
@@ -794,6 +920,9 @@ def blender_split_command(
         blender,
         "--background",
         "--factory-startup",
+        # without this Blender exits 0 when the worker raises, and the driver reports success
+        "--python-exit-code",
+        "1",
         "--python",
         str(pathlib.Path(__file__).resolve()),
         "--",
@@ -823,6 +952,9 @@ def blender_material_slots_command(
         blender,
         "--background",
         "--factory-startup",
+        # without this Blender exits 0 when the worker raises, and the driver reports success
+        "--python-exit-code",
+        "1",
         "--python",
         str(pathlib.Path(__file__).resolve()),
         "--",
@@ -851,6 +983,9 @@ def blender_material_split_command(
         blender,
         "--background",
         "--factory-startup",
+        # without this Blender exits 0 when the worker raises, and the driver reports success
+        "--python-exit-code",
+        "1",
         "--python",
         str(pathlib.Path(__file__).resolve()),
         "--",
@@ -867,6 +1002,40 @@ def blender_material_split_command(
         "--split-out-usd",
         str(out_usd),
     ]
+
+
+def part_assignment(stats: Sequence[Mapping[str, Any]], parts: Any) -> dict[str, Any]:
+    """The Blender split's instructions: which part each render component joins (AI.5, AI.14).
+
+    ``stats`` is the component pass's JSON and ``parts`` the asset's ``PartsConfig``. Claiming goes
+    through ``PartsConfig.claim`` -- the rule the engine-free report and archive split use -- so an
+    excluded component is in no part and the worker drops it with the other unclaimed geometry.
+    ``materials`` carries each part's asserted library material for the worker to stamp onto the
+    part's prims as ``thermal:material``.
+    """
+    from irsim.io.asset_parts import Component
+
+    components = [
+        Component(
+            index=int(entry["index"]),
+            faces=int(entry["faces"]),
+            area_m2=float(entry["area_m2"]),
+            centroid=tuple(entry["centroid"]),
+            lo=tuple(entry["lo"]),
+            hi=tuple(entry["hi"]),
+            material_name=entry["material_name"],
+            source=entry.get("object"),
+        )
+        for entry in stats
+    ]
+    claimed = parts.claim_all(components)
+    part_of = {str(i): spec.name for i, spec in claimed.items() if spec is not None}
+    return {
+        "parts": list(parts.names),
+        "part_of_component": part_of,
+        "materials": dict(parts.materials),
+        "excluded_components": len(parts.excluded_indices(components)),
+    }
 
 
 def plan_from_slots(slots_json: pathlib.Path) -> tuple[Any, dict[str, list[dict[str, str]]]]:
@@ -930,6 +1099,9 @@ def blender_command(
         blender,
         "--background",
         "--factory-startup",
+        # without this Blender exits 0 when the worker raises, and the driver reports success
+        "--python-exit-code",
+        "1",
         "--python",
         str(pathlib.Path(__file__).resolve()),
         "--",
@@ -1146,6 +1318,14 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             # background mode, booting no Kit (ADR 0128's whole point).
             components = out_dir / f"{asset.name}.components.json"
             if not components.exists() or not components.with_suffix(".faces.npz").exists():
+                stale = True
+            else:
+                # a measurement from before AI.16 has no source objects to group by
+                head = json.loads(components.read_text(encoding="utf-8"))[:1]
+                stale = (
+                    asset.parts.granularity == "object" and bool(head) and "object" not in head[0]
+                )
+            if stale:
                 cmd = blender_command(
                     args.blender,
                     source,
@@ -1159,29 +1339,13 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                     return 1
 
             stats = json.loads(components.read_text(encoding="utf-8"))
-            from irsim.io.asset_parts import Component as _Component
-
-            part_of: dict[str, str] = {}
-            for entry in stats:
-                component = _Component(
-                    index=int(entry["index"]),
-                    faces=int(entry["faces"]),
-                    area_m2=float(entry["area_m2"]),
-                    centroid=tuple(entry["centroid"]),
-                    lo=tuple(entry["lo"]),
-                    hi=tuple(entry["hi"]),
-                    material_name=entry["material_name"],
-                )
-                for spec in asset.parts.parts:
-                    if spec.select.accepts(component, asset.parts.centre):
-                        part_of[str(component.index)] = spec.name
-                        break
+            plan = part_assignment(stats, asset.parts)
             assignment = out_dir / f"{asset.name}.part_assignment.json"
-            assignment.write_text(
-                json.dumps({"parts": list(asset.parts.names), "part_of_component": part_of}),
-                encoding="utf-8",
+            assignment.write_text(json.dumps(plan), encoding="utf-8")
+            print(
+                f"assigned {len(plan['part_of_component']):,} of {len(stats):,} components to "
+                f"parts; {plan['excluded_components']:,} excluded as not the asset"
             )
-            print(f"assigned {len(part_of):,} of {len(stats):,} components to parts")
 
             cmd = blender_split_command(
                 args.blender,
@@ -1199,6 +1363,22 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             if subprocess.run(cmd, check=False).returncode != 0:
                 print("the part-split pass failed", file=sys.stderr)
                 return 1
+
+            # The part-split USD is what a scene renders, so it is audited too -- this is where
+            # a part's asserted material (AI.14) is seen to win over its source material.
+            split_prims = out_dir.parent / name / f"{name}.prims.json"
+            if split_prims.exists():
+                split_records = [
+                    PrimRecord.from_dict(d)
+                    for d in json.loads(split_prims.read_text(encoding="utf-8"))
+                ]
+                split_report = audit(
+                    split_records, MaterialResolver(rules, names, asset=asset), args.threshold
+                )
+                print()
+                print(f"{name} (the part-split USD):")
+                print(split_report.render())
+                ok = ok and split_report.passed
 
     # One prim per material (AI.6). Two Blender passes, like the part split: measure, plan under
     # the project interpreter where `irsim` lives, then regroup. The plan is written to disk so

@@ -15,11 +15,16 @@
   A connection points at its two objects, so renaming a part keeps it; deleting one leaves a
   connection the checklist reports.
 * **On each hidden part** (``Object.irsim_component``): what it is (motor, battery, engine...),
-  its mass and heat output, and where those numbers came from. A hidden part is a box mesh the
-  camera never sees -- the engine inside a downloaded car shell, the battery inside a drone.
-* **On the window manager** (``WindowManager.irsim_library``, ``irsim_joints``): the library and
-  the joint table as the bridge last reported them. Never saved: both live in the repository, and
-  a stale copy in a ``.blend`` would be a second library.
+  its mass and heat output, and where those numbers came from, or the irsim component (AI.12) it
+  takes them from. A hidden part is a real object that no camera renders -- the engine inside a
+  downloaded car shell, the battery inside a drone.
+* **On the window manager** (``WindowManager.irsim_library``, ``irsim_joints``,
+  ``irsim_components``): the material library, the joint table and the component library as the
+  bridge last reported them. Never saved: all three live in the repository, and a stale copy in a
+  ``.blend`` would be a second library.
+* **On the window manager** too (``WindowManager.irsim_picker``): how the library list is being
+  searched and filtered (B13). Never saved; a file opens with the whole library shown. The
+  favourites and recently used materials are the add-on's preferences (``prefs.py``).
 """
 
 import bpy
@@ -90,6 +95,8 @@ class IrsimLibraryItem(PropertyGroup):
     file: StringProperty()
     angular: StringProperty()
     spectral: BoolProperty()
+    #: ADR 0175: which forms the material authors -- curve, per band, grey -- as one line.
+    forms: StringProperty()
     error: StringProperty(description="Why a band could not be evaluated, if one could not")
 
     eps_nir: FloatProperty()
@@ -104,6 +111,11 @@ class IrsimLibraryItem(PropertyGroup):
     tau_swir: FloatProperty()
     tau_mwir: FloatProperty()
     tau_lwir: FloatProperty()
+    #: The share of each band's value the curve supplied (`BandProperties.curve_fraction`).
+    curve_nir: FloatProperty()
+    curve_swir: FloatProperty()
+    curve_mwir: FloatProperty()
+    curve_lwir: FloatProperty()
 
     solar_absorptivity: FloatProperty()
     density_kg_m3: FloatProperty()
@@ -237,6 +249,35 @@ class IrsimComponent(PropertyGroup):
     reference: StringProperty(
         name="Reference", description="Where the numbers came from, or what they were guessed from"
     )
+    #: B12: an entry of irsim's component library (configs/components/, AI.12). Its mass, heat
+    #: capacity and dissipation are the defaults; a number set above overrides that one only.
+    component: StringProperty(
+        name="irsim component",
+        description=(
+            "A component from irsim's library (configs/components/) whose cited mass, heat "
+            "capacity and heat this part takes. Any number you set yourself overrides it"
+        ),
+        default="",
+    )
+    specific_heat_j_kgk: FloatProperty(
+        name="Specific heat",
+        description=("J/(kg K). 0 = from the component, or else from the part's library material"),
+        min=0.0,
+    )
+
+
+class IrsimComponentItem(PropertyGroup):
+    """One entry of irsim's component library as the bridge reported it (``name`` is its name)."""
+
+    kind: StringProperty()
+    description: StringProperty()
+    mass_kg: FloatProperty()
+    specific_heat_j_kgk: FloatProperty()
+    dissipation_idle_w: FloatProperty()
+    dissipation_rated_w: FloatProperty()
+    material: StringProperty()
+    status: StringProperty()
+    source: StringProperty()
 
 
 class IrsimSceneSettings(PropertyGroup):
@@ -346,12 +387,76 @@ class IrsimSceneSettings(PropertyGroup):
     )
 
 
+def _redraw(self, context):
+    for area in context.screen.areas if context.screen else ():
+        area.tag_redraw()
+
+
+class IrsimPickerSettings(PropertyGroup):
+    """How the library list is searched, filtered and sorted (B13; the logic is ``picker.py``)."""
+
+    query: StringProperty(
+        name="Search",
+        description=(
+            "Words to find in a material's name, description or surface, in any order "
+            "(e.g. 'polished al', 'paint black')"
+        ),
+        options={"TEXTEDIT_UPDATE"},
+        update=_redraw,
+    )
+    band: EnumProperty(
+        name="Band",
+        description="The band whose emissivity the list shows, filters and sorts by",
+        items=[(b.upper(), b.upper(), f"Emissivity in {b.upper()}") for b in BANDS],
+        default="LWIR",
+    )
+    eps_min: FloatProperty(
+        name="ε from",
+        description="Show materials at least this emissive in the band",
+        default=0.0,
+        min=0.0,
+        max=1.0,
+        precision=2,
+    )
+    eps_max: FloatProperty(
+        name="to",
+        description="Show materials at most this emissive in the band",
+        default=1.0,
+        min=0.0,
+        max=1.0,
+        precision=2,
+    )
+    sort: EnumProperty(
+        name="Sort",
+        items=[
+            ("NAME", "Name", "Alphabetical"),
+            ("EPS_HIGH", "ε high first", "Most emissive in the band first"),
+            ("EPS_LOW", "ε low first", "Least emissive (most mirror-like) in the band first"),
+        ],
+        default="NAME",
+    )
+    only_favourites: BoolProperty(
+        name="Favourites only", description="Show only starred materials", default=False
+    )
+    only_curves: BoolProperty(
+        name="Measured curve only",
+        description="Show only materials whose emissivity comes from a spectral curve",
+        default=False,
+    )
+    show_filter: BoolProperty(name="Filter and sort", default=False)
+    # Used only when the add-on runs uninstalled (no preferences to keep them in): prefs.picked
+    favourites: StringProperty(default="")
+    recent: StringProperty(default="")
+
+
 classes = (
     IrsimLibraryItem,
+    IrsimPickerSettings,
     IrsimIssue,
     IrsimJoint,
     IrsimConnection,
     IrsimComponent,
+    IrsimComponentItem,
     IrsimSceneSettings,
 )
 
@@ -376,15 +481,27 @@ def register():
     bpy.types.Scene.irsim_connections = CollectionProperty(type=IrsimConnection)
     bpy.types.Object.irsim_component = PointerProperty(type=IrsimComponent)
     bpy.types.WindowManager.irsim_joints = CollectionProperty(type=IrsimJoint)
+    bpy.types.WindowManager.irsim_components = CollectionProperty(type=IrsimComponentItem)
     bpy.types.WindowManager.irsim_library = CollectionProperty(type=IrsimLibraryItem)
     bpy.types.WindowManager.irsim_library_status = StringProperty(default="")
+    bpy.types.WindowManager.irsim_picker = PointerProperty(type=IrsimPickerSettings)
     bpy.types.WindowManager.irsim_library_hash = StringProperty(default="")
+    # The last plot drawn for the panel (B11): which material, in which Blender image.
+    bpy.types.WindowManager.irsim_plot_material = StringProperty(default="")
+    bpy.types.WindowManager.irsim_plot_image = StringProperty(default="")
+    # The last picked curve the bridge checked, as one line for the new-material form.
+    bpy.types.WindowManager.irsim_curve_check = StringProperty(default="")
 
 
 def unregister():
+    del bpy.types.WindowManager.irsim_curve_check
+    del bpy.types.WindowManager.irsim_plot_image
+    del bpy.types.WindowManager.irsim_plot_material
     del bpy.types.WindowManager.irsim_library_hash
+    del bpy.types.WindowManager.irsim_picker
     del bpy.types.WindowManager.irsim_library_status
     del bpy.types.WindowManager.irsim_library
+    del bpy.types.WindowManager.irsim_components
     del bpy.types.WindowManager.irsim_joints
     del bpy.types.Object.irsim_component
     del bpy.types.Scene.irsim_connections

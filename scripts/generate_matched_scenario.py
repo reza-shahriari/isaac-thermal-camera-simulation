@@ -155,7 +155,7 @@ def main(argv: list[str] | None = None) -> int:
     band = sensor.sensor.band.band_id
     lut = BandLUT.build(load_spectral_response(sensor.sensor.band.spectral_response), n=4001)
     scene = Scene.from_file(args.scene, {band: lut}, quantity=sensor.sensor.quantity)
-    materials = MaterialTable.from_library(MaterialLibrary.load(), band)
+    materials = MaterialTable.for_sensor(MaterialLibrary.load(), sensor)
 
     out_root = pathlib.Path(args.out)
     out_root.mkdir(parents=True, exist_ok=True)

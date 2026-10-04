@@ -7,6 +7,10 @@ carbon fibre. Changing the shared material would silently re-assign the shell, s
 part is given a **copy** instead: same look, its own thermal material, named
 ``white_plastic__carbon_fibre`` and remembering its origin. Parts that were not selected are never
 changed by an assignment to a part.
+
+Every assignment is remembered in the picker's *recently used* list (B13), and *Assign by
+name...* (the panel's search button, and the right-click menu in Object and Edit Mode) finds a
+material by typing a few letters of it and assigns it to the selection in one go.
 """
 
 from collections import Counter, defaultdict
@@ -16,7 +20,7 @@ import bpy
 from bpy.props import EnumProperty, StringProperty
 from bpy.types import Operator
 
-from . import naming, scene_stats, thermal_view
+from . import library_state, naming, picker, prefs, scene_stats, thermal_view
 from .library_state import find as find_library_item
 
 
@@ -193,34 +197,113 @@ class AssignThermal(Operator):
         return context.mode in {"OBJECT", "EDIT_MESH"}
 
     def execute(self, context):
-        if not self.material or find_library_item(context, self.material) is None:
-            self.report({"ERROR"}, f"{self.material!r} is not in the loaded library")
+        return assign(self, context, self.material, self.scope)
+
+
+def assign(op: Operator, context: bpy.types.Context, material: str, scope: str) -> set[str]:
+    """Give ``scope`` of the selection ``material``, reporting through ``op``; remembers it as
+    recently used."""
+    if not material or find_library_item(context, material) is None:
+        op.report({"ERROR"}, f"{material!r} is not in the loaded library")
+        return {"CANCELLED"}
+    if scope == "FACES":
+        if context.mode != "EDIT_MESH":
+            op.report({"ERROR"}, "Selected faces: enter Edit Mode and select faces first")
             return {"CANCELLED"}
-        if self.scope == "FACES":
-            if context.mode != "EDIT_MESH":
-                self.report({"ERROR"}, "Selected faces: enter Edit Mode and select faces first")
-                return {"CANCELLED"}
-            report = assign_to_faces(context.objects_in_mode_unique_data, self.material)
-        elif self.scope == "MATERIAL":
-            ob = context.active_object
-            mat = ob.active_material if ob else None
-            if mat is None:
-                self.report({"ERROR"}, "The active object has no active material")
-                return {"CANCELLED"}
-            n_users = len(material_users().get(mat, ()))
-            mat.irsim_material = self.material
-            report = {"set": [mat.name], "copied": [], "created": []}
-            self.report({"INFO"}, f"{mat.name} ({n_users} part(s)) is now {self.material}")
-        else:
-            parts = [ob for ob in context.selected_objects if ob.type == "MESH"]
-            if not parts:
-                self.report({"ERROR"}, "Select one or more parts (mesh objects) first")
-                return {"CANCELLED"}
-            report = assign_to_parts(parts, self.material)
-        _after_change(context)
-        if self.scope != "MATERIAL":
-            self.report({"INFO"}, f"{self.material}: {_describe(report)}")
+        report = assign_to_faces(context.objects_in_mode_unique_data, material)
+    elif scope == "MATERIAL":
+        ob = context.active_object
+        mat = ob.active_material if ob else None
+        if mat is None:
+            op.report({"ERROR"}, "The active object has no active material")
+            return {"CANCELLED"}
+        n_users = len(material_users().get(mat, ()))
+        mat.irsim_material = material
+        report = {"set": [mat.name], "copied": [], "created": []}
+        op.report({"INFO"}, f"{mat.name} ({n_users} part(s)) is now {material}")
+    else:
+        parts = [ob for ob in context.selected_objects if ob.type == "MESH"]
+        if not parts:
+            op.report({"ERROR"}, "Select one or more parts (mesh objects) first")
+            return {"CANCELLED"}
+        report = assign_to_parts(parts, material)
+    _after_change(context)
+    prefs.set_picked(context, "recent", picker.remember(prefs.picked(context, "recent"), material))
+    if scope != "MATERIAL":
+        op.report({"INFO"}, f"{material}: {_describe(report)}")
+    return {"FINISHED"}
+
+
+#: Blender keeps only a pointer to a dynamic enum's strings: they must outlive the callback.
+_SEARCH_ITEMS: list[tuple[str, str, str, str, int]] = []
+
+
+def _search_items(self, context):
+    """Every library material for the search menu, favourites first, each with its emissivity
+    in the band the library list shows."""
+    items = list(library_state.library_items(context))
+    favourites = prefs.picked(context, "favourites")
+    band = context.window_manager.irsim_picker.band.lower()
+    _SEARCH_ITEMS.clear()
+    for n, i in enumerate(picker.order(items, favourites=favourites)):
+        item = items[i]
+        icon = "SOLO_ON" if item.name in favourites else "MATERIAL"
+        _SEARCH_ITEMS.append((item.name, picker.label(item, band), item.description[:200], icon, n))
+    return _SEARCH_ITEMS
+
+
+class AssignSearch(Operator):
+    """Find a material by typing part of its name and assign it to the selection"""
+
+    bl_idname = "irsim.assign_search"
+    bl_label = "Assign thermal material by name"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_property = "material"
+
+    material: EnumProperty(name="Library material", items=_search_items)
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode in {"OBJECT", "EDIT_MESH"} and bool(
+            len(library_state.library_items(context))
+        )
+
+    def invoke(self, context, event):
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        scope = "FACES" if context.mode == "EDIT_MESH" else "PARTS"
+        result = assign(self, context, self.material, scope)
+        if result == {"FINISHED"}:
+            # show the material just used in the panel's list
+            names = [it.name for it in library_state.library_items(context)]
+            if self.material in names:
+                context.scene.irsim.active_library_index = names.index(self.material)
+        return result
+
+
+class ToggleFavourite(Operator):
+    """Star this material, or take its star away: starred materials come first in every list"""
+
+    bl_idname = "irsim.toggle_favourite"
+    bl_label = "Favourite material"
+    bl_options = {"INTERNAL"}
+
+    material: StringProperty()
+
+    def execute(self, context):
+        names = picker.toggle(prefs.picked(context, "favourites"), self.material)
+        prefs.set_picked(context, "favourites", names)
+        for area in context.screen.areas if context.screen else ():
+            area.tag_redraw()
         return {"FINISHED"}
+
+
+def _context_menu(self, context):
+    self.layout.separator()
+    self.layout.operator_context = "INVOKE_DEFAULT"
+    self.layout.operator(AssignSearch.bl_idname, text="Assign thermal material...", icon="MATERIAL")
 
 
 class ClearThermal(Operator):
@@ -314,14 +397,19 @@ class SelectIssue(Operator):
         return {"FINISHED"}
 
 
-classes = (AssignThermal, ClearThermal, SelectParts, SelectIssue)
+classes = (AssignThermal, AssignSearch, ToggleFavourite, ClearThermal, SelectParts, SelectIssue)
+MENUS = ("VIEW3D_MT_object_context_menu", "VIEW3D_MT_edit_mesh_context_menu")
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    for menu in MENUS:
+        getattr(bpy.types, menu).append(_context_menu)
 
 
 def unregister():
+    for menu in MENUS:
+        getattr(bpy.types, menu).remove(_context_menu)
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

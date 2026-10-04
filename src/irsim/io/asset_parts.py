@@ -86,6 +86,9 @@ class Component:
     lo: tuple[float, float, float]
     hi: tuple[float, float, float]
     material_name: str | None = None
+    #: The source object (render pass) or archive prim (thermal pass) the shell belongs to -- the
+    #: two carry the same names. Needed only by ``PartsConfig.granularity: object`` (AI.16).
+    source: str | None = None
 
     def __post_init__(self) -> None:
         if self.faces <= 0:
@@ -112,6 +115,35 @@ class Component:
         return math.hypot(self.centroid[0] - centre[0], self.centroid[1] - centre[1])
 
 
+def object_unit(members: Sequence[Component]) -> Component:
+    """One source object's shells as a single :class:`Component`, for ``granularity: object``.
+
+    Area and faces add; the bounds are the union; the material is the one with the most area.
+    The centroid is **area-weighted** over the shells, not a vertex mean: the thermal archive is
+    planar-dissolved, which moves a vertex mean but preserves area, so this is the centroid both
+    passes agree on.
+    """
+    import numpy as np
+
+    area = np.array([c.area_m2 for c in members], dtype=np.float64)
+    cent = np.array([c.centroid for c in members], dtype=np.float64)
+    weights = area if area.sum() > 0.0 else np.ones_like(area)
+    by_material: dict[str, float] = {}
+    for c in members:
+        if c.material_name is not None:
+            by_material[c.material_name] = by_material.get(c.material_name, 0.0) + c.area_m2
+    return Component(
+        index=min(c.index for c in members),
+        faces=sum(c.faces for c in members),
+        area_m2=float(area.sum()),
+        centroid=_xyz((cent * weights[:, None]).sum(axis=0) / weights.sum()),
+        lo=_xyz(np.min([c.lo for c in members], axis=0)),
+        hi=_xyz(np.max([c.hi for c in members], axis=0)),
+        material_name=max(by_material.items(), key=lambda kv: kv[1])[0] if by_material else None,
+        source=members[0].source,
+    )
+
+
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -126,6 +158,12 @@ class PartSelector(_Frozen):
 
     #: Source material names, matched case-insensitively. Empty means "any material".
     materials: list[str] = Field(default_factory=list)
+    #: Source object names (``Component.source``: the object in the render pass, the archive prim
+    #: in the thermal pass, which carry the same names), matched case-insensitively. Empty means
+    #: "any object". For an asset whose parts *are* its objects -- one a person separated and
+    #: named in Blender, as the add-on exports them -- this says which part is which by the name
+    #: the person gave it, with no geometric cut to drift when the model is edited.
+    objects: list[str] = Field(default_factory=list)
     #: Planar station centre; pair with :attr:`within_m` to select one rotor station's hardware.
     near_xy: tuple[float, float] | None = None
     within_m: float | None = Field(default=None, gt=0.0)
@@ -143,7 +181,7 @@ class PartSelector(_Frozen):
     extent_z_min_m: float | None = Field(default=None, ge=0.0)
     extent_z_max_m: float | None = Field(default=None, gt=0.0)
 
-    @field_validator("materials")
+    @field_validator("materials", "objects")
     @classmethod
     def _lower(cls, v: list[str]) -> list[str]:
         return [s.strip().lower() for s in v if s.strip()]
@@ -154,6 +192,8 @@ class PartSelector(_Frozen):
             name = (component.material_name or "").lower()
             if name not in self.materials:
                 return False
+        if self.objects and (component.source or "").lower() not in self.objects:
+            return False
         if self.near_xy is not None or self.within_m is not None:
             if self.near_xy is None or self.within_m is None:
                 raise ValueError("near_xy and within_m must be given together")
@@ -197,6 +237,12 @@ class PartSpec(_Frozen):
     #: ``None`` means the part is named and measured but left to the scene's default target.
     target: str | None = None
     select: PartSelector = Field(default_factory=PartSelector)
+    #: A library material asserted for the **whole part** (AI.14), outranking the asset's
+    #: source-material map for this part's geometry. For an asset whose artist put everything on
+    #: one texture atlas -- the Inspire 3's body, carbon arms, propellers and motors all share
+    #: `default` -- the source name cannot say what anything is made of, and the part can. ``None``
+    #: leaves the part to the map, which is right whenever the source materials are distinct.
+    material: str | None = None
 
 
 class ContactSpec(_Frozen):
@@ -317,6 +363,77 @@ class PartsConfig(_Frozen):
     #: written before the fields existed, and loads unchanged.
     contacts: list[ContactSpec] = Field(default_factory=list)
     hidden_parts: list[HiddenPartSpec] = Field(default_factory=list)
+    #: AI.14: geometry that is **not the asset** -- a display stand, a transport case, a ground
+    #: plane the artist modelled the aircraft on. Tried before any part, left out of the coverage
+    #: totals, and never split into a part, so it leaves the part-split USD without the gate having
+    #: to be lowered to let it through. Empty is every asset written before the field existed.
+    exclude: list[PartSelector] = Field(default_factory=list)
+    #: AI.16: what one selector judges. ``component`` (the default, and every asset before the
+    #: field) judges each connected shell -- right for an asset grouped by *material*, where one
+    #: prim is "all the white plastic" and only its shells are hardware. ``object`` judges each
+    #: source object whole -- right for an asset whose artist modelled one object per physical
+    #: piece but built it from several shells: the Inspire 3's blades are three shells each, and
+    #: shell-by-shell a geometric cut put 3 % of every blade in its rotor head and split two
+    #: camera objects 55/45 with the fuselage. Under ``object`` no source object is ever split.
+    granularity: Literal["component", "object"] = "component"
+
+    def claim_all(self, components: Iterable[Component]) -> dict[int, PartSpec | None]:
+        """``{component index: part or None}`` for every component, at this config's granularity.
+
+        ``None`` is either excluded or unclaimed; :meth:`excludes_unit` tells them apart. The one
+        place both granularities are implemented, so the report and both splits agree.
+        """
+        comps = list(components)
+        if self.granularity == "component":
+            return {c.index: self.claim(c) for c in comps}
+        out: dict[int, PartSpec | None] = {}
+        for unit, members in self._units(comps):
+            hit = self.claim(unit)
+            for c in members:
+                out[c.index] = hit
+        return out
+
+    def excluded_indices(self, components: Iterable[Component]) -> set[int]:
+        """The indices of components ``exclude`` removes, at this config's granularity."""
+        comps = list(components)
+        if self.granularity == "component":
+            return {c.index for c in comps if self.excludes(c)}
+        return {
+            c.index for unit, members in self._units(comps) if self.excludes(unit) for c in members
+        }
+
+    def _units(self, comps: list[Component]) -> list[tuple[Component, list[Component]]]:
+        groups: dict[str, list[Component]] = {}
+        for c in comps:
+            if c.source is None:
+                raise ValueError(
+                    f"granularity 'object' needs each component's source object; component "
+                    f"{c.index} has none -- re-emit the components with this version of prep_asset"
+                )
+            groups.setdefault(c.source, []).append(c)
+        return [(object_unit(members), members) for members in groups.values()]
+
+    def excludes(self, component: Component) -> bool:
+        """Whether ``component`` is geometry that is not part of the asset."""
+        return any(s.accepts(component, self.centre) for s in self.exclude)
+
+    def claim(self, component: Component) -> PartSpec | None:
+        """The part ``component`` joins: none if excluded, else the first selector that accepts it.
+
+        The one place the claiming rule lives, so the report, the archive split and the Blender
+        split in ``scripts/prep_asset.py`` cannot disagree about which part a shell belongs to.
+        """
+        if self.excludes(component):
+            return None
+        for spec in self.parts:
+            if spec.select.accepts(component, self.centre):
+                return spec
+        return None
+
+    @property
+    def materials(self) -> dict[str, str]:
+        """``{part name: library material}`` for every part that asserts one (AI.14)."""
+        return {p.name: p.material for p in self.parts if p.material is not None}
 
     @field_validator("parts")
     @classmethod
@@ -440,6 +557,10 @@ class PartReport:
     empty_parts: tuple[str, ...] = ()
     unassigned_area_m2: float = 0.0
     unassigned_faces: int = 0
+    #: Geometry `PartsConfig.exclude` removed (AI.14). Not in ``total_area_m2``: a transport case
+    #: modelled under the aircraft is not a part of it the decomposition failed to find.
+    excluded_area_m2: float = 0.0
+    excluded_faces: int = 0
 
     @property
     def coverage(self) -> float:
@@ -483,6 +604,11 @@ class PartReport:
                 f"{100.0 * self.unassigned_area_m2 / self.total_area_m2:5.1f}%  "
                 f"{self.unassigned_faces:>8d} faces"
             )
+        if self.excluded_faces:
+            lines.append(
+                f"  {'<excluded: not the asset>':<28} {self.excluded_area_m2:9.5f} m2  "
+                f"{'':>6}  {self.excluded_faces:>8d} faces"
+            )
         for name in self.empty_parts:
             lines.append(f"  EMPTY: part {name!r} matched no geometry")
         return "\n".join(lines)
@@ -498,7 +624,6 @@ def assign_parts(
     only how much of it there was.
     """
     parts = list(config.parts)
-    centre = config.centre
     assignments: list[PartAssignment] = []
     area_by_part: dict[str, float] = {p.name: 0.0 for p in parts}
     faces_by_part: dict[str, int] = {p.name: 0 for p in parts}
@@ -506,15 +631,21 @@ def assign_parts(
     total_faces = 0
     unassigned_area = 0.0
     unassigned_faces = 0
+    excluded_area = 0.0
+    excluded_faces = 0
 
-    for c in components:
+    comps = list(components)
+    claimed = config.claim_all(comps)
+    excluded = config.excluded_indices(comps)
+    for c in comps:
+        if c.index in excluded:
+            excluded_area += c.area_m2
+            excluded_faces += c.faces
+            assignments.append(PartAssignment(c.index, None, None, c.area_m2, c.faces))
+            continue
         total_area += c.area_m2
         total_faces += c.faces
-        hit: PartSpec | None = None
-        for spec in parts:
-            if spec.select.accepts(c, centre):
-                hit = spec
-                break
+        hit = claimed[c.index]
         if hit is None:
             unassigned_area += c.area_m2
             unassigned_faces += c.faces
@@ -534,6 +665,8 @@ def assign_parts(
         empty_parts=empty,
         unassigned_area_m2=unassigned_area,
         unassigned_faces=unassigned_faces,
+        excluded_area_m2=excluded_area,
+        excluded_faces=excluded_faces,
     )
     if config.contacts:
         config.check_contact_areas(area_by_part)
@@ -641,6 +774,7 @@ def split_by_part(meshes: Any, config: PartsConfig) -> tuple[dict[str, Any], Par
     per_part_faces: dict[str, list[tuple[Any, Any]]] = {}
     per_part_material: dict[str, dict[str, float]] = {}
     all_components: list[Component] = []
+    where: list[tuple[Any, Any]] = []  # (mesh, face mask) per component index
     running = 0
 
     for name in sorted(meshes):
@@ -648,30 +782,32 @@ def split_by_part(meshes: Any, config: PartsConfig) -> tuple[dict[str, Any], Par
         for component, mask in mesh_components(
             name, mesh.vertices_m, mesh.faces, mesh.material_name
         ):
-            stat = Component(
-                index=running,
-                faces=component.faces,
-                area_m2=component.area_m2,
-                centroid=component.centroid,
-                lo=component.lo,
-                hi=component.hi,
-                material_name=component.material_name,
+            all_components.append(
+                Component(
+                    index=running,
+                    faces=component.faces,
+                    area_m2=component.area_m2,
+                    centroid=component.centroid,
+                    lo=component.lo,
+                    hi=component.hi,
+                    material_name=component.material_name,
+                    source=name,
+                )
             )
+            where.append((mesh, mask))
             running += 1
-            all_components.append(stat)
-            hit = None
-            for spec in config.parts:
-                if spec.select.accepts(stat, config.centre):
-                    hit = spec
-                    break
-            if hit is None:
-                continue
-            per_part_faces.setdefault(hit.name, []).append(
-                (mesh.vertices_m, np.asarray(mesh.faces)[mask])
-            )
-            if stat.material_name:
-                bucket = per_part_material.setdefault(hit.name, {})
-                bucket[stat.material_name] = bucket.get(stat.material_name, 0.0) + stat.area_m2
+
+    claimed = config.claim_all(all_components)
+    for stat, (mesh, mask) in zip(all_components, where, strict=True):
+        hit = claimed[stat.index]
+        if hit is None:
+            continue
+        per_part_faces.setdefault(hit.name, []).append(
+            (mesh.vertices_m, np.asarray(mesh.faces)[mask])
+        )
+        if stat.material_name:
+            bucket = per_part_material.setdefault(hit.name, {})
+            bucket[stat.material_name] = bucket.get(stat.material_name, 0.0) + stat.area_m2
 
     _, report = assign_parts(all_components, config)
 

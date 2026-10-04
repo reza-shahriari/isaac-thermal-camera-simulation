@@ -3,8 +3,8 @@
 Off (absent, or `false`), every field is the separate solve it was, bit for bit. On, the scene's
 plain patches become one exchange group: a warm steel pan parked over asphalt on a clear night
 leaves the road beneath it warmer than the open road, with no hand-placed rectangle anywhere in
-the scene -- the shape on the asphalt is a consequence of the geometry. And the surfaces that
-cannot join are refused by name rather than left out. ADR 0157; roadmap TC.10.
+the scene -- the shape on the asphalt is a consequence of the geometry. A layered surface joins
+by its top layer. ADR 0157; roadmap TC.10.
 """
 
 from __future__ import annotations
@@ -109,15 +109,20 @@ def test_the_switch_leaves_a_car_shaped_patch_on_the_road_at_night(
     assert set(on.object_exchange.names) == {"asphalt", "pan"}
     for name in ("asphalt", "pan"):
         assert isinstance(on.surface_fields[name], ExchangedField)
+    # the group is spun up together (ADR 0157 amendment): the patch is there before any tick,
+    # because the road stood under the pan all evening. 0.58 K at t0, measured; 0 before.
+    opening, under = _road_cells(on, on.t0_s)
+    assert on.surface_fields["asphalt"].n_ticks == 1
+    assert opening[under].mean() - opening[~under].mean() > 0.4
     t = on.t0_s + 3600.0
     flat, under = _road_cells(off, t)
     assert np.ptp(flat) == 0.0, "no occluder, no exchange: one temperature"
     warm, under = _road_cells(on, t)
     assert on.surface_fields["pan"].latest_t_s == t, "the pan moved with the road"
     excess = warm[under].mean() - warm[~under].mean()
-    # 0.25 K after one hour, measured: 0.1 m of asphalt has a time constant of hours, so the
-    # patch grows slowly -- which is also why it is still there at dawn
-    assert excess > 0.2, (warm[under].mean(), warm[~under].mean())
+    # 0.54 K after one hour, measured (0.25 K when the exchange began at t0): 0.1 m of asphalt
+    # has a time constant of hours, so the patch it carries in decays slowly
+    assert excess > 0.4, (warm[under].mean(), warm[~under].mean())
     assert warm[under].mean() > flat[0], "the road under the pan is warmer than without it"
     # the pan sees the road too: it cools less than the same pan over an unsolved surround
     pan_on = np.asarray(on.surface_fields["pan"].temperature_at(t), dtype=np.float64).mean()
@@ -135,9 +140,9 @@ def test_the_switch_leaves_a_car_shaped_patch_on_the_road_at_night(
     assert absorbed[i, j] == pytest.approx(eps_road * emitted[j, i], rel=1e-6)
 
 
-def test_the_switch_needs_two_bodies_and_refuses_what_cannot_join(
-    tmp_path, tophat_lwir_lut
-) -> None:  # type: ignore[no-untyped-def]
+def test_the_switch_needs_two_bodies_and_joins_a_layered_surface(tmp_path, tophat_lwir_lut) -> None:  # type: ignore[no-untyped-def]
+    """A layered surface used to be refused; it now joins by its top layer (the second
+    amendment to ADR 0157), and the scene hands it out as a proxy that steps the whole group."""
     layered = """      - name: slab
         material: concrete
         layers: 4
@@ -152,11 +157,16 @@ def test_the_switch_needs_two_bodies_and_refuses_what_cannot_join(
           thickness_m: 0.2
           frame: world
 """
-    with pytest.raises(ValueError, match="slab.*coupled stack"):
-        Scene.from_file(
-            _scene_yaml(tmp_path, "    object_exchange: true", extra=layered, name="layered"),
-            {"lwir": tophat_lwir_lut},
-        )
+    scene = Scene.from_file(
+        _scene_yaml(tmp_path, "    object_exchange: true", extra=layered, name="layered"),
+        {"lwir": tophat_lwir_lut},
+    )
+    assert scene.object_exchange is not None
+    assert set(scene.object_exchange.names) == {"asphalt", "pan", "slab"}
+    slab = scene.surface_fields["slab"]
+    assert isinstance(slab, ExchangedField)
+    slab.advance_to(scene.t0_s + 60.0)
+    assert scene.surface_fields["pan"].latest_t_s == scene.t0_s + 60.0
     one_body = THERMAL.format(switch="    object_exchange: true", extra="").split(
         "      # a 1.6 m"
     )[0]
@@ -165,3 +175,25 @@ def test_the_switch_needs_two_bodies_and_refuses_what_cannot_join(
     single.write_text(head.rstrip() + "\n" + one_body)
     with pytest.raises(ValueError, match="at least two surfaces"):
         Scene.from_file(single, {"lwir": tophat_lwir_lut})
+
+
+@pytest.mark.slow
+def test_a_cabin_scene_joins_its_panels_and_steps_its_cabin_with_the_group(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """The parked-car cabin scene with the switch on: its panels join by their slices of the
+    cabin's solve, and the cabin's own handle -- which carries the air node -- is a proxy too,
+    so stepping it moves every other body and stepping a panel moves the cabin."""
+    text = (REPO / "configs/scenes/parked_car_cabin.yaml").read_text()
+    head, sep, rest = text.partition("    tick_s: 60.0\n")
+    path = tmp_path / "cabin_exchange.yaml"
+    path.write_text(head + sep + "    object_exchange: true\n" + rest)
+    scene = Scene.from_file(path)
+    group = scene.object_exchange
+    assert group is not None
+    assert {"roof", "door_east", "door_west", "glazing", "bonnet"} <= set(group.names)
+    cabin = scene.surface_fields["cabin"]
+    assert isinstance(cabin, ExchangedField) and "cabin" not in group.names
+    cabin.advance_to(scene.t0_s + 120.0)
+    assert scene.surface_fields["bonnet"].latest_t_s == scene.t0_s + 120.0
+    scene.surface_fields["roof"].advance_to(scene.t0_s + 240.0)
+    assert cabin.field.latest_t_s == scene.t0_s + 240.0
+    assert np.isfinite(cabin.node_temperature_k("cabin"))

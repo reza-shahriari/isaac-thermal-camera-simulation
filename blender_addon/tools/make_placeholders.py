@@ -132,7 +132,9 @@ def table(entries: list[dict]) -> str:
             lines += ["", f"**{category}**", ""]
             lines += ["| file | shape | size (m) | stands for |", "|---|---|---|---|"]
         shape, size = describe(e)
-        lines.append(f"| `{e['file']}.fbx` | {shape} | {size} | {e['label']}: {e['note']} |")
+        irsim = f" Takes irsim's `{e['component']}`." if e.get("component") else ""
+        what = f"{e['label']}: {e['note']}.{irsim}"
+        lines.append(f"| `{e['file']}.fbx` | {shape} | {size} | {what} |")
     lines += ["", TABLE_END]
     return "\n".join(lines)
 

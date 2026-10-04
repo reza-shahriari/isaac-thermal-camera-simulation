@@ -24,7 +24,7 @@ import sys
 
 REPO = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
-from irsim.materials.library import MATERIAL_DIR, MaterialLibrary  # noqa: E402
+from irsim.materials.library import MaterialLibrary  # noqa: E402
 
 PAGE = REPO / "docs" / "materials.md"
 BANDS = ("nir", "swir", "mwir", "lwir")
@@ -48,9 +48,13 @@ COMPARE = {
 }
 
 
-def origin(name: str) -> str:
+def origin(material) -> str:  # type: ignore[no-untyped-def]
     """How a material's optics were obtained, from the script that wrote it (if any)."""
-    text = (MATERIAL_DIR / f"{name}.yaml").read_text(encoding="utf-8")
+    text = material.path.read_text(encoding="utf-8")
+    if "spectra/materials/ecostress/" in text:
+        return "LWIR shape from ECOSTRESS; level literature"
+    if "derive_proxy_shape_curves.py" in text:
+        return "LWIR shape from n, k; level literature"
     if "scripts/import_slum.py" in text:
         return "measured: SLUM (MWIR from its class)"
     if "scripts/import_paired_spectra.py" in text:
@@ -75,7 +79,7 @@ def catalogue_table(library: MaterialLibrary) -> str:
         rows.append(
             f"| `{name}` | {m.spec.surface_treatment.replace('_', ' ')} | "
             + " | ".join(f"{e:.2f}" for e in eps)
-            + f" | {m.spec.thermal.solar_absorptivity:.2f} | {origin(name)} |"
+            + f" | {m.spec.thermal.solar_absorptivity:.2f} | {origin(m)} |"
         )
     return "\n".join(rows)
 
@@ -127,8 +131,14 @@ def render(page: str, library: MaterialLibrary) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--material-dir",
+        type=pathlib.Path,
+        default=None,
+        help="the library to describe (default configs/materials)",
+    )
     args = parser.parse_args()
-    library = MaterialLibrary.load()
+    library = MaterialLibrary.load(args.material_dir)
     current = PAGE.read_text(encoding="utf-8")
     wanted = render(current, library)
     if args.check:

@@ -87,6 +87,38 @@ SOURCES: dict[str, dict[str, object]] = {
             "the emissivity magnitude still comes from each material's authored band value."
         ),
     },
+    # XD.14: the shapes behind the curves `scripts/derive_proxy_shape_curves.py` writes (ADR 0175).
+    "polycarbonate": {
+        "path": "organic/(C16H14O3)n%20-%20polycarbonate/nk/Zhang.yml",
+        "trim_um": (0.6, 19.9),
+        "material": "polycarbonate (bulk, unpigmented)",
+        "reference": (
+            "X. Zhang, J. Qiu, J. Zhao, X. Li, L. Liu (2020), 'Complex refractive indices "
+            "measurements of polymers in infrared bands', J. Quant. Spectrosc. Radiat. Transf. "
+            "252, 107063. doi:10.1016/j.jqsrt.2020.107063; below 2 um the same authors, Appl. "
+            "Opt. 59, 2337-2344 (2020), doi:10.1364/AO.383831."
+        ),
+        "proxy_note": (
+            "MEASURED, the polymer itself but unpigmented: a grey or black part's pigment "
+            "changes the level mainly where the polymer is weakly absorbing, so the curve built "
+            "from this keeps its SHAPE and takes its LEVEL from the material's authored value."
+        ),
+    },
+    "ice": {
+        "path": "main/H2O/nk/Warren-2008.yml",
+        "trim_um": (0.3, 25.0),
+        "material": "water ice at -7 C",
+        "reference": (
+            "S. G. Warren and R. E. Brandt (2008), 'Optical constants of ice from the "
+            "ultraviolet to the microwave: A revised compilation', J. Geophys. Res. 113, "
+            "D14220. doi:10.1029/2007JD009744."
+        ),
+        "proxy_note": (
+            "MEASURED, solid ice. Snow is granular ice, so its emissivity is higher and flatter "
+            "than a smooth ice surface's; the snow curve built from this keeps the SHAPE (where "
+            "ice's reflectance rises, 10-13 um) and takes its LEVEL from the authored value."
+        ),
+    },
 }
 
 #: The proxy note stays INSIDE the ``# source:`` block, with no blank comment line before it: the

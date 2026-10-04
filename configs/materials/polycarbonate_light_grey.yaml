@@ -1,0 +1,31 @@
+# Light grey moulded polycarbonate (or PC/ABS) -- an unpainted consumer-drone shell, such as the
+# DJI Mini 3 Pro's fuselage and folding arms. Drafted by the ingest-asset pipeline (AI.15) under
+# the owner's 2026-09-26 rule: new materials allowed, gated by the closure walk and the diff.
+#
+# MWIR/LWIR are ESTIMATED from the library's own computed thermoplastics (pet_black 0.958/0.942,
+# pvc_white 0.957/0.956, both Fresnel from measured n/k): in the thermal bands the polymer backbone
+# sets epsilon and the pigment does not (GT.9), so a PC part sits in the same 0.94-0.96 band. NIR,
+# SWIR and solar absorptivity are ESTIMATED for a mid-light grey (#A0A0A0-ish, the retail "Gray")
+# and are the numbers colour actually moves. Thermal: handbook polycarbonate (1200 kg m-3,
+# ~1200 J kg-1 K-1, 0.20 W m-1 K-1); thickness a typical small-drone wall.
+schema_version: 2
+material:
+  name: polycarbonate_light_grey
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "MWIR/LWIR ESTIMATED from the library's Fresnel-computed thermoplastics (pet_black, pvc_white; Zhang et al., JQSRT 252, 107063, 2020); thermal: polycarbonate handbook values (density 1.20 g/cm3, c_p ~1.2 kJ/kg/K, k 0.19-0.22 W/m/K); NIR/SWIR/solar ESTIMATED for a light grey pigment. Product fit: DJI Mini 3 Pro retail colour 'Gray'."
+  description: "Unpainted light grey moulded PC / PC-ABS: small-drone shells and folding arms"
+  thermal:
+    density_kg_m3: 1200
+    specific_heat_j_kgk: 1200
+    conductivity_w_mk: 0.20
+    thickness_m: 0.0015   # ESTIMATED: a small-drone shell wall
+    solar_absorptivity: 0.55   # ESTIMATED: mid-light grey
+  optical:
+    # LWIR is a curve (XD.14, ADR 0175): the SHAPE of polycarbonate's own bulk constants (Zhang et al. 2020), at the authored LWIR LEVEL
+    # held in scripts/derive_proxy_shape_curves.py, which writes the file (MODELLED).
+    spectral_emissivity: spectra/materials/polycarbonate_light_grey_lw.csv
+    emissivity_per_band: {nir: 0.50, swir: 0.60, mwir: 0.95}
+    roughness_per_band: {nir: 0.30, swir: 0.26, mwir: 0.15, lwir: 0.10}   # ESTIMATED, matte moulded finish
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the thermoplastic class (pet_black)
+    transmittance_per_band: {nir: 0.0, swir: 0.0, mwir: 0.0, lwir: 0.0}

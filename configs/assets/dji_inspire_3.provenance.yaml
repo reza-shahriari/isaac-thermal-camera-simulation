@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: dji_inspire_3
+  source: local
+  real_name: DJI Inspire 3
+  uid: ''
+  title: DJI Inspire 3
+  author: Polyman_3D
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/dji-inspire-3-158e4fa0710f4511be14b73374b5df9b
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: 0ab8abec5b73d48ded16ebbbf8a51f479aa2785ba6da8ea819aeb29b50d2a90b
+  downloaded_at: '2026-09-30T16:00:21+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.

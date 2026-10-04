@@ -28,7 +28,7 @@ and no sky geometry on the stage.
 
 docs/physics-model.md §6.6, §15 T3; ADR 0060 (the analytic background), ADR 0072 (the heat
 sources), ADR 0073 (the dome), ADR 0087 (the field), ADR 0123 (this stage),
-ADR 0168 (EV.14's continuous reference clip)
+ADR 0168 (EV.14's continuous reference clip), roadmap EV.16 (the clear-sky exit clip)
 """
 
 from __future__ import annotations
@@ -55,12 +55,15 @@ __all__ = [
     "POINTWISE_QUAD",
     "boresight",
     "build_quad_outbound",
+    "clear_exit_track",
     "companion_angle_deg",
     "distant_companion_position",
+    "look_direction",
     "pointwise_quad_parts",
     "reference_track",
     "rotor_mounts",
     "rotor_rpm",
+    "target_image_angles_deg",
 ]
 
 #: Boresight elevation, degrees above the horizontal, held for the whole run. Half the vertical
@@ -227,6 +230,13 @@ class OutboundTrack:
 
     The azimuth walks slowly around the aircraft so the deck, the belly and the arms are not seen
     from one fixed aspect for the whole run.
+
+    **The exit (EV.16).** With ``exit_s > 0`` the mount stops tracking once ``duration_s`` is
+    over: the camera holds its position and pans right through ``exit_pan_deg`` of azimuth over
+    ``exit_s``, so the aircraft crosses the left edge of the frame and leaves. Then ``hold_s`` of
+    empty sky. A pan about the vertical keeps the boresight's elevation, so :meth:`sees_horizon`
+    still covers the whole run, and it is the picture a fixed camera takes of a drone flying out
+    of its field sideways -- relative motion again, for the reason the module docstring gives.
     """
 
     near_m: float = 12.0
@@ -235,6 +245,9 @@ class OutboundTrack:
     elevation_deg: float = AIM_ELEVATION_DEG
     azimuth_start_deg: float = 20.0
     azimuth_sweep_deg: float = 55.0
+    exit_s: float = 0.0
+    exit_pan_deg: float = 0.0
+    hold_s: float = 0.0
 
     def __post_init__(self) -> None:
         if self.near_m <= 0.0 or self.far_m <= 0.0:
@@ -245,6 +258,22 @@ class OutboundTrack:
             raise ValueError("duration_s must be positive")
         if not 0.0 < self.elevation_deg < 90.0:
             raise ValueError("elevation_deg must lie strictly between the horizon and the zenith")
+        if self.exit_s < 0.0 or self.hold_s < 0.0:
+            raise ValueError("exit_s and hold_s cannot be negative")
+        if (self.exit_s > 0.0) != (self.exit_pan_deg > 0.0):
+            raise ValueError("an exit needs both a duration and a positive pan, or neither")
+
+    @property
+    def end_s(self) -> float:
+        """Seconds from the first frame to the last: out, across the edge, and the empty sky."""
+        return self.duration_s + self.exit_s + self.hold_s
+
+    def pan_deg_at(self, t_rel_s: float) -> float:
+        """How far the mount has panned right off the aircraft, degrees. 0 while it tracks."""
+        if self.exit_s <= 0.0:
+            return 0.0
+        f = min(1.0, max(0.0, (float(t_rel_s) - self.duration_s) / self.exit_s))
+        return float(self.exit_pan_deg * f)
 
     def range_at(self, t_rel_s: float) -> float:
         """Range in metres. Clamped at both ends, so a longer capture holds at ``far_m``."""
@@ -326,6 +355,126 @@ def boresight(track: OutboundTrack, t_rel_s: float) -> tuple[float, float, float
     return (d[0] / n, d[1] / n, d[2] / n)
 
 
+def look_direction(track: OutboundTrack, t_rel_s: float) -> tuple[float, float, float]:
+    """Unit vector the camera looks along: the boresight, panned right by the exit (EV.16).
+
+    Identical to :func:`boresight` while the mount tracks. During the exit it is the boresight
+    turned about the stage's +Y, which is the vertical, so its elevation never changes.
+    """
+    d = boresight(track, t_rel_s)
+    a = -math.radians(track.pan_deg_at(t_rel_s))  # a right pan is negative about +Y
+    return (
+        d[0] * math.cos(a) + d[2] * math.sin(a),
+        d[1],
+        -d[0] * math.sin(a) + d[2] * math.cos(a),
+    )
+
+
+def target_image_angles_deg(track: OutboundTrack, t_rel_s: float) -> tuple[float, float]:
+    """Where the aircraft lies in the picture: (right of centre, above centre), degrees.
+
+    The camera frame is :func:`irsim_isaac.aircraft_pass.look_at_quaternion`'s -- wings level,
+    right = forward x up -- rebuilt here in plain arithmetic so a test can find the frame edge
+    without an engine. The angles are atan of the camera-frame tangents, which is what a pinhole
+    puts on the focal plane, so ``tan(h) / tan(hfov / 2)`` is the aircraft's place across the
+    width.
+    """
+    f = look_direction(track, t_rel_s)
+    right = (-f[2], 0.0, f[0])  # f x (0, 1, 0)
+    rn = math.hypot(right[0], right[2])
+    right = (right[0] / rn, 0.0, right[2] / rn)
+    up = (
+        right[1] * f[2] - right[2] * f[1],
+        right[2] * f[0] - right[0] * f[2],
+        right[0] * f[1] - right[1] * f[0],
+    )
+    c = track.camera_position_m(t_rel_s)
+    v = [AIM_POINT_M[i] - c[i] for i in range(3)]
+    z = sum(v[i] * f[i] for i in range(3))
+    x = sum(v[i] * right[i] for i in range(3))
+    y = sum(v[i] * up[i] for i in range(3))
+    return math.degrees(math.atan2(x, z)), math.degrees(math.atan2(y, z))
+
+
+#: EV.16: the clear-sky exit clip. 12 -> 150 m in 15 s is a peak recession of 25 m/s at the far
+#: end of a geometric track (``far ln(far/near) / T``), the top of what a heavy-lift frame flies;
+#: then a 15 m/s crossing out of the frame, and a second of empty sky.
+CLEAR_EXIT_NEAR_M = 12.0
+CLEAR_EXIT_FAR_M = 150.0
+CLEAR_EXIT_OUTBOUND_S = 15.0
+CLEAR_EXIT_SPEED_M_S = 15.0
+CLEAR_EXIT_HOLD_S = 1.0
+
+#: How far past the frame edge the aircraft's nearest tip goes before the exit is over, in
+#: native pixels. The optics' blur and the bolometer's lag both carry a target's signal a pixel or
+#: two beyond its geometric edge; three puts the last of it outside the frame.
+CLEAR_EXIT_MARGIN_PX = 3.0
+
+
+def clear_exit_track(
+    hfov_deg: float,
+    ifov_mrad: float,
+    *,
+    near_m: float = CLEAR_EXIT_NEAR_M,
+    far_m: float = CLEAR_EXIT_FAR_M,
+    outbound_s: float = CLEAR_EXIT_OUTBOUND_S,
+    exit_speed_m_s: float = CLEAR_EXIT_SPEED_M_S,
+    hold_s: float = CLEAR_EXIT_HOLD_S,
+    extent_m: float = TIP_TO_TIP_M,
+    margin_px: float = CLEAR_EXIT_MARGIN_PX,
+    sweep_deg: float = 8.0,
+) -> OutboundTrack:
+    """EV.16's track: out from ``near_m`` to ``far_m``, then sideways out of a ``hfov_deg`` field.
+
+    The pan is **solved, not guessed**: the smallest azimuth turn that puts the aircraft's centre
+    ``extent_m / 2`` plus ``margin_px`` pixels beyond the edge of the field, found by bisection on
+    :func:`target_image_angles_deg`. Its rate is what a drone crossing at ``exit_speed_m_s`` shows
+    a camera at the far range: ``v / (R cos e)`` of azimuth, because the horizontal distance to
+    the aircraft is ``R cos e`` and not ``R``. The sweep is a tracking mount's few degrees, as on
+    the reference clip, so the background moves slowly while the mount is following.
+    """
+    if exit_speed_m_s <= 0.0:
+        raise ValueError("exit_speed_m_s must be positive")
+    if not 0.0 < hfov_deg < 180.0:
+        raise ValueError("hfov_deg must be a real field of view")
+    base = OutboundTrack(
+        near_m=near_m, far_m=far_m, duration_s=outbound_s, azimuth_sweep_deg=sweep_deg
+    )
+    edge = 0.5 * float(hfov_deg)
+    half_extent = math.degrees(math.atan(0.5 * float(extent_m) / float(far_m)))
+    clear_deg = edge + half_extent + float(margin_px) * 1e-3 * float(ifov_mrad) * 180.0 / math.pi
+
+    def offset(pan: float) -> float:
+        probe = OutboundTrack(
+            near_m=near_m,
+            far_m=far_m,
+            duration_s=outbound_s,
+            azimuth_sweep_deg=sweep_deg,
+            exit_s=1.0,
+            exit_pan_deg=pan,
+        )
+        return abs(target_image_angles_deg(probe, outbound_s + 1.0)[0])
+
+    lo, hi = 0.0, 90.0
+    if offset(hi) < clear_deg:
+        raise ValueError(f"no pan under 90 deg clears a {hfov_deg:.1f} deg field")
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if offset(mid) < clear_deg else (lo, mid)
+    rate_deg_s = math.degrees(
+        float(exit_speed_m_s) / (float(far_m) * math.cos(math.radians(base.elevation_deg)))
+    )
+    return OutboundTrack(
+        near_m=near_m,
+        far_m=far_m,
+        duration_s=outbound_s,
+        azimuth_sweep_deg=sweep_deg,
+        exit_s=hi / rate_deg_s,
+        exit_pan_deg=hi,
+        hold_s=hold_s,
+    )
+
+
 def distant_companion_position(
     track: OutboundTrack, beyond_m: float, offset_deg: float
 ) -> tuple[float, float, float]:
@@ -401,7 +550,8 @@ class QuadOutboundStage:
         }
 
     def aim_camera(self, t_rel_s: float) -> None:
-        """Put the camera where the track says it is at ``t_rel_s``, aimed at the aircraft.
+        """Put the camera where the track says it is at ``t_rel_s``, aimed at the aircraft -- or,
+        during an exit (EV.16), panned off it along :func:`look_direction`.
 
         The aim is an azimuth/elevation construction (:func:`look_at_quaternion`), not the minimal
         rotation onto the boresight: the minimal rotation rolls the horizon as it slews, and a
@@ -415,7 +565,8 @@ class QuadOutboundStage:
 
         stage = omni.usd.get_context().get_stage()
         eye = np.asarray(self.track.camera_position_m(t_rel_s), dtype=np.float64)
-        q = look_at_quaternion(np.asarray(AIM_POINT_M, dtype=np.float64) - eye)
+        # The boresight while tracking; panned off the aircraft during an exit (EV.16).
+        q = look_at_quaternion(np.asarray(look_direction(self.track, t_rel_s), dtype=np.float64))
         xform = UsdGeom.Xformable(stage.GetPrimAtPath(self.camera_path))
         ops = {op.GetOpName(): op for op in xform.GetOrderedXformOps()}
         ops["xformOp:translate"].Set(Gf.Vec3d(*(float(v) for v in eye)))

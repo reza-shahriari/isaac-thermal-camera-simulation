@@ -1,0 +1,100 @@
+# Spectral emissivity of concrete, 5.1-14 um.
+#
+# source: MODELLED, MEASURED SHAPE. eps = 1 - s R(lambda), R the measured reflectance of ECOSTRESS sample 0424UUUCNC 'Construction  Concrete' (manmade.concrete.pavingconcrete.solid.all.0424uuucnc.jhu.becknic.spectrum.txt), Directional (10 Degree) Hemispherical Reflectance.
+#   s = 1.471432 holds the LWIR nominal-band average at the authored 0.92 (configs/materials/concrete.yaml): the SHAPE is the sample's, the LEVEL the library's.
+#   Reproduced from the ECOSTRESS Spectral Library through the courtesy of the Jet Propulsion Laboratory, California Institute of Technology, Pasadena, California. Copyright (c) 2017, California Institute of Technology. ALL RIGHTS RESERVED.
+#   Cite: Meerdink, S. K., Hook, S. J., Roberts, D. A., & Abbott, E. A. (2019), The ECOSTRESS spectral library version 1.0, Remote Sensing of Environment 230, 111196; Baldridge, A. M., Hook, S. J., Grove, C. I., & Rivera, G. (2009), The ASTER spectral library version 2.0, Remote Sensing of Environment 113, 711-715.
+#   Sample: Variegated construction concrete, with quartz and limestone aggregate showing. Sample was gray, and slightly soiled. Concrete was from runway side strips. Original ASTER Spectral Library name was jhu.becknic.manmade.concrete.paving.solid.0424uuu.spectrum.txt
+#   Used here as: grey construction concrete with quartz and limestone aggregate.
+#   Written by scripts/import_ecostress.py (roadmap XD.14, ADR 0179); edit the script.
+# Columns: wavelength in MICROMETRES, emissivity.
+5.1,0.939025338
+5.2,0.935423273
+5.3,0.947690600
+5.4,0.952119610
+5.5,0.960592114
+5.6,0.970428635
+5.7,0.966995785
+5.8,0.970000449
+5.9,0.973383270
+6,0.976134848
+6.1,0.976932364
+6.2,0.972419483
+6.3,0.959475297
+6.4,0.902317530
+6.5,0.852628750
+6.6,0.863894031
+6.7,0.883870189
+6.8,0.899726338
+6.9,0.909186173
+7,0.913003067
+7.1,0.918144250
+7.2,0.940957328
+7.3,0.943810434
+7.4,0.937996807
+7.5,0.934226999
+7.6,0.931880066
+7.7,0.922380502
+7.8,0.918628351
+7.9,0.909636431
+8,0.890746190
+8.1,0.866881038
+8.2,0.843991445
+8.3,0.851123475
+8.4,0.862387285
+8.5,0.869872459
+8.6,0.889752974
+8.7,0.871682320
+8.8,0.866293937
+8.9,0.863193630
+9,0.862713943
+9.1,0.860027109
+9.2,0.859762251
+9.3,0.860309624
+9.4,0.884856049
+9.5,0.904673292
+9.6,0.913915355
+9.7,0.919021223
+9.8,0.925377809
+9.9,0.928433972
+10,0.930848592
+10.1,0.933205826
+10.2,0.935314387
+10.3,0.935746988
+10.4,0.936573933
+10.5,0.938598623
+10.6,0.939924383
+10.7,0.940158341
+10.8,0.938298451
+10.9,0.936251689
+11,0.934647829
+11.1,0.931840337
+11.2,0.924575878
+11.3,0.912541038
+11.4,0.929730304
+11.5,0.948435145
+11.6,0.948561688
+11.7,0.951102850
+11.8,0.958607152
+11.9,0.953848542
+12,0.956551562
+12.1,0.959104496
+12.2,0.962802205
+12.3,0.964919595
+12.4,0.953386513
+12.5,0.946195625
+12.6,0.949345961
+12.7,0.947646457
+12.8,0.941629773
+12.9,0.945969025
+13,0.950037534
+13.1,0.951887124
+13.2,0.950767364
+13.3,0.953037783
+13.4,0.953558670
+13.5,0.956154276
+13.6,0.958302566
+13.7,0.960870215
+13.8,0.965003466
+13.9,0.972671097
+14,0.974892959

@@ -82,10 +82,17 @@ def test_the_importer_has_written_materials() -> None:
 @pytest.mark.parametrize("name", slum())
 def test_three_bands_are_the_committed_curves(library, name: str) -> None:
     sw, lw = _curves(name)
-    eps = library[name].spec.optical.emissivity_per_band
+    m = library[name]
+    eps = {b: m.band_properties(b).emissivity for b in ("nir", "swir", "lwir")}
     assert eps["nir"] == pytest.approx(_band(sw.wavelength_um, sw.values, "nir"), abs=6e-4)
     assert eps["swir"] == pytest.approx(_band(sw.wavelength_um, sw.values, "swir"), abs=6e-4)
     assert eps["lwir"] == pytest.approx(_band(lw.wavelength_um, lw.values, "lwir"), abs=6e-4)
+    # AT.34 (ADR 0175): NIR and SWIR are *read* from the curve, which covers both bands, so no
+    # typed number survives beside it; LWIR keeps one, to fill the 7.5-8.0 um below the curve.
+    table = m.spec.optical.emissivity_per_band or {}
+    assert "nir" not in table and "swir" not in table and "lwir" in table
+    assert m.band_properties("nir").curve_fraction == 1.0
+    assert 0.85 < m.band_properties("lwir").curve_fraction < 1.0
 
 
 @pytest.mark.parametrize("name", slum())

@@ -81,3 +81,99 @@ after an hour, and with the switch off every road cell is one temperature. At th
   parallel-rectangle sources they model, and the scenes that use them do not set the switch.
 * Cost is TC.9's trace, once per scene at build (a 300-face pair in a minute), plus one
   matrix-vector product per tick.
+
+## Amendment, 2026-10-03 — the group is spun up together
+
+The "exchange begins at t₀" limitation is closed. `ObjectExchange.spin_up` runs §6.4's spin-up
+for the whole group: the same integration as `facets.spin_up` (`spin_up_hours` of weather ending
+at t₀, from the air temperature at the start, 60 s step, through the scene's weather wrap), with
+the members in lockstep and each step's exchange flux, from one snapshot, added to every member's
+`q_internal`. Each member's `ThermalField` is then restarted at t₀ from the result
+(`ThermalField.restart`, legal only before the first tick). The scene does this whenever
+`object_exchange: true`; with the switch off nothing changes, bit for bit.
+
+Why not a separate switch: a group spun up apart and joined at t₀ is not a cheaper version of the
+exchange. It is a state that no history could have produced, and the first hour of the scene is
+a transient from it. With the switch on, the spin-up is part of what the switch means.
+
+Not cached: the per-field spin-up cache is keyed on one material and the weather. A group key
+would also need the geometry and the traced factors. The cost is one matrix-vector product per
+60 s step, about 1,440 for a 24 h spin-up, which is small beside the build's trace.
+
+Measured: the group spin-up equals, bit for bit, the same group started `hours` earlier from air
+temperature and advanced to t₀ on the same step (`tests/unit/test_object_exchange.py`). In the
+night scene of `tests/unit/test_scene_object_exchange.py` the road under the pan opens 0.58 K
+warmer than the open road; before this amendment it opened at 0 K. After an hour the difference
+is 0.54 K, against 0.25 K before.
+
+Still open from this ADR: layered surfaces, cabin panels and prescribed maps are refused, not
+joined. TC.11's full-object solve also starts from each part's separate spin-up, and so its
+contacts and internal exchange begin at t₀. That limitation is the "per-part spin-up equalises
+its contacts on the first tick" already recorded for TC.13.
+
+## Amendment, 2026-10-03 (second) — every surface with a patch or a mesh joins
+
+The refusal of layered surfaces, cabin panels and prescribed maps is lifted. A refused scene was
+safe, but it meant a car with a cabin, or a layered road, could not have its exchange at all.
+`ObjectExchange` now steps **solves**, not surfaces. A body is a slice of one solve's state, so:
+
+* A **layered surface** joins by its top layer, its slice of the stack's `CoupledFields`. The
+  flux lands on that slice and the stack conducts it down.
+* A **cabin panel** joins by its slice of the cabin's solve. The cabin's own handle, which
+  carries the air node, is handed out as a proxy too, so it cannot step past the group.
+* A **prescribed map** is a fixed emitter. It radiates onto the others from its map and takes
+  nothing back, because its temperature is a measurement that already holds whatever it
+  received. It is not restarted by the spin-up.
+
+A solve that carries several bodies is wrapped once and stepped once per tick. The group
+spin-up integrates each solve whole, in the same way as that solve's own spin-up (the stack, the
+cabin), with the exchange on its exchanged slices. Its result replaces the solve's own
+spin-up.
+
+Still refused: a part of a TC.11 object. Its parts already exchange inside their own solve, so
+joining one to the scene's group would count those pairs twice. As a result an object's parts
+do not yet exchange with the scene's other surfaces; that is a known limitation.
+
+Measured (`tests/unit/test_object_exchange.py`):
+
+* The road under a 310 K map evolves exactly as it does under a solved 310 K pan too heavy to
+  move: the two agree to 1e-9 K.
+* A layered road under a heated pan opens with the patch in its top layer, more than 1 K, and
+  also in the layer below, more than 0.1 K.
+* A cabin floor over a 330 K plate carries more than 1 K into the cabin air, against the same
+  cabin with no exchange.
+* The parked-car cabin scene joins all five of its panels and steps the cabin with the group
+  (`tests/unit/test_scene_object_exchange.py`).
+
+## Amendment, 2026-10-03 (third) — a fully solved object is spun up whole (TC.11)
+
+A `solve: full` object (TC.11) used to start from its parts' separate spin-ups, each part alone
+against an adiabatic back and its hidden components at the parts' mean temperature. Its contacts,
+lumped links and internal exchange therefore began at t₀, and its first tick was a transient:
+on `phantom4_solved.yaml` some cells jumped 7.8 K, and the 99th percentile was 4.6 K.
+
+`CoupledFields.spin_up` now runs §6.4's spin-up on the whole solve, through its own operator,
+and restarts it at t₀. Contacts, lumped links and lateral conduction are all in that operator.
+The internal exchange during the spin-up is computed from the state being spun up, through
+`_forcing_given`. Reading the field's own state instead would hold the exchange at its t₀ value
+for the whole spin-up, which is the bug this guards. The scene calls it for every object.
+
+**What a component does before t₀.** The duty schedules were authored for the run from t₀, and
+`np.interp` holds the first value before the first point. Applied to the spin-up, that would
+have kept the Phantom 4's flight controller at rated power for the six hours before take-off.
+`scene.duty_schedule` therefore keeps the run as it was, but in the spin-up a scheduled
+component is off until its schedule's first point. A schedule authored with a negative `at_s`
+is followed into the spin-up from that point. A component with no schedule is rated at all
+times, so it is on in the spin-up too.
+
+Measured:
+
+* An object's spin-up equals, bit for bit, the same object started that many hours earlier and
+  run to t₀ (`tests/unit/test_object_exchange.py`).
+* On the Phantom 4, the first-tick jump falls from 7.8 K to 1.6 K at the largest cell, and from
+  4.6 K to 0.14 K at the 99th percentile.
+* The bells open at 30.1 °C, against 28.8 °C before.
+* The bells' first-minute rise falls from 1.48 K to 0.52 K, a station mean. Most of the old
+  figure was the contacts equalising, not the throttle.
+* The rise by the end of the climb (5 min) goes from 13.65 K to 12.47 K. From landing on the
+  flight is unchanged to 0.01 K.

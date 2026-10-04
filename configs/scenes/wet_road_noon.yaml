@@ -65,3 +65,10 @@ scene:
         film:
           depth_mm: 0.5
           region_m: [0.0, 6.0, 0.0, 12.0]
+      # The wall's own north face (IG.20), solved so it can stand in the rendered frame: the visible
+      # companion has to show what casts the shadow across the south rows. It faces the road.
+      - name: south_wall
+        material: concrete
+        tilt_deg: 90.0
+        azimuth_deg: 0.0
+        patch: {origin_m: [-2.0, -0.5, 0.0], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, 1.0], n_u: 32, n_v: 8, du_m: 0.5, dv_m: 0.5, thickness_m: 0.15, frame: world, prim_path: /World/Wall}

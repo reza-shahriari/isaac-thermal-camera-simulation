@@ -16,6 +16,29 @@
    - In **Edit Mode**, **Assign to selected faces**: for a part made of two things, such as a wheel
      with a rubber tyre and a metal rim.
 
+## Find a material quickly
+
+The library has close to a hundred materials, so the panel helps you find one:
+
+![The Phantom 4 with a motor housing selected; the library searched for "alu", sorted by LWIR emissivity, the starred favourite first and the two mirror-like aluminiums in red](images/material_picker.webp)
+
+- **Assign by name...** opens a search box: type a few letters (`polished al`, `paint black`,
+  `carbon`) and press Enter, and the selected parts (or, in Edit Mode, the selected faces) get that
+  material at once. It is also on the **right-click menu** in the viewport, in Object Mode and in
+  Edit Mode. Each line shows the material's emissivity, so you can tell `bare_aluminium` (ε 0.09)
+  from a painted one before you pick.
+- **Recently used**: the last four materials you assigned, as buttons. One click assigns again,
+  which is most of the work on a model with many parts of the same plastic.
+- **The search field** above the list narrows the list to the materials whose name, description or
+  surface start with the words you type, in any order.
+- **The star** at the start of each row makes a material a favourite. Favourites come first in the
+  list and in the search box, and they are kept in Blender's preferences, so they are still there
+  in the next file you open.
+- **Filter and sort** (click to open): choose the band whose emissivity the list shows (NIR,
+  SWIR, MWIR or LWIR), keep only materials in an emissivity range, sort by name or by emissivity,
+  and show only favourites or only materials with a **measured curve**. Asking "what in the library
+  is mirror-like in LWIR?" is the band LWIR and ε from 0 to 0.2.
+
 **If two parts shared a Blender material** and you give one of them a different infrared material,
 that part gets a copy of the material: same look, own infrared material, named
 `white_plastic__carbon_fibre`. The other part is not changed. Parts you did not select are never

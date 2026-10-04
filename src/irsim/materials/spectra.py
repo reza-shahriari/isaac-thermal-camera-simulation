@@ -31,6 +31,7 @@ SOLAR_RANGE_UM = (0.3, 4.0)
 
 __all__ = [
     "PropertySpectrum",
+    "SpectralCurve",
     "load_property_spectrum",
     "band_effective",
     "weighting_for_fpa",
@@ -88,6 +89,76 @@ class PropertySpectrum:
                 f"the band edge be extrapolated"
             )
         return band_average(response, self.as_callable, t_ref_k, form)
+
+
+@dataclass(frozen=True)
+class SpectralCurve:
+    """A material's authored quantity as one or more tabulated segments (§12.3, ADR 0175).
+
+    Measured libraries rarely span 0.3-15 µm in one file: SLUM, for one, measures reflectance
+    from 0.35 to 2.5 µm and emission from 8 to 14 µm. A curve is therefore a list of disjoint
+    segments in increasing wavelength; ``complement[i]`` marks a segment whose file tabulates the
+    opaque complement (1 − the authored quantity). Between and beyond the segments the curve has
+    **no value** -- :meth:`values` returns NaN there and the library fills the gap from the
+    material's per-band or grey value, or refuses. Nothing is extrapolated.
+    """
+
+    segments: tuple[PropertySpectrum, ...]
+    complement: tuple[bool, ...]
+
+    def __post_init__(self) -> None:
+        if not self.segments or len(self.segments) != len(self.complement):
+            raise ValueError("a curve needs at least one segment and one flag per segment")
+        ordered = sorted(self.segments, key=lambda c: c.support_um[0])
+        if list(ordered) != list(self.segments):
+            raise ValueError("curve segments must be listed in increasing wavelength")
+        for a, b in zip(self.segments, self.segments[1:], strict=False):
+            if a.support_um[1] > b.support_um[0]:
+                raise ValueError(
+                    f"curve segments overlap: {a.path.name} ends at {a.support_um[1]} um, "
+                    f"{b.path.name} starts at {b.support_um[0]} um (one wavelength, one value)"
+                )
+
+    @property
+    def support_um(self) -> tuple[float, float]:
+        return self.segments[0].support_um[0], self.segments[-1].support_um[1]
+
+    def _spans(self) -> list[tuple[float, float]]:
+        """Gap-free wavelength spans: segments that touch end to end are one span."""
+        spans: list[tuple[float, float]] = []
+        for seg in self.segments:
+            lo, hi = seg.support_um
+            if spans and spans[-1][1] >= lo:
+                spans[-1] = (spans[-1][0], max(spans[-1][1], hi))
+            else:
+                spans.append((lo, hi))
+        return spans
+
+    def spans_text(self) -> str:
+        return ", ".join(f"{lo:g}-{hi:g}" for lo, hi in self._spans())
+
+    def covers_interval(self, lo_um: float, hi_um: float) -> bool:
+        """Does the curve have a value at every wavelength in [lo, hi]?"""
+        return any(s_lo <= lo_um and s_hi >= hi_um for s_lo, s_hi in self._spans())
+
+    def covered(self, grid_um: NDArray[np.float64]) -> NDArray[np.bool_]:
+        grid = np.asarray(grid_um, dtype=np.float64)
+        mask = np.zeros(grid.shape, dtype=bool)
+        for seg in self.segments:
+            lo, hi = seg.support_um
+            mask |= (grid >= lo) & (grid <= hi)
+        return mask
+
+    def values(self, grid_um: NDArray[np.float64]) -> NDArray[np.float64]:
+        """The authored quantity on ``grid_um``; NaN wherever no segment has data."""
+        grid = np.asarray(grid_um, dtype=np.float64)
+        out = np.full(grid.shape, np.nan, dtype=np.float64)
+        for seg, flip in zip(self.segments, self.complement, strict=True):
+            lo, hi = seg.support_um
+            inside = (grid >= lo) & (grid <= hi) & np.isnan(out)
+            v = np.interp(grid[inside], seg.wavelength_um, seg.values)
+            out[inside] = 1.0 - v if flip else v
+        return out
 
 
 def load_property_spectrum(path: str | os.PathLike[str]) -> PropertySpectrum:

@@ -105,6 +105,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "measurement is the clip -- 600 frames, the AGC's frame-to-frame drift and a sub-pixel "
         "companion -- and one frame per band would say nothing the outbound sweep does not."
     ),
+    "aerial_clear_exit.yaml": (
+        "EV.16's clear-sky exit clip: the outbound quad's aircraft in a cloudless sky, filmed as "
+        "continuous 60 Hz video by `render_quad_outbound.py --clear-exit` as it recedes and then "
+        "leaves the frame. Its measurement is the frame edge over time -- where the aircraft is "
+        "drawn against where the track puts it -- which one frame per band cannot show."
+    ),
     "sky_only.yaml": (
         "SC.20's Tier 4 reference: nothing but sky, so the camera's own radial shading is all "
         "a frame holds. It is measured, not filmed: `scripts/validate_sky_flat.py` renders it "
@@ -143,11 +149,10 @@ UNSWEPT_SCENES: dict[str, str] = {
         "authoring the asset onto an Isaac stage is the in-engine half and is still open."
     ),
     "car_exhaust_plume.yaml": (
-        "PH.6's reference scene: a tailpipe at cruise load and the gas cone it blows, one "
-        "exhaust target and no camera or prims yet. Its numbers are tests/unit/test_plume.py's "
-        "-- tau 0.866 in MWIR against 0.979 in LWIR from one authored plume -- measured on a "
-        "synthetic G-buffer; the rendered frames are IG.2's, and when a driver places the car "
-        "and its camera it joins the sweep."
+        "PH.6's reference scene: a tailpipe at cruise load and the gas cone it blows. Filmed "
+        "by scripts/render_patch_scene.py --scene car_exhaust_plume --sensor ... (IG.21), which "
+        "moves the camera out for a narrow lens and keeps one span for every band -- the "
+        "comparison the scene exists for, which the sweep's per-band framing would not make."
     ),
     "vessel_pointwise_clear_day.yaml": (
         "PT.10's reference scene: a weather-deck field and two faces of one deckhouse prim on a "
@@ -163,15 +168,23 @@ UNSWEPT_SCENES: dict[str, str] = {
         "scripts/validate_thermal_diurnal.py, which produces a diurnal curve, not a frame."
     ),
     "wall_half_in_sun.yaml": (
-        "PT.20's reference scene: seven patches on one building and its ground, no camera and "
-        "no prims yet. scripts/wall_half_in_sun.py writes the engine-free frame from a synthetic "
-        "G-buffer; the rendered one is IG.2's."
+        "PT.20's reference scene: a building, its ground and the neighbour block as patches. "
+        "Filmed by scripts/render_patch_scene.py --scene wall_half_in_sun (IG.20) as a two-hour "
+        "LWIR time-lapse; a band sweep would film one instant of a scene whose point is the "
+        "shadow moving, and the driver takes --sensor for any band."
     ),
     "quad_flight_mesh.yaml": (
         "WM.7's reference scene: the same mission with the two arms as meshed tubes, no camera "
         "and no prims yet. scripts/quad_flight_mesh.py writes the unrolled frames and a video "
         "from a synthetic G-buffer through the mesh bridge; the rendered ones are IG.2's, and "
         "binding a mesh field to a real asset's triangles is the follow-on to WM.7."
+    ),
+    "calibration_checkerboard.yaml": (
+        "IG.23's lens round trip: a heated checkerboard with no physics of its own to show in a "
+        "second band. Filmed by scripts/render_patch_scene.py --scene calibration_checkerboard "
+        "through the calibrated wide Boson its preset names, and measured by "
+        "scripts/measure_calibration_render.py -- a sweep would film it through four uncalibrated "
+        "cameras, which is not the question."
     ),
     "quad_flight_pointwise.yaml": (
         "PT.9's regenerated aerial scene: the deck, the belly and two arms of a quadrotor as "
@@ -185,9 +198,9 @@ UNSWEPT_SCENES: dict[str, str] = {
         "engine-free plan frame from a synthetic G-buffer; the rendered one is IG.2's."
     ),
     "wet_road_noon.yaml": (
-        "PH.2's reference field: one road patch, half wet, part shaded, no camera and no prims "
-        "yet. Its numbers are tests/unit/test_wet_road.py's; the frame is IG.2's, and when a "
-        "driver authors the road it joins the sweep."
+        "PH.2's reference field: one road patch, half wet, and the wall shading it. Filmed by "
+        "scripts/render_patch_scene.py --scene wet_road_noon (IG.20) as a two-hour LWIR "
+        "time-lapse of the drying; the driver takes --sensor for any band."
     ),
 }
 

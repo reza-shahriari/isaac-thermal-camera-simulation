@@ -160,18 +160,23 @@ def _frame_rays(n_el: int = 24, n_az: int = 96):
 
 
 def test_the_adaptive_march_agrees_with_a_dense_reference_to_the_detector_s_noise() -> None:
-    """One sample per grid pitch is enough: against a 2048-step march of the same field the
-    emissivity differs by about 0.01 at the 99th percentile and the emission level by under a
-    level, which at the preset lapse is under 0.4 K of cloud temperature. The bound is 0.012,
-    not 0.01: weather-fx's smoothed field (the submodule bump of AT.30) put this deck's p99 at
-    0.01003, quadrature noise of the same size as before on a field with finer detail, and
-    0.012 of emissivity is 0.3 K of cloud -- still under the detector's noise."""
+    """Three samples per *finest* pitch (ADR 0178): against a 4096-step march of the same field
+    the emissivity differs by 0.006-0.007 at the 99th percentile and the emission level by under
+    a level, which at the preset lapse is under 0.2 K of cloud temperature. Sized by the grid
+    instead, as before WX.2, the same deck misses by 0.024 since the edge detail of the
+    submodule's 11bf843 -- the field gained structure finer than its grid, and a march that
+    steps over it is wrong at exactly the edges the detail exists to shape."""
     d = deck(cover=0.6)
     el, az = _frame_rays()
     adaptive = d.march(el, az)
-    reference = d.march(el, az, steps=2048)
+    reference = d.march(el, az, steps=4096)
     eps_err = np.abs(adaptive.emissivity() - reference.emissivity())
-    assert np.percentile(eps_err, 99) < 0.012
+    assert np.percentile(eps_err, 99) < 0.008
+    longest = min(d.thickness_m / math.sin(float(el.min())), d.max_path_m)
+    grid_pitch = min(d.field.cell_m, d.thickness_m / d.field.levels)
+    grid_sized = d.march(el, az, steps=math.ceil(2.0 * longest / grid_pitch))
+    grid_err = np.abs(grid_sized.emissivity() - reference.emissivity())
+    assert np.percentile(grid_err, 99) > 2.0 * np.percentile(eps_err, 99)
     cloudy = reference.optical_depth > 0.5
     height_err = np.abs(adaptive.emission_height_m - reference.emission_height_m)[cloudy]
     assert np.percentile(height_err, 90) < d.thickness_m / d.field.levels
@@ -205,14 +210,14 @@ def test_the_march_s_error_is_less_banded_than_the_one_it_replaces() -> None:
 
 
 def test_the_step_count_follows_the_longest_crossing() -> None:
-    """A shallow ray crosses more slab than a steep one and gets more samples for it, two per
-    grid pitch, between the floor and the cap."""
+    """A shallow ray crosses more slab than a steep one and gets more samples for it, three per
+    finest pitch, between the floor and the cap."""
     d = deck(cover=0.6)
     steep = d.steps_for(d.thickness_m / math.sin(math.radians(60.0)))
     shallow = d.steps_for(d.thickness_m / math.sin(math.radians(10.0)))
     assert d.min_steps <= steep <= shallow <= d.max_steps
     crossing = d.thickness_m / math.sin(math.radians(10.0))
-    want = math.ceil(2.0 * crossing / d.sample_pitch_m)
+    want = math.ceil(d.samples_per_pitch * crossing / d.sample_pitch_m)
     assert shallow == min(d.max_steps, max(d.min_steps, want))
 
 
@@ -254,14 +259,35 @@ def test_the_stage_only_context_offers_everything_the_effects_read() -> None:
     assert shim.meters_per_unit() == 1.0 and tuple(shim.anchor()) == (0.0, 0.0, 0.0)
 
 
+def test_the_path_tracer_follows_a_cloud_past_two_scatters() -> None:
+    """WX.2. The settings a headless driver forces for the path-traced cloud tier come from
+    weather-fx's own tables, so a bump that renames one fails here and not in the engine (the
+    bump to 11bf843 renamed ``MIN_PATH_BOUNCES``). The renderer's ``ptvol/maxBounces`` is 2,
+    which ends a path inside a thick cloud after two scatters and turns its body grey (§7.5's
+    fourth criterion): the floor must be weather-fx's 32, and an explicit count must win."""
+    from irsim_isaac.weather_fx_stage import path_traced_volume_settings
+
+    exact, floors = path_traced_volume_settings()
+    assert exact["/rtx/pathtracing/ptvol/enabled"] is True
+    assert floors["/rtx/pathtracing/ptvol/maxBounces"] >= 32
+    assert floors["/rtx/pathtracing/maxVolumeBounces"] >= 32
+    assert floors["/rtx/pathtracing/maxBounces"] >= 16
+    _, more = path_traced_volume_settings(volume_bounces=96)
+    assert more["/rtx/pathtracing/ptvol/maxBounces"] == 96
+
+
 def test_the_deck_starts_its_rays_where_the_dome_is_baked() -> None:
     """AT.30. The dome's origin is `stage_to_field(anchor − drift)`; the deck marches from its
     `origin_m`, which the stage author sets to the same expression. A deck built at the origin
-    and one built 2 km east see different cloud on the same ray, so a mismatch is not cosmetic."""
+    and one built 2 km east see different cloud on the same rays, so a mismatch is not cosmetic.
+    A small fan of rays rather than one: a single ray can miss cloud from both places, and then
+    the test passes or fails on the seed's luck rather than on the origin (WX.2's field did
+    exactly that to the old one-ray version)."""
     d = deck(cover=0.6)
-    el, az = np.radians([[40.0]]), np.radians([[90.0]])
-    here = d.march(el, az).optical_depth.item()
+    el, az = _frame_rays(4, 32)
+    here = d.march(el, az).optical_depth
+    assert np.count_nonzero(here) > here.size // 4, "the fan should meet cloud"
     d.origin_m = (2000.0, 0.0, 0.0)
-    there = d.march(el, az).optical_depth.item()
-    assert d.march(el, az, origin_m=(0.0, 0.0, 0.0)).optical_depth.item() == here
-    assert there != here
+    there = d.march(el, az).optical_depth
+    assert np.array_equal(d.march(el, az, origin_m=(0.0, 0.0, 0.0)).optical_depth, here)
+    assert np.count_nonzero(np.abs(there - here) > 1e-6) > here.size // 2

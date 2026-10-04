@@ -64,6 +64,7 @@ A contact's area is measured by scattering points over each part and counting th
 against the other part, straight across and roughly parallel. A facing pair's area is the part of
 one surface whose outward direction reaches the other part first. That tells you **which** parts
 exchange heat by radiation; how much is a *view factor*, which the physics project will compute
-itself (roadmap row TC.9). In the same way, irsim does not use any of these connections yet: the
-asset format that will carry them is roadmap row AI.11. Until then they are saved in the `.blend`
-and exported beside the model ([step 9](09-export.md)).
+itself (roadmap row TC.9). The **contacts** are what irsim's thermal solve uses: the export writes
+them into the asset config, each with its joint and area ([step 9](09-export.md)). The facing pairs
+stay in the add-on's own record beside the model, because irsim traces radiation between parts
+itself.

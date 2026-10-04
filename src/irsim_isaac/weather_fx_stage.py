@@ -35,6 +35,7 @@ __all__ = [
     "author_weather_fx_sky",
     "VOLUME_EXTENSIONS",
     "cloud_render_path",
+    "path_traced_volume_settings",
     "prepare_path_traced_volumes",
     "tier_occludes",
     "weather_state",
@@ -55,21 +56,52 @@ CLOUD_TIERS = ("path_traced", "real_time")
 VOLUME_EXTENSIONS = ("omni.volume", "omni.hydra.index", "omni.index")
 
 
-def prepare_path_traced_volumes() -> dict[str, str]:
+def path_traced_volume_settings(
+    volume_bounces: int | None = None,
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """The render settings a path-traced VDB cloud needs, as ``(exact, floors)``.
+
+    Read from weather-fx's own tables in ``backends/viewport/clouds_volume`` rather than copied:
+    ``VOLUME_SETTINGS`` is set as given, ``VOLUME_FLOORS`` is a set of lower bounds, and every
+    path in ``VOLUME_BOUNCE_SETTINGS`` gets ``volume_bounces`` -- weather-fx's
+    ``clouds.volume_bounces`` (32) unless given. The renderer's own ``ptvol/maxBounces`` is 2,
+    and a thick cloud whose paths end after two scatters renders grey: §7.5's fourth criterion
+    for the visible companion's cloud (docs/physics-model.md).
+
+    Pure, and importable without Kit, so that a submodule bump renaming a table fails the unit
+    gate instead of the engine at render time. The bump to ``11bf843`` (WX.2) did rename one:
+    ``MIN_PATH_BOUNCES`` became ``VOLUME_FLOORS``.
+    """
+    ensure_weather_fx_on_path()
+    from weather_fx.backends.viewport.clouds_volume import (
+        VOLUME_BOUNCE_SETTINGS,
+        VOLUME_FLOORS,
+        VOLUME_SETTINGS,
+    )
+    from weather_fx.core.state import WeatherState
+
+    if volume_bounces is None:
+        volume_bounces = int(WeatherState().clouds.volume_bounces)
+    floors = dict(VOLUME_FLOORS)
+    for path in VOLUME_BOUNCE_SETTINGS:
+        floors[path] = max(int(floors.get(path, 0)), int(volume_bounces))
+    return dict(VOLUME_SETTINGS), floors
+
+
+def prepare_path_traced_volumes(volume_bounces: int | None = None) -> dict[str, str]:
     """Enable what a path-traced VDB cloud needs, and set its render settings unconditionally.
 
-    weather-fx's ``CloudVolumeEffect`` sets its ``VOLUME_SETTINGS`` only where a setting already
-    exists -- right inside the Kit app it was written for, where the renderer's defaults are
+    weather-fx's ``VolumeSettingsLease`` sets its settings only where a setting already exists
+    -- right inside the Kit app it was written for, where the renderer's defaults are
     registered, and a silent no-op in a headless app where ``/rtx/pathtracing/ptvol/*`` has not
-    been read yet. ADR 0144's probe set them outright; so does this. Returns what each extension
-    did, for the driver's log.
+    been read yet. ADR 0144's probe set them outright; so does this, from
+    :func:`path_traced_volume_settings`: the exact values as given, the floors raised to and
+    never lowered. Returns what each extension did, for the driver's log.
     """
     import carb.settings
     import omni.kit.app
 
-    ensure_weather_fx_on_path()
-    from weather_fx.backends.viewport.clouds_volume import MIN_PATH_BOUNCES, VOLUME_SETTINGS
-
+    exact, floors = path_traced_volume_settings(volume_bounces)
     manager = omni.kit.app.get_app().get_extension_manager()
     report: dict[str, str] = {}
     for name in VOLUME_EXTENSIONS:
@@ -82,11 +114,11 @@ def prepare_path_traced_volumes() -> dict[str, str]:
         except Exception as exc:  # noqa: BLE001 - a build without it should say so, not stop
             report[name] = f"enable failed: {type(exc).__name__}: {exc}"
     settings = carb.settings.get_settings()
-    for path, value in VOLUME_SETTINGS.items():
+    for path, value in exact.items():
         settings.set(path, value)
-    path, floor = MIN_PATH_BOUNCES
-    if int(settings.get(path) or 0) < int(floor):
-        settings.set(path, int(floor))
+    for path, floor in floors.items():
+        if int(settings.get(path) or 0) < int(floor):
+            settings.set(path, int(floor))
     return report
 
 
@@ -133,6 +165,9 @@ class StageOnlyContext:
     cloud_drift_m: Any = None
     #: Published by the sky effect after a bake (the fog effect reads it); None until then.
     sky_horizon_rgb: Any = None
+    #: Published by the sky effect after a bake too: the dome's exposure and white-balance gains,
+    #: which the per-pixel cloud layer (`clouds.render_path = "pixel"`, ADR 0186) reads.
+    sky_dome: Any = None
     #: The manager's clock, seconds, which the precipitation effect winds its gusts from. A
     #: headless driver authors one sky per run and has no such clock; zero.
     time: float = 0.0
@@ -333,7 +368,7 @@ def author_weather_fx_sky(
     if tier == "path_traced" and conditions.cloud is not None:
         from weather_fx.backends.viewport.clouds_volume import CloudVolumeEffect
 
-        prepare_path_traced_volumes()
+        prepare_path_traced_volumes(int(state.clouds.volume_bounces))
 
         # The same context as the sky, so the volumes follow the same anchor and drift the dome
         # is baked around and the infrared deck marches from (AT.30).

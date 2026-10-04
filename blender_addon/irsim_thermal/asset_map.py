@@ -6,13 +6,20 @@ for instance, records in its comments why each line is what it is. That map is a
 whichever Blender materials carry its source names, matched case-insensitively as the asset
 audit matches them -- by its raw name or by the USD-safe form of it, since the map is keyed by what
 the audit sees in the USD. By default a material that already has a thermal material keeps it.
+
+An asset config with a ``parts:`` block (AI.11) also brings back what the solver reads from it:
+each hidden part becomes a hidden-part box where the config places it, with its component and its
+own numbers, inside the part that encloses it; each contact between two parts the scene has
+becomes a confirmed connection with its joint and area. Nothing already in the scene is replaced.
 """
+
+from types import SimpleNamespace
 
 import bpy
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator, PropertyGroup
 
-from . import prefs, scene_stats, thermal_view
+from . import hidden_parts, library_state, prefs, scene_stats, thermal_view
 from .bridge_client import BridgeError, run_bridge
 from .naming import safe_identifier
 
@@ -55,6 +62,75 @@ def refresh_asset_list(context: bpy.types.Context) -> int:
     return len(items)
 
 
+#: irsim's component kinds (irsim.config.components.Kind) as the add-on's hidden-part kinds.
+KINDS = {
+    "motor": "MOTOR",
+    "esc": "ESC",
+    "battery": "BATTERY",
+    "controller": "ELECTRONICS",
+    "piston_engine": "PISTON_ENGINE",
+    "turbine": "TURBINE",
+    "exhaust": "EXHAUST",
+    "gearbox": "GEARBOX",
+}
+
+
+def _host_of(centre, parts):
+    """The smallest part whose box holds ``centre``: the part a hidden part sits in."""
+    best, best_volume = None, None
+    for ob in parts:
+        lo, hi = scene_stats.world_bounds([ob])
+        if all(lo[i] <= centre[i] <= hi[i] for i in range(3)):
+            volume = float((hi - lo).prod())
+            if best_volume is None or volume < best_volume:
+                best, best_volume = ob, volume
+    return best
+
+
+def restore_structure(context, asset: str, result: dict) -> tuple[int, int]:
+    """Bring back an asset config's hidden parts and contacts; ``(hidden, contacts)`` made."""
+    objects = context.scene.objects
+    parts = [ob for ob in scene_stats.part_objects(context) if ob.visible_get()]
+    made_hidden = 0
+    for h in result.get("hidden_parts", []):
+        if h["name"] in objects:
+            continue
+        comp = library_state.find_component(context, h.get("component") or "")
+        values = SimpleNamespace(
+            kind=KINDS.get(comp.kind, "OTHER") if comp is not None else "OTHER",
+            material=h.get("material") or "",
+            irsim_component=h.get("component") or "",
+            mass_kg=float(h.get("mass_kg") or 0.0),
+            specific_heat_j_kgk=float(h.get("specific_heat_j_kgk") or 0.0),
+            heat_idle_w=0.0,
+            heat_rated_w=float(h.get("dissipation_w") or 0.0),
+            values_source="MEASURED" if h.get("status") == "MEASURED" else "ESTIMATED",
+            reference=f"configs/assets/{asset}.yaml",
+        )
+        ob = bpy.data.objects.new(h["name"], hidden_parts.make_box(h["name"], h["size_m"]))
+        context.collection.objects.link(ob)
+        ob.location = h["centre_m"]
+        context.view_layer.update()
+        hidden_parts.make_hidden(context, ob, _host_of(h["centre_m"], parts), values)
+        made_hidden += 1
+    connections = context.scene.irsim_connections
+    made_contacts = 0
+    for c in result.get("contacts", []):
+        a, b = objects.get(c["a"]), objects.get(c["b"])
+        if a is None or b is None:
+            continue
+        if any(x.kind == "CONTACT" and {x.a, x.b} == {a, b} for x in connections):
+            continue
+        connections.add()
+        new = connections[len(connections) - 1]  # fetched again: a held item may move (B7)
+        new.a, new.b, new.kind, new.status = a, b, "CONTACT", "CONFIRMED"
+        new.joint, new.area_m2 = c["joint"], float(c["area_m2"])
+        new.point_a = tuple(a.matrix_world.translation)
+        new.point_b = tuple(b.matrix_world.translation)
+        made_contacts += 1
+    return made_hidden, made_contacts
+
+
 class LoadAssetMap(Operator):
     """Assign materials from an existing asset config, matching Blender material names"""
 
@@ -67,6 +143,14 @@ class LoadAssetMap(Operator):
         name="Replace existing assignments",
         description="Also change materials that already have a thermal material",
         default=False,
+    )
+    structure: BoolProperty(
+        name="Hidden parts and contacts too",
+        description=(
+            "Also bring back the asset's hidden parts (as boxes) and its contacts between parts "
+            "this scene has, from its parts block"
+        ),
+        default=True,
     )
 
     @classmethod
@@ -87,6 +171,7 @@ class LoadAssetMap(Operator):
         layout = self.layout
         layout.prop_search(self, "asset", context.window_manager, "irsim_assets")
         layout.prop(self, "overwrite")
+        layout.prop(self, "structure")
 
     def execute(self, context):
         repo, python = prefs.settings(context)
@@ -113,6 +198,10 @@ class LoadAssetMap(Operator):
                 "model is still in its source units, apply that scale (Check and export > size)",
             )
         msg = f"{self.asset}: {len(assigned)} material(s) assigned"
+        if self.structure and (result.get("hidden_parts") or result.get("contacts")):
+            made_hidden, made_contacts = restore_structure(context, self.asset, result)
+            msg += f"; {made_hidden} hidden part(s) and {made_contacts} contact(s) brought back"
+            scene_stats.refresh(context)
         if unmatched:
             msg += f"; {len(unmatched)} not in its map: {', '.join(unmatched[:6])}"
             msg += "..." if len(unmatched) > 6 else ""

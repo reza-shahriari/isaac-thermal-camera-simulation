@@ -110,9 +110,11 @@ def test_the_file_still_holds_seventy_five_issues() -> None:
     a cold sky, `S54` for the one thermal-core ISP every band inherited, and `S55` for
     reflective-band target lighting, and `S56`/`S57` on 2026-09-28 for the convection floor that
     counts radiation twice and the humidity law that is linear where the continuum is not, and
-    `S58` for the 0.01 µm quadrature grid that is not ample below 2 µm.
+    `S58` for the 0.01 µm quadrature grid that is not ample below 2 µm, and `S59`-`S65` on
+    2026-10-01 for the weather gaps (fog band ratios, visibility at 5 %, rain folded into fog,
+    precipitation along the ray, wet-surface optics, the cloud field, shadows and rain's heat).
     """
-    assert len(_rows()) == 78
+    assert len(_rows()) == 85
 
 
 def test_every_row_has_a_non_empty_status() -> None:

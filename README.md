@@ -71,11 +71,11 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
-- **Clouds in both cameras, fast or path-traced** — the visible and infrared frames always agree about the cloud, and in the path-traced mode a drone flying into it disappears in both.
-- **Drone footage the way datasets film it** — ten seconds of continuous 60 Hz video of a quadcopter flying out to 250 m against cumulus, with a second drone too far away to fill a pixel.
-- **A solved drone** — the demo Phantom 4's motors now heat up over a climb, run hotter on the loaded side of a turn and stay warm after landing, because every part is solved as one thermal network.
-- **Bring your own calibration** — paste your camera's OpenCV intrinsics, distortion and bench maps into its YAML and the simulator renders that unit.
-- **Clouds hide what is behind them** — a drone flying behind or through a weather-fx cloud is now attenuated by it in the infrared, and the cloud's own glow is laid in front; [how a visible cloud becomes an infrared one](docs/clouds-in-the-infrared.md).
+- **Spectral materials from Blender** — the Blender add-on can now create a material from a measured spectrum or a single value, and plots any material across the infrared bands.
+- **Cameras defined by their wavelengths** — a 6–13 µm camera and a 7.5–13.5 µm one now read different values from a material with a measured spectrum, and a material can be one value, one per band, or a full spectral curve.
+- **Three more drones** — a DJI Mini 3 Pro, Inspire 3 and Matrice 300 RTK join the asset library, each split into its real propellers, motors, arms, batteries and camera, with every part given an infrared material.
+- **Exhaust you can see in one band and barely in another** — a car's exhaust plume, rendered: a bright cone to a mid-wave camera, a faint wisp to a long-wave one.
+- **A wall in the evening sun and a road drying after rain** — two scenes whose every square of surface is solved separately, now rendered as time-lapses beside their visible-light twins.
 
 Full history in the [changelog](CHANGELOG.md).
 

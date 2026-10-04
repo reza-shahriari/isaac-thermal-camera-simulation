@@ -143,8 +143,11 @@ def test_authoring_both_raises_and_reflectance_plus_tau_derives_emissivity(
         MaterialConfig.model_validate(raw)
     raw = copy.deepcopy(EXAMPLE_12_3)
     raw["material"]["optical"]["emissivity_per_band"] = {"lwir": 0.9}
-    with pytest.raises(ValueError, match="exactly one"):
-        MaterialConfig.model_validate(raw)
+    # ADR 0175: a curve and a per-band table may coexist, but not over the same band -- this
+    # curve covers all of LWIR, so the 0.9 would be a second authoring it silently overrules.
+    MaterialConfig.model_validate(raw)
+    with pytest.raises(ValueError, match="authored twice"):
+        load_material(_write(tmp_path, raw), data_dir=_data_root(tmp_path))
     raw = copy.deepcopy(EXAMPLE_12_3)
     del raw["material"]["optical"]["spectral_emissivity"]
     with pytest.raises(ValueError, match="exactly one"):

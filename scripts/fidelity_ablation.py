@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     band = base.sensor.band.band_id
     lut = BandLUT.build(load_spectral_response(base.sensor.band.spectral_response), n=2001)
     scene = Scene.from_file(args.scene, {band: lut}, quantity=base.sensor.quantity)
-    materials = MaterialTable.from_library(MaterialLibrary.load(), band)
+    materials = MaterialTable.for_sensor(MaterialLibrary.load(), base)
     scenarios = ScenarioSampler(seed=args.seed).draw(args.clips)
 
     def render(sensor: Any) -> np.ndarray:

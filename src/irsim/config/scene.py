@@ -1217,8 +1217,8 @@ class ThermalSceneSpec(_Frozen):
         return self
 
     @model_validator(mode="after")
-    def _exchange_members_are_plain_solved_surfaces(self) -> ThermalSceneSpec:
-        """The exchange joins plain patches and meshes; anything else is refused by name."""
+    def _exchange_has_two_bodies(self) -> ThermalSceneSpec:
+        """The exchange needs two bodies; every surface with a patch or a mesh is one."""
         if not self.object_exchange:
             return self
         bodies = [s for s in self.surfaces if s.patch is not None or s.mesh is not None]
@@ -1229,21 +1229,8 @@ class ThermalSceneSpec(_Frozen):
                 "object_exchange needs at least two surfaces with a `patch:` or a `mesh:` to "
                 f"exchange between; found {[s.name for s in bodies]}"
             )
-        panels = {p.surface for p in self.cabin.panels} if self.cabin is not None else set()
-        for s in bodies:
-            why = None
-            if s.temperature_map is not None:
-                why = "a prescribed `temperature_map:` is not solved"
-            elif s.layers > 1:
-                why = "a layered surface is solved as one coupled stack (PT.12)"
-            elif s.name in panels:
-                why = "a cabin panel is solved with its cabin (PT.15)"
-            if why is not None:
-                raise ValueError(
-                    f"object_exchange: surface {s.name!r} cannot join the exchange -- {why}. "
-                    "Leaving it out silently would be a body that radiates nothing, so the "
-                    "scene is refused instead"
-                )
+        # Every patch and mesh joins: a layered surface by its top layer, a cabin panel by its
+        # slice of the cabin's solve, a prescribed map as a fixed emitter (ADR 0157 amendments).
         return self
 
     @model_validator(mode="after")

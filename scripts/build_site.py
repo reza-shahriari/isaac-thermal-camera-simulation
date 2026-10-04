@@ -110,6 +110,14 @@ DOCUMENTS: list[tuple[str, str, str, str, str]] = [
         "you can check it yourself.",
     ),
     (
+        "docs/weather/README.md",
+        "weather/",
+        "Weather and clouds",
+        "Physics",
+        "What the weather system must do, the four cloud renderers that exist, every fault in "
+        "the current cloud picture with its cause, and what a fix must keep for the infrared.",
+    ),
+    (
         "CLAUDE.md",
         "guide/",
         "Working agreement",

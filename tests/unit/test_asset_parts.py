@@ -368,7 +368,7 @@ def test_the_phantom4_propeller_cut_clears_the_motor_under_it_at_every_station()
 def test_the_phantom4_shells_are_last_so_they_cannot_swallow_a_part():
     """Catch-alls must be terminal: an empty selector earlier would claim the whole aircraft."""
     parts = phantom4_parts()
-    empty = {"materials": []}
+    empty = PartSelector().model_dump(exclude_none=True)
     catchalls = [
         i for i, p in enumerate(parts.parts) if p.select.model_dump(exclude_none=True) == empty
     ]

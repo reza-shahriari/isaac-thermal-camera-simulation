@@ -4,7 +4,7 @@ material:
   name: asphalt_dry
   source: literature
   surface_treatment: weathered
-  reference: "docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
+  reference: "LWIR shape from ECOSTRESS (weathered grey-black road asphalt); docs/physics-model.md section 16.2; NIR/SWIR ESTIMATED"
   thermal:
     density_kg_m3: 2200
     specific_heat_j_kgk: 920
@@ -12,7 +12,10 @@ material:
     thickness_m: 0.05
     solar_absorptivity: 0.90
   optical:
-    emissivity_per_band: {nir: 0.92, swir: 0.90, mwir: 0.92, lwir: 0.94}
+    # LWIR is a curve (XD.14, ADR 0179): an ECOSTRESS sample's SHAPE at the authored
+    # 0.94 LEVEL; the curve file names the sample and carries JPL's credit line.
+    spectral_emissivity: spectra/materials/ecostress/asphalt_dry_lw.csv
+    emissivity_per_band: {nir: 0.92, swir: 0.90, mwir: 0.92}
     roughness_per_band: {nir: 0.80, swir: 0.80, mwir: 0.75, lwir: 0.70}
     # §4.2: "nearly flat (a → 0) for rough dielectrics like asphalt and vegetation". Level B with
     # a small a rather than `constant`, because the constant is only licensed above ε = 0.93 and

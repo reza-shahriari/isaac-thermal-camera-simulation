@@ -14,6 +14,9 @@ material:
     solar_absorptivity: 0.75
   optical:
     # NIR/SWIR ESTIMATED: dry mineral soil reflects 0.25-0.35 across the near infrared.
-    emissivity_per_band: {nir: 0.70, swir: 0.74, mwir: 0.90, lwir: 0.92}
+    # LWIR is a curve (XD.14, ADR 0175): the SHAPE of fused silica for a quartz-rich soil's reststrahlen dip, at the authored LWIR LEVEL
+    # held in scripts/derive_proxy_shape_curves.py, which writes the file (MODELLED).
+    spectral_emissivity: spectra/materials/soil_dry_lw.csv
+    emissivity_per_band: {nir: 0.70, swir: 0.74, mwir: 0.90}
     roughness_per_band: {nir: 0.90, swir: 0.90, mwir: 0.85, lwir: 0.80}
     angular_model: {type: empirical, a: 0.04, p: 4.0}

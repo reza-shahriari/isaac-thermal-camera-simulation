@@ -71,6 +71,8 @@ __all__ = [
     "vertical_profile",
     "deck_field",
     "generate_cloud_deck",
+    "march_on_native_grid",
+    "REFINE_EVERY_SAMPLE_BELOW_DEG",
     "resample_bilinear",
 ]
 
@@ -444,6 +446,120 @@ def resample_bilinear(values: Any, shape: tuple[int, int]) -> NDArray[np.float64
         hi = np.take(out, i1, axis=axis)
         out = lo * (1.0 - frac) + hi * frac
     return np.asarray(out, dtype=np.float64)
+
+
+#: Below this elevation an edge pixel is marched at every one of its samples, above it at one
+#: ray per 2 x 2 block of them (:func:`march_on_native_grid`). Near the horizon a pixel's footprint
+#: is stretched across the cloud layer by 1/sin(elevation) and holds far more structure than its
+#: angular size suggests: at 5 degrees, 2 x 2 left 14 % of the static energy and every sample 0.1 %.
+REFINE_EVERY_SAMPLE_BELOW_DEG = 15.0
+
+
+def march_on_native_grid(
+    evaluate: Any,
+    elevation_rad: Any,
+    azimuth_rad: Any,
+    stride: int,
+    *,
+    threshold: float,
+    extras: tuple[Any, ...] = (),
+) -> tuple[NDArray[np.float64], ...]:
+    """A cloud march over a supersampled frame, whose detector pixels each integrate radiance.
+
+    docs/physics-model.md §7.5 ("the pixel integrates radiance"). A detector pixel averages the
+    radiance over its footprint. Marching one ray per native pixel and interpolating samples the
+    cloud instead, and where an edge crosses the pixel that is static: a random pick of
+    cloud-or-sky per pixel. It is not fixed by blurring the density to the footprint (measured:
+    that made it worse, 26.6 % rms → 46.5 %, because opacity is not linear in density). It is
+    fixed by marching more rays where the pixel holds an edge, and nowhere else:
+
+    1. ``evaluate`` runs once per native pixel, on every ``stride``-th sample, and the planes it
+       returns are interpolated back to the full grid (:func:`resample_bilinear`), as before.
+    2. A native pixel is an **edge** where the first plane differs from a 4-neighbour by more
+       than ``threshold``, dilated by one pixel, since the edge lies between the two samples.
+    3. Each edge pixel is marched again: at every one of its samples below
+       :data:`REFINE_EVERY_SAMPLE_BELOW_DEG`, and at one ray per 2 x 2 block above it. Those
+       values replace the interpolation in that pixel's samples, so the detector's box average
+       is a mean of real rays.
+
+    ``evaluate(el, az, *extras)`` returns a tuple of planes shaped like its inputs; ``extras``
+    are per-sample inputs such as the range to the hit. Arrays that are not 2-D, or a frame
+    smaller than two pixels, are marched at every sample. Measured on the shipped weather-fx
+    field at a Boson's 0.857 mrad IFOV, supersampled 4×, with a 0.02 emissivity threshold, the
+    static energy (native-pixel error against a march of every sample) fell to 0.1 % of the
+    interpolation's at 5° (1.09× its rays) and 0.5 % at 30° (1.87×).
+    """
+    el = np.asarray(elevation_rad, dtype=np.float64)
+    az = np.asarray(azimuth_rad, dtype=np.float64)
+    ex = tuple(np.asarray(e) for e in extras)
+    k = int(stride)
+    if k <= 1 or el.ndim != 2 or min(el.shape) < 2 * k:
+        return tuple(np.asarray(p, dtype=np.float64) for p in evaluate(el, az, *ex))
+    rows, cols = el.shape
+    coarse = tuple(
+        np.asarray(p, dtype=np.float64)
+        for p in evaluate(el[::k, ::k], az[::k, ::k], *(e[::k, ::k] for e in ex))
+    )
+    planes = [resample_bilinear(p, (rows, cols)) for p in coarse]
+
+    signal = coarse[0]
+    differs = np.zeros(signal.shape, dtype=bool)
+    with np.errstate(invalid="ignore"):
+        vertical = np.abs(np.diff(signal, axis=0)) > threshold
+        horizontal = np.abs(np.diff(signal, axis=1)) > threshold
+    differs[:-1] |= vertical
+    differs[1:] |= vertical
+    differs[:, :-1] |= horizontal
+    differs[:, 1:] |= horizontal
+    edge = differs.copy()
+    edge[1:] |= differs[:-1]
+    edge[:-1] |= differs[1:]
+    edge[:, 1:] |= differs[:, :-1]
+    edge[:, :-1] |= differs[:, 1:]
+    if not np.any(edge):
+        return tuple(planes)
+
+    # Every sample of an edge pixel: a boolean mask on the full grid, clipped to the frame.
+    full_edge = np.repeat(np.repeat(edge, k, axis=0), k, axis=1)[:rows, :cols]
+    grazing = el < math.radians(REFINE_EVERY_SAMPLE_BELOW_DEG)
+    every = full_edge & grazing
+    blocks = full_edge & ~grazing
+    if np.any(every):
+        values = evaluate(el[every], az[every], *(e[every] for e in ex))
+        for plane, v in zip(planes, values, strict=True):
+            plane[every] = np.asarray(v, dtype=np.float64)
+    h = 2 if k >= 2 else 1
+    if np.any(blocks) and h > 1:
+        # One ray per 2 x 2 block, through the block's centre, and that value given to all four:
+        # the box average over them is then the mean of real rays. (Through the block's own
+        # sample nearest the centre instead, the static at 30 degrees fell to 8.4 % of the
+        # interpolation's rather than 0.5 %.) Per-sample extras -- a range to the hit -- are the
+        # nearest sample's, since a range is not to be averaged across a geometry edge.
+        rep = np.zeros_like(blocks)
+        rep[h // 2 :: h, h // 2 :: h] = True
+        chosen = blocks & rep
+        if np.any(chosen):
+            rr, cc = np.nonzero(chosen)
+            top, left = np.maximum(rr - 1, 0), np.maximum(cc - 1, 0)
+            centre_el = 0.25 * (el[top, left] + el[top, cc] + el[rr, left] + el[rr, cc])
+            # Azimuth averaged as offsets from the block's own sample, so a block straddling
+            # +-pi does not average to the opposite direction.
+            here = az[rr, cc]
+            centre_az = here + 0.25 * sum(
+                np.angle(np.exp(1j * (az[r, c] - here)))
+                for r, c in ((top, left), (top, cc), (rr, left), (rr, cc))
+            )
+            values = evaluate(centre_el, centre_az, *(e[chosen] for e in ex))
+            for plane, v in zip(planes, values, strict=True):
+                v = np.asarray(v, dtype=np.float64)
+                for dr in range(h):
+                    for dc in range(h):
+                        r = rr - h // 2 + dr
+                        c = cc - h // 2 + dc
+                        ok = (r >= 0) & (r < rows) & (c >= 0) & (c < cols)
+                        target = blocks[r[ok], c[ok]]
+                        plane[r[ok][target], c[ok][target]] = v[ok][target]
+    return tuple(planes)
 
 
 def _direction(el: Any, az: Any, up: Any, forward: Any) -> NDArray[np.float64]:

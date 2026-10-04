@@ -56,9 +56,25 @@ def scratch_repo(root: pathlib.Path) -> pathlib.Path:
     if root.exists():
         shutil.rmtree(root)
     (root / "configs").mkdir(parents=True)
-    for name in ("src", "data", "scripts"):
+    for name in ("src", "scripts"):
         (root / name).symlink_to(REPO / name)
+    # data/ is linked entry by entry, with a real spectra/materials/ underneath: a material made
+    # from a picked curve copies that curve into it (B11), and the copy must land here, not in
+    # the repository's own data.
+    data = root / "data"
+    data.mkdir()
+    for entry in (REPO / "data").iterdir():
+        if entry.name != "spectra":
+            (data / entry.name).symlink_to(entry)
+    (data / "spectra").mkdir()
+    for entry in (REPO / "data" / "spectra").iterdir():
+        if entry.name != "materials":
+            (data / "spectra" / entry.name).symlink_to(entry)
+    (data / "spectra" / "materials").mkdir()
+    for entry in (REPO / "data" / "spectra" / "materials").iterdir():
+        (data / "spectra" / "materials" / entry.name).symlink_to(entry)
     shutil.copytree(REPO / "configs" / "materials", root / "configs" / "materials")
+    (root / "configs" / "components").symlink_to(REPO / "configs" / "components")
     (root / "configs" / "assets").mkdir()
     return root
 
@@ -144,6 +160,8 @@ class FakeLayout:
                         raise AttributeError(f"template_list: no property {prop!r}")
             if name in self.CONTAINERS:
                 return FakeLayout(self.calls)
+            if name in ("panel", "panel_prop"):  # a collapsible section: (header, body), open
+                return FakeLayout(self.calls), FakeLayout(self.calls)
             if name == "operator":
                 return FakeOperator(args[0] if args else kwargs["operator"])
             return None
@@ -182,7 +200,11 @@ def ui_checks(ctx) -> None:
         ui.ConnectionsPanel,
         ui.ExportPanel,
     )
-    helpers = {"_details": ui.LibraryPanel._details, "_size": ui.ExportPanel._size}
+    helpers = {
+        "_details": ui.LibraryPanel._details,
+        "_picker": ui.LibraryPanel._picker,
+        "_size": ui.ExportPanel._size,
+    }
     s = ctx.scene.irsim
     s.size_help, s.size_kind, s.known_dimension_m = True, "multirotor", 0.0
     for state in ("loaded", "known dimension", "empty library"):
@@ -392,6 +414,41 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
         and (pack_centre - Vector((0.0, 0.0, 0.75))).length < 1e-6,
         f"at its real size {tuple(round(v, 4) for v in pack_size)} m, inside the lid, a battery",
     )
+    # B12: irsim's own components (AI.12). The library brings them; a part naming one takes its
+    # cited numbers, so it needs no mass of its own, and its material defaults to the component's.
+    wm = ctx.window_manager
+    check(
+        {"lipo_pack", "esc", "brushless_motor"} <= {c.name for c in wm.irsim_components},
+        f"irsim's {len(wm.irsim_components)} components arrive with the library",
+    )
+    mapped = {e["file"]: e.get("component") for e in hidden_parts.catalog()}
+    check(
+        mapped["drone_battery"] == "lipo_pack" and mapped["drone_esc"] == "esc",
+        "the drone battery and speed controller placeholders name their irsim components",
+    )
+    select_only(lid)
+    check(
+        bpy.ops.irsim.add_component(
+            component="drone_esc", part_name="esc one", irsim_component="esc"
+        )
+        == {"FINISHED"},
+        "a speed controller is added with irsim's ESC and no numbers of its own",
+    )
+    esc = ctx.scene.objects.get("esc_one")
+    esc_materials = {s.material.irsim_material for s in esc.material_slots if s.material}
+    check(
+        esc.irsim_component.component == "esc"
+        and esc.irsim_component.mass_kg == 0.0
+        and esc_materials == {"abs_plastic_white"},
+        f"it names the component and takes its material ({sorted(esc_materials)})",
+    )
+    scene_stats.refresh(ctx)
+    check(
+        ("HIDDEN", "esc_one") not in {(i.kind, i.name) for i in ctx.scene.irsim.issues},
+        "the checklist does not ask a part with a component for a mass",
+    )
+    pack.irsim_component.component = "lipo_pack"  # the pack's own 0.468 kg overrides the library's
+
     # The whole library: every entry has its file, the menu is grouped, and each one arrives at
     # its catalog size along its catalog axis.
     entries = hidden_parts.catalog()
@@ -499,6 +556,84 @@ def structure_checks(ctx, repo: pathlib.Path) -> None:
     )
     check(purposes.get("block") == UsdGeom.Tokens.default_, "the ordinary parts are not")
 
+    # B12: the asset config itself carries what the solver reads (AI.11), read back by irsim.
+    from irsim_thermal import prefs
+    from irsim_thermal.bridge_client import run_bridge
+
+    repo_s, python = prefs.settings(ctx)
+    read = run_bridge(python, repo_s, "read-asset", {"name": "smoke_structure"})
+    contacts = {frozenset((c["a"], c["b"])): c for c in read["contacts"]}
+    hidden = {h["name"]: h for h in read["hidden_parts"]}
+    check(
+        {"block", "lid", "plate_a", "plate_b"} <= set(read["parts"]),
+        f"every exported object is a named part of the asset ({len(read['parts'])})",
+    )
+    check(
+        contacts.get(frozenset(("block", "lid")), {}).get("joint") == "bolted_ferrous_new"
+        and frozenset(("plate_a", "plate_b")) not in contacts,
+        "the confirmed contact is in the asset config with its joint, the rejected one is not",
+    )
+    check(
+        hidden.get("engine_block", {}).get("mass_kg") == 80.0
+        and hidden.get("battery_pack", {}).get("component") == "lipo_pack"
+        and hidden.get("battery_pack", {}).get("mass_kg") == 0.468
+        and hidden.get("esc_one", {}).get("component") == "esc"
+        and hidden.get("esc_one", {}).get("mass_kg") is None,
+        "the hidden parts are in it: own numbers, a component, or both with the own ones winning",
+    )
+    pack_c, pack_s = hidden_parts.world_box(ctx.scene.objects["battery_pack"])
+    check(
+        all(
+            abs(a - b) < 1e-5
+            for a, b in zip(hidden["battery_pack"]["centre_m"], pack_c, strict=True)
+        )
+        and all(
+            abs(a - b) < 1e-5 for a, b in zip(hidden["battery_pack"]["size_m"], pack_s, strict=True)
+        ),
+        "each placed where it is in Blender, in the model's own metres",
+    )
+    # And irsim's own preparation takes it from there: the archive, then the split into exactly
+    # those named parts (AI.18), then the material audit of the split. A part named like the object
+    # it is collided with the joined mesh in prep_asset's split until B12 renamed the latter.
+    import subprocess
+
+    argv = [
+        python,
+        *export.audit_argv(str(repo), "smoke_structure", export._blender_executable()),
+        "--emit-mesh",
+        "--emit-parts",
+    ]
+    run = subprocess.run(argv, cwd=REPO, capture_output=True, text=True, timeout=900)
+    out = run.stdout + run.stderr
+    check(
+        run.returncode == 0
+        and f"parts: {len(read['parts'])} named, coverage 100.0%" in out
+        and "smoke_structure_parts (the part-split USD)" in out
+        and out.count("RESULT: PASS") >= 2,
+        "irsim's prep_asset splits the export into its named parts and the split passes its audit",
+    )
+    if run.returncode != 0:
+        print(out[-3000:])
+
+    # Reopened: a hidden part and the contacts that were lost come back from the asset config.
+    bpy.data.objects.remove(ctx.scene.objects["engine_block"])
+    ctx.scene.irsim_connections.clear()
+    ctx.view_layer.objects.active = ctx.scene.objects["block"]
+    result = bpy.ops.irsim.load_asset_map(asset="smoke_structure", structure=True)
+    back = ctx.scene.objects.get("engine_block")
+    check(
+        result == {"FINISHED"}
+        and back is not None
+        and back.irsim_component.is_hidden_part
+        and back.irsim_component.mass_kg == 80.0
+        and back.parent == ctx.scene.objects["block"],
+        "reopening the asset brings the hidden engine back, inside the block, with its mass",
+    )
+    check(
+        connection(ctx, "block", "lid", "CONTACT").joint == "bolted_ferrous_new",
+        "and the contact back, confirmed, with its joint",
+    )
+
     # Looked up again: a reference held across changes to the list may point at freed memory.
     connection(ctx, "block", "lid", "CONTACT").joint = "welded_magic"
     ctx.scene.irsim.replace_export = True
@@ -527,6 +662,108 @@ def types_ns(ui):
         KIND_ICONS=ui.ConnectionsList.KIND_ICONS,
         STATUS_ICONS=ui.ConnectionsList.STATUS_ICONS,
     )
+
+
+def picker_checks(ctx) -> None:
+    """B13: search, the band filter, favourites, recently used, and assigning by name."""
+    import types
+
+    from irsim_thermal import assign, prefs, ui
+
+    wm = ctx.window_manager
+    s = wm.irsim_picker
+    lib = wm.irsim_library
+    lister = types.SimpleNamespace(bitflag_filter_item=1 << 30)
+
+    def listed() -> list[str]:
+        flags, pos = ui.LibraryList.filter_items(lister, ctx, wm, "irsim_library")
+        rows = sorted((pos[i], lib[i].name) for i in range(len(lib)) if flags[i])
+        return [name for _, name in rows]
+
+    check(len(listed()) == len(lib), f"with no filter the list shows all {len(lib)} materials")
+    s.query = "alu"
+    shown = listed()
+    check(
+        "bare_aluminium" in shown and "carbon_fibre" not in shown,
+        f"searching 'alu' finds the aluminiums and not carbon fibre ({len(shown)} shown)",
+    )
+    s.query = ""
+    s.band, s.eps_max = "LWIR", 0.2
+    shown = listed()
+    check(
+        "bare_aluminium" in shown
+        and all(lib[n].eps_lwir <= 0.2 for n in shown)
+        and "carbon_fibre" not in shown,
+        f"the band filter shows only materials at most 0.2 in LWIR ({len(shown)})",
+    )
+    s.sort = "EPS_LOW"
+    shown = listed()
+    check(
+        [lib[n].eps_lwir for n in shown] == sorted(lib[n].eps_lwir for n in shown),
+        "sorted least emissive first",
+    )
+    s.eps_max, s.sort = 1.0, "NAME"
+
+    prefs.set_picked(ctx, "favourites", [])
+    bpy.ops.irsim.toggle_favourite(material="carbon_fibre")
+    check(prefs.picked(ctx, "favourites") == ["carbon_fibre"], "a star makes a favourite")
+    check(listed()[0] == "carbon_fibre", "a favourite comes first in the list")
+    s.only_favourites = True
+    check(listed() == ["carbon_fibre"], "favourites only shows just the starred one")
+    s.only_favourites = False
+    bpy.ops.irsim.toggle_favourite(material="carbon_fibre")
+    check(prefs.picked(ctx, "favourites") == [], "a second click takes the star away")
+
+    part = add("cube", "picker_part", location=(0.0, 0.0, 60.0), size=2.0)
+    part.data.materials.append(new_material("picker_grey"))
+    select_only(part)
+    result = bpy.ops.irsim.assign_search(material="abs_plastic_white")
+    check(
+        result == {"FINISHED"}
+        and part.material_slots[0].material.irsim_material == "abs_plastic_white",
+        "assign by name gives the selected part the material",
+    )
+    check(
+        prefs.picked(ctx, "recent")[0] == "abs_plastic_white",
+        "the material just assigned is first in recently used",
+    )
+    bpy.ops.irsim.assign(material="carbon_fibre", scope="PARTS")
+    recent = prefs.picked(ctx, "recent")
+    check(
+        recent[:2] == ["carbon_fibre", "abs_plastic_white"] and len(set(recent)) == len(recent),
+        "recently used is most recent first, each material once",
+    )
+    lib_names = [it.name for it in lib]
+    check(
+        lib_names[ctx.scene.irsim.active_library_index] == "abs_plastic_white",
+        "after assign by name the list shows that material",
+    )
+    items = assign._search_items(None, ctx)
+    check(
+        len(items) == len(lib) and all("ε" in i[1] or "not available" in i[1] for i in items),
+        "the search menu lists every material with its emissivity",
+    )
+    for menu in assign.MENUS:
+        hooks = getattr(bpy.types, menu)._dyn_ui_initialize()
+        check(assign._context_menu in hooks, f"the right-click menu has it ({menu})")
+
+    s.query = "white"
+    for state in ("filtered", "unfiltered"):
+        try:
+            calls: list = []
+            me = types.SimpleNamespace(
+                layout=FakeLayout(calls),
+                _details=ui.LibraryPanel._details,
+                _picker=ui.LibraryPanel._picker,
+            )
+            ui.LibraryPanel.draw(me, ctx)
+            me2 = types.SimpleNamespace(layout=FakeLayout(calls))
+            ui.LibraryList.draw_item(me2, ctx, me2.layout, wm, lib[0], 0, None, "", 0)
+            check("panel_prop" in calls, f"the library panel draws its picker ({state})")
+        except Exception as exc:  # noqa: BLE001
+            check(False, f"the library panel draws its picker ({state}): {exc}")
+        s.query = ""
+    bpy.data.objects.remove(part)
 
 
 def main() -> None:
@@ -768,8 +1005,12 @@ def main() -> None:
     )
 
     # --- 7. a new material ----------------------------------------------------------------------
+    form_rna = bpy.ops.irsim.new_material.get_rna_type()
+    default_form = form_rna.properties["optical_form"].default
+    check(default_form == "curve", f"a new material opens on a measured curve ({default_form})")
     result = bpy.ops.irsim.new_material(
         "EXEC_DEFAULT",
+        optical_form="per_band",
         name="nylon_black_smoke",
         about="Black moulded nylon, smoke test",
         reference="estimated from similar polymers",
@@ -786,13 +1027,20 @@ def main() -> None:
         "the real library is untouched",
     )
     try:
-        bpy.ops.irsim.new_material("EXEC_DEFAULT", name="nylon_black_smoke", assign_after=False)
+        bpy.ops.irsim.new_material(
+            "EXEC_DEFAULT", optical_form="per_band", name="nylon_black_smoke", assign_after=False
+        )
         check(False, "a duplicate name is refused")
     except RuntimeError as exc:
         check("already exists" in str(exc), "a duplicate name is refused")
     try:
         bpy.ops.irsim.new_material(
-            "EXEC_DEFAULT", name="leaky_glass", eps_swir=0.5, tau_swir=0.6, assign_after=False
+            "EXEC_DEFAULT",
+            optical_form="per_band",
+            name="leaky_glass",
+            eps_swir=0.5,
+            tau_swir=0.6,
+            assign_after=False,
         )
         check(False, "ε + τ > 1 is refused")
     except RuntimeError as exc:
@@ -800,6 +1048,71 @@ def main() -> None:
     check(
         not (repo / "configs" / "materials" / "leaky_glass.yaml").exists(),
         "and nothing was written for it",
+    )
+
+    # --- 7b. the library's other two forms, and the plot (B11, ADR 0175) -----------------------
+    result = bpy.ops.irsim.new_material(
+        "EXEC_DEFAULT",
+        name="grey_smoke",
+        reference="estimated",
+        optical_form="grey",
+        eps_grey=0.95,
+        assign_after=False,
+    )
+    grey = library_state.find(ctx, "grey_smoke")
+    check(
+        result == {"FINISHED"}
+        and grey is not None
+        and all(
+            close(getattr(grey, f"eps_{b}"), 0.95, 1e-6) for b in ("nir", "swir", "mwir", "lwir")
+        ),
+        "a one-value material is written and reads 0.95 in every band",
+    )
+    check(grey is not None and grey.forms == "grey 0.95", "and the panel says it is grey")
+
+    picked = args.scratch / "picked_lw.csv"
+    picked.write_text(
+        "# source: smoke test\n"
+        + "\n".join(f"{7.0 + 0.05 * i:.2f},0.93" for i in range(141))
+        + "\n",
+        encoding="utf-8",
+    )
+    bpy.ops.irsim.check_curve("EXEC_DEFAULT", filepath=str(picked))
+    check(
+        "covers LWIR" in ctx.window_manager.irsim_curve_check,
+        f"a picked curve is checked by irsim ({ctx.window_manager.irsim_curve_check})",
+    )
+    result = bpy.ops.irsim.new_material(
+        "EXEC_DEFAULT",
+        name="curve_smoke",
+        reference="smoke test curve",
+        optical_form="curve",
+        curve_file=str(picked),
+        curve_quantity="emissivity",
+        eps_lwir=0.5,  # typed, but the curve covers LWIR: the bridge leaves it out
+        assign_after=False,
+    )
+    curved = library_state.find(ctx, "curve_smoke")
+    copied = repo / "data" / "spectra" / "materials" / "curve_smoke.csv"
+    check(
+        result == {"FINISHED"} and curved is not None and close(curved.eps_lwir, 0.93, 1e-6),
+        "a material from a picked curve reads the curve in LWIR, not the typed 0.5",
+    )
+    check(curved is not None and close(curved.curve_lwir, 1.0, 1e-9), "and all of LWIR is curve")
+    check(
+        copied.is_file() and not copied.is_symlink(), "the curve is copied into the data directory"
+    )
+    check(
+        not (REPO / "data" / "spectra" / "materials" / "curve_smoke.csv").exists(),
+        "and the real data directory is untouched",
+    )
+    bpy.ops.irsim.plot_material("EXEC_DEFAULT", material="aluminium_weathered")
+    wm = ctx.window_manager
+    check(
+        wm.irsim_plot_material == "aluminium_weathered"
+        and bpy.data.images.get(wm.irsim_plot_image) is not None
+        and bpy.data.images[wm.irsim_plot_image].size[0] > 0,
+        "a material is plotted across the bands into a Blender image",
     )
 
     # --- 8. export -------------------------------------------------------------------------------
@@ -898,6 +1211,9 @@ def main() -> None:
 
     # --- 11. connections and hidden parts --------------------------------------------------------
     structure_checks(ctx, repo)
+
+    # --- 12. the material picker -----------------------------------------------------------------
+    picker_checks(ctx)
 
     print(f"\n{len(failures)} failure(s)")
     if failures:
