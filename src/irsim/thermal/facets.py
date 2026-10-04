@@ -130,6 +130,10 @@ class FacetForcing:
     #: term alone when this is set. 0 (the default) leaves ``h_w_m2_k`` as the whole coefficient,
     #: which is every producer written before this field existed, bit for bit.
     free_convection_c: Any = 0.0
+    #: ADR 0187: the temperature behind a prescribed-temperature boundary, per facet (a motor
+    #: bolted to the cells of its arm). Read only by a conduction operator that has a
+    #: ``boundary_w_k``, inside the implicit step; ``None`` everywhere else.
+    boundary_k: Any = None
 
     def effective_h(self, temperatures_k: Any, n_facets: int) -> NDArray[np.float64]:
         """``max(h, c |T_s − T_air|^{1/3})`` per facet: §6.2's rule at the facet's own T."""
@@ -366,7 +370,11 @@ class FacetSolver:
         # a matrix that depends only on the tick, factorised once and reused (ADR 0094).
         if self._factor is None or self._factor[0] != float(dt_s):
             self._factor = (float(dt_s), self.conduction.factorise(capacity, float(dt_s)))
-        self._state = np.asarray(self._factor[1].solve(explicit), dtype=np.float64)
+        rhs = explicit
+        if self.conduction.boundary_w_k is not None:
+            # ADR 0187: the prescribed-temperature boundary, implicit beside the conduction.
+            rhs = explicit + self.conduction.boundary_rhs(capacity, dt_s, forcing.boundary_k)
+        self._state = np.asarray(self._factor[1].solve(rhs), dtype=np.float64)
         return self.temperatures_k
 
     def as_float32(self) -> NDArray[np.float32]:

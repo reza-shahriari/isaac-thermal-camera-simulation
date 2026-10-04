@@ -36,6 +36,18 @@ for hours. The price of backward Euler is first-order accuracy on the *slow* mod
 with the tick). The matrix is constant for a constant tick, so it is factorised once per tick size
 and back-substituted every step.
 
+**A boundary at a prescribed temperature** (EV.16, ADR 0187). A facet bolted to a body whose
+temperature is *given* -- a motor on its arm, whose temperature is ADR 0072's throttle law --
+gains ``g_i (T_b − T_i)`` W with ``g_i`` the joint's conductance over that facet's share of the
+footprint. A bolted joint is as stiff as any grid edge (1000 W m⁻² K⁻¹ on carbon's 2520 J m⁻² K⁻¹
+is a 2.5 s time constant against a 10 s tick), so it rides the same backward-Euler step:
+
+    (I + dt D⁻¹ (L + diag g)) Tⁿ⁺¹ = rhs + dt D⁻¹ g T_b
+
+``boundary_w_k`` is ``g``; the forcing carries ``T_b`` (`FacetForcing.boundary_k`). One-way by
+construction: the body is a boundary and the facets do not cool it, which is right for a
+temperature that is prescribed rather than solved.
+
 **The bound that was never enforced.** `FacetSolver` had no stability guard at all -- `tick_s` up
 to 3600 s parsed, and a leaf at 630 J m⁻² K⁻¹ with a 60 s tick would have diverged quietly during
 spin-up. The explicit part now checks §6.4's bound ``2C/(h + 4εσT³)`` at every step against the
@@ -85,6 +97,9 @@ class ConductionOperator:
 
     conductance_w_k: Any
     area_m2: Any
+    #: Per-facet conductance in W/K to a prescribed boundary temperature (ADR 0187), or ``None``.
+    #: Zero on the facets the boundary does not touch; the temperature arrives with the forcing.
+    boundary_w_k: Any = None
 
     def __post_init__(self) -> None:
         k = sp.csr_matrix(self.conductance_w_k, dtype=np.float64)
@@ -107,6 +122,35 @@ class ConductionOperator:
         k.eliminate_zeros()
         object.__setattr__(self, "conductance_w_k", k)
         object.__setattr__(self, "area_m2", area)
+        if self.boundary_w_k is not None:
+            g = np.asarray(self.boundary_w_k, dtype=np.float64).reshape(-1)
+            if g.shape != (n,):
+                raise ValueError(f"boundary_w_k has {g.shape[0]} entries for {n} facets")
+            if not np.all(np.isfinite(g)) or (g < 0.0).any():
+                raise ValueError("a boundary conductance must be finite and not negative")
+            object.__setattr__(self, "boundary_w_k", g)
+
+    def with_boundary(self, boundary_w_k: Any) -> ConductionOperator:
+        """This operator plus a prescribed-temperature boundary (summed with any already here)."""
+        g = np.asarray(boundary_w_k, dtype=np.float64).reshape(-1)
+        if self.boundary_w_k is not None:
+            g = g + self.boundary_w_k
+        return ConductionOperator(self.conductance_w_k, self.area_m2, boundary_w_k=g)
+
+    def boundary_rhs(
+        self, heat_capacity_j_m2_k: Any, dt_s: float, boundary_k: Any
+    ) -> NDArray[np.float64]:
+        """``dt D⁻¹ g T_b``: what the boundary adds to the backward-Euler right-hand side."""
+        if self.boundary_w_k is None:
+            return np.zeros(self.n_facets)
+        if boundary_k is None:
+            raise ValueError(
+                "this operator has a prescribed-temperature boundary and the forcing carries no "
+                "boundary_k; a mount whose temperature is not supplied would silently be 0 K"
+            )
+        c = np.asarray(heat_capacity_j_m2_k, dtype=np.float64).reshape(-1)
+        t_b = np.broadcast_to(np.asarray(boundary_k, dtype=np.float64), (self.n_facets,))
+        return np.asarray(dt_s * self.boundary_w_k * t_b / (c * self.area_m2))
 
     @property
     def n_facets(self) -> int:
@@ -129,7 +173,10 @@ class ConductionOperator:
         if c.shape[0] != self.n_facets:
             raise ValueError(f"{c.shape[0]} capacities for {self.n_facets} facets")
         inv = sp.diags(1.0 / (c * self.area_m2))
-        return (sp.identity(self.n_facets, format="csc") + dt_s * (inv @ self.laplacian)).tocsc()
+        operator = self.laplacian
+        if self.boundary_w_k is not None:
+            operator = operator + sp.diags(self.boundary_w_k)
+        return (sp.identity(self.n_facets, format="csc") + dt_s * (inv @ operator)).tocsc()
 
     def factorise(self, heat_capacity_j_m2_k: Any, dt_s: float) -> Any:
         """A prefactored solve for one tick size; call once, back-substitute every tick."""

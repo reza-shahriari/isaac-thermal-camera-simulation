@@ -18,14 +18,23 @@
 #     rotor veil, a display span, a label -- is exercised here and nowhere else. The frames after
 #     the exit are pure sky, which is the negative a detector has to be quiet on.
 #
-# **The aircraft and its thermal model are `quad_outbound_pointwise.yaml`'s**, cell for cell
-# (`tests/unit/test_aerial_clear_exit.py` asserts the thermal block, the targets and the frame are
-# identical, so `test_quad_outbound.py`'s patch-and-prim agreement covers this file too). The track
-# is the driver's: `render_quad_outbound.py --clear-exit` flies `irsim_isaac.quad_outbound.
-# clear_exit_track`. A clip of twenty seconds out of a half-hour thermal profile is a constant
-# temperature to the eye, and that is right: what changes here is geometry.
+# **The aircraft is `quad_outbound_pointwise.yaml`'s, made whole** (EV.16, ADR 0187). The deck,
+# the belly, the targets and the mission are that scene's cell for cell, so `test_quad_outbound.py`'s
+# patch-and-prim agreement covers them here. Three things the outbound scene leaves out are solved
+# here, because a clip meant to look like a drone shows each of them:
+#
+#   * **all four arms, as tubes**, bound to the cylinders `irsim_isaac.quad_outbound.TUBE_ARM_QUAD`
+#     authors -- the outbound strips carry a sunlit top onto the underside a ground camera sees,
+#     and two of them are left at air temperature as a control;
+#   * **the body's four side walls**, which the outbound scene leaves at the air temperature;
+#   * **each motor bolted to its arm** (`mounts:`), so the arm is warmest where the motor sits.
+#
+# `tests/unit/test_aerial_clear_exit.py` holds the tubes and walls to the prims, cell by cell. The
+# track is the driver's: `render_quad_outbound.py --clear-exit` flies `irsim_isaac.quad_outbound.
+# clear_exit_track`, from mission second 900 (cruise). Twenty seconds of a half-hour thermal
+# profile is a constant temperature to the eye, and that is right: what changes here is geometry.
 
-schema_version: 20
+schema_version: 21
 scene:
   name: aerial_clear_exit
   description: "EV.16: a quadrotor at 12-150 m in a cloudless sky, then out of the frame, at the frame rate"
@@ -74,6 +83,11 @@ scene:
       - {name: pod_n_s,   centre_m: [ 0.00, 0.34, -0.39], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
       - {name: pod_e_top, centre_m: [ 0.42, 0.37,  0.00], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
       - {name: pod_e_s,   centre_m: [ 0.42, 0.34,  0.03], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
+      # EV.16: the south and west pods as well, because their arms are solved here too.
+      - {name: pod_s_top, centre_m: [ 0.00, 0.37,  0.42], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_s_s,   centre_m: [ 0.00, 0.34,  0.45], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_w_top, centre_m: [-0.42, 0.37,  0.00], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], half_u_m: 0.03, half_v_m: 0.03}
+      - {name: pod_w_s,   centre_m: [-0.42, 0.34,  0.03], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], half_u_m: 0.03, half_v_m: 0.03}
 
     surfaces:
       # The deck: 0.30 x 0.30 m of carbon on top of the body, the one surface a camera above sees.
@@ -94,17 +108,79 @@ scene:
         speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
         patch: {origin_m: [-0.15, 0.24, 0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/belly}
 
-      # Two arms, north and east: 0.30 m of carbon tube from the body to the pod, 40 mm below the
-      # deck so the deck's own shadow falls across their inner half at a high sun.
+      # The body's four side walls (EV.16). The outbound scene leaves them on the per-prim
+      # `airframe` node, which is the air temperature, so at 12 m the largest thing in the frame
+      # was the one part of the aircraft with no sun on it and no field. Each wall is a vertical
+      # carbon patch on the `body` prim, its plane on the body's occluder face, u x v outward.
+      - name: body_east
+        material: carbon_fibre
+        tilt_deg: 90.0
+        azimuth_deg: 90.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [0.15, 0.24, 0.15], u_axis: [0.0, 0.0, -1.0], v_axis: [0.0, 1.0, 0.0], n_u: 12, n_v: 5, du_m: 0.025, dv_m: 0.024, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/body}
+      - name: body_south
+        material: carbon_fibre
+        tilt_deg: 90.0
+        azimuth_deg: 180.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.15, 0.24, 0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 12, n_v: 5, du_m: 0.025, dv_m: 0.024, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/body}
+      - name: body_west
+        material: carbon_fibre
+        tilt_deg: 90.0
+        azimuth_deg: 270.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [-0.15, 0.24, -0.15], u_axis: [0.0, 0.0, 1.0], v_axis: [0.0, 1.0, 0.0], n_u: 12, n_v: 5, du_m: 0.025, dv_m: 0.024, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/body}
+      - name: body_north
+        material: carbon_fibre
+        tilt_deg: 90.0
+        azimuth_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        patch: {origin_m: [0.15, 0.24, -0.15], u_axis: [-1.0, 0.0, 0.0], v_axis: [0.0, 1.0, 0.0], n_u: 12, n_v: 5, du_m: 0.025, dv_m: 0.024, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/body}
+
+      # Four arms, as **tubes** (EV.16): 30 mm carbon from the body wall to the pod, cut as the
+      # oracle `quad_flight_mesh.yaml` cuts them (16 x 36: a quad 1.41 times longer along the tube
+      # than around it, ADR 0112). The outbound scene solves the north and east arms as flat strips
+      # and leaves south and west at the air temperature as a control. On this clip that was two
+      # arms 13 K colder than their twins, and two whose underside -- all a ground camera sees of
+      # them -- carried the sunlit top's 40 C, where a tube's underside sits at 31 C. A tube is
+      # sunlit over a third of its girth and loses heat around all of it.
       - name: arm_n
         material: carbon_fibre
         tilt_deg: 0.0
         speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
         speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
-        patch: {origin_m: [-0.025, 0.32, -0.15], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 2, n_v: 12, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/arm_n}
+        mesh: {shape: cylinder, centre_m: [0.00, 0.32, -0.30], radius_m: 0.015, length_m: 0.30, axis: [0.0, 0.0, 1.0], segments: 16, rings: 36, capped: true, level: 1, frame: world, prim_path: /World/Targets/quad/arm_n}
       - name: arm_e
         material: carbon_fibre
         tilt_deg: 0.0
         speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
         speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
-        patch: {origin_m: [0.15, 0.32, 0.025], u_axis: [1.0, 0.0, 0.0], v_axis: [0.0, 0.0, -1.0], n_u: 12, n_v: 2, du_m: 0.025, dv_m: 0.025, thickness_m: 0.02, frame: world, prim_path: /World/Targets/quad/arm_e}
+        mesh: {shape: cylinder, centre_m: [0.30, 0.32, 0.00], radius_m: 0.015, length_m: 0.30, axis: [1.0, 0.0, 0.0], segments: 16, rings: 36, capped: true, level: 1, frame: world, prim_path: /World/Targets/quad/arm_e}
+      - name: arm_s
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        mesh: {shape: cylinder, centre_m: [0.00, 0.32, 0.30], radius_m: 0.015, length_m: 0.30, axis: [0.0, 0.0, 1.0], segments: 16, rings: 36, capped: true, level: 1, frame: world, prim_path: /World/Targets/quad/arm_s}
+      - name: arm_w
+        material: carbon_fibre
+        tilt_deg: 0.0
+        speed_s:   [0.0, 120.0, 300.0, 900.0, 1200.0, 1560.0, 1800.0]
+        speed_m_s: [1.0,   1.0,   8.0,  15.0,   10.0,    1.0,    1.0]
+        mesh: {shape: cylinder, centre_m: [-0.30, 0.32, 0.00], radius_m: 0.015, length_m: 0.30, axis: [1.0, 0.0, 0.0], segments: 16, rings: 36, capped: true, level: 1, frame: world, prim_path: /World/Targets/quad/arm_w}
+
+    # **Each motor is bolted to the end of its arm** (schema v21, ADR 0187). The motor's own
+    # temperature -- ADR 0072's throttle law, the number the renderer paints the bell with -- reaches
+    # the arm's cells under the motor through a dry bolted joint (`dry_default`, 1000 W m^-2 K^-1,
+    # ESTIMATED; the asset library's motor mounts use the same). 20 cm^2 is the motor clamp on the
+    # tube's crown, as on the Inspire 3's mounts (configs/assets/dji_inspire_3.yaml, 19 cm^2). Without
+    # it the arm under a 47 C motor sat in the motor's shadow at 28 C.
+    mounts:
+      - {target: motor, surface: arm_n, centre_m: [ 0.00, 0.335, -0.42], area_m2: 0.002, joint: dry_default}
+      - {target: motor, surface: arm_e, centre_m: [ 0.42, 0.335,  0.00], area_m2: 0.002, joint: dry_default}
+      - {target: motor, surface: arm_s, centre_m: [ 0.00, 0.335,  0.42], area_m2: 0.002, joint: dry_default}
+      - {target: motor, surface: arm_w, centre_m: [-0.42, 0.335,  0.00], area_m2: 0.002, joint: dry_default}

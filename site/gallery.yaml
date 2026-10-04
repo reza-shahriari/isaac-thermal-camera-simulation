@@ -837,14 +837,15 @@ sections:
       see behind the drone is the air's own long-wave emission at each pixel's elevation,
       −22 °C at the top of the frame to +5 °C at the bottom. The thermal state is the mission at
       cruise: the four motor bells are the hottest parts at **46–48 °C**, above the 40 °C sunlit
-      deck, 37 °C arms and 30.5 °C belly, under 26.5 °C air. Every frame records where the
-      drone should be beside where the renderer drew it: a median of **0.03 px** apart, and
+      deck, 34–35 °C arms (all four within 0.4 K, each warmest where its motor is bolted
+      on: ADR 0187) and 30.5 °C belly, under 26.5 °C air. Every frame records where the
+      drone should be beside where the renderer drew it: a median of **0.04 px** apart, and
       nothing drawn from the first frame after it has left.
     media:
       - video: aerial_clear_exit/aerial_clear_exit_sky.mp4
         width: full
         caption: >-
-          Fixed span −25.6 to 42.4 °C, white-hot. The drone leaves at 2 px a frame; the
+          Fixed span −25.6 to 48.0 °C, white-hot. The drone leaves at 2 px a frame; the
           bolometer's 8 ms membrane leaves a short fading tail behind it, not a streak
       - video: aerial_clear_exit/aerial_clear_exit_agc.mp4
         width: half

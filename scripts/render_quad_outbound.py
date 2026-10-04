@@ -425,6 +425,7 @@ def main() -> int:
     from irsim_isaac.pipeline.ir_camera import IrCamera
     from irsim_isaac.pipeline.material_ids import BACKGROUND_INSTANCE_ID
     from irsim_isaac.pipeline.materials_usd import prim_records
+    from irsim_isaac.pipeline.mesh_bridge import MeshBinding
     from irsim_isaac.pipeline.point_bridge import bindings_from_scene
     from irsim_isaac.quad_outbound import (
         AIM_ELEVATION_DEG,
@@ -448,6 +449,11 @@ def main() -> int:
         span_label = "prop tip to tip"
     else:
         from irsim_isaac.quad_outbound import POINTWISE_QUAD as PARTS
+        from irsim_isaac.quad_outbound import TUBE_ARM_QUAD
+
+        if args.clear_exit:
+            # EV.16: the arms are tubes, solved on meshes; the stage must carry the same tubes.
+            PARTS = TUBE_ARM_QUAD  # noqa: N806
         from irsim_isaac.quad_outbound import TIP_TO_TIP_M as SPAN_M
         from irsim_isaac.quad_outbound import rotor_mounts
 
@@ -730,6 +736,8 @@ def main() -> int:
 
     surface_tilts = {srf.name: float(srf.tilt_deg) for srf in scene.spec.thermal.surfaces}
     bindings = [] if args.no_fields else bindings_from_scene(scene)
+    # EV.16: the tube arms are solved on meshes; `MeshPointBridge` paints them by closest point.
+    mesh_bindings = [] if args.no_fields else [MeshBinding(p, f) for p, f in scene.mesh_bindings()]
     if args.no_fields:
         print("  --no-fields: rendering the pre-ADR-0087 picture, one temperature per prim")
     else:
@@ -794,6 +802,7 @@ def main() -> int:
         resolutions=resolutions,
         camera_path=stage.camera_path,
         surface_fields=bindings,
+        mesh_fields=mesh_bindings,
         capture_rgb=args.rgb,
         illumination=SceneIllumination.for_camera(
             sensor, scene, pipeline.quantity, heading_deg=0.0
@@ -830,8 +839,9 @@ def main() -> int:
         nodes = probe.advance_targets(float(t_rel), 0.0)
         lo_k = min(lo_k, min(nodes.values()))
         hi_k = max(hi_k, max(nodes.values()))
-        for name in probe.surface_fields:
-            fld = probe.surface_fields[name]
+        solved = {**probe.surface_fields, **probe.mesh_fields}
+        for name in solved:
+            fld = solved[name]
             fld.advance_to(probe.t0_s + float(t_rel))
             cells = np.asarray(fld.temperature_at(probe.t0_s + float(t_rel)))
             cell_lo = min(cell_lo, float(cells.min()))
@@ -957,9 +967,8 @@ def main() -> int:
     up_facing = widest([n for n, srf in surface_tilts.items() if srf < 90.0])
     down_facing = widest([n for n, srf in surface_tilts.items() if srf >= 90.0])
     sunlit_shaded = (up_facing + down_facing) or sorted(scene.surface_fields)[:2]
-    gauge_fields = (
-        sunlit_shaded + [n for n in sorted(scene.surface_fields) if n not in sunlit_shaded][:1]
-    )
+    every_field = {**scene.surface_fields, **scene.mesh_fields}
+    gauge_fields = sunlit_shaded + [n for n in sorted(every_field) if n not in sunlit_shaded][:1]
 
     history: list[dict[str, float]] = []
     planes_written = 0
@@ -987,7 +996,7 @@ def main() -> int:
             print(f"display[ir]: fixed {spans['ir'].caption} from the first frame's ADC")
         cells = {
             name: float(np.mean(np.asarray(fld.temperature_at(scene.t0_s + t_rel))))
-            for name, fld in scene.surface_fields.items()
+            for name, fld in every_field.items()
         }
         record: dict[str, float] = {
             "frame": index,

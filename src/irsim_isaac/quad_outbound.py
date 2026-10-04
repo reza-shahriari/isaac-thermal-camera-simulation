@@ -53,6 +53,7 @@ __all__ = [
     "OutboundTrack",
     "QuadOutboundStage",
     "POINTWISE_QUAD",
+    "TUBE_ARM_QUAD",
     "boresight",
     "build_quad_outbound",
     "clear_exit_track",
@@ -184,6 +185,44 @@ def pointwise_quad_parts() -> tuple[Part, ...]:
 #: The aircraft, built once. A module-level constant so a test can walk it against the scene
 #: config without an engine anywhere in sight.
 POINTWISE_QUAD: tuple[Part, ...] = pointwise_quad_parts()
+
+#: EV.16's arm: a 30 mm carbon tube, 0.30 m from the body wall to the pod. The same tube the
+#: scene's `mesh:` blocks solve, so the mesh bridge's closest point lands on its own cell.
+TUBE_RADIUS_M = 0.015
+TUBE_LENGTH_M = 0.30
+
+
+def tube_arm_quad_parts() -> tuple[Part, ...]:
+    """:data:`POINTWISE_QUAD` with every arm a **tube** instead of a box (EV.16).
+
+    The flat strip was the outbound scene's arm because ADR 0087's planar patch could not wrap a
+    tube; a ground camera looks at the underside the strip cannot carry. The tubes here are the
+    prims `configs/scenes/aerial_clear_exit.yaml`'s meshes are bound to, at the same centres,
+    radius and length, along X for east and west and Z for north and south.
+    """
+    out: list[Part] = []
+    for part in POINTWISE_QUAD:
+        if not part.name.startswith("arm_"):
+            out.append(part)
+            continue
+        along_x = abs(part.centre_m[0]) > abs(part.centre_m[2])
+        d, length = 2.0 * TUBE_RADIUS_M, TUBE_LENGTH_M
+        out.append(
+            Part(
+                part.name,
+                "cylinder",
+                part.centre_m,
+                (length, d, d) if along_x else (d, d, length),
+                part.material,
+                part.thermal_node,
+                axis="X" if along_x else "Z",
+            )
+        )
+    return tuple(out)
+
+
+#: The clear-exit clip's aircraft: the outbound frame with tube arms.
+TUBE_ARM_QUAD: tuple[Part, ...] = tube_arm_quad_parts()
 
 
 def rotor_rpm(throttle: float) -> float:

@@ -11,7 +11,7 @@
 # them. The squares are drawn by the driver's preset, not declared here: the scene is only what
 # heats them.
 
-schema_version: 20
+schema_version: 21
 scene:
   name: calibration_checkerboard
   description: "a heated 13 x 11 checkerboard, 12 K between its two square sets, for a lens round trip"

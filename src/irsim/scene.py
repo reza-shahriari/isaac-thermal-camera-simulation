@@ -834,9 +834,11 @@ class Scene:
             for o in (spec.thermal.occluders if spec.thermal is not None else ())
         }
         surface_fields = _build_surface_fields(
-            spec, build, patches, world_frame, occluders, data_dir
+            spec, build, patches, world_frame, occluders, data_dir, targets=targets
         )
-        mesh_fields = _build_mesh_fields(spec, build, meshes, world_frame, occluders)
+        mesh_fields = _build_mesh_fields(
+            spec, build, meshes, world_frame, occluders, targets=targets
+        )
         _apply_holds(spec, t0_s, targets, network, surface_fields, mesh_fields, build.field)
         objects = _build_full_objects(spec, build, meshes, mesh_fields, t0_s, object_assets)
         exchange = None
@@ -1178,6 +1180,8 @@ def _build_mesh_fields(
     meshes: Mapping[str, Any],
     world_frame: WorldFrame = ENU,
     occluders: Mapping[str, ShadowRectangle] | None = None,
+    *,
+    targets: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """A per-cell field for every surface that declared a mesh (ADR 0110, WM.7).
 
@@ -1242,7 +1246,7 @@ def _build_mesh_fields(
             if s.lateral_conduction
             else None
         )
-        forcing = MeshCellForcing(
+        forcing: Any = MeshCellForcing(
             surfaces=build.field.forcing_at,
             index=i,
             normals_world=mesh.cell_normal,
@@ -1253,13 +1257,28 @@ def _build_mesh_fields(
             penumbra_rays=spec.thermal.penumbra_rays,
             self_occluding=self_occluding,
         )
+        # EV.16 (ADR 0187): a motor bolted to this tube, exactly as on a patch.
+        mounts = _mounts_for(spec, s.name, targets)
+        if mounts:
+            from irsim.thermal.conduction import ConductionOperator
+            from irsim.thermal.mounts import MountedForcing, mount_conductances
+
+            if conduction is None:
+                conduction = ConductionOperator(
+                    sp_zero(n), np.broadcast_to(np.asarray(mesh.cell_area_m2, float), (n,))
+                )
+            conduction = conduction.with_boundary(mount_conductances(mesh, mounts))
+            spin_forcing: Any = MountedForcing(build.wrap(forcing), mounts, mesh)
+            forcing = MountedForcing(forcing, mounts, mesh)
+        else:
+            spin_forcing = build.wrap(forcing)
         # **Always** spun up per cell, where a patch only bothers under occluders. Every cell of
         # a mesh has its own normal, so no two of them share a forcing history and the per-prim
         # spun-up value is wrong for all of them: a scene starting at 10:00 would open with a
         # uniform pipe and take an hour of its own to grow the gradient it should already have.
         spun = spin_up(
             cells,
-            build.wrap(forcing),
+            spin_forcing,
             build.spin_up_hash,
             build.t0_s,
             hours=spec.thermal.spin_up_hours,
@@ -1607,6 +1626,8 @@ def _build_surface_fields(
     world_frame: WorldFrame = ENU,
     occluders: Mapping[str, ShadowRectangle] | None = None,
     data_dir: str | os.PathLike[str] | None = None,
+    *,
+    targets: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """A per-cell field for every surface that declared a patch (ADR 0087, PT.17).
 
@@ -1675,7 +1696,7 @@ def _build_surface_fields(
                 casters,
                 world_frame.to_world,
             )
-        forcing = CellForcing(
+        forcing: Any = CellForcing(
             build.forcing,
             i,
             n,
@@ -1698,6 +1719,21 @@ def _build_surface_fields(
             conduction = lateral_operator(
                 patch, thermal.inplane_conductivity_w_mk, thermal.thickness_m
             )
+        # EV.16 (ADR 0187): a heat source bolted to this surface -- a motor on its arm. Its
+        # temperature reaches the cells under the footprint through the implicit conduction step,
+        # and the spin-up below runs through it, so the mount is part of the surface's history.
+        mounts = _mounts_for(spec, s.name, targets)
+        if mounts:
+            from irsim.thermal.conduction import ConductionOperator
+            from irsim.thermal.mounts import MountedForcing, mount_conductances
+
+            if conduction is None:
+                conduction = ConductionOperator(sp_zero(n), np.full(n, float(patch.cell_area_m2)))
+            conduction = conduction.with_boundary(mount_conductances(patch, mounts))
+            spin_forcing: Any = MountedForcing(build.wrap(forcing), mounts, patch)
+            forcing = MountedForcing(forcing, mounts, patch)
+        else:
+            spin_forcing = build.wrap(forcing)
         if s.layers > 1:
             # PT.12: the material's thickness cut into N slices, one coupled solve (ADR 0103).
             from irsim.thermal.layers import LayerStack, layered_field
@@ -1752,7 +1788,7 @@ def _build_surface_fields(
                 s.name, patch, cells, forcing, np.full(n, float(build.spun_k[i])), conduction
             )
             continue
-        if casters or s.parameter_maps:
+        if casters or s.parameter_maps or mounts:
             # The shadow is part of the surface's history, not a term switched on at t0: a cell
             # under an overhang has been under it all morning. So the field is spun up on its
             # own per-cell forcing, through the same wrap the per-prim spin-up uses.
@@ -1764,7 +1800,7 @@ def _build_surface_fields(
             # mapped 0.8 returned the identical 299.807 K.
             spun = spin_up(
                 cells,
-                build.wrap(forcing),
+                spin_forcing,
                 build.spin_up_hash,
                 build.t0_s,
                 hours=spec.thermal.spin_up_hours,
@@ -1785,6 +1821,55 @@ def _build_surface_fields(
         )
     if cabin_spec is not None:
         out.update(_build_cabin(spec, build, cabin_spec, panels))
+    return out
+
+
+def sp_zero(n: int) -> Any:
+    """An ``(n, n)`` sparse matrix of no conductances: an operator that only carries a boundary."""
+    import scipy.sparse as sparse
+
+    return sparse.csr_matrix((n, n))
+
+
+def _mounts_for(spec: SceneSpec, surface: str, targets: Mapping[str, Any] | None) -> list[Any]:
+    """The `thermal.mounts` on ``surface``, as :class:`~irsim.thermal.mounts.Mount`s (ADR 0187).
+
+    Each mount's temperature is its ``heat_source`` target's own prescribed schedule -- the one
+    the renderer paints the motor with -- so the arm and the motor cannot disagree.
+    """
+    if spec.thermal is None or not spec.thermal.mounts:
+        return []
+    from irsim.config.joints import load_joint_table
+    from irsim.thermal.mounts import Mount
+
+    out = []
+    table = None
+    for m in spec.thermal.mounts:
+        if m.surface != surface:
+            continue
+        if targets is None or m.target not in targets:
+            raise ValueError(f"mount {m.target!r} -> {surface!r}: the target was not built")
+        solver = targets[m.target]
+        if not (hasattr(solver, "temperature_at") and hasattr(solver, "covers")):
+            raise ValueError(
+                f"mount {m.target!r} -> {surface!r}: the target's solver has no prescribed "
+                "schedule to read"
+            )
+        if m.h_c_w_m2_k is not None:
+            h_c = float(m.h_c_w_m2_k)
+        else:
+            table = load_joint_table() if table is None else table
+            h_c = float(table.joint(str(m.joint)).h_c_w_m2_k)
+        out.append(
+            Mount(
+                name=m.target,
+                centre_m=tuple(float(x) for x in m.centre_m),  # type: ignore[arg-type]
+                area_m2=float(m.area_m2),
+                h_c_w_m2_k=h_c,
+                temperature_at=solver.temperature_at,
+                covers=solver.covers,
+            )
+        )
     return out
 
 

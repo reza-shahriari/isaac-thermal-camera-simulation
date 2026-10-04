@@ -101,6 +101,14 @@ class PrescribedSolver:
             )
         return float(np.interp(t_s, self._t, self._temp))
 
+    def covers(self, t_s: float) -> bool:
+        """Whether ``t_s`` lies inside the schedule, where :meth:`temperature_at` answers."""
+        return bool(self._t[0] <= float(t_s) <= self._t[-1])
+
+    def temperature_at(self, t_s: float) -> float:
+        """The schedule's temperature at ``t_s``, without moving the solver (ADR 0187's mounts)."""
+        return self._lookup(float(t_s))
+
     def advance(self, t_s: float, dt_s: float) -> float:
         if dt_s < 0.0:
             raise ValueError("dt_s must be non-negative")

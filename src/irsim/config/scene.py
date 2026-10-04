@@ -37,6 +37,7 @@ from pydantic import (
 )
 
 __all__ = [
+    "MountSpec",
     "PlumeSpec",
     "SCENE_SCHEMA_VERSION",
     "MIN_SCENE_SCHEMA_VERSION",
@@ -56,7 +57,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 20  # v20: `thermal.objects:` solved whole from an asset
+SCENE_SCHEMA_VERSION = 21  # v21: `thermal.mounts:` -- a heat source bolted to
+# a patched surface (ADR 0187, EV.16); v20: `thermal.objects:` solved whole from an asset
 # (TC.11); v19: `evolve:` / `freeze_at_s:` per object and per
 # scene (ADR 0158, TC.12); v18: `thermal.object_exchange:` (ADR 0157,
 # TC.10); v17: a surface's `temperature_map:` /
@@ -1159,6 +1161,36 @@ class ObjectSpec(_Frozen):
         return f"{self.name}.{part}"
 
 
+class MountSpec(_Frozen):
+    """A heat-source target bolted to a solved surface, patch or mesh (schema v21, ADR 0187).
+
+    The target's temperature -- a ``heat_source`` motor's throttle law -- reaches the surface's
+    cells under ``centre_m`` through a contact conductance ``h_c`` over ``area_m2``: a joint from
+    `configs/thermal/joints.yaml` or an inline value, exactly one. One-way: the target is
+    prescribed and the cells do not cool it.
+    """
+
+    target: str = Field(min_length=1)
+    surface: str = Field(min_length=1)
+    centre_m: tuple[float, float, float]
+    area_m2: float = Field(gt=0.0)
+    joint: str | None = None
+    h_c_w_m2_k: float | None = None
+
+    @model_validator(mode="after")
+    def _one_conductance(self) -> MountSpec:
+        from irsim.config.joints import check_h_c
+
+        if (self.joint is None) == (self.h_c_w_m2_k is None):
+            raise ValueError(
+                f"mount {self.target!r} -> {self.surface!r}: give exactly one of joint and "
+                "h_c_w_m2_k"
+            )
+        if self.h_c_w_m2_k is not None:
+            check_h_c(self.h_c_w_m2_k, f"mount {self.target!r} -> {self.surface!r}")
+        return self
+
+
 class ThermalSceneSpec(_Frozen):
     """§12.3's thermal block: how the surfaces are solved, not what they are."""
 
@@ -1191,6 +1223,38 @@ class ThermalSceneSpec(_Frozen):
     #: state; ``freeze_at_s: t`` holds everything from ``t`` seconds after the start.
     evolve: bool = True
     freeze_at_s: float | None = Field(default=None, ge=0.0)
+    #: Heat-source targets bolted to patched surfaces (schema v21, ADR 0187): a motor's heat into
+    #: the end of its arm. Empty -- every scene before v21 -- changes nothing.
+    mounts: list[MountSpec] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _mounts_land_on_plain_patches(self) -> ThermalSceneSpec:
+        """A mount needs a patched surface solved on its own (ADR 0187).
+
+        A layered surface, a cabin panel, a prescribed map and a member of the object exchange
+        are all solved by an operator this boundary does not reach yet; refused by name rather
+        than quietly dropped.
+        """
+        if not self.mounts:
+            return self
+        by_name = {s.name: s for s in self.surfaces}
+        panels = {p.surface for p in self.cabin.panels} if self.cabin is not None else set()
+        for m in self.mounts:
+            s = by_name.get(m.surface)
+            where = f"mount {m.target!r} -> {m.surface!r}"
+            if s is None or (s.patch is None and s.mesh is None):
+                raise ValueError(f"{where}: the surface must exist and carry a `patch:` or `mesh:`")
+            if s.layers > 1 or s.temperature_map is not None or m.surface in panels:
+                raise ValueError(
+                    f"{where}: a layered surface, a temperature map or a cabin panel cannot "
+                    "take a mount yet (ADR 0187)"
+                )
+        if self.object_exchange:
+            raise ValueError(
+                "thermal: `mounts:` and `object_exchange: true` together are refused for now -- "
+                "the exchange group re-solves its members without the mount's boundary (ADR 0187)"
+            )
+        return self
 
     @model_validator(mode="after")
     def _holds_are_on_solved_surfaces(self) -> ThermalSceneSpec:
@@ -1362,6 +1426,20 @@ class SceneSpec(_Frozen):
         if len(set(names)) != len(names):
             raise ValueError(f"target names must be unique: {names}")
         return targets
+
+    @model_validator(mode="after")
+    def _mounts_name_heat_sources(self) -> SceneSpec:
+        """A mount's target must be a ``heat_source``: the one target with a prescribed law."""
+        if self.thermal is None:
+            return self
+        kinds = {t.name: t.solver for t in self.targets}
+        for m in self.thermal.mounts:
+            if kinds.get(m.target) != "heat_source":
+                raise ValueError(
+                    f"mount {m.target!r} -> {m.surface!r}: the target must be a `heat_source` "
+                    f"(found {kinds.get(m.target)!r}); its throttle law is the mount's temperature"
+                )
+        return self
 
 
 class SceneConfig(_Frozen):

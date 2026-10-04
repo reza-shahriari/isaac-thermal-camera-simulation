@@ -8,8 +8,9 @@ checked without the engine is everything that decides whether the clip shows wha
     The fixture here is that day with the cloud set to zero and nothing else changed, and the sky
     radiance is checked to be colder for it -- a test that would pass on the old file would not
     be testing the switch;
-  * **the aircraft is the outbound stage's**, cell for cell, so `test_quad_outbound.py`'s patch and
-    prim agreement covers this scene too;
+  * **the aircraft is the outbound stage's with tube arms**: deck and belly cell for cell, so
+    `test_quad_outbound.py`'s patch-and-prim agreement covers them here too, and every tube cell
+    lies on the cylinder the stage authors for it, with its motor bolted to the crown;
   * **the exit is where the track says.** The aircraft sits on the boresight while the mount
     tracks, crosses the left edge during the pan, and ends beyond it by half its own span plus the
     PSF margin. The camera-frame angles are checked against the quaternion the stage actually
@@ -47,6 +48,7 @@ from irsim_isaac.quad_outbound import (
     CLEAR_EXIT_OUTBOUND_S,
     CLEAR_EXIT_SPEED_M_S,
     TIP_TO_TIP_M,
+    TUBE_ARM_QUAD,
     OutboundTrack,
     boresight,
     clear_exit_track,
@@ -145,15 +147,68 @@ def test_the_sky_behind_the_target_is_colder_without_the_twentieth_of_a_cloud() 
     assert float(ours.weather.at(t0).cloud_fraction) == 0.0
 
 
-def test_the_aircraft_is_the_outbound_stage_s_cell_for_cell() -> None:
+def test_the_aircraft_is_the_outbound_stage_s_with_tube_arms() -> None:
+    """Everything but the arms is the outbound scene's, so `test_quad_outbound.py`'s patch-and-prim
+    agreement covers the deck and belly here too; the arms are its arms as tubes, all four."""
     ours = yaml.safe_load(SCENE.read_text())["scene"]
     theirs = yaml.safe_load(OUTBOUND.read_text())["scene"]
-    assert ours["thermal"] == theirs["thermal"]
     assert ours["targets"] == theirs["targets"]
     assert ours["world_frame"] == theirs["world_frame"]
     assert ours["start_utc"] == theirs["start_utc"]
     assert ours["environment_preset"] == theirs["environment_preset"] == "clear_dry"
     assert ours["weather_file"] == "weather/cloudless_midlat_summer_48h.csv"
+    for key in ("spin_up_hours", "tick_s", "penumbra_rays"):
+        assert ours["thermal"][key] == theirs["thermal"][key]
+    mine = {s["name"]: s for s in ours["thermal"]["surfaces"]}
+    shared = {
+        s["name"]: s for s in theirs["thermal"]["surfaces"] if not s["name"].startswith("arm")
+    }
+    for name, surface in shared.items():
+        assert mine[name] == surface, name
+    assert all(o in ours["thermal"]["occluders"] for o in theirs["thermal"]["occluders"])
+    arms = sorted(n for n in mine if n.startswith("arm_"))
+    assert arms == ["arm_e", "arm_n", "arm_s", "arm_w"]
+    assert all("mesh" in mine[n] and "patch" not in mine[n] for n in arms)
+
+
+def test_every_tube_cell_lies_on_the_prim_the_stage_authors() -> None:
+    """The mesh bridge refuses a pixel more than 7 mm from its bound mesh; the solved tube and the
+    rendered cylinder must therefore be one tube. Checked cell by cell, radius and length."""
+    from irsim.scene import build_mesh
+
+    spec = load_scene_config(SCENE).scene
+    assert spec.thermal is not None
+    parts = {p.name: p for p in TUBE_ARM_QUAD}
+    for surface in spec.thermal.surfaces:
+        if surface.mesh is None:
+            continue
+        part = parts[surface.mesh.prim_path.rsplit("/", 1)[-1]]
+        assert part.kind == "cylinder"
+        axis = {"X": 0, "Y": 1, "Z": 2}[part.axis]
+        across = [i for i in range(3) if i != axis]
+        centres = np.asarray(build_mesh(surface.mesh).cell_centres())
+        offset = centres - np.asarray(part.centre_m)
+        radial = np.hypot(offset[:, across[0]], offset[:, across[1]])
+        on_side = np.abs(np.abs(offset[:, axis]) - 0.5 * part.size_m[axis]) > 1e-6
+        # a 16-gon's face centres sit r cos(pi/16) from the axis: 0.29 mm inside the cylinder
+        assert np.all(np.abs(radial[on_side] - 0.5 * part.size_m[across[0]]) < 0.5e-3)
+        assert float(np.abs(offset[:, axis]).max()) <= 0.5 * part.size_m[axis] + 1e-9
+
+
+def test_each_motor_is_bolted_to_the_crown_of_its_own_arm() -> None:
+    spec = load_scene_config(SCENE).scene
+    assert spec.thermal is not None
+    motors = {p.name.split("_")[1]: p for p in TUBE_ARM_QUAD if p.name.startswith("motor_")}
+    arms = {p.name.split("_")[1]: p for p in TUBE_ARM_QUAD if p.name.startswith("arm_")}
+    assert sorted(m.surface for m in spec.thermal.mounts) == ["arm_e", "arm_n", "arm_s", "arm_w"]
+    for m in spec.thermal.mounts:
+        side = m.surface.split("_")[1]
+        motor, arm = motors[side], arms[side]
+        assert m.target == "motor" and m.joint == "dry_default"
+        # under the motor's axis, on top of the tube
+        assert m.centre_m[0] == pytest.approx(motor.centre_m[0])
+        assert m.centre_m[2] == pytest.approx(motor.centre_m[2])
+        assert m.centre_m[1] == pytest.approx(arm.centre_m[1] + 0.5 * arm.size_m[1])
 
 
 # -- the track -----------------------------------------------------------------------------------
@@ -323,3 +378,29 @@ def test_at_cruise_the_motors_run_well_above_air_and_the_pack_above_it_too() -> 
 
 def test_the_driver_starts_the_clip_where_the_module_says() -> None:
     assert f"args.mission_start_s = {CLEAR_EXIT_MISSION_S}" in DRIVER.read_text()
+
+
+def test_the_body_walls_are_solved_on_the_body_s_own_faces() -> None:
+    """The outbound scene leaves the body on the per-prim node, the air temperature; here each of
+    its four side walls is a vertical patch on the `body` prim. Its plane must lie within the
+    patch's thickness of the prim's face (or the bridge refuses the pixel), its outward normal must
+    be the compass direction its azimuth names (stage north is -Z), and it must cover the face."""
+    spec = load_scene_config(SCENE).scene
+    assert spec.thermal is not None
+    body = next(p for p in TUBE_ARM_QUAD if p.name == "body")
+    walls = [s for s in spec.thermal.surfaces if s.name.startswith("body_")]
+    assert sorted(s.name for s in walls) == ["body_east", "body_north", "body_south", "body_west"]
+    for wall in walls:
+        patch = wall.patch
+        assert patch is not None and patch.prim_path == "/World/Targets/quad/body"
+        assert wall.tilt_deg == 90.0
+        az = math.radians(wall.azimuth_deg)
+        outward = np.array([math.sin(az), 0.0, -math.cos(az)])
+        u, v = np.asarray(patch.u_axis), np.asarray(patch.v_axis)
+        assert np.allclose(np.cross(u, v), outward, atol=1e-12), wall.name
+        axis = int(np.argmax(np.abs(outward)))
+        face = body.centre_m[axis] + outward[axis] * 0.5 * body.size_m[axis]
+        assert abs(patch.origin_m[axis] - face) <= 0.5 * patch.thickness_m, wall.name
+        span_u, span_v = patch.n_u * patch.du_m, patch.n_v * patch.dv_m
+        across = int(np.argmax(np.abs(u)))
+        assert span_u >= body.size_m[across] and span_v >= body.size_m[1], wall.name

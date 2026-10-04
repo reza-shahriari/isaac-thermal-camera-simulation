@@ -26,7 +26,7 @@
 # Ten seconds of a half-hour thermal profile is a constant temperature to the eye: that is right.
 # What changes over this clip is range, slew, noise and cloud, which is what a detector sees.
 
-schema_version: 20
+schema_version: 21
 scene:
   name: aerial_reference_clip
   description: "EV.14 reference clip: a quadrotor at 50-250 m, 10 s at the frame rate, cumulus behind it"
