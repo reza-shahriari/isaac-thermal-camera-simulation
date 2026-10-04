@@ -85,6 +85,33 @@ def part_base(name: str) -> str:
     return base or name
 
 
+def part_colours(names: Sequence[str]) -> dict[str, tuple[float, float, float]]:
+    """One hue per KIND of part, shades within it: the parts image's colour key.
+
+    A propeller and the duct around it are different hardware and must never read as one part;
+    four propellers are one kind and should read as such, as the part table groups them
+    (`group_parts`). So the kinds (`part_base`) take hues spaced evenly round the wheel, in a
+    stride that puts alphabetical neighbours far apart, and each kind's copies step down in
+    value. Colouring each part by its index on a golden-angle walk, as before, put parts 8 or 13
+    places apart within 0.03-0.06 of each other; the Avata 2's propellers sat 20 deg from their
+    ducts.
+    """
+    import colorsys
+
+    kinds = sorted({part_base(n) for n in names})
+    k = len(kinds)
+    stride = next((m for m in range(k // 2, 0, -1) if math.gcd(m, k) == 1), 1) if k > 2 else 1
+    hue = {kind: (i * stride % k) / k for i, kind in enumerate(kinds)}
+    seen: dict[str, int] = {}
+    out: dict[str, tuple[float, float, float]] = {}
+    for name in sorted(names):
+        kind = part_base(name)
+        j = seen.get(kind, 0)
+        seen[kind] = j + 1
+        out[name] = colorsys.hsv_to_rgb(hue[kind], 0.62, 0.95 - 0.12 * (j % 4))
+    return out
+
+
 def area_weighted(values: Mapping[str, float], areas: Mapping[str, float]) -> float:
     total = sum(areas.values())
     if total <= 0:
@@ -229,15 +256,14 @@ def worker_render(out_dir: pathlib.Path, spec_path: pathlib.Path) -> None:
         s.collection.objects.link(light)
     _render(out_dir / "beauty.png")
 
-    # parts: Workbench, flat studio light, one colour per part from the golden-angle hue walk
-    import colorsys
-
+    # parts: Workbench, flat studio light, one hue per kind of part (`part_colours`)
     s.render.engine = "BLENDER_WORKBENCH"
     sh = s.display.shading
     sh.light, sh.color_type, sh.show_cavity = "STUDIO", "OBJECT", True
-    for i, o in enumerate(sorted(_mesh_objects(), key=lambda o: o.name)):
-        r, g, b = colorsys.hsv_to_rgb((i * 0.618034) % 1.0, 0.55, 0.92)
-        o.color = (r, g, b, 1.0)
+    objects = _mesh_objects()
+    colours = part_colours([o.name for o in objects])
+    for o in objects:
+        o.color = (*colours[o.name], 1.0)
     _render(out_dir / "wireframe.png")
 
     # emissivity: FLAT light, every material's viewport colour set to its LWIR emissivity as grey

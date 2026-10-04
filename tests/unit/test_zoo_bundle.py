@@ -99,3 +99,32 @@ def test_crop_window_has_the_stage_aspect_and_holds_the_model(zb, box):
 def test_zoo_ids_are_url_slugs(zb):
     assert zb.zoo_id("dji_mini_3_pro") == "dji-mini-3-pro"
     assert zb.zoo_id("Liberty_Ship") == "liberty-ship"
+
+
+def test_every_kind_of_part_gets_its_own_hue_and_copies_share_it(zb):
+    import colorsys
+
+    names = [
+        *(
+            f"{k}_{s}"
+            for k in ("propeller", "motor", "arm")
+            for s in ("front_left", "front_right", "rear_left", "rear_right")
+        ),
+        "duct_left",
+        "duct_right",
+        "battery",
+        "camera_lens",
+        "chassis",
+        "frame",
+        "fuselage",
+        "gimbal_camera",
+    ]  # the Avata 2's 20 parts
+    hues: dict[str, set[float]] = {}
+    for name, rgb in zb.part_colours(names).items():
+        hues.setdefault(zb.part_base(name), set()).add(round(colorsys.rgb_to_hsv(*rgb)[0], 6))
+    assert all(len(h) == 1 for h in hues.values()), hues  # copies: one hue
+    flat = sorted(h.pop() for h in hues.values())
+    gaps = [b - a for a, b in zip(flat, flat[1:], strict=False)] + [1 + flat[0] - flat[-1]]
+    # 11 kinds round the wheel: every pair at least 360/11 = 32.7 deg apart. The golden-angle
+    # walk over parts this replaced put the propeller and its duct 20 deg apart (55f6ff8).
+    assert min(gaps) * 360 > 25
