@@ -190,6 +190,48 @@ datasets:
       there is no way to convert a measured box size into a range or a measured contrast into
       kelvin. Use it for shape-of-the-picture statistics only.
 
+  anti_uav_rgbt:
+    title: "Anti-UAV RGBT (Jiang et al. 2021)"
+    role: supplement
+    why: >-
+      The set the validation phase trains and tests a detector on (ADR 0188): 318 paired
+      visible/infrared sequences with a box on every frame, already split by clip into train, val
+      and test. About half its infrared frames are a drone against sky and cloud and nothing
+      else, which is the scene the aerial lane renders; `scripts/build_anti_uav_sky.py` keeps
+      those and drops the rest.
+    code_url: "https://github.com/ZhaoJ9014/Anti-UAV"
+    paper_doi: "10.48550/arXiv.2101.08466"
+    licence: "unstated"                       # CHECKED 2026-10-04: none stated over the frames
+    licence_note: >-
+      No licence is stated over the frames. Unstated is not permissive: the frames are measured
+      on one machine, the sky-only derivative lives under the git-ignored datasets/ and neither
+      it nor a detector trained on it is published.
+    access: manual                            # Google Drive / Baidu Disk links in the README
+    sensor: "undocumented"
+    resolution: [640, 512]                    # MEASURED 2026-10-04 on the infrared stream
+    frame_rate_hz: 20.0                       # MEASURED (container); the paper says 25
+    bit_depth_native: null
+    bit_depth_stored: 8
+    codec: "mpeg4"                            # MEASURED (ffprobe), lossy
+    bitrate_kbps: null
+    clips: 318
+    annotated_boxes: 293000                   # MEASURED: 293,209 infrared frames with a target
+    label_format: "per-sequence json: exist flag and gt_rect [x, y, w, h] per frame"
+    signal_path: display
+    signal_path_note: >-
+      The station's display output: 8-bit white-hot through an undocumented AGC, with an
+      on-screen readout burnt into the top of every frame (the mount's azimuth and elevation, a
+      timestamp) and a strong, clip-dependent lens non-uniformity left in the picture.
+    analysers:
+      - target_size_and_scr
+      - contrast_polarity
+    excluded_analysers:
+      - noise_3d               # ISP + codec dominate; the sensor's noise is not recoverable
+      - temporal_psd
+    notes: >-
+      The sensor and lens are undocumented, so a box size does not convert to a range. The
+      burnt-in elevation readout is the one piece of viewing geometry the frames carry.
+
   anti_uav_600:
     title: "Anti-UAV600 (Zhu et al., 2023)"
     role: supplement

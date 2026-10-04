@@ -134,6 +134,7 @@ def test_unstated_is_recorded_rather_than_assumed(manifest: Manifest) -> None:
     assert unstated == {
         "anti_uav_410",
         "anti_uav_600",
+        "anti_uav_rgbt",
         "cst_anti_uav",
         "irstd_1k",
         "nuaa_sirst",
@@ -440,7 +441,12 @@ def test_nothing_indexed_is_radiometric_yet_and_the_index_says_so(manifest: Mani
 def test_the_paths_recorded_match_what_each_set_says_it_is(manifest: Manifest) -> None:
     """One word per set, and the prose behind it has to agree -- the two are written separately."""
     assert manifest.datasets["halmstad_drone_detection"].signal_path == "recorder"
-    assert manifest.with_signal_path("display") == ["anti_uav_410", "anti_uav_600", "cst_anti_uav"]
+    assert manifest.with_signal_path("display") == [
+        "anti_uav_410",
+        "anti_uav_600",
+        "anti_uav_rgbt",
+        "cst_anti_uav",
+    ]
     assert manifest.with_signal_path("unknown") == [
         "irstd_1k",
         "lrddv3",

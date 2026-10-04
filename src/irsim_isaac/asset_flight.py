@@ -37,6 +37,12 @@ half the linear frames sit beyond 42 m, where the aircraft is already under twen
 steps in log R make it shrink at a constant rate -- the same fraction per frame for the whole
 clip -- which is what makes the collapse legible instead of a jump at the start followed by a
 long crawl.
+
+**No path at all** (:class:`ScatterTrack`). A detector's training set is not a clip: consecutive
+frames of a flight are near-duplicates, and a set built from them has seen one range, one aspect
+and one patch of sky many times over. This one draws every frame's range, elevation, bearing and
+heading independently from stated bands, behind the same interface, so the driver that films a
+flight also films a dataset.
 """
 
 from __future__ import annotations
@@ -47,7 +53,13 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-__all__ = ["FigureEightTrack", "StraightOutTrack", "world_frame_to_stage"]
+__all__ = [
+    "FigureEightTrack",
+    "ScatterTrack",
+    "StraightOutTrack",
+    "WanderTrack",
+    "world_frame_to_stage",
+]
 
 #: The stage's own axes, in the order the rotation's rows are built from: east, up, north.
 STAGE_EAST = (1.0, 0.0, 0.0)
@@ -262,6 +274,211 @@ class FigureEightTrack:
         elevation and comes back at near-air temperature -- a bright background behind a warm
         target, which is not what an aircraft against the sky looks like.
         """
+        delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
+        horizontal = np.hypot(delta[..., 0], delta[..., 2])
+        return np.asarray(np.degrees(np.arctan2(delta[..., 1], horizontal)), dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class ScatterTrack:
+    """``count`` independent poses, one per frame, in **stage** axes -- a dataset, not a flight.
+
+    Shares :class:`FigureEightTrack`'s interface, with the phase in [0, 1] selecting pose
+    ``round(phase * (count - 1))``; a driver steps it with ``linspace(0, 1, count)``.
+
+    **What is drawn, and why each one.** Slant range, log-uniform, because apparent size goes as
+    1/R and a uniform draw would spend the set on small targets. Elevation, uniform over a band
+    whose lower edge the *driver* must keep above half the vertical field of view, because the
+    aerial scenes author no terrain (ADR 0060) and a horizon in frame is analytic ground. Bearing,
+    uniform over the full circle: the cloud field is fixed in the sky, so turning the mount is
+    what puts a different piece of it behind each target. Heading, uniform over the full circle
+    and independent of bearing, so every aspect from head-on to tail-on is in the set.
+
+    The published ablation this follows is the largest in the sim-to-real literature for drones:
+    mAP@0.5 of 0.464 with a fixed camera pitch against 0.981 with a random one (roadmap EV.10).
+    """
+
+    count: int
+    seed: int = 0
+    observer_m: tuple[float, float, float] = (0.0, 1.5, 0.0)
+    near_m: float = 4.0
+    far_m: float = 40.0
+    elevation_low_deg: float = 14.0
+    elevation_high_deg: float = 60.0
+
+    def __post_init__(self) -> None:
+        if self.count < 1:
+            raise ValueError(f"count must be >= 1, got {self.count}")
+        if not 0.0 < self.near_m <= self.far_m:
+            raise ValueError(f"need 0 < near_m <= far_m, got {self.near_m} and {self.far_m}")
+        if not 0.0 < self.elevation_low_deg <= self.elevation_high_deg < 90.0:
+            raise ValueError(
+                "need 0 < elevation_low_deg <= elevation_high_deg < 90, got "
+                f"{self.elevation_low_deg} and {self.elevation_high_deg}"
+            )
+        rng = np.random.default_rng(self.seed)
+        n = self.count
+        ranges = np.exp(rng.uniform(math.log(self.near_m), math.log(self.far_m), n))
+        elevation = np.radians(rng.uniform(self.elevation_low_deg, self.elevation_high_deg, n))
+        bearing = rng.uniform(0.0, 2.0 * math.pi, n)
+        heading = rng.uniform(-180.0, 180.0, n)
+        origin = np.asarray(self.observer_m, dtype=np.float64)
+        horizontal = ranges * np.cos(elevation)
+        # Bearing 0 is north (-Z), positive toward east (+X): the sense `yaw_deg` uses.
+        positions = origin + np.stack(
+            [
+                horizontal * np.sin(bearing),
+                ranges * np.sin(elevation),
+                -horizontal * np.cos(bearing),
+            ],
+            axis=-1,
+        )
+        # Frozen dataclass: the draws are derived state, set once here and never again.
+        object.__setattr__(self, "_positions", positions)
+        object.__setattr__(self, "_heading", heading)
+
+    def _index(self, phase: object) -> NDArray[np.int64]:
+        p = np.clip(np.asarray(phase, dtype=np.float64), 0.0, 1.0)
+        return np.asarray(np.rint(p * (self.count - 1)), dtype=np.int64)
+
+    def position_m(self, phase: object) -> NDArray[np.float64]:
+        """Aircraft position, ``(3,)`` for a scalar phase or ``(n, 3)`` for an array of them."""
+        positions: NDArray[np.float64] = self._positions  # type: ignore[attr-defined]
+        return np.asarray(positions[self._index(phase)], dtype=np.float64)
+
+    def yaw_deg(self, phase: object) -> NDArray[np.float64]:
+        """Heading of the nose about +Y, degrees, in :meth:`FigureEightTrack.yaw_deg`'s sense."""
+        heading: NDArray[np.float64] = self._heading  # type: ignore[attr-defined]
+        return np.asarray(heading[self._index(phase)], dtype=np.float64)
+
+    def range_m(self, phase: object) -> NDArray[np.float64]:
+        """Slant range from the observer to the aircraft."""
+        delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
+        return np.asarray(np.linalg.norm(delta, axis=-1), dtype=np.float64)
+
+    def elevation_deg(self, phase: object) -> NDArray[np.float64]:
+        """Elevation above the observer's horizon, measured from the position."""
+        delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
+        horizontal = np.hypot(delta[..., 0], delta[..., 2])
+        return np.asarray(np.degrees(np.arctan2(delta[..., 1], horizontal)), dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class WanderTrack:
+    """A seeded, smooth, never-repeating flight inside stated bands -- a clip that is also a set.
+
+    :class:`ScatterTrack` gives a detector variety and gives a viewer nothing: its frames are
+    unrelated, so it cannot be watched and the airframe's temperature cannot be seen to change.
+    This track keeps the variety and makes it a flight. Range (in log R), elevation, bearing and
+    heading are each a constant plus a sum of three sinusoids with seeded frequencies and phases,
+    so the aircraft closes and recedes, climbs and sinks, circles the observer and turns through
+    every aspect, continuously -- and a clip that spans the mission shows the airframe warm up
+    while it does. The mount does not hold the target dead centre either: :meth:`aim_fraction`
+    is the same kind of smooth wander, for the boresight.
+
+    Same interface as :class:`FigureEightTrack`, phase in [0, 1]. ``cycles`` is the fastest
+    component's number of periods per clip: frame-to-frame motion is about ``cycles / frames`` of
+    a full swing, so a 300-frame clip at the default moves a few percent of its band per frame.
+    """
+
+    seed: int = 0
+    observer_m: tuple[float, float, float] = (0.0, 1.5, 0.0)
+    near_m: float = 4.0
+    far_m: float = 40.0
+    elevation_low_deg: float = 14.0
+    elevation_high_deg: float = 60.0
+    cycles: float = 6.0
+    #: Full turns of bearing around the observer over the clip, on top of the wander: what takes
+    #: the line of sight through every sun aspect.
+    bearing_turns: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not 0.0 < self.near_m <= self.far_m:
+            raise ValueError(f"need 0 < near_m <= far_m, got {self.near_m} and {self.far_m}")
+        if not 0.0 < self.elevation_low_deg <= self.elevation_high_deg < 90.0:
+            raise ValueError(
+                "need 0 < elevation_low_deg <= elevation_high_deg < 90, got "
+                f"{self.elevation_low_deg} and {self.elevation_high_deg}"
+            )
+        if self.cycles < 1.0:
+            raise ValueError(f"cycles must be >= 1, got {self.cycles}")
+        rng = np.random.default_rng(self.seed)
+        # Six channels (log range, elevation, bearing, heading, aim x, aim y), three sinusoids
+        # each: frequencies spread over [1, cycles] and never equal, so no channel is periodic
+        # over the clip and no two channels move in step.
+        frequency = rng.uniform(1.0, self.cycles, size=(6, 3))
+        phase = rng.uniform(0.0, 2.0 * math.pi, size=(6, 3))
+        weight = rng.uniform(0.5, 1.0, size=(6, 3))
+        weight /= weight.sum(axis=1, keepdims=True)
+        object.__setattr__(self, "_frequency", frequency)
+        object.__setattr__(self, "_phase", phase)
+        object.__setattr__(self, "_weight", weight)
+        object.__setattr__(self, "_start", rng.uniform(0.0, 360.0, size=2))
+
+    def _wander(self, channel: int, phase: object) -> NDArray[np.float64]:
+        """One channel's smooth signal in [-1, 1]."""
+        p = np.asarray(phase, dtype=np.float64)[..., None]
+        f = self._frequency[channel]  # type: ignore[attr-defined]
+        return np.asarray(
+            np.sum(
+                self._weight[channel]  # type: ignore[attr-defined]
+                * np.sin(2.0 * math.pi * f * p + self._phase[channel]),  # type: ignore[attr-defined]
+                axis=-1,
+            ),
+            dtype=np.float64,
+        )
+
+    def _range(self, phase: object) -> NDArray[np.float64]:
+        lo, hi = math.log(self.near_m), math.log(self.far_m)
+        return np.exp(0.5 * (lo + hi) + 0.5 * (hi - lo) * self._wander(0, phase))
+
+    def _elevation_rad(self, phase: object) -> NDArray[np.float64]:
+        lo, hi = self.elevation_low_deg, self.elevation_high_deg
+        return np.radians(0.5 * (lo + hi) + 0.5 * (hi - lo) * self._wander(1, phase))
+
+    def position_m(self, phase: object) -> NDArray[np.float64]:
+        """Aircraft position, ``(3,)`` for a scalar phase or ``(n, 3)`` for an array of them."""
+        p = np.asarray(phase, dtype=np.float64)
+        ranges, elevation = self._range(p), self._elevation_rad(p)
+        bearing = np.radians(
+            self._start[0]  # type: ignore[attr-defined]
+            + 360.0 * self.bearing_turns * p
+            + 40.0 * self._wander(2, p)
+        )
+        origin = np.asarray(self.observer_m, dtype=np.float64)
+        horizontal = ranges * np.cos(elevation)
+        out = origin + np.stack(
+            [
+                horizontal * np.sin(bearing),
+                ranges * np.sin(elevation),
+                -horizontal * np.cos(bearing),
+            ],
+            axis=-1,
+        )
+        return np.asarray(out, dtype=np.float64)
+
+    def yaw_deg(self, phase: object) -> NDArray[np.float64]:
+        """Heading of the nose about +Y, degrees, in :meth:`FigureEightTrack.yaw_deg`'s sense.
+
+        A multirotor does not have to fly where it points, and this one does not: the heading
+        turns on its own schedule, two and a half times round over the clip plus a wander, so
+        the aspect seen from the ground is decoupled from the direction of travel.
+        """
+        p = np.asarray(phase, dtype=np.float64)
+        heading = self._start[1] + 900.0 * p + 120.0 * self._wander(3, p)  # type: ignore[attr-defined]
+        return np.asarray((heading + 180.0) % 360.0 - 180.0, dtype=np.float64)
+
+    def aim_fraction(self, phase: object) -> NDArray[np.float64]:
+        """Where the mount points relative to the aircraft, ``(..., 2)`` in [-1, 1] per axis."""
+        return np.stack([self._wander(4, phase), self._wander(5, phase)], axis=-1)
+
+    def range_m(self, phase: object) -> NDArray[np.float64]:
+        """Slant range from the observer to the aircraft."""
+        delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
+        return np.asarray(np.linalg.norm(delta, axis=-1), dtype=np.float64)
+
+    def elevation_deg(self, phase: object) -> NDArray[np.float64]:
+        """Elevation above the observer's horizon, measured from the position."""
         delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
         horizontal = np.hypot(delta[..., 0], delta[..., 2])
         return np.asarray(np.degrees(np.arctan2(delta[..., 1], horizontal)), dtype=np.float64)

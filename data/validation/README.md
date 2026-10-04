@@ -29,6 +29,7 @@ unless asked explicitly, so using data on unknown terms is always a deliberate a
 |---|---|---|---|---|
 | `halmstad_drone_detection` | CC0-1.0 | direct | primary | `recorder` |
 | `anti_uav_410` | unstated | manual | supplement | `display` |
+| `anti_uav_rgbt` | unstated | manual | supplement | `display` |
 | `anti_uav_600` | unstated | manual | supplement | `display` |
 | `cst_anti_uav` | unstated | unreleased | supplement | `display` |
 | `lrddv3` | CDLA-Permissive-2.0 | manual | supplement | `unknown` |
@@ -102,6 +103,37 @@ Ten-second clips are too short for an FFC *interval* distribution (the Boson's i
 **Must not be used for:** `noise_3d`, `temporal_psd` -- see the signal path above.
 
 The sensor being undocumented is the binding constraint: with no pitch, focal length or NETD there is no way to convert a measured box size into a range or a measured contrast into kelvin. Use it for shape-of-the-picture statistics only.
+
+## `anti_uav_rgbt`
+
+**Anti-UAV RGBT (Jiang et al. 2021)**
+
+The set the validation phase trains and tests a detector on (ADR 0188): 318 paired visible/infrared sequences with a box on every frame, already split by clip into train, val and test. About half its infrared frames are a drone against sky and cloud and nothing else, which is the scene the aerial lane renders; `scripts/build_anti_uav_sky.py` keeps those and drops the rest.
+
+| field | value |
+|---|---|
+| licence | unstated |
+| licence note | No licence is stated over the frames. Unstated is not permissive: the frames are measured on one machine, the sky-only derivative lives under the git-ignored datasets/ and neither it nor a detector trained on it is published. |
+| access | manual |
+| paper | 10.48550/arXiv.2101.08466 |
+| code | https://github.com/ZhaoJ9014/Anti-UAV |
+| sensor | undocumented |
+| resolution | [640, 512] |
+| frame rate (Hz) | 20.0 |
+| bit depth (native / stored) | None / 8 |
+| codec | mpeg4 |
+| clips | 318 |
+| annotated boxes | 293000 |
+| label format | per-sequence json: exist flag and gt_rect [x, y, w, h] per frame |
+| sha256 | not downloaded |
+
+**Signal path: `display`.** The station's display output: 8-bit white-hot through an undocumented AGC, with an on-screen readout burnt into the top of every frame (the mount's azimuth and elevation, a timestamp) and a strong, clip-dependent lens non-uniformity left in the picture.
+
+**May be used for:** `target_size_and_scr`, `contrast_polarity`.
+
+**Must not be used for:** `noise_3d`, `temporal_psd` -- see the signal path above.
+
+The sensor and lens are undocumented, so a box size does not convert to a range. The burnt-in elevation readout is the one piece of viewing geometry the frames carry.
 
 ## `anti_uav_600`
 

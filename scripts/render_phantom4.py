@@ -182,12 +182,26 @@ parser.add_argument(
 parser.add_argument(
     "--track",
     default="figure8",
-    choices=("figure8", "outbound"),
+    choices=("figure8", "outbound", "scatter", "wander"),
     help=(
         "figure8: one lemniscate circuit, the aspect sweep. outbound: a climbing run straight "
         "away from the observer, near to far, at a fixed elevation -- the detection question, "
-        "where range is the only thing changing"
+        "where range is the only thing changing. scatter: no path -- every frame an "
+        "independent range, elevation, bearing and heading (a detector's training set, with a "
+        "YOLO label beside each frame). wander: the same variety as one continuous random "
+        "flight, so the clip can be watched and the airframe is seen to warm up while it flies"
     ),
+)
+parser.add_argument("--scatter-seed", type=int, default=0, help="scatter, wander: the seed")
+parser.add_argument("--wander-cycles", type=float, default=6.0, help="wander: swings per clip")
+parser.add_argument("--elevation-low-deg", type=float, default=None, help="scatter: lowest")
+parser.add_argument("--elevation-high-deg", type=float, default=None, help="scatter: highest")
+parser.add_argument(
+    "--aim-jitter",
+    type=float,
+    default=0.6,
+    help="scatter: how far off the boresight the aircraft may sit, as a fraction of the half "
+    "field of view on each axis (0 centres it in every frame, which no real mount does)",
 )
 parser.add_argument(
     "--no-flat-field",
@@ -367,6 +381,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     )
     from irsim.config.scene import load_scene_config
     from irsim.io.dataset import FrameWriter
+    from irsim.io.labels import frame_labels, write_frame_labels
     from irsim.io.png import write_png
     from irsim.isp.palette import palette_table, quantise_display
     from irsim.materials.library import MaterialLibrary
@@ -391,7 +406,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     from irsim_isaac.aircraft_pass import look_at_quaternion
     from irsim_isaac.asset_flight import (
         FigureEightTrack,
+        ScatterTrack,
         StraightOutTrack,
+        WanderTrack,
         world_frame_to_stage,
     )
     from irsim_isaac.pipeline.ir_camera import IrCamera
@@ -443,6 +460,30 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             if v is not None
         }
         track: Any = StraightOutTrack(**track_kwargs)
+    elif args.track == "scatter":
+        track_kwargs = {
+            k: v
+            for k, v in (
+                ("near_m", args.near_m),
+                ("far_m", args.far_m),
+                ("elevation_low_deg", args.elevation_low_deg),
+                ("elevation_high_deg", args.elevation_high_deg),
+            )
+            if v is not None
+        }
+        track = ScatterTrack(count=args.frames, seed=args.scatter_seed, **track_kwargs)
+    elif args.track == "wander":
+        track_kwargs = {
+            k: v
+            for k, v in (
+                ("near_m", args.near_m),
+                ("far_m", args.far_m),
+                ("elevation_low_deg", args.elevation_low_deg),
+                ("elevation_high_deg", args.elevation_high_deg),
+            )
+            if v is not None
+        }
+        track = WanderTrack(seed=args.scatter_seed, cycles=args.wander_cycles, **track_kwargs)
     else:
         track_kwargs = {
             k: v
@@ -657,8 +698,43 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         0.5 * fpa.width * fpa.pitch_um * 1e-3 / sensor.sensor.optics.focal_length_mm
     )
 
-    def aim_at(position: Any) -> None:
-        q = look_at_quaternion(np.asarray(position, dtype=np.float64) - eye)
+    vfov_rad = 2.0 * math.atan(
+        0.5 * fpa.height * fpa.pitch_um * 1e-3 / sensor.sensor.optics.focal_length_mm
+    )
+    # Scatter: where in the frame each aircraft sits, drawn once so a sub-frame re-pose lands on
+    # the same boresight. The horizon check is the one `render_quad_outbound` makes -- this scene
+    # authors no terrain (ADR 0060), so a frame that reaches the horizon has analytic ground in
+    # it -- taken at the lowest boresight the jitter can produce.
+    aim_offsets = np.zeros((max(args.frames, 1), 2), dtype=np.float64)
+    half_fov = np.asarray([0.5 * hfov_rad, 0.5 * vfov_rad])
+    if args.track in ("scatter", "wander"):
+        if args.track == "scatter":
+            aim_offsets = (
+                np.random.default_rng(args.scatter_seed + 1).uniform(
+                    -args.aim_jitter, args.aim_jitter, size=(max(args.frames, 1), 2)
+                )
+                * half_fov
+            )
+        lowest = math.radians(track.elevation_low_deg) - (1.0 + args.aim_jitter) * 0.5 * vfov_rad
+        if lowest <= 0.0:
+            raise SystemExit(
+                f"{args.track}: at {track.elevation_low_deg:.1f} deg elevation with a "
+                f"{math.degrees(vfov_rad):.1f} deg vertical field and --aim-jitter "
+                f"{args.aim_jitter} the frame reaches {math.degrees(lowest):.1f} deg: the horizon "
+                "is in the picture and this scene has no terrain. Raise --elevation-low-deg or "
+                "use a longer lens."
+            )
+
+    def aim_at(position: Any, offset: Any = (0.0, 0.0)) -> None:
+        view = np.asarray(position, dtype=np.float64) - eye
+        if offset[0] or offset[1]:
+            # Slew the boresight off the aircraft by (azimuth, elevation) so it lands off-centre.
+            slant = float(np.linalg.norm(view))
+            right = np.cross(view, [0.0, 1.0, 0.0])
+            right /= max(float(np.linalg.norm(right)), 1e-12)
+            up = np.cross(right, view / slant)
+            view = view + slant * (math.tan(offset[0]) * right + math.tan(offset[1]) * up)
+        q = look_at_quaternion(view)
         aim_op.Set(Gf.Quatf(float(q[0]), Gf.Vec3f(*(float(v) for v in q[1:]))))
 
     def place(phase: float) -> tuple[Any, float, float]:
@@ -671,7 +747,13 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         position = track.position_m(phase)
         heading = float(track.yaw_deg(phase))
         transform_op.Set(_mount_matrix(mount, centre, heading - nose_yaw_deg, position))
-        aim_at(position)
+        if args.track == "scatter":
+            aim_at(position, aim_offsets[int(round(phase * (max(args.frames, 2) - 1)))])
+        elif args.track == "wander":
+            # The mount lags and leads the aircraft smoothly, like a tracker, not frame by frame.
+            aim_at(position, track.aim_fraction(phase) * args.aim_jitter * half_fov)
+        else:
+            aim_at(position)
         to_observer = eye - position
         bearing = math.degrees(math.atan2(to_observer[0], -to_observer[2]))
         aspect = (heading - bearing + 180.0) % 360.0 - 180.0
@@ -684,7 +766,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     # spans the endpoints inclusively instead.
     phases = (
         np.linspace(0.0, 1.0, max(args.frames, 2), dtype=np.float64)
-        if args.track == "outbound"
+        if args.track != "figure8"
         else (np.arange(args.frames, dtype=np.float64) / args.frames) * args.laps
     )
 
@@ -694,7 +776,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     # back at 4 m filling the frame. It renders, it encodes, and it is wrong in the one frame a
     # reader is most likely to freeze on.
     def at(phase: Any) -> Any:
-        return phase if args.track == "outbound" else np.asarray(phase) % 1.0
+        return phase if args.track != "figure8" else np.asarray(phase) % 1.0
 
     ranges = track.range_m(at(phases))
     px_across = fpa.width * span_m / (2.0 * ranges * math.tan(0.5 * hfov_rad))
@@ -842,10 +924,18 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # view cosine is built from a cached pose, and a camera that slews without refreshing
         # renders geometry from here and radiometry from where it used to be.
         cam.refresh_pose()
+        if args.track == "scatter":
+            # Independent poses, not a flight: without this the jump from the last aircraft to
+            # this one is smeared across the frame as if it had been flown during the exposure.
+            cam.restart_motion()
 
         # IG.19: the companion's sub-frames pose the aircraft where it is `dt` seconds from this
         # frame's instant along the same track; `pose_at(0.0)` puts it back before the infrared.
         phase_step = float(phases[1] - phases[0]) if len(phases) > 1 else 0.0
+        if args.track == "scatter":
+            # The next pose is another aircraft somewhere else, not this one a moment later: the
+            # target hovers through its own exposure.
+            phase_step = 0.0
 
         def pose_at(dt: float, _p: float = float(phases[index]), _step: float = phase_step) -> None:
             place(float(at(_p + dt / interval_s * _step)))
@@ -966,6 +1056,24 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 },
             )
             planes_written += 1
+            if (
+                args.track in ("scatter", "wander")
+                and truth is not None
+                and "part_id" in truth.planes
+            ):
+                # EV.15's labels, wired: every part of the aircraft is one `drone` box, from the
+                # truth plane and not from the pose, so a target cut by the frame edge is boxed
+                # as far as it is in the picture and one that left it gets no box.
+                legend = truth.legends["part_id"]
+                names = [name for code, name in legend.items() if int(code) != 0]
+                write_frame_labels(
+                    out / "labels",
+                    f"frame_{index:06d}",
+                    frame_labels(
+                        truth.planes["part_id"], legend, {"aircraft": names}, {"aircraft": "drone"}
+                    ),
+                    image_id=index,
+                )
         if index % 12 == 0 or index == args.frames - 1:
             r = rows[-1]
             print(
@@ -1153,6 +1261,25 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                     "elevation_deg": track.hold_elevation_deg,
                 }
                 if isinstance(track, StraightOutTrack)
+                else {
+                    "shape": "scatter: independent range, elevation, bearing, heading per frame",
+                    "seed": track.seed,
+                    "near_m": track.near_m,
+                    "far_m": track.far_m,
+                    "elevation_deg": [track.elevation_low_deg, track.elevation_high_deg],
+                    "aim_jitter": args.aim_jitter,
+                }
+                if isinstance(track, ScatterTrack)
+                else {
+                    "shape": "wander: one continuous seeded flight inside the bands",
+                    "seed": track.seed,
+                    "near_m": track.near_m,
+                    "far_m": track.far_m,
+                    "elevation_deg": [track.elevation_low_deg, track.elevation_high_deg],
+                    "cycles": track.cycles,
+                    "aim_jitter": args.aim_jitter,
+                }
+                if isinstance(track, WanderTrack)
                 else {
                     "shape": "lemniscate of Bernoulli, one circuit per clip",
                     "centre_range_m": track.centre_range_m,

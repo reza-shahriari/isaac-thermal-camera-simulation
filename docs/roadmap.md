@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 82 open steps
+#### Then, in order — 83 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -194,17 +194,17 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 4 | **`WX.25`** | WX | A | M | 1 | ready |
 | 5 | **`WX.26`** | WX | A | M | 1 | ready |
 | 6 | **`WX.22`** | WX | A | L | 1 | ready |
-| 7 | **`WX.10`** | WX | A | M | — | ready |
-| 8 | **`WX.27`** | WX | A | M | — | ready |
-| 9 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
-| 10 | **`XD.6`** | XD | A | L | — | ready |
-| 11 | **`AT.26`** | AT | B | S | — | ready |
-| 12 | **`IG.16`** | IG | B | M | — | ready |
-| 13 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 14 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
-| 15 | **`TC.15`** | TC | C | M | 1 | ready |
+| 7 | **`EV.19`** | EV | A | M | — | ready |
+| 8 | **`WX.10`** | WX | A | M | — | ready |
+| 9 | **`WX.27`** | WX | A | M | — | ready |
+| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
+| 11 | **`XD.6`** | XD | A | L | — | ready |
+| 12 | **`AT.26`** | AT | B | S | — | ready |
+| 13 | **`IG.16`** | IG | B | M | — | ready |
+| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
 
-…and 67 more — `python scripts/next_step.py --queue 40`.
+…and 68 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -284,7 +284,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `TC.9`–`TC.12`, `TC.16`, `PH.1`–`PH.8`, `PH.13`, `PT.25`, `PT.26`, `AT.24`, `IG.20`, `IG.21`, `IG.22` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half, staged by `IG.20` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.19`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.36`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.16`, `WX.1`–`WX.11`, `WX.21`–`WX.27` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.19`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.36`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.19`, `WX.1`–`WX.11`, `WX.21`–`WX.27` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`, `XD.5`, `XD.7`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -827,8 +827,11 @@ requirement into an external, cited number, and it can return a negative.
 | EV.12 | **Training-free dataset-quality proxy.** Evaluate SDQM (public code, Pearson r = 0.87 with YOLO11 mAP50) as a stand-in for the torch-blocked half of ME.7. | A defensible sim-to-real number inside the existing no-GPU gate, making the torch install a confirmation rather than a prerequisite. A clear negative result is an acceptable outcome and must be recorded as one. | — | M | X |
 | EV.13 | **Publish the paired RAW-16 / AGC-8 artefact** (open question 7 gates the publication, not the format). No public thermal set offers the pairing and the literature names the 16→8 mapping as the dominant sim-to-real factor. | The float planes invert to apparent temperature within the project's existing 10 mK encode/decode budget while the 8-bit stream fails the same bound — the fp16 negative control that already discriminates. Note honestly that this is a self-consistency check on irsim's own encode/decode, not an external radiometric check; XD.5 is the external one. | IG.13 | M | X |
 | EV.14 | ✅ **done.** `aerial_reference_clip.yaml` + `render_quad_outbound.py --reference`: 600 frames at 60 Hz, 50→250 m, cumulus behind, damped AGC, sub-pixel companion at 1.25–1.45 km. ADR 0168. | **Measured**: 26.7→5.4 px; companion in frame 600/600, +0.26–0.56 K over cloud; AGC mean step median 0.01 codes (p95 0.03), lag-1 0.9995. Real-set band: EV.3–EV.7. | AT.21, AT.22, SC.28, SC.29 | M | A |
-| EV.15 | ✅ **done.** `irsim.io.labels`: `frame_labels(part_id, legend, targets, category_of, points)` → `Box` (xyxy, COCO xywh, YOLO cxcywh, RLE mask, visibility), `PointLabel(φ)`; `write_frame_labels` (COCO json + YOLO txt per frame), `split_manifest` / `write_split_manifest`. | **Measured.** Boxes equal the mask's extent to the pixel and the RLE decodes to the mask; an absent target gets no box; a sub-pixel target is a point with its φ; visibility is the mask's share inside the frame; a seeded split reproduces; loads in pycocotools when present. Drivers not wired. | — | S | A |
+| EV.15 | ✅ **done.** `irsim.io.labels`: `frame_labels(part_id, legend, targets, category_of, points)` → `Box` (xyxy, COCO xywh, YOLO cxcywh, RLE mask, visibility), `PointLabel(φ)`; `write_frame_labels` (COCO json + YOLO txt per frame), `split_manifest` / `write_split_manifest`. | **Measured.** Boxes equal the mask's extent to the pixel and the RLE decodes to the mask; an absent target gets no box; a sub-pixel target is a point with its φ; visibility is the mask's share inside the frame; a seeded split reproduces; pycocotools loads it. Wired by EV.18. | — | S | A |
 | EV.16 | ✅ **done.** `render_quad_outbound.py --clear-exit`: heavy-lift quad at cruise (mission 900 s), 12→150 m in 15 s at 60 Hz, cloud 0.00, out of the left edge at 15 m/s, 1 s of empty sky; `--far-m 30 --exit-speed-m-s 5` at close range. | **Measured**: drawn centre 0.04 px from prediction (median), nothing drawn after exit; motors 46–48 °C over a 40 °C deck, arms 34–35 °C (TC.18). Bolometer smear is now its membrane (ADR 0077 amendment). | EV.14 | S | A |
+| EV.17 | ✅ **done.** Sky-only Anti-UAV RGBT: `build_anti_uav_sky.py` (ResNet-18 on 1,590 hand labels, keep at p ≥ 0.99 with unflagged neighbours) → 14,784 / 6,728 / 7,255 train/val/test frames; `train_detector.py` runs YOLO11n per protocol, selected and scored on real frames. ADR 0188. | **Measured**: 5-fold by clip, 0 clutter frames accepted, 97 % of sky kept; real→real test mAP50 0.991, mAP50-95 0.568. | — | M | A |
+| EV.18 | ✅ **done.** Render sets: `WanderTrack` (one continuous random flight per clip) and `ScatterTrack` (independent poses); `render_phantom4.py --track wander|scatter` writes EV.15's YOLO label per frame, `generate_aerial_dataset.py` runs clear-sky clips per hour; `example_lwir_640_telephoto.yaml` (50 mm). | **Measured**: boxes from the truth `part_id` plane; a frame reaching the horizon is refused; `IrCamera.restart_motion` removes the pose-jump smear (0 stray px in 6 frames). 11 s/frame clear, 63 s cloud. | EV.15 | M | A |
+| EV.19 | **Synthetic→real and mixed→real on the sky-only test split**, against EV.17's real→real 0.568 mAP50-95: YOLO11n trained on EV.18 renders alone, then on renders added to the real train frames. | A table of three arms on the same 7,255 real test frames, same weights, epochs and seed. Passes as a measurement whichever way it comes out; a mixed arm below real-only is a finding about the renders, to be read against EV.6's statistics. | EV.17, EV.18 | M | A |
 
 ---
 

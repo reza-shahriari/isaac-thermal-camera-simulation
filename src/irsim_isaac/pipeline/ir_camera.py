@@ -651,6 +651,17 @@ class IrCamera:
         ).attach(settle_frames=settle_frames, rt_subframes=rt_subframes)
         return self
 
+    def restart_motion(self) -> None:
+        """Declare the next capture the first of a new sequence: it carries no motion.
+
+        ``motion_px`` is synthesised from the pose at the previous capture and this one (IG.6),
+        which is right for a clip and wrong for a set of independent poses -- there the "motion"
+        is the jump from one unrelated aircraft and boresight to the next, and ADR 0077's smear
+        draws it as a streak across the sky. A scatter driver calls this before every frame, so
+        each one is a hovering target under a mount that is not slewing.
+        """
+        self._motion = MotionTracker([*self.moving_prim_paths], self.camera_path)
+
     def refresh_pose(self) -> None:
         """Re-read the camera prim's transform. Call after moving the camera between frames.
 

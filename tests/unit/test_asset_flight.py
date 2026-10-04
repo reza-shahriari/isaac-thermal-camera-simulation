@@ -7,6 +7,8 @@ horizon puts near-air-temperature ground behind a warm target instead of cold sk
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -197,3 +199,79 @@ def test_a_track_that_would_film_the_wrong_thing_is_refused(kwargs: dict) -> Non
     """
     with pytest.raises(ValueError):
         StraightOutTrack(**kwargs)
+
+
+def test_scatter_track_draws_inside_its_bands_and_covers_them() -> None:
+    from irsim_isaac.asset_flight import ScatterTrack
+
+    track = ScatterTrack(count=2000, seed=3, near_m=5.0, far_m=50.0)
+    phases = np.linspace(0.0, 1.0, track.count)
+    ranges, elevation = track.range_m(phases), track.elevation_deg(phases)
+    assert ranges.min() >= 5.0 - 1e-9 and ranges.max() <= 50.0 + 1e-9
+    assert elevation.min() >= 14.0 - 1e-9 and elevation.max() <= 60.0 + 1e-9
+    # Log-uniform in range: the median sits at the geometric mean (15.8 m), not the arithmetic
+    # one (27.5 m), which is what keeps the set from being mostly far, small targets.
+    assert np.median(ranges) == pytest.approx(math.sqrt(5.0 * 50.0), rel=0.08)
+    # Bearing and heading each cover the circle, independently of one another.
+    delta = track.position_m(phases) - np.asarray(track.observer_m)
+    bearing = np.degrees(np.arctan2(delta[:, 0], -delta[:, 2]))
+    heading = track.yaw_deg(phases)
+    for angle in (bearing, heading):
+        assert np.histogram(angle, bins=8, range=(-180, 180))[0].min() > 180
+    assert abs(np.corrcoef(bearing, heading)[0, 1]) < 0.08
+
+
+def test_scatter_track_is_one_pose_per_frame_and_reproducible() -> None:
+    from irsim_isaac.asset_flight import ScatterTrack
+
+    a, b = ScatterTrack(count=7, seed=11), ScatterTrack(count=7, seed=11)
+    phases = np.linspace(0.0, 1.0, 7)
+    assert np.array_equal(a.position_m(phases), b.position_m(phases))
+    assert len({tuple(p) for p in a.position_m(phases).round(6)}) == 7
+    assert a.position_m(0.5).shape == (3,)
+    assert not np.array_equal(
+        a.position_m(phases), ScatterTrack(count=7, seed=12).position_m(phases)
+    )
+    with pytest.raises(ValueError):
+        ScatterTrack(count=4, elevation_low_deg=0.0)
+
+
+def test_wander_track_stays_in_its_bands_and_uses_them() -> None:
+    from irsim_isaac.asset_flight import WanderTrack
+
+    track = WanderTrack(seed=4, near_m=16.0, far_m=130.0, elevation_low_deg=6.0)
+    phases = np.linspace(0.0, 1.0, 3000)
+    ranges, elevation = track.range_m(phases), track.elevation_deg(phases)
+    assert ranges.min() >= 16.0 - 1e-6 and ranges.max() <= 130.0 + 1e-6
+    assert elevation.min() >= 6.0 - 1e-6 and elevation.max() <= 60.0 + 1e-6
+    # It is a flight through the band, not a hover in the middle of it: more than 3:1 in range.
+    assert ranges.max() / ranges.min() > 3.0
+    assert elevation.max() - elevation.min() > 20.0
+    aim = track.aim_fraction(phases)
+    assert aim.shape == (3000, 2) and np.abs(aim).max() <= 1.0 and np.ptp(aim, axis=0).min() > 0.8
+    # Every aspect is seen: the angle between the nose and the line of sight covers the circle.
+    delta = track.position_m(phases) - np.asarray(track.observer_m)
+    bearing = np.degrees(np.arctan2(delta[:, 0], -delta[:, 2]))
+    aspect = (track.yaw_deg(phases) - bearing + 180.0) % 360.0 - 180.0
+    assert np.histogram(aspect, bins=8, range=(-180, 180))[0].min() > 0
+
+
+def test_wander_track_is_a_flight_not_a_scatter() -> None:
+    from irsim_isaac.asset_flight import WanderTrack
+
+    track = WanderTrack(seed=9, near_m=16.0, far_m=130.0)
+    phases = np.linspace(0.0, 1.0, 300)
+    position = track.position_m(phases)
+    step = np.linalg.norm(np.diff(position, axis=0), axis=1)
+    # Continuous: between two frames of a 300-frame clip the aircraft moves a small fraction of
+    # its range, where independent draws would move it by about the range itself.
+    assert np.max(step / track.range_m(phases)[1:]) < 0.35
+    assert np.array_equal(
+        position, WanderTrack(seed=9, near_m=16.0, far_m=130.0).position_m(phases)
+    )
+    assert not np.allclose(
+        position, WanderTrack(seed=10, near_m=16.0, far_m=130.0).position_m(phases)
+    )
+    assert track.position_m(0.5).shape == (3,)
+    with pytest.raises(ValueError):
+        WanderTrack(cycles=0.5)
