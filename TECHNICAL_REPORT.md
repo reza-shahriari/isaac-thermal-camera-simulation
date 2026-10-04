@@ -839,6 +839,8 @@ no Isaac). `make ci` reproduces the CI job locally in a `.venv-ci` built from `p
 | `make site-publish` | Commit the build onto the `gh-pages` branch, one commit, no history; prints the `git push` command rather than pushing |
 | `make viewer` | Open rendered frames in the browser; click a pixel to read every saved plane under it (true temperature, part, range, radiance, DN…). No `PYTHON=` needed; `RUN=` picks one render or folder. Guide: `docs/frame-viewer.md` (ADR 0154) |
 
+**Physics overview plots.** `python scripts/plot_physics_overview.py` writes seven PNGs of what the engine-free core computes — Planck curves, band radiance and contrast, detector responses, preset transmittance, library emissivity, Fresnel ε(θ), the aperture factor — into `outputs/physics_overview/` in about 5 s. It calls `irsim` only and re-derives nothing, so it is a picture of the current (partly ESTIMATED) numbers, not a validation.
+
 **Which GPU a render uses.** Every Isaac entry point — the six render drivers, the four probes and
 `audit_materials --stage` — boots through `irsim_isaac.env.simulation_app_config`, which pins the
 renderer to **GPU 0** and turns Kit's multi-GPU render graph off. Override with `IRSIM_GPU`:
@@ -1211,6 +1213,8 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   `solar_absorptivity`, with a control that they still differ in NIR.
 
 ## Contributing
+
+For people outside the project: `CONTRIBUTING.md` says what is welcome (issues, physics corrections, validation data; no pull requests under the current licence), `SECURITY.md` how to report a vulnerability privately, and `CODE_OF_CONDUCT.md` the conduct rules. The rest of this section is for people working in the tree.
 
 Read `CLAUDE.md` first — it defines the non-negotiables (engine-free core, checked in both directions by
 `tests/unit/test_layering.py`, float32 everywhere
