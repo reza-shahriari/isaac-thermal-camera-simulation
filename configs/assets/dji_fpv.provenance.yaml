@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: dji_fpv
+  source: local
+  real_name: DJI FPV
+  uid: ''
+  title: DJI FPV
+  author: Polyman_3D
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/dji-fpv-7c5346e50ffb4e8c9ac12cb0847be39a
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: cd1d3c6847a7e0933e777b3b7cb8bd9982a84a2b135a19da272e03d685ebeff6
+  downloaded_at: '2026-10-04T13:26:25+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.

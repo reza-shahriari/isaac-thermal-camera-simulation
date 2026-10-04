@@ -1,0 +1,170 @@
+# DJI FPV (FD1W4K), from the CC-BY Sketchfab model by Polyman_3D (provenance beside this file).
+# Schema: irsim.materials.mapping.AssetConfig; produced and checked with `scripts/prep_asset.py`.
+# Sources: DJI FPV User Manual v1.2 (UM),
+# https://dl.djicdn.com/downloads/DJI_FPV/20210615UM/DJI_FPV_User_Manual_v1.2_EN.pdf; the iFixit
+# disassembly guide, https://www.ifixit.com/Guide/DJI+FPV+Drone+Disassembly/161396; DroneDJ's
+# teardown, https://dronedj.com/2021/03/04/dji-fpv-drone-teardown-modular-and-repairable/.
+#
+# **Material evidence.** The source materials are named in pinyin -- waike = shell, jibi = arm,
+# jishen = body, jiangye = propeller, boli = glass, neibu = interior -- and were read as hints
+# only. DJI publishes no part materials; every substance below is ESTIMATED from the product
+# photos, the teardowns and the shader dump:
+#
+#   material  base colour  metallic  alpha  where it is                                   reading
+#   waike     texture      texture   tex    the top canopy                                dark grey moulding
+#   jibi      texture      texture   1.0    four arms + landing feet, the frame, camera cage  dark grey moulding
+#   jishen_2  texture      texture   1.0    lower body, battery housing, camera housing   dark grey moulding (emissive texture = LEDs)
+#   jiangye   texture      texture   1.0    four 5328S propellers AND the motor bells      black blades, red tips
+#   neibu     texture      texture   1.0    hidden: a closed box in the battery housing, and the stack under the canopy
+#   boli      texture      texture   tex    camera lens cover                             glass
+#
+# **Geometry (the low2high skill, ADR 0155)**: measured on the part-split archive at 2 m on a
+# 1.36 mrad pixel -- 17 parts, 77,682 faces, 0 faceted. Nothing to do.
+
+schema_version: 1
+asset:
+  name: dji_fpv
+  source_file: 3d_models/dji_fpv/source/dji_fpv.glb
+  # The glTF's units are millimetres, not the metres its specification promises: the four motor
+  # bells are 245.6 units apart on the diagonal against the UM's 245 mm, and the tri-blade rotors
+  # span 134 units against the 5328S's 13.46 cm. So 0.001.
+  scale_to_metres: 0.001
+  # The artist posed the aircraft in fast forward flight, pitched 36 deg nose down: the four hubs
+  # lie on a plane tilted 36.0 deg about x (front hubs 85 mm below the rear ones). Levelled on
+  # that rotor plane the model is 241 x 330 x 137 mm (UM: 255 x 312 x 127 with propellers);
+  # as posed it stood 173 mm tall. The body stays canted to the rotor plane -- the real DJI FPV's
+  # is, for forward flight. Nose toward -y after the turn.
+  rotate_deg: [-36.0, 0.0, 0.0]
+
+  materials:
+    # --- the canopy, arms, frame and body: dark grey moulded PC / PC-ABS (arms possibly
+    # glass-filled nylon). ESTIMATED -- retail colour dark grey; DJI publishes no material.
+    waike: polycarbonate_dark_grey
+    jibi: polycarbonate_dark_grey
+    jishen_2: polycarbonate_dark_grey
+
+    # --- the rotors: the blades are asserted in `parts:`; what is left of `jiangye` after them
+    # is the motor bell. ESTIMATED anodised aluminium (eps 0.845), never bare (0.09): AT.18.
+    jiangye: aluminium_anodised
+
+    # --- hidden internals: the battery's cells and the ESC / flight-controller / heat-sink stack.
+    # Never seen; they matter for heat capacity and conduction only. ESTIMATED.
+    neibu: polycarbonate_dark_grey
+
+    # --- the lens cover: the library's only tau > 0 entry, opaque in LWIR.
+    boli: glass_windshield
+
+  # =============================================================================================
+  # The functional decomposition (ADR 0138).
+  parts:
+    centre: [0.0, 0.0325, 0.0]
+    coverage_threshold: 0.95
+    # AI.16: one object per MATERIAL (`jibi` is all four arms plus the frame and camera cage;
+    # each `jiangye` is a propeller fused with its motor bell), so only shells separate the
+    # hardware: `granularity: component`, the default.
+
+    # --- AI.17: what touches what along each station's heat path, motor -> arm -> frame, and the
+    # ESC heat sink, which iFixit shows bonded into the rear top cover with heat-conducting mastic.
+    # Footprints ESTIMATED from the measured geometry: a 2306-class stator base bolts to its arm
+    # pad over ~6 cm2 (pi x 14^2 mm2), an arm root bolts to the frame over ~4 cm2, the heat sink
+    # meets the cover over ~12 cm2. `dry_default` throughout (ADR 0097); the library has no
+    # polymer-to-metal paste joint, so the mastic is the conservative dry value.
+    contacts:
+      - {a: motor_front_left, b: arm_front_left, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_front_right, b: arm_front_right, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_rear_left, b: arm_rear_left, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_rear_right, b: arm_rear_right, joint: dry_default, area_m2: 0.0006}
+      - {a: arm_front_left, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: arm_front_right, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: arm_rear_left, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: arm_rear_right, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: electronics, b: fuselage, joint: dry_default, area_m2: 0.0012}
+
+    parts:
+      # --- the camera on its single-axis gimbal (UM), high on the canted nose. The lens is its own
+      # part so it keeps the glass mapping. The housing is every shell within 22 mm of the camera
+      # axis above z = 62 mm: the `jishen_2` housing, the `jibi` cage around it and the camera
+      # board behind it. The canopy's centroid is 33 mm back.
+      - name: camera_lens
+        target: airframe
+        select: {materials: [boli]}
+      - name: gimbal_camera
+        target: airframe
+        select: {near_xy: [0.0, -0.025], within_m: 0.022, z_min_m: 0.062}
+
+      # --- the battery: 2000 mAh 6S LiPo, 44.4 Wh, ~295 g (UM). It is the closed 37 x 82 x 56 mm
+      # `neibu` box (173 cm3; 295 g makes 1.7 g/cm3, a cased LiPo) plus the `jishen_2` housing
+      # around it, whose outside is the rear underside of the body -- like the real aircraft's,
+      # the pack is SEEN. Six box faces (21-46 cm2) and the 171 cm2 housing, all below z = 62 mm;
+      # the 75 cm2 board above them is not in it. ESTIMATED boundary.
+      - name: battery
+        target: battery
+        select: {materials: [neibu, jishen_2], area_min_m2: 0.002, near_xy: [0.0, 0.043], within_m: 0.035, z_max_m: 0.062}
+
+      # --- what remains of `neibu`: the main board, the ESC under the rear top cover with its heat
+      # sink and fan (iFixit; DroneDJ). Hidden under the canopy, and the aircraft's second heat
+      # source after the motors; a scene binds it by name.
+      - name: electronics
+        target: airframe
+        select: {materials: [neibu]}
+
+      # --- the four rotor stations, at the motor bells: x = +-101.6 mm, y = -38.5 (front) and
+      # x = +-98.7, y = +103.6 (rear); diagonal 245.6 mm (UM 245). Nose toward -y, so the
+      # aircraft's left is +x. Per station:
+      #   * propeller: the `jiangye` shells above z = 69.5 mm -- three 17.9 cm2 blades (centroids
+      #     70.5-76.5 mm) and the quick-release hub. The bell's top ring tops out at 68.7. 5328S
+      #     (DJI); asserted glass-filled nylon -- ESTIMATED, DJI does not publish the compound;
+      #   * motor: every shell under 8 cm2 above z = 30 mm left within 18 mm of the axis -- the
+      #     7.2 cm2 bell, the `jibi` mount pad, the arm-tip LED window. The cap keeps out the 59 cm2
+      #     rear arm, whose centroid is 13 mm from its hub; the floor keeps out the landing foot
+      #     (z = 6 mm), which sits 7 mm off the front axis and belongs to its arm.
+      #   The propeller radius, 75 mm, clears the 67 mm blade tip and stops short of the next rotor.
+      - name: propeller_front_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [jiangye], near_xy: [0.1016, -0.0385], within_m: 0.075, z_min_m: 0.0695}
+      - name: propeller_front_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [jiangye], near_xy: [-0.1016, -0.0385], within_m: 0.075, z_min_m: 0.0695}
+      - name: propeller_rear_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [jiangye], near_xy: [0.0987, 0.1036], within_m: 0.075, z_min_m: 0.0695}
+      - name: propeller_rear_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [jiangye], near_xy: [-0.0987, 0.1036], within_m: 0.075, z_min_m: 0.0695}
+      - name: motor_front_left
+        target: motor
+        select: {near_xy: [0.1016, -0.0385], within_m: 0.018, area_max_m2: 0.0008, z_min_m: 0.030}
+      - name: motor_front_right
+        target: motor
+        select: {near_xy: [-0.1016, -0.0385], within_m: 0.018, area_max_m2: 0.0008, z_min_m: 0.030}
+      - name: motor_rear_left
+        target: motor
+        select: {near_xy: [0.0987, 0.1036], within_m: 0.018, area_max_m2: 0.0008, z_min_m: 0.030}
+      - name: motor_rear_right
+        target: motor
+        select: {near_xy: [-0.0987, 0.1036], within_m: 0.018, area_max_m2: 0.0008, z_min_m: 0.030}
+
+      # --- the four arms, one shell each, bolted to the frame (iFixit: 2.5 mm hex screws). A front
+      # arm runs from the centreline to its tip and carries the landing gear (UM: antennas inside);
+      # the foot is its own shell 17 mm from the arm's centroid and joins it.
+      - name: arm_front_left
+        target: airframe
+        select: {materials: [jibi], near_xy: [0.090, -0.035], within_m: 0.03}
+      - name: arm_front_right
+        target: airframe
+        select: {materials: [jibi], near_xy: [-0.090, -0.035], within_m: 0.03}
+      - name: arm_rear_left
+        target: airframe
+        select: {materials: [jibi], near_xy: [0.0857, 0.1022], within_m: 0.03}
+      - name: arm_rear_right
+        target: airframe
+        select: {materials: [jibi], near_xy: [-0.0857, 0.1022], within_m: 0.03}
+
+      # --- everything else: the canopy, the frame between the arms, the rest of the lower body.
+      - name: fuselage
+        target: airframe
+        select: {}

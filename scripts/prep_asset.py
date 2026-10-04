@@ -122,6 +122,30 @@ def _rescale(factor: float) -> None:
     bpy.ops.object.select_all(action="DESELECT")
 
 
+def _rotate(degrees: Sequence[float]) -> None:
+    """Turn every root object about the world origin by the asset's ``rotate_deg``, applied.
+
+    XYZ Euler, degrees, in Blender's Z-up frame after import. Runs before :func:`_rescale` and
+    identically in every pass, like the weld: the part split indexes faces by the order the
+    component pass saw them in, and every selector is a position in the turned frame.
+    """
+    import math
+
+    import bpy
+    import mathutils
+
+    if not any(degrees):
+        return
+    turn = mathutils.Euler([math.radians(d) for d in degrees], "XYZ").to_matrix().to_4x4()
+    for obj in bpy.data.objects:
+        if obj.parent is None:
+            obj.matrix_world = turn @ obj.matrix_world
+    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=False)
+    bpy.ops.object.select_all(action="DESELECT")
+    print(f"rotated {tuple(degrees)} deg (XYZ) about the origin")
+
+
 def _weld(distance_m: float) -> None:
     """Merge vertices closer than ``distance_m`` in every mesh: the asset's ``weld_m`` (AI.18).
 
@@ -414,7 +438,9 @@ def world_polygon_areas(
     )
 
 
-def emit_components(out_path: pathlib.Path, weld_m: float = 0.0) -> dict[str, object]:
+def emit_components(
+    out_path: pathlib.Path, weld_m: float = 0.0, rotate_deg: Sequence[float] = (0.0, 0.0, 0.0)
+) -> dict[str, object]:
     """Write per-connected-component statistics for the whole asset.
 
     A **component** is one connected shell of the mesh -- the unit a part decomposition is built
@@ -510,6 +536,8 @@ def emit_components(out_path: pathlib.Path, weld_m: float = 0.0) -> dict[str, ob
                     # the weld these shells were measured under (AI.18): a cache from another
                     # weld indexes different shells, so the driver re-measures rather than reuse it
                     "weld_m": weld_m,
+                    # likewise the turn (rotate_deg): every centroid moves with it
+                    "rotate_deg": [float(d) for d in rotate_deg],
                 }
             )
 
@@ -871,6 +899,7 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--out-prims", type=pathlib.Path, required=True)
     ap.add_argument("--scale", type=float, required=True)
     ap.add_argument("--weld-m", type=float, default=0.0)
+    ap.add_argument("--rotate-deg", type=float, nargs=3, default=(0.0, 0.0, 0.0))
     ap.add_argument("--out-meshes", type=pathlib.Path, default=None)
     ap.add_argument("--out-components", type=pathlib.Path, default=None)
     ap.add_argument("--split-assignment", type=pathlib.Path, default=None)
@@ -890,6 +919,7 @@ def run_worker(argv: Sequence[str]) -> int:
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes)
     print(f"imported {args.source.name} via {how}: {len(meshes)} meshes, {tris:,} triangles")
 
+    _rotate(args.rotate_deg)
     _rescale(args.scale)
     _weld(args.weld_m)
     if args.out_material_slots is not None:
@@ -920,7 +950,7 @@ def run_worker(argv: Sequence[str]) -> int:
     print(f"wrote {args.out_usd}")
     print(f"wrote {args.out_prims} ({len(records)} prim records)")
     if args.out_components is not None:
-        emit_components(args.out_components, args.weld_m)
+        emit_components(args.out_components, args.weld_m, args.rotate_deg)
     if args.out_meshes is not None:
         emit_meshes(args.out_meshes, args.dissolve_deg, args.max_area_error)
     export_side_artefacts(args.save_blend, args.emit_fbx)
@@ -940,6 +970,11 @@ def _weld_args(weld_m: float) -> list[str]:
     return ["--weld-m", repr(float(weld_m))] if weld_m > 0.0 else []
 
 
+def _rotate_args(rotate_deg: Sequence[float]) -> list[str]:
+    """``--rotate-deg`` for every pass, or nothing for an unturned asset (its argv is unchanged)."""
+    return ["--rotate-deg", *(repr(float(d)) for d in rotate_deg)] if any(rotate_deg) else []
+
+
 def blender_split_command(
     blender: str,
     source: pathlib.Path,
@@ -950,6 +985,7 @@ def blender_split_command(
     save_blend: pathlib.Path | None = None,
     emit_fbx: pathlib.Path | None = None,
     weld_m: float = 0.0,
+    rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
 ) -> list[str]:
     """The argv for the part-splitting pass. Separate from :func:`blender_command` because it is a
     different job: that one prepares an asset, this one regroups a prepared one."""
@@ -977,6 +1013,7 @@ def blender_split_command(
         "--scale",
         repr(float(scale)),
         *_weld_args(weld_m),
+        *_rotate_args(rotate_deg),
         "--split-assignment",
         str(assignment),
         "--split-face-ids",
@@ -988,7 +1025,12 @@ def blender_split_command(
 
 
 def blender_material_slots_command(
-    blender: str, source: pathlib.Path, scale: float, out_slots: pathlib.Path, weld_m: float = 0.0
+    blender: str,
+    source: pathlib.Path,
+    scale: float,
+    out_slots: pathlib.Path,
+    weld_m: float = 0.0,
+    rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
 ) -> list[str]:
     """The argv for `AI.6`'s measuring pass: per-face material slot and area, no export."""
     return [
@@ -1010,6 +1052,7 @@ def blender_material_slots_command(
         "--scale",
         repr(float(scale)),
         *_weld_args(weld_m),
+        *_rotate_args(rotate_deg),
         "--out-material-slots",
         str(out_slots),
     ]
@@ -1022,6 +1065,7 @@ def blender_material_split_command(
     plan: pathlib.Path,
     out_usd: pathlib.Path,
     weld_m: float = 0.0,
+    rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
 ) -> list[str]:
     """The argv for `AI.6`'s splitting pass: one prim per material, exported as USD."""
     return [
@@ -1043,6 +1087,7 @@ def blender_material_split_command(
         "--scale",
         repr(float(scale)),
         *_weld_args(weld_m),
+        *_rotate_args(rotate_deg),
         "--split-material-plan",
         str(plan),
         "--split-out-usd",
@@ -1126,6 +1171,7 @@ def blender_command(
     save_blend: pathlib.Path | None = None,
     emit_fbx: pathlib.Path | None = None,
     weld_m: float = 0.0,
+    rotate_deg: Sequence[float] = (0.0, 0.0, 0.0),
 ) -> list[str]:
     """The exact argv the driver runs. Split out so a test can check it without Blender."""
     extra: list[str] = []
@@ -1161,6 +1207,7 @@ def blender_command(
         "--scale",
         repr(float(scale)),
         *_weld_args(weld_m),
+        *_rotate_args(rotate_deg),
         *extra,
     ]
 
@@ -1291,6 +1338,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             save_blend=out_dir / f"{asset.name}.blend" if args.save_blend else None,
             emit_fbx=out_dir / f"{asset.name}.fbx" if args.emit_fbx else None,
             weld_m=asset.weld_m,
+            rotate_deg=asset.rotate_deg,
         )
         print(f"$ {' '.join(cmd)}")
         try:
@@ -1374,6 +1422,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 stale = bool(head) and (
                     (asset.parts.granularity == "object" and "object" not in head[0])
                     or float(head[0].get("weld_m", 0.0)) != asset.weld_m
+                    or tuple(head[0].get("rotate_deg", (0.0, 0.0, 0.0))) != asset.rotate_deg
                 )
             if stale:
                 cmd = blender_command(
@@ -1383,6 +1432,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                     out_dir / "unused.prims.json",
                     asset.scale_to_metres,
                     weld_m=asset.weld_m,
+                    rotate_deg=asset.rotate_deg,
                 ) + ["--out-components", str(components)]
                 print("measuring components: " + " ".join(cmd[:5]) + " ...")
                 if subprocess.run(cmd, check=False).returncode != 0:
@@ -1410,6 +1460,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 save_blend=out_dir.parent / name / f"{name}.blend" if args.save_blend else None,
                 emit_fbx=out_dir.parent / name / f"{name}.fbx" if args.emit_fbx else None,
                 weld_m=asset.weld_m,
+                rotate_deg=asset.rotate_deg,
             )
             print("splitting geometry by part: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:
@@ -1442,7 +1493,12 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
         slots_json = out_dir / f"{asset.name}.material_slots.json"
         if not slots_json.exists() or not slots_json.with_suffix(".slots.npz").exists():
             cmd = blender_material_slots_command(
-                args.blender, source, asset.scale_to_metres, slots_json, asset.weld_m
+                args.blender,
+                source,
+                asset.scale_to_metres,
+                slots_json,
+                asset.weld_m,
+                asset.rotate_deg,
             )
             print("measuring material slots: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:
@@ -1461,6 +1517,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             plan_path,
             out_dir.parent / name / f"{name}.usdc",
             weld_m=asset.weld_m,
+            rotate_deg=asset.rotate_deg,
         )
         print("splitting geometry by material: " + " ".join(cmd[:5]) + " ...")
         if subprocess.run(cmd, check=False).returncode != 0:

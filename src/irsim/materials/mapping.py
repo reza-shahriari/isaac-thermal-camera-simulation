@@ -172,6 +172,14 @@ class AssetMapping(_Frozen):
     every seam is a thermal cut, and every part selector judges seam fragments, not pieces. ``0``
     (the default) leaves the mesh as imported, and every asset authored before this does.
 
+    ``rotate_deg`` turns the model about the origin, as XYZ Euler angles in degrees in Blender's
+    Z-up frame after import and before the rescale, so the library holds it level with its nose
+    on a known axis. Some artists pose a model in flight: the DJI FPV arrives pitched 36 deg nose
+    down. A scene sets the aircraft's attitude, so a pose baked into the asset would be applied
+    twice, and every part selector (heights, ``near_xy``) assumes a level frame. Like the weld, it
+    is applied identically in every prep pass. ``(0, 0, 0)``, the default, leaves the model as
+    imported.
+
     ``parts`` is the asset's **functional** decomposition -- propellers, motors, the battery --
     and is independent of ``materials``, which is its *compositional* one. The two answer different
     questions and neither derives from the other: "the white plastic" is one material and four
@@ -184,6 +192,7 @@ class AssetMapping(_Frozen):
     source_file: str | None = None
     scale_to_metres: float = Field(default=1.0, gt=0.0)
     weld_m: float = Field(default=0.0, ge=0.0)
+    rotate_deg: tuple[float, float, float] = (0.0, 0.0, 0.0)
     materials: dict[str, str] = Field(default_factory=dict)
     parts: PartsConfig | None = None
 
