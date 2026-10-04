@@ -71,11 +71,11 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **An FPV drone** — the DJI Avata 2 joins the asset library, split into its propellers, motors, ducts, chassis, battery and camera, each with an infrared material.
 - **Spectral materials from Blender** — the Blender add-on can now create a material from a measured spectrum or a single value, and plots any material across the infrared bands.
 - **Cameras defined by their wavelengths** — a 6–13 µm camera and a 7.5–13.5 µm one now read different values from a material with a measured spectrum, and a material can be one value, one per band, or a full spectral curve.
 - **Three more drones** — a DJI Mini 3 Pro, Inspire 3 and Matrice 300 RTK join the asset library, each split into its real propellers, motors, arms, batteries and camera, with every part given an infrared material.
 - **Exhaust you can see in one band and barely in another** — a car's exhaust plume, rendered: a bright cone to a mid-wave camera, a faint wisp to a long-wave one.
-- **A wall in the evening sun and a road drying after rain** — two scenes whose every square of surface is solved separately, now rendered as time-lapses beside their visible-light twins.
 
 Full history in the [changelog](CHANGELOG.md).
 

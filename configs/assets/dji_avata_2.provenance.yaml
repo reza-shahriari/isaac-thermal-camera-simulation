@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: dji_avata_2
+  source: local
+  real_name: DJI Avata 2
+  uid: ''
+  title: DJI Avata 2
+  author: raphael.harris.gaffga
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/dji-avata2-e27ed758e2174a89a48368e84027f8d9
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: 398f70df27e6afa919851075a00733aa4ef76c3d04fa4b82679f8c7eb2fea836
+  downloaded_at: '2026-10-04T13:26:24+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.
