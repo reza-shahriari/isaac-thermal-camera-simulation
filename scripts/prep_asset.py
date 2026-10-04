@@ -122,6 +122,34 @@ def _rescale(factor: float) -> None:
     bpy.ops.object.select_all(action="DESELECT")
 
 
+def _weld(distance_m: float) -> None:
+    """Merge vertices closer than ``distance_m`` in every mesh: the asset's ``weld_m`` (AI.18).
+
+    glTF splits a vertex at every UV and normal seam, so a surface arrives as shells that share no
+    edge. Conduction crosses only shared edges (ADR 0112), and a part selector judges shells, so
+    both need the seams closed. UVs and normals live on face corners, not vertices, so they
+    survive. Runs after :func:`_rescale` (the distance is metres) and identically in every pass,
+    because the part split indexes faces by the order the component pass saw them in.
+    """
+    import bmesh
+    import bpy
+
+    if distance_m <= 0.0:
+        return
+    before = after = 0
+    for obj in bpy.data.objects:
+        if obj.type != "MESH":
+            continue
+        bm = bmesh.new()
+        bm.from_mesh(obj.data)
+        before += len(bm.verts)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=distance_m)
+        after += len(bm.verts)
+        bm.to_mesh(obj.data)
+        bm.free()
+    print(f"welded at {1000 * distance_m:g} mm: {before:,} -> {after:,} vertices")
+
+
 def _prim_records(usd_path: pathlib.Path) -> list[dict[str, object]]:
     """Walk the exported stage into engine-free records, subsets included.
 
@@ -386,7 +414,7 @@ def world_polygon_areas(
     )
 
 
-def emit_components(out_path: pathlib.Path) -> dict[str, object]:
+def emit_components(out_path: pathlib.Path, weld_m: float = 0.0) -> dict[str, object]:
     """Write per-connected-component statistics for the whole asset.
 
     A **component** is one connected shell of the mesh -- the unit a part decomposition is built
@@ -479,6 +507,9 @@ def emit_components(out_path: pathlib.Path) -> dict[str, object]:
                     "material_name": dominant,
                     # the object it came from: `granularity: object` (AI.16) claims whole objects
                     "object": obj.name,
+                    # the weld these shells were measured under (AI.18): a cache from another
+                    # weld indexes different shells, so the driver re-measures rather than reuse it
+                    "weld_m": weld_m,
                 }
             )
 
@@ -839,6 +870,7 @@ def run_worker(argv: Sequence[str]) -> int:
     ap.add_argument("--out-usd", type=pathlib.Path, required=True)
     ap.add_argument("--out-prims", type=pathlib.Path, required=True)
     ap.add_argument("--scale", type=float, required=True)
+    ap.add_argument("--weld-m", type=float, default=0.0)
     ap.add_argument("--out-meshes", type=pathlib.Path, default=None)
     ap.add_argument("--out-components", type=pathlib.Path, default=None)
     ap.add_argument("--split-assignment", type=pathlib.Path, default=None)
@@ -859,6 +891,7 @@ def run_worker(argv: Sequence[str]) -> int:
     print(f"imported {args.source.name} via {how}: {len(meshes)} meshes, {tris:,} triangles")
 
     _rescale(args.scale)
+    _weld(args.weld_m)
     if args.out_material_slots is not None:
         # A measure-only pass: the planner runs under the project interpreter, which Blender's
         # does not share, so the two halves talk through files exactly as the part split does.
@@ -887,7 +920,7 @@ def run_worker(argv: Sequence[str]) -> int:
     print(f"wrote {args.out_usd}")
     print(f"wrote {args.out_prims} ({len(records)} prim records)")
     if args.out_components is not None:
-        emit_components(args.out_components)
+        emit_components(args.out_components, args.weld_m)
     if args.out_meshes is not None:
         emit_meshes(args.out_meshes, args.dissolve_deg, args.max_area_error)
     export_side_artefacts(args.save_blend, args.emit_fbx)
@@ -899,6 +932,14 @@ def run_worker(argv: Sequence[str]) -> int:
 # --------------------------------------------------------------------------------------------
 
 
+def _weld_args(weld_m: float) -> list[str]:
+    """``--weld-m`` for every pass, or nothing at 0 so an unwelded asset's argv is unchanged.
+
+    Every pass must weld alike: the part split indexes faces by the component pass's order.
+    """
+    return ["--weld-m", repr(float(weld_m))] if weld_m > 0.0 else []
+
+
 def blender_split_command(
     blender: str,
     source: pathlib.Path,
@@ -908,6 +949,7 @@ def blender_split_command(
     out_usd: pathlib.Path,
     save_blend: pathlib.Path | None = None,
     emit_fbx: pathlib.Path | None = None,
+    weld_m: float = 0.0,
 ) -> list[str]:
     """The argv for the part-splitting pass. Separate from :func:`blender_command` because it is a
     different job: that one prepares an asset, this one regroups a prepared one."""
@@ -934,6 +976,7 @@ def blender_split_command(
         str(out_usd.with_name("unused.prims.json")),
         "--scale",
         repr(float(scale)),
+        *_weld_args(weld_m),
         "--split-assignment",
         str(assignment),
         "--split-face-ids",
@@ -945,7 +988,7 @@ def blender_split_command(
 
 
 def blender_material_slots_command(
-    blender: str, source: pathlib.Path, scale: float, out_slots: pathlib.Path
+    blender: str, source: pathlib.Path, scale: float, out_slots: pathlib.Path, weld_m: float = 0.0
 ) -> list[str]:
     """The argv for `AI.6`'s measuring pass: per-face material slot and area, no export."""
     return [
@@ -966,6 +1009,7 @@ def blender_material_slots_command(
         str(out_slots.with_name("unused.prims.json")),
         "--scale",
         repr(float(scale)),
+        *_weld_args(weld_m),
         "--out-material-slots",
         str(out_slots),
     ]
@@ -977,6 +1021,7 @@ def blender_material_split_command(
     scale: float,
     plan: pathlib.Path,
     out_usd: pathlib.Path,
+    weld_m: float = 0.0,
 ) -> list[str]:
     """The argv for `AI.6`'s splitting pass: one prim per material, exported as USD."""
     return [
@@ -997,6 +1042,7 @@ def blender_material_split_command(
         str(out_usd.with_name("unused.prims.json")),
         "--scale",
         repr(float(scale)),
+        *_weld_args(weld_m),
         "--split-material-plan",
         str(plan),
         "--split-out-usd",
@@ -1079,6 +1125,7 @@ def blender_command(
     max_area_error: float = 0.02,
     save_blend: pathlib.Path | None = None,
     emit_fbx: pathlib.Path | None = None,
+    weld_m: float = 0.0,
 ) -> list[str]:
     """The exact argv the driver runs. Split out so a test can check it without Blender."""
     extra: list[str] = []
@@ -1113,6 +1160,7 @@ def blender_command(
         str(out_prims),
         "--scale",
         repr(float(scale)),
+        *_weld_args(weld_m),
         *extra,
     ]
 
@@ -1242,6 +1290,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             args.max_area_error,
             save_blend=out_dir / f"{asset.name}.blend" if args.save_blend else None,
             emit_fbx=out_dir / f"{asset.name}.fbx" if args.emit_fbx else None,
+            weld_m=asset.weld_m,
         )
         print(f"$ {' '.join(cmd)}")
         try:
@@ -1322,8 +1371,9 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             else:
                 # a measurement from before AI.16 has no source objects to group by
                 head = json.loads(components.read_text(encoding="utf-8"))[:1]
-                stale = (
-                    asset.parts.granularity == "object" and bool(head) and "object" not in head[0]
+                stale = bool(head) and (
+                    (asset.parts.granularity == "object" and "object" not in head[0])
+                    or float(head[0].get("weld_m", 0.0)) != asset.weld_m
                 )
             if stale:
                 cmd = blender_command(
@@ -1332,6 +1382,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                     out_dir / "unused.usdc",
                     out_dir / "unused.prims.json",
                     asset.scale_to_metres,
+                    weld_m=asset.weld_m,
                 ) + ["--out-components", str(components)]
                 print("measuring components: " + " ".join(cmd[:5]) + " ...")
                 if subprocess.run(cmd, check=False).returncode != 0:
@@ -1358,6 +1409,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 # library's .blend/.fbx of a decomposed asset come from this pass (ADR 0150).
                 save_blend=out_dir.parent / name / f"{name}.blend" if args.save_blend else None,
                 emit_fbx=out_dir.parent / name / f"{name}.fbx" if args.emit_fbx else None,
+                weld_m=asset.weld_m,
             )
             print("splitting geometry by part: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:
@@ -1390,7 +1442,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
         slots_json = out_dir / f"{asset.name}.material_slots.json"
         if not slots_json.exists() or not slots_json.with_suffix(".slots.npz").exists():
             cmd = blender_material_slots_command(
-                args.blender, source, asset.scale_to_metres, slots_json
+                args.blender, source, asset.scale_to_metres, slots_json, asset.weld_m
             )
             print("measuring material slots: " + " ".join(cmd[:5]) + " ...")
             if subprocess.run(cmd, check=False).returncode != 0:
@@ -1408,6 +1460,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             asset.scale_to_metres,
             plan_path,
             out_dir.parent / name / f"{name}.usdc",
+            weld_m=asset.weld_m,
         )
         print("splitting geometry by material: " + " ".join(cmd[:5]) + " ...")
         if subprocess.run(cmd, check=False).returncode != 0:

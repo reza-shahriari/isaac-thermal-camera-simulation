@@ -165,6 +165,13 @@ class AssetMapping(_Frozen):
     and the reviewer, not something the resolver applies; it lives here because it is a fact about
     this asset that would otherwise be known only to whoever ran the importer once.
 
+    ``weld_m`` (AI.18) merges vertices closer than this, in metres after the rescale, before any
+    prep pass reads the mesh. glTF splits a vertex at every UV and normal seam, so as imported a
+    surface is a mosaic of shells that share no edge: the Liberty ship's 1,592 physical pieces
+    arrive as 11,953. Lateral conduction runs only across shared edges (ADR 0112, ADR 0165), so
+    every seam is a thermal cut, and every part selector judges seam fragments, not pieces. ``0``
+    (the default) leaves the mesh as imported, and every asset authored before this does.
+
     ``parts`` is the asset's **functional** decomposition -- propellers, motors, the battery --
     and is independent of ``materials``, which is its *compositional* one. The two answer different
     questions and neither derives from the other: "the white plastic" is one material and four
@@ -176,6 +183,7 @@ class AssetMapping(_Frozen):
     name: str = Field(min_length=1)
     source_file: str | None = None
     scale_to_metres: float = Field(default=1.0, gt=0.0)
+    weld_m: float = Field(default=0.0, ge=0.0)
     materials: dict[str, str] = Field(default_factory=dict)
     parts: PartsConfig | None = None
 
