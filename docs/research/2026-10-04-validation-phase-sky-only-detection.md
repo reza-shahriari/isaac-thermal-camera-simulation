@@ -2,7 +2,7 @@
 
 **One small detector is trained three ways — on real infrared frames, on irsim renders, and on both
 — and all three are scored on the same real frames. This is the first day of that experiment: what
-was built, what was measured, and what is still running.**
+was built, what was measured, and what comes next.**
 
 Produced for the owner's request of 2026-10-04: *"i want to have a validation phase … remove frames
 something else exist, just sky and uav should be there … train a model (say yolo11n) … create a
@@ -12,10 +12,9 @@ in [ADR 0188](../decisions/0188-the-detector-comparison-runs-on-sky-only-real-fr
 roadmap rows are `EV.17` (done), `EV.18` (done) and `EV.19` (open).
 
 This is a **snapshot of an unfinished experiment**. The real side is complete. The synthetic side
-has a 300-frame pilot and a working generator; the full clear-sky clip set was still rendering when
-this was written, so the headline synthetic and mixed numbers are not in it. Nothing here is
-committed to a release, every result is one seed, and the pilot numbers should be read as a first
-look, not a verdict.
+has a 300-frame pilot and a first clear-sky clip set of 1,800 frames, and all three arms have been
+run once on each. Every result is one seed, one airframe and clear sky only, so the numbers are a
+first measurement, not a verdict.
 
 ---
 
@@ -29,9 +28,10 @@ look, not a verdict.
 2. **Real → real is nearly saturated.** YOLO11n trained on the sky-only train split scores
    **mAP50 0.991, mAP50-95 0.568** on the sky-only test split. Finding a drone against sky is easy;
    boxing it tightly is not, so mAP50-95 is the number that separates the arms.
-3. **A 300-frame synthetic pilot transfers poorly on its own and changes nothing when mixed in.**
-   Synthetic-only: **mAP50 0.379, mAP50-95 0.113**. Real plus the pilot: **0.991 / 0.565**, against
-   real-only 0.991 / 0.568. The pilot is tiny, one airframe, clear sky, one seed.
+3. **Renders alone find under half the real drones; renders added to real frames score slightly
+   higher than real frames alone.** Trained only on 1,800 rendered frames: **mAP50 0.494, mAP50-95
+   0.211** (0.379 / 0.113 with the 300-frame pilot). Real plus the 1,800 renders: **0.991 /
+   0.583**, against real-only 0.991 / 0.568. That +0.015 is one seed and has no spread beside it.
 4. **The generator now films clips, not unrelated frames.** A continuous random flight
    (`--track wander`) varies range, elevation, bearing, heading and the aircraft's place in the
    frame while the mission clock runs, so the clip can be watched and the airframe is seen warming
@@ -259,16 +259,46 @@ All on the same 7,255 real sky-only test frames, YOLO11n, 30 epochs, one seed.
 | Real sky-only | 14,784 | 0.991 | 0.568 | 0.989 | 0.987 |
 | Synthetic pilot only | 300 | 0.379 | 0.113 | 0.413 | 0.454 |
 | Real + synthetic pilot | 15,084 | 0.991 | 0.565 | 0.986 | 0.981 |
+| **Synthetic clip set only** | 1,800 | **0.494** | **0.211** | 0.825 | 0.429 |
+| **Real + synthetic clip set** | 16,584 | **0.991** | **0.583** | 0.985 | 0.979 |
 
-The pilot is 300 independent-pose clear-sky frames (six runs of 50 at six hours of the day),
+**The pilot** is 300 independent-pose clear-sky frames (six runs of 50 at six hours of the day),
 16–130 m, elevation 6–35°.
 
-**What can be said.** Synthetic-only training finds real drones about four times in ten at this
-size. Adding 300 renders to 14,784 real frames moves nothing: 0.565 against 0.568 is inside what a
-second seed would move, and 2 % of the training set is not a test of whether renders help.
+**The clip set** (`datasets/irsim_sky_v1`) is six continuous random-flight clips of 300 frames,
+each spanning a 1,666 s mission:
 
-**What cannot be said yet.** That the gap is 0.455 mAP50-95. The pilot is fifty times smaller than
-the real set, one airframe, one sky condition and one seed.
+| | |
+|---|---|
+| Slant range | 20–85 m |
+| Apparent size | 30–128 px across |
+| Elevation | 6–20° |
+| Motors | 23 °C at take-off, about 41.5 °C at mid-mission, back to 22–23 °C after landing |
+| Hours (UTC, drawn from the seed) | 09:45, 02:06, 22:12, 22:23, 22:49, 22:57 |
+| Render cost | 7–13 s per frame |
+
+**What can be said.**
+
+- Renders alone transfer, partly. A detector that has never seen a real frame finds 43 % of the
+  real drones, and when it fires it is usually right (precision 0.83). Six times more renders, as
+  clips at a lower elevation, moved mAP50-95 from 0.113 to 0.211.
+- Adding the clip set to the real frames did not hurt and scored 0.015 higher in mAP50-95
+  (0.583 against 0.568) with mAP50 unchanged.
+
+**What cannot be said yet.**
+
+- That the renders *help*. One seed per arm; +0.015 could be seed noise. The 300-frame mix moved
+  it by −0.003, which gives a feel for the size of that noise but is not a measurement of it.
+- That the synthetic-only gap is 0.357 mAP50-95. The set is nine times smaller than the real one,
+  one airframe, one sky condition.
+
+**Two things the clip set got wrong, found when reading its own logs.**
+
+- **Five of the six clips are at night.** The hours are drawn uniformly from the seed and this
+  draw landed 22:12–22:57 four times and 02:06 once. Only one clip has the sun on the airframe.
+- **The air is 22.0 °C at 09:45 and at 22:23.** The synthesised weather gives day and night the
+  same air temperature, so the night clips differ from the day clip by the sun alone. A real
+  night is cooler, and the sky behind the drone with it.
 
 ---
 
@@ -285,8 +315,11 @@ cheapest to check.
    |---|---|---|---|
    | Real sky-only test | 31 / 50 / 93 | 21 / 30 / 51 | 1.12 / 1.53 / 3.33 |
    | Synthetic pilot | 15 / 40 / 105 | 9 / 26 / 69 | 1.29 / 1.55 / 1.92 |
+   | Synthetic clip set | 24 / 41 / 73 | 14 / 24 / 42 | 1.52 / 1.74 / 2.00 |
 
-   The clip set now rendering narrows the band to 20–90 m and 6–20°.
+   The clip set narrowed the band to 20–85 m and 6–20°, which removed the too-small targets but
+   still stops at a ratio of 2.0. The real set's flattest views need elevations below 6°, which
+   this lens cannot reach without the horizon entering the frame.
 2. **Box convention.** The rendered box is tight on the airframe without its rotor discs; the real
    boxes are a human's and are looser. That costs mAP50-95 directly and mAP50 much less.
 3. **Things in real frames that are not rendered**: the burnt-in readout, and the lens
@@ -303,14 +336,13 @@ cheapest to check.
 
 ---
 
-## 7. What is running and what is next
+## 7. What is done and what is next
 
-- **Rendering:** `datasets/irsim_sky_v1` — six clear-sky wander clips of 300 frames, one per hour
-  of the day drawn from the seed, with a video of each.
-- **Then:** the synthetic → real and mixed → real arms on that set (`EV.19`), the same table as
-  section 5 with 1,800 synthetic frames instead of 300.
-- **Then, by cost:** a lower elevation band, rotor discs in the box, a second seed for every arm,
-  more airframes, and a mixed-ratio sweep (roadmap `EV.11`) instead of one mix.
+- **Done:** the clip set and all three arms on it (`EV.19`), section 5. Nothing is running.
+- **Next, by cost:** a second and third seed for every arm, so the mixed arm's +0.015 has a spread
+  beside it; hours spread across the day instead of drawn; a night that is cooler than the day; a
+  longer lens for elevations below 6°; rotor discs in the box; more airframes; and a mixed-ratio
+  sweep (roadmap `EV.11`) instead of one mix.
 - **Not planned for this phase:** clouds, until the cloud lane is done; buildings, which the
   simulator does not render.
 

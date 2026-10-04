@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 83 open steps
+#### Then, in order — 82 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -194,17 +194,17 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 4 | **`WX.25`** | WX | A | M | 1 | ready |
 | 5 | **`WX.26`** | WX | A | M | 1 | ready |
 | 6 | **`WX.22`** | WX | A | L | 1 | ready |
-| 7 | **`EV.19`** | EV | A | M | — | ready |
-| 8 | **`WX.10`** | WX | A | M | — | ready |
-| 9 | **`WX.27`** | WX | A | M | — | ready |
-| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
-| 11 | **`XD.6`** | XD | A | L | — | ready |
-| 12 | **`AT.26`** | AT | B | S | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 7 | **`WX.10`** | WX | A | M | — | ready |
+| 8 | **`WX.27`** | WX | A | M | — | ready |
+| 9 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
+| 10 | **`XD.6`** | XD | A | L | — | ready |
+| 11 | **`AT.26`** | AT | B | S | — | ready |
+| 12 | **`IG.16`** | IG | B | M | — | ready |
+| 13 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 14 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 15 | **`TC.15`** | TC | C | M | 1 | ready |
 
-…and 68 more — `python scripts/next_step.py --queue 40`.
+…and 67 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -831,7 +831,7 @@ requirement into an external, cited number, and it can return a negative.
 | EV.16 | ✅ **done.** `render_quad_outbound.py --clear-exit`: heavy-lift quad at cruise (mission 900 s), 12→150 m in 15 s at 60 Hz, cloud 0.00, out of the left edge at 15 m/s, 1 s of empty sky; `--far-m 30 --exit-speed-m-s 5` at close range. | **Measured**: drawn centre 0.04 px from prediction (median), nothing drawn after exit; motors 46–48 °C over a 40 °C deck, arms 34–35 °C (TC.18). Bolometer smear is now its membrane (ADR 0077 amendment). | EV.14 | S | A |
 | EV.17 | ✅ **done.** Sky-only Anti-UAV RGBT: `build_anti_uav_sky.py` (ResNet-18 on 1,590 hand labels, keep at p ≥ 0.99 with unflagged neighbours) → 14,784 / 6,728 / 7,255 train/val/test frames; `train_detector.py` runs YOLO11n per protocol, selected and scored on real frames. ADR 0188. | **Measured**: 5-fold by clip, 0 clutter frames accepted, 97 % of sky kept; real→real test mAP50 0.991, mAP50-95 0.568. | — | M | A |
 | EV.18 | ✅ **done.** Render sets: `WanderTrack` (one continuous random flight per clip) and `ScatterTrack` (independent poses); `render_phantom4.py --track wander|scatter` writes EV.15's YOLO label per frame, `generate_aerial_dataset.py` runs clear-sky clips per hour; `example_lwir_640_telephoto.yaml` (50 mm). | **Measured**: boxes from the truth `part_id` plane; a frame reaching the horizon is refused; `IrCamera.restart_motion` removes the pose-jump smear (0 stray px in 6 frames). 11 s/frame clear, 63 s cloud. | EV.15 | M | A |
-| EV.19 | **Synthetic→real and mixed→real on the sky-only test split**, against EV.17's real→real 0.568 mAP50-95: YOLO11n trained on EV.18 renders alone, then on renders added to the real train frames. | A table of three arms on the same 7,255 real test frames, same weights, epochs and seed. Passes as a measurement whichever way it comes out; a mixed arm below real-only is a finding about the renders, to be read against EV.6's statistics. | EV.17, EV.18 | M | A |
+| EV.19 | ✅ **done.** Synthetic→real and mixed→real on the sky-only test split: YOLO11n on 1,800 clear-sky clip frames (`datasets/irsim_sky_v1`, six wander clips), then on those added to the real train frames. Report: `docs/research/2026-10-04-validation-phase-sky-only-detection.md`. | **Measured**, 7,255 real test frames, one seed: real 0.991 / 0.568 (mAP50 / mAP50-95), synthetic-only 0.494 / 0.211, mixed 0.991 / 0.583. The +0.015 has no seed spread; five of six clips drew a night hour. | EV.17, EV.18 | M | A |
 
 ---
 

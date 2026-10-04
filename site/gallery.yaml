@@ -1077,22 +1077,23 @@ sections:
       on both, and scores all three on the same real sky-only frames
       (`docs/research/2026-10-04-validation-phase-sky-only-detection.md`, ADR 0188). These are the
       renders: a DJI Phantom 4 through the Boson 640 core behind a 50 mm lens, the camera's own
-      8-bit AGC, with the box the renderer wrote beside each frame drawn in green. **Trained on the
-      300 pilot frames alone, YOLO11n reaches mAP50 0.379 on 7,255 real test frames, against 0.991
-      for the same detector trained on real frames** — a first look from a small pilot, not a
-      verdict.
+      8-bit AGC. **Trained on 1,800 rendered frames alone, YOLO11n reaches mAP50 0.494 on 7,255
+      real test frames, against 0.991 for the same detector trained on real frames; trained on
+      both, mAP50-95 is 0.583 against 0.568 for real frames alone** — one seed each, a first
+      measurement and not a verdict.
     media:
-      - video: validation_phase/smoke_wander/phantom4_agc.mp4
+      - video: aerial_dataset/irsim_sky_v1/clear_000/phantom4_agc.mp4
         width: half
         caption: >-
-          One continuous random flight (`--track wander`), 24 frames across a 1,666 s mission:
-          30–82 m, 31–85 px across, elevation 10–32°, the motors rising from 23.0 °C to 28.3 °C.
+          One of the six training clips: a continuous random flight (`--track wander`), 300 frames
+          across a 1,666 s mission at 09:45 UTC. 22–77 m, 34–115 px across, elevation 6.5–18.5°;
+          the motors go from 23.0 °C to 41.8 °C and back as the aircraft lands.
       - image: validation_phase/pilot_sheet.png
         width: full
         caption: >-
-          28 of the 300 pilot frames (`--track scatter`): every frame an independent range
-          (16–130 m), elevation (6–35°), bearing, heading and place in the frame, at six hours of
-          the day.
+          28 of the 300 pilot frames (`--track scatter`), with the box the renderer wrote beside
+          each drawn in green: every frame an independent range (16–130 m), elevation (6–35°),
+          bearing, heading and place in the frame.
     note: |
       Clear sky only, one airframe, and the boxes do not include the rotor discs. The real frames
       the detector is scored on carry no stated licence and are not shown.
