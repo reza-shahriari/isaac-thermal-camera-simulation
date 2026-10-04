@@ -86,30 +86,57 @@ def part_base(name: str) -> str:
 
 
 def part_colours(names: Sequence[str]) -> dict[str, tuple[float, float, float]]:
-    """One hue per KIND of part, shades within it: the parts image's colour key.
+    """One colour per PART: the parts image's colour key.
 
-    A propeller and the duct around it are different hardware and must never read as one part;
-    four propellers are one kind and should read as such, as the part table groups them
-    (`group_parts`). So the kinds (`part_base`) take hues spaced evenly round the wheel, in a
-    stride that puts alphabetical neighbours far apart, and each kind's copies step down in
-    value. Colouring each part by its index on a golden-angle walk, as before, put parts 8 or 13
-    places apart within 0.03-0.06 of each other; the Avata 2's propellers sat 20 deg from their
-    ducts.
+    Every part is its own piece of hardware and must read as one: each propeller distinct from the
+    other three, and from the motor and duct beside it. The n parts take n hues spaced evenly round
+    the wheel, in the order -- a stride through the sorted names -- that puts the pairs that must
+    differ most furthest apart: copies of one kind (`propeller_front_left` / `_rear_left`) and parts
+    of one station (`propeller_front_left` / `duct_front_left`). Hue-adjacent slots cycle through
+    three shades (bright, pale, deep), so neighbours on the wheel still differ in lightness. On the
+    DJI Avata 2's 22 parts those pairs are at least 49 deg apart. Two earlier schemes failed the
+    owner: a golden-angle hue per part index put each propeller 20 deg from its duct, and one hue
+    per kind gave all four propellers one colour.
     """
     import colorsys
+    import itertools
 
-    kinds = sorted({part_base(n) for n in names})
-    k = len(kinds)
-    stride = next((m for m in range(k // 2, 0, -1) if math.gcd(m, k) == 1), 1) if k > 2 else 1
-    hue = {kind: (i * stride % k) / k for i, kind in enumerate(kinds)}
-    seen: dict[str, int] = {}
-    out: dict[str, tuple[float, float, float]] = {}
-    for name in sorted(names):
-        kind = part_base(name)
-        j = seen.get(kind, 0)
-        seen[kind] = j + 1
-        out[name] = colorsys.hsv_to_rgb(hue[kind], 0.62, 0.95 - 0.12 * (j % 4))
+    ordered = sorted(names)
+    n = len(ordered)
+    if n == 0:
+        return {}
+    side = {name: name[len(part_base(name)) :] for name in ordered}
+    related = [
+        (a, b)
+        for a, b in itertools.combinations(ordered, 2)
+        if part_base(a) == part_base(b) or (side[a] and side[a] == side[b])
+    ]
+
+    def gaps(stride: int) -> tuple[float, float]:
+        slot = {name: (i * stride) % n for i, name in enumerate(ordered)}
+
+        def d(a: str, b: str) -> float:
+            k = abs(slot[a] - slot[b])
+            return min(k, n - k) / n
+
+        everything = itertools.combinations(ordered, 2)
+        return (
+            min((d(a, b) for a, b in related), default=1.0),
+            min((d(a, b) for a, b in everything), default=1.0),
+        )
+
+    stride = max((s for s in range(1, n) if math.gcd(s, n) == 1), key=gaps, default=1)
+    shades = ((0.65, 0.95), (0.40, 0.80), (0.70, 0.62))
+    out = {}
+    for i, name in enumerate(ordered):
+        k = (i * stride) % n
+        out[name] = colorsys.hsv_to_rgb(k / n, *shades[k % len(shades)])
     return out
+
+
+def part_label(name: str) -> str:
+    """`propeller_front_left` -> `Propeller front left`: a part's row name in the zoo table."""
+    return name.replace("_", " ").capitalize()
 
 
 def area_weighted(values: Mapping[str, float], areas: Mapping[str, float]) -> float:
@@ -256,7 +283,7 @@ def worker_render(out_dir: pathlib.Path, spec_path: pathlib.Path) -> None:
         s.collection.objects.link(light)
     _render(out_dir / "beauty.png")
 
-    # parts: Workbench, flat studio light, one hue per kind of part (`part_colours`)
+    # parts: Workbench, flat studio light, one colour per part (`part_colours`)
     s.render.engine = "BLENDER_WORKBENCH"
     sh = s.display.shading
     sh.light, sh.color_type, sh.show_cavity = "STUDIO", "OBJECT", True
@@ -473,7 +500,13 @@ def bundle(a: argparse.Namespace) -> pathlib.Path:
                     areas[to_lib[src]] = areas.get(to_lib[src], 0.0) + ar
             rows.append({"name": obj, "areas": areas})
         parts = []
-        for g in group_parts(rows):
+        # one row per part (the owner's choice, 2026-10-04); --group-mirrors folds copies together
+        table = (
+            group_parts(rows)
+            if a.group_mirrors
+            else [{"name": part_label(r["name"]), "areas": r["areas"]} for r in rows]
+        )
+        for g in table:
             eps = area_weighted({k: props[k][0] for k in g["areas"]}, g["areas"])
             n = len(g["areas"])
             parts.append(
@@ -594,6 +627,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--thermal", type=pathlib.Path, help="a rendered LWIR still to show as the thermal image"
     )
     ap.add_argument("--featured", action="store_true", help="show it on the zoo's home page")
+    ap.add_argument(
+        "--group-mirrors",
+        action="store_true",
+        help="one table row per kind of part ('Propeller (x4)') instead of one per part",
+    )
     ap.add_argument("--out", type=pathlib.Path, help="bundle root (default zoo_bundles/)")
     bundle(ap.parse_args(argv))
     return 0

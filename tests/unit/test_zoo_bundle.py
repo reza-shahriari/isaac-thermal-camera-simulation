@@ -101,30 +101,45 @@ def test_zoo_ids_are_url_slugs(zb):
     assert zb.zoo_id("Liberty_Ship") == "liberty-ship"
 
 
-def test_every_kind_of_part_gets_its_own_hue_and_copies_share_it(zb):
-    import colorsys
+def _lab(rgb):
+    def lin(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
 
-    names = [
-        *(
-            f"{k}_{s}"
-            for k in ("propeller", "motor", "arm")
-            for s in ("front_left", "front_right", "rear_left", "rear_right")
-        ),
-        "duct_left",
-        "duct_right",
-        "battery",
-        "camera_lens",
-        "chassis",
-        "frame",
-        "fuselage",
-        "gimbal_camera",
-    ]  # the Avata 2's 20 parts
-    hues: dict[str, set[float]] = {}
-    for name, rgb in zb.part_colours(names).items():
-        hues.setdefault(zb.part_base(name), set()).add(round(colorsys.rgb_to_hsv(*rgb)[0], 6))
-    assert all(len(h) == 1 for h in hues.values()), hues  # copies: one hue
-    flat = sorted(h.pop() for h in hues.values())
-    gaps = [b - a for a, b in zip(flat, flat[1:], strict=False)] + [1 + flat[0] - flat[-1]]
-    # 11 kinds round the wheel: every pair at least 360/11 = 32.7 deg apart. The golden-angle
-    # walk over parts this replaced put the propeller and its duct 20 deg apart (55f6ff8).
-    assert min(gaps) * 360 > 25
+    r, g, b = (lin(c) for c in rgb)
+    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.9505
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.089
+
+    def f(t):
+        return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+
+    return (116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z)))
+
+
+def test_every_part_gets_its_own_colour(zb):
+    import colorsys
+    import itertools
+    import math
+
+    sides = ("front_left", "front_right", "rear_left", "rear_right")
+    kinds = ("propeller", "motor", "arm", "duct")
+    names = [f"{k}_{s}" for k in kinds for s in sides]
+    names += ["battery", "camera_lens", "chassis", "frame", "fuselage", "gimbal_camera"]
+    lab = {n: _lab(c) for n, c in zb.part_colours(names).items()}  # the Avata 2's 22 parts
+    worst = min(math.dist(lab[a], lab[b]) for a, b in itertools.combinations(names, 2))
+    # CIELAB dE 10 is plainly visible. Hue per kind gave the four propellers dE ~10 shades of
+    # one colour; a golden-angle hue per index put each propeller 20 deg from its duct.
+    assert worst > 15
+    # the pairs a reader must tell apart: the four copies of a kind, and the parts of one station
+    hue = {n: colorsys.rgb_to_hsv(*c)[0] for n, c in zb.part_colours(names).items()}
+    for a, b in itertools.combinations(names, 2):
+        same_kind = zb.part_base(a) == zb.part_base(b)
+        same_station = a.split("_", 1)[-1] == b.split("_", 1)[-1] and a.split("_", 1)[-1] in sides
+        if same_kind or same_station:
+            gap = abs(hue[a] - hue[b])
+            assert min(gap, 1 - gap) * 360 > 45, (a, b)
+
+
+def test_a_part_row_is_named_for_its_part(zb):
+    assert zb.part_label("propeller_front_left") == "Propeller front left"
+    assert zb.part_label("fuselage") == "Fuselage"
