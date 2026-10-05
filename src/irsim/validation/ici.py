@@ -1,0 +1,170 @@
+"""The clear LWIR sky against a calibrated full-sky imager (XD.6; §7.1, §15 T3).
+
+Every other comparison against reality in this project is made on 8-bit, post-AGC imagery, where
+nothing radiometric survives (ADR 0068). ARM's Infrared Cloud Imager is the exception: an
+upward-looking LWIR microbolometer imager at the Southern Great Plains site (May-Dec 2023,
+doi:10.5439/3001561) whose files carry **calibrated sky radiance in W/(m^2 sr)** per pixel, held to
+ARM's AERI spectrometer to 0.17 W/(m^2 sr) by the deployment's intercomparison report. That makes
+it the first measurement the layered sky (ADR 0071, calibrated on one dry Tucson anchor) can be
+held to across temperature and humidity.
+
+What is compared, and what stands in for what we do not have:
+
+* **The measurement** is ``data/validation/ici_sgp2023_clear_sky.csv``: per image, the median
+  radiance of the *clear* pixels (the instrument's own cloud mask) in eight elevation bands, the
+  cloud fraction, and the surface air temperature and PWV the instrument's processing printed on
+  the deployment time-lapse (``scripts/ici_extract_profiles.py``,
+  ``scripts/ici_met_from_video.py``).
+* **The weather** is that one surface sample, held constant: ``T_air`` is the surface temperature,
+  and the relative humidity is the one whose surface absolute humidity, spread over the preset's
+  water-vapour scale height ``H_w``, holds the measured column: ``w0 = PWV / H_w``
+  (:func:`surface_rh_for_pwv`). A humid night can need more than saturation at ``H_w`` = 2 km --
+  the real column is deeper than the preset's -- and is then clamped to RH = 1 and flagged.
+* **The band** is the one thing the data cannot supply. The ICI is a 7.3-14 um microbolometer
+  whose response *shape* is not published (the intercomparison report names it the main
+  limitation of its own calibration). The comparison uses a microbolometer-shaped response --
+  the project's ESTIMATED VOx curve by default -- and the result is sensitive to it: the band
+  edges sit in near-opaque water and CO2 lines that carry ~40 % of a dry sky's radiance. A band
+  change scales every sky alike, though; a *humidity-dependent* misfit cannot come from it.
+
+docs/physics-model.md §7.1, §5.3 (a), §15 T3; ADR 0071, ADR 0183
+"""
+
+from __future__ import annotations
+
+import csv
+import math
+import pathlib
+import warnings
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+import numpy as np
+from numpy.typing import NDArray
+
+from irsim.atmosphere.humidity import absolute_humidity_g_m3
+from irsim.atmosphere.layered import LayeredAtmosphere
+from irsim.config.atmosphere import AtmospherePreset
+from irsim.config.bands import band_id_for
+from irsim.radiometry.lut import BandLUT
+from irsim.radiometry.spectral_response import SpectralResponse
+from irsim.thermal.weather import WeatherSample, WeatherSeries
+
+__all__ = [
+    "IciImage",
+    "load_ici_clear_sky",
+    "surface_rh_for_pwv",
+    "model_clear_sky",
+    "ratios",
+    "CLEAR_FRACTION_MAX",
+    "ICI_BAND_UM",
+]
+
+#: The ICI's nominal band (the deployment's intercomparison report), um. Its *shape* is unpublished.
+ICI_BAND_UM = (7.3, 14.0)
+#: An image counts as clear when at most this share of its sky pixels is masked as cloud.
+CLEAR_FRACTION_MAX = 0.005
+#: g/m^3 x m -> cm of precipitable water (1 g/cm^2 of water is 1 cm).
+_G_M2_PER_CM = 1.0e4
+
+
+@dataclass(frozen=True)
+class IciImage:
+    """One ICI image reduced to its clear-pixel radiance profile and its surface met."""
+
+    utc: str
+    t_surface_k: float
+    pwv_cm: float
+    cloud_fraction: float
+    elevations_deg: NDArray[np.float64]
+    radiance: NDArray[np.float64]  # W/(m^2 sr), NaN where a band had too few clear pixels
+    ici_model: NDArray[np.float64]  # the instrument's own clear-sky model, same bands
+
+    @property
+    def clear(self) -> bool:
+        return self.cloud_fraction <= CLEAR_FRACTION_MAX
+
+
+def load_ici_clear_sky(path: str | pathlib.Path) -> list[IciImage]:
+    """Read the derived CSV (``#`` lines are its provenance header)."""
+    text = pathlib.Path(path).read_text(encoding="utf-8").splitlines()
+    rows = list(csv.DictReader(line for line in text if not line.startswith("#")))
+    if not rows:
+        raise ValueError(f"{path}: no images")
+    elevations = sorted(int(k[4:]) for k in rows[0] if k.startswith("l_el"))
+    out = []
+    for r in rows:
+
+        def num(key: str, row: dict[str, str] = r) -> float:
+            return float(row[key]) if row[key] != "" else math.nan
+
+        out.append(
+            IciImage(
+                utc=r["utc"],
+                t_surface_k=float(r["t_surface_c"]) + 273.15,
+                pwv_cm=float(r["pwv_cm"]),
+                cloud_fraction=float(r["cloud_fraction"]),
+                elevations_deg=np.asarray(elevations, dtype=np.float64),
+                radiance=np.asarray([num(f"l_el{e}") for e in elevations], dtype=np.float64),
+                ici_model=np.asarray([num(f"ici_model_el{e}") for e in elevations]),
+            )
+        )
+    return out
+
+
+def surface_rh_for_pwv(t_k: float, pwv_cm: float, scale_height_m: float) -> tuple[float, float]:
+    """``(RH used, RH needed)`` for a surface humidity that holds ``pwv_cm`` over ``H_w``.
+
+    The layered model's water falls off as ``w0 e^{-h/H_w}``, whose column is ``w0 H_w``; so
+    ``w0 = PWV / H_w``. The second value is unclamped: above 1 the preset's ``H_w`` is too shallow
+    for that column, and the first value (clamped to 1) under-supplies it.
+    """
+    if pwv_cm < 0.0 or scale_height_m <= 0.0:
+        raise ValueError("pwv_cm must be >= 0 and scale_height_m > 0")
+    w0 = pwv_cm * _G_M2_PER_CM / scale_height_m
+    needed = w0 / absolute_humidity_g_m3(t_k, 1.0)
+    return min(needed, 1.0), needed
+
+
+def model_clear_sky(
+    image: IciImage,
+    preset: AtmospherePreset,
+    response: SpectralResponse,
+    lut: BandLUT,
+    band: str | None = None,
+) -> NDArray[np.float64]:
+    """The layered model's clear sky at the image's elevations, W/(m^2 sr) in ``response``.
+
+    The weather is the image's surface sample held constant -- wind 1 m/s, no sun (the ICI
+    images here are night and the LWIR sky has no scattered term worth the name; ADR 0086).
+    """
+    band = band or band_id_for(*ICI_BAND_UM)  # the registry names it, not this module
+    scale_height = float(preset.profile.water_vapour_scale_height_m)
+    rh, _ = surface_rh_for_pwv(image.t_surface_k, image.pwv_cm, scale_height)
+    weather = WeatherSeries.constant(
+        WeatherSample(image.t_surface_k, rh, 1.0, 0.0, 0.0, 0.0, 23000.0, 0.0), 3600.0
+    )
+    atmosphere = LayeredAtmosphere(preset, weather, {band: lut}, {band: response})
+    with warnings.catch_warnings():
+        # the anchor solve warns when a narrow camera sheds classes; not this comparison's concern
+        warnings.simplefilter("ignore")
+        return np.asarray(
+            [
+                atmosphere.sky_radiance(band, 0.0, math.radians(float(e)))
+                for e in image.elevations_deg
+            ],
+            dtype=np.float64,
+        )
+
+
+def ratios(
+    images: Sequence[IciImage],
+    preset: AtmospherePreset,
+    response: SpectralResponse,
+    lut: BandLUT,
+) -> NDArray[np.float64]:
+    """Model over measurement, ``(n_images, n_elevations)``, NaN where the measurement is."""
+    return np.asarray(
+        [model_clear_sky(im, preset, response, lut) / im.radiance for im in images],
+        dtype=np.float64,
+    )

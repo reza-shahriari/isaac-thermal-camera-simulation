@@ -1108,6 +1108,30 @@ sections:
       closed, or a black-hot display.
     source: scripts/validate_sky_flat.py
 
+  - id: sky-ici
+    title: The clear night sky against a calibrated sky camera
+    lead: |
+      ARM's Infrared Cloud Imager looked straight up at the Southern Great Plains site through
+      2023 and recorded the sky in W/(m²·sr) per pixel (doi:10.5439/3001561). `XD.6` holds the
+      layered clear sky (ADR 0071) to 30 of its cloud-free images on three nights, with each night's
+      surface temperature and water vapour as the only weather (ADR 0183). **On the cold, dry
+      December night the model is the measurement to 0–7 % from 20° to the zenith; on the humid
+      August night it is 24–28 % too bright at every elevation**, where the instrument's own model is
+      within 3 %. That humid misfit is now a strict expected failure naming its fix, `AT.37`.
+    media:
+      - image: validation/ici/ici_clear_sky.png
+        width: full
+        caption: >-
+          Grey: the ICI's measured clear-pixel radiance. Red: irsim's layered sky. Blue dashed: the
+          instrument's own clear-sky model. 21 May (20.8 °C, 1.41 cm), 6 Aug (27.0 °C, 3.96 cm),
+          11 Dec (2.5 °C, 0.86 cm)
+    note: |
+      The ICI's spectral response is not published; the model uses the project's estimated VOx curve
+      for a 7.3–14 µm microbolometer. That moves the December result by under 7 %, and it cannot
+      make a misfit that grows with humidity. The cloudy images in the same files are `XD.6`'s
+      second part.
+    source: scripts/validate_sky_ici.py
+
   - id: validation-phase-renders
     title: A detector's training set, rendered
     lead: |
