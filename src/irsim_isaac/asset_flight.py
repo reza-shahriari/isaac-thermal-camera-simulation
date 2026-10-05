@@ -56,8 +56,10 @@ from numpy.typing import NDArray
 __all__ = [
     "FigureEightTrack",
     "ScatterTrack",
+    "StraightOutExitTrack",
     "StraightOutTrack",
     "WanderTrack",
+    "clear_exit_seconds",
     "world_frame_to_stage",
 ]
 
@@ -201,6 +203,138 @@ class StraightOutTrack:
         delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
         horizontal = np.hypot(delta[..., 0], delta[..., 2])
         return np.asarray(np.degrees(np.arctan2(delta[..., 1], horizontal)), dtype=np.float64)
+
+
+@dataclass(frozen=True)
+class StraightOutExitTrack:
+    """`EV.20`'s track: :class:`StraightOutTrack`, then the aircraft strafes out of the frame.
+
+    The run is in **seconds**, not only phase: ``outbound_s`` of the climbing run from
+    ``near_m`` to ``far_m``, then the mount **stops following** and holds the last boresight while
+    the aircraft flies sideways at ``exit_speed_m_s``, then ``hold_s`` of the sky it left. The
+    phase interface is kept (phase = clip seconds / :attr:`duration_s`), so a driver flies this
+    as it flies the others and asks :meth:`aim_m` where to point.
+
+    **The aircraft moves; the camera does not.** `EV.16`'s generated quad leaves the frame by a
+    camera pan (ADR 0123: its occluders are authored in the world frame and cannot move). An
+    imported asset with a mesh field has no such constraint (see :class:`StraightOutTrack`), so
+    here the exit is what a ground observer actually sees: a fixed field and a drone crossing it,
+    with the sky behind it never moving.
+
+    **Sideways is -X, the camera's left, and the nose does not turn.** At the end of the run the
+    boresight lies in the stage's YZ plane, so a displacement along X is perpendicular to it and
+    the depth to the aircraft stays the slant range ``R`` at which the mount stopped: the
+    aircraft's angle off the boresight is ``atan(x / R)`` exactly. A multirotor translates
+    without yawing, so the heading stays north (tail to the camera) and the aspect does not change
+    in the last second of the clip -- only the position does.
+    """
+
+    observer_m: tuple[float, float, float] = (0.0, 1.5, 0.0)
+    near_m: float = 5.0
+    far_m: float = 60.0
+    hold_elevation_deg: float = 16.0
+    outbound_s: float = 15.0
+    exit_speed_m_s: float = 10.0
+    #: How long the strafe lasts. :func:`clear_exit_seconds` solves the shortest that leaves the
+    #: field; anything longer flies on out of it.
+    exit_s: float = 2.0
+    hold_s: float = 1.0
+
+    def __post_init__(self) -> None:
+        # The outbound part's own checks (near < far, elevation in (0, 90)) run here once.
+        self._base()
+        for name in ("outbound_s", "exit_speed_m_s", "exit_s"):
+            if not float(getattr(self, name)) > 0.0:
+                raise ValueError(f"{name} must be positive")
+        if not float(self.hold_s) >= 0.0:
+            raise ValueError("hold_s must not be negative")
+
+    def _base(self) -> StraightOutTrack:
+        return StraightOutTrack(
+            observer_m=self.observer_m,
+            near_m=self.near_m,
+            far_m=self.far_m,
+            hold_elevation_deg=self.hold_elevation_deg,
+        )
+
+    @property
+    def duration_s(self) -> float:
+        """The clip: outbound, strafe, hold."""
+        return float(self.outbound_s + self.exit_s + self.hold_s)
+
+    def time_s(self, phase: object) -> NDArray[np.float64]:
+        """Clip seconds at a phase."""
+        p = np.clip(np.asarray(phase, dtype=np.float64), 0.0, 1.0)
+        return np.asarray(p * self.duration_s, dtype=np.float64)
+
+    def position_m(self, phase: object) -> NDArray[np.float64]:
+        """Aircraft position: on the run, then displaced along -X at the strafe speed.
+
+        The aircraft keeps flying through the hold, so it is further out of the field, not
+        parked on its edge.
+        """
+        t = self.time_s(phase)
+        base = self._base()
+        on_run = base.position_m(np.minimum(t / self.outbound_s, 1.0))
+        lateral = self.exit_speed_m_s * np.maximum(t - self.outbound_s, 0.0)
+        shift = np.stack([-lateral, np.zeros_like(lateral), np.zeros_like(lateral)], axis=-1)
+        return np.asarray(on_run + shift, dtype=np.float64)
+
+    def aim_m(self, phase: object) -> NDArray[np.float64]:
+        """Where the mount points: at the aircraft on the run, then frozen where the run ended."""
+        t = self.time_s(phase)
+        return self._base().position_m(np.minimum(t / self.outbound_s, 1.0))
+
+    def velocity(self, phase: object, *, delta: float = 1e-4) -> NDArray[np.float64]:
+        """Unit velocity, by central difference on the phase. Direction only, not a speed."""
+        p = np.asarray(phase, dtype=np.float64)
+        step = self.position_m(np.clip(p + delta, 0.0, 1.0)) - self.position_m(
+            np.clip(p - delta, 0.0, 1.0)
+        )
+        norm = np.linalg.norm(step, axis=-1, keepdims=True)
+        return np.asarray(step / np.maximum(norm, 1e-12), dtype=np.float64)
+
+    def yaw_deg(self, phase: object) -> NDArray[np.float64]:
+        """Zero throughout: north on the run, and a strafe does not turn the nose."""
+        return np.zeros(np.shape(np.asarray(phase, dtype=np.float64)), dtype=np.float64)
+
+    def range_m(self, phase: object) -> NDArray[np.float64]:
+        """Slant range from the observer, measured from the position."""
+        delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
+        return np.asarray(np.linalg.norm(delta, axis=-1), dtype=np.float64)
+
+    def elevation_deg(self, phase: object) -> NDArray[np.float64]:
+        """Elevation above the observer's horizon, measured from the position."""
+        delta = self.position_m(phase) - np.asarray(self.observer_m, dtype=np.float64)
+        horizontal = np.hypot(delta[..., 0], delta[..., 2])
+        return np.asarray(np.degrees(np.arctan2(delta[..., 1], horizontal)), dtype=np.float64)
+
+
+def clear_exit_seconds(
+    far_m: float,
+    hfov_deg: float,
+    ifov_mrad: float,
+    extent_m: float,
+    exit_speed_m_s: float,
+    *,
+    margin_px: float = 3.0,
+) -> float:
+    """The shortest strafe that leaves the whole aircraft ``margin_px`` beyond the field's edge.
+
+    Closed form, because the strafe is perpendicular to a boresight that has stopped: the
+    aircraft's centre is ``atan(x / far_m)`` off axis, so its near edge clears the field when
+    ``x - extent_m / 2 = far_m * tan(hfov / 2 + margin)``. (`EV.16`'s pan had to be bisected,
+    because there the camera turned and the aircraft did not.)
+    """
+    if not (far_m > 0.0 and exit_speed_m_s > 0.0 and extent_m >= 0.0):
+        raise ValueError("far_m and exit_speed_m_s must be positive, extent_m not negative")
+    if not 0.0 < hfov_deg < 180.0:
+        raise ValueError("hfov_deg must be a real field of view")
+    angle = math.radians(0.5 * float(hfov_deg)) + float(margin_px) * 1e-3 * float(ifov_mrad)
+    if angle >= 0.5 * math.pi:
+        raise ValueError("the margin puts the edge behind the camera")
+    lateral = float(far_m) * math.tan(angle) + 0.5 * float(extent_m)
+    return lateral / float(exit_speed_m_s)
 
 
 @dataclass(frozen=True)

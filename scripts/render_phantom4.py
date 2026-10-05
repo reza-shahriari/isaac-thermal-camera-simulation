@@ -43,6 +43,7 @@ as in every other driver; ``--no-flat-field`` and ``--no-chain`` take them off a
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import datetime as dt
 import json
 import math
@@ -229,6 +230,28 @@ parser.add_argument("--far-m", type=float, default=None, help="outbound: range a
 parser.add_argument(
     "--elevation-deg", type=float, default=None, help="outbound: elevation held for the run"
 )
+# --- EV.20: the clear-sky exit, `render_quad_outbound.py --clear-exit` for the imported aircraft --
+# The outbound run, then the mount stops and the aircraft strafes out of the field, then a second
+# of the sky it left, at the camera's own 60 Hz, starting at cruise. Here the aircraft really moves
+# and the camera holds still (asset_flight.StraightOutExitTrack); EV.16's quad leaves by a pan.
+parser.add_argument(
+    "--clear-exit",
+    action="store_true",
+    help="EV.20: out to --far-m, then strafe out of the field; 60 Hz, starts at cruise. Defaults "
+    "to the solved aircraft under a cloudless sky (phantom4_clear_exit.yaml, phantom4_parts)",
+)
+parser.add_argument("--outbound-s", type=float, default=15.0, help="clear-exit: the outbound run")
+parser.add_argument(
+    "--exit-speed-m-s", type=float, default=10.0, help="clear-exit: the strafe speed"
+)
+parser.add_argument("--hold-s", type=float, default=1.0, help="clear-exit: empty sky at the end")
+parser.add_argument(
+    "--mission-start-s",
+    type=float,
+    default=None,
+    help="mission second of the first frame (default 540 with --clear-exit: 210 s into the "
+    "forward cruise, so the motors are at cruise temperature; 0 otherwise)",
+)
 parser.add_argument("--centre-range-m", type=float, default=None, help="track centre distance")
 parser.add_argument("--half-width-m", type=float, default=None, help="half-width of the eight")
 parser.add_argument("--altitude-low-m", type=float, default=None, help="lowest track altitude")
@@ -332,8 +355,102 @@ parser.add_argument(
 )
 
 
+#: EV.20's defaults: the solved aircraft (TC.13) under the cloudless sky, 5 -> 60 m, at cruise.
+CLEAR_EXIT_SCENE = "configs/scenes/phantom4_clear_exit.yaml"
+CLEAR_EXIT_ASSET = "phantom4_parts"
+CLEAR_EXIT_NEAR_M = 5.0
+CLEAR_EXIT_FAR_M = 60.0
+CLEAR_EXIT_FPS = 60.0
+CLEAR_EXIT_MISSION_START_S = 540.0
+
+
+def apply_clear_exit_defaults(args: Any) -> None:
+    """Fill in what ``--clear-exit`` means when the caller left it to the defaults.
+
+    Only arguments still at the parser's own default are replaced, so an explicit ``--scene`` or
+    ``--far-m`` wins. The frame count is not set here: it follows from the track's duration, which
+    needs the aircraft's size and the lens (see ``_render``).
+    """
+    if not args.clear_exit:
+        if args.mission_start_s is None:
+            args.mission_start_s = 0.0
+        return
+    if args.scene == parser.get_default("scene"):
+        args.scene = CLEAR_EXIT_SCENE
+    if args.asset == parser.get_default("asset"):
+        args.asset = CLEAR_EXIT_ASSET
+    if args.near_m is None:
+        args.near_m = CLEAR_EXIT_NEAR_M
+    if args.far_m is None:
+        args.far_m = CLEAR_EXIT_FAR_M
+    if args.mission_start_s is None:
+        args.mission_start_s = CLEAR_EXIT_MISSION_START_S
+    if args.out == parser.get_default("out"):
+        args.out = "outputs/phantom4_clear_exit"
+    # The Boson's own frame rate: the exit is a second and a half, and at 12 Hz it is 18 frames.
+    args.fps = CLEAR_EXIT_FPS
+    args.track = "outbound"
+
+
+def clear_exit_summary(
+    rows: list[dict[str, Any]], planes: list[Any], track: Any, args: Any, *, frame_width: int
+) -> dict[str, Any]:
+    """EV.20's checks, from the frame records: drawn where predicted, and gone once gone.
+
+    * **centre error** -- the drawn centroid against the pinhole's prediction for the aircraft's
+      bounding-box centre, over frames where it is at least 30 px and clear of the frame's edge.
+      A silhouette's centroid is not its box centre, so this is a few pixels up close and shrinks
+      with range; what it rules out is the aircraft being drawn somewhere it is not.
+    * **exit** -- the last frame anything was drawn, against the first frame the prediction puts
+      the whole aircraft past the left edge; and that nothing is drawn after it.
+    """
+    import numpy as np
+
+    drawn = [r for r in rows if r.get("drawn_px", 0) > 0]
+    last_drawn = max((r["frame"] for r in drawn), default=-1)
+    predicted_gone = next(
+        (r["frame"] for r in rows if r["pred_u_px"] + r["pred_half_span_px"] < 0.0), None
+    )
+    measurable = [r for r in drawn if r["drawn_px"] >= 30 and not r.get("touches_edge", False)]
+    errors = np.asarray(
+        [
+            math.hypot(r["drawn_u_px"] - r["pred_u_px"], r["drawn_v_px"] - r["pred_v_px"])
+            for r in measurable
+        ],
+        dtype=np.float64,
+    )
+    spans = np.asarray([2.0 * r["pred_half_span_px"] for r in measurable], dtype=np.float64)
+    empty = [i for i in range(last_drawn + 1, len(rows))]
+    sky = (
+        np.percentile(np.stack([planes[i] for i in empty]), [0.1, 99.9]).round(3).tolist()
+        if empty
+        else None
+    )
+    return {
+        "outbound_s": track.outbound_s,
+        "exit_speed_m_s": track.exit_speed_m_s,
+        "exit_s": round(track.exit_s, 4),
+        "hold_s": track.hold_s,
+        "mission_start_s": args.mission_start_s,
+        "fps": args.fps,
+        "frame_width_px": frame_width,
+        "last_drawn_frame": last_drawn,
+        "predicted_gone_frame": predicted_gone,
+        "drawn_after_exit": any(r.get("drawn_px", 0) > 0 for r in rows[last_drawn + 1 :]),
+        "empty_frames": len(empty),
+        "empty_sky_t_app_p001_p999_k": sky,
+        "centre_error_frames": len(measurable),
+        "centre_error_px_median": round(float(np.median(errors)), 3) if errors.size else None,
+        "centre_error_px_p95": round(float(np.percentile(errors, 95)), 3) if errors.size else None,
+        "centre_error_over_span_median": (
+            round(float(np.median(errors / spans)), 4) if errors.size else None
+        ),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
+    apply_clear_exit_defaults(args)
     usd = REPO / "data" / "assets" / args.asset / f"{args.asset}.usdc"
     if not usd.exists():
         print(
@@ -424,6 +541,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         ffmpeg_available,
         interior,
         overlay_readout,
+        readout_margin,
         target_code_span,
         with_margin,
     )
@@ -431,8 +549,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     from irsim_isaac.asset_flight import (
         FigureEightTrack,
         ScatterTrack,
+        StraightOutExitTrack,
         StraightOutTrack,
         WanderTrack,
+        clear_exit_seconds,
         world_frame_to_stage,
     )
     from irsim_isaac.pipeline.ir_camera import IrCamera
@@ -473,7 +593,19 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         f"-> stage +Y up, -Z north"
     )
 
-    if args.track == "outbound":
+    if args.clear_exit:
+        # The strafe's length needs the aircraft's size, which the stage has not loaded yet: this
+        # one second is replaced by the solved one as soon as it has (below, after `span_m`).
+        track: Any = StraightOutExitTrack(
+            near_m=args.near_m,
+            far_m=args.far_m,
+            outbound_s=args.outbound_s,
+            exit_speed_m_s=args.exit_speed_m_s,
+            exit_s=1.0,
+            hold_s=args.hold_s,
+            **({} if args.elevation_deg is None else {"hold_elevation_deg": args.elevation_deg}),
+        )
+    elif args.track == "outbound":
         track_kwargs = {
             k: v
             for k, v in (
@@ -483,7 +615,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             )
             if v is not None
         }
-        track: Any = StraightOutTrack(**track_kwargs)
+        track = StraightOutTrack(**track_kwargs)
     elif args.track == "scatter":
         track_kwargs = {
             k: v
@@ -551,6 +683,34 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     box = cache.ComputeWorldBound(target).ComputeAlignedRange()
     centre = np.asarray([box.GetMidpoint()[i] for i in range(3)], dtype=np.float64)
     span_m = float(max(box.GetMax()[i] - box.GetMin()[i] for i in range(3)))
+    if args.clear_exit:
+        # EV.20: now the strafe can be solved -- the shortest that puts the whole aircraft three
+        # pixels past the field's left edge -- and the clip's length, frame count and frame
+        # period follow from it, at the camera's 60 Hz rather than spread over a mission.
+        lens = sensor.sensor
+        exit_hfov_deg = math.degrees(
+            2.0
+            * math.atan(
+                0.5 * lens.fpa.width * lens.fpa.pitch_um * 1e-3 / lens.optics.focal_length_mm
+            )
+        )
+        exit_ifov_mrad = lens.fpa.pitch_um / lens.optics.focal_length_mm
+        track = dataclasses.replace(
+            track,
+            exit_s=clear_exit_seconds(
+                track.far_m, exit_hfov_deg, exit_ifov_mrad, span_m, track.exit_speed_m_s
+            ),
+        )
+        args.frames = max(int(round(track.duration_s * args.fps)), 2)
+        args.mission_s = track.duration_s
+        interval_s = track.duration_s / args.frames
+        print(
+            f"clear exit: out {track.near_m:.0f} -> {track.far_m:.0f} m "
+            f"in {track.outbound_s:.1f} s, "
+            f"strafe {track.exit_speed_m_s:.1f} m/s for {track.exit_s:.2f} s, hold "
+            f"{track.hold_s:.1f} s: {args.frames} frames at {args.fps:.0f} Hz from mission "
+            f"second {args.mission_start_s:.0f}"
+        )
     # The archive's nose axis, carried through the mount, is what a yaw of zero has to mean.
     nose_yaw_deg = float(
         math.degrees(
@@ -658,7 +818,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # north on the stage's -Z, which is exactly what heading zero means.
         dome = dome_spec_from_scene(
             scene,
-            t_rel_s=0.5 * args.mission_s,
+            t_rel_s=args.mission_start_s + 0.5 * args.mission_s,
             heading_deg=0.0,
             camera_height_m=float(track.observer_m[1]),
         )
@@ -763,6 +923,26 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         q = look_at_quaternion(view)
         aim_op.Set(Gf.Quatf(float(q[0]), Gf.Vec3f(*(float(v) for v in q[1:]))))
 
+    focal_px = sensor.sensor.optics.focal_length_mm / (fpa.pitch_um * 1e-3)
+
+    def predicted_px(position: Any, aim: Any) -> tuple[float, float]:
+        """Where a pinhole on ``aim_at``'s boresight puts ``position``, in pixel-edge coordinates.
+
+        The same frame `look_at_quaternion` builds -- right is forward x +Y, up is right x
+        forward -- so this is the prediction the drawn centroid is checked against (EV.20).
+        """
+        forward = np.asarray(aim, dtype=np.float64) - eye
+        forward /= max(float(np.linalg.norm(forward)), 1e-12)
+        right = np.cross(forward, [0.0, 1.0, 0.0])
+        right /= max(float(np.linalg.norm(right)), 1e-12)
+        up = np.cross(right, forward)
+        d = np.asarray(position, dtype=np.float64) - eye
+        depth = float(d @ forward)
+        return (
+            0.5 * fpa.width + focal_px * float(d @ right) / depth,
+            0.5 * fpa.height - focal_px * float(d @ up) / depth,
+        )
+
     def place(phase: float) -> tuple[Any, float, float]:
         """Put the aircraft on the track at ``phase`` and slew the camera onto it.
 
@@ -778,6 +958,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         elif args.track == "wander":
             # The mount lags and leads the aircraft smoothly, like a tracker, not frame by frame.
             aim_at(position, track.aim_fraction(phase) * args.aim_jitter * half_fov)
+        elif args.clear_exit:
+            # EV.20: the mount follows the run, then stops; the aircraft strafes on without it.
+            aim_at(track.aim_m(phase))
         else:
             aim_at(position)
         to_observer = eye - position
@@ -791,7 +974,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     # quietly make the range band in the summary a range band the clip never reached -- so it
     # spans the endpoints inclusively instead.
     phases = (
-        np.linspace(0.0, 1.0, max(args.frames, 2), dtype=np.float64)
+        # EV.20: a clip in seconds, so frame i is posed at the instant the camera's clock gives
+        # it, (i + 1) * interval -- the last frame lands exactly on the end of the hold.
+        np.arange(1, args.frames + 1, dtype=np.float64) / args.frames
+        if args.clear_exit
+        else np.linspace(0.0, 1.0, max(args.frames, 2), dtype=np.float64)
         if args.track != "figure8"
         else (np.arange(args.frames, dtype=np.float64) / args.frames) * args.laps
     )
@@ -876,6 +1063,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         cloud_occlusion=True if weather_sky is None else weather_sky.occludes,
         companion_only_prim_paths=() if weather_sky is None else weather_sky.companion_only_paths,
         frame_period_s=interval_s,
+        # EV.20: the clip starts at a mission second, not on the pad; 0 for every other track.
+        start_rel_s=args.mission_start_s,
         strict_patch_coverage=False,
         strict_materials=True,
         strict_thermal_nodes=True,
@@ -1032,6 +1221,30 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             hit = t_app[mask]
         hits.append(hit)
         masks.append(mask)
+        exit_row: dict[str, Any] = {}
+        if args.clear_exit:
+            # EV.20: where the aircraft should be beside where it was drawn. Pixel-edge
+            # coordinates on both sides, so a centred pixel is at +0.5 and not at 0.
+            u_pred, v_pred = predicted_px(position, track.aim_m(phase))
+            exit_row = {
+                "clip_s": round(float(track.time_s(phase)), 4),
+                "pred_u_px": round(u_pred, 3),
+                "pred_v_px": round(v_pred, 3),
+                "pred_half_span_px": round(0.5 * focal_px * span_m / slant, 3),
+                "drawn_px": 0 if mask is None else int(mask.sum()),
+            }
+            if mask is not None and mask.any():
+                rr, cc = np.nonzero(mask)
+                exit_row.update(
+                    drawn_u_px=round(float(cc.mean()) + 0.5, 3),
+                    drawn_v_px=round(float(rr.mean()) + 0.5, 3),
+                    touches_edge=bool(
+                        cc.min() == 0
+                        or cc.max() == mask.shape[1] - 1
+                        or rr.min() == 0
+                        or rr.max() == mask.shape[0] - 1
+                    ),
+                )
         displays.append(
             None
             if outputs.display8 is None
@@ -1058,6 +1271,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 "target_max_c": float(hit.max() - 273.15) if hit.size else None,
                 "node_c": {k: round(v - 273.15, 2) for k, v in temperatures.items()},
                 "position_m": [round(float(v), 3) for v in position],
+                **exit_row,
             }
         )
         if writer.wants(index):
@@ -1102,10 +1316,15 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 )
         if index % 12 == 0 or index == args.frames - 1:
             r = rows[-1]
+            # EV.20: once the aircraft has left the field a frame has no target pixels at all.
+            drawn_c = (
+                "  (not in frame)  "
+                if r["target_min_c"] is None
+                else f"{r['target_min_c']:6.1f} .. {r['target_max_c']:6.1f} C"
+            )
             print(
                 f"  frame {index:4d}  T+{r['t_rel_s']:7.0f}s  R={slant:5.1f} m  "
-                f"{r['px_across']:5.1f} px  aircraft {r['target_px']:6d} px  "
-                f"{r['target_min_c']:6.1f} .. {r['target_max_c']:6.1f} C  "
+                f"{r['px_across']:5.1f} px  aircraft {r['target_px']:6d} px  {drawn_c}  "
                 f"hottest {max(r['node_c'], key=r['node_c'].__getitem__)} "
                 f"{max(r['node_c'].values()):5.1f} C"
             )
@@ -1148,6 +1367,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         axis (`palette_scale`). The readout goes in a margin beside the frame (`with_margin`), so
         it covers no scene; the visible companion is padded by the same top margin to pair.
         """
+        # EV.20: the margin is sized to this aircraft's readout. Nineteen long part names overran
+        # the fixed 400 px and the colour bar sat on the right edge, so a drone leaving the field
+        # disappeared under the readout before it reached the edge of the picture.
+        scale = images is None and bool(sensor.sensor.outputs.apparent_temperature)
+        margin, margin_right = readout_margin(rows[0]["node_c"], scale=scale)
         for index, plane in enumerate(planes):
             row = rows[index]
             if images is None:
@@ -1156,7 +1380,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 eight = images[index]
             minutes, seconds = divmod(int(row["t_rel_s"]), 60)
             readout = overlay_readout(
-                eight if args.no_overlay else with_margin(eight),
+                eight if args.no_overlay else with_margin(eight, margin, right=margin_right),
                 [
                     f"T+{minutes:02d}:{seconds:02d}   range {row['range_m']:5.1f} m   "
                     f"span {row['px_across']:5.1f} px   el {row['elevation_deg']:4.1f} deg",
@@ -1288,6 +1512,13 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 }
                 if isinstance(track, StraightOutTrack)
                 else {
+                    "shape": "straight out, then a strafe out of a fixed field (EV.20)",
+                    "near_m": track.near_m,
+                    "far_m": track.far_m,
+                    "elevation_deg": track.hold_elevation_deg,
+                }
+                if isinstance(track, StraightOutExitTrack)
+                else {
                     "shape": "scatter: independent range, elevation, bearing, heading per frame",
                     "seed": track.seed,
                     "near_m": track.near_m,
@@ -1326,6 +1557,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             f"widest gradient across one prim is "
             f"{max((v['span_k'] for v in mesh_span.values()), default=0.0):.2f} K. "
             "Unbound prims keep their per-prim node."
+        ),
+        "clear_exit": (
+            clear_exit_summary(rows, planes, track, args, frame_width=fpa.width)
+            if args.clear_exit
+            else None
         ),
         "mesh_coverage_px": mesh_coverage,
         "mesh_span_across_prim": mesh_span,

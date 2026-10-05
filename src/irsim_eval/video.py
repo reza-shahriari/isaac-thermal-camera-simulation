@@ -29,6 +29,7 @@ __all__ = [
     "target_code_span",
     "interior",
     "with_margin",
+    "readout_margin",
     "READOUT_MARGIN",
     "overlay_readout",
     "temperature_bar",
@@ -139,22 +140,48 @@ def interior(mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
 
 
 def with_margin(
-    image: NDArray[np.uint8], margin: tuple[int, int] = READOUT_MARGIN
+    image: NDArray[np.uint8], margin: tuple[int, int] = READOUT_MARGIN, *, right: int = 0
 ) -> NDArray[np.uint8]:
     """Put a frame below and right of an empty margin, so the readout covers no scene.
 
     `overlay_readout` draws the caption top-left and the node gauges bottom-left; on
-    `phantom4_perpart` the gauges sat over half of the aircraft. The frame itself is untouched,
-    and the result is always RGB.
+    `phantom4_perpart` the gauges sat over half of the aircraft. ``right`` adds a margin on the
+    other side for the colour bar, which `palette_scale` draws against the canvas's right edge.
+    The frame itself is untouched, and the result is always RGB.
     """
     arr = np.asarray(image, dtype=np.uint8)
     if arr.ndim == 2:
         arr = np.repeat(arr[..., None], 3, axis=2)
     top, left = margin
+    if right < 0:
+        raise ValueError("right must not be negative")
     height, width = arr.shape[:2]
-    canvas = np.zeros((height + top, width + left, 3), dtype=np.uint8)
-    canvas[top:, left:] = arr[..., :3]
+    canvas = np.zeros((height + top, width + left + right, 3), dtype=np.uint8)
+    canvas[top:, left : left + width] = arr[..., :3]
     return canvas
+
+
+def readout_margin(
+    values_k: Mapping[str, float], *, scale: bool, size: int = 13
+) -> tuple[tuple[int, int], int]:
+    """The ``(top, left)`` margin and the ``right`` margin a readout needs to cover no scene.
+
+    :data:`READOUT_MARGIN`'s 400 px fits a handful of short node names; the solved Phantom 4 has
+    nineteen, the longest ``phantom4.motor_mount_front_right``, and its gauges ran ~100 px into
+    the frame -- over the aircraft as it left the field on the left (`EV.20`). The width is
+    measured with the font the gauges are drawn in, so it is what :func:`temperature_bar` will
+    actually occupy. ``scale`` reserves the colour bar's width on the right.
+    """
+    from PIL import Image, ImageDraw
+
+    draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    font = _font(size)
+    label_w = max((int(draw.textlength(f"{n} ", font=font)) for n in values_k), default=0)
+    gauge = label_w + _GAUGE_WIDTH_PX + 62 + 2 * _MARGIN
+    left = max(READOUT_MARGIN[1], gauge + 2 * _MARGIN)
+    right = _SCALE_WIDTH_PX + 52 + 4 * _MARGIN if scale else 0
+    # h264 refuses odd dimensions, so each margin is rounded up to an even width.
+    return (READOUT_MARGIN[0], left + left % 2), right + right % 2
 
 
 def _font(size: int) -> Any:
@@ -206,12 +233,18 @@ def annotate(
     return np.ascontiguousarray(out)
 
 
+#: :func:`temperature_bar`'s and :func:`palette_scale`'s default widths, named so
+#: :func:`readout_margin` can reserve exactly what they draw.
+_GAUGE_WIDTH_PX = 150
+_SCALE_WIDTH_PX = 26
+
+
 def temperature_bar(
     frame: NDArray[np.uint8],
     values_k: Mapping[str, float],
     span_k: tuple[float, float],
     *,
-    width_px: int = 150,
+    width_px: int = _GAUGE_WIDTH_PX,
     size: int = 13,
 ) -> NDArray[np.uint8]:
     """A small horizontal gauge per node, so a *change* is visible without reading the digits.
@@ -260,7 +293,7 @@ def palette_scale(
     span_k: tuple[float, float],
     *,
     ticks: int = 5,
-    width_px: int = 26,
+    width_px: int = _SCALE_WIDTH_PX,
     size: int = 13,
     caption: str = "apparent T",
 ) -> NDArray[np.uint8]:

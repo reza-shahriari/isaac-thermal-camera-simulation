@@ -1,0 +1,111 @@
+# The **solved DJI Phantom 4 Pro leaves a cloudless sky** (EV.20). Schema: irsim.config.scene (v21).
+# `phantom4_solved.yaml` (TC.13, ADR 0166) unchanged in every thermal respect -- nineteen coarse mesh
+# parts, ten hidden components, nineteen contacts, one implicit step -- under the weather
+# `aerial_clear_exit.yaml` uses: the same site, day and hour, generated with **no cloud at all**
+# (`cloudless_midlat_summer_48h.csv`). The 0.05-cloud file the parent names blends cloud radiance into
+# every sky ray, so the background behind the aircraft would not be the clear-air emission this clip
+# is for.
+#
+# Filmed by `render_phantom4.py --clear-exit`: the clip starts at mission second 540, after 210 s of
+# forward cruise (T+330..570 below), so the motors are at cruise temperature -- the windings heat their
+# bells through the stator press fit and the bells heat the arms through their mounts, as solved --
+# and not on the pad. The aircraft climbs out from 5 m to 60 m at 16 deg elevation in 15 s, the mount
+# stops, and it strafes left out of the field at 10 m/s.
+#
+# The parent's mission clock, for the duties below: T+0 idle on the ground, spool and take off by
+# T+60, hover, climb to T+300, forward cruise to T+570, right-hand orbit T+630..870, left-hand orbit
+# T+930..1170, hover in a wind from the front-left T+1230..1470, descent from T+1500, landed and idle at
+# T+1680.
+
+schema_version: 21
+scene:
+  name: phantom4_clear_exit
+  description: "The solved Phantom 4 flown out to 60 m in a cloudless sky at cruise, then out of the frame (EV.20)"
+  weather_file: weather/cloudless_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0
+    objects:
+      - name: phantom4
+        asset: phantom4_parts
+        solve: full
+        cell_m: 0.02
+        coarse: true
+        contact_gap_m: 0.03
+        self_occluding: false
+        prim_root: /World/Targets/phantom4/Sketchfab_model/p4r_obj_cleaner_materialmerger_gles/Rectangle002
+        # the flight controller and anything unnamed below: rated whenever the aircraft is powered
+        duty_s: [0.0, 1680.0]
+        duty:   [1.0, 1.0]
+        duties:
+          winding_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.238, 0.238, 0.1654, 0.1499, 0.1499, 0.1654, 0.2182, 0.2182, 0.1499, 0.0632, 0.0001]
+          winding_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.1499, 0.1499, 0.1654, 0.238, 0.238, 0.1654, 0.1735, 0.1735, 0.1499, 0.0591, 0.0001]
+          winding_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.259, 0.259, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1499, 0.0676, 0.0001]
+          winding_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.1654, 0.1654, 0.1654, 0.259, 0.259, 0.1654, 0.1285, 0.1285, 0.1499, 0.0632, 0.0001]
+          esc_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.238, 0.238, 0.1654, 0.1499, 0.1499, 0.1654, 0.2182, 0.2182, 0.1499, 0.0632, 0.0001]
+          esc_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1354, 0.1354, 0.1654, 0.1499, 0.1499, 0.1654, 0.238, 0.238, 0.1654, 0.1735, 0.1735, 0.1499, 0.0591, 0.0001]
+          esc_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.259, 0.259, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1654, 0.1499, 0.0676, 0.0001]
+          esc_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.238, 0.238, 0.1654, 0.1654, 0.1654, 0.1654, 0.259, 0.259, 0.1654, 0.1285, 0.1285, 0.1499, 0.0632, 0.0001]
+          pack:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [0.0023, 0.0867, 0.1155, 0.1654, 0.1867, 0.1867, 0.1654, 0.2031, 0.2031, 0.1654, 0.2031, 0.2031, 0.1654, 0.1714, 0.1714, 0.1499, 0.0633, 0.0001]
+        # each station through its own downwash, on the parent scene's scale (0.15 -> 2 m/s, 0.66 -> 14 m/s)
+        speeds:
+          propeller_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 14.9, 14.9, 13, 12.6, 12.6, 13, 14.5, 14.5, 12.6, 9.1, 2]
+          motor_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 14.9, 14.9, 13, 12.6, 12.6, 13, 14.5, 14.5, 12.6, 9.1, 2]
+          motor_mount_front_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 14.9, 14.9, 13, 12.6, 12.6, 13, 14.5, 14.5, 12.6, 9.1, 2]
+          propeller_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 12.6, 12.6, 13, 14.9, 14.9, 13, 13.3, 13.3, 12.6, 8.8, 2]
+          motor_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 12.6, 12.6, 13, 14.9, 14.9, 13, 13.3, 13.3, 12.6, 8.8, 2]
+          motor_mount_front_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 12.1, 12.1, 13, 12.6, 12.6, 13, 14.9, 14.9, 13, 13.3, 13.3, 12.6, 8.8, 2]
+          propeller_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 15.4, 15.4, 13, 13, 13, 13, 13, 13, 12.6, 9.3, 2]
+          motor_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 15.4, 15.4, 13, 13, 13, 13, 13, 13, 12.6, 9.3, 2]
+          motor_mount_rear_left:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 15.4, 15.4, 13, 13, 13, 13, 13, 13, 12.6, 9.3, 2]
+          propeller_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 13, 13, 13, 15.4, 15.4, 13, 11.9, 11.9, 12.6, 9.1, 2]
+          motor_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 13, 13, 13, 15.4, 15.4, 13, 11.9, 11.9, 12.6, 9.1, 2]
+          motor_mount_rear_right:
+            at_s:   [0, 60, 120, 300, 330, 570, 600, 630, 870, 900, 930, 1170, 1200, 1230, 1470, 1500, 1620, 1680]
+            values: [2, 10.2, 11.4, 13, 14.9, 14.9, 13, 13, 13, 13, 15.4, 15.4, 13, 11.9, 11.9, 12.6, 9.1, 2]

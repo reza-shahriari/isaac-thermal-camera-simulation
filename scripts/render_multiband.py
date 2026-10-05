@@ -111,6 +111,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "leaves the frame. Its measurement is the frame edge over time -- where the aircraft is "
         "drawn against where the track puts it -- which one frame per band cannot show."
     ),
+    "phantom4_clear_exit.yaml": (
+        "EV.20's clear-sky exit for the imported aircraft: the solved Phantom 4 in a cloudless "
+        "sky, filmed as continuous 60 Hz video by `render_phantom4.py --clear-exit` as it climbs "
+        "away and then strafes out of a fixed field. Its measurement is the frame edge over "
+        "time, which one frame per band cannot show."
+    ),
     "sky_only.yaml": (
         "SC.20's Tier 4 reference: nothing but sky, so the camera's own radial shading is all "
         "a frame holds. It is measured, not filmed: `scripts/validate_sky_flat.py` renders it "

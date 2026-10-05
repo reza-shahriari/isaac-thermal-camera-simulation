@@ -19,6 +19,8 @@ from irsim_eval.video import (
     READOUT_MARGIN,
     apparent_target_span_k,
     interior,
+    overlay_readout,
+    readout_margin,
     target_code_span,
     with_margin,
 )
@@ -101,6 +103,40 @@ def test_the_margin_leaves_the_frame_untouched_and_keeps_even_dimensions() -> No
     grey = with_margin(frame[..., 0], (2, 4))
     assert grey.shape == (514, 644, 3)
     np.testing.assert_array_equal(grey[2:, 4:, 1], frame[..., 0])
+
+
+@pytest.mark.parametrize("scale", [True, False])
+def test_a_long_readout_is_given_a_margin_wide_enough_to_cover_no_scene(scale: bool) -> None:
+    """EV.20: the solved Phantom 4's nineteen gauges and the colour bar leave every pixel alone.
+
+    The fixed 400 px margin let `phantom4.motor_mount_front_right`'s gauge run ~100 px into the
+    frame and the colour bar sit on its right edge, so an aircraft leaving the field vanished
+    under the readout before it reached the edge of the picture.
+    """
+    parts = [
+        f"phantom4.{p}_{s}"
+        for p in ("motor", "motor_mount", "propeller")
+        for s in ("front_left", "front_right", "rear_left", "rear_right")
+    ]
+    parts += ["phantom4.arms", "phantom4.battery", "phantom4.shell_upper", "phantom4.gimbal"]
+    values = {name: 300.0 + i for i, name in enumerate(parts)}
+    rng = np.random.default_rng(2)
+    frame = rng.integers(0, 256, (512, 640, 3), dtype=np.uint8)
+    margin, right = readout_margin(values, scale=scale)
+    canvas = with_margin(frame, margin, right=right)
+    gray = np.repeat(np.arange(256, dtype=np.uint8)[:, None], 3, axis=1)
+    out = overlay_readout(
+        canvas,
+        ["line one", "line two", "line three"],
+        values,
+        (290.0, 330.0),
+        palette=gray if scale else None,
+    )
+    top, left = margin
+    np.testing.assert_array_equal(out[top:, left : left + 640], frame)
+    assert left > READOUT_MARGIN[1]  # these names do not fit the old fixed margin
+    assert (right > 0) == scale
+    assert out.shape[0] % 2 == 0 and out.shape[1] % 2 == 0
 
 
 @pytest.mark.parametrize("script", ["render_phantom4.py", "redisplay_planes.py"])

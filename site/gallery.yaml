@@ -868,6 +868,44 @@ sections:
       the LUT floor are the camera's dead pixels.
     source: scripts/render_quad_outbound.py
 
+  - id: phantom4-clear-exit
+    title: A Phantom 4 flies out into a cloudless sky, and out of a field that stays still
+    lead: |
+      `EV.20`: the imported DJI Phantom 4 Pro, solved whole as one thermal network (`TC.13`), climbs
+      away from **5 m to 60 m** in 15 s of continuous 60 Hz video (146 px across down to 11). Then
+      the mount stops, and the drone **strafes left out of the field at 10 m/s**, followed by a
+      second of empty sky. Unlike the quad's clip, the camera does not pan: the aircraft really
+      flies and the sky behind it never moves (ADR 0189). The clip starts 210 s into the forward
+      cruise. The rear motors read **56.9 °C** and the front motors 48.6 °C, over mounts at
+      41–45 °C. The arms run from about 31 °C mid-span to **37.8 °C on average, and up to 43.9 °C,
+      beside the motor mounts**, because each motor heats its arm through its mount. The battery
+      reads 32.3 °C under 26 °C air. Every frame records where the drone should be beside where it
+      was drawn: within 0.2 px horizontally, last drawn on frame 999, which is the frame before the
+      prediction says the whole aircraft has gone, and nothing drawn after it.
+    media:
+      - video: phantom4_clear_exit/phantom4_parts_sky.mp4
+        width: full
+        caption: >-
+          Stretched to the sky, −20.1 to 16.4 °C, white-hot. The drone saturates; the point is
+          the sky it leaves behind, which never moves
+      - video: phantom4_clear_exit/phantom4_parts_ir.mp4
+        width: full
+        caption: >-
+          Stretched to the drone, −5.2 to 51.9 °C: four motor bells over their mounts and arms,
+          the rear pair 8 K above the front in cruise
+      - video: phantom4_clear_exit/phantom4_parts_agc.mp4
+        width: half
+        caption: The camera's own AGC, frame by frame
+      - video: phantom4_clear_exit/phantom4_parts_rgb.mp4
+        width: half
+        caption: The visible companion, the same instants
+    note: |
+      The strafe has no bank. A real multirotor rolls a few degrees to accelerate sideways.
+      The thermal tick is 30 s, so the 18 s clip shows the aircraft's state at cruise, not its
+      evolution. The drawn centroid sits up to about 6 px above the predicted box centre at
+      5 m, because the landing gear pulls the box down; that offset shrinks with range.
+    source: scripts/render_phantom4.py
+
   - id: cloud-tiers
     title: One switch for the cloud, in both bands
     lead: |
