@@ -44,6 +44,7 @@ __all__ = [
     "OccludedMarch",
     "WeatherFxDeck",
     "cloud_field_from_spec",
+    "cloudscape_from_spec",
     "ensure_weather_fx_on_path",
     "ray_hash",
     "weather_fx_available",
@@ -135,6 +136,44 @@ def cloud_field_from_spec(
     )
 
 
+def cloudscape_from_spec(
+    *,
+    cover: float,
+    genus: str = "cumulus",
+    base_m: float = 0.0,
+    temperature_c: float = 20.0,
+    dewpoint_c: float = 10.0,
+    seed: int = 0,
+    patches: str = "",
+    **controls: float,
+) -> Any:
+    """Build a ``weather_fx.core.cloudscape.Cloudscape`` from plain numbers (WX.26).
+
+    The arguments are the ``clouds`` section of a weather-fx state, as for
+    :func:`cloud_field_from_spec`; ``controls`` are its other cloudscape settings by their own
+    names (``spacing_m``, ``cloud_fill``, ``small_clouds``, ``raggedness``, ``towers``).
+    ``patches="none"`` builds the noise function instead of placing simulated patches. Returns
+    ``None`` for a clear sky or a genus the cloudscape does not describe (cirrus).
+    """
+    ensure_weather_fx_on_path()
+    from weather_fx.core.cloudscape import cloudscape_from_state
+    from weather_fx.core.state import WeatherState
+
+    state = WeatherState().with_updates(
+        "clouds",
+        enabled=True,
+        cover=float(cover),
+        genus=str(genus),
+        base_m=float(base_m),
+        temperature_c=float(temperature_c),
+        dewpoint_c=float(dewpoint_c),
+        seed=int(seed),
+        patches=str(patches),
+        **{name: float(value) for name, value in controls.items()},
+    )
+    return cloudscape_from_state(state)
+
+
 #: Transmittance below which a ray is opaque for every purpose this project has: e^-12 of the
 #: sky behind it is 1e-5 of a radiance the band LUT resolves to 1e-4.
 OPAQUE_TRANSMITTANCE = math.exp(-12.0)
@@ -187,7 +226,15 @@ class OccludedMarch:
 
 @dataclass
 class WeatherFxDeck:
-    """A weather-fx ``CloudField``, presented through this project's deck march contract.
+    """A weather-fx cloud, presented through this project's deck march contract.
+
+    Either source stands behind it (ADR 0178): a ``CloudField`` (a grid of cells) or a
+    ``Cloudscape`` (a function of position: simulated patches placed by a weather map, the cloud
+    the per-pixel visible renderer draws, ADR 0185). The march reads only what both offer:
+    density in 0..1 at a point, the visible extinction at unit density, the layer's base and top
+    and its span along a ray, the finest pitch, and the measured cover. It never reads a picture
+    of the cloud or its visible lighting, so a change to how the cloud looks cannot reach the
+    infrared except through where the cloud is (WX.26).
 
     Satisfies what :meth:`irsim.atmosphere.sky.SkyModel.radiance_field_from_deck` needs -- a
     ``march`` returning optical depth and emission height -- so the infrared radiometry is
@@ -241,8 +288,13 @@ class WeatherFxDeck:
 
     @property
     def cover(self) -> float:
-        """The sky fraction the field actually covers, measured rather than requested."""
-        return float(self.field.measured_cover)
+        """The sky fraction the field actually covers, measured rather than requested.
+
+        A ``CloudField`` reports it as a property and a ``Cloudscape`` as a method (it measures
+        on a lattice of columns each time it is asked), so both are read here (ADR 0178).
+        """
+        measured = self.field.measured_cover
+        return float(measured() if callable(measured) else measured)
 
     @property
     def sample_pitch_m(self) -> float:

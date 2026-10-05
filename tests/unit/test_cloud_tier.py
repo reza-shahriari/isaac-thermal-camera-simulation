@@ -35,7 +35,9 @@ DRIVER = REPO / "scripts" / "render_phantom4.py"
 
 
 def test_the_two_tiers_and_their_two_halves() -> None:
-    assert CLOUD_TIERS == ("path_traced", "real_time")
+    assert CLOUD_TIERS == ("path_traced", "real_time", "pixel")
+    # WX.26: the per-pixel cloudscape, occluding in both bands like the volumes.
+    assert (cloud_render_path("pixel"), tier_occludes("pixel")) == ("pixel", True)
     assert (cloud_render_path("path_traced"), tier_occludes("path_traced")) == ("volume", True)
     assert (cloud_render_path("real_time"), tier_occludes("real_time")) == ("dome", False)
     for bad in ("auto", "PathTracing", ""):

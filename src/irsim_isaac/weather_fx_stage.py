@@ -47,7 +47,12 @@ __all__ = [
 #: keeps the visible cloud on the dome at infinity and skips the infrared march to the hit, so a
 #: target is occluded in **neither**. The cloud itself is in both bands in both tiers: the
 #: infrared sky pixels are marched on the same field from the same origin either way.
-CLOUD_TIERS = ("path_traced", "real_time")
+#:
+#: WX.26: ``pixel`` is the third. The visible cloud is weather-fx's cloudscape (simulated patches
+#: placed by a weather map) marched per camera pixel and drawn on a quad that rides with the
+#: camera (ADR 0186), with the cloud in front of scene surfaces drawn over them; the infrared
+#: marches the **same cloudscape** to every pixel's hit. A target is occluded in both bands.
+CLOUD_TIERS = ("path_traced", "real_time", "pixel")
 
 
 #: The extensions ADR 0144's probe enabled when a VDB cloud first rendered on this build. Without
@@ -129,19 +134,19 @@ def _check_tier(tier: str) -> str:
 
 
 def cloud_render_path(tier: str) -> str:
-    """weather-fx's ``clouds.render_path`` for a tier: ``"volume"`` or ``"dome"``.
+    """weather-fx's ``clouds.render_path`` for a tier: ``"volume"``, ``"dome"`` or ``"pixel"``.
 
     Explicit rather than weather-fx's ``"auto"``, which reads the renderer's mode: a headless
     driver captures its colour frame under the path tracer whichever tier it asked for (it is the
     only mode that lights a colour AOV on this build), and ``auto`` would then pick volumes for a
     real-time tier whose infrared band is not occluding -- the disagreement ADR 0169 removes.
     """
-    return "volume" if _check_tier(tier) == "path_traced" else "dome"
+    return {"path_traced": "volume", "real_time": "dome", "pixel": "pixel"}[_check_tier(tier)]
 
 
 def tier_occludes(tier: str) -> bool:
     """Whether the infrared band marches the cloud to each geometry pixel's hit in this tier."""
-    return _check_tier(tier) == "path_traced"
+    return _check_tier(tier) in ("path_traced", "pixel")
 
 
 @dataclass
@@ -210,6 +215,10 @@ class WeatherFxSky:
     #: path-traced one and there is cloud to draw (``None`` otherwise).
     tier: str = "path_traced"
     volumes: Any = None
+    #: WX.26: weather-fx's per-pixel cloud layer when the tier is ``pixel`` and there is cloud,
+    #: and the app-update subscription that redraws it for the camera every frame.
+    layer: Any = None
+    layer_subscription: Any = None
 
     @property
     def occludes(self) -> bool:
@@ -224,12 +233,21 @@ class WeatherFxSky:
         so a drone inside the layer would read as the box around it. The infrared band has the
         same cloud as its march, so the camera hides these for the G-buffer render and shows
         them for the companion's own (``IrCamera(companion_only_prim_paths=...)``).
-        """
-        if self.volumes is None:
-            return ()
-        from weather_fx.backends.viewport.clouds_volume import CLOUDS_ROOT
 
-        return (str(CLOUDS_ROOT),)
+        The per-pixel layer's two quads (the cloud at the far end of the frustum and the veil in
+        front of the camera, WX.26) are the same kind of thing: a picture of the cloud for the
+        visible band, and geometry the G-buffer must not hit.
+        """
+        paths: list[str] = []
+        if self.volumes is not None:
+            from weather_fx.backends.viewport.clouds_volume import CLOUDS_ROOT
+
+            paths.append(str(CLOUDS_ROOT))
+        if self.layer is not None:
+            from weather_fx.backends.viewport.clouds_pixel import LAYER_ROOT
+
+            paths.append(str(LAYER_ROOT))
+        return tuple(paths)
 
     def describe(self) -> str:
         return str(self.conditions.describe())
@@ -239,6 +257,8 @@ class WeatherFxSky:
         out["cloud_tier"] = self.tier
         if self.volumes is not None:
             out["cloud_volumes"] = dict(self.volumes.stats())
+        if self.layer is not None:
+            out["cloud_layer"] = dict(self.layer.stats())
         return out
 
 
@@ -301,6 +321,7 @@ def author_weather_fx_sky(
     od_ratio: float | None = None,
     anchor_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
     tier: str = "path_traced",
+    camera_path: str | None = None,
 ) -> WeatherFxSky:
     """Put weather-fx's sky on ``stage`` and return the cloud the infrared band should march.
 
@@ -321,6 +342,11 @@ def author_weather_fx_sky(
     are in the stage before the first frame -- a headless driver has no loop to collect them
     later. The caller reads :attr:`WeatherFxSky.occludes` for the infrared half, so the two
     cannot be chosen apart.
+
+    ``pixel`` (WX.26) sets the render path to ``"pixel"`` and attaches weather-fx's
+    ``CloudLayerEffect``, redrawn on every app update for the camera at ``camera_path`` (the
+    prim may be created after this call). The deck it returns wraps the **cloudscape** that
+    layer marches, not a ``CloudField``: one function of position read by both bands.
     """
     ensure_weather_fx_on_path()
     state = state.with_updates("clouds", render_path=cloud_render_path(tier))
@@ -337,7 +363,10 @@ def author_weather_fx_sky(
 
         up_axis = 2 if UsdGeom.GetStageUpAxis(stage) == UsdGeom.Tokens.z else 1
 
-    conditions = conditions_from_state(state)
+    if tier == "pixel" and camera_path:
+        state = state.with_updates("general", follow_prim=str(camera_path))
+    # The pixel tier never reads the voxel field: its cloud is the cloudscape, built below.
+    conditions = conditions_from_state(state, build_cloud=tier != "pixel")
     effect = SkyEffect(texture_dir=str(texture_dir) if texture_dir else None)
     # ``anchor_m`` arrives in metres; the effect asks the context for stage units.
     mpu = StageOnlyContext(stage, int(up_axis), state).meters_per_unit()
@@ -348,11 +377,16 @@ def author_weather_fx_sky(
     # effect's own short-circuit would otherwise decide there was nothing to do.
     effect.apply_state(state, {"general", "sky", "clouds"})
 
+    cloud = conditions.cloud
+    if tier == "pixel":
+        from weather_fx.core.cloudscape import cloudscape_from_state
+
+        cloud = cloudscape_from_state(state)
     deck = None
-    if conditions.cloud is not None:
+    if cloud is not None:
         from weather_fx.core.clouds import stage_to_field
 
-        deck = WeatherFxDeck(conditions.cloud)
+        deck = WeatherFxDeck(cloud)
         if od_ratio is not None:
             deck.od_ratio = float(od_ratio)
         # The dome's own origin (`SkyEffect`): the anchor in metres, less the drift, turned
@@ -376,6 +410,33 @@ def author_weather_fx_sky(
         volumes.attach(context)
         volumes.apply_state(state, {"general", "clouds"})
         volumes.update(0.0, 0.0)  # place the tiles around the anchor
+    layer = None
+    subscription = None
+    if tier == "pixel" and cloud is not None:
+        import omni.kit.app
+        from weather_fx.backends.viewport.clouds_pixel import CloudLayerEffect
+
+        # The same context as the sky: the layer reads the dome's exposure and gains from it and
+        # marches from the camera's own position less the same drift the deck's origin carries.
+        layer = CloudLayerEffect()
+        layer.attach(context)
+        layer.apply_state(state, {"general", "sky", "clouds"})
+
+        def _redraw(_event: Any, layer: Any = layer) -> None:
+            layer.update(1.0 / 60.0, 0.0)
+
+        subscription = (
+            omni.kit.app.get_app()
+            .get_update_event_stream()
+            .create_subscription_to_pop(_redraw, name="irsim weather-fx cloud layer")
+        )
     return WeatherFxSky(
-        state=state, conditions=conditions, deck=deck, effect=effect, tier=tier, volumes=volumes
+        state=state,
+        conditions=conditions,
+        deck=deck,
+        effect=effect,
+        tier=tier,
+        volumes=volumes,
+        layer=layer,
+        layer_subscription=subscription,
     )

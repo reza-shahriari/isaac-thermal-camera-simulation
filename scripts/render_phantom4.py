@@ -144,6 +144,20 @@ def target_for_part(part: str, defined: Collection[str], objects: Collection[str
 #: measurement and `tests/unit/test_phantom4_orientation.py` pins it.
 NOSE_IN_ASSET = (-0.4789, -0.8779, 0.0)
 
+
+def _cloud_overrides(items: list[str]) -> dict[str, object]:
+    """``--cloud-set`` as a weather-fx ``clouds`` section: numbers where they parse as numbers
+    (weather-fx coerces each to its parameter's own type), names otherwise."""
+    out: dict[str, object] = {"enabled": True}
+    for item in items:
+        name, _, value = item.partition("=")
+        try:
+            out[name] = float(value)
+        except ValueError:
+            out[name] = value
+    return out
+
+
 parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
 parser.add_argument("--asset", default="phantom4")
 parser.add_argument("--scene", default="configs/scenes/phantom4_pointwise.yaml")
@@ -292,8 +306,18 @@ parser.add_argument(
 parser.add_argument(
     "--cloud-tier",
     default="path_traced",
-    choices=("path_traced", "real_time"),
-    help="path_traced: 3-D cloud volumes and infrared occlusion; real_time: dome cloud, none",
+    choices=("path_traced", "real_time", "pixel"),
+    help="path_traced: 3-D cloud volumes and infrared occlusion; real_time: dome cloud, none; "
+    "pixel: the cloudscape (simulated patches) marched per pixel in the visible band and read "
+    "by the infrared march, occluding in both (WX.26)",
+)
+parser.add_argument(
+    "--cloud-set",
+    nargs="*",
+    default=[],
+    metavar="NAME=VALUE",
+    help="weather-fx cloud settings laid over the drawn weather, by their own names: "
+    "genus=cumulus cover=0.35 seed=3 towers=0.35 spacing_m=2400 base_m=900 ...",
 )
 parser.add_argument("--no-overlay", action="store_true", help="bare frames, no readout")
 # IG.13: the float32 planes and their sidecar are the *frame*; the videos beside them are the
@@ -546,6 +570,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             seed=args.weather_seed if (args.weather == "random" or regime) else args.weather_seed,
             regime=regime,
             preset_json=args.weather_preset,
+            overrides=({"clouds": _cloud_overrides(args.cloud_set)} if args.cloud_set else None),
             latitude_deg=spec.site.latitude_deg,
             longitude_deg=spec.site.longitude_deg,
             date_utc=spec.start_utc.strftime("%Y-%m-%d"),
@@ -573,6 +598,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             texture_dir=out,
             anchor_m=tuple(float(v) for v in track.observer_m),
             tier=args.cloud_tier,
+            camera_path="/World/IrCamera",
         )
         print(f"weather-fx: {weather_sky.describe()}")
         stats = weather_sky.stats()
