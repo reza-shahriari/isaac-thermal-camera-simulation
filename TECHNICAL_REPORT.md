@@ -813,7 +813,8 @@ Bands configured: **LWIR** (`flir_boson_640_lwir`, estimated VOx response — AD
 # works for the engine-free core. Every make target honours PYTHON=.
 export PYTHON=/home/hunter/IsaacSim/_build/linux-x86_64/release/python.sh
 make install
-make check        # lint + typecheck + unit tests — must be green before any commit
+make check        # lint + typecheck + the tests the change affects — green before any commit
+make check-full   # the same with every test — green before any push (CI runs this)
 ```
 
 Isaac Sim is **not** required for anything in `src/irsim/` or `tests/unit/`. Requires NumPy ≥ 2.0.
@@ -827,12 +828,15 @@ no Isaac). `make ci` reproduces the CI job locally in a `.venv-ci` built from `p
 | Command | Does |
 |---|---|
 | `make install` | Editable install + dev dependencies |
-| `make test` | Unit + golden tests, fast tier only (no GPU); the commit gate is `make check` |
+| `make test` | Unit + golden tests, fast tier only (no GPU), on all cores; the commit gate is `make check` |
+| `make test-slow` / `make test-full` | The slow tier / both tiers, on all cores; `test-full` also rebuilds the selection records |
+| `make test-affected` | Only the tests a change can affect: pytest-testmon for Python code, `scripts/affected_tests.py` for data files read (records per machine, gitignored; ADR 0193) |
 | `make test-all` | Adds integration tests: the `gpu` ones need only Warp and a CUDA device, the rest need Isaac Sim (ADR 0014 addendum) |
 | `make lint` / `make fmt` | ruff check / ruff format |
 | `make typecheck` | mypy on `src/irsim`, `src/irsim_isaac`, `src/irsim_eval` and `src/irsim_viewer` |
-| `make check` | lint + typecheck + test + test-slow + the roadmap queue check (`next_step.py --check`) — the commit gate |
-| `make ci` | The CI job locally: plain CPython 3.10 venv + `make check` (no GPU, no Isaac) |
+| `make check` | lint + typecheck + test-affected + the roadmap queue check (`next_step.py --check`) — the commit gate |
+| `make check-full` | lint + typecheck + test-full + the queue check — the push gate, and what CI runs (ADR 0193) |
+| `make ci` | The CI job locally: plain CPython 3.10 venv + `make check-full` (no GPU, no Isaac) |
 | `make luts` | Regenerate band LUTs from configs and spectral data into `data/lut/` (gitignored; loader detects stale bundles, ADR 0012) |
 | `make golden-update` | Regenerate golden reference arrays deliberately (ADR 0004) |
 | `make site` | Build the project site into `_site/` (gitignored): every document, the module and configuration catalogues measured from the tree, and a web-sized copy of whatever is in `outputs/` (ADR 0139) |
@@ -884,6 +888,11 @@ site/               the project site's source: gallery.yaml (what to show) + ass
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
+- **`make check` runs a selection of the tests, not all of them** (ADR 0193). A commit can pass it and still
+  break a test the selection missed. Known ways: a value cached at module level in `src/` and served to
+  a second test module (`irsim.atmosphere.droplets._water_table`), a file read through a subprocess or a C
+  extension, and anything outside the repository. `make check-full` (the push gate, run by CI) runs every
+  test and catches these before anyone pulls the change.
 - **A person is one skin temperature, bound to nothing** (`PH.12`, ADR 0122; lane `HU`). `thermal/human.py`
   authors the whole body's skin from the ISO 7730 set point and solves one clothing surface. The body
   taxonomy exists as data since `HU.2` (ADR 0192), but no asset carries a human yet, no scene binds

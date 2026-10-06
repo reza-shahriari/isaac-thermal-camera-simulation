@@ -1,6 +1,6 @@
 # GPU-free gate on plain CPython (ADR 0002 interpreter matrix). The engine-free core and the
 # default test gate must pass here with no Isaac Sim and no CUDA; the layering test is what
-# keeps that true. Locally the same thing is `make ci` (venv) or `make check` on the Isaac
+# keeps that true. Locally the same thing is `make ci` (venv) or `make check-full` on the Isaac
 # interpreter.
 name: check
 
@@ -12,7 +12,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 45  # ~77 CPU-minutes of tests over the runner's cores
     strategy:
       fail-fast: false
       matrix:
@@ -25,5 +25,5 @@ jobs:
           cache: pip
       - name: Install (editable + dev extras)
         run: python -m pip install -e ".[dev]"
-      - name: make check
-        run: make check PYTHON=python
+      - name: make check-full (every test; local `make check` runs only the affected ones, ADR 0193)
+        run: make check-full PYTHON=python

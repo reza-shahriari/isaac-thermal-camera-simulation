@@ -39,7 +39,9 @@ The physics core needs only Python 3.10+ and NumPy; no GPU or Isaac Sim:
 ```bash
 make install   # editable install + dev dependencies
 make luts      # generate the band lookup tables
-make test      # unit + golden tests
+make test      # unit + golden tests (fast tier, all cores)
+make check     # lint, types and the tests your change affects -- before every commit
+make check-full  # the same with every test -- before a push; CI runs this
 ```
 
 Integration tests need Isaac Sim and are skipped by default. See

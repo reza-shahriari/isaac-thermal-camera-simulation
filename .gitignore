@@ -56,3 +56,12 @@ runs/
 
 # Ultralytics weights it downloads into the working directory (yolo11n.pt and the like)
 /yolo*.pt
+
+# `make check`'s test selection (ADR 0193): testmon's coverage database and the record of which
+# data files each test module reads. Per-machine state, rebuilt by `make check-full`.
+.testmondata
+.testmondata-shm
+.testmondata-wal
+.testreads.json
+.testreads.tmp
+.testreads-shards/

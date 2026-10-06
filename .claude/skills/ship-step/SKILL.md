@@ -13,11 +13,22 @@ what happened and why.
 Run in order. Do not proceed past a failure.
 
 ```bash
-make check        # lint + typecheck + unit tests
+make check        # lint + typecheck + the tests this change can affect (ADR 0193)
 ```
 
-If `make check` fails, fix it. Never commit with `--no-verify`. Never disable a lint rule to get past
-it without saying so in the commit body.
+`make check` selects tests: pytest-testmon reruns those whose Python code changed, and
+`scripts/affected_tests.py` adds the modules that read a changed data file (config YAML, CSV,
+golden `.npy`, a document a test checks). It falls back to the whole suite when it has no
+record or `pyproject.toml` changed. `python scripts/affected_tests.py --why` shows what the data
+side picked and why.
+
+Run **`make check-full`** (every test, all cores, a few minutes) instead when the step touches the
+test machinery itself (`tests/conftest.py`, `tests/read_tracker.py`, `pyproject.toml`, the
+Makefile), after a pull or rebase, and before any push. CI runs `make check-full` regardless.
+
+If either fails, fix it. Never commit with `--no-verify`. Never disable a lint rule to get past
+it without saying so in the commit body. Never deselect, skip or `-k` away a failing test to turn
+`make check` green — a red test the selection found is a real result.
 
 ## The checklist
 
@@ -32,7 +43,7 @@ it without saying so in the commit body.
 - [ ] New physics has a test that would fail if the physics were wrong (see the `ir-sim-testing` skill)
 - [ ] Tolerances expressed in physically meaningful units (mK, K, relative)
 - [ ] Randomness seeded
-- [ ] Unit suite still runs in under 30 s
+- [ ] Any new test over a second is marked `slow` (the fast tier, `make test`, stays fast)
 
 **3. Technical report**
 

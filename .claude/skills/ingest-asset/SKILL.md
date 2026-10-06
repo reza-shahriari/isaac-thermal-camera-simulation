@@ -241,7 +241,8 @@ Respect the geometry budget's verdict (AI.3): over-budget means decimate or desc
 
 ## 8. Audit, then ship
 
-* `make check` — the materials-library walk, the layering test and the asset tests are the gate;
+* `make check` — the materials-library walk, the layering test and the asset tests are the gate
+  (a new config file in `configs/` selects the tests that list that directory, ADR 0193);
 * `python scripts/audit_materials.py` on the prim dump if anything changed since the last prep run;
 * a contact-sheet render is welcome (CPU is enough for this); binding the asset into a scene
   and rendering it in Isaac Sim (`configs/scenes/phantom4_perpart.yaml` is the template) is the

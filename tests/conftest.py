@@ -27,6 +27,41 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "(make golden-update). Never do this in the same commit as a behaviour change "
         "without saying so in the commit body.",
     )
+    # ADR 0193: which data files each test module reads, for `make check`'s selection.
+    parser.addoption(
+        "--track-reads",
+        action="store_true",
+        default=False,
+        help="Record the data files each test module reads into .testreads.json "
+        "(tests/read_tracker.py; consumed by scripts/affected_tests.py).",
+    )
+    parser.addoption(
+        "--track-reads-reset",
+        action="store_true",
+        default=False,
+        help="With --track-reads: replace .testreads.json instead of merging (full-suite runs).",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    if config.getoption("--track-reads"):
+        from read_tracker import ReadTracker
+
+        config.pluginmanager.register(ReadTracker(config), "irsim-read-tracker")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_collection_modifyitems(items: list[pytest.Item]):  # type: ignore[no-untyped-def]
+    """Keep tests in collection order whatever a plugin selects (ADR 0193).
+
+    pytest-testmon sorts what it selects by recorded duration. Some modules share a module-level
+    RNG or a module-scoped scene that each test steps forward in time, so running a module's
+    tests out of file order changes their results (a scene asked for t0 after a sibling moved
+    it 14 h on). Selection is kept; order is restored.
+    """
+    order = {id(item): i for i, item in enumerate(items)}
+    yield
+    items.sort(key=lambda item: order.get(id(item), len(order)))
 
 
 @pytest.fixture(scope="session")

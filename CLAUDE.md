@@ -107,7 +107,7 @@ docs/decisions/         # ADRs — one file per significant decision
 docs/maps/              # frozen 2026-09-10 subsystem snapshots, not maintained — history, not
                          # navigation; read the tree itself for the current shape
 scripts/                # LUT generation, validation reports, dataset export
-.github/workflows/      # CI: plain-CPython gate only, no GPU, no Isaac Sim (mirrors `make ci`)
+.github/workflows/      # CI: plain-CPython `make check-full`, no GPU, no Isaac Sim (mirrors `make ci`)
 ```
 
 ---
@@ -116,13 +116,15 @@ scripts/                # LUT generation, validation reports, dataset export
 
 ```bash
 make install       # editable install + dev dependencies
-make test          # unit + golden tests (fast, no GPU) — this is the default gate
+make test          # unit + golden tests, fast tier only, on all cores (no GPU)
+make test-full     # every unit + golden test (both tiers), on all cores; refreshes the selection record
 make test-all      # includes integration tests (needs Isaac Sim)
 make lint          # ruff check + ruff format --check
 make fmt           # ruff format
 make typecheck     # mypy on src/irsim and src/irsim_isaac
-make check         # lint + typecheck + test  ← run this before every commit
-make ci            # reproduces the GitHub Actions job locally: plain CPython 3.10 venv + make check
+make check         # lint + typecheck + the tests this change affects  ← run this before every commit
+make check-full    # lint + typecheck + every test  ← before a push, after a pull/rebase, and in CI
+make ci            # reproduces the GitHub Actions job locally: plain CPython 3.10 venv + make check-full
                     # (proves the engine-free core needs neither Isaac Sim nor CUDA)
 make luts          # regenerate band LUTs from configs + spectral response data
 make golden-update # regenerate golden reference arrays deliberately (never to silence a failure)
@@ -133,7 +135,12 @@ e.g. `make check PYTHON=/path/to/IsaacSim/_build/linux-x86_64/release/python.sh`
 and a bare conda base typically lack pytest/numpy/ruff/mypy. Any CPython ≥ 3.10 with `.[dev]` installed
 also works for everything under `src/irsim/` and `tests/unit/`; only `test-all` needs the Isaac interpreter.
 
-`make check` must pass before any commit. No exceptions, no `--no-verify`.
+`make check` must pass before any commit. No exceptions, no `--no-verify`. It does not run every
+test: pytest-testmon picks the tests whose Python code changed, and `scripts/affected_tests.py`
+picks the ones that read a data file (YAML, CSV, `.npy`, a checked document) that changed — the
+first run, or a change to `pyproject.toml`, runs everything (ADR 0193). `make check-full` runs
+every test and is the gate for a push; CI runs it on every push and PR. If you doubt the
+selection, run `make check-full` — never skip a test by hand to make `make check` green.
 
 ---
 

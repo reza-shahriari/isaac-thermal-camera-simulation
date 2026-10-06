@@ -76,8 +76,21 @@ slow:  takes more than a second
 gpu:   requires CUDA
 ```
 
-`make test` runs unit only. `make test-all` adds the rest. Keep the unit suite genuinely fast — the
-moment it takes minutes, people stop running it, and this project depends on people running it.
+`make test` runs the fast unit tier, `make test-full` both tiers, `make test-all` adds integration —
+all on every core (pytest-xdist). Keep the unit suite genuinely fast — the moment it takes minutes,
+people stop running it, and this project depends on people running it.
+
+**`make check` runs only the tests a change can affect** (ADR 0193): pytest-testmon for Python code,
+`tests/read_tracker.py` + `scripts/affected_tests.py` for data files. Two consequences for test
+authors:
+
+* **Tests must be independent of order and of each other.** They run in parallel workers in any
+  order and are routinely run alone. No test may rely on a file another test wrote, or on module
+  state another test left; write to `tmp_path`, never to a fixed path in the tree.
+* **Read data through ordinary file access**, so the read tracker sees it — `open`, `Path.read_*`,
+  `np.load`, `yaml`, `glob`/`iterdir` for directories. A test that reaches a file some other way
+  (a subprocess, a C extension opening the path itself) is invisible to the selection; mark the
+  dependency by also reading the file, or accept that only `make check-full` covers it.
 
 ## Synthetic G-buffer fixtures
 
