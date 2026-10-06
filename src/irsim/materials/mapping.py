@@ -36,8 +36,9 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from irsim.config.humans import HumanSpec
 from irsim.io.asset_parts import PartsConfig
 from irsim.materials.table import UNMAPPED_MATERIAL_ID, UNMAPPED_NAME
 
@@ -226,9 +227,17 @@ class AssetMapping(_Frozen):
     propellers plus two shells, while "the battery" is one part that shares its moulding compound
     with half the aircraft. An asset with no ``parts`` block behaves exactly as before.
     See :mod:`irsim.io.asset_parts`.
+
+    ``kind`` (HU.2) says whether the asset is an **object**, decomposed by discovery as above, or a
+    **human**, labelled onto the fixed body taxonomy of :mod:`irsim.config.humans`. A human carries
+    a ``human`` block -- the phenotype JOS-3 sizes the body with and the garments on the body's
+    slots -- and the two are required together: a ``kind: human`` with no block, or a block on an
+    object, is refused, because each is a person the solver would treat as a drone.
     """
 
     name: str = Field(min_length=1)
+    kind: Literal["object", "human"] = "object"
+    human: HumanSpec | None = None
     source_file: str | None = None
     scale_to_metres: float = Field(default=1.0, gt=0.0)
     weld_m: float = Field(default=0.0, ge=0.0)
@@ -245,12 +254,23 @@ class AssetMapping(_Frozen):
             raise ValueError("asset material map has two keys differing only by case")
         return v
 
+    @model_validator(mode="after")
+    def _a_human_has_a_body(self) -> AssetMapping:
+        if (self.kind == "human") != (self.human is not None):
+            raise ValueError(
+                f"asset {self.name!r}: `kind: human` and a `human:` block go together "
+                f"(kind={self.kind!r}, human block {'present' if self.human else 'absent'})"
+            )
+        return self
+
     @property
     def targets(self) -> frozenset[str]:
-        """Every library material this asset names -- its map's, and its parts' own (AI.14)."""
+        """Every library material this asset names: map, parts (AI.14), garments (HU.2)."""
         named = set(self.materials.values())
         if self.parts is not None:
             named |= set(self.parts.materials.values())
+        if self.human is not None:
+            named |= set(self.human.materials)
         return frozenset(named)
 
     def lookup(self, material_name: str | None) -> str | None:
@@ -300,6 +320,11 @@ def load_asset_mapping(
         from irsim.config.components import load_component_library
 
         asset.parts.check_components(load_component_library())
+    if asset.human is not None:
+        # HU.2: a garment sits on a slot the body schema has, and covers segments it names
+        from irsim.config.humans import load_body_schema
+
+        asset.human.check_against(load_body_schema())
     if known_materials is not None:
         unknown = asset.targets - set(known_materials)
         if unknown:

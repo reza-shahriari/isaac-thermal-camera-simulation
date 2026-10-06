@@ -1,0 +1,421 @@
+# The body schema: what every human in irsim is made of, as data (roadmap HU.2).
+#
+# A drone's parts are discovered (ADR 0138). A human's are known in advance and identical for every
+# human, so a mesh is *labelled* onto this fixed taxonomy and the labeller is the skeleton: the bone
+# that owns a vertex names its segment. The physiology (JOS-3, HU.4), the garments (HU.5) and the
+# materials hang off these names, never off a mesh. Loader and checks: irsim.config.humans.
+#
+# Segments are JOS-3's seventeen, in its order and spelling, so the per-segment skin temperatures
+# of HU.4 bind by name: Takahashi, Tanabe et al. 2021, Energy & Buildings 231:110575,
+# doi:10.1016/j.enbuild.2020.110575; names from src/jos3/matrix.py (BODY_NAMES), MIT. JOS-3's
+# "Shoulder" is the UPPER ARM, its "Arm" the FOREARM and its "Leg" the LOWER LEG (65MN heritage).
+# `area_m2` is JOS-3's standard local surface area (_BSAst in construction.py) for a 1.72 m,
+# 74.43 kg body, 1.87 m2 in all; JOS-3 scales it by the Du Bois ratio for another body.
+#
+# Chest and Back cannot be told apart by a bone -- one spine deforms both -- so a bone maps to
+# the REGION `torso`, and the split by the face's forward coordinate (the asset's `forward_axis`)
+# resolves it. The lumbar spine bone is mapped to Pelvis: in the 65MN lineage the pelvis segment
+# is the pelvis and the lower abdomen, which is why its area (0.221 m2) is the largest torso
+# segment. ESTIMATED: a judgement, not a measurement.
+#
+# Garment slots say what a garment covers by default; a garment may narrow or widen it with its
+# own `covers:`. The Neck is bare by default -- a scarf or a collar is a `covers:` that names it.
+#
+# Rigs. Each map lists the rig's DEFORMING bones in full and what each drives, so the loader can
+# refuse a rig that leaves a bone unmapped, and names the leaf bones that deform nothing. A bone
+# name is looked up after its prefix is stripped, exactly, then by pattern, then without a
+# trailing `.NNN` (a Rigify DEF- limb is two bones, `DEF-forearm.L` and `DEF-forearm.L.001`).
+# SMPL's joints are named for the JOINT, which drives the segment DISTAL to it: `left_knee`
+# drives the lower leg, `left_elbow` the forearm, `left_hip` the thigh.
+#
+# Sources: Mixamo, the 65-bone skeleton (Adobe Community, "Mixamo standard 65 bone skeleton";
+# MPFB2's rig.mixamo.json lists the 52 deforming ones). Rigify: Blender's bundled
+# rigify/metarigs/human.py, 159 bones. SMPL-X: smplx/joint_names.py (Pavlakos et al. 2019),
+# the first 55 of JOINT_NAMES. MPFB GameEngine: MPFB2's rig.game_engine.json, 53 bones,
+# Unreal-mannequin spelling (upperarm_l, calf_l, ball_l); Root deforms nothing.
+
+schema_version: 1
+body:
+  name: jos3_17
+  source: "JOS-3 BODY_NAMES and _BSAst (Takahashi et al. 2021, doi:10.1016/j.enbuild.2020.110575), MIT"
+  segments:
+    - {name: Head,      side: centre, area_m2: 0.110}
+    - {name: Neck,      side: centre, area_m2: 0.029}
+    - {name: Chest,     side: centre, area_m2: 0.175}
+    - {name: Back,      side: centre, area_m2: 0.161}
+    - {name: Pelvis,    side: centre, area_m2: 0.221}
+    - {name: LShoulder, side: left,  mirror: RShoulder, area_m2: 0.096}   # the upper arm
+    - {name: LArm,      side: left,  mirror: RArm,      area_m2: 0.063}   # the forearm
+    - {name: LHand,     side: left,  mirror: RHand,     area_m2: 0.050}
+    - {name: RShoulder, side: right, mirror: LShoulder, area_m2: 0.096}
+    - {name: RArm,      side: right, mirror: LArm,      area_m2: 0.063}
+    - {name: RHand,     side: right, mirror: LHand,     area_m2: 0.050}
+    - {name: LThigh,    side: left,  mirror: RThigh,    area_m2: 0.209}
+    - {name: LLeg,      side: left,  mirror: RLeg,      area_m2: 0.112}   # the lower leg
+    - {name: LFoot,     side: left,  mirror: RFoot,     area_m2: 0.056}
+    - {name: RThigh,    side: right, mirror: LThigh,    area_m2: 0.209}
+    - {name: RLeg,      side: right, mirror: LLeg,      area_m2: 0.112}
+    - {name: RFoot,     side: right, mirror: LFoot,     area_m2: 0.056}
+
+  # A bone may name a region instead of a segment; the split resolves it per face.
+  regions:
+    torso: {split: forward, positive: Chest, negative: Back}
+
+  # Optics-only layers a face may carry beside skin (hair, eyes are classified, not solved).
+  layers: [skin, hair, eyes]
+
+  garment_slots:
+    head:  {covers: [Head]}
+    torso: {covers: [Chest, Back, Pelvis]}
+    arms:  {covers: [LShoulder, RShoulder, LArm, RArm]}
+    hands: {covers: [LHand, RHand]}
+    legs:  {covers: [LThigh, RThigh, LLeg, RLeg]}
+    feet:  {covers: [LFoot, RFoot]}
+
+  rigs:
+    mixamo:
+      source: "Adobe Mixamo 65-bone skeleton; MPFB2 rig.mixamo.json (52 deforming)"
+      strip_prefixes: ["mixamorig:", "mixamorig_", "mixamorig"]
+      ignore_prefixes: []
+      mirror_tokens: [["Left", "Right"]]
+      bones:
+        Hips: Pelvis
+        Spine: Pelvis
+        Spine1: torso
+        Spine2: torso
+        Neck: Neck
+        Head: Head
+        LeftShoulder: torso
+        LeftArm: LShoulder
+        LeftForeArm: LArm
+        LeftHand: LHand
+        LeftHandThumb1: LHand
+        LeftHandThumb2: LHand
+        LeftHandThumb3: LHand
+        LeftHandIndex1: LHand
+        LeftHandIndex2: LHand
+        LeftHandIndex3: LHand
+        LeftHandMiddle1: LHand
+        LeftHandMiddle2: LHand
+        LeftHandMiddle3: LHand
+        LeftHandRing1: LHand
+        LeftHandRing2: LHand
+        LeftHandRing3: LHand
+        LeftHandPinky1: LHand
+        LeftHandPinky2: LHand
+        LeftHandPinky3: LHand
+        LeftUpLeg: LThigh
+        LeftLeg: LLeg
+        LeftFoot: LFoot
+        LeftToeBase: LFoot
+        RightShoulder: torso
+        RightArm: RShoulder
+        RightForeArm: RArm
+        RightHand: RHand
+        RightHandThumb1: RHand
+        RightHandThumb2: RHand
+        RightHandThumb3: RHand
+        RightHandIndex1: RHand
+        RightHandIndex2: RHand
+        RightHandIndex3: RHand
+        RightHandMiddle1: RHand
+        RightHandMiddle2: RHand
+        RightHandMiddle3: RHand
+        RightHandRing1: RHand
+        RightHandRing2: RHand
+        RightHandRing3: RHand
+        RightHandPinky1: RHand
+        RightHandPinky2: RHand
+        RightHandPinky3: RHand
+        RightUpLeg: RThigh
+        RightLeg: RLeg
+        RightFoot: RFoot
+        RightToeBase: RFoot
+      non_deforming: ['HeadTop_End', 'LeftHandThumb4', 'LeftHandIndex4', 'LeftHandMiddle4', 'LeftHandRing4', 'LeftHandPinky4', 'RightHandThumb4', 'RightHandIndex4', 'RightHandMiddle4', 'RightHandRing4', 'RightHandPinky4', 'LeftToe_End', 'RightToe_End']
+    mpfb_game_engine:
+      source: "MPFB2 rig.game_engine.json (53 bones; Root deforms nothing)"
+      strip_prefixes: []
+      ignore_prefixes: []
+      mirror_tokens: [["_l", "_r"]]
+      bones:
+        pelvis: Pelvis
+        spine_01: Pelvis
+        spine_02: torso
+        spine_03: torso
+        neck_01: Neck
+        head: Head
+        clavicle_l: torso
+        upperarm_l: LShoulder
+        lowerarm_l: LArm
+        hand_l: LHand
+        thumb_01_l: LHand
+        thumb_02_l: LHand
+        thumb_03_l: LHand
+        index_01_l: LHand
+        index_02_l: LHand
+        index_03_l: LHand
+        middle_01_l: LHand
+        middle_02_l: LHand
+        middle_03_l: LHand
+        ring_01_l: LHand
+        ring_02_l: LHand
+        ring_03_l: LHand
+        pinky_01_l: LHand
+        pinky_02_l: LHand
+        pinky_03_l: LHand
+        thigh_l: LThigh
+        calf_l: LLeg
+        foot_l: LFoot
+        ball_l: LFoot
+        clavicle_r: torso
+        upperarm_r: RShoulder
+        lowerarm_r: RArm
+        hand_r: RHand
+        thumb_01_r: RHand
+        thumb_02_r: RHand
+        thumb_03_r: RHand
+        index_01_r: RHand
+        index_02_r: RHand
+        index_03_r: RHand
+        middle_01_r: RHand
+        middle_02_r: RHand
+        middle_03_r: RHand
+        ring_01_r: RHand
+        ring_02_r: RHand
+        ring_03_r: RHand
+        pinky_01_r: RHand
+        pinky_02_r: RHand
+        pinky_03_r: RHand
+        thigh_r: RThigh
+        calf_r: RLeg
+        foot_r: RFoot
+        ball_r: RFoot
+      non_deforming: ["Root"]
+    smplx:
+      source: "smplx/joint_names.py JOINT_NAMES[0:55] (Pavlakos et al. 2019); SMPL/SMPL-H share the first 22"
+      strip_prefixes: []
+      ignore_prefixes: []
+      mirror_tokens: [["left_", "right_"]]
+      bones:
+        pelvis: Pelvis
+        spine1: Pelvis
+        spine2: torso
+        spine3: torso
+        neck: Neck
+        head: Head
+        jaw: Head
+        left_hip: LThigh
+        left_knee: LLeg
+        left_ankle: LFoot
+        left_foot: LFoot
+        left_collar: torso
+        left_shoulder: LShoulder
+        left_elbow: LArm
+        left_wrist: LHand
+        left_eye_smplhf: Head
+        left_index1: LHand
+        left_index2: LHand
+        left_index3: LHand
+        left_middle1: LHand
+        left_middle2: LHand
+        left_middle3: LHand
+        left_pinky1: LHand
+        left_pinky2: LHand
+        left_pinky3: LHand
+        left_ring1: LHand
+        left_ring2: LHand
+        left_ring3: LHand
+        left_thumb1: LHand
+        left_thumb2: LHand
+        left_thumb3: LHand
+        right_hip: RThigh
+        right_knee: RLeg
+        right_ankle: RFoot
+        right_foot: RFoot
+        right_collar: torso
+        right_shoulder: RShoulder
+        right_elbow: RArm
+        right_wrist: RHand
+        right_eye_smplhf: Head
+        right_index1: RHand
+        right_index2: RHand
+        right_index3: RHand
+        right_middle1: RHand
+        right_middle2: RHand
+        right_middle3: RHand
+        right_pinky1: RHand
+        right_pinky2: RHand
+        right_pinky3: RHand
+        right_ring1: RHand
+        right_ring2: RHand
+        right_ring3: RHand
+        right_thumb1: RHand
+        right_thumb2: RHand
+        right_thumb3: RHand
+      non_deforming: []
+    rigify_human:
+      source: "Blender rigify/metarigs/human.py (159 bones); a generated rig deforms with DEF- copies, limbs in two pieces"
+      strip_prefixes: ["DEF-"]
+      ignore_prefixes: ["ORG-", "MCH-", "VIS_", "WGT-"]
+      mirror_tokens: [[".L", ".R"]]
+      bones:
+        spine: Pelvis
+        "spine.001": Pelvis
+        "spine.002": torso
+        "spine.003": torso
+        "spine.004": Neck
+        "spine.005": Neck
+        "spine.006": Head
+        "pelvis.L": Pelvis
+        "shoulder.L": torso
+        "breast.L": Chest
+        "upper_arm.L": LShoulder
+        "forearm.L": LArm
+        "hand.L": LHand
+        "thigh.L": LThigh
+        "shin.L": LLeg
+        "foot.L": LFoot
+        "toe.L": LFoot
+        "heel.02.L": LFoot
+        "palm.01.L": LHand
+        "palm.02.L": LHand
+        "palm.03.L": LHand
+        "palm.04.L": LHand
+        "thumb.01.L": LHand
+        "thumb.02.L": LHand
+        "thumb.03.L": LHand
+        "f_index.01.L": LHand
+        "f_index.02.L": LHand
+        "f_index.03.L": LHand
+        "f_middle.01.L": LHand
+        "f_middle.02.L": LHand
+        "f_middle.03.L": LHand
+        "f_ring.01.L": LHand
+        "f_ring.02.L": LHand
+        "f_ring.03.L": LHand
+        "f_pinky.01.L": LHand
+        "f_pinky.02.L": LHand
+        "f_pinky.03.L": LHand
+        "pelvis.R": Pelvis
+        "shoulder.R": torso
+        "breast.R": Chest
+        "upper_arm.R": RShoulder
+        "forearm.R": RArm
+        "hand.R": RHand
+        "thigh.R": RThigh
+        "shin.R": RLeg
+        "foot.R": RFoot
+        "toe.R": RFoot
+        "heel.02.R": RFoot
+        "palm.01.R": RHand
+        "palm.02.R": RHand
+        "palm.03.R": RHand
+        "palm.04.R": RHand
+        "thumb.01.R": RHand
+        "thumb.02.R": RHand
+        "thumb.03.R": RHand
+        "f_index.01.R": RHand
+        "f_index.02.R": RHand
+        "f_index.03.R": RHand
+        "f_middle.01.R": RHand
+        "f_middle.02.R": RHand
+        "f_middle.03.R": RHand
+        "f_ring.01.R": RHand
+        "f_ring.02.R": RHand
+        "f_ring.03.R": RHand
+        "f_pinky.01.R": RHand
+        "f_pinky.02.R": RHand
+        "f_pinky.03.R": RHand
+        face: Head
+        nose: Head
+        "nose.001": Head
+        "nose.002": Head
+        "nose.003": Head
+        "nose.004": Head
+        "nose.L": Head
+        "nose.R": Head
+        "nose.L.001": Head
+        "nose.R.001": Head
+        jaw: Head
+        "jaw.L": Head
+        "jaw.R": Head
+        "jaw.L.001": Head
+        "jaw.R.001": Head
+        chin: Head
+        "chin.001": Head
+        "chin.L": Head
+        "chin.R": Head
+        "teeth.T": Head
+        "teeth.B": Head
+        tongue: Head
+        "tongue.001": Head
+        "tongue.002": Head
+        "temple.L": Head
+        "temple.R": Head
+        "eye.L": Head
+        "eye.R": Head
+        "lip.T.L": Head
+        "lip.T.L.001": Head
+        "lip.B.L": Head
+        "lip.B.L.001": Head
+        "ear.L": Head
+        "ear.L.001": Head
+        "ear.L.002": Head
+        "ear.L.003": Head
+        "ear.L.004": Head
+        "brow.B.L": Head
+        "brow.B.L.001": Head
+        "brow.B.L.002": Head
+        "brow.B.L.003": Head
+        "brow.T.L": Head
+        "brow.T.L.001": Head
+        "brow.T.L.002": Head
+        "brow.T.L.003": Head
+        "lid.T.L": Head
+        "lid.T.L.001": Head
+        "lid.T.L.002": Head
+        "lid.T.L.003": Head
+        "lid.B.L": Head
+        "lid.B.L.001": Head
+        "lid.B.L.002": Head
+        "lid.B.L.003": Head
+        "forehead.L": Head
+        "forehead.L.001": Head
+        "forehead.L.002": Head
+        "cheek.T.L": Head
+        "cheek.T.L.001": Head
+        "cheek.B.L": Head
+        "cheek.B.L.001": Head
+        "lip.T.R": Head
+        "lip.T.R.001": Head
+        "lip.B.R": Head
+        "lip.B.R.001": Head
+        "ear.R": Head
+        "ear.R.001": Head
+        "ear.R.002": Head
+        "ear.R.003": Head
+        "ear.R.004": Head
+        "brow.B.R": Head
+        "brow.B.R.001": Head
+        "brow.B.R.002": Head
+        "brow.B.R.003": Head
+        "brow.T.R": Head
+        "brow.T.R.001": Head
+        "brow.T.R.002": Head
+        "brow.T.R.003": Head
+        "lid.T.R": Head
+        "lid.T.R.001": Head
+        "lid.T.R.002": Head
+        "lid.T.R.003": Head
+        "lid.B.R": Head
+        "lid.B.R.001": Head
+        "lid.B.R.002": Head
+        "lid.B.R.003": Head
+        "forehead.R": Head
+        "forehead.R.001": Head
+        "forehead.R.002": Head
+        "cheek.T.R": Head
+        "cheek.T.R.001": Head
+        "cheek.B.R": Head
+        "cheek.B.R.001": Head
+      non_deforming: []

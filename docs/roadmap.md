@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 96 open steps
+#### Then, in order — 95 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -203,9 +203,9 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 12 | **`AT.26`** | AT | B | S | — | ready |
 | 13 | **`AI.22`** | AI | B | M | — | ready |
 | 14 | **`IG.16`** | IG | B | M | — | ready |
-| 15 | **`HU.2`** | HU | C | M | 11 | ready |
+| 15 | **`HU.3`** | HU | C | M | 10 | ready |
 
-…and 81 more — `python scripts/next_step.py --queue 40`.
+…and 80 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -974,7 +974,7 @@ records which were used.
 | id | what | verification (red today → green after) | deps | size | phase |
 |---|---|---|---|---|---|
 | HU.1 | ✅ **done.** The survey and plan: `docs/research/2026-10-06-humans-in-the-simulation.md`. A human's parts are known in advance (JOS-3's 17 segments, garment slots, hair, eyes), so decomposition is **labelling** with the skeleton as oracle, not ADR 0138's discovery. Owner, 2026-10-06: a roadmap lane; any tool, NC included; animations never shipped; occupations wanted; RGB → body in IR → clothing, per person. | A record. Every tool and licence sourced; the unverified items listed by name (§6); the five decisions carry the owner's answers. | — | S | C |
-| HU.2 | **The body schema is data.** `configs/humans/body_schema.yaml`: the 17 JOS-3 segments, garment slots (head, torso, arms, hands, legs, feet), hair, eyes, and bone-name maps for Mixamo, Rigify, SMPL-X and MPFB GameEngine. Asset schema gains `kind: human` with a phenotype (sex, age, height, mass) and `garments:` (slot → material, clo, colour). Engine-free. | Each map covers all 17 segments and leaves no deforming bone unmapped; a schema missing a segment is refused at load naming it; left/right maps are mirror-symmetric; a garment on an unknown slot is refused. | HU.1 | M | C |
+| HU.2 | ✅ **done.** `configs/humans/body_schema.yaml` + `irsim.config.humans` (ADR 0192): JOS-3's 17 segments with standard areas, the `torso` region and its forward split, six garment slots, bone maps for Mixamo (52), Rigify (159), SMPL-X (55), MPFB GameEngine (52); `segment_for_bone`; `kind: human` + `human:` on an asset. | **Measured.** Every rig drives all 17, mirror-symmetric; areas sum to 1.87 m²; `DEF-upper_arm.L.001` → LShoulder, `HeadTop_End` → none, `left_knee` → LLeg; a map without the feet is refused naming LFoot, RFoot; slot `cape` refused. 49 cases. | HU.1 | M | C |
 | HU.3 | **A man, in RGB.** `make_human.py` builds an adult man from MPFB2 (CC0 base, skin, GameEngine rig) in headless Blender; `prep_human.py` argmaxes the rig's weights to a segment per face, splits one object per segment (skin only, no garments yet), exports through `prep_asset.py` with provenance. He stands in a real-sky scene, rendered in RGB. | 17 segment prims, coverage 100 %, left/right areas within 10 %, stature within 1 % of the phenotype; his pixel height matches the camera model within 2 %; re-running reproduces the YAML byte-for-byte. | HU.2, AI.9 | M | C |
 | HU.4 | **The same body in the infrared.** `irsim.thermal.human` gains per-segment skin from `pythermalcomfort.models.JOS3` (MIT; installed, not reimplemented), forced from the one `WeatherSeries` with solar; `solver: human` binds the 17 segments; ADR: JOS-3 outdoors extrapolates, as ISO 7730 does (ADR 0122). `HU.3`'s bare body in LWIR. | Neutral seated: area-weighted mean skin within 0.5 K of 33.7 °C; head > hand > foot at 0, 10, 20 °C; summer physiology under a winter atmosphere is unconstructible; rendered head − hand ΔT equals the solver's to 0.1 K; no float16. | HU.3, PH.12 | M | C |
 | HU.5 | **Clothing on him.** Six materials (hair, polyester, denim, wool, leather, shoe rubber); clo per garment from the ISO 9920 table; PH.12's solve per garment on the segment beneath; colour sets α_solar and NIR reflectance, never LWIR ε (Zhang 2009; S66 for cotton). Dressed, both bands + RGB, two shirt colours from one YAML edit. | Kirchhoff walk passes; black vs white shirt: Δε_LWIR = 0, Δα ≥ 0.3, black warmer in sun by the solved ΔT; winter, 1 clo: face and hands brightest, coat within 3 K of background (ADR 0122's step, per region); RGB differs only in the shirt. | HU.4 | M | C |
