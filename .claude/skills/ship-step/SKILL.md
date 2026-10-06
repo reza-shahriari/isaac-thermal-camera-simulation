@@ -98,6 +98,16 @@ internal link, so a broken site shows up in step 1, not after publishing.
 
 Do not push `gh-pages` unless the user asks. Full detail: the `present-on-the-site` skill.
 
+**6b. Issues**
+
+Follow the `issue-log` skill:
+- If this step resolves an open issue, add `Closes #N` (or `Refs #N` for partial work) to the
+  commit body.
+- If this step found a bug it did not fix, added a limitation, or deferred a follow-up, draft an
+  issue for it and show the drafts to the maintainer before the commit. Anything not approved yet
+  goes into `docs/issues-queue.md`.
+- Only real work, only the maintainer's account.
+
 **7. Commit**
 
 Conventional Commits. Scope from: `radiometry`, `materials`, `thermal`, `atmosphere`, `optics`,
