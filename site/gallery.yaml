@@ -1026,6 +1026,32 @@ sections:
           05:30 to 20:18 UTC at one heading in RTX Real-Time, 60 frames.
     source: scripts/cloud_look.py
 
+  - id: cloudscape-both-bands
+    title: One cloudscape, seen in both bands
+    lead: |
+      `WX.26`, ADR 0190. The visible cloud is now a weather-fx *cloudscape*: cumulus and towers
+      grown by a fluid solver and placed by a weather map (35 % cover, seed 3). The infrared march
+      reads the same object through the deck it already used for the older cloud grid, so both
+      cameras show one cloud and either camera hides the drone behind it. The march uses only
+      where the cloud is (its density, base, top and extinction). The visible skin constants
+      leave every ray's optical depth unchanged, so the next change to how the cloud *looks*
+      cannot move the infrared. An imported Phantom 4 flies a lemniscate 4.7–10.2 m from the
+      camera. The motors climb from 15.2 °C to 33.8 °C and the battery from 14.5 °C to 20.8 °C
+      while the airframe stays at 14.2–14.6 °C, at 10:00 UTC on 21 June at Munich.
+    media:
+      - video: phantom4_cloudscape/cumulus_towers/phantom4_pair.mp4
+        width: full
+        caption: >-
+          Left: LWIR apparent temperature, white-hot, −25.1 to 20.4 °C. The clear sky is the
+          coldest thing in frame and the cloud bases are warmer. Right: the visible companion from
+          the same camera at the same instants. 16 frames, one every 104 s.
+    note: |
+      The two bands agree by eye: the masks were not compared frame by frame in this render. The
+      engine-free test holds the march to the function's own dense integral (cloud masks agree at
+      IoU > 0.9, band emissivity within 0.05 at the 95th percentile). The march is the CPU
+      reference, about 1.5 min per 640 × 512 frame.
+    source: scripts/render_phantom4.py
+
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

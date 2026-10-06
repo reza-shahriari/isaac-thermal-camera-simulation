@@ -50,3 +50,9 @@ papers/
 
 # Thermal Model Zoo bundles (scripts/zoo_bundle.py): build output, published from the zoo repo
 zoo_bundles/
+
+# yolo runs
+runs/
+
+# Ultralytics weights it downloads into the working directory (yolo11n.pt and the like)
+/yolo*.pt
