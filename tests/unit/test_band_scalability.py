@@ -298,6 +298,12 @@ BAND_NAMES = frozenset(BAND_KEYS)
 #: only by someone editing this table, which is the deliberate friction. Paths are relative to
 #: ``src/irsim``.
 BAND_AWARE: dict[str, tuple[int, str]] = {
+    "validation/cloud_bands.py": (
+        6,
+        "WX.26's agreement score compares a sensing band's cloud march with the *visible* "
+        "companion's march of the same cloud, so 'visible' is the other side of the comparison, "
+        "not a band this module knows; the band itself enters only as its optical-depth ratio.",
+    ),
     "config/bands.py": (
         25,
         "The registry. This is the one module whose job is to know the band names and their "

@@ -696,7 +696,22 @@ $$
 
 $\Gamma_m$ is the moist adiabat, 5–6 K/km in the lower troposphere; the atmosphere preset's
 environmental 6.5 K/km stands in for it today, which makes a kilometre-deep cloud's top about 1 K
-too cold. An opaque cloud reads close to the temperature of the level it is seen at: its base from
+too cold. That law is for a cloud *formed from surface air*, standing on its condensation level.
+A cloud that is not -- cirrus at 6–12 km, far above the mixed layer -- takes the environment's
+temperature at its level: the dry adiabat is the mixed layer's own profile and ends at the LCL
+$z_{\text{LCL}}$ the surface air would have condensed at, and above it the environmental lapse
+$\Gamma_e$ holds, $T(z) = T_{\text{air}} - \Gamma_d z_{\text{LCL}} - \Gamma_e (z - z_{\text{LCL}})$.
+Lapsed dry all the way, a 9 km base reads about 30 K colder than the air there (`S67`). The
+cloud source says which case it is (weather-fx's `mixed_layer_top_m`, set for a non-convective
+genus); the band ratio stays 0.5, the large-particle limit, which 60 µm ice crystals are in as
+much as 10 µm droplets.
+
+**Geometry.** The layer is a shell round the planet, not a slab: a ray's height above the ground
+is $|\mathbf p + R\hat{\mathbf y}| - R$, and it enters and leaves the layer where it crosses the
+spheres at $R + z_b$ and $R + z_t$. Within 12 km the slab is right to metres; a cirrus base at 9 km
+seen at 10° is entered at 50 km, 1.2 km short of where the slab puts it, and at 0.7–4° the shell is
+110–290 km away. No cloud is marched beyond 80 km in either band — the visible companion's own
+limit, and in the thermal bands the air hides anything that far (ADR 0191). An opaque cloud reads close to the temperature of the level it is seen at: its base from
 below, its top from above [R56].
 
 **Along the ray.** With the non-scattering emission–absorption (Schwarzschild) equation [R61], a

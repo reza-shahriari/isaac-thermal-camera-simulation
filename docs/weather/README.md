@@ -45,8 +45,9 @@ conversion: the new controls in the UI (spacing, size mix, erosion), congestus a
 with mixed skies (towers in front of towers), and a storm sky that covers everything. Still open
 besides: the solver is a smoke solver, so a patch has no water content or temperature of its own
 (they come from height above the base); the patches are frozen snapshots; cover saturates near
-0.4-0.5; frame time was measured on a shared GPU only (19-30 fps at 1280 x 720); the infrared
-does not read the cloudscape yet (`WX.26`). §4's table, §5 and §8-§9 below
+0.4-0.5; frame time was measured on a shared GPU only (19-30 fps at 1280 x 720). The infrared
+reads the cloudscape through the deck (`WX.26`, ADR 0190), every genus including a cirrus, and
+the two bands' agreement is measured per frame rather than judged (ADR 0191). §4's table, §5 and §8-§9 below
 describe the state before this work and are kept as the record of why.
 
 The order of work the owner set: **the visible (RGB) picture first, inside Isaac Sim, good in

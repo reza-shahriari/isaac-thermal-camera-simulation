@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 93 open steps
+#### Then, in order — 91 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -193,19 +193,19 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 2 | **`WX.8`** | WX | A | M | 7 | `WX.7` |
 | 3 | **`WX.11`** | WX | A | S | 2 | ready |
 | 4 | **`WX.25`** | WX | A | M | 1 | ready |
-| 5 | **`WX.26`** | WX | A | M | 1 | ready |
-| 6 | **`WX.22`** | WX | A | L | 1 | ready |
-| 7 | **`AT.37`** | AT | A | M | — | ready |
-| 8 | **`WX.10`** | WX | A | M | — | ready |
-| 9 | **`WX.27`** | WX | A | M | — | ready |
-| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
-| 11 | **`XD.6`** | XD | A | L | — | ready |
-| 12 | **`AT.26`** | AT | B | S | — | ready |
-| 13 | **`AI.22`** | AI | B | M | — | ready |
-| 14 | **`IG.16`** | IG | B | M | — | ready |
-| 15 | **`HU.5`** | HU | C | M | 6 | ready |
+| 5 | **`WX.22`** | WX | A | L | 1 | ready |
+| 6 | **`AT.37`** | AT | A | M | — | ready |
+| 7 | **`WX.10`** | WX | A | M | — | ready |
+| 8 | **`WX.27`** | WX | A | M | — | ready |
+| 9 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25` |
+| 10 | **`XD.6`** | XD | A | L | — | ready |
+| 11 | **`AT.26`** | AT | B | S | — | ready |
+| 12 | **`AI.22`** | AI | B | M | — | ready |
+| 13 | **`IG.16`** | IG | B | M | — | ready |
+| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 15 | **`HU.6`** | HU | C | M | 3 | ready |
 
-…and 78 more — `python scripts/next_step.py --queue 40`.
+…and 76 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -683,7 +683,7 @@ repository green on `make check`.
 | WX.23 | ✅ **done** (ADR 0185). weather-fx `ec6ead3`: `core.cloudscape` (weather map, height profile, shape and detail noise; numpy reference) and `gpu.cloud_march` (Warp: two-stream sun, sky/ground mix, premultiplied out), composed through the sky model's aerial perspective; `tools/render_cloudscape.py`. | GPU density = numpy to 0.05 max / 1e-3 mean over 20k points; furnace 2 %; four headings 90° apart at one sharpness; 6–13 ms per 1280×720 frame on the A6000. The look is a first pass (`WX.27`). | WX.6 | L | A |
 | WX.24 | ✅ **done** (ADR 0186). weather-fx `f25c3a8`: `clouds.render_path = "pixel"` marches the cloudscape for the viewport's camera each frame and emits it from a quad at the far end of its frustum, in RTX Real-Time and the path tracer alike; sky and air tabulated for the GPU (`core/layer_tables.py`); `examples/capture_pixel_clouds.py`. | In Isaac Sim, 1280×720, A6000: 44–48 fps real-time (layer 15 ms); four headings at one sharpness; real-time = path-traced clouds at midday; emission = dome at π × intensity. One camera; dome clear. | WX.23 | L | A |
 | WX.25 | **The same function in the path tracer** (in `isaac-weather-fx`): the cloudscape exported as fine NanoVDB tiles with air in front of it, and bases no longer coloured by the ground's bounce. | Path-traced and real-time frames of one sky agree in median luminance within 15 % and in cloud layout per pixel (IoU ≥ 0.8); no olive tint on bases (chroma within 0.03 of neutral grey). | WX.23 | M | A |
-| WX.26 | **The infrared march reads the function.** `WeatherFxDeck` marches `Cloudscape.density` with emission at the height's temperature; both sources (`CloudField`, `Cloudscape`) behind ADR 0178's contract. | IR and RGB frames of one sky agree on cloud pixels (IoU ≥ 0.9); §7.5's IR criteria hold as for `CloudField`. | WX.23 | M | A |
+| WX.26 | ✅ **done** (ADR 0190, 0191). `WeatherFxDeck` marches `Cloudscape` or `CloudField` as a shell to 80 km; tier `pixel`; every genus, with a new cirrus (9 km, thin, streaked; `S67`); `density_scale` reaches the deck; the march on the GPU. | **Measured**, six genera × 24 frames, both bands (`cloud_band_agreement`): IoU min 0.852 (median 0.991), p95 band-emissivity error max 0.096; 132/144 frames inside the bar (the rest: small clouds, edge fringe). Bar IoU ≥ 0.9, p95 ≤ 0.05. Fixed on the way: the layer's viewport settings, slab vs shell, cloud beyond 80 km. | WX.23 | M | A |
 | WX.27 | **The look to the owner's eye** (in `isaac-weather-fx`): detail erosion frequencies and strength, lobe sizes and per-genus profiles tuned against reference photographs, judged by the owner on the viewport. | The owner accepts a cumulus, a stratocumulus and a sunset frame; §7.5's D and b targets still met on the new field. | WX.24 | M | A |
 
 ---
@@ -977,7 +977,7 @@ records which were used.
 | HU.2 | ✅ **done.** `configs/humans/body_schema.yaml` + `irsim.config.humans` (ADR 0192): JOS-3's 17 segments with standard areas, the `torso` region and its forward split, six garment slots, bone maps for Mixamo (52), Rigify (159), SMPL-X (55), MPFB GameEngine (52); `segment_for_bone`; `kind: human` + `human:` on an asset. | **Measured.** Every rig drives all 17, mirror-symmetric; areas sum to 1.87 m²; `DEF-upper_arm.L.001` → LShoulder, `HeadTop_End` → none, `left_knee` → LLeg; a map without the feet is refused naming LFoot, RFoot; slot `cape` refused. 49 cases. | HU.1 | M | C |
 | HU.3 | ✅ **done.** `make_human.py` (MPFB2 headless: macros, CC0 skin, eyes, GameEngine rig → glTF); `prep_human.py` (bone-weight argmax → segment per face via `irsim.io.human_labels`, torso split by the forward axis and checked against the feet, one object per segment, the `kind: human` YAML); `man_adult` through `prep_asset.py` and the zoo render. | **Measured.** 17 segments + eyes, brows, lashes; coverage 100 % of 1.786 m²; L/R areas within 2.6 %; stature 1.7245 m; feet forward +0.137 m; 713 px tall vs 718 from a 28 mm lens at 5.6 m; two runs byte-identical. 8 cases. | HU.2, AI.9 | M | C |
 | HU.4 | ✅ **done.** `irsim.thermal.human_body`: JOS-3 (the authors' `jos3`, pure NumPy) per segment on the one `WeatherSeries`, with VDI 3787's outdoor T_mrt from the project's sky and sun; `solver: human` (schema v22) registers `<name>.skin_<Segment>` targets, one body step per tick, 2 h acclimatised. `man_standing_clear.yaml` rendered. ADR 0194. | **Measured.** Head > hand > foot at 0, 10, 20 °C (27.9 / 9.4 / 8.5 °C bare at 0 °C, 1 m/s); neutral seated mean 33.9 vs 33.7; T_mrt +21 K at noon, −12 K under a clear night. 12 cases. | HU.3, PH.12 | M | C |
-| HU.5 | **Clothing on him.** Six materials (hair, polyester, denim, wool, leather, shoe rubber); clo per garment from the ISO 9920 table; PH.12's solve per garment on the segment beneath; colour sets α_solar and NIR reflectance, never LWIR ε (Zhang 2009; S66 for cotton). Dressed, both bands + RGB, two shirt colours from one YAML edit. | Kirchhoff walk passes; black vs white shirt: Δε_LWIR = 0, Δα ≥ 0.3, black warmer in sun by the solved ΔT; winter, 1 clo: face and hands brightest, coat within 3 K of background (ADR 0122's step, per region); RGB differs only in the shirt. | HU.4 | M | C |
+| HU.5 | ✅ **done.** Six fabrics (polyester, denim, wool, leather, shoe rubber, hair; cotton/nylon/polyester at Belliveau's 0.88, S66 open); `irsim.materials.colour` dyes a variant (α_sol, NIR; never LWIR) at render time; a garment is a prim and a target, PH.12's balance on the JOS-3 skin beneath with its own absorbed sun; `make_human.py --garment`, the tint baked into the texture. `man_adult_dressed`, two scenes. ADR 0195. | **Measured.** Black vs white cotton Δε_LWIR = 0, Δα 0.48; at the noon a T-shirt 31.8 °C white, 33.9 black, blue/red 0.03 K apart. 10 cases. | HU.4 | M | C |
 | HU.6 | **A woman and a child.** Phenotype changes only — sex, age macro (≈ 0.19 for a child), height, mass — through `HU.3`–`HU.5` unchanged; JOS-3 takes age, height and weight, so the child's skin is solved, not authored. | The three YAMLs differ only in phenotype and garments; the child's stature is within 5 % of the WHO median for the age; the child's mean skin differs from the man's by JOS-3's own figure under identical weather; each reproduces byte-for-byte. | HU.5 | M | C |
 | HU.7 | **A police officer.** An occupation is garments plus equipment parts: polyester/wool uniform, hi-vis vest with retroreflective tape (a mirror in LWIR — the AT.18 hazard, declared by the asset map), aramid body armour as a high-clo torso layer, duty belt, boots, cap; equipment parts carry their own materials. Both bands and RGB. | The tape's ε ≤ 0.3 is reachable only through the asset map (the glob rule refuses it); the armoured torso's surface is colder than the sleeves in winter by ISO 7730's figure for its clo; every part has a material; coverage 100 %. | HU.6 | M | C |
 | HU.8 | **A soldier.** A camouflage uniform is NIR-compliant — reflectance matched to foliage below 1.1 µm, where dye matters, and pattern-independent in LWIR; a new material with a sourced NIR/SWIR curve; aramid helmet, plate carrier, boots, pack as parts. Rendered in NIR, SWIR, MWIR and LWIR. | In NIR the uniform's reflectance lies in the foliage band, not at cotton's 0.5–0.6; the pattern's colours share one LWIR ε to 1e-6; helmet and plate carrier read colder than the face in winter by the solved amounts. | HU.7 | M | C |

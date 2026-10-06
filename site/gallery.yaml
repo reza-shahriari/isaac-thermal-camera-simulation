@@ -1046,10 +1046,72 @@ sections:
           coldest thing in frame and the cloud bases are warmer. Right: the visible companion from
           the same camera at the same instants. 16 frames, one every 104 s.
     note: |
-      The two bands agree by eye: the masks were not compared frame by frame in this render. The
-      engine-free test holds the march to the function's own dense integral (cloud masks agree at
-      IoU > 0.9, band emissivity within 0.05 at the 95th percentile). The march is the CPU
-      reference, about 1.5 min per 640 × 512 frame.
+      This clip pre-dates the score: the agreement it claims was measured on the next entry's
+      renders (ADR 0191). The march here is the CPU reference, about 20 min a frame in production.
+    source: scripts/render_phantom4.py
+
+  - id: cloud-genera-both-bands
+    title: Every genus of cloud, and the two bands held to each other
+    lead: |
+      `WX.26` closed, ADR 0191. The visible per-pixel layer keeps the transmittance it marched
+      for every pixel; the infrared camera stores it beside its own march's, and the pair is
+      scored as band emissivity (`τ_B = r_B τ_vis`): the IoU of the two cloud masks and the
+      95th-percentile emissivity error, every frame. Six genera from one state, one seed, one
+      camera path -- cumulus, congestus, stratocumulus, stratus, storm and a new cirrus -- each
+      24 frames of the Phantom 4's lemniscate, the infrared marched on the GPU. Over all six:
+      IoU min 0.852, median 0.991; p95 error max 0.096, median 0.011, against a
+      bar of 0.9 and 0.05: 132 of 144 frames are inside the bar; the twelve outside are cumulus and congestus frames with under 23 % cloud, where the edge fringe sets the 95th percentile (0.05–0.10) while the mean error stays under 0.024 on every frame. The measurement found three things on the way: the visible layer's viewport settings
+      0.14-0.26 off the function (a wisp sampled once, not resolved), the infrared marching a flat
+      slab where the visible marches a shell round the planet (1.2 km apart on a cirrus at 9 km
+      seen at 10 degrees), and the infrared marching cloud beyond the visible's 80 km. These
+      clips draw the layer converged and both bands march one shell to one range.
+    media:
+      - video: phantom4_cloudscape/cumulus/phantom4_pair.mp4
+        width: half
+        caption: >-
+          Cumulus with towers, 35 % cover. Left LWIR apparent temperature, white-hot; right the visible
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.852, p95
+          band-emissivity error max 0.096.
+      - video: phantom4_cloudscape/congestus/phantom4_pair.mp4
+        width: half
+        caption: >-
+          Congestus, 50 % cover. Left LWIR apparent temperature, white-hot; right the visible
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.956, p95
+          band-emissivity error max 0.076.
+      - video: phantom4_cloudscape/stratocumulus/phantom4_pair.mp4
+        width: half
+        caption: >-
+          Stratocumulus, 60 % cover. Left LWIR apparent temperature, white-hot; right the visible
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.983, p95
+          band-emissivity error max 0.036.
+      - video: phantom4_cloudscape/stratus/phantom4_pair.mp4
+        width: half
+        caption: >-
+          Stratus, 90 % cover. Left LWIR apparent temperature, white-hot; right the visible
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.991, p95
+          band-emissivity error max 0.009.
+      - video: phantom4_cloudscape/storm/phantom4_pair.mp4
+        width: half
+        caption: >-
+          A storm deck, 95 % cover. Left LWIR apparent temperature, white-hot; right the visible
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.991, p95
+          band-emissivity error max 0.003.
+      - video: phantom4_cloudscape/cirrus/phantom4_pair.mp4
+        width: half
+        caption: >-
+          Cirrus at 9 km, 45 % cover. Left LWIR apparent temperature, white-hot; right the visible
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.883, p95
+          band-emissivity error max 0.011.
+      - image: phantom4_cloudscape/cumulus/frame_000010_cloud_band_agreement.png
+        width: full
+        caption: >-
+          One frame, three panels: the infrared march's band emissivity, the emissivity the
+          visible march implies, and five times their absolute difference.
+    note: |
+      The score compares the two integrators with each other, not with the world: the cloud's
+      radiance against calibrated imagery is `XD.6` part 2. Cirrus takes the water cloud's 0.5
+      band ratio (the large-particle limit; not measured) and, like every genus, the temperature
+      of its height.
     source: scripts/render_phantom4.py
 
   - id: cloud-function

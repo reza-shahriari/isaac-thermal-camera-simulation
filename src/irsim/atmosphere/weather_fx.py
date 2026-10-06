@@ -38,6 +38,7 @@ from numpy.typing import NDArray
 
 from irsim.atmosphere.cloud import CLOUD_OD_RATIO
 from irsim.atmosphere.cloud_deck import MarchResult
+from irsim.atmosphere.sea import EARTH_RADIUS_M
 
 __all__ = [
     "WEATHER_FX_PACKAGE",
@@ -45,6 +46,8 @@ __all__ = [
     "WeatherFxDeck",
     "cloud_field_from_spec",
     "cloudscape_from_spec",
+    "altitude_m",
+    "shell_span",
     "ensure_weather_fx_on_path",
     "ray_hash",
     "weather_fx_available",
@@ -153,7 +156,8 @@ def cloudscape_from_spec(
     :func:`cloud_field_from_spec`; ``controls`` are its other cloudscape settings by their own
     names (``spacing_m``, ``cloud_fill``, ``small_clouds``, ``raggedness``, ``towers``).
     ``patches="none"`` builds the noise function instead of placing simulated patches. Returns
-    ``None`` for a clear sky or a genus the cloudscape does not describe (cirrus).
+    ``None`` for a clear sky. Every genus the state offers has a profile -- cumulus, congestus,
+    stratocumulus, stratus, storm and cirrus (weather-fx ``CLOUDSCAPE_TYPES``).
     """
     ensure_weather_fx_on_path()
     from weather_fx.core.cloudscape import cloudscape_from_state
@@ -179,6 +183,75 @@ def cloudscape_from_spec(
 OPAQUE_TRANSMITTANCE = math.exp(-12.0)
 #: The same limit as an optical depth, for a march that accumulates depth rather than product.
 OPAQUE_OPTICAL_DEPTH = 12.0
+
+
+def altitude_m(x: Any, y: Any, z: Any) -> NDArray[np.float64]:
+    """Height above the curved ground of a point in the field's frame (metres, +Y up at the
+    observer's tangent point): ``|p + R ŷ| − R``. 2 m below the flat height at 5 km, 11 m at
+    12 km, 200 m at 50 km -- which is where a cirrus deck at 9 km is seen from, so the layer is
+    marched as a shell round the planet, as the visible kernel marches it (ADR 0191)."""
+    xx = np.asarray(x, dtype=np.float64)
+    yy = np.asarray(y, dtype=np.float64) + EARTH_RADIUS_M
+    zz = np.asarray(z, dtype=np.float64)
+    return np.asarray(np.sqrt(xx * xx + yy * yy + zz * zz) - EARTH_RADIUS_M, dtype=np.float64)
+
+
+def _sphere_roots(
+    origin: NDArray[np.float64], direction: NDArray[np.float64], radius: float
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Distances along each ray to a sphere of ``radius`` about the planet's centre, ``(near,
+    far)``; NaN where the ray misses it. The centre is ``R`` below the field's origin."""
+    c = origin + np.array([0.0, EARTH_RADIUS_M, 0.0])
+    b = np.einsum("...i,...i->...", c, direction)
+    disc = b * b - (np.einsum("...i,...i->...", c, c) - radius * radius)
+    with np.errstate(invalid="ignore"):
+        root = np.sqrt(disc)
+    near = np.where(disc >= 0.0, -b - root, np.nan)
+    far = np.where(disc >= 0.0, -b + root, np.nan)
+    return near, far
+
+
+def shell_span(
+    origin_m: Any, direction: Any, base_m: float, top_m: float
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Where each ray enters and leaves the cloud shell between ``base_m`` and ``top_m`` above
+    the curved ground, as distances along it: ``exit <= enter`` for a ray that never meets it,
+    a ray starting inside enters at zero, a ray that meets the ground first meets no cloud.
+    The same three cases as weather-fx's per-pixel kernel, so the two bands march one segment
+    of one shell even at 50 km (``Cloudscape.slab_span`` is the flat slab, right to a few
+    metres within 12 km and 1.2 km wrong on a cirrus at 10 degrees)."""
+    o = np.asarray(origin_m, dtype=np.float64)
+    d = np.asarray(direction, dtype=np.float64)
+    o, d = np.broadcast_arrays(o, d)
+    alt0 = altitude_m(o[..., 0], o[..., 1], o[..., 2])
+    ground_near, _ = _sphere_roots(o, d, EARTH_RADIUS_M)
+    inner_near, inner_far = _sphere_roots(o, d, EARTH_RADIUS_M + float(base_m))
+    outer_near, outer_far = _sphere_roots(o, d, EARTH_RADIUS_M + float(top_m))
+    near = np.zeros(alt0.shape)
+    far = np.zeros(alt0.shape)
+    below = alt0 < base_m
+    inside = (~below) & (alt0 < top_m)
+    above = ~(below | inside)
+    # Below: up through the inner shell to the outer, unless the ground is hit first.
+    hits_ground = np.nan_to_num(ground_near, nan=-1.0) > 0.0
+    near = np.where(below & ~hits_ground, np.nan_to_num(inner_far, nan=0.0), near)
+    far = np.where(below & ~hits_ground, np.nan_to_num(outer_far, nan=0.0), far)
+    # Inside: to the outer shell, or down to the inner one if the ray dips into it first.
+    dips = np.nan_to_num(inner_near, nan=-1.0) > 0.0
+    far = np.where(
+        inside,
+        np.where(dips, np.nan_to_num(inner_near, nan=0.0), np.nan_to_num(outer_far, nan=0.0)),
+        far,
+    )
+    # Above: in at the outer shell, out at its far side or at the inner shell.
+    enters = np.nan_to_num(outer_near, nan=-1.0) > 0.0
+    near = np.where(above & enters, np.nan_to_num(outer_near, nan=0.0), near)
+    far = np.where(
+        above & enters,
+        np.where(dips, np.nan_to_num(inner_near, nan=0.0), np.nan_to_num(outer_far, nan=0.0)),
+        far,
+    )
+    return np.asarray(near, dtype=np.float64), np.asarray(far, dtype=np.float64)
 
 
 def ray_hash(direction: Any) -> NDArray[np.float64]:
@@ -246,6 +319,12 @@ class WeatherFxDeck:
     #: each band derives what it needs from it (ADR 0126), which is the same convention the
     #: native deck uses; it is kept here so an infrared caller can override it per band.
     od_ratio: float = CLOUD_OD_RATIO
+    #: weather-fx's ``clouds.density_scale``: a multiplier on the visible extinction the field
+    #: reports. The visible per-pixel march applies it to its own copy of the layer's constants,
+    #: so it has to be applied here as well or the two bands see clouds of different depth
+    #: (``docs/weather/README.md`` §7: a density knob used for the look only breaks the
+    #: conversion). ``author_weather_fx_sky`` sets it from the state; 1 leaves the field as is.
+    density_scale: float = 1.0
     #: Steps the march takes when a caller fixes them. ``None`` -- the default -- sizes the march
     #: from the geometry instead (:meth:`steps_for`), which is what an infrared frame wants: a
     #: ray at 18 degrees crosses three times the slab a ray at 60 degrees does.
@@ -261,9 +340,14 @@ class WeatherFxDeck:
     #: one, 0.009-0.011 at two and 0.006-0.007 at three. On the production grid the cap above
     #: binds first at either, so three costs nothing there.
     samples_per_pitch: float = 3.0
-    #: Longest path followed through the slab, metres. Beyond it the transmittance of anything
+    #: Longest path followed through the layer, metres. Beyond it the transmittance of anything
     #: this field can hold has underflowed, and a level ray would otherwise march forever.
     max_path_m: float = 12_000.0
+    #: Range from the camera beyond which no cloud is marched, metres: weather-fx's per-pixel
+    #: kernel ends every ray at 80 km (``max_distance_m``), and a grazing ray meets a cirrus
+    #: shell at 110-290 km, which the band's own air hides in any case. The same number here,
+    #: so the two bands march one segment of one shell (ADR 0191).
+    max_range_m: float = 80_000.0
     #: Where the rays start, in the field's own Y-up frame, metres (AT.30): the camera, as the
     #: dome bake and the volume tiles place it (the anchor less the wind's drift, through
     #: ``stage_to_field``). A march that passes no ``origin_m`` starts here, so the sky pixels,
@@ -284,7 +368,19 @@ class WeatherFxDeck:
 
     @property
     def optical_depth(self) -> float:
-        return float(self.field.optical_depth)
+        return float(self.field.optical_depth) * float(self.density_scale)
+
+    @property
+    def mixed_layer_top_m(self) -> float | None:
+        """Top of the surface air's mixed layer, metres, when the cloud does **not** stand on it.
+
+        A cloudscape of a non-convective genus (cirrus) reports the lifting condensation level
+        its surface air would have condensed at; the sky model lapses dry-adiabatically to that
+        height and at the environment's rate above it (docs/physics-model.md §7.5). ``None``
+        for a convective cloud, whose base *is* that level, and for every ``CloudField``.
+        """
+        value = getattr(self.field, "mixed_layer_top_m", None)
+        return None if value is None else float(value)
 
     @property
     def cover(self) -> float:
@@ -370,7 +466,8 @@ class WeatherFxDeck:
         origin = np.zeros(direction.shape, dtype=np.float64)
         origin[...] = np.asarray(self.origin_m if origin_m is None else origin_m, dtype=np.float64)
 
-        near, far = self.field.slab_span(origin, direction)
+        near, far = shell_span(origin, direction, self.base_m, self.top_m)
+        far = np.minimum(far, self.max_range_m)
         hit = far > near
         span = np.where(hit, np.minimum(far - near, self.max_path_m), 0.0)
         shape = span.shape
@@ -385,7 +482,7 @@ class WeatherFxDeck:
         jitter = ray_hash(direction)
         width = span / n
         transmittance = np.ones(shape, dtype=np.float64)
-        extinction = float(self.field.extinction_per_m)
+        extinction = float(self.field.extinction_per_m) * float(self.density_scale)
         dx, dy, dz = direction[..., 0], direction[..., 1], direction[..., 2]
         ox, oy, oz = origin[..., 0], origin[..., 1], origin[..., 2]
         # Only the rays that can still see are sampled. A ray that has gone opaque -- which in a
@@ -399,6 +496,7 @@ class WeatherFxDeck:
                 break
             t = near[idx] + (k + jitter[idx]) * width[idx]
             px, py, pz = ox[idx] + dx[idx] * t, oy[idx] + dy[idx] * t, oz[idx] + dz[idx] * t
+            py = altitude_m(px, py, pz)
             sigma = np.asarray(self.field.density(px, py, pz), dtype=np.float64) * extinction
             d_tau = sigma * width[idx]
             # What reaches the sensor from this sample: extinction times the transmittance back
@@ -460,7 +558,8 @@ class WeatherFxDeck:
         origin = np.zeros(direction.shape, dtype=np.float64)
         origin[...] = np.asarray(self.origin_m if origin_m is None else origin_m, dtype=np.float64)
 
-        near, far = self.field.slab_span(origin, direction)
+        near, far = shell_span(origin, direction, self.base_m, self.top_m)
+        far = np.minimum(far, self.max_range_m)
         end = np.minimum(np.minimum(far, near + self.max_path_m), rng)
         hit = end > near
         span = np.where(hit, end - near, 0.0)
@@ -476,7 +575,7 @@ class WeatherFxDeck:
         n = max(int(steps if steps is not None else (self.steps or self.steps_for(span))), 1)
         jitter = ray_hash(direction)
         width = span / n
-        extinction = float(self.field.extinction_per_m)
+        extinction = float(self.field.extinction_per_m) * float(self.density_scale)
         ratio = float(self.od_ratio)
         dx, dy, dz = direction[..., 0], direction[..., 1], direction[..., 2]
         ox, oy, oz = origin[..., 0], origin[..., 1], origin[..., 2]
@@ -487,6 +586,7 @@ class WeatherFxDeck:
                 break
             t = near[idx] + (k + jitter[idx]) * width[idx]
             px, py, pz = ox[idx] + dx[idx] * t, oy[idx] + dy[idx] * t, oz[idx] + dz[idx] * t
+            py = altitude_m(px, py, pz)
             d_tau = np.asarray(self.field.density(px, py, pz), dtype=np.float64) * (
                 extinction * width[idx]
             )

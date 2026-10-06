@@ -23,6 +23,11 @@ from irsim.validation.aerial_scene import (
     elevation_grid_rad,
 )
 from irsim.validation.bench import SitfResult, measured_netd_k, sitf
+from irsim.validation.cloud_bands import (
+    CloudBandAgreement,
+    band_emissivity_from_visible,
+    cloud_band_agreement,
+)
 from irsim.validation.codec import (
     Blockiness,
     CodecFloor,
@@ -96,6 +101,9 @@ from irsim.validation.signal_path import (
 )
 
 __all__ = [
+    "CloudBandAgreement",
+    "band_emissivity_from_visible",
+    "cloud_band_agreement",
     "MEASURED_QUANTITIES",
     "Comparison",
     "compare_absolute",

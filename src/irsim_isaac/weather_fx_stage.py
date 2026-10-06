@@ -38,6 +38,7 @@ __all__ = [
     "path_traced_volume_settings",
     "prepare_path_traced_volumes",
     "tier_occludes",
+    "pixel_layer_settings",
     "weather_state",
 ]
 
@@ -220,6 +221,15 @@ class WeatherFxSky:
     layer: Any = None
     layer_subscription: Any = None
 
+    def visible_cloud_transmittance(self) -> Any:
+        """The visible transmittance of the cloud the per-pixel layer last drew, per pixel of
+        the camera it follows (WX.26) -- None in the other tiers or before the first draw. The
+        infrared camera stores it beside its own march's transmittance so the bands' agreement
+        is measured, not assumed (:mod:`irsim.validation.cloud_bands`)."""
+        if self.layer is None:
+            return None
+        return self.layer.transmittance()
+
     @property
     def occludes(self) -> bool:
         """Whether the infrared band should march the cloud to each hit: the tier's answer."""
@@ -312,6 +322,56 @@ def weather_state(
     return state
 
 
+#: WX.26: how the per-pixel layer is drawn for a headless infrared capture, as weather-fx
+#: ``clouds`` settings (ADR 0191). Full resolution, so its transmittance lands on the G-buffer's
+#: grid; one frame, because each capture is its own exposure and the layer's sixteen-frame
+#: history (built for an interactive viewport) ghosted earlier poses into every frame; and the
+#: march converged: a clear-air step that grows 0.1 % with range instead of 1.2 % (so a 10 m
+#: wisp at 5 km, or a cirrus streak at 50 km, is integrated rather than sampled once or
+#: skipped), a cap of 8192 samples, and a thin-cloud step of 0.02 optical depth instead of 0.8.
+#: Measured engine-free against the infrared march of the same cloudscape on one shell: at the
+#: viewport settings the two were 0.14-0.26 apart in band emissivity at the 95th percentile;
+#: at these, 0.005-0.03 for cumulus and cirrus at 10 and 30 degrees. 60 ms at 640 x 512.
+PIXEL_LAYER_SETTINGS: dict[str, float | int] = {
+    "layer_scale": 1.0,
+    "layer_accumulate": 1,
+    "layer_step_m": 8.0,
+    "layer_step_growth": 0.001,
+    "layer_max_steps": 8192,
+    "layer_thin_tau": 0.02,
+}
+
+#: The GPU deck's step cap and in-layer path cap in the pixel tier (ADR 0191). Against the
+#: function's dense integral the shipped 512 steps are 0.05 at the 95th percentile in band
+#: emissivity and 2048 are 0.005; the path cap of 12 km stopped the infrared short of what the
+#: visible march (80 km of range) saw on rays shallower than asin(thickness / 12 km), 14.5
+#: degrees for a 3 km cumulus layer. 40 km at 4096 steps keeps the 10 m sample and moves that
+#: angle to 4.3 degrees, for about 0.4 s a frame. The CPU reference keeps 512 and 12 km: four
+#: times its steps is four times twenty minutes.
+PIXEL_TIER_GPU_STEPS = 4096
+PIXEL_TIER_GPU_MAX_PATH_M = 40_000.0
+
+
+def pixel_layer_settings() -> dict[str, float | int]:
+    """The ``clouds`` settings a headless pixel-tier capture applies
+    (:data:`PIXEL_LAYER_SETTINGS`)."""
+    return dict(PIXEL_LAYER_SETTINGS)
+
+
+def _make_deck(cloud: Any, gpu_march: bool | None) -> WeatherFxDeck:
+    """The CPU deck, or its GPU twin for a cloudscape when asked for or available."""
+    is_cloudscape = hasattr(cloud, "kernel_constants")
+    if gpu_march is False or not is_cloudscape:
+        return WeatherFxDeck(cloud)
+    from irsim_isaac.cloud_march_gpu import GpuWeatherFxDeck, gpu_march_available
+
+    if gpu_march is None and not gpu_march_available():
+        return WeatherFxDeck(cloud)
+    return GpuWeatherFxDeck(
+        cloud, max_steps=PIXEL_TIER_GPU_STEPS, max_path_m=PIXEL_TIER_GPU_MAX_PATH_M
+    )
+
+
 def author_weather_fx_sky(
     stage: Any,
     state: Any,
@@ -322,6 +382,7 @@ def author_weather_fx_sky(
     anchor_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
     tier: str = "path_traced",
     camera_path: str | None = None,
+    gpu_march: bool | None = None,
 ) -> WeatherFxSky:
     """Put weather-fx's sky on ``stage`` and return the cloud the infrared band should march.
 
@@ -346,7 +407,14 @@ def author_weather_fx_sky(
     ``pixel`` (WX.26) sets the render path to ``"pixel"`` and attaches weather-fx's
     ``CloudLayerEffect``, redrawn on every app update for the camera at ``camera_path`` (the
     prim may be created after this call). The deck it returns wraps the **cloudscape** that
-    layer marches, not a ``CloudField``: one function of position read by both bands.
+    layer marches, not a ``CloudField``: one function of position read by both bands. The
+    layer is drawn at the camera's full render resolution (``layer_scale`` 1), so its
+    transmittance lands on the G-buffer's own grid.
+
+    ``gpu_march`` (WX.26 follow-up): march the infrared on the GPU
+    (:class:`irsim_isaac.cloud_march_gpu.GpuWeatherFxDeck`, the CPU deck's twin) when the cloud is
+    a cloudscape; ``None`` does so whenever Warp and a CUDA device are present, ``False`` keeps
+    the CPU reference. The visible ``density_scale`` reaches the deck either way.
     """
     ensure_weather_fx_on_path()
     state = state.with_updates("clouds", render_path=cloud_render_path(tier))
@@ -365,6 +433,7 @@ def author_weather_fx_sky(
 
     if tier == "pixel" and camera_path:
         state = state.with_updates("general", follow_prim=str(camera_path))
+        state = state.with_updates("clouds", **pixel_layer_settings())
     # The pixel tier never reads the voxel field: its cloud is the cloudscape, built below.
     conditions = conditions_from_state(state, build_cloud=tier != "pixel")
     effect = SkyEffect(texture_dir=str(texture_dir) if texture_dir else None)
@@ -386,9 +455,13 @@ def author_weather_fx_sky(
     if cloud is not None:
         from weather_fx.core.clouds import stage_to_field
 
-        deck = WeatherFxDeck(cloud)
+        deck = _make_deck(cloud, gpu_march)
         if od_ratio is not None:
             deck.od_ratio = float(od_ratio)
+        # The visible layer applies `clouds.density_scale` to its own copy of the layer; the
+        # infrared reads the field itself, so the scale is carried to it here or the two bands
+        # march clouds of different depth (docs/weather/README.md §7).
+        deck.density_scale = float(getattr(state.clouds, "density_scale", 1.0))
         # The dome's own origin (`SkyEffect`): the anchor in metres, less the drift, turned
         # into the field's Y-up frame. One expression on both sides, so they cannot part.
         origin = stage_to_field(

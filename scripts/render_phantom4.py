@@ -166,6 +166,30 @@ def target_for_part(part: str, defined: Collection[str], objects: Collection[str
 NOSE_IN_ASSET = (-0.4789, -0.8779, 0.0)
 
 
+def _agreement_summary(agreements: list[Any]) -> dict[str, object] | None:
+    """The run's worst and typical band agreement (WX.26): what the step's bar is checked on."""
+    if not agreements:
+        return None
+    from statistics import median
+
+    from irsim.validation.cloud_bands import IOU_BAR, P95_BAR
+
+    ious = [a.iou for a in agreements]
+    p95s = [a.p95_emissivity_error for a in agreements]
+    return {
+        "frames": len(agreements),
+        "iou_min": round(min(ious), 4),
+        "iou_median": round(float(median(ious)), 4),
+        "p95_emissivity_error_max": round(max(p95s), 4),
+        "p95_emissivity_error_median": round(float(median(p95s)), 4),
+        "mean_emissivity_error_median": round(
+            float(median([a.mean_emissivity_error for a in agreements])), 4
+        ),
+        "all_pass": all(a.passes() for a in agreements),
+        "bar": f"IoU >= {IOU_BAR} and p95 |d emissivity| <= {P95_BAR} per frame (ADR 0191)",
+    }
+
+
 def _cloud_overrides(items: list[str]) -> dict[str, object]:
     """``--cloud-set`` as a weather-fx ``clouds`` section: numbers where they parse as numbers
     (weather-fx coerces each to its parameter's own type), names otherwise."""
@@ -367,6 +391,19 @@ parser.add_argument(
     help="path_traced: 3-D cloud volumes and infrared occlusion; real_time: dome cloud, none; "
     "pixel: the cloudscape (simulated patches) marched per pixel in the visible band and read "
     "by the infrared march, occluding in both (WX.26)",
+)
+parser.add_argument(
+    "--cloud-stride",
+    type=int,
+    default=1,
+    help="march the infrared cloud on every Nth native pixel (edges are re-marched at full "
+    "pitch either way, ADR 0181); 1 is every pixel. A speed knob for the CPU march only",
+)
+parser.add_argument(
+    "--cpu-cloud-march",
+    action="store_true",
+    help="march the infrared cloud on the CPU reference even when Warp and a CUDA device are "
+    "present (the GPU twin, irsim_isaac.cloud_march_gpu, is the default where it can run)",
 )
 parser.add_argument(
     "--cloud-steps",
@@ -865,6 +902,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             anchor_m=tuple(float(v) for v in track.observer_m),
             tier=args.cloud_tier,
             camera_path="/World/IrCamera",
+            gpu_march=False if args.cpu_cloud_march else None,
         )
         if weather_sky.deck is not None and args.cloud_steps:
             weather_sky.deck.max_steps = int(args.cloud_steps)
@@ -879,7 +917,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             print(
                 f"  cloud: {weather_sky.deck.cover * 100:.0f} % cover, base "
                 f"{weather_sky.deck.base_m:.0f} m, top {weather_sky.deck.top_m:.0f} m, "
-                f"tau {weather_sky.deck.optical_depth:.0f} -- marched by BOTH bands"
+                f"tau {weather_sky.deck.optical_depth:.0f} -- marched by BOTH bands, "
+                f"infrared on the {'GPU' if 'Gpu' in type(weather_sky.deck).__name__ else 'CPU'}"
             )
 
     # --- the weather the *surfaces* see, which must be the weather the sky shows ----------------
@@ -941,8 +980,6 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             print(f"environment: {type(exc).__name__}: {exc}", file=sys.stderr)
 
     # --- materials, through the per-asset map (ADR 0128) ----------------------------------------
-    library = MaterialLibrary.load()
-    table = MaterialTable.for_sensor(library, sensor)
     # A part-split archive (`<asset>_parts`, ADR 0138) shares its source's material names, so it
     # takes the source's map unless it has one of its own (phantom4_parts does).
     map_name = args.asset
@@ -950,7 +987,16 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "_parts"
     ):
         map_name = map_name.removesuffix("_parts")
+    library = MaterialLibrary.load()
     asset_map = load_asset_mapping(map_name, known_materials=library.names)
+    if asset_map.human is not None and asset_map.human.garments:
+        # HU.5: a coloured garment is a dyed variant of its library material -- alpha_sol and the
+        # NIR follow the colour, the long-wave does not -- made here, never written to the library
+        from irsim.materials.colour import dress_asset_materials
+
+        dressed, library = dress_asset_materials(asset_map.materials, asset_map.human, library)
+        asset_map = asset_map.model_copy(update={"materials": dressed})
+    table = MaterialTable.for_sensor(library, sensor)
     resolver = MaterialResolver(
         load_mapping_rules(known_materials=library.names), list(table.names), asset=asset_map
     )
@@ -1183,6 +1229,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # same cloud as its march, and to the G-buffer a volume box is just a box.
         cloud_occlusion=True if weather_sky is None else weather_sky.occludes,
         cloud_stride=args.cloud_stride,
+        # WX.26: the companion's own cloud transmittance, stored beside the march's so the two
+        # bands' agreement is measured per frame (`cloud_band_agreement` below).
+        visible_cloud_transmittance=(
+            None if weather_sky is None else weather_sky.visible_cloud_transmittance
+        ),
         companion_only_prim_paths=() if weather_sky is None else weather_sky.companion_only_paths,
         frame_period_s=interval_s,
         # EV.20: the clip starts at a mission second, not on the pad; 0 for every other track.
@@ -1254,6 +1305,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     rgbs: list[Any] = []
     rows: list[dict[str, Any]] = []
     started = time.time()
+    agreements: list[Any] = []
     for index in range(args.frames):
         phase = float(at(phases[index]))
         position, slant, aspect = place(phase)
@@ -1392,9 +1444,15 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 cells = np.asarray(fld.temperature_at(t_frame), dtype=np.float64)
                 temperatures[name] = float(fld.patch.area_weighted_mean(cells))
         node_k = {k: round(v, 3) for k, v in temperatures.items()}
+        # WX.26: do the two bands agree about where the cloud is, in this frame? Measured on the
+        # companion's transmittance against the infrared march's, never judged from the pictures.
+        agreement = cam.cloud_band_agreement()
+        if agreement is not None:
+            agreements.append(agreement)
         rows.append(
             {
                 "frame": index,
+                "cloud_band_agreement": None if agreement is None else agreement.as_dict(),
                 "t_rel_s": round(float(cam.t_rel_s), 2),
                 "range_m": round(slant, 3),
                 "aspect_deg": round(aspect, 2),
@@ -1618,6 +1676,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     else:
         print("ffmpeg not available: stills written, no video", file=sys.stderr)
 
+    band_agreement = _agreement_summary(agreements)
+    if band_agreement is not None:
+        print(
+            f"cloud band agreement over {band_agreement['frames']} frames: IoU min "
+            f"{band_agreement['iou_min']:.3f} (median {band_agreement['iou_median']:.3f}), "
+            f"p95 |d eps| max {band_agreement['p95_emissivity_error_max']:.3f}; "
+            f"{'passes' if band_agreement['all_pass'] else 'FAILS'} the WX.26 bar"
+        )
     summary = {
         "asset": args.asset,
         "usd": str(usd),
@@ -1636,6 +1702,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             else f"band_radiance_{sensor.sensor.quantity}"
         ),
         "sky_span_c": sky_span,
+        "cloud_band_agreement": _agreement_summary(agreements),
+        "cloud_band_mask": cam.cloud_band_mask_spec(),
         "agc_isp": agc_isp,
         "interval_s": interval_s,
         "seconds_per_frame": round(render_s / max(args.frames, 1), 2),

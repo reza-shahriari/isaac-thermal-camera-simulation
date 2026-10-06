@@ -415,6 +415,7 @@ class IrCamera:
         weather_fx_clouds: Any = None,
         cloud_occlusion: bool = True,
         cloud_stride: int = 1,
+        visible_cloud_transmittance: Callable[[], Any] | None = None,
         companion_only_prim_paths: Sequence[str] = (),
         sea: Any = None,
         background_prim_paths: Sequence[str] = (),
@@ -547,6 +548,13 @@ class IrCamera:
         #: the march on the same field; so these are hidden for the G-buffer render and shown for
         #: a separate companion render (:meth:`get_outputs`).
         self.companion_only_prim_paths = tuple(companion_only_prim_paths)
+        #: WX.26: a callable returning the visible companion's own cloud transmittance for this
+        #: camera's last frame, ``(rows, cols)`` on the render product's grid -- weather-fx's
+        #: per-pixel layer offers it (``WeatherFxSky.visible_cloud_transmittance``). Stored as the
+        #: ``cloud_transmittance_vis`` plane beside the infrared march's own, so the two bands'
+        #: agreement about where the cloud is can be measured per frame
+        #: (:mod:`irsim.validation.cloud_bands`) rather than judged by eye. ``None`` adds no plane.
+        self.visible_cloud_transmittance = visible_cloud_transmittance
         if frame_period_s is not None and not frame_period_s > 0.0:
             raise ValueError("frame_period_s must be positive")
         self.frame_period_s = (
@@ -748,6 +756,76 @@ class IrCamera:
             material_names=self.config.materials.names,
         )
 
+    def _visible_cloud_plane(self, shape: tuple[int, int]) -> NDArray[np.float32] | None:
+        """The companion's cloud transmittance brought to the G-buffer grid, or None.
+
+        The per-pixel layer renders at the camera's render product resolution -- the same grid
+        as the G-buffer -- unless weather-fx's ``layer_scale`` shrank it, in which case the
+        nearest texel is taken, exactly as the quad's texture is stretched over the frame.
+        """
+        if self.visible_cloud_transmittance is None:
+            return None
+        array = self.visible_cloud_transmittance()
+        if array is None:
+            return None
+        plane = np.asarray(array, dtype=np.float32)
+        if plane.ndim != 2:
+            raise ValueError(f"visible cloud transmittance must be 2-D, got {plane.shape}")
+        rows, cols = shape
+        if plane.shape != (rows, cols):
+            r = np.minimum((np.arange(rows) + 0.5) * plane.shape[0] / rows, plane.shape[0] - 1)
+            c = np.minimum((np.arange(cols) + 0.5) * plane.shape[1] / cols, plane.shape[1] - 1)
+            plane = plane[r.astype(int)[:, None], c.astype(int)[None, :]]
+        return np.ascontiguousarray(plane, dtype=np.float32)
+
+    def cloud_band_mask_spec(self) -> dict[str, float] | None:
+        """What :meth:`cloud_band_agreement` leaves out, for a reader of the saved planes: the
+        deck's layer thickness and in-layer path cap, and the elevation below which a ray is
+        not judged (:func:`irsim.validation.cloud_bands.unreached_ray_mask`)."""
+        deck = getattr(self.bridge, "deck", None)
+        if deck is None:
+            return None
+        thickness = float(getattr(deck, "thickness_m", 0.0))
+        cap = float(getattr(deck, "max_path_m", np.inf))
+        if thickness <= 0.0 or not np.isfinite(cap):
+            return None
+        import math
+
+        return {
+            "thickness_m": thickness,
+            "max_path_m": cap,
+            "min_elevation_deg": math.degrees(math.asin(min(thickness / cap, 1.0))),
+        }
+
+    def cloud_band_agreement(self) -> Any:
+        """WX.26: how far the two bands agree about the cloud in the last frame, or None.
+
+        :func:`irsim.validation.cloud_bands.cloud_band_agreement` on the infrared march's
+        ``cloud_transmittance`` and the companion's ``cloud_transmittance_vis``, over every
+        pixel of the G-buffer grid; None when either plane is absent.
+        """
+        if self._last is None:
+            return None
+        planes = self._last.planes
+        if "cloud_transmittance" not in planes or "cloud_transmittance_vis" not in planes:
+            return None
+        from irsim.validation.cloud_bands import cloud_band_agreement, unreached_ray_mask
+
+        deck = self.bridge.deck
+        mask = None
+        if "elevation_rad" in planes and deck is not None:
+            mask = unreached_ray_mask(
+                planes["elevation_rad"],
+                thickness_m=float(getattr(deck, "thickness_m", 0.0)),
+                max_path_m=float(getattr(deck, "max_path_m", np.inf)),
+            )
+        return cloud_band_agreement(
+            planes["cloud_transmittance"],
+            planes["cloud_transmittance_vis"],
+            od_ratio=float(getattr(deck, "od_ratio", 0.5)),
+            mask=mask,
+        )
+
     # -- one frame ------------------------------------------------------------------------
 
     def planes(self, *, step: bool = True, rt_subframes: int = 1) -> Planes:
@@ -892,6 +970,10 @@ class IrCamera:
             planes["cloud_transmittance"] = np.asarray(occlusion.transmittance, dtype=np.float32)
             planes["cloud_radiance"] = np.asarray(occlusion.radiance, dtype=np.float32)
             planes["cloud_range_m"] = np.asarray(occlusion.range_m, dtype=np.float32)
+        rows, cols = np.asarray(geometry.distance_m).shape[:2]
+        visible = self._visible_cloud_plane((int(rows), int(cols)))
+        if visible is not None:
+            planes["cloud_transmittance_vis"] = visible
         self._last = _Frame(
             rgb=self._native_rgb(aovs.rgb),
             planes=planes,

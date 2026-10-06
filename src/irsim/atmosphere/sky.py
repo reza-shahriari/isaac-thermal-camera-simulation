@@ -292,8 +292,10 @@ class SkyModel:
             sample.t_air_k, sample.rh_fraction, c.min_base_m, c.max_base_m
         )
 
-    def cloud_base_temperature_k(self, t_s: float, base_m: float | None = None) -> float:
-        """Air temperature at a cumulus base ``base_m`` above the surface (the LCL by default).
+    def cloud_base_temperature_k(
+        self, t_s: float, base_m: float | None = None, *, mixed_layer_top_m: float | None = None
+    ) -> float:
+        """Air temperature at a cloud base ``base_m`` above the surface (the LCL by default).
 
         **Dry-adiabatic to the base, not the environment's mean lapse** (ADR 0146). The base is the
         lifting condensation level of surface air, and a parcel lifted from the surface cools at
@@ -309,10 +311,23 @@ class SkyModel:
         rays actually entered, so the temperature and the geometry cannot come from two different
         heights (which is what made a stale run's cloud read 17 C under 26 C air: the field's
         base at 600 m and a second LCL at 1.8 km from another weather).
+
+        ``mixed_layer_top_m`` is for a cloud that does **not** stand on the condensation level
+        of surface air -- cirrus at 9 km (docs/physics-model.md §7.5, spec issue S66). The dry
+        adiabat is the mixed layer's profile and ends where the surface air would have
+        condensed; above it the environment's own lapse holds. Lapsing dry all the way to 9 km
+        reads 30 K colder than the air there. With ``None`` the base is taken to be that level,
+        which is the convective case above, unchanged.
         """
         sample = self.weather.at(t_s)
         base = self.cloud_base_m(t_s) if base_m is None else float(base_m)
-        return cloud_base_temperature_k(sample.t_air_k, base, DRY_ADIABATIC_LAPSE_K_PER_M)
+        if mixed_layer_top_m is None or base <= float(mixed_layer_top_m):
+            return cloud_base_temperature_k(sample.t_air_k, base, DRY_ADIABATIC_LAPSE_K_PER_M)
+        top = float(mixed_layer_top_m)
+        t_top = cloud_base_temperature_k(sample.t_air_k, top, DRY_ADIABATIC_LAPSE_K_PER_M)
+        return cloud_base_temperature_k(
+            t_top, base - top, self._atm.preset.profile.lapse_rate_k_per_m
+        )
 
     def _flux_emissivity(self) -> float:
         """The cloud's emissivity to a **hemispherically integrated flux**, which is what the
@@ -496,7 +511,10 @@ class SkyModel:
         # Inside the cloud the parcel is saturated and cools at the moist rate, which the
         # preset's environmental lapse is close to; the dry rate applies only up to the base.
         lapse = self._atm.preset.profile.lapse_rate_k_per_m
-        t_emit = self.cloud_base_temperature_k(t_s, base_m) - lapse * march.emission_height_m
+        t_base = self.cloud_base_temperature_k(
+            t_s, base_m, mixed_layer_top_m=getattr(deck, "mixed_layer_top_m", None)
+        )
+        t_emit = t_base - lapse * march.emission_height_m
         l_base = np.asarray(self._lut.lookup(t_emit, self._q), dtype=np.float64)
         if self.sunlit:
             # The ray's slant depth brought back to the vertical column it crossed (AT.20):
@@ -540,7 +558,9 @@ class SkyModel:
         if march_to is None:
             return None
         base_m = float(getattr(deck, "base_m", self.cloud_base_m(t_s)))
-        t_base = self.cloud_base_temperature_k(t_s, base_m)
+        t_base = self.cloud_base_temperature_k(
+            t_s, base_m, mixed_layer_top_m=getattr(deck, "mixed_layer_top_m", None)
+        )
         lapse = self._atm.preset.profile.lapse_rate_k_per_m
         lut, q = self._lut, self._q
         # A reflective band's cloud also scatters sunlight toward the camera (AT.20); the sky

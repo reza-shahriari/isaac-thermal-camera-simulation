@@ -15,9 +15,9 @@ update the status here in the same commit.
 | S2 | §6.1: absorbed solar `(1−α_sol)^c Q_sol` → `α_sol Q_sol` in the displayed balance | the prose two lines below already said so; M6.7's monotone-α test encodes it |
 | T4 | §12.2: `spectral_response: "responses/boson_vox.csv"` → `"spectra/responses/boson_vox.csv"` (relative to `data/`, µm, peak-normalised) | the path was stated four ways; M0.8's loader and ADR 0008 fix the layout as `data/spectra/responses/` |
 
-**Where the eighty-six rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S66` by the 2026-10-06 human survey, `S59`–`S65` by the 2026-10-01 weather audit, `S56`–`S58` by the 2026-09-28 audit, `S50` by
+**Where the eighty-seven rows stand** (RP.7, 2026-09-16; nine rows added 2026-09-20, `S67` by the cirrus genus's temperature, `S66` by the 2026-10-06 human survey, `S59`–`S65` by the 2026-10-01 weather audit, `S56`–`S58` by the 2026-09-28 audit, `S50` by
 `AT.12`, `S51` by `OC.1`, `S52`–`S54` by the 2026-09-26 AGC diagnosis, `S55` by the four-band Phantom 4 render).
-The `status` column on each row is the ledger; this is its summary. **Forty-four** rows are carried
+The `status` column on each row is the ledger; this is its summary. **Forty-five** rows are carried
 by an ADR that exists, **twenty-five** by code with no ADR, and **seventeen** are open: `S66`, cotton's measured 0.88 against the spec's 0.95 (lane `HU`), `S59`–`S65`, the weather gaps owned by roadmap lane `WX` (fog band ratios, visibility at 5 %, rain folded into fog, precipitation along the ray, wet-surface optics, the cloud field and its look, local shadows and rain's heat), `S54`, the one-ISP-for-every-band defect found on 2026-09-26 and owned by `SC.27` (its siblings `S52`, the AGC, and `S53`, the ADC floor, closed with `SC.22` and `SC.23`, and `S55`, reflective-band lighting, with `AT.20`), and `S9`, `S15` and `S16` are edits
 to `docs/physics-model.md` that belong to the spec owner, **`S13` is open again** — see its row —
 and `S46`–`S49` are the gaps the 2026-09-18 audit found between the spec and the owner's
@@ -26,7 +26,7 @@ roadmap row in phase P or C; `S41`, lateral conduction, shipped in
 `PT.11`, `S42`, part-to-part conduction, as the thermal network in `TC.2` and its schema in `TC.4`,
 `S43`, the solved engine, in `TC.5`, `S44`, the shadow term's provider, across `PT.18`,
 `PT.21` and `PT.22`, and `S45`, latent heat and the water body, across `PH.1` and `PH.3`, so
-sixty-nine of the eighty-five rows have shipped.
+seventy of the eighty-seven rows have shipped.
 (`S8` is counted as code: its half of the fix shipped in M9.1 and only the spec's wording is left.)
 
 This paragraph used to read "Everything else is open", which had been wrong for months: it listed
@@ -131,6 +131,7 @@ cell exists, and no row may be `open` while the ADR its resolution names is alre
 | S64 | The shared cloud field is coarser than a cloud's own optical skin (60 m cells against an 8–20 m visible and 15–40 m LWIR skin), its detail is sampled with no pixel-footprint filter (static toward the horizon), and §7.5 set no criteria for a cloud's shape or for the visible companion's shading, so cloud looks were judged by eye | §7.5: four measured shape targets (outline dimension, size exponent, edge, aspect); envelope plus detail, the detail filtered to each band's own pixel; the companion's five criteria (white furnace, energy-conserving step, premultiplied composite, scattering orders, aerial perspective); two cloud sources behind one contract — `WX.2`–`WX.9` | open — `WX.3` |
 | S65 | §6's balance carries no heat delivered by precipitation, and the direct beam is attenuated by the cloud fraction uniformly, so rain never cools a surface by contact and a cumulus never leaves a shadow | §6.7: Q_P = ṁ c_w (T_rain − T_s); the beam on a facet through the shared field, e^{−τ} along the sun ray, its area mean equal to the series' attenuation — `WX.10`, `WX.19` | open — `WX.10` |
 | S66 | §16.2's cotton row gives ε 0.95 in LWIR (and `cotton_clothing.yaml` carries it, as does `hatch_cover_tarpaulin.yaml` by reference); Belliveau et al. 2020 (Textile Res. J. 90:1431, doi:10.1177/0040517519888825) measured cotton, nylon and polyester at ≈ 0.88 over 8–12 µm, independent of moisture, and Zhang, Hu & Zhang 2009 (J. Textile Inst. 100:90) found colour has no effect on a fabric's emissivity — a 0.07 step is 7 % of the clothed area's radiance, far above the 10 mK budget, and it moves every clothed person's apparent temperature by ~4 K at 290 K | Decide the row: keep 0.95 with a source, or move the cotton family to 0.88 and let `HU.5`'s six fabrics follow the same measurement; either way the colour independence becomes a library test | open — `HU.5` |
+| S67 | §7.5's temperature law lapses surface air dry-adiabatically to the cloud base, whatever the base: right for a convective cloud standing on its condensation level, 30 K too cold for a cirrus base set at 9 km, since the dry adiabat is the mixed layer's profile and ends at the LCL. Found when the cirrus genus joined the cloudscape for the infrared (2026-10-06) | §7.5 amended: dry to z_LCL, the environment's lapse above it, the cloud source saying which case it is (weather-fx `mixed_layer_top_m`); `SkyModel.cloud_base_temperature_k(mixed_layer_top_m=)` | ADR 0191 |
 
 ---
 

@@ -127,6 +127,17 @@ def truth_planes(
             planes["cloud_range_m"] = np.where(tau >= 1.0, np.float32(np.nan), rng)
         planes["cloud_id"] = (tau < CLOUD_THRESHOLD).astype(np.uint8)
         legends["cloud_id"] = dict(CLOUD_LEGEND)
+    if "elevation_rad" in gbuffer:
+        # Each pixel's own ray elevation (AT.1): what the saved cloud planes are judged on, since
+        # the infrared march's path cap leaves the shallowest rays out of the comparison.
+        planes["elevation_rad"] = centre_sample(gbuffer["elevation_rad"], shape).astype(np.float32)
+    if "cloud_transmittance_vis" in gbuffer:
+        # WX.26: the *visible* transmittance of the same cloud, as the companion's own march
+        # drew it for this camera. Beside `cloud_transmittance` it is what the two bands'
+        # agreement is measured on (:mod:`irsim.validation.cloud_bands`); never derived from it.
+        planes["cloud_transmittance_vis"] = centre_sample(
+            gbuffer["cloud_transmittance_vis"], shape
+        ).astype(np.float32)
 
     if instance_id is not None and labels:
         ids = centre_sample(instance_id, shape)
