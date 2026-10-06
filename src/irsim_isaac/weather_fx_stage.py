@@ -223,12 +223,22 @@ class WeatherFxSky:
 
     def visible_cloud_transmittance(self) -> Any:
         """The visible transmittance of the cloud the per-pixel layer last drew, per pixel of
-        the camera it follows (WX.26) -- None in the other tiers or before the first draw. The
-        infrared camera stores it beside its own march's transmittance so the bands' agreement
-        is measured, not assumed (:mod:`irsim.validation.cloud_bands`)."""
+        the camera it follows (WX.26), as ``(array, reaches_surface)`` -- or None in the other
+        tiers or before the first draw. The infrared camera stores it beside its own march's
+        transmittance so the bands' agreement is measured (:mod:`irsim.validation.cloud_bands`).
+
+        Where the layer had the scene's depth the array ends each ray at the first surface, as
+        the infrared march to the hit does, and ``reaches_surface`` is True. Without depth it is
+        the whole ray, which on an object's pixels is the cloud *behind* the object (the
+        renderer draws the object over the layer, so the picture is right and the number is
+        not); the camera then leaves those pixels out (ADR 0191)."""
         if self.layer is None:
             return None
-        return self.layer.transmittance()
+        surface = self.layer.surface_transmittance()
+        if surface is not None:
+            return surface, True
+        whole = self.layer.transmittance()
+        return None if whole is None else (whole, False)
 
     @property
     def occludes(self) -> bool:

@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-10-06
 Completes roadmap step `WX.26` (ADR 0190 shipped it with its bar unmeasured). `isaac-weather-fx`
-moves to `a30ef33`. Spec issue `S67`.
+moves to `bd77d3d`. Spec issue `S67`.
 
 ## Context
 
@@ -133,15 +133,27 @@ standing on the condensation level of surface air.
   edges by design, and a reader comparing a viewport screenshot with an infrared frame should
   expect that.
 - Measured in the engine on the six clips (`scripts/cloud_band_agreement.py` on the saved
-  planes): IoU median 0.991, p95 median 0.011; 132 of 144 frames inside the bar. The twelve
-  outside are cumulus and congestus frames with under 23 % cloud, where the edge fringe of two
-  jittered marches sets the 95th percentile (0.05–0.10) while the mean error stays under 0.024
-  on every frame; the three sheet genera and cirrus pass on every frame.
-- The visible layer's depth cut (the veil that hides an object behind cloud, WX.27) is not
-  active in these headless captures: the companion shows the drone in front of a cloud the
-  infrared hides it behind, and the drone's silhouette is part of the fringe error above. The
-  infrared half of ADR 0169's pixel-tier promise holds; the visible half is a weather-fx
-  headless-driver defect, queued as an issue.
+  planes, re-rendered 2026-10-07 after the amendment below, the depth read active in all six):
+  IoU min 0.852 (median 0.994), p95 band-emissivity error max 0.096 (median 0.010), mean
+  error under 0.024 on every frame; 132 of 144 frames inside the bar. The twelve outside are
+  eleven cumulus and congestus frames with under 24 % cloud, where the edge fringe sets the
+  95th percentile, and one cirrus frame with 1.5 % cloud whose IoU is 0.883 at a p95 of 0.007
+  and a correlation of 0.9996 -- thin cirrus straddling the ε = 0.5 cut, not a disagreement.
+  On the drone's 30,494 pixels across the 144 frames, no pixel reads an infrared cloud
+  transmittance under 0.5 (up to 70 a frame before the fix) and the visible plane reads 1.0.
+- **Amended 2026-10-07: the drone pixels.** The first scoring of these clips (IoU median 0.991,
+  132 of 144 frames inside the bar) compared unlike quantities on the drone's pixels, and this
+  ADR first read that as the visible companion failing to hide the drone behind cloud. It was
+  not: the drone flies 5–10 m away, under a base at 910 m, so no cloud is ever in front of it,
+  and the RGB picture correctly draws it over the cloud. The visible plane was the layer's
+  whole-ray transmittance, which on an object's pixels is the cloud *behind* the object. And
+  the infrared had a real defect there: the coarse-then-interpolate march (ADR 0181) spread the
+  sky's cloud across the silhouette onto up to 70 drone pixels per frame, since a uniform cloud
+  behind the drone flagged no edge. Two fixes: weather-fx's layer now hands over the
+  transmittance to the first surface where it read the scene's depth (`surface_transmittance`,
+  and `depth` in its stats), the camera leaves object pixels out when it did not, and
+  `march_on_native_grid` marches every sample of a pixel whose samples do not share one range
+  to the hit (`tests/unit/test_pixel_integral.py`, red on the old march).
 - The sky model's clear-air path to a cloud still takes the base height and a plane-parallel
   airmass (ADR 0126); only the cloud's geometry is on the sphere. Beyond 80 km the band's air is
   opaque in any case, which is why the range cap costs the infrared nothing it could show.

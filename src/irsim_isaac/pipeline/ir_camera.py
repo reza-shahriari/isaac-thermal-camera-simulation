@@ -756,18 +756,25 @@ class IrCamera:
             material_names=self.config.materials.names,
         )
 
-    def _visible_cloud_plane(self, shape: tuple[int, int]) -> NDArray[np.float32] | None:
+    def _visible_cloud_plane(
+        self, shape: tuple[int, int], *, sky_mask: Any = None
+    ) -> NDArray[np.float32] | None:
         """The companion's cloud transmittance brought to the G-buffer grid, or None.
 
         The per-pixel layer renders at the camera's render product resolution -- the same grid
         as the G-buffer -- unless weather-fx's ``layer_scale`` shrank it, in which case the
         nearest texel is taken, exactly as the quad's texture is stretched over the frame.
+
+        The source returns an array, or ``(array, reaches_surface)``. When the array is the
+        whole ray (no scene depth), an object's pixels carry the cloud behind the object, not in
+        front of it, so they are set to NaN and left out of the comparison (ADR 0191).
         """
         if self.visible_cloud_transmittance is None:
             return None
-        array = self.visible_cloud_transmittance()
-        if array is None:
+        got = self.visible_cloud_transmittance()
+        if got is None:
             return None
+        array, reaches_surface = got if isinstance(got, tuple) else (got, True)
         plane = np.asarray(array, dtype=np.float32)
         if plane.ndim != 2:
             raise ValueError(f"visible cloud transmittance must be 2-D, got {plane.shape}")
@@ -776,6 +783,10 @@ class IrCamera:
             r = np.minimum((np.arange(rows) + 0.5) * plane.shape[0] / rows, plane.shape[0] - 1)
             c = np.minimum((np.arange(cols) + 0.5) * plane.shape[1] / cols, plane.shape[1] - 1)
             plane = plane[r.astype(int)[:, None], c.astype(int)[None, :]]
+        if not reaches_surface and sky_mask is not None:
+            sky = np.asarray(sky_mask, dtype=bool)
+            if sky.shape == plane.shape:
+                plane = np.where(sky, plane, np.float32(np.nan))
         return np.ascontiguousarray(plane, dtype=np.float32)
 
     def cloud_band_mask_spec(self) -> dict[str, float] | None:
@@ -971,7 +982,7 @@ class IrCamera:
             planes["cloud_radiance"] = np.asarray(occlusion.radiance, dtype=np.float32)
             planes["cloud_range_m"] = np.asarray(occlusion.range_m, dtype=np.float32)
         rows, cols = np.asarray(geometry.distance_m).shape[:2]
-        visible = self._visible_cloud_plane((int(rows), int(cols)))
+        visible = self._visible_cloud_plane((int(rows), int(cols)), sky_mask=geometry.sky_mask)
         if visible is not None:
             planes["cloud_transmittance_vis"] = visible
         self._last = _Frame(

@@ -128,6 +128,14 @@ def test_the_camera_takes_the_companion_s_transmittance_and_resamples_a_shrunk_l
     big = IrCamera._visible_cloud_plane(Stub(small), (8, 12))  # type: ignore[arg-type]
     assert big.shape == (8, 12) and big[0, 0] == small[0, 0] and big[-1, -1] == small[-1, -1]
     assert IrCamera._visible_cloud_plane(Stub(None), (8, 12)) is None  # type: ignore[arg-type]
+    # The whole ray (no scene depth): an object's pixels hold the cloud *behind* the object,
+    # which the renderer hides, so they are left out; with the depth cut they are kept.
+    sky = np.ones((8, 12), dtype=bool)
+    sky[3:5, 4:6] = False
+    whole = IrCamera._visible_cloud_plane(Stub((same, False)), (8, 12), sky_mask=sky)  # type: ignore[arg-type]
+    assert np.isnan(whole[~sky]).all() and np.array_equal(whole[sky], same[sky])
+    cut = IrCamera._visible_cloud_plane(Stub((same, True)), (8, 12), sky_mask=sky)  # type: ignore[arg-type]
+    assert np.array_equal(cut, same)
     with pytest.raises(ValueError):
         IrCamera._visible_cloud_plane(Stub(np.ones(5)), (8, 12))  # type: ignore[arg-type]
 

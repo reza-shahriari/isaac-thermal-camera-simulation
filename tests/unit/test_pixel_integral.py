@@ -96,6 +96,24 @@ def test_a_per_sample_input_reaches_the_rays_that_use_it() -> None:
     assert np.array_equal(out, np.where(np.isfinite(rng), 0.0, 1.0))
 
 
+def test_a_drone_the_coarse_samples_miss_keeps_its_own_range() -> None:
+    """WX.26: a drone at 5 m in front of a cloud base at 910 m. The cloud is uniform, so the
+    coarse samples -- all on the sky -- agree and flag no edge, and interpolation spread their
+    cloud over the drone (70 pixels read opaque in the cumulus clip). A pixel whose samples do
+    not share one range is marched at every sample instead, at 5 degrees and at 40 alike."""
+    for elevation in (5.0, 40.0):
+        el, az = _grid(32, 32, elevation)
+        rng = np.full(el.shape, np.inf)
+        rng[13:15, 17:18] = 5.0  # smaller than one coarse cell, off every coarse sample
+
+        def ev(e, a, r):
+            return (np.where(np.isfinite(r), 1.0, 0.02),)  # transmittance: clear to 5 m
+
+        (out,) = march_on_native_grid(ev, el, az, STRIDE, threshold=0.02, extras=(rng,))
+        assert np.array_equal(out[13:15, 17:18], np.ones((2, 1))), elevation
+        assert np.allclose(out[np.isinf(rng)], 0.02)
+
+
 @pytest.mark.slow
 def test_the_horizon_static_falls_below_a_tenth_at_no_more_than_twice_the_rays() -> None:
     """The step's verification, on the shipped weather-fx field (35 % cumulus). Measured against a

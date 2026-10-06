@@ -516,14 +516,33 @@ def march_on_native_grid(
     edge[:-1] |= differs[1:]
     edge[:, 1:] |= differs[:, :-1]
     edge[:, :-1] |= differs[:, 1:]
-    if not np.any(edge):
+    # A pixel whose samples do not share one value of every extra -- a range to the hit that
+    # jumps from a drone at 5 m to the sky -- straddles a geometry edge. Interpolating the coarse
+    # samples across it carries the sky's cloud onto the drone (measured, WX.26: 70 pixels of a
+    # drone at 5 m read opaque cloud based at 910 m), and one ray per 2 x 2 block mixes the two
+    # just the same; such a pixel is marched at every sample, each with its own extras.
+    mixed = np.zeros(signal.shape, dtype=bool)
+    for e in ex:
+        if e.ndim != 2 or e.shape != (rows, cols):
+            continue
+        anchor = np.repeat(np.repeat(e[::k, ::k], k, axis=0), k, axis=1)[:rows, :cols]
+        with np.errstate(invalid="ignore"):
+            same = (e == anchor) | (np.isnan(e) & np.isnan(anchor))
+        pad_r, pad_c = (-rows) % k, (-cols) % k
+        diff = np.pad(~same, ((0, pad_r), (0, pad_c)))
+        blocks_differ = np.asarray(
+            diff.reshape(diff.shape[0] // k, k, diff.shape[1] // k, k).any(axis=(1, 3)), dtype=bool
+        )
+        mixed |= blocks_differ[: signal.shape[0], : signal.shape[1]]
+    if not np.any(edge) and not np.any(mixed):
         return tuple(planes)
 
     # Every sample of an edge pixel: a boolean mask on the full grid, clipped to the frame.
     full_edge = np.repeat(np.repeat(edge, k, axis=0), k, axis=1)[:rows, :cols]
+    full_mixed = np.repeat(np.repeat(mixed, k, axis=0), k, axis=1)[:rows, :cols]
     grazing = el < math.radians(REFINE_EVERY_SAMPLE_BELOW_DEG)
-    every = full_edge & grazing
-    blocks = full_edge & ~grazing
+    every = (full_edge & grazing) | full_mixed
+    blocks = full_edge & ~grazing & ~full_mixed
     if np.any(every):
         values = evaluate(el[every], az[every], *(e[every] for e in ex))
         for plane, v in zip(planes, values, strict=True):

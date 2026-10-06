@@ -1059,8 +1059,8 @@ sections:
       95th-percentile emissivity error, every frame. Six genera from one state, one seed, one
       camera path -- cumulus, congestus, stratocumulus, stratus, storm and a new cirrus -- each
       24 frames of the Phantom 4's lemniscate, the infrared marched on the GPU. Over all six:
-      IoU min 0.852, median 0.991; p95 error max 0.096, median 0.011, against a
-      bar of 0.9 and 0.05: 132 of 144 frames are inside the bar; the twelve outside are cumulus and congestus frames with under 23 % cloud, where the edge fringe sets the 95th percentile (0.05–0.10) while the mean error stays under 0.024 on every frame. The measurement found three things on the way: the visible layer's viewport settings
+      IoU min 0.852, median 0.994; p95 error max 0.096, median 0.010, against a
+      bar of 0.9 and 0.05: 132 of 144 frames are inside the bar; eleven of the twelve outside are cumulus and congestus frames with under 24 % cloud, where the edge fringe sets the 95th percentile (0.05–0.10), and one is a cirrus frame with 1.5 % cloud straddling the ε = 0.5 cut; the mean error stays under 0.024 on every frame. On the drone itself both bands read no cloud: none of its 30,494 pixels over the 144 frames is under 0.5 infrared transmittance, and the visible plane reads 1.0. The measurement found three things on the way: the visible layer's viewport settings
       0.14-0.26 off the function (a wisp sampled once, not resolved), the infrared marching a flat
       slab where the visible marches a shell round the planet (1.2 km apart on a cirrus at 9 km
       seen at 10 degrees), and the infrared marching cloud beyond the visible's 80 km. These
@@ -1082,26 +1082,26 @@ sections:
         width: half
         caption: >-
           Stratocumulus, 60 % cover. Left LWIR apparent temperature, white-hot; right the visible
-          companion from the same camera. 24 frames: cloud-mask IoU min 0.983, p95
-          band-emissivity error max 0.036.
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.991, p95
+          band-emissivity error max 0.035.
       - video: phantom4_cloudscape/stratus/phantom4_pair.mp4
         width: half
         caption: >-
           Stratus, 90 % cover. Left LWIR apparent temperature, white-hot; right the visible
-          companion from the same camera. 24 frames: cloud-mask IoU min 0.991, p95
-          band-emissivity error max 0.009.
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.997, p95
+          band-emissivity error max 0.008.
       - video: phantom4_cloudscape/storm/phantom4_pair.mp4
         width: half
         caption: >-
           A storm deck, 95 % cover. Left LWIR apparent temperature, white-hot; right the visible
-          companion from the same camera. 24 frames: cloud-mask IoU min 0.991, p95
+          companion from the same camera. 24 frames: cloud-mask IoU min 0.999, p95
           band-emissivity error max 0.003.
       - video: phantom4_cloudscape/cirrus/phantom4_pair.mp4
         width: half
         caption: >-
           Cirrus at 9 km, 45 % cover. Left LWIR apparent temperature, white-hot; right the visible
           companion from the same camera. 24 frames: cloud-mask IoU min 0.883, p95
-          band-emissivity error max 0.011.
+          band-emissivity error max 0.010.
       - image: phantom4_cloudscape/cumulus/frame_000010_cloud_band_agreement.png
         width: full
         caption: >-
