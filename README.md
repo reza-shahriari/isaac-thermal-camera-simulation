@@ -71,12 +71,11 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **DJI Matrice 100** — the developer quadcopter joins the asset library, split into its propellers, motors, arms, landing legs, battery, GPS mast and frame, each with an infrared material.
 - **A Liberty ship** — a WWII cargo ship joins the asset library, split into its hull, hatches, masts, deckhouses, funnel, lifeboats, rudder and propeller, each with an infrared material.
 - **Two FPV drones** — the DJI Avata 2 and DJI FPV join the asset library, split into their propellers, motors, arms, ducts, battery and camera, each with an infrared material.
 - **Spectral materials from Blender** — the Blender add-on can now create a material from a measured spectrum or a single value, and plots any material across the infrared bands.
 - **Cameras defined by their wavelengths** — a 6–13 µm camera and a 7.5–13.5 µm one now read different values from a material with a measured spectrum, and a material can be one value, one per band, or a full spectral curve.
-- **Three more drones** — a DJI Mini 3 Pro, Inspire 3 and Matrice 300 RTK join the asset library, each split into its real propellers, motors, arms, batteries and camera, with every part given an infrared material.
-- **Exhaust you can see in one band and barely in another** — a car's exhaust plume, rendered: a bright cone to a mid-wave camera, a faint wisp to a long-wave one.
 
 Full history in the [changelog](CHANGELOG.md).
 

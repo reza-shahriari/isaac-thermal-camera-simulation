@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: dji_matrice_100
+  source: local
+  real_name: DJI Matrice 100
+  uid: ''
+  title: DJI Matrice 100
+  author: spsvision
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/m100-2f9e5079b3f34db3a961e149ee787718
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: e0ac9ce966461744a297233b22bf77a4cf4702be82966cf346cde1447c3b9482
+  downloaded_at: '2026-10-06T10:50:41+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.

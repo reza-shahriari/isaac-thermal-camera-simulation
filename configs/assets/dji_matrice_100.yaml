@@ -1,0 +1,212 @@
+# DJI Matrice 100, from the CC-BY Sketchfab model by spsvision (provenance beside this file).
+# Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py`.
+# Sources: DJI's M100 specifications, https://www.dji.com/support/product/matrice100 and the
+# datasheet mirror https://dronespec.dronedesk.io/dji-matrice100 (650 mm diagonal wheelbase, DJI
+# 3510 motors, 1345s propellers, E-series 620D ESCs, N1 flight controller, TB47D 6S 99.9 Wh LiPo of
+# 600 g, 2355 g with it); the M100 user manual, https://www.manualslib.com/manual/970870/Dji-Matrice-100.html
+# ("the battery terminal faces the aircraft tail"); "key components ... are constructed from carbon
+# fiber" (DJI, via https://www.dominiondrones.com/pages/matrice-100-overview).
+#
+# **What the file is**: a CAD-grade product model, 332 objects / 1,114,155 faces, one object per
+# physical piece (a screw, a motor bell, a leg cover), so `granularity: object` below. Its five
+# glTF materials multiply a constant vertex colour into the base colour, read as:
+#
+#   material    effective base   metallic  rough  where it is                                   reading
+#   material_0  carbon weave tex  0.45      0.03   arm tubes, lower leg tubes, the GPS mast     carbon fibre (the texture is a twill)
+#   material_1  0.00 (black)      0.0       0.6    84 % of faces: motors, mounts, frame parts,  black moulding / anodised hardware
+#                                                  battery and its bay, feet, the GPS puck
+#   material_2  0.09 dark grey    0.0       0.6    upper leg covers, the battery's end cap      dark grey PC
+#   material_3  0.01 black gloss  0.33      0.10   the two 1.5 mm centre plates, side plates,   CF plates; the props are asserted below
+#                                                  standoffs, arm-root clamps, the propellers
+#   material_4  0.81 light grey   0.0       0.6    two 5 mm pins at the nose                    light grey moulding
+#
+# Because `material_1` covers everything from rubber feet to motor bells, the parts that are a
+# known different substance say so with `material:` (AI.14): the motors and the propellers.
+#
+# **Duplicates**: the whole GPS stack (puck, mast, fold mount; Object_17-24 and Object_326-333) and
+# one pin inside the frame (Object_224/249) are each modelled twice, coincident to 0.1 mm. A double
+# surface doubles that hardware's area and heat capacity and z-fights in a render, so one copy of
+# each is excluded. The kept mast is Object_333, the copy with the carbon weave.
+#
+# **Frame**: Blender's import, z up; landing feet at z = -0.188 m, GPS puck top at +0.156 m.
+# The battery's end cap -- the LED gauge and power button -- is at -y, and its terminal faces the
+# tail (manual), so the nose is -y and, as on every library drone, +x is the aircraft's LEFT.
+schema_version: 1
+asset:
+  name: dji_matrice_100
+  source_file: 3d_models/dji_matrice_100/source/m100.glb
+  # The glTF's unit is the millimetre, not the metre its specification promises: the four motor
+  # axes stand at (+-229.8, +-229.8) units, a 2 x sqrt(2) x 229.8 = 650.0 unit diagonal against the
+  # published 650 mm wheelbase. Corroborated by the battery box, 68 x 106 x 37 units, a 600 g
+  # 99.9 Wh 6S pack's size. So 0.001.
+  # OPEN: the modelled propellers span 230 mm tip to tip; a 1345 is 13 in (330 mm). Kept as
+  # modelled -- an artist's choice, not a unit error (the hubs fix the scale) -- and a rotor disc
+  # is sub-pixel motion blur in most scenes.
+  scale_to_metres: 0.001
+
+  materials:
+    # --- carbon tubes: DJI ("key components ... carbon fiber"); the texture is a twill weave.
+    material_0: carbon_fibre
+    # --- the catch-all: black moulded polymer for brackets, clamps, the battery bay, the GPS
+    # puck and the damper feet. ESTIMATED -- DJI publishes no part materials. The motors and
+    # props, which are not polymer/are not this polymer, are asserted per part below.
+    material_1: pet_black
+    # --- dark grey moulding: the landing-leg covers and the TB47D's end cap. ESTIMATED PC.
+    material_2: polycarbonate_dark_grey
+    # --- glossy black sheet: the centre plates, side plates and clamps; carbon-fibre plate
+    # (DJI), ESTIMATED for the small standoffs and clamps in the same material.
+    material_3: carbon_fibre
+    # --- two light grey pins at the nose. ESTIMATED light moulding.
+    material_4: abs_plastic_white
+
+  # =============================================================================================
+  # The functional decomposition (ADR 0138).
+  parts:
+    centre: [0.0, 0.0, 0.0]
+    coverage_threshold: 0.95
+    # One object per physical piece (a bell, a cover, each screw): judge whole objects (AI.16).
+    granularity: object
+    exclude:
+      - {objects: [Object_24, Object_326, Object_327, Object_328, Object_329, Object_330, Object_331, Object_332, Object_249]}
+
+    # --- AI.17: the heat path at each station is motor -> mount -> arm tube -> centre frame, with
+    # the leg hung from the mount. Footprints ESTIMATED from the measured geometry: a 3510's
+    # 42 mm base on its mount (pi x 20^2 mm2 ~ 12 cm2); the 37 mm mount sleeved over the 22 mm
+    # tube's end for ~30 mm (pi x 22 x 30 ~ 21 cm2); the 36 mm leg cover seated ~10 mm into the
+    # mount (pi x 36 x 10 ~ 11 cm2); each tube clamped by the frame's two 26 mm root clamps
+    # (2 x pi x 22 x 13 ~ 18 cm2); the pack on the bay's two side rails (2 x 100 x 5 mm ~ 10 cm2);
+    # the bay on four 4.4 mm standoffs plus its top plate's rim (~4 cm2); the GPS fold mount's 11 x 39 mm foot. `dry_default` throughout (ADR 0097).
+    contacts:
+      - {a: motor_front_left, b: motor_mount_front_left, joint: dry_default, area_m2: 0.0012}
+      - {a: motor_front_right, b: motor_mount_front_right, joint: dry_default, area_m2: 0.0012}
+      - {a: motor_rear_left, b: motor_mount_rear_left, joint: dry_default, area_m2: 0.0012}
+      - {a: motor_rear_right, b: motor_mount_rear_right, joint: dry_default, area_m2: 0.0012}
+      - {a: motor_mount_front_left, b: arm_front_left, joint: dry_default, area_m2: 0.0021}
+      - {a: motor_mount_front_right, b: arm_front_right, joint: dry_default, area_m2: 0.0021}
+      - {a: motor_mount_rear_left, b: arm_rear_left, joint: dry_default, area_m2: 0.0021}
+      - {a: motor_mount_rear_right, b: arm_rear_right, joint: dry_default, area_m2: 0.0021}
+      - {a: landing_gear_front_left, b: motor_mount_front_left, joint: dry_default, area_m2: 0.0011}
+      - {a: landing_gear_front_right, b: motor_mount_front_right, joint: dry_default, area_m2: 0.0011}
+      - {a: landing_gear_rear_left, b: motor_mount_rear_left, joint: dry_default, area_m2: 0.0011}
+      - {a: landing_gear_rear_right, b: motor_mount_rear_right, joint: dry_default, area_m2: 0.0011}
+      - {a: arm_front_left, b: fuselage, joint: dry_default, area_m2: 0.0018}
+      - {a: arm_front_right, b: fuselage, joint: dry_default, area_m2: 0.0018}
+      - {a: arm_rear_left, b: fuselage, joint: dry_default, area_m2: 0.0018}
+      - {a: arm_rear_right, b: fuselage, joint: dry_default, area_m2: 0.0018}
+      - {a: battery, b: battery_bay, joint: dry_default, area_m2: 0.0010}
+      - {a: battery_bay, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: gps_mast, b: fuselage, joint: dry_default, area_m2: 0.0004}
+
+    parts:
+      # --- the four rotor stations, at the motor axes (+-0.2298, +-0.2298). Per station, by height:
+      #   * propeller: the one glossy-black object above z = +15 mm (blades at z 22-33 mm). 1345s,
+      #     asserted glass-filled nylon -- ESTIMATED, DJI does not publish the compound;
+      #   * motor: bell, stator, shaft, its four screws -- every object within 25 mm of the axis
+      #     with its centroid above z = -10 mm (bell top 42 mm across at z = 18-21 mm). DJI 3510,
+      #     asserted anodised aluminium (eps 0.845), never bare (AT.18);
+      #   * motor mount: the 37 x 35 mm clamp on the tube's end, its LED housing and screws, centroids
+      #     z -35 .. -10 mm within 25 mm. Front-left and rear-right come out 1.5 % smaller: the model
+      #     lacks their 11 mm washer under the motor (Object_48 on front-right; 143 mm2 = the gap);
+      #   * landing gear: joint, grey cover, 12 mm carbon tube and the sprung damper foot, all
+      #     centroids below z = -35 mm within 25 mm of the axis.
+      - name: propeller_front_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [material_3], near_xy: [0.2298, -0.2298], within_m: 0.03, z_min_m: 0.015}
+      - name: propeller_front_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [material_3], near_xy: [-0.2298, -0.2298], within_m: 0.03, z_min_m: 0.015}
+      - name: propeller_rear_left
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [material_3], near_xy: [0.2298, 0.2298], within_m: 0.03, z_min_m: 0.015}
+      - name: propeller_rear_right
+        target: propeller
+        material: nylon_glass_filled_black
+        select: {materials: [material_3], near_xy: [-0.2298, 0.2298], within_m: 0.03, z_min_m: 0.015}
+      - name: motor_front_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.2298, -0.2298], within_m: 0.025, z_min_m: -0.010}
+      - name: motor_front_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.2298, -0.2298], within_m: 0.025, z_min_m: -0.010}
+      - name: motor_rear_left
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [0.2298, 0.2298], within_m: 0.025, z_min_m: -0.010}
+      - name: motor_rear_right
+        target: motor
+        material: aluminium_anodised
+        select: {near_xy: [-0.2298, 0.2298], within_m: 0.025, z_min_m: -0.010}
+      # --- the arms, before the mounts and legs: a tube's vertex mean is 15 mm from its motor axis
+      # at z = -18 mm, where the mount selector would take it. One 22 mm carbon tube each, from
+      # inside the frame's root clamps out through its motor mount, z -28.7 .. -6.7 mm. Its vertex mean sits at (+-0.219, +-0.219) -- the
+      # mount end is the densely meshed one. The root clamps stay with the frame.
+      - name: arm_front_left
+        target: airframe
+        select: {materials: [material_0], near_xy: [0.2192, -0.2192], within_m: 0.04, z_min_m: -0.035, z_max_m: 0.0}
+      - name: arm_front_right
+        target: airframe
+        select: {materials: [material_0], near_xy: [-0.2192, -0.2192], within_m: 0.04, z_min_m: -0.035, z_max_m: 0.0}
+      - name: arm_rear_left
+        target: airframe
+        select: {materials: [material_0], near_xy: [0.2192, 0.2192], within_m: 0.04, z_min_m: -0.035, z_max_m: 0.0}
+      - name: arm_rear_right
+        target: airframe
+        select: {materials: [material_0], near_xy: [-0.2192, 0.2192], within_m: 0.04, z_min_m: -0.035, z_max_m: 0.0}
+
+      - name: motor_mount_front_left
+        target: motor
+        select: {near_xy: [0.2298, -0.2298], within_m: 0.025, z_min_m: -0.035}
+      - name: motor_mount_front_right
+        target: motor
+        select: {near_xy: [-0.2298, -0.2298], within_m: 0.025, z_min_m: -0.035}
+      - name: motor_mount_rear_left
+        target: motor
+        select: {near_xy: [0.2298, 0.2298], within_m: 0.025, z_min_m: -0.035}
+      - name: motor_mount_rear_right
+        target: motor
+        select: {near_xy: [-0.2298, 0.2298], within_m: 0.025, z_min_m: -0.035}
+      - name: landing_gear_front_left
+        target: airframe
+        select: {near_xy: [0.2298, -0.2298], within_m: 0.025}
+      - name: landing_gear_front_right
+        target: airframe
+        select: {near_xy: [-0.2298, -0.2298], within_m: 0.025}
+      - name: landing_gear_rear_left
+        target: airframe
+        select: {near_xy: [0.2298, 0.2298], within_m: 0.025}
+      - name: landing_gear_rear_right
+        target: airframe
+        select: {near_xy: [-0.2298, 0.2298], within_m: 0.025}
+
+      # --- the TB47D (99.9 Wh 6S LiPo, 600 g) apart from the bay that holds it, so the pack heats
+      # as a pack and the bay conducts as frame. The pack is the closed 68 x 106 x 37 mm box
+      # (Object_141; 267 cm3, 600 g makes 2.2 g/cm3, a cased LiPo) and its nose end: the grey
+      # 101 x 30 x 44 mm cap (Object_137) with the gauge and button (138, 139) and the two face
+      # plates behind it (140, 142). Named, because the bay's rails wrap the pack within a few mm
+      # and no box cut separates them. Like the real aircraft's, the pack is SEEN from below.
+      - name: battery
+        target: battery
+        select: {objects: [Object_141, Object_137, Object_138, Object_139, Object_140, Object_142]}
+      # --- the bay: top and bottom plates, side rails, latch and its standoffs -- everything else
+      # hung below the lower centre plate (centroids under z = -42 mm) within 85 mm of its middle.
+      # The next object out, a frame bracket, is 90 mm away.
+      - name: battery_bay
+        target: airframe
+        select: {near_xy: [0.0, -0.030], within_m: 0.085, z_max_m: -0.042}
+
+      # --- the GPS: puck, carbon mast and fold mount, on the left of the top plate at x = 70 mm.
+      # The side plate 17 mm away is the nearest other object above the plate.
+      - name: gps_mast
+        target: airframe
+        select: {near_xy: [0.070, -0.004], within_m: 0.015, z_min_m: 0.005}
+
+      # --- everything else: centre plates, side plates, standoffs, root clamps, the N1 and
+      # the expansion-bay rails.
+      - name: fuselage
+        target: airframe
+        select: {}
