@@ -75,7 +75,9 @@ asset:
     # tube's end for ~30 mm (pi x 22 x 30 ~ 21 cm2); the 36 mm leg cover seated ~10 mm into the
     # mount (pi x 36 x 10 ~ 11 cm2); each tube clamped by the frame's two 26 mm root clamps
     # (2 x pi x 22 x 13 ~ 18 cm2); the pack on the bay's two side rails (2 x 100 x 5 mm ~ 10 cm2);
-    # the bay on four 4.4 mm standoffs plus its top plate's rim (~4 cm2); the GPS fold mount's 11 x 39 mm foot. `dry_default` throughout (ADR 0097).
+    # the bay on four 4.4 mm standoffs plus its top plate's rim (~4 cm2); the GPS puck's base on the
+    # pole's tip and screw (~2 cm2), the 5 mm pole in its socket sleeve (pi x 5.5 x 27 ~ 5 cm2), and
+    # the fold mount's 11 x 39 mm foot. `dry_default` throughout (ADR 0097).
     contacts:
       - {a: motor_front_left, b: motor_mount_front_left, joint: dry_default, area_m2: 0.0012}
       - {a: motor_front_right, b: motor_mount_front_right, joint: dry_default, area_m2: 0.0012}
@@ -95,7 +97,9 @@ asset:
       - {a: arm_rear_right, b: fuselage, joint: dry_default, area_m2: 0.0018}
       - {a: battery, b: battery_bay, joint: dry_default, area_m2: 0.0010}
       - {a: battery_bay, b: fuselage, joint: dry_default, area_m2: 0.0004}
-      - {a: gps_mast, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: gps_antenna, b: gps_mast, joint: dry_default, area_m2: 0.0002}
+      - {a: gps_mast, b: gps_mount, joint: dry_default, area_m2: 0.0005}
+      - {a: gps_mount, b: fuselage, joint: dry_default, area_m2: 0.0004}
 
     parts:
       # --- the four rotor stations, at the motor axes (+-0.2298, +-0.2298). Per station, by height:
@@ -199,10 +203,25 @@ asset:
         target: airframe
         select: {near_xy: [0.0, -0.030], within_m: 0.085, z_max_m: -0.042}
 
-      # --- the GPS: puck, carbon mast and fold mount, on the left of the top plate at x = 70 mm.
-      # The side plate 17 mm away is the nearest other object above the plate.
+      # --- the GPS, on the left of the top plate at x = 70 mm, in its three pieces (the owner's
+      # request, 2026-10-06), each heat-path step its own part. The side plate 17 mm away is the
+      # nearest other object above the plate. Top to bottom:
+      #   * antenna: the 50 mm puck and its 30 mm base (Object_17-19), z 141-155 mm. The receiver
+      #     module's moulded shell, from the source map's black moulding (ESTIMATED);
+      #   * mast: the 5 mm pole (Object_333), z 25-145 mm. Carbon tube -- the model's twill texture,
+      #     and the M100 GPS stand is listed as "carbon tubes" with an "aluminum frame for the
+      #     foldable mount" (https://www.aeromotus.com/product/matrice-100-gps/, via search);
+      #   * mount: the folding hinge block, its pin, the pole's socket sleeve and cap (Object_20-23),
+      #     z -6..37 mm. That "aluminum frame", asserted anodised (eps 0.845), never bare (AT.18).
+      - name: gps_antenna
+        target: airframe
+        select: {near_xy: [0.070, -0.004], within_m: 0.015, z_min_m: 0.130}
       - name: gps_mast
         target: airframe
+        select: {materials: [material_0], near_xy: [0.070, -0.004], within_m: 0.015, z_min_m: 0.005}
+      - name: gps_mount
+        target: airframe
+        material: aluminium_anodised
         select: {near_xy: [0.070, -0.004], within_m: 0.015, z_min_m: 0.005}
 
       # --- everything else: centre plates, side plates, standoffs, root clamps, the N1 and
