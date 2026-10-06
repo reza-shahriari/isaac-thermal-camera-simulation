@@ -884,6 +884,13 @@ site/               the project site's source: gallery.yaml (what to show) + ass
 
 Stated deliberately — see `docs/physics-model.md` Appendix A for the full list and reasoning.
 
+- **A person is one skin temperature, bound to nothing** (`PH.12`, ADR 0122; lane `HU`). `thermal/human.py`
+  authors the whole body's skin from the ISO 7730 set point and solves one clothing surface, but no asset
+  carries a human, no scene binds one, and the glue handles no deforming mesh. Measured people are not one
+  temperature: face minus fingers is about 10 K in a cool room, two hundred NETDs, and the nose moves 3.5 K
+  over 18–30 °C of air while the forehead moves under 1 K. `HU.2`–`HU.5` make the body a 17-segment
+  taxonomy solved by JOS-3 and bring the first man in; the survey and plan are
+  `docs/research/2026-10-06-humans-in-the-simulation.md`.
 - **The humid clear LWIR sky is up to 28 % too bright** (`AT.37`, ADR 0183). Against ARM's calibrated
   Infrared Cloud Imager the layered sky matches a cold, dry night (2.5 °C, PWV 0.86 cm) to 7 %, but on
   a humid one (27 °C, 3.96 cm) it is 24–28 % brighter at every elevation: the water lines and the

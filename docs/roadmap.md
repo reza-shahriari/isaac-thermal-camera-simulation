@@ -59,6 +59,7 @@ per CLAUDE.md.
 | `EV` | Evaluation methodology and sim-to-real |
 | `XD` | External data anchors: public datasets and public measurements |
 | `AI` | Asset ingestion: third-party 3D models into a scene |
+| `HU` | Humans: pedestrians as one fixed body taxonomy — per-segment physiology, garments, occupations, any downloaded mesh |
 | `IG` | Isaac glue integrity |
 | `GT` | Gates, tests and tooling |
 | `DC` | Decisions, deferrals and probes |
@@ -184,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 84 open steps
+#### Then, in order — 96 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -202,9 +203,9 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 12 | **`AT.26`** | AT | B | S | — | ready |
 | 13 | **`AI.22`** | AI | B | M | — | ready |
 | 14 | **`IG.16`** | IG | B | M | — | ready |
-| 15 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
+| 15 | **`HU.2`** | HU | C | M | 11 | ready |
 
-…and 69 more — `python scripts/next_step.py --queue 40`.
+…and 81 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -286,7 +287,7 @@ row says so and names the step that closes it.
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `TC.9`–`TC.12`, `TC.16`, `PH.1`–`PH.8`, `PH.13`, `PT.25`, `PT.26`, `AT.24`, `IG.20`, `IG.21`, `IG.22` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half, staged by `IG.20` |
 | **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.20`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.37`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.20`, `WX.1`–`WX.11`, `WX.21`–`WX.27` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `AI.21`, `AI.22`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
-| **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
+| **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20`, `HU.1`–`HU.13` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`, `XD.5`, `XD.7`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
 **Dependency shape.** Phase 0 blocks nothing technically but blocks *knowing what is true*, and three
@@ -342,6 +343,7 @@ for Tier 3, and `M7` resolves to `1a0f13c`, the commit `RP.7` separately identif
 | MM maritime (phase 1b) | done | `379fdef` | Analytic sea, Cox-Munk facets, sea skin `c6f98aa`, Tier 3 `ca5a663`, MM.7 vessel-departure film |
 | MP point-wise temperature | partial | `a341162` | MP.1-MP.4b shipped; the working-tree roadmap reverted them to open. MP.5 is now `PT.7` |
 | IU engine interface | open | — | `IU-29` is an Unreal deliverable and is open question 2, not a step |
+| HU humans | open | — | `HU.1` planned the lane (2026-10-06, `docs/research/2026-10-06-humans-in-the-simulation.md`); the first measured milestone is the man of `HU.3`–`HU.5` |
 
 **Corrections this ledger makes to the working-tree roadmap**, all verified against `git log`: MP.3,
 MP.4a and MP.4b are shipped and were reverted to un-started prose by a whole-file write; MP.5's row was
@@ -934,10 +936,55 @@ of the silhouette still render at their node's one temperature.
 | AI.16 | ✅ **done.** `PartsConfig.granularity: object` judges each source object whole (area-weighted centre, union bounds), so an asset modelled one object per piece is never split across parts; the Inspire 3 and Mini 3 Pro use it. ADR 0174. | **Measured.** Split objects 41/345 → 0 (Inspire) and 21/672 → 0 (Mini); each Inspire propeller is exactly its two 111.39 cm² blades, motors agree to 0.03 %; the Mini's '40 % larger rear motors' were arm leakage. 8 tests. | AI.15 | S | A |
 | AI.17 | ✅ **done.** Inspire 3 arms → root + front + rear tube per side (26 parts), Matrice 300 RTK `arms`/`landing_gear` → 4 arms + 2 legs (17); 18 and 10 contacts along motor → tube → body; `scripts/check_asset_contacts.py`. | **Measured.** Every contact touches on 2 cm cells within 3 cm (nearest 0.0–0.2 cm); a far contact is refused. Mirror parts exact (Matrice arms 361.5/341.4, legs 483.7 cm²); 0 objects split; audits PASS. | AI.16, TC.17 | S | A |
 | AI.18 | ✅ **done.** `PartSelector.objects` matches `Component.source` (object in the render pass, archive prim in the thermal pass), case-insensitive, at either granularity: a part may be the object a person separated and named. For the Blender add-on's export, whose contacts and hidden parts name its objects. | **Measured.** One plastic, a battery inside its shell: four shells claimed by name at both granularities; the archive split puts each prim whole in its part, coverage 1.0 (`tests/unit/test_asset_part_objects.py`). | AI.11, AI.16 | S | A |
-| AI.19 | ✅ **done.** DJI Avata 2 enters the library from a CC-BY model: 22 parts on the welded mesh (four propellers, four ducts — one per propeller, cut from the frame with `AssetMapping.cuts` — four motors, four braces, chassis, frame, battery with its tail, gimbal camera, lens, body), 19 contacts. Materials all `ESTIMATED` (DJI publishes none). The first split (55f6ff8) judged glTF seam fragments, the second (e7bb10e) left the ducts in the frame; both were redone at the owner's review. | **Measured.** Extent 212 × 184 × 64 mm vs DJI's 185 × 212 × 64; duct lip 36 mm from each hub for the 3032S's 75.7 mm. Welding 4,233 fragments → 189 pieces, the same at 0.1 / 0.01 / 0.001 mm. Cuts at the body wall's end (shell area per mm falls 10× from |x| 19 to 24 mm) and the figure-eight waist. Propellers 28.47 cm² each, motors 32.43 cm² each, ducts 72.1 front / 74.4 rear with left and right within 0.04 cm²; render and archive splits agree; audits 100 %; every contact touches; 0/22 faceted at 2 m. | AI.17 | S | A |
-| AI.20 | ✅ **done.** DJI FPV enters the library from a CC-BY model: 17 parts (four propellers, four motors, four arms with the landing feet, battery, electronics, gimbal camera, lens, body), 9 contacts. `AssetMapping.rotate_deg` levels a model posed in flight, in every prep pass. Materials all `ESTIMATED`. | **Measured.** mm-scale glTF (0.001) posed 36.0° nose down (hub plane); levelled on the rotor plane, 137 mm tall vs DJI's 127, against 173 as posed. Motor diagonal 245.6 mm vs 245. Propellers 63.0–63.2 cm², arms per side identical, motors 31.7 front / 33.7 rear (larger rear mount pad). Audits 100 %; every contact touches; 0/17 faceted at 2 m. Argv contract: `tests/unit/test_prep_asset_rotate.py`. | AI.19 | S | A |
+| AI.19 | ✅ **done.** DJI Avata 2 enters the library from a CC-BY model: 22 parts on the welded mesh (four propellers, four ducts cut from the frame with `AssetMapping.cuts`, four motors, four braces, chassis, frame, battery, camera, lens, body), 19 contacts. Materials `ESTIMATED`. Splits 55f6ff8, e7bb10e redone at review. | **Measured.** 212 × 184 × 64 mm vs DJI's 185 × 212 × 64. Welding 4,233 fragments → 189 pieces at 0.1 / 0.01 / 0.001 mm alike. Propellers 28.47 cm², motors 32.43, ducts 72.1 / 74.4 (L/R within 0.04); audits 100 %; contacts touch; 0/22 faceted at 2 m. | AI.17 | S | A |
+| AI.20 | ✅ **done.** DJI FPV enters the library from a CC-BY model: 17 parts (four propellers, four motors, four arms with the landing feet, battery, electronics, gimbal camera, lens, body), 9 contacts. `AssetMapping.rotate_deg` levels a model posed in flight, in every prep pass. Materials all `ESTIMATED`. | **Measured.** mm glTF posed 36.0° nose down; levelled, 137 mm tall vs DJI's 127 (173 as posed). Motor diagonal 245.6 mm vs 245. Propellers 63.0–63.2 cm², arms per side identical. Audits 100 %; every contact touches; 0/17 faceted at 2 m. `test_prep_asset_rotate.py`. | AI.19 | S | A |
 | AI.21 | ✅ **done.** A WWII Liberty ship enters the library from a CC-BY model: one atlas material, so parts assert theirs; 25 parts (hull, interior, five hatches, three masts, midship house, funnel, four lifeboats, poop, bow gun platform, rudder, propeller, anchors, cargo, flag, fittings). New: three ship materials. | **Measured.** 134.57 m = 441 ft 6 in; beam 17.6 vs 17.34 m. Coverage 100 %; hatches 260.1–262.4 m², lifeboats 31.6–31.9. | AI.14 | M | B |
 | AI.22 | The Liberty ship's welds as `contacts:` (hull ↔ houses, masts, funnel), and its hull through `low2high`. `check_asset_contacts.py` ran > 10 min at a third of RAM on 19,000 m² without finishing. | Every contact touches on the solver's cells within the gate's time; `mesh_facets.py` passes at 200 m, 0.67 mrad (now 24–27 % faceted). | AI.21 | M | B |
+
+---
+
+## HU — Humans
+
+The owner, 2026-10-06: a pedestrian is a necessary part of an automated-car simulation, and a human
+needs a different plan from a drone — *"the clothes may change but the human is human"*, and it may be
+a child, a woman, a man, a police officer, a soldier. Two things were asked for: one human that ships
+and looks real, and a fast, forward way to bring any downloaded human in with the same thermal
+materials, useful for RGB as much as for IR (a girl in a blue shirt and another in a red one).
+
+What exists: `PH.12`'s person is two surfaces — skin authored from the ISO 7730 set point, clothing
+solved — bound to no asset and no scene; skin and cotton are the only materials; nothing in the Isaac
+glue handles a deforming mesh. What the survey found (`HU.1`): regional skin temperature *is* the
+image — face minus fingers is 10 K in a cool room, two hundred NETDs, and a whole-body set point
+renders it as zero; JOS-3 (17 segments, MIT, already this project's `comfort` extra) solves it from
+the one weather object; MPFB2's CC0 assets are the only redistributable source of a realistic, rigged,
+dressable adult *or child*; a garment's colour changes NIR reflectance and solar absorption and never
+LWIR emissivity. No open IR simulator documents a pedestrian physiology model.
+
+The idea that makes the lane cheap: a human's parts are **known in advance** and identical for every
+human, so decomposition is a labelling problem whose oracle is the skeleton — argmax of bone weights
+against a name map — and an unrigged mesh gets a rig with Mixamo names from an MIT auto-rigger. The
+taxonomy is data; physiology, materials and garment slots hang off it, never off the mesh. The order
+is the owner's: a person in RGB first, then the bare body in the infrared, then clothing, repeated for
+the man, the woman, the child, the police officer and the soldier. Occupations are garments plus
+equipment parts under the same schema. Animations are used locally and never shipped: they carry no
+emissivity. Non-commercial tools may be used; the owner carries their licences, and the provenance
+records which were used.
+
+| id | what | verification (red today → green after) | deps | size | phase |
+|---|---|---|---|---|---|
+| HU.1 | ✅ **done.** The survey and plan: `docs/research/2026-10-06-humans-in-the-simulation.md`. A human's parts are known in advance (JOS-3's 17 segments, garment slots, hair, eyes), so decomposition is **labelling** with the skeleton as oracle, not ADR 0138's discovery. Owner, 2026-10-06: a roadmap lane; any tool, NC included; animations never shipped; occupations wanted; RGB → body in IR → clothing, per person. | A record. Every tool and licence sourced; the unverified items listed by name (§6); the five decisions carry the owner's answers. | — | S | C |
+| HU.2 | **The body schema is data.** `configs/humans/body_schema.yaml`: the 17 JOS-3 segments, garment slots (head, torso, arms, hands, legs, feet), hair, eyes, and bone-name maps for Mixamo, Rigify, SMPL-X and MPFB GameEngine. Asset schema gains `kind: human` with a phenotype (sex, age, height, mass) and `garments:` (slot → material, clo, colour). Engine-free. | Each map covers all 17 segments and leaves no deforming bone unmapped; a schema missing a segment is refused at load naming it; left/right maps are mirror-symmetric; a garment on an unknown slot is refused. | HU.1 | M | C |
+| HU.3 | **A man, in RGB.** `make_human.py` builds an adult man from MPFB2 (CC0 base, skin, GameEngine rig) in headless Blender; `prep_human.py` argmaxes the rig's weights to a segment per face, splits one object per segment (skin only, no garments yet), exports through `prep_asset.py` with provenance. He stands in a real-sky scene, rendered in RGB. | 17 segment prims, coverage 100 %, left/right areas within 10 %, stature within 1 % of the phenotype; his pixel height matches the camera model within 2 %; re-running reproduces the YAML byte-for-byte. | HU.2, AI.9 | M | C |
+| HU.4 | **The same body in the infrared.** `irsim.thermal.human` gains per-segment skin from `pythermalcomfort.models.JOS3` (MIT; installed, not reimplemented), forced from the one `WeatherSeries` with solar; `solver: human` binds the 17 segments; ADR: JOS-3 outdoors extrapolates, as ISO 7730 does (ADR 0122). `HU.3`'s bare body in LWIR. | Neutral seated: area-weighted mean skin within 0.5 K of 33.7 °C; head > hand > foot at 0, 10, 20 °C; summer physiology under a winter atmosphere is unconstructible; rendered head − hand ΔT equals the solver's to 0.1 K; no float16. | HU.3, PH.12 | M | C |
+| HU.5 | **Clothing on him.** Six materials (hair, polyester, denim, wool, leather, shoe rubber); clo per garment from the ISO 9920 table; PH.12's solve per garment on the segment beneath; colour sets α_solar and NIR reflectance, never LWIR ε (Zhang 2009; S66 for cotton). Dressed, both bands + RGB, two shirt colours from one YAML edit. | Kirchhoff walk passes; black vs white shirt: Δε_LWIR = 0, Δα ≥ 0.3, black warmer in sun by the solved ΔT; winter, 1 clo: face and hands brightest, coat within 3 K of background (ADR 0122's step, per region); RGB differs only in the shirt. | HU.4 | M | C |
+| HU.6 | **A woman and a child.** Phenotype changes only — sex, age macro (≈ 0.19 for a child), height, mass — through `HU.3`–`HU.5` unchanged; JOS-3 takes age, height and weight, so the child's skin is solved, not authored. | The three YAMLs differ only in phenotype and garments; the child's stature is within 5 % of the WHO median for the age; the child's mean skin differs from the man's by JOS-3's own figure under identical weather; each reproduces byte-for-byte. | HU.5 | M | C |
+| HU.7 | **A police officer.** An occupation is garments plus equipment parts: polyester/wool uniform, hi-vis vest with retroreflective tape (a mirror in LWIR — the AT.18 hazard, declared by the asset map), aramid body armour as a high-clo torso layer, duty belt, boots, cap; equipment parts carry their own materials. Both bands and RGB. | The tape's ε ≤ 0.3 is reachable only through the asset map (the glob rule refuses it); the armoured torso's surface is colder than the sleeves in winter by ISO 7730's figure for its clo; every part has a material; coverage 100 %. | HU.6 | M | C |
+| HU.8 | **A soldier.** A camouflage uniform is NIR-compliant — reflectance matched to foliage below 1.1 µm, where dye matters, and pattern-independent in LWIR; a new material with a sourced NIR/SWIR curve; aramid helmet, plate carrier, boots, pack as parts. Rendered in NIR, SWIR, MWIR and LWIR. | In NIR the uniform's reflectance lies in the foliage band, not at cotton's 0.5–0.6; the pattern's colours share one LWIR ε to 1e-6; helmet and plate carrier read colder than the face in winter by the solved amounts. | HU.7 | M | C |
+| HU.9 | **Any downloaded human.** `prep_human.py` on an unrigged mesh: Make-It-Animatable (MIT) rigs it with Mixamo names, then argmax; skin / hair / garment per face by priority: objects and slots, a skin-tone albedo test on face and hands, Sapiens multi-view projection (CC BY-NC; allowed, recorded in provenance), Find3D (MIT), then a person. The CC-BY Dennis scan is the test. | `HU.3`'s acceptance on the scan; ≥ 95 % of faces labelled without a person and the rest listed for the add-on; the tools used and their licences are in the provenance YAML; CPU-only, under 2 min. | HU.5 | L | C |
+| HU.10 | **A body that moves.** Probe: a `UsdSkel`-skinned multi-prim body under one skeleton through the existing `AovReader` — do ids, float32 position and normals follow the deformed surface? A walk clip (Mixamo or CMU) retargeted in Blender, kept local, never committed; `isaacsim.replicator.agent` stays optional. ADR. | Ids per segment prim stable across the clip; the position AOV is float32 and deformed (a hand prim's centroid moves > 0.2 m over a stride); per-segment temperatures follow their prims; no float16 anywhere. | HU.3 | M | C |
+| HU.11 | **A firefighter, and the occupations after.** Turnout gear (aramid shell, retroreflective trim), helmet, SCBA cylinder; then a construction worker and a cyclist, each as garments and equipment parts under the same schema. | Each occupation is a YAML of garments and parts with no new code; the SCBA cylinder and helmet carry library materials; coverage 100 %; rendered in both bands. | HU.8 | M | C |
+| HU.12 | **Validation against radiometric faces and streets.** Charlotte-ThermalFace (16-bit T-linear): nose, forehead and cheek deltas against room temperature versus `HU.4`'s head segment plus an authored face-offset table (ESTIMATED, from the survey's measurements). FLIR ADAS v2 pedestrians if its licence allows. | Bias and RMSE per face region beside the dataset's own spread; forehead > cheek > nose at every ambient; the nose's range across 18–30 °C is 2–4 K while the forehead's is < 1.5 K. | HU.4 | M | C |
+| HU.13 | **Portable instructions.** An `ingest-human` branch of the `ingest-asset` skill: the `HU.9` checklist, which tools are NC and how their use is recorded, what a person still decides; the Blender add-on's human mode is `blender_addon/PLAN.md` B14. | Another session takes a Sketchfab human link to a committed YAML with no help from this conversation. | HU.9 | S | C |
 
 ---
 

@@ -71,6 +71,8 @@ WORDS = {
     73: "seventy-three",
     74: "seventy-four",
     75: "seventy-five",
+    17: "seventeen",
+    86: "eighty-six",
 }
 
 
@@ -114,7 +116,7 @@ def test_the_file_still_holds_seventy_five_issues() -> None:
     2026-10-01 for the weather gaps (fog band ratios, visibility at 5 %, rain folded into fog,
     precipitation along the ray, wet-surface optics, the cloud field, shadows and rain's heat).
     """
-    assert len(_rows()) == 85
+    assert len(_rows()) == 86
 
 
 def test_every_row_has_a_non_empty_status() -> None:
