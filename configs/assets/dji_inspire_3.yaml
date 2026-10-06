@@ -61,6 +61,34 @@ asset:
     # 3 % of every blade in its rotor head, two camera objects 55/45 with the fuselage, each
     # landing foot 8 % into the motor. Judged whole, no object is ever split.
     granularity: object
+
+    # --- AI.17: what touches what along each station's heat path, motor -> mount -> arm tube ->
+    # T-junction -> body, plus the foot under each mount. Footprints are ESTIMATED from the
+    # measured tube sizes, not from a teardown: a mount sleeves its tube's end over ~3 cm
+    # (pi x 20 mm x 30 mm), a tube sits ~2 cm deep in the junction (pi x 20 mm x 20 mm), the 28 mm
+    # root tube meets the body hinge over ~2 cm, the 3511's stator base bolts to its mount over
+    # ~6 cm2 and a foot plugs into its mount over ~3 cm2. `dry_default` throughout (ADR 0097).
+    # Every pair was checked to touch on 2 cm coarse cells within the 3 cm gap a scene would use.
+    contacts:
+      - {a: motor_front_left, b: motor_mount_front_left, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_mount_front_left, b: arm_front_left, joint: dry_default, area_m2: 0.0019}
+      - {a: landing_foot_front_left, b: motor_mount_front_left, joint: dry_default, area_m2: 0.0003}
+      - {a: motor_rear_left, b: motor_mount_rear_left, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_mount_rear_left, b: arm_rear_left, joint: dry_default, area_m2: 0.0019}
+      - {a: landing_foot_rear_left, b: motor_mount_rear_left, joint: dry_default, area_m2: 0.0003}
+      - {a: arm_front_left, b: arm_root_left, joint: dry_default, area_m2: 0.0013}
+      - {a: arm_rear_left, b: arm_root_left, joint: dry_default, area_m2: 0.0013}
+      - {a: arm_root_left, b: fuselage, joint: dry_default, area_m2: 0.0018}
+      - {a: motor_front_right, b: motor_mount_front_right, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_mount_front_right, b: arm_front_right, joint: dry_default, area_m2: 0.0019}
+      - {a: landing_foot_front_right, b: motor_mount_front_right, joint: dry_default, area_m2: 0.0003}
+      - {a: motor_rear_right, b: motor_mount_rear_right, joint: dry_default, area_m2: 0.0006}
+      - {a: motor_mount_rear_right, b: arm_rear_right, joint: dry_default, area_m2: 0.0019}
+      - {a: landing_foot_rear_right, b: motor_mount_rear_right, joint: dry_default, area_m2: 0.0003}
+      - {a: arm_front_right, b: arm_root_right, joint: dry_default, area_m2: 0.0013}
+      - {a: arm_rear_right, b: arm_root_right, joint: dry_default, area_m2: 0.0013}
+      - {a: arm_root_right, b: fuselage, joint: dry_default, area_m2: 0.0018}
+
     parts:
       # --- under the nose: the Zenmuse X9-8K Air, its DL lens and the gimbal that carries them.
       # The lens glass (`material_4`, alpha 0.24) is its own part so it keeps the glass mapping;
@@ -161,13 +189,40 @@ asset:
         material: aluminium_anodised
         select: {near_xy: [-0.219, 0.284], within_m: 0.075}
 
-      # --- the carbon-fibre arm frame, one per side (DJI FAQ: "the aircraft arm is made of carbon
-      # fiber"): every object centred within 16 cm of the side's tubes.
-      - name: arm_left
+      # --- the carbon-fibre arm frame (DJI FAQ: "the aircraft arm is made of carbon fiber"). Each
+      # side is a Y of separate objects, mirror-identical left and right:
+      #   * the root: the 225 cm2 main tube from the body hinge (x 2.5-25.5 cm, ~28 mm across), the
+      #     97 cm2 T-junction it ends in, and the 56 cm2 tie rod under it;
+      #   * the front arm: one 111 cm2 tube from the junction down to the front motor (~20 mm);
+      #   * the rear arm: one 91-98 cm2 tube from the junction to the rear motor, with the six
+      #     small fittings (53 cm2 together) clamped on it 6 cm behind the junction.
+      # Three parts, not one, because a part conducts laterally only across faces that share an
+      # edge (mesh_conduction): inside one part these separate tubes were insulated from each other,
+      # and the motor -> tube -> junction -> body path existed only where coarse cells happened to
+      # merge them. As parts, every joint is a contact below with its own conductance, each tube can
+      # take its own rotor's downwash (`speeds:`), and a front and a rear tube can follow their
+      # motors' different duties. The tubes' objects are found by their area-weighted centres.
+      - name: arm_front_left
+        target: airframe
+        material: carbon_fibre
+        select: {near_xy: [0.278, 0.003], within_m: 0.04}
+      - name: arm_rear_left
+        target: airframe
+        material: carbon_fibre
+        select: {near_xy: [0.247, 0.170], within_m: 0.045}
+      - name: arm_root_left
         target: airframe
         material: carbon_fibre
         select: {near_xy: [0.2, 0.08], within_m: 0.16}
-      - name: arm_right
+      - name: arm_front_right
+        target: airframe
+        material: carbon_fibre
+        select: {near_xy: [-0.278, 0.003], within_m: 0.04}
+      - name: arm_rear_right
+        target: airframe
+        material: carbon_fibre
+        select: {near_xy: [-0.247, 0.170], within_m: 0.045}
+      - name: arm_root_right
         target: airframe
         material: carbon_fibre
         select: {near_xy: [-0.2, 0.08], within_m: 0.16}

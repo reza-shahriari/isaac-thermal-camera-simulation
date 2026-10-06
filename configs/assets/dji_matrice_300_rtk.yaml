@@ -98,6 +98,23 @@ asset:
     # leaves the part-split one.
     exclude:
       - {materials: [lambert32, lambert33, lambert34, lambert35]}
+    # --- AI.17: what touches what along each arm's and each leg's heat path. Footprints are
+    # ESTIMATED from the measured tube sizes, not from a teardown: a motor's mount sleeves its
+    # 23 mm tube's end over ~3 cm (pi x 23 mm x 30 mm), a fold lock bears on the body's hinge over
+    # ~15 cm2, and each leg's 22 mm strut sits in two body brackets ~1.5 cm deep (2 x pi x 22 mm x
+    # 15 mm). `dry_default` throughout (ADR 0097). Every pair was checked to touch on 2 cm coarse
+    # cells within the 3 cm gap a scene would use.
+    contacts:
+      - {a: motor_front_left, b: arm_front_left, joint: dry_default, area_m2: 0.0022}
+      - {a: motor_front_right, b: arm_front_right, joint: dry_default, area_m2: 0.0022}
+      - {a: motor_rear_left, b: arm_rear_left, joint: dry_default, area_m2: 0.0022}
+      - {a: motor_rear_right, b: arm_rear_right, joint: dry_default, area_m2: 0.0022}
+      - {a: arm_front_left, b: fuselage, joint: dry_default, area_m2: 0.0015}
+      - {a: arm_front_right, b: fuselage, joint: dry_default, area_m2: 0.0015}
+      - {a: arm_rear_left, b: fuselage, joint: dry_default, area_m2: 0.0015}
+      - {a: arm_rear_right, b: fuselage, joint: dry_default, area_m2: 0.0015}
+      - {a: landing_gear_left, b: fuselage, joint: dry_default, area_m2: 0.0021}
+      - {a: landing_gear_right, b: fuselage, joint: dry_default, area_m2: 0.0021}
     parts:
       # --- the two TB60 packs (274 Wh each, 12S LiPo, self-heating to 16-20 C; UM), found by
       # material alone: lambert23 + lambert24 total 0.171 m2 against ~0.175 for two 20 x 11 x 7 cm
@@ -135,19 +152,43 @@ asset:
       - name: motor_rear_right
         target: motor
         select: {near_xy: [-0.3135, 0.2639], within_m: 0.06}
-      # --- carbon tubes and their black joints make both the landing gear and the arms: height
-      # separates them. The arms and arm locks sit at z >= 0.65 m; the gear legs run down from the
-      # body to the skids resting on the case at z = 0.38.
-      - name: landing_gear
+      # --- carbon tubes and their black joints make both the landing gear and the arms.
+      # AI.17: one part per arm and per leg rather than one `arms` and one `landing_gear`, so each
+      # can take its own airflow and duty and each joint its own contact (above). Measured on the
+      # left half, mirrored on the right:
+      #   * an arm is one carbon tube (263 cm2 front, 243 rear; one shell each) from its fold lock
+      #     out to its motor. The lock (a 31 cm2 clamp and its bolts) sits 10-14 cm out and
+      #     16-21 cm forward or 11-15 cm aft, at z 0.65-0.69;
+      #   * a leg is a slanted strut (189 cm2) hung from two body brackets (8-10 cm out, y -6..-2 cm,
+      #     z 0.62-0.65) down to a skid (157 cm2, z 0.395), with the joints between them.
+      # Height alone cannot part them, since a bracket's top and a lock's bottom both sit at
+      # z 0.65, and the old z < 0.64 cut left the brackets' upper halves (13 cm2) in `arms`. So the
+      # arms go first, above 0.645 m and within 17 cm of each tube's midpoint: that reaches the
+      # lock (11-13 cm) and not the brackets (23 cm), nor the black fitting on the centre line atop
+      # the body (19.5 cm, which the old catch-all `arms` also took). The legs then take what is
+      # left within 16 cm of each side's midline, with the next arm-lock part at 14 cm already claimed.
+      - name: arm_front_left
         target: airframe
-        select: {materials: [lambert27, lambert25], z_max_m: 0.64}
+        select: {materials: [lambert27, lambert25], near_xy: [0.211, -0.240], within_m: 0.17, z_min_m: 0.645}
+      - name: arm_front_right
+        target: airframe
+        select: {materials: [lambert27, lambert25], near_xy: [-0.205, -0.240], within_m: 0.17, z_min_m: 0.645}
+      - name: arm_rear_left
+        target: airframe
+        select: {materials: [lambert27, lambert25], near_xy: [0.191, 0.173], within_m: 0.17, z_min_m: 0.645}
+      - name: arm_rear_right
+        target: airframe
+        select: {materials: [lambert27, lambert25], near_xy: [-0.185, 0.173], within_m: 0.17, z_min_m: 0.645}
+      - name: landing_gear_left
+        target: airframe
+        select: {materials: [lambert27, lambert25], near_xy: [0.13, -0.037], within_m: 0.16}
+      - name: landing_gear_right
+        target: airframe
+        select: {materials: [lambert27, lambert25], near_xy: [-0.125, -0.037], within_m: 0.16}
       # --- the Zenmuse H20 under the nose, below the body's underside (z < 0.605 m)
       - name: gimbal_camera
         target: airframe
         select: {near_xy: [0.005, -0.20], within_m: 0.09, z_max_m: 0.605}
-      - name: arms
-        target: airframe
-        select: {materials: [lambert27, lambert25]}
       # --- everything else: the shell, top antennas and RTK module, FPV camera, sensors, beacons
       - name: fuselage
         target: airframe

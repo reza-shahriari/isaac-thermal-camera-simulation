@@ -208,6 +208,25 @@ cut within a few millimetres of a shell you need; separate by area instead. On t
 If the mesh emit refuses ("changed area by more than 2.0 %"), pass `--dissolve-deg 3` and record
 it in the config's header. The number is part of the reproduction.
 
+**Split along the heat path, then author the joints (AI.17).** A part conducts laterally only
+across faces that share an edge. So separate pieces inside one part (an arm's tubes and the
+junction between them) are thermally cut off from each other, apart from where coarse cells
+happen to merge them. Where heat must travel from piece to piece, make each piece its own part:
+* motor → mount → arm tube → junction → body, and the foot under each mount;
+* one part per arm and per leg, never one `arms` part for all four, so each can take its own
+  rotor's downwash (`speeds:`) and its own duty.
+
+Then give every joint a `contacts:` entry with a `joint:` from `configs/thermal/joints.yaml` and an
+`ESTIMATED` footprint from the measured tube sizes (a sleeve: π × diameter × engagement). After
+`--emit-parts`, prove each one touches on the solver's cells:
+
+```bash
+python scripts/check_asset_contacts.py <name>      # exit 1 names any contact a scene would refuse
+```
+
+The Inspire 3 and Matrice 300 RTK configs are worked examples. `tests/unit/test_asset_contacts_touch.py`
+runs the check on every asset that authors contacts.
+
 ## 7. Export the library artefacts
 
 ```bash
