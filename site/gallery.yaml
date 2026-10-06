@@ -1186,3 +1186,29 @@ sections:
       Clear sky only, one airframe, and the boxes do not include the rotor discs. The real frames
       the detector is scored on carry no stated licence and are not shown.
     source: scripts/generate_aerial_dataset.py
+
+  - id: first-human
+    title: The first human, labelled by his skeleton
+    lead: |
+      An adult man generated from MakeHuman's CC0 base mesh and skin by `scripts/make_human.py`,
+      labelled onto the body schema by his own skeleton with `scripts/prep_human.py` — the bone
+      with the most weight on a vertex names its segment — and split into **seventeen segment
+      objects** (head, neck, chest, back, pelvis, two upper arms, two forearms, two hands, two
+      thighs, two lower legs, two feet) plus eyes, eyebrows and eyelashes, then through the same
+      asset prep as every drone. **Left and right segments agree in area to 2.6 %**; the feet
+      confirm which way he faces; the measured stature is **1.724 m**, and in the frame he stands
+      **713 px tall against 718 px** from the 28 mm lens at 5.6 m. The infrared frame is one
+      temperature on purpose: this step is the body and the camera, `HU.4` gives the seventeen
+      segments their own skin temperatures from JOS-3.
+    media:
+      - image: humans/man_adult/hero/frames/rgb_00002.png
+        width: half
+        caption: the visible companion — the standing man on the zoo scene's ground
+      - image: humans/man_adult/hero/frames/ir_00002.png
+        width: half
+        caption: LWIR, white-hot — one node for the whole body until HU.4
+    note: |
+      The whole body is CC0 (MakeHuman community assets) and the labelled model is in the asset
+      library as `man_adult`. The same two scripts take a woman and a child as macro changes
+      (`HU.6`), and any downloaded rigged human (`HU.9`).
+    source: scripts/make_human.py, scripts/prep_human.py, scripts/render_phantom4.py

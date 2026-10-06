@@ -79,6 +79,24 @@ IMPORTERS: dict[str, str] = {
 # --------------------------------------------------------------------------------------------
 
 
+#: The glTF importer's own collection for what it must never export: the icosphere it creates as
+#: a custom display shape for a skinned file's bones (io_scene_gltf2 `blender/imp/node.py`). A
+#: drone has no skin, so no asset met it before the first rigged human (HU.3); left in, it is an
+#: 11.7 m² "part" that outweighs the body.
+GLTF_NOT_EXPORTED_COLLECTION = "glTF_not_exported"
+
+
+def _drop_gltf_bone_shapes() -> None:
+    import bpy
+
+    coll = bpy.data.collections.get(GLTF_NOT_EXPORTED_COLLECTION)
+    if coll is None:
+        return
+    for obj in list(coll.objects):
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.data.collections.remove(coll)
+
+
 def _import_source(path: pathlib.Path) -> str:
     import bpy
 
@@ -97,6 +115,7 @@ def _import_source(path: pathlib.Path) -> str:
         return "wm.obj_import"
     if kind == "gltf":
         bpy.ops.import_scene.gltf(filepath=str(path))
+        _drop_gltf_bone_shapes()
         return "import_scene.gltf"
     bpy.ops.wm.usd_import(filepath=str(path))
     return "wm.usd_import"

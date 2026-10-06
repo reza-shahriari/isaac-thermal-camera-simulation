@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-10-06
 Roadmap: HU.2 (§6.1, §16.2). Extends [ADR 0122](0122-a-person-is-two-surfaces-and-iso-7730-is-used-outside-its-range.md)
-(a person is two surfaces) and bounds [ADR 0138](0138-an-imported-asset-is-decomposed-into-functional-parts-by-connected-component-and-the-parts-are-data.md)
+(a person is two surfaces) and bounds [ADR 0138](0138-an-asset-is-decomposed-into-parts-by-connected-component.md)
 (parts by connected component), which does not apply to people.
 Evidence: `docs/research/2026-10-06-humans-in-the-simulation.md`.
 

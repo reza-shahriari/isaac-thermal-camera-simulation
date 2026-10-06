@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **The first human** — an adult man generated from MakeHuman's free assets, labelled into head, neck, chest, back, pelvis, arms, hands, legs and feet by his own skeleton, and standing in a real sky in RGB and LWIR; any rigged human can enter the same way.
 - **DJI Matrice 100** — the developer quadcopter joins the asset library, split into its propellers, motors, arms, landing legs, battery, GPS mast and frame, each with an infrared material.
 - **A Liberty ship** — a WWII cargo ship joins the asset library, split into its hull, hatches, masts, deckhouses, funnel, lifeboats, rudder and propeller, each with an infrared material.
 - **Two FPV drones** — the DJI Avata 2 and DJI FPV join the asset library, split into their propellers, motors, arms, ducts, battery and camera, each with an infrared material.

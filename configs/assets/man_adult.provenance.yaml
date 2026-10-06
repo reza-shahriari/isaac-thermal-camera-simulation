@@ -1,0 +1,23 @@
+provenance:
+  schema_version: 1
+  asset_name: man_adult
+  source: local
+  real_name: man_adult
+  uid: ''
+  title: man_adult
+  author: MakeHuman community (MPFB2 base mesh, skin and body parts); generated and
+    labelled by irsim
+  author_url: ''
+  model_url: https://static.makehumancommunity.org/assets/assetpacks.html
+  license:
+    slug: cc0
+    label: cc0
+    url: ''
+  shareable: true
+  gate_reason: 'cc0: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: fffdb456eb92f7020cd4062c0bb7af94c591f0e23ad366f4595871e4a5404c18
+  downloaded_at: '2026-10-06T12:27:33+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.
