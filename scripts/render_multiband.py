@@ -132,6 +132,14 @@ UNSWEPT_SCENES: dict[str, str] = {
         "fail for a missing file. It is filmed by `scripts/render_phantom4.py --asset "
         "phantom4_parts`, which is a single-asset driver rather than a band sweep."
     ),
+    "zoo_hero.yaml": (
+        "The Thermal Model Zoo's hero-still scene: any part-split library aircraft at cruise "
+        "against a clear sky, with generic motor / battery / airframe nodes and no asset-bound "
+        "surfaces, so it has no geometry until a driver mounts an asset. It is filmed by "
+        "`scripts/zoo_bundle.py --isaac` through `scripts/render_phantom4.py --asset "
+        "<asset>_parts --scene configs/scenes/zoo_hero.yaml`, a single-asset driver, and it needs "
+        "the generated part-split archive git does not carry."
+    ),
     "phantom4_perpart.yaml": (
         "AI.7's capability scene (ADR 0143): the part-split Phantom 4 with **every part on its own "
         "node** -- four motors and four ESCs on four throttle histories, six airframe-family "

@@ -143,3 +143,11 @@ def test_every_part_gets_its_own_colour(zb):
 def test_a_part_row_is_named_for_its_part(zb):
     assert zb.part_label("propeller_front_left") == "Propeller front left"
     assert zb.part_label("fuselage") == "Fuselage"
+
+
+def test_hero_range_scales_with_the_larger_plan_side_not_the_height(zb):
+    # The Mini 3 Pro's measured framing: 0.298 m wide at 0.95 m filled 913 of 1280 px.
+    assert zb.hero_range_m([0.282, 0.298, 0.085]) == pytest.approx(0.954, abs=1e-3)
+    # Twice the span, twice the range; a tall mast does not push the camera back.
+    assert zb.hero_range_m([0.6, 0.2, 0.1]) == pytest.approx(2 * zb.hero_range_m([0.3, 0.1, 0.1]))
+    assert zb.hero_range_m([0.3, 0.3, 5.0]) == zb.hero_range_m([0.3, 0.3, 0.1])

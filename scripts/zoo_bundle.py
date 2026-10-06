@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Turn an asset-library entry into a Thermal Model Zoo bundle, ready for the zoo's publish tool.
 
-    $PYTHON scripts/zoo_bundle.py dji_mini_3_pro --category drones --subcategory Multirotor
+    $PYTHON scripts/zoo_bundle.py dji_mini_3_pro --category drones --subcategory Multirotor \
+        --isaac --nose-deg -129
     python3 ../ThermalModelZoo/tools/publish.py zoo_bundles/dji-mini-3-pro
 
 The zoo (https://github.com/reza-shahriari/ThermalModelZoo) is a static catalogue of part-split,
@@ -15,10 +16,14 @@ this script writes one from what the ingest-asset skill already produced:
   `Material.band_properties` over an 8-14 um top-hat (the band the zoo states; the registry's
   `lwir` is 7.5-13.5 um). A part's source is its weakest material's (`literature` -> reference).
   Mirror-image parts with the same materials collapse into one row ("Arm (x4)").
-* **images/** -- rendered by Blender, headless: `beauty` (Eevee), `wireframe` (one flat colour per
-  part) and `emissivity` (each surface flat grey at its LWIR emissivity, with a 0-1 scale). No
-  thermal still exists for library assets until one is rendered through Isaac; pass it with
-  `--thermal frame.png` when there is one -- nothing fakes it.
+* **images/** -- `wireframe` (one hue per kind of part) and `emissivity` (each surface flat grey
+  at its LWIR emissivity, on a scale stretched to the model's range) from headless Blender. With
+  **`--isaac`** (what the zoo publishes), `beauty` and `thermal` are one camera's matched pair in
+  Isaac Sim: the aircraft at cruise against a clear midday sky (`configs/scenes/zoo_hero.yaml`,
+  per-part temperatures), the path-traced visible companion and the white-hot LWIR frame, on a
+  1280 x 1024 camera (`configs/sensors/example_lwir_1280.yaml`) through `render_phantom4.py`.
+  Without it, `beauty` is a studio Eevee render and there is no thermal image unless one is
+  passed with `--thermal frame.png` -- nothing fakes it.
 * **files/** -- `<id>.blend` (textures packed), `<id>.usdc.zip` (USD + textures),
   `<id>.fbx.zip` (FBX + its .fbm folder): the `_parts` exports, which are what the zoo is for.
 
@@ -454,6 +459,63 @@ def _zip(dst: pathlib.Path, entries: Sequence[pathlib.Path], base: pathlib.Path)
                 z.write(p, p.relative_to(base))
 
 
+#: Hero-shot geometry (`--isaac`). The range puts the aircraft's longer plan side across about
+#: 70 % of a 30.7 deg field (`configs/sensors/example_lwir_1280.yaml`); measured on the Mini 3
+#: Pro, 0.298 m at 0.95 m filled 913 of 1280 px.
+HERO_RANGE_PER_M = 3.2
+HERO_SENSOR = "configs/sensors/example_lwir_1280.yaml"
+HERO_SCENE = "configs/scenes/zoo_hero.yaml"
+HERO_FRAMES = 3  # frame 0's colour buffer is empty on this build; the last frame is the still
+
+
+def hero_range_m(dimensions_m: Sequence[float]) -> float:
+    """Camera range for a hero still: proportional to the larger plan dimension (L or W)."""
+    return round(HERO_RANGE_PER_M * max(dimensions_m[0], dimensions_m[1]), 3)
+
+
+def _isaac_python() -> str:
+    exe = os.environ.get("IRSIM_ISAAC_PYTHON") or shutil.which("python.sh")
+    if not exe:
+        raise SystemExit(
+            "--isaac needs Isaac Sim's python.sh: put it on PATH or set $IRSIM_ISAAC_PYTHON"
+        )
+    return exe
+
+
+def _isaac_hero(
+    asset: str, out: pathlib.Path, range_m: float, a: argparse.Namespace
+) -> tuple[pathlib.Path, pathlib.Path]:
+    """A matched RGB + LWIR still of the `_parts` archive in the zoo's sky scene, through the
+    same driver as every flight clip (`scripts/render_phantom4.py`). Returns (rgb, ir) PNGs."""
+    last = HERO_FRAMES - 1
+    cmd = [
+        _isaac_python(),
+        str(ROOT / "scripts" / "render_phantom4.py"),
+        "--asset", f"{asset}_parts",
+        "--scene", HERO_SCENE,
+        "--sensor", HERO_SENSOR,
+        "--out", str(out),
+        "--frames", str(HERO_FRAMES),
+        "--mission-s", "600",
+        "--track", "outbound",
+        "--near-m", f"{range_m:.3f}",
+        "--far-m", f"{range_m * 1.05:.3f}",
+        "--elevation-deg", f"{a.elevation_deg}",
+        "--nose-deg", f"{a.nose_deg}",
+        "--turn-deg", f"{a.turn_deg}",
+        "--no-overlay",
+    ]  # fmt: skip
+    env = {**os.environ, "IRSIM_GPU": os.environ.get("IRSIM_GPU", "0")}
+    log = out.parent / f"{out.name}.log"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(log, "w") as fh:
+        r = subprocess.run(cmd, cwd=ROOT, env=env, stdout=fh, stderr=subprocess.STDOUT)
+    rgb, ir = out / "frames" / f"rgb_{last:05d}.png", out / "frames" / f"ir_{last:05d}.png"
+    if r.returncode or not rgb.is_file() or not ir.is_file():
+        raise SystemExit(f"the Isaac render failed or wrote no RGB/IR pair; see {log}")
+    return rgb, ir
+
+
 def bundle(a: argparse.Namespace) -> pathlib.Path:
     import yaml
 
@@ -541,7 +603,16 @@ def bundle(a: argparse.Namespace) -> pathlib.Path:
         _finish_image(
             t / "emissivity.png", out / "images" / "emissivity.png", window, legend=spec["eps_lo"]
         )
-    if a.thermal:
+    if a.isaac:
+        if a.nose_deg is None:
+            raise SystemExit("--isaac needs --nose-deg (the asset config states the nose)")
+        lo_, hi_ = stats["bbox"]
+        rng = a.range_m or hero_range_m([h - lo for lo, h in zip(lo_, hi_, strict=True)])
+        print(f"[{asset}] rendering the RGB + LWIR hero still in Isaac Sim at {rng:.2f} m")
+        rgb, ir = _isaac_hero(asset, (a.isaac_out or ROOT / "outputs" / "zoo_hero") / asset, rng, a)
+        shutil.copy(rgb, out / "images" / "beauty.png")
+        shutil.copy(ir, out / "images" / "thermal.png")
+    elif a.thermal:
         shutil.copy(a.thermal, out / "images" / f"thermal{pathlib.Path(a.thermal).suffix.lower()}")
 
     print(f"[{asset}] packing files")
@@ -593,6 +664,15 @@ def bundle(a: argparse.Namespace) -> pathlib.Path:
         "triangles": sum(o["triangles"] for o in stats["objects"].values()),
         "parts": parts,
         "captions": {
+            **(
+                {
+                    "beauty": "Visible companion, clear midday sky (Isaac Sim, path traced)",
+                    "thermal": "LWIR white-hot from the same camera, at cruise: motors hottest, "
+                    "pack warm, shell near air (per-part temperatures)",
+                }
+                if a.isaac
+                else {}
+            ),
             "emissivity": "LWIR emissivity per surface, 8-14 µm "
             f"(black {spec['eps_lo']:.1f}, white 1.0)",
             "wireframe": f"Functional parts, one colour each ({n_parts} parts)",
@@ -626,6 +706,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     ap.add_argument(
         "--thermal", type=pathlib.Path, help="a rendered LWIR still to show as the thermal image"
     )
+    ap.add_argument(
+        "--isaac",
+        action="store_true",
+        help="render the beauty and thermal images in Isaac Sim: the aircraft against a clear "
+        "midday sky, a matched RGB + LWIR pair (needs the GPU; ~4 min)",
+    )
+    ap.add_argument(
+        "--nose-deg",
+        type=float,
+        default=None,
+        help="--isaac: the nose bearing in the asset's XY plane, degrees from +x (asset configs "
+        "state it; -90 for a nose toward -y)",
+    )
+    ap.add_argument("--turn-deg", type=float, default=135.0, help="--isaac: presentation yaw")
+    ap.add_argument("--elevation-deg", type=float, default=12.0, help="--isaac: view elevation")
+    ap.add_argument("--range-m", type=float, default=None, help="--isaac: camera range override")
+    ap.add_argument("--isaac-out", type=pathlib.Path, help="--isaac: render dir (outputs/zoo_hero)")
     ap.add_argument("--featured", action="store_true", help="show it on the zoo's home page")
     ap.add_argument(
         "--group-mirrors",

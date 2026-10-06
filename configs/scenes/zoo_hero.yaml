@@ -1,0 +1,48 @@
+# One aircraft in clear midday air, for the catalogue's hero stills: a matched RGB + LWIR pair of
+# any part-split library asset (`<asset>_parts`), seen from the ground against the sky. Schema:
+# irsim.config.scene (v21). Rendered by `scripts/render_phantom4.py --asset <asset>_parts --scene
+# configs/scenes/zoo_hero.yaml`; the Thermal Model Zoo's images come from it (skill
+# `publish-to-zoo`).
+#
+# **Per-part nodes, not per-point fields.** The targets below are the generic aerial heat sources
+# (ADR 0072): every part renders from the node its name selects in `TARGET_BY_PART` (a motor from
+# `motor`, the pack from `battery` or `batteries`, the rest from `airframe`). No `thermal.surfaces`
+# are bound, because surfaces name an asset's own prims and this scene serves every asset. That is
+# the honest level for a catalogue still -- the motors read hot, the pack warm, the shell near
+# air -- and not a substitute for a solved scene such as `phantom4_parts.yaml`.
+#
+# The throttle is a generic 25-minute sortie; `--mission-s 600` lands in steady cruise.
+
+schema_version: 21
+scene:
+  name: zoo_hero
+  description: "A library aircraft at cruise in clear midday air, for catalogue stills"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+
+  targets:
+    - {name: airframe, solver: airframe, offset_k: 0.0}
+    - name: motor
+      solver: heat_source
+      source: motor
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1380.0, 1500.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.30,   0.05]
+    - name: battery
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1380.0, 1500.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.30,   0.05]
+    # The Inspire 3 and Matrice 300 RTK carry two packs, split as one part named `batteries`.
+    - name: batteries
+      solver: heat_source
+      source: battery
+      throttle_s: [0.0, 120.0, 300.0, 600.0, 900.0, 1200.0, 1380.0, 1500.0]
+      throttle:   [0.15, 0.55,  0.62,  0.66,  0.64,   0.60,   0.30,   0.05]
+
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

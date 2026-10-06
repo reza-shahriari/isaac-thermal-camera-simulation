@@ -225,6 +225,20 @@ parser.add_argument(
     "real shuttered core removes",
 )
 parser.add_argument("--no-chain", action="store_true", help="ideal camera: no M9 sensor chain")
+parser.add_argument(
+    "--nose-deg",
+    type=float,
+    default=None,
+    help="the asset's nose as a bearing in its own XY plane, degrees from +x (default: the "
+    "Phantom 4's NOSE_IN_ASSET); asset configs state it, e.g. -90 for a nose toward -y",
+)
+parser.add_argument(
+    "--turn-deg",
+    type=float,
+    default=0.0,
+    help="presentation yaw added to the flight heading, so a still shows the aircraft three-"
+    "quarter on instead of tail-on (catalogue shots; leave 0 for any flight clip)",
+)
 parser.add_argument("--near-m", type=float, default=None, help="outbound: range at the start")
 parser.add_argument("--far-m", type=float, default=None, help="outbound: range at the end")
 parser.add_argument(
@@ -712,9 +726,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             f"second {args.mission_start_s:.0f}"
         )
     # The archive's nose axis, carried through the mount, is what a yaw of zero has to mean.
+    nose_in_asset = (
+        NOSE_IN_ASSET
+        if args.nose_deg is None
+        else (math.cos(math.radians(args.nose_deg)), math.sin(math.radians(args.nose_deg)), 0.0)
+    )
     nose_yaw_deg = float(
         math.degrees(
-            math.atan2(*(lambda v: (v[0], -v[2]))(mount @ np.asarray(NOSE_IN_ASSET, float)))
+            math.atan2(*(lambda v: (v[0], -v[2]))(mount @ np.asarray(nose_in_asset, float)))
         )
     )
     print(f"asset: centroid {centre.round(3).tolist()}, {span_m:.3f} m across")
@@ -835,7 +854,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     # --- materials, through the per-asset map (ADR 0128) ----------------------------------------
     library = MaterialLibrary.load()
     table = MaterialTable.for_sensor(library, sensor)
-    asset_map = load_asset_mapping(args.asset, known_materials=library.names)
+    # A part-split archive (`<asset>_parts`, ADR 0138) shares its source's material names, so it
+    # takes the source's map unless it has one of its own (phantom4_parts does).
+    map_name = args.asset
+    if not (REPO / "configs" / "assets" / f"{map_name}.yaml").is_file() and map_name.endswith(
+        "_parts"
+    ):
+        map_name = map_name.removesuffix("_parts")
+    asset_map = load_asset_mapping(map_name, known_materials=library.names)
     resolver = MaterialResolver(
         load_mapping_rules(known_materials=library.names), list(table.names), asset=asset_map
     )
@@ -951,7 +977,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         camera can see. 0 is head-on, +-90 broadside, 180 tail-on.
         """
         position = track.position_m(phase)
-        heading = float(track.yaw_deg(phase))
+        heading = float(track.yaw_deg(phase)) + args.turn_deg
         transform_op.Set(_mount_matrix(mount, centre, heading - nose_yaw_deg, position))
         if args.track == "scatter":
             aim_at(position, aim_offsets[int(round(phase * (max(args.frames, 2) - 1)))])

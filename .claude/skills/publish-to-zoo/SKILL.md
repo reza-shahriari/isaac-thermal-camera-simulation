@@ -31,9 +31,11 @@ A bundle is `entry.json` + `images/` + `files/` + `ATTRIBUTION.md` (format in th
 
 ```bash
 PY=~/IsaacSim/_build/linux-x86_64/release/python.sh       # has irsim, Pillow, yaml
-# 1. bundle (Blender headless, ~20-60 s). --category is a zoo category id.
-$PY scripts/zoo_bundle.py dji_mini_3_pro --category drones --subcategory Multirotor \
-    [--featured] [--summary "..."] [--thermal path/to/lwir_still.png] --out <scratch>/bundles
+# 1. bundle. --category is a zoo category id. --isaac renders the beauty + thermal pair in Isaac
+#    Sim (GPU, ~4 min); --nose-deg is the nose bearing from the asset config (+x = 0; -y = -90).
+IRSIM_GPU=0 IRSIM_ISAAC_PYTHON=$PY $PY scripts/zoo_bundle.py dji_mini_3_pro --category drones \
+    --subcategory Multirotor --isaac --nose-deg -129 [--featured] [--summary "..."] \
+    [--turn-deg 135 --elevation-deg 12 --range-m R] --out <scratch>/bundles
 # 2. LOOK at <bundle>/images/*.png and entry.json before publishing (framing, part rows, values).
 # 3. publish from a clone of the zoo repo
 git clone https://github.com/reza-shahriari/ThermalModelZoo.git && cd ThermalModelZoo
@@ -45,6 +47,11 @@ git add data/models.json models/<id> && git commit && git push    # Pages deploy
 
 Re-running either step replaces the bundle / the entry and the release files of the same name.
 `tools/publish.py --remove <id>` takes an entry out (it leaves the release in place).
+**Hand-edited entry fields survive only if you re-apply them.** A rebuilt bundle regenerates
+`entry.json` from the configs; anything added by hand on the live entry (a part note, a longer
+`changes` line — the DJI FPV has both) must be copied into the new `entry.json` before
+`publish.py`, which replaces the entry whole. Diff the live entry against the new one first.
+
 Uploading and pushing is publishing to the public: do it when the user asked for the model to go
 up, not as a side effect of testing — `--dry-run` is the test.
 
@@ -55,10 +62,20 @@ up, not as a side effect of testing — `--dry-run` is the test.
   library ids by area share; **emissivity is area-weighted over 8-14 µm** (top-hat; the registry's
   `lwir` is 7.5-13.5 µm, the zoo states 8-14). Source = the weakest of its materials' `source`
   (`literature` shows as "reference").
-- **Images**: `beauty` (Eevee), `wireframe` (one flat colour per part), `emissivity` (flat grey per
-  surface on a scale stretched to the model's own range — legend states it). **There is no thermal
-  image unless you pass `--thermal`**: no engine-free mesh renderer exists, so an LWIR still has to
-  come from an Isaac render (e.g. a frame of `render_phantom4.py`-style output). Never fake one.
+- **Images**: with `--isaac` (always, for the zoo) `beauty` + `thermal` are one camera's matched
+  pair from Isaac Sim — the aircraft at cruise against a clear midday sky
+  (`configs/scenes/zoo_hero.yaml`), path-traced RGB companion + white-hot LWIR, 1280×1024
+  (`configs/sensors/example_lwir_1280.yaml`), via `render_phantom4.py --asset <asset>_parts`.
+  Temperatures are **per part node** (motor / battery / airframe), not a per-point solve; say so,
+  don't oversell. Frame 0's colour buffer is empty on this build, so it renders 3 frames and keeps
+  the last. Raw renders land in `outputs/zoo_hero/<asset>/` (+ `.log`). Plus `wireframe` (one hue
+  per kind of part) and `emissivity` (flat grey per surface, scale stretched to the model's range)
+  from Blender. Without `--isaac` the beauty is a studio Eevee render and there is no thermal image
+  unless you pass `--thermal`. Never fake one. Look at every pair before publishing: a dark
+  aircraft seen from below in high sun reads dark in the RGB (the Avata 2), which is physical.
+- **New pictures for a listed model**: `tools/publish.py <bundle> --images-only` replaces its
+  images and thumbnail and keeps the live entry (part notes, `changes`, download links) and the
+  release files as they are — the safe way to refresh images, since others hand-edit entries.
 - **Files**: `<id>.blend` (textures packed), `<id>.usdc.zip`, `<id>.fbx.zip` (+ textures).
 
 ## Hosting: GitHub Releases vs Hugging Face
