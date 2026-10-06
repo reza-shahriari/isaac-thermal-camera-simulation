@@ -102,6 +102,110 @@ def _import_source(path: pathlib.Path) -> str:
     return "wm.usd_import"
 
 
+#: How far apart (per channel, linear 0..1) two colour-attribute samples may be and still count as
+#: one colour: half an 8-bit step, so a tint quantised by the exporter still folds.
+TINT_UNIFORM_TOL = 0.5 / 255.0
+
+
+def uniform_colour(
+    samples: Sequence[Sequence[float]], tol: float = TINT_UNIFORM_TOL
+) -> tuple[float, ...] | None:
+    """The one RGBA every sample shares (within ``tol`` per channel), or None if they differ.
+
+    None also for no samples: a material no face uses has no colour to fold.
+    """
+    if not samples:
+        return None
+    lo = [min(s[c] for s in samples) for c in range(4)]
+    hi = [max(s[c] for s in samples) for c in range(4)]
+    if any(h - lo_c > tol for lo_c, h in zip(lo, hi, strict=True)):
+        return None
+    return tuple((lo_c + h) / 2.0 for lo_c, h in zip(lo, hi, strict=True))
+
+
+def fold_multiply(tint: Sequence[float], factor: Sequence[float], fac: float = 1.0) -> list[float]:
+    """Blender's Mix (MULTIPLY) of ``tint`` by ``factor`` at strength ``fac``, as one RGBA.
+
+    Mix colour MULTIPLY is ``a * (1 - fac + fac * b)`` per RGB channel; alpha is ``a``'s.
+    """
+    rgb = [a * (1.0 - fac + fac * b) for a, b in zip(tint[:3], factor[:3], strict=True)]
+    return [*rgb, tint[3] if len(tint) > 3 else 1.0]
+
+
+def _fold_vertex_tints() -> None:
+    """Fold a glTF vertex-colour tint into the material, so the USD carries the colour seen.
+
+    Blender's glTF importer turns ``COLOR_0`` into a Color Attribute node multiplied into the
+    base colour through a Mix node. The USD exporter cannot write that graph: it falls back to
+    the socket's 0.8 grey default (an untextured base) or to the bare texture, so a black
+    aircraft renders white in every RGB companion (the Matrice 100, AI.23). Where a material
+    multiplies a colour attribute that is one colour on every face using it, the product is the
+    material's colour: tint x constant becomes the base colour; white x texture hands the
+    texture straight to the base. Anything else -- a tint varying across faces, a coloured tint
+    over a texture -- is left as imported and reported: it needs a texture bake, not done here.
+    """
+    import bpy
+
+    samples: dict[str, list[tuple[float, ...]]] = {}
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or not obj.data.color_attributes:
+            continue
+        mesh = obj.data
+        attr = mesh.color_attributes.active_color or mesh.color_attributes[0]
+        colours = [tuple(c.color) for c in attr.data]
+        for poly in mesh.polygons:
+            if poly.material_index >= len(obj.material_slots):
+                continue
+            mat = obj.material_slots[poly.material_index].material
+            if mat is None:
+                continue
+            idx = poly.loop_indices[0] if attr.domain == "CORNER" else poly.vertices[0]
+            samples.setdefault(mat.name, []).append(colours[idx])
+
+    for mat in bpy.data.materials:
+        if not mat.use_nodes or mat.name not in samples:
+            continue
+        bsdf = next((n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is None or not bsdf.inputs["Base Color"].is_linked:
+            continue
+        mix = bsdf.inputs["Base Color"].links[0].from_node
+        if mix.type != "MIX" or mix.data_type != "RGBA" or mix.blend_type != "MULTIPLY":
+            continue
+        fac_in, a_in, b_in = mix.inputs["Factor"], mix.inputs[6], mix.inputs[7]
+        if fac_in.is_linked:
+            continue
+        sides = [(a_in, b_in), (b_in, a_in)]
+        tint_side = next(
+            (
+                (t, o)
+                for t, o in sides
+                if t.is_linked and t.links[0].from_node.type == "VERTEX_COLOR"
+            ),
+            None,
+        )
+        if tint_side is None:
+            continue
+        tint = uniform_colour(samples[mat.name])
+        if tint is None:
+            print(f"vertex tint on {mat.name!r} varies across faces; left as imported")
+            continue
+        _, other = tint_side
+        links = mat.node_tree.links
+        if not other.is_linked:
+            colour = fold_multiply(tint, list(other.default_value), fac_in.default_value)
+            links.remove(bsdf.inputs["Base Color"].links[0])
+            bsdf.inputs["Base Color"].default_value = colour
+            print(
+                f"vertex tint on {mat.name!r} folded: base colour {[round(c, 4) for c in colour]}"
+            )
+        elif all(c >= 1.0 - TINT_UNIFORM_TOL for c in tint[:3]):
+            # white x texture == texture: hand the texture straight to the BSDF
+            links.new(other.links[0].from_socket, bsdf.inputs["Base Color"])
+            print(f"vertex tint on {mat.name!r} is white; its texture is the base colour")
+        else:
+            print(f"vertex tint on {mat.name!r} multiplies a texture; left as imported")
+
+
 def _rescale(factor: float) -> None:
     """Scale every root object about the world origin, then apply it into the mesh data.
 
@@ -1010,6 +1114,7 @@ def run_worker(argv: Sequence[str]) -> int:
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     how = _import_source(args.source)
+    _fold_vertex_tints()
     meshes = [o for o in bpy.data.objects if o.type == "MESH"]
     tris = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes)
     print(f"imported {args.source.name} via {how}: {len(meshes)} meshes, {tris:,} triangles")
