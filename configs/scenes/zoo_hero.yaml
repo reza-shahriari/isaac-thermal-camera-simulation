@@ -13,7 +13,7 @@
 #
 # The throttle is a generic 25-minute sortie; `--mission-s 600` lands in steady cruise.
 
-schema_version: 21
+schema_version: 22
 scene:
   name: zoo_hero
   description: "A library aircraft at cruise in clear midday air, for catalogue stills"

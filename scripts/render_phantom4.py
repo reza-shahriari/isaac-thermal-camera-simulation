@@ -48,6 +48,7 @@ import datetime as dt
 import json
 import math
 import pathlib
+import re
 import sys
 import time
 from collections.abc import Collection
@@ -97,6 +98,25 @@ TARGET_BY_PART: dict[str, tuple[str, ...]] = {
     "propeller_rear_right": ("arms", "airframe"),
 }
 DEFAULT_TARGET = "airframe"
+
+
+_NUMBERED = re.compile(r"_\d{3}$")
+
+
+def part_of_leaf(leaf: str, defined: Collection[str], objects: Collection[str] = ()) -> str:
+    """The part a prim's leaf name stands for: itself, or itself without a trailing ``_NNN``.
+
+    Blender's USD exporter numbers a Mesh prim when a mesh datablock of the same name already
+    exists in the file (``skin_Head`` → ``skin_Head_001``), so the part a scene named is not
+    always the leaf letter for letter. The unnumbered name wins only when the scene or an object
+    actually defines it; a part whose own name ends in three digits is left alone.
+    """
+    if _NUMBERED.search(leaf):
+        bare = _NUMBERED.sub("", leaf)
+        candidates = [bare, *(f"{obj}.{bare}" for obj in objects), *TARGET_BY_PART.get(bare, ())]
+        if any(c in defined for c in candidates):
+            return bare
+    return leaf
 
 
 def target_for_part(part: str, defined: Collection[str], objects: Collection[str] = ()) -> str:
@@ -949,7 +969,13 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     defined_targets = set(scene.targets) | set(scene.thermal_surfaces)
     prim_to_target = {
         record.path: target_for_part(
-            record.path.rsplit("/", 1)[-1], defined_targets, objects=tuple(scene.objects)
+            part_of_leaf(
+                record.path.rsplit("/", 1)[-1],
+                defined_targets,
+                tuple(scene.objects) + tuple(scene.humans),
+            ),
+            defined_targets,
+            objects=tuple(scene.objects) + tuple(scene.humans),  # HU.4: `<human>.skin_<Segment>`
         )
         for record in records
     }

@@ -1212,3 +1212,27 @@ sections:
       library as `man_adult`. The same two scripts take a woman and a child as macro changes
       (`HU.6`), and any downloaded rigged human (`HU.9`).
     source: scripts/make_human.py, scripts/prep_human.py, scripts/render_phantom4.py
+
+  - id: jos3-segments
+    title: Seventeen skin temperatures, from the weather
+    lead: |
+      The same man as above, one step later: his skin is no longer one node but **seventeen
+      segments solved by JOS-3** — the thermoregulation model, as its authors ship it — forced
+      by the scene's own weather and sun. At this clear summer noon (26 °C air, the sun at 61°)
+      the radiant temperature a standing body sees is **47 °C**, and the segments spread from
+      **34.5 °C** at the pelvis to **31.1 °C** at the hands: the camera's surface plane matches the
+      solver on every segment to **0.001 K**. In the cold the order is the physiological one —
+      at 0 °C in a 1 m/s wind, bare, the head holds **27.9 °C** while the hands fall to **9.4 °C**
+      and the feet to **8.5 °C**.
+    media:
+      - image: humans/man_adult/jos3/frames/ir_00002.png
+        width: half
+        caption: LWIR, white-hot — one temperature per segment, the pelvis warmest at noon
+      - image: humans/man_adult/jos3/frames/rgb_00002.png
+        width: half
+        caption: the visible companion, the same instant
+    note: |
+      The seams between segments are hard on purpose: a segment is one JOS-3 node (ADR 0192). The
+      ground is taken at air temperature in the radiant balance and the man wears nothing yet;
+      `HU.5` dresses him and solves each garment's surface.
+    source: configs/scenes/man_standing_clear.yaml, scripts/render_phantom4.py

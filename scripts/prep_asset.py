@@ -41,6 +41,7 @@ ADR 0128 (per-asset mapping, the Blender prep path).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -987,6 +988,16 @@ def split_by_part_usd(
             print(f"  part {name!r} did not separate; skipped")
             continue
         piece = bpy.data.objects[fresh[0]]
+        # A mesh datablock of this name may already exist -- the imported object's own, when the
+        # source named its objects after their parts (a labelled human, HU.3). Left in place,
+        # Blender names the piece's data `<name>.001` and the USD exporter writes the Mesh prim
+        # as `<name>_001`, which is not the part the scene names.
+        other = bpy.data.meshes.get(name)
+        if other is not None and other is not piece.data:
+            if other.users == 0:
+                bpy.data.meshes.remove(other)
+            else:
+                other.name = f"__irsim_was__{name}"
         piece.name = piece.data.name = name
         made.append(name)
         bpy.context.view_layer.objects.active = current
@@ -1654,7 +1665,17 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
             # parts. That regrouping is geometry work and happens in Blender -- on the CPU, in
             # background mode, booting no Kit (ADR 0128's whole point).
             components = out_dir / f"{asset.name}.components.json"
-            if not components.exists() or not components.with_suffix(".faces.npz").exists():
+            # The cache is keyed on the source file too (HU.3): a re-exported model with the
+            # same name under the same weld, turn and cuts measured as the old one -- and the
+            # first man's segments were claimed from a file that no longer existed.
+            source_mark = components.with_suffix(".source.sha256")
+            source_sha = hashlib.sha256(pathlib.Path(source).read_bytes()).hexdigest()
+            if (
+                not components.exists()
+                or not components.with_suffix(".faces.npz").exists()
+                or not source_mark.exists()
+                or source_mark.read_text().strip() != source_sha
+            ):
                 stale = True
             else:
                 # a measurement from before AI.16 has no source objects to group by
@@ -1680,6 +1701,7 @@ def run_driver(argv: Sequence[str] | None = None) -> int:
                 if subprocess.run(cmd, check=False).returncode != 0:
                     print("the component pass failed", file=sys.stderr)
                     return 1
+                source_mark.write_text(source_sha + "\n", encoding="utf-8")
 
             stats = json.loads(components.read_text(encoding="utf-8"))
             plan = part_assignment(stats, asset.parts)

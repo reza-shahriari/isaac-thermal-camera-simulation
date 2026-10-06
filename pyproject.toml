@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 license = { file = "LICENSE" }
 dependencies = [
     "numpy>=2.0",  # np.trapezoid; Isaac Sim 6.0 ships 2.3 (docs/decisions/0002)
+    "jos3>=0.5",  # the person's 17-segment physiology, pure NumPy (HU.4, ADR 0194)
     "scipy>=1.11",
     "pydantic>=2.5",
     "pyyaml>=6.0",
@@ -118,4 +119,8 @@ module = [
     # Every use of it goes through `irsim.atmosphere.weather_fx`, which is checked.
     "weather_fx.*",
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["jos3", "jos3.*"]  # JOS-3 ships no stubs (HU.4)
 ignore_missing_imports = true

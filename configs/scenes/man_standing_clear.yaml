@@ -1,0 +1,29 @@
+# A man standing in clear midday air, the first `solver: human` scene (roadmap HU.4).
+# Schema: irsim.config.scene.SceneConfig, v22 (`solver: human`, ADR 0194).
+#
+# The sky, site, weather and hour are the zoo's (`zoo_hero.yaml`), so the same camera that films a
+# drone at cruise films him; the one target is the person. His seventeen skin segments come from
+# JOS-3 on this file's weather and this site's sun -- nothing on the target is authored but the
+# asset that carries his phenotype (`configs/assets/man_adult.yaml`) and his posture. Every
+# `skin.<Segment>` prim of the asset binds to `man.skin.<Segment>`; the eyes, eyebrows and
+# eyelashes render at the head's skin.
+#
+# Use: scripts/render_phantom4.py --asset man_adult_parts --scene configs/scenes/man_standing_clear.yaml
+#      --sensor configs/sensors/example_lwir_1280.yaml --track outbound --near-m 5.6 --far-m 5.65
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: man_standing_clear
+  description: "An adult man standing in clear midday air, his skin from JOS-3 segment by segment"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: man, solver: human, asset: man_adult, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

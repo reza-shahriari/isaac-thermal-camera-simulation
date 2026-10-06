@@ -34,7 +34,7 @@
 # clear_exit_track`, from mission second 900 (cruise). Twenty seconds of a half-hour thermal
 # profile is a constant temperature to the eye, and that is right: what changes here is geometry.
 
-schema_version: 21
+schema_version: 22
 scene:
   name: aerial_clear_exit
   description: "EV.16: a quadrotor at 12-150 m in a cloudless sky, then out of the frame, at the frame rate"

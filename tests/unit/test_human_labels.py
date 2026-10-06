@@ -106,7 +106,7 @@ def test_the_man_is_a_human_asset_with_a_part_per_segment() -> None:
     assert asset.kind == "human" and asset.human is not None and asset.parts is not None
     assert asset.parts.granularity == "object"
     names = {p.name for p in asset.parts.parts}
-    assert {f"skin.{s}" for s in JOS3_SEGMENTS} <= names
+    assert {f"skin_{s}" for s in JOS3_SEGMENTS} <= names
     for p in asset.parts.parts:
         assert [o.lower() for o in p.select.objects] == [p.name.lower()], (
             "a human's part is the object the split named"

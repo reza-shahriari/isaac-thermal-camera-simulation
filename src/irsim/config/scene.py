@@ -57,7 +57,8 @@ __all__ = [
     "load_scene_config",
 ]
 
-SCENE_SCHEMA_VERSION = 21  # v21: `thermal.mounts:` -- a heat source bolted to
+SCENE_SCHEMA_VERSION = 22  # v22: `solver: human`, a person's 17 skin segments from JOS-3
+# on the scene's weather (HU.4, ADR 0194). v21: `thermal.mounts:` -- a heat source bolted to
 # a patched surface (ADR 0187, EV.16); v20: `thermal.objects:` solved whole from an asset
 # (TC.11); v19: `evolve:` / `freeze_at_s:` per object and per
 # scene (ADR 0158, TC.12); v18: `thermal.object_exchange:` (ADR 0157,
@@ -166,6 +167,7 @@ class TargetSpec(_Frozen):
         "vehicle_source",
         "engine",
         "exhaust",
+        "human",
     ]
     t0_k: float | None = Field(default=None, gt=0.0)
     tau_s: float | None = Field(default=None, gt=0.0)
@@ -186,6 +188,11 @@ class TargetSpec(_Frozen):
     altitude_agl_m: float = Field(default=0.0, ge=0.0, le=20000.0)
     #: ``exhaust`` only: the gas cone it blows, in world coordinates (schema v15, `PH.6`).
     plume: PlumeSpec | None = None
+    #: HU.4, `solver: human`: the `kind: human` asset whose phenotype and garments the body
+    #: takes, its activity in met (default by posture) and its posture.
+    asset: str | None = None
+    activity_met: float | None = Field(default=None, gt=0.0, le=10.0)
+    posture: Literal["standing", "sitting", "lying"] | None = None
     #: TC.12 (schema v19, ADR 0158): ``evolve: false`` holds this object at its spun-up state
     #: from t₀; ``freeze_at_s: t`` solves it to ``t`` seconds after the scene start and holds it
     #: from then on. Unset, the scene's own ``thermal.evolve`` / ``thermal.freeze_at_s`` apply.
@@ -214,6 +221,12 @@ class TargetSpec(_Frozen):
             return self._vehicle_fields()
         if self.solver in ("engine", "exhaust"):
             return self._engine_fields()
+        if self.solver == "human":
+            return self._human_fields()
+        if self.asset is not None or self.activity_met is not None or self.posture is not None:
+            raise ValueError(
+                f"target {self.name!r}: only a human takes an asset, an activity or a posture"
+            )
         if self.solver in ("heat_source", "airframe", "ram_skin"):
             return self._aerial_fields()
         if self.load is not None or self.load_s is not None:
@@ -314,6 +327,21 @@ class TargetSpec(_Frozen):
             raise ValueError(f"target {self.name!r}: load_s must be strictly increasing")
         if any(not 0.0 <= u <= 1.0 for u in self.load):
             raise ValueError(f"target {self.name!r}: load must lie in [0, 1]")
+        return self
+
+    def _human_fields(self) -> TargetSpec:
+        """HU.4: a person is its asset's phenotype on the scene's weather; nothing else is authored."""
+        if not self.asset:
+            raise ValueError(f"target {self.name!r}: a human names its `kind: human` asset")
+        for forbidden in (
+            "t0_k", "tau_s", "schedule_s", "schedule_k", "source", "throttle_s", "throttle",
+            "offset_k", "load_s", "load", "speed_m_s", "recovery_factor",
+        ):  # fmt: skip
+            if getattr(self, forbidden) is not None:
+                raise ValueError(
+                    f"target {self.name!r}: a human takes no {forbidden}; its skin is solved by "
+                    "JOS-3 from the asset's phenotype and the scene's weather"
+                )
         return self
 
     def _aerial_fields(self) -> TargetSpec:

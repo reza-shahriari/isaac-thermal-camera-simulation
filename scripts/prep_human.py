@@ -18,7 +18,9 @@ this does, for a body mesh skinned to a known rig:
 3. **A sanity check on the forward axis** from the feet: a foot's centre lies forward of the shin
    above it (toes point forward), so the declared axis must agree with that displacement or the
    run stops -- a body labelled with Chest and Back swapped renders a plausible person.
-4. **One object per segment**, named ``skin.<Segment>``, each keeping its armature modifier and
+4. **One object per segment**, named ``skin_<Segment>`` (an underscore, because a USD prim name
+   cannot carry a dot and the renderer finds a segment by its prim's name), each keeping its
+   armature modifier and
    vertex groups so the body still deforms as one. Eyes, eyebrows, eyelashes and hair objects are
    kept whole and renamed to their layer. These names are what the asset config's ``parts:`` block
    selects by (``granularity: object``, AI.16/AI.18), so ``prep_asset.py`` needs nothing new.
@@ -190,13 +192,13 @@ def _worker(argv: list[str]) -> None:
         fresh = sorted(set(bpy.data.objects.keys()) - before)
         assert len(fresh) == 1, fresh
         piece = bpy.data.objects[fresh[0]]
-        piece.name = f"skin.{label}"
+        piece.name = f"skin_{label}"
         piece.data.name = piece.name
         made[label] = piece.name
         bpy.ops.object.select_all(action="DESELECT")
         remaining.select_set(True)
         bpy.context.view_layer.objects.active = remaining
-    remaining.name = f"skin.{present[-1]}"
+    remaining.name = f"skin_{present[-1]}"
     remaining.data.name = remaining.name
     made[present[-1]] = remaining.name
     for obj in bpy.data.objects:
@@ -215,7 +217,7 @@ def _worker(argv: list[str]) -> None:
     zs = [
         (o.matrix_world @ v.co).z
         for o in bpy.data.objects
-        if o.type == "MESH" and o.name.startswith("skin.")
+        if o.type == "MESH" and o.name.startswith("skin_")
         for v in o.data.vertices
     ]
     report = {
@@ -278,8 +280,8 @@ def _asset_config(
 
     stature = float(report["stature_m"])
     mass = round(bmi * stature * stature, 1)
-    parts = [{"name": f"skin.{s}", "select": {"objects": [f"skin.{s}"]}} for s in JOS3_SEGMENTS]
-    for layer_obj in sorted(o for o in report["objects"] if not o.startswith("skin.")):
+    parts = [{"name": f"skin_{s}", "select": {"objects": [f"skin_{s}"]}} for s in JOS3_SEGMENTS]
+    for layer_obj in sorted(o for o in report["objects"] if not o.startswith("skin_")):
         parts.append({"name": layer_obj, "select": {"objects": [layer_obj]}})
     doc = {
         "schema_version": 1,

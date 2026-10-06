@@ -117,6 +117,12 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "man_standing_clear.yaml": (
+        "HU.4's standing man: the first `solver: human` scene, rendered by `render_phantom4.py` "
+        "as the zoo hero still (RGB + LWIR) to check that every segment prim takes its JOS-3 "
+        "node. Its measurement is the surface plane against the solver, per segment; a band "
+        "sweep belongs to HU.5, when he wears something whose colour the reflective bands see."
+    ),
     "sky_only.yaml": (
         "SC.20's Tier 4 reference: nothing but sky, so the camera's own radial shading is all "
         "a frame holds. It is measured, not filmed: `scripts/validate_sky_flat.py` renders it "

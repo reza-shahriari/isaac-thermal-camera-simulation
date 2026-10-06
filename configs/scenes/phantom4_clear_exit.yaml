@@ -17,7 +17,7 @@
 # T+930..1170, hover in a wind from the front-left T+1230..1470, descent from T+1500, landed and idle at
 # T+1680.
 
-schema_version: 21
+schema_version: 22
 scene:
   name: phantom4_clear_exit
   description: "The solved Phantom 4 flown out to 60 m in a cloudless sky at cruise, then out of the frame (EV.20)"

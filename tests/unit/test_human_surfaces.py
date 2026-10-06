@@ -261,6 +261,8 @@ def test_the_two_node_oracle_is_declared_even_though_it_cannot_run() -> None:
 
     sources = list((REPO / "src" / "irsim").rglob("*.py"))
     assert sources
+    # HU.4 (ADR 0194) drives JOS-3 from the `jos3` package instead -- pythermalcomfort pins
+    # numpy < 2.3 and would downgrade Isaac Sim's numpy -- so this rule stands unchanged.
     offenders = [p for p in sources if "pythermalcomfort" in p.read_text()]
     assert not offenders, f"the physics core must not import the oracle: {offenders}"
 
@@ -273,6 +275,9 @@ def test_against_pythermalcomfort_when_it_is_installed() -> None:
     comfort = pytest.importorskip(
         "pythermalcomfort", reason="dev-only oracle; install with .[comfort] to run PH.12's check"
     )
-    result = comfort.models.two_nodes(tdb=25.0, tr=25.0, v=0.1, rh=50.0, met=SEATED_MET, clo=0.5)
+    import pythermalcomfort.models  # noqa: F401 - the package does not import its submodules
+    # pythermalcomfort 3+ renamed `two_nodes` to `two_nodes_gagge`; the result keeps `t_skin`
+    two_nodes = getattr(comfort.models, "two_nodes_gagge", None) or comfort.models.two_nodes
+    result = two_nodes(tdb=25.0, tr=25.0, v=0.1, rh=50.0, met=SEATED_MET, clo=0.5)
     ours = human_surfaces(25.0, t_radiant_c=25.0, clo=0.5, met=SEATED_MET, air_speed_m_s=0.1)
     assert float(result.t_skin) == pytest.approx(ours.skin_k - 273.15, abs=0.5)

@@ -18,7 +18,10 @@ What it does, in order:
    and the export applies the mask, so what leaves is the body alone.
 2. **Skin and body parts.** A skin from a named CC0 ``.mhmat`` through the MAKESKIN node tree --
    a Principled BSDF with the diffuse, normal and specular maps, which glTF can carry; the SSS
-   tree cannot be exported. Eyes, eyebrows and eyelashes from the system packs when present.
+   tree cannot be exported. One material for the whole body (no per-region instances): a
+   second material on a segment becomes a second mesh prim under it in USD, named after the
+   material, and the renderer then cannot find the segment by its prim's name. Eyes, eyebrows
+   and eyelashes from the system packs when present.
 3. **A rig.** ``add_builtin_rig(basemesh, <rig>)``; ``game_engine`` by default, the Unreal
    mannequin naming the body schema maps (``configs/humans/body_schema.yaml``, rig
    ``mpfb_game_engine``). The weights are MPFB's own, so every vertex has a bone.
@@ -163,7 +166,9 @@ def main(argv: list[str]) -> None:
             f"no skin {a.skin!r} under {location_service.get_user_data('skins')}: unpack a CC0 "
             "skins pack (skins01 female, skins02 male) into MPFB's user data"
         )
-    human_service.set_character_skin(skin_file, basemesh, skin_type="MAKESKIN")
+    human_service.set_character_skin(
+        skin_file, basemesh, skin_type="MAKESKIN", material_instances=False
+    )
 
     added: dict[str, str] = {}
     if not a.no_eyes:

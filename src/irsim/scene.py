@@ -402,6 +402,7 @@ def build_target(
     weather: WeatherSeries,
     t0_s: float,
     lapse_rate_k_per_m: float = ISA_LAPSE_RATE_K_PER_M,
+    site: Any = None,
 ) -> TemperatureSolver:
     """A solver for one target spec, on the scene's one shared ``WeatherSeries`` (CLAUDE.md #6).
 
@@ -445,6 +446,27 @@ def build_target(
             spec.load,
             t0_s,
             section=spec.section or "mid_pipe",
+        )
+    if spec.solver == "human":
+        # HU.4: the body's phenotype and garments come from its `kind: human` asset; its forcing
+        # is this scene's one weather and this scene's sun, nothing authored on the target.
+        from irsim.config.humans import load_body_schema
+        from irsim.materials.mapping import load_asset_mapping
+        from irsim.thermal.human_body import HumanBodySolver, clo_by_segment
+
+        assert spec.asset is not None
+        asset = load_asset_mapping(spec.asset)
+        if asset.kind != "human" or asset.human is None:
+            raise ValueError(f"target {spec.name!r}: asset {spec.asset!r} is not `kind: human`")
+        return HumanBodySolver(
+            asset.human,
+            weather,
+            t0_s,
+            clo=clo_by_segment(asset.human, load_body_schema().garment_slots),
+            activity_met=spec.activity_met,
+            posture=spec.posture or "standing",
+            site_latitude_deg=None if site is None else float(site.latitude_deg),
+            site_longitude_deg=None if site is None else float(site.longitude_deg),
         )
     if spec.solver == "vehicle_source":
         assert spec.source is not None and spec.load_s is not None and spec.load is not None
@@ -768,7 +790,20 @@ class Scene:
         preset = load_atmosphere_preset(spec.atmosphere_preset)
         atmosphere = Atmosphere(preset, weather, luts)
         lapse = scene_lapse_rate_k_per_m(spec)
-        targets = {t.name: build_target(t, weather, t0_s, lapse) for t in spec.targets}
+        targets: dict[str, Any] = {
+            t.name: build_target(t, weather, t0_s, lapse, site=spec.site) for t in spec.targets
+        }
+        # HU.4: a human target brings its seventeen segments (and the head's optics-only layers)
+        # as `<name>.skin_<Segment>` targets, so a `kind: human` asset's prims bind by name.
+        for name, solver in list(targets.items()):
+            derived = getattr(solver, "derived_targets", None)
+            if derived is not None:
+                clash = set(derived(name)) & set(targets)
+                if clash:
+                    raise ValueError(
+                        f"human {name!r}: derived targets collide with {sorted(clash)}"
+                    )
+                targets.update(derived(name))
         layered = None
         environment = None
         sky_models: dict[str, SkyModel] = {}
@@ -911,6 +946,11 @@ class Scene:
 
     def weather_at(self, t_rel_s: float) -> WeatherSample:
         return self.weather.at(self.t0_s + float(t_rel_s))
+
+    @property
+    def humans(self) -> tuple[str, ...]:
+        """The `solver: human` targets, by name (HU.4): the prefixes of `<name>.skin_<Segment>`."""
+        return tuple(n for n, t in self.targets.items() if hasattr(t, "derived_targets"))
 
     def advance_targets(self, t_rel_s: float, dt_s: float) -> dict[str, float]:
         """Step every target -- and the network, if any -- from t_rel to t_rel + dt.
