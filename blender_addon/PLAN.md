@@ -180,6 +180,16 @@ What the end-to-end run proves, on a toy quadcopter modelled in centimetres:
 
 ## Log
 
+- **2026-10-03 (names)**: the owner, trying the add-on on Blender's default cube, met "Asset name:
+  lower-case letters, digits and underscores" and asked why there is no upper case, and why the
+  add-on does not handle it itself. Lower case stays the stored form -- irsim compares asset,
+  part and material names case-insensitively, and an asset or material is a file, so `Drone` and
+  `drone` would be one asset (and one file on Windows and macOS) -- but the person no longer has
+  to type it: the asset name and the new-material name are tidied as they are typed (`My
+  Drone-2` is `my_drone_2`), and an export with no name takes the `.blend` file's name, else the
+  largest part's, with a made-up name like `Cube` only as the last resort. A name in another
+  script has no Latin letters to keep, so it is the one case still asked for.
+
 - **2026-10-03 (B13)**: after B12 the owner chose the next step from three offered: an easier
   material picker. With close to a hundred materials the list had become a scroll.
   - Search matches every typed word against the start of the words of the name, description and

@@ -766,6 +766,31 @@ def picker_checks(ctx) -> None:
     bpy.data.objects.remove(part)
 
 
+def name_checks(ctx) -> None:
+    """A name is typed any way and kept the way irsim needs it, instead of refused (the owner
+    asked for this on 2026-10-03, after meeting the old error on Blender's default cube)."""
+    from irsim_thermal import export
+
+    s = ctx.scene.irsim
+    before = s.asset_name
+    s.asset_name = "My Drone-2"
+    check(s.asset_name == "my_drone_2", f"a typed asset name is tidied ({s.asset_name!r})")
+    s.asset_name = ""
+    name = export.default_asset_name(ctx)
+    check(
+        bool(name) and name == name.lower() and not name.startswith("cube"),
+        f"an unnamed asset takes a real part's name before a made-up one ({name!r})",
+    )
+    s.asset_name = before
+    import types
+
+    from irsim_thermal import material_form
+
+    form = types.SimpleNamespace(name="Nylon Black")
+    material_form._tidy_name(form, ctx)
+    check(form.name == "nylon_black", f"a typed material name is tidied ({form.name!r})")
+
+
 def main() -> None:
     argv = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
@@ -1214,6 +1239,7 @@ def main() -> None:
 
     # --- 12. the material picker -----------------------------------------------------------------
     picker_checks(ctx)
+    name_checks(ctx)
 
     print(f"\n{len(failures)} failure(s)")
     if failures:

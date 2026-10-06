@@ -40,7 +40,7 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import sizing
+from . import naming, sizing
 
 BANDS = ("nir", "swir", "mwir", "lwir")
 
@@ -280,13 +280,22 @@ class IrsimComponentItem(PropertyGroup):
     source: StringProperty()
 
 
+def _tidy_asset_name(self, context):
+    """Whatever is typed becomes the name irsim needs: ``My Drone-2`` is ``my_drone_2``."""
+    tidy = naming.config_name(self.asset_name)
+    if tidy != self.asset_name:  # assigning re-enters this callback once, with a tidy name
+        self.asset_name = tidy
+
+
 class IrsimSceneSettings(PropertyGroup):
     asset_name: StringProperty(
         name="Asset name",
         description=(
-            "The name scene configs will use for this model: lower-case letters, digits and "
-            "underscores. Written to configs/assets/<name>.yaml"
+            "The name scene configs will use for this model, written to "
+            "configs/assets/<name>.yaml. Type it any way: it is kept in lower case with "
+            "underscores (My Drone-2 becomes my_drone_2). Empty: the export takes the file's name"
         ),
+        update=_tidy_asset_name,
     )
     active_part_index: IntProperty(update=_select_active_part)
     active_library_index: IntProperty()

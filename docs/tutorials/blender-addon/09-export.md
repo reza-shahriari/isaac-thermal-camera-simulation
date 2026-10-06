@@ -1,7 +1,9 @@
 # Export it to irsim
 
-1. Type an **Asset name** (lower case with underscores, for example `mavic3`). This is the name
-   scenes will use.
+1. Type an **Asset name**, for example `DJI Mavic 3`. This is the name scenes will use, and it
+   becomes a file name, so the add-on keeps it in lower case with underscores as you type:
+   `dji_mavic_3`. irsim treats `Mavic` and `mavic` as the same name, and so do Windows and macOS.
+   Leave it empty and the export takes the `.blend` file's name, or else the largest part's.
 2. Click **Export to irsim**. It writes:
    - `3d_models/<name>/<name>.usdc`: the parts, one USD prim per object. (`3d_models/` is not
      committed.) The hidden parts are in it too, marked `purpose = "guide"`: you can select and

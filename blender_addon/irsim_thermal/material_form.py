@@ -20,7 +20,7 @@ import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, StringProperty
 from bpy.types import Operator
 
-from . import library_state, prefs
+from . import library_state, naming, prefs
 from .assign import assign_to_parts
 from .bridge_client import BridgeError, run_bridge
 from .properties import BANDS
@@ -64,6 +64,13 @@ def _band_label(band: str) -> str:
     return band.upper()
 
 
+def _tidy_name(self, context):
+    """Whatever is typed becomes a library name: ``Nylon Black`` is ``nylon_black``."""
+    tidy = naming.config_name(self.name)
+    if tidy != self.name:  # assigning re-enters this callback once, with a tidy name
+        self.name = tidy
+
+
 class NewMaterial(Operator):
     """Create a new material in the irsim library (checked by irsim before it is written)"""
 
@@ -73,7 +80,12 @@ class NewMaterial(Operator):
 
     start_from: StringProperty(options={"SKIP_SAVE", "HIDDEN"})
     name: StringProperty(
-        name="Name", description="Lower-case letters, digits and underscores, e.g. nylon_black"
+        name="Name",
+        description=(
+            "The library name, written to configs/materials/<name>.yaml. Type it any way: it is "
+            "kept in lower case with underscores (Nylon Black becomes nylon_black)"
+        ),
+        update=_tidy_name,
     )
     # Not `description`: that name is Operator.description, the dynamic-tooltip hook.
     about: StringProperty(name="Description", description="What surface this is")
@@ -170,8 +182,8 @@ class NewMaterial(Operator):
         layout = self.layout
         col = layout.column()
         col.prop(self, "name")
-        if self.name and not NAME.match(self.name):
-            col.label(text="Use lower-case letters, digits and underscores", icon="ERROR")
+        if not self.name:
+            col.label(text="Name it in Latin letters: it becomes a file name", icon="INFO")
         col.prop(self, "about")
         row = col.row()
         row.prop(self, "source")
@@ -320,7 +332,7 @@ class NewMaterial(Operator):
             self.report({"ERROR"}, "Pick a curve file, or choose another form")
             return {"CANCELLED"}
         if not NAME.match(self.name):
-            self.report({"ERROR"}, "Name: lower-case letters, digits and underscores only")
+            self.report({"ERROR"}, "Give the material a name in Latin letters")
             return {"CANCELLED"}
         repo, python = prefs.settings(context)
         try:

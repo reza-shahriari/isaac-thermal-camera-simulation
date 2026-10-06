@@ -11,6 +11,12 @@ Three places read a name the add-on writes, and each has its own rules:
   exactly but case-insensitively, and refuses two keys that differ only by case.
 * **Blender** caps an ID name at 63 bytes and answers a collision by appending ``.001``.
 
+A fourth kind of name is irsim's own: an asset or a library material is a file,
+``configs/assets/<name>.yaml`` or ``configs/materials/<name>.yaml``, and scene configs refer to it
+by that name. Those are lower-case (:func:`config_name`), because irsim compares such names
+case-insensitively and Windows and macOS do too, so ``Drone`` and ``drone`` would be one asset.
+The person types whatever they like; the add-on writes it the way irsim needs it.
+
 The export therefore renames, once and visibly, every material and part whose name would not come
 out of that trip unchanged. The map is then written against names that are identical in the
 ``.blend``, in the USD and in the YAML, which is the only arrangement a person can check by eye.
@@ -22,6 +28,7 @@ from collections.abc import Iterable
 __all__ = [
     "MAX_NAME_BYTES",
     "SPLIT_SEPARATOR",
+    "config_name",
     "is_default_name",
     "is_safe_identifier",
     "safe_identifier",
@@ -44,6 +51,23 @@ _DEFAULT = re.compile(
     r"Mesh|Object|Material|Untitled|Default|mesh|object|GeometryNode|Node|Shape|Box|Rectangle|"
     r"Line|pCube|pCylinder|pSphere|pPlane|polySurface|defaultMaterial)(\.\d+|_\d+|\d+)?$"
 )
+
+
+_NOT_CONFIG = re.compile(r"[^a-z0-9]+")
+
+
+def config_name(text: str, *, max_len: int = 64) -> str:
+    """``text`` as an irsim config name: lower-case ASCII letters, digits and single underscores,
+    starting with a letter. ``"My Drone-2"`` is ``my_drone_2``; ``"3DR Solo"`` is ``m_3dr_solo``.
+
+    Characters outside ASCII letters and digits become separators, so a name in another script
+    comes out empty: the caller then takes another name (the file's, the object's) rather than
+    guess a transliteration.
+    """
+    out = _NOT_CONFIG.sub("_", text.lower()).strip("_")[:max_len].rstrip("_")
+    if out and not out[0].isalpha():
+        out = f"m_{out}"
+    return out
 
 
 def _truncate_utf8(text: str, limit: int) -> str:

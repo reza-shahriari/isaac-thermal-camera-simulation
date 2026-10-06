@@ -385,3 +385,30 @@ def test_favourite_and_recent_lists() -> None:
 def test_the_search_menu_line_says_the_band() -> None:
     assert picker.label(LIBRARY[0], "lwir") == "abs_plastic_white   ε 0.95 LWIR"
     assert "not available" in picker.label(LIBRARY[-1], "lwir")
+
+
+# --- names irsim's configs use: typed any way, written lower-case (the owner, 2026-10-03) --------
+
+
+@pytest.mark.parametrize(
+    ("typed", "name"),
+    [
+        ("My Drone-2", "my_drone_2"),
+        ("  DJI  Mavic 3 Pro ", "dji_mavic_3_pro"),
+        ("Nylon__Black", "nylon_black"),
+        ("already_fine", "already_fine"),
+        ("Cube.001", "cube_001"),
+        ("3DR Solo", "m_3dr_solo"),  # a config name starts with a letter
+        ("ماده فلزی", ""),  # no transliteration guessed: the caller picks another name
+        ("--", ""),
+    ],
+)
+def test_a_typed_name_becomes_a_config_name(typed: str, name: str) -> None:
+    assert naming.config_name(typed) == name
+    assert name == "" or re.fullmatch(r"[a-z][a-z0-9_]*", name)
+    assert naming.config_name(name) == name  # tidying a tidy name changes nothing
+
+
+def test_a_long_name_is_cut_without_a_trailing_underscore() -> None:
+    out = naming.config_name("a" * 63 + " b")
+    assert len(out) <= 64 and not out.endswith("_")

@@ -3,7 +3,7 @@
 Click **New material…**, or **New from this…** to start from the selected material's values. Fill
 in:
 
-- **Name**: lower case with underscores, for example `nylon_black`.
+- **Name**: type it any way, for example `Nylon Black`; it is kept as `nylon_black`, the name of its file.
 - **Description**, **Source** (*estimated*, *literature* or *measured*) and **Reference**: where
   the numbers came from. Even "estimated from similar polymers" helps the next person.
 - **Surface state**, for example *as manufactured*, *painted* or *anodised*. Emissivity belongs to

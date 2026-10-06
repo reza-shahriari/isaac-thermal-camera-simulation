@@ -165,6 +165,22 @@ def preflight(
     return ""
 
 
+def default_asset_name(context: bpy.types.Context) -> str:
+    """A name for an asset nobody named: the ``.blend`` file's, else the largest part's.
+
+    A name some program made up (``Cube``, ``GeometryNode_57``) is taken only when there is
+    nothing better, so an unsaved default cube still exports, as ``cube``.
+    """
+    stem = pathlib.Path(bpy.data.filepath).stem if bpy.data.filepath else ""
+    candidates = [stem]
+    parts = scene_stats.part_objects(context)
+    if parts:
+        candidates.append(max(parts, key=lambda ob: ob.dimensions.length).name)
+    usable = [(t, naming.config_name(t)) for t in candidates if naming.config_name(t)]
+    real = [name for text, name in usable if not naming.is_default_name(text)]
+    return (real or [name for _, name in usable] or [""])[0]
+
+
 class ExportAsset(Operator):
     """Write the parts as USD, a .blend copy and configs/assets/<name>.yaml into the repository"""
 
@@ -179,9 +195,16 @@ class ExportAsset(Operator):
     def execute(self, context):
         settings = context.scene.irsim
         repo, python = prefs.settings(context)
-        name = settings.asset_name.strip()
+        if not settings.asset_name:
+            settings.asset_name = default_asset_name(context)  # tidied by its update callback
+            if settings.asset_name:
+                self.report({"INFO"}, f"Asset name: {settings.asset_name}")
+        name = settings.asset_name
         if not NAME.match(name):
-            self.report({"ERROR"}, "Asset name: lower-case letters, digits and underscores")
+            self.report(
+                {"ERROR"},
+                "Give the asset a name in Latin letters (Check and export > Asset name)",
+            )
             return {"CANCELLED"}
         if not repo:
             self.report({"ERROR"}, "The irsim repository is not set (add-on preferences)")
