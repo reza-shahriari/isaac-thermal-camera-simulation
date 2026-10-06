@@ -414,6 +414,7 @@ class IrCamera:
         cloud_deck: bool = False,
         weather_fx_clouds: Any = None,
         cloud_occlusion: bool = True,
+        cloud_stride: int = 1,
         companion_only_prim_paths: Sequence[str] = (),
         sea: Any = None,
         background_prim_paths: Sequence[str] = (),
@@ -493,7 +494,10 @@ class IrCamera:
             # frame's error is dominated by the march's own quadrature and not by that
             # interpolation -- marching at half this pitch costs five times as much and moves the
             # 99th percentile of the band emissivity from 0.029 to 0.024 (AT.15, ADR 0130).
-            deck_stride=self.optics.supersample,
+            # `cloud_stride` coarsens it further on top of that, for a source whose march is
+            # expensive (the cloudscape, a function evaluated per sample, WX.26): the edges
+            # the coarse grid misses are marched again at full pitch either way (ADR 0181).
+            deck_stride=self.optics.supersample * max(1, int(cloud_stride)),
             sea=sea,
         )
         # Prims that are *in* the picture but whose temperature is not a solver node: the sea

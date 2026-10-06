@@ -349,6 +349,22 @@ parser.add_argument(
     "by the infrared march, occluding in both (WX.26)",
 )
 parser.add_argument(
+    "--cloud-steps",
+    type=int,
+    default=None,
+    help="cap on the infrared cloud march's steps per ray (the deck's own default, 512, "
+    "otherwise); 192 is two and a half times faster on the cloudscape and still three samples "
+    "per 30 m on the longest ray",
+)
+parser.add_argument(
+    "--prop-spin-deg",
+    type=float,
+    default=0.0,
+    help="turn every `propeller_*` prim about its own hub by this many degrees per frame "
+    "(front-left and rear-right one way, the other pair the other, as a quadrotor's do); "
+    "0 leaves the propellers still. A still frame shows a blade, not a blurred disc.",
+)
+parser.add_argument(
     "--cloud-set",
     nargs="*",
     default=[],
@@ -522,6 +538,51 @@ def _mount_matrix(rotation: Any, centre: Any, yaw_deg: float, position: Any) -> 
     return Gf.Matrix4d(*(float(v) for v in m.reshape(-1)))
 
 
+class _Propellers:
+    """The asset's `propeller_*` prims, turned about their own hubs frame by frame.
+
+    A quadrotor's propellers are the one part of it that moves in its own frame. Each prim gets
+    a `spin` transform op at the end of its order (so it is applied first, in the mesh's own
+    frame): a rotation about the asset's up axis through the propeller's bound centre. Diagonal
+    pairs turn opposite ways. The thermal side is untouched: a propeller's temperature lives on
+    its points, and the points go round with it.
+    """
+
+    def __init__(self, stage: Any, root: str, up_axis: str) -> None:
+        from pxr import Gf, Usd, UsdGeom
+
+        self._gf = Gf
+        self._up = {"X": 0, "Y": 1, "Z": 2}[str(up_axis).upper()]
+        self._props: list[tuple[Any, Any, float]] = []
+        cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), ["default"])
+        root_prim = stage.GetPrimAtPath(root)
+        for prim in Usd.PrimRange(root_prim) if root_prim else ():
+            name = prim.GetName()
+            if not name.startswith("propeller_") or not prim.IsA(UsdGeom.Xformable):
+                continue
+            if not any(child.IsA(UsdGeom.Mesh) for child in prim.GetChildren()):
+                continue
+            box = cache.ComputeLocalBound(prim).ComputeAlignedRange()
+            hub = Gf.Vec3d(*[float(box.GetMidpoint()[i]) for i in range(3)])
+            xf = UsdGeom.Xformable(prim)
+            op = xf.AddTransformOp(opSuffix="spin")
+            op.Set(Gf.Matrix4d(1.0))
+            sense = -1.0 if name.endswith(("front_left", "rear_right")) else 1.0
+            self._props.append((op, hub, sense))
+
+    def __len__(self) -> int:
+        return len(self._props)
+
+    def set_angle(self, angle_deg: float) -> None:
+        Gf = self._gf
+        axis = Gf.Vec3d(*[1.0 if i == self._up else 0.0 for i in range(3)])
+        for op, hub, sense in self._props:
+            rotation = Gf.Matrix4d().SetRotate(Gf.Rotation(axis, sense * angle_deg))
+            # Row-vector convention: translate to the origin, turn, translate back.
+            m = Gf.Matrix4d().SetTranslate(-hub) * rotation * Gf.Matrix4d().SetTranslate(hub)
+            op.Set(m)
+
+
 def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver, read top to bottom
     import numpy as np
     import omni.usd
@@ -686,6 +747,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     mount_op.ClearXformOpOrder()
     transform_op = mount_op.AddTransformOp()
 
+    propellers = None
+    if args.prop_spin_deg:
+        asset_stage = Usd.Stage.Open(str(usd))
+        propellers = _Propellers(stage, ASSET_ROOT, UsdGeom.GetStageUpAxis(asset_stage))
+        print(f"propellers: {len(propellers)} turn {args.prop_spin_deg:g} deg per frame")
+
     records = prim_records(stage, root=ASSET_ROOT)
     if not records:
         print(f"the reference produced no prims under {ASSET_ROOT}", file=sys.stderr)
@@ -779,6 +846,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             tier=args.cloud_tier,
             camera_path="/World/IrCamera",
         )
+        if weather_sky.deck is not None and args.cloud_steps:
+            weather_sky.deck.max_steps = int(args.cloud_steps)
         print(f"weather-fx: {weather_sky.describe()}")
         stats = weather_sky.stats()
         print(
@@ -1087,6 +1156,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         # the path-traced cloud volumes are drawn in the companion only -- the infrared has the
         # same cloud as its march, and to the G-buffer a volume box is just a box.
         cloud_occlusion=True if weather_sky is None else weather_sky.occludes,
+        cloud_stride=args.cloud_stride,
         companion_only_prim_paths=() if weather_sky is None else weather_sky.companion_only_paths,
         frame_period_s=interval_s,
         # EV.20: the clip starts at a mission second, not on the pad; 0 for every other track.
@@ -1161,6 +1231,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     for index in range(args.frames):
         phase = float(at(phases[index]))
         position, slant, aspect = place(phase)
+        if propellers is not None:
+            propellers.set_angle(args.prop_spin_deg * index)
         # Move the mount, then tell the camera it moved: every ray direction, sky elevation and
         # view cosine is built from a cached pose, and a camera that slews without refreshing
         # renders geometry from here and radiometry from where it used to be.
@@ -1283,6 +1355,16 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         rgbs.append(None if rgb is None else np.ascontiguousarray(np.asarray(rgb)[..., :3]))
 
         temperatures = {k: float(v) for k, v in cam.bridge.temperatures().items()}
+        # TC.13: a part solved as a mesh member is drawn from its own cells, and its readout
+        # must be those cells too. `bridge.temperatures()` reports the scene's per-surface
+        # facet estimate, which the full solve does not drive: it showed the motors at a flat
+        # 30 C while their rendered cells ran to 53 C. The area-weighted cell mean is the
+        # number `tests/unit/test_phantom4_solved.py` measures the bells by.
+        t_frame = scene.t0_s + float(cam.bridge.t_rel_s)
+        for name, fld in scene.mesh_fields.items():
+            if name in temperatures:
+                cells = np.asarray(fld.temperature_at(t_frame), dtype=np.float64)
+                temperatures[name] = float(fld.patch.area_weighted_mean(cells))
         node_k = {k: round(v, 3) for k, v in temperatures.items()}
         rows.append(
             {
@@ -1420,7 +1502,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                     note,
                 ],
                 {k: v + 273.15 for k, v in row["node_c"].items()},
-                (span_lo, span_hi),
+                # A reflective band's planes are band radiance (see `plane_quantity`): a kelvin
+                # gauge and a colour bar labelled "apparent T" beside them would print radiance as
+                # a temperature, which is what the SWIR clip did. No span leaves the node values
+                # as numbers and drops the scale (M10.23, `overlay_readout`).
+                (span_lo, span_hi) if sensor.sensor.outputs.apparent_temperature else None,
                 bare=args.no_overlay,
                 palette=None if images is not None else gray,
             )
