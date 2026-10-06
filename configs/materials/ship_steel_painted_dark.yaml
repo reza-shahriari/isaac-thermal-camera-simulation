@@ -1,0 +1,32 @@
+# Marine-painted mild-steel plate, dark colours: a ship's shell, main deck and the structure inside
+# it (roadmap AI.21, drafted for the Liberty ship). The optics are the SLUM painted-steel-sheet
+# sample that metal_sheet_painted_grey carries -- a marine alkyd or epoxy topcoat is a paint like
+# any other in the thermal infrared (eps 0.88-0.96, FLIR's "paint, 8 different colours") -- and its
+# solar absorptivity, 0.878, sits between the colours a Liberty hull wore: black topsides (~0.95),
+# red anti-fouling below the boot-top (~0.7) and a grey deck. ESTIMATED as one value for all three.
+#
+# What differs from the 1 mm sheet is the plate. Liberty ships' side shell and deck were welded
+# mild steel plate 1/2 to 1 inch thick (Bunyan, Brittle fracture in welded ships, J. Ship Res. /
+# Board of Investigation, 1946 summaries); 16 mm is ESTIMATED as the area-weighted middle. A plate
+# sixteen times thicker is sixteen times the areal heat capacity -- 54 kJ/m2/K -- which is what
+# makes a hull lag the air by hours where a car panel lags it by minutes.
+schema_version: 2
+material:
+  name: ship_steel_painted_dark
+  source: literature
+  surface_treatment: painted
+  reference: "Optics: as metal_sheet_painted_grey -- SLUM, Kotthaus, Smith, Wooster & Grimmond (2014), ISPRS J. Photogramm. Remote Sens. 94, 194-212, doi:10.1016/j.isprsjprs.2014.05.005; data doi:10.5281/zenodo.4263842 (MPL-2.0), sample Z005; MWIR from FLIR E95 user manual (T810190) section 37, 'Paint, 8 different colors, SW 0.88-0.96'. Thermal: plain carbon steel, Incropera, DeWitt, Bergman & Lavine, Fundamentals of Heat and Mass Transfer, Table A.1 (300 K); plate thickness ESTIMATED for a welded WWII cargo ship"
+  description: "Ship's hull plate in dark marine paint: shell, deck, internal structure"
+  thermal:
+    density_kg_m3: 7854
+    specific_heat_j_kgk: 434
+    conductivity_w_mk: 60.5
+    thickness_m: 0.016   # ESTIMATED: side shell and deck plate, 1/2-1 in
+    solar_absorptivity: 0.878   # the SLUM curve's, as metal_sheet_painted_grey
+  optical:
+    spectral_emissivity:   # the committed measured curves (metal_sheet_painted_grey's)
+      - {file: spectra/materials/slum/metal_sheet_painted_grey_sw.csv, quantity: reflectance}   # opaque: 1 - R
+      - spectra/materials/slum/metal_sheet_painted_grey_lw.csv
+    emissivity_per_band: {mwir: 0.920, lwir: 0.935}   # computed; only where no curve is committed
+    roughness_per_band: {nir: 0.30, swir: 0.25, mwir: 0.15, lwir: 0.10}   # ESTIMATED, brushed marine coat a little rougher than sheet
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # ESTIMATED, as the painted class

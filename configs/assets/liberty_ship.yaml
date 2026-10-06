@@ -1,0 +1,154 @@
+# A WWII Liberty ship (EC2-S-C1), from AlanTinka's CC-BY Sketchfab model (provenance beside this
+# file). Schema: irsim.materials.mapping.AssetConfig. Produced and checked with `scripts/prep_asset.py`.
+#
+# **Scale, checked against the published hull.** The glTF is not in metres: 956.6 brings its
+# length overall to 134.57 m, which is the class's 441 ft 6 in (134.57 m; US Maritime Commission
+# EC2-S-C1 design, as tabulated by the American Merchant Marine at War site, usmm.org/libship.html,
+# and the SS Jeremiah O'Brien and SS John W. Brown museum ships). Measured from the vertices: the
+# hull shell is 17.6 m across against the published 56 ft 10.75 in (17.34 m) beam, +1.7 %, the
+# rubbing strakes and the shell's own thickness. The masthead is 32.8 m above the keel. Frame:
+# +z up, the ship along y with the **bow at -y** and the rudder at +y; port is +x.
+#
+# **One material, so parts carry the substances.** The artist baked everything into one texture
+# atlas on one object (`uvflatten1`, `DefaultMaterial`), so the source map can only say "painted
+# ship steel". Every part that is something else asserts its material (AI.14, ADR 0173). Evidence
+# is the real ship, not the atlas: welded mild-steel hull and deckhouses; hardwood hatch boards
+# under tarred canvas; a manganese-bronze propeller; steel lifeboats (the Maritime Commission
+# standard after 1942) painted white; cargo in wooden crates. Every material choice below that is
+# not a measurement of this ship is flagged ESTIMATED.
+#
+# **Parts, by geometry (granularity: component).** The 1,582 welded shells were tabulated by
+# centroid, extent and area and judged in orthographic views coloured per shell. What they are:
+#   * one 9,597 m2 shell is the hull with its weather decks -- half the model's area;
+#   * five identical hatch stacks (a 21.8 m2 coaming, a 127 m2 cover, a 111 m2 tarpaulin), three
+#     forward of the house (holds 1-3) and two aft (4-5), as the class was built;
+#   * three masts with their booms, crosstrees and mast-house platforms at y = -35.9, -21.3, +34.7;
+#   * the midship house with the funnel (a 75 m2 casing on its top deck) and, on its wings, four
+#     identical 17.4 m2 lifeboats with their 11.9 m2 covers;
+#   * a forecastle gun platform, a poop deckhouse with two gun tubs, the rudder and a three-blade
+#     propeller (the real one has four blades), two anchors at the hawse pipes;
+#   * internal structure the artist modelled: tween decks, bulkheads and the shaft tunnel, and 2 m2
+#     crates stowed in holds 1, 3 and 5 -- hidden from any outside camera, real thermal mass.
+# Selectors are centroid tests, first match wins, the hull before the interior that shares its
+# depth. Hatch selectors stay inside the 10 x 10 m hatch so a mast house 7.6 m away is never taken.
+#
+# **Not yet done, on purpose.** No `contacts:`: the welds between hull, houses and masts are real
+# heat paths, but `scripts/check_asset_contacts.py` builds the solver's cells for the whole asset,
+# and at 19,000 m2 it ran past ten minutes and a third of the machine's memory without finishing.
+# A contact this check has not proved touching is one a scene would refuse, so none is authored
+# until the check (or the cell size it uses) scales to a ship. And the render geometry is faceted:
+# `mesh_facets.py` on the source finds 24-27 % of edge length over half a pixel at 200-500 m
+# (0.67 mrad), worst on the hull's 2,829-face shell. That is the `low2high` skill's next pass.
+schema_version: 1
+asset:
+  name: liberty_ship
+  source_file: 3d_models/liberty_ship/source/liberty_ship.glb
+  scale_to_metres: 956.6
+  weld_m: 0.001
+  materials:
+    # The single atlas. Most of its area is the hull shell and decks: dark marine paint on plate.
+    DefaultMaterial: ship_steel_painted_dark
+
+  parts:
+    centre: [-0.3, 0.0, 0.0]
+    coverage_threshold: 0.95
+    parts:
+      # Funnel first: it rises through the house's top decks.
+      - name: funnel
+        target: funnel
+        select: {near_xy: [-0.3, 0.7], within_m: 2.0, z_min_m: 19.5, area_max_m2: 150.0}
+      - name: lifeboat_port_forward
+        target: superstructure
+        material: ship_steel_painted_white
+        select: {near_xy: [8.7, 5.3], within_m: 3.2, z_min_m: 15.0}
+      - name: lifeboat_port_aft
+        target: superstructure
+        material: ship_steel_painted_white
+        select: {near_xy: [8.7, 12.6], within_m: 3.2, z_min_m: 15.0}
+      - name: lifeboat_starboard_forward
+        target: superstructure
+        material: ship_steel_painted_white
+        select: {near_xy: [-9.3, 5.3], within_m: 3.2, z_min_m: 15.0}
+      - name: lifeboat_starboard_aft
+        target: superstructure
+        material: ship_steel_painted_white
+        select: {near_xy: [-9.3, 12.6], within_m: 3.2, z_min_m: 15.0}
+      # Hatches, bow to stern. Coaming, boards and canvas are one part: the camera sees canvas.
+      - name: hatch_1
+        target: hatch
+        material: hatch_cover_tarpaulin
+        select: {near_xy: [-0.2, -43.6], within_m: 5.0, z_min_m: 11.5, z_max_m: 15.5}
+      - name: hatch_2
+        target: hatch
+        material: hatch_cover_tarpaulin
+        select: {near_xy: [-0.3, -28.3], within_m: 5.0, z_min_m: 11.5, z_max_m: 15.5}
+      - name: hatch_3
+        target: hatch
+        material: hatch_cover_tarpaulin
+        select: {near_xy: [-0.3, -12.1], within_m: 5.0, z_min_m: 11.5, z_max_m: 15.5}
+      - name: hatch_4
+        target: hatch
+        material: hatch_cover_tarpaulin
+        select: {near_xy: [-0.3, 25.8], within_m: 5.0, z_min_m: 11.0, z_max_m: 15.5}
+      - name: hatch_5
+        target: hatch
+        material: hatch_cover_tarpaulin
+        select: {near_xy: [-0.4, 44.0], within_m: 5.0, z_min_m: 11.0, z_max_m: 15.5}
+      # The ensign at the mizzen gaff, before the mast that would otherwise take it.
+      - name: flag
+        target: superstructure
+        material: cotton_clothing
+        select: {near_xy: [-0.2, 38.7], within_m: 1.5, z_min_m: 28.0}
+      # Masts with their booms (5.8 m fore and aft of each) and the platforms at their feet.
+      - name: mast_fore
+        target: mast
+        select: {near_xy: [-0.3, -35.9], within_m: 7.5, z_min_m: 13.0}
+      - name: mast_main
+        target: mast
+        select: {near_xy: [-0.3, -21.3], within_m: 7.5, z_min_m: 12.5}
+      - name: mast_mizzen
+        target: mast
+        select: {near_xy: [-0.4, 34.7], within_m: 7.5, z_min_m: 12.0}
+      - name: gun_platform_bow
+        target: superstructure
+        select: {near_xy: [-0.2, -57.8], within_m: 5.0, z_min_m: 16.5}
+      - name: deckhouse_poop
+        target: superstructure
+        material: ship_steel_painted_white
+        select: {near_xy: [-0.4, 60.0], within_m: 7.5, z_min_m: 12.5}
+      - name: deckhouse_midship
+        target: superstructure
+        material: ship_steel_painted_white
+        select: {near_xy: [-0.3, 5.5], within_m: 13.0, z_min_m: 12.0}
+      # Below the waterline at the stern: rudder first, then the propeller just forward of it.
+      - name: rudder
+        target: hull
+        select: {near_xy: [0.0, 63.9], within_m: 1.2, z_max_m: 9.0}
+      - name: propeller
+        target: propeller
+        # Manganese bronze, sea-fouled and oxidised. The library has no oxidised bronze; weathered
+        # iron's emissivity stands in -- ESTIMATED. Never a polished-metal guess (AT.18). Only a
+        # ship in ballast shows it to a camera.
+        material: iron_weathered
+        select: {near_xy: [-0.4, 61.7], within_m: 1.8, z_max_m: 8.0}
+      - name: anchor_port
+        target: hull
+        select: {near_xy: [3.7, -60.7], within_m: 1.5, z_max_m: 14.0}
+      - name: anchor_starboard
+        target: hull
+        select: {near_xy: [-4.1, -60.6], within_m: 1.5, z_max_m: 14.0}
+      - name: hull
+        target: hull
+        select: {area_min_m2: 5000.0}
+      # Crates in holds 1, 3 and 5, all one 2.06-2.13 m2 box below the lowest weather deck.
+      - name: cargo
+        target: cargo
+        material: plywood
+        select: {area_min_m2: 2.0, area_max_m2: 2.2, z_max_m: 11.7}
+      - name: hull_interior
+        target: hull
+        select: {z_max_m: 11.7}
+      # Everything else on deck: winches, ventilators, rails, bitts, rigging.
+      - name: deck_fittings
+        target: hull
+        select: {}

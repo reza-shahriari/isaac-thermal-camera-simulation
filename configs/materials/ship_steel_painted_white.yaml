@@ -1,0 +1,27 @@
+# Marine-painted mild-steel plate, white or buff: a ship's deckhouses, funnel, masts and boats
+# (roadmap AI.21, drafted for the Liberty ship). The colour matters to the sun, not to the camera:
+# in the thermal infrared white paint is as black as any other (eps ~0.9, docs/physics-model.md
+# section 16.2), but it absorbs about a third of the sunlight a black hull does, so a white
+# superstructure runs cooler than the hull beside it at noon. Optics and solar absorptivity as
+# car_paint_white (section 16.2; NIR/SWIR ESTIMATED from white paint's ~0.7 solar reflectance),
+# raised from 0.28 to 0.30 for a weathered marine coat -- ESTIMATED. Buff masts would be nearer
+# 0.5; they share this entry, flagged ESTIMATED where an asset maps them.
+#
+# Deckhouse and funnel plate is lighter than the shell: 5/16 in (8 mm) ESTIMATED.
+schema_version: 2
+material:
+  name: ship_steel_painted_white
+  source: literature
+  surface_treatment: painted
+  reference: "docs/physics-model.md section 16.2 (paint row), as car_paint_white; NIR/SWIR and the weathering of the solar absorptivity ESTIMATED. Thermal: plain carbon steel, Incropera, DeWitt, Bergman & Lavine, Fundamentals of Heat and Mass Transfer, Table A.1 (300 K); plate thickness ESTIMATED"
+  description: "Ship's superstructure plate in white marine paint: deckhouses, funnel, masts, boats"
+  thermal:
+    density_kg_m3: 7854
+    specific_heat_j_kgk: 434
+    conductivity_w_mk: 60.5
+    thickness_m: 0.008   # ESTIMATED: deckhouse and funnel plate, 5/16 in
+    solar_absorptivity: 0.30   # ESTIMATED: weathered white marine paint
+  optical:
+    emissivity_per_band: {nir: 0.30, swir: 0.40, mwir: 0.88, lwir: 0.90}
+    roughness_per_band: {nir: 0.35, swir: 0.30, mwir: 0.18, lwir: 0.12}   # ESTIMATED, as car_paint_white
+    angular_model: {type: empirical, a: 0.75, p: 4.0}   # the painted class's fit, see car_paint_white

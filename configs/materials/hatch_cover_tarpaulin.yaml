@@ -1,0 +1,26 @@
+# A cargo hatch as a WWII freighter closed it: hardwood hatch boards laid across steel beams, under
+# tarred canvas tarpaulins wedged to the coaming (roadmap AI.21, drafted for the Liberty ship).
+# One layer stands for two. The camera sees the canvas, so the optics are a woven cotton fabric's
+# (as cotton_clothing: eps 0.93 MWIR, 0.95 LWIR, section 16.2), and dark tarred canvas absorbs
+# more sun than mid-tone cotton (0.85, ESTIMATED). The heat capacity behind it is the boards': a
+# 1 mm canvas over 70 mm of wood adds 0.02 m2K/W to the wood's ~0.45, so the wood is the slab.
+# Boards: "3 hardwood boards banded together" per hatch section (surviving Liberty hatch covers,
+# naval-encyclopedia.com/civ/ww2/us/liberty-ships.php and salvage dealers); thickness and species
+# ESTIMATED as 70 mm of a temperate hardwood (Incropera Table A.3, oak: 545-720 kg/m3, 0.17 W/m/K).
+schema_version: 2
+material:
+  name: hatch_cover_tarpaulin
+  source: literature
+  surface_treatment: as_manufactured
+  reference: "Optics: docs/physics-model.md section 16.2 cotton row, as cotton_clothing; NIR/SWIR ESTIMATED for dark tarred canvas. Thermal: hardwood (oak) boards, Incropera, DeWitt, Bergman & Lavine, Fundamentals of Heat and Mass Transfer, Table A.3; board thickness ESTIMATED"
+  description: "Ship's hatch cover: tarred canvas over hardwood hatch boards"
+  thermal:
+    density_kg_m3: 650
+    specific_heat_j_kgk: 2000
+    conductivity_w_mk: 0.17
+    thickness_m: 0.07   # ESTIMATED: hatch boards
+    solar_absorptivity: 0.85   # ESTIMATED: dark tarred canvas
+  optical:
+    emissivity_per_band: {nir: 0.70, swir: 0.75, mwir: 0.93, lwir: 0.95}
+    roughness_per_band: {nir: 0.80, swir: 0.78, mwir: 0.70, lwir: 0.65}   # ESTIMATED, woven, as cotton_clothing
+    angular_model: {type: empirical, a: 0.08, p: 4.0}   # as cotton_clothing

@@ -184,7 +184,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 83 open steps
+#### Then, in order — 84 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -200,11 +200,11 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25`, `WX.26` |
 | 11 | **`XD.6`** | XD | A | L | — | ready |
 | 12 | **`AT.26`** | AT | B | S | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 13 | **`AI.22`** | AI | B | M | — | ready |
+| 14 | **`IG.16`** | IG | B | M | — | ready |
+| 15 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
 
-…and 68 more — `python scripts/next_step.py --queue 40`.
+…and 69 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -285,7 +285,7 @@ row says so and names the step that closes it.
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `TC.9`–`TC.12`, `TC.16`, `PH.1`–`PH.8`, `PH.13`, `PT.25`, `PT.26`, `AT.24`, `IG.20`, `IG.21`, `IG.22` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half, staged by `IG.20` |
 | **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.20`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.37`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.20`, `WX.1`–`WX.11`, `WX.21`–`WX.27` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
-| **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
+| **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `AI.21`, `AI.22`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`, `XD.5`, `XD.7`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
 
@@ -936,6 +936,8 @@ of the silhouette still render at their node's one temperature.
 | AI.18 | ✅ **done.** `PartSelector.objects` matches `Component.source` (object in the render pass, archive prim in the thermal pass), case-insensitive, at either granularity: a part may be the object a person separated and named. For the Blender add-on's export, whose contacts and hidden parts name its objects. | **Measured.** One plastic, a battery inside its shell: four shells claimed by name at both granularities; the archive split puts each prim whole in its part, coverage 1.0 (`tests/unit/test_asset_part_objects.py`). | AI.11, AI.16 | S | A |
 | AI.19 | ✅ **done.** DJI Avata 2 enters the library from a CC-BY model: 22 parts on the welded mesh (four propellers, four ducts — one per propeller, cut from the frame with `AssetMapping.cuts` — four motors, four braces, chassis, frame, battery with its tail, gimbal camera, lens, body), 19 contacts. Materials all `ESTIMATED` (DJI publishes none). The first split (55f6ff8) judged glTF seam fragments, the second (e7bb10e) left the ducts in the frame; both were redone at the owner's review. | **Measured.** Extent 212 × 184 × 64 mm vs DJI's 185 × 212 × 64; duct lip 36 mm from each hub for the 3032S's 75.7 mm. Welding 4,233 fragments → 189 pieces, the same at 0.1 / 0.01 / 0.001 mm. Cuts at the body wall's end (shell area per mm falls 10× from |x| 19 to 24 mm) and the figure-eight waist. Propellers 28.47 cm² each, motors 32.43 cm² each, ducts 72.1 front / 74.4 rear with left and right within 0.04 cm²; render and archive splits agree; audits 100 %; every contact touches; 0/22 faceted at 2 m. | AI.17 | S | A |
 | AI.20 | ✅ **done.** DJI FPV enters the library from a CC-BY model: 17 parts (four propellers, four motors, four arms with the landing feet, battery, electronics, gimbal camera, lens, body), 9 contacts. `AssetMapping.rotate_deg` levels a model posed in flight, in every prep pass. Materials all `ESTIMATED`. | **Measured.** mm-scale glTF (0.001) posed 36.0° nose down (hub plane); levelled on the rotor plane, 137 mm tall vs DJI's 127, against 173 as posed. Motor diagonal 245.6 mm vs 245. Propellers 63.0–63.2 cm², arms per side identical, motors 31.7 front / 33.7 rear (larger rear mount pad). Audits 100 %; every contact touches; 0/17 faceted at 2 m. Argv contract: `tests/unit/test_prep_asset_rotate.py`. | AI.19 | S | A |
+| AI.21 | ✅ **done.** A WWII Liberty ship enters the library from a CC-BY model: one atlas material, so parts assert theirs; 25 parts (hull, interior, five hatches, three masts, midship house, funnel, four lifeboats, poop, bow gun platform, rudder, propeller, anchors, cargo, flag, fittings). New: three ship materials. | **Measured.** 134.57 m = 441 ft 6 in; beam 17.6 vs 17.34 m. Coverage 100 %; hatches 260.1–262.4 m², lifeboats 31.6–31.9. | AI.14 | M | B |
+| AI.22 | The Liberty ship's welds as `contacts:` (hull ↔ houses, masts, funnel), and its hull through `low2high`. `check_asset_contacts.py` ran > 10 min at a third of RAM on 19,000 m² without finishing. | Every contact touches on the solver's cells within the gate's time; `mesh_facets.py` passes at 200 m, 0.67 mrad (now 24–27 % faceted). | AI.21 | M | B |
 
 ---
 

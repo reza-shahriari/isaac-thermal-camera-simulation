@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 82 materials. 56 of them were measured and imported by a script; the rest are
+The library has 85 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -234,6 +234,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `granite_rough` | weathered | 0.48 | 0.50 | 0.96 | 0.92 | 0.52 | measured: SLUM (MWIR from its class) |
 | `granite_weathered` | weathered | 0.42 | 0.45 | 0.96 | 0.93 | 0.46 | measured: SLUM (MWIR from its class) |
 | `grass_dry` | natural | 0.67 | 0.67 | 0.91 | 0.96 | 0.76 | measured: USGS + UCSB |
+| `hatch_cover_tarpaulin` | as manufactured | 0.70 | 0.75 | 0.93 | 0.95 | 0.85 | literature, partly estimated |
 | `human_skin` | natural | 0.50 | 0.70 | 0.97 | 0.98 | 0.65 | literature, partly estimated |
 | `iron_weathered` | weathered | 0.94 | 0.93 | 0.96 | 0.97 | 0.95 | measured: SLUM (MWIR from its class) |
 | `leaf_maple` | natural | 0.38 | 0.64 | 0.96 | 0.96 | 0.69 | measured: USGS + UCSB |
@@ -267,6 +268,8 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `sand_beach` | natural | 0.68 | 0.57 | 0.87 | 0.90 | 0.72 | measured: USGS + UCSB |
 | `sandstone_beige` | weathered | 0.56 | 0.43 | 0.85 | 0.90 | 0.60 | measured: SLUM (MWIR from its class) |
 | `seawater` | natural | 0.98 | 0.98 | 0.98 | 0.99 | 0.97 | measured: USGS + UCSB |
+| `ship_steel_painted_dark` | painted | 0.84 | 0.82 | 0.92 | 0.93 | 0.88 | literature, partly estimated |
+| `ship_steel_painted_white` | painted | 0.30 | 0.40 | 0.88 | 0.90 | 0.30 | literature, partly estimated |
 | `silver_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | measured optical constants |
 | `slate_roof` | weathered | 0.91 | 0.91 | 0.83 | 0.90 | 0.91 | measured: SLUM (MWIR from its class) |
 | `snow` | natural | 0.15 | 0.90 | 0.98 | 0.99 | 0.15 | LWIR shape from n, k; level literature |

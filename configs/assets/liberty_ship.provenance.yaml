@@ -1,0 +1,22 @@
+provenance:
+  schema_version: 1
+  asset_name: liberty_ship
+  source: local
+  real_name: Liberty ship
+  uid: ''
+  title: Liberty ship
+  author: AlanTinka
+  author_url: ''
+  model_url: https://sketchfab.com/3d-models/liberty-ship-a1db8e8414464c5d8b11383e202fcf26
+  license:
+    slug: by
+    label: by
+    url: ''
+  shareable: true
+  gate_reason: 'by: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: 439ba9de38b5ae525f1103a111cde7cd0c057b473514c4c4f2e83f5f447c2b83
+  downloaded_at: '2026-10-01T10:05:44+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.
