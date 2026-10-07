@@ -242,8 +242,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sensor", default="configs/sensors/example_lwir_640_telephoto.yaml")
     parser.add_argument("--near-m", type=float, default=20.0)
     parser.add_argument("--far-m", type=float, default=90.0)
-    parser.add_argument("--elevation-low-deg", type=float, default=6.0)
-    parser.add_argument("--elevation-high-deg", type=float, default=20.0)
+    # EV.10: the real sky-only frames' mount elevation reads 0.2-10 deg by eye off the burnt-in
+    # readout (EV.19 report); the aim is raised wherever a frame would show the horizon.
+    parser.add_argument("--elevation-low-deg", type=float, default=1.0)
+    parser.add_argument("--elevation-high-deg", type=float, default=12.0)
     parser.add_argument("--aim-jitter", type=float, default=0.6)
     parser.add_argument(
         "--focus",

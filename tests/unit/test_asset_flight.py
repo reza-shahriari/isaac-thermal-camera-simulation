@@ -275,3 +275,33 @@ def test_wander_track_is_a_flight_not_a_scatter() -> None:
     assert track.position_m(0.5).shape == (3,)
     with pytest.raises(ValueError):
         WanderTrack(cycles=0.5)
+
+
+# --- EV.10: a target just above the horizon, framed without the horizon ----------------------
+
+
+def test_an_aim_that_keeps_the_horizon_out_is_left_alone() -> None:
+    from irsim_isaac.asset_flight import horizon_safe_aim
+
+    assert float(horizon_safe_aim(10.0, -1.0, 3.5)) == -1.0
+
+
+def test_an_aim_that_would_show_the_horizon_is_raised_to_the_margin() -> None:
+    """A target at 2 deg aimed 1 deg below in a 7 deg field would show down to -2.5 deg; the
+    boresight is raised until the bottom edge is the margin above the horizon, so the target sits
+    low in the frame instead, as a real tracker's does."""
+    from irsim_isaac.asset_flight import HORIZON_MARGIN_DEG, horizon_safe_aim
+
+    offset = float(horizon_safe_aim(2.0, -1.0, 3.5))
+    assert 2.0 + offset - 3.5 == pytest.approx(HORIZON_MARGIN_DEG)
+    assert offset < 0.9 * 3.5  # the target is still inside the frame
+
+
+def test_a_target_too_low_to_frame_is_refused() -> None:
+    from irsim_isaac.asset_flight import horizon_safe_aim, lowest_framable_elevation_deg
+
+    lowest = lowest_framable_elevation_deg(3.5)
+    assert lowest == pytest.approx(0.3 + 0.35)
+    horizon_safe_aim(lowest + 1e-6, 0.0, 3.5)
+    with pytest.raises(ValueError, match="cannot be framed"):
+        horizon_safe_aim(lowest - 0.05, 0.0, 3.5)

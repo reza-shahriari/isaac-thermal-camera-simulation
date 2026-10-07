@@ -1195,6 +1195,23 @@ sections:
       The depth is a quarter of the real one, and the mechanism behind the rest is not known. It
       may be a stronger shading in the real camera, or a near-horizon sky flatter than ours.
     source: scripts/sky_bowl.py
+  - id: drone-near-the-horizon
+    title: A drone just above the horizon, framed the way a tracker frames it
+    lead: |
+      `EV.10` part 1, ADR 0208. Real anti-drone footage runs down to a fraction of a degree
+      above the horizon; the renders stopped at 6°. The mount now raises its aim wherever the
+      frame would show the horizon, so a low drone sits low in the frame. **The frame's bottom edge
+      stays 0.3° above the horizon**, and the target can be as low as 0.65° through the 50 mm lens.
+    media:
+      - image: viewpoint/low_frame.png
+        width: half
+        caption: >-
+          The Phantom 4 at 1.2° elevation and 23.5 m, nearly edge-on, over the warm air near the
+          horizon.
+    note: |
+      Lower views do not flatten a Phantom 4's box (aspect p90 1.83 against the real 3.14): its
+      landing skids keep it tall. The real set's flattest boxes are other airframes (`EV.25`).
+    source: scripts/render_phantom4.py
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

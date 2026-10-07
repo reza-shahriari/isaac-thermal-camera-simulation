@@ -44,6 +44,14 @@ def test_a_part_too_faint_to_see_is_not_boxed() -> None:
     assert visible_extent(frame, TRUTH)[0] == TRUTH.x1 + 20
 
 
+def test_the_warm_sky_at_the_frame_edge_is_not_the_target() -> None:
+    """EV.10: a frame aimed just above the horizon has a band as bright as the target at its
+    bottom edge, inside the search window. Only what is connected to the target is boxed."""
+    frame = _display()
+    frame[150:, :] = 230.0  # the horizon's warm air, 20 px below the target's box
+    assert visible_extent(frame, TRUTH) == (TRUTH.x1, TRUTH.y1, TRUTH.x2, TRUTH.y2)
+
+
 def test_a_target_with_no_contrast_keeps_the_truth_box() -> None:
     assert visible_extent(np.full((240, 320), 80.0), TRUTH) == (90, 100, 150, 130)
 

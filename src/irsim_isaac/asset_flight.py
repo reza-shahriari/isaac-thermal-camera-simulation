@@ -59,9 +59,55 @@ __all__ = [
     "StraightOutExitTrack",
     "StraightOutTrack",
     "WanderTrack",
+    "HORIZON_MARGIN_DEG",
     "clear_exit_seconds",
+    "horizon_safe_aim",
+    "lowest_framable_elevation_deg",
     "world_frame_to_stage",
 ]
+
+#: EV.10: how far above the horizon a frame's bottom edge is kept, degrees. The aerial scenes
+#: author no terrain (ADR 0060), so a frame reaching the horizon would show analytic ground.
+HORIZON_MARGIN_DEG = 0.3
+
+
+def horizon_safe_aim(
+    target_elevation_deg: object,
+    offset_elevation_deg: object,
+    half_vfov_deg: float,
+    margin_deg: float = HORIZON_MARGIN_DEG,
+) -> NDArray[np.float64]:
+    """The boresight's elevation offset from the target, raised where it would put the horizon in
+    the frame (EV.10).
+
+    A mount aimed at ``target + offset`` shows down to ``target + offset - half_vfov``. Where that
+    falls below ``margin_deg`` the offset is raised until it does not, so the target sits lower in
+    the frame -- what a real mount tracking a drone just above the horizon shows. Until EV.10 the
+    driver refused any elevation band whose *worst* jittered frame could reach the horizon, which
+    for the 50 mm lens and a 0.6 jitter stopped the band at 6 deg; real anti-UAV footage runs down
+    to a fraction of a degree. Raises where no offset keeps the target inside the frame.
+    """
+    target = np.asarray(target_elevation_deg, dtype=np.float64)
+    offset = np.asarray(offset_elevation_deg, dtype=np.float64)
+    needed = margin_deg + float(half_vfov_deg) - target
+    raised = np.maximum(offset, needed)
+    # The target leaves the frame's bottom edge once the boresight is more than half the field
+    # above it; keep a tenth of the half-field inside.
+    if np.any(raised > 0.9 * float(half_vfov_deg)):
+        lowest = float(np.min(target))
+        raise ValueError(
+            f"a target at {lowest:.2f} deg cannot be framed with the bottom edge "
+            f"{margin_deg} deg above the horizon in a {2.0 * half_vfov_deg:.1f} deg field"
+        )
+    return np.asarray(raised, dtype=np.float64)
+
+
+def lowest_framable_elevation_deg(
+    half_vfov_deg: float, margin_deg: float = HORIZON_MARGIN_DEG
+) -> float:
+    """The lowest target elevation :func:`horizon_safe_aim` can frame, degrees."""
+    return margin_deg + 0.1 * float(half_vfov_deg)
+
 
 #: The stage's own axes, in the order the rotation's rows are built from: east, up, north.
 STAGE_EAST = (1.0, 0.0, 0.0)

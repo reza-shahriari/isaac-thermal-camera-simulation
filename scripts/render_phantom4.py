@@ -717,6 +717,8 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         StraightOutTrack,
         WanderTrack,
         clear_exit_seconds,
+        horizon_safe_aim,
+        lowest_framable_elevation_deg,
         world_frame_to_stage,
     )
     from irsim_isaac.pipeline.ir_camera import IrCamera
@@ -1113,14 +1115,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 )
                 * half_fov
             )
-        lowest = math.radians(track.elevation_low_deg) - (1.0 + args.aim_jitter) * 0.5 * vfov_rad
-        if lowest <= 0.0:
+        # EV.10: the aim is raised wherever a frame would reach the horizon (`horizon_safe_aim`),
+        # so the band is limited only by the lowest target the frame can hold above it.
+        lowest = lowest_framable_elevation_deg(math.degrees(0.5 * vfov_rad))
+        if track.elevation_low_deg < lowest:
             raise SystemExit(
-                f"{args.track}: at {track.elevation_low_deg:.1f} deg elevation with a "
-                f"{math.degrees(vfov_rad):.1f} deg vertical field and --aim-jitter "
-                f"{args.aim_jitter} the frame reaches {math.degrees(lowest):.1f} deg: the horizon "
-                "is in the picture and this scene has no terrain. Raise --elevation-low-deg or "
-                "use a longer lens."
+                f"{args.track}: a target at {track.elevation_low_deg:.1f} deg cannot be framed "
+                f"with the frame's bottom edge above the horizon in a "
+                f"{math.degrees(vfov_rad):.1f} deg vertical field; the lowest is {lowest:.2f} deg"
             )
 
     def aim_at(position: Any, offset: Any = (0.0, 0.0)) -> None:
@@ -1155,6 +1157,16 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             0.5 * fpa.height - focal_px * float(d @ up) / depth,
         )
 
+    def above_horizon(position: Any, offset: Any) -> tuple[float, float]:
+        """``offset`` (azimuth, elevation; radians) with the elevation raised where the frame
+        would reach the horizon (EV.10, :func:`horizon_safe_aim`)."""
+        d = np.asarray(position, dtype=np.float64) - eye
+        target_deg = math.degrees(math.atan2(float(d[1]), math.hypot(float(d[0]), float(d[2]))))
+        raised = horizon_safe_aim(
+            target_deg, math.degrees(float(offset[1])), math.degrees(0.5 * vfov_rad)
+        )
+        return float(offset[0]), math.radians(float(raised))
+
     def place(phase: float) -> tuple[Any, float, float]:
         """Put the aircraft on the track at ``phase`` and slew the camera onto it.
 
@@ -1166,10 +1178,16 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         heading = float(track.yaw_deg(phase)) + args.turn_deg
         transform_op.Set(_mount_matrix(mount, centre, heading - nose_yaw_deg, position))
         if args.track == "scatter":
-            aim_at(position, aim_offsets[int(round(phase * (max(args.frames, 2) - 1)))])
+            aim_at(
+                position,
+                above_horizon(position, aim_offsets[int(round(phase * (max(args.frames, 2) - 1)))]),
+            )
         elif args.track == "wander":
             # The mount lags and leads the aircraft smoothly, like a tracker, not frame by frame.
-            aim_at(position, track.aim_fraction(phase) * args.aim_jitter * half_fov)
+            aim_at(
+                position,
+                above_horizon(position, track.aim_fraction(phase) * args.aim_jitter * half_fov),
+            )
         elif args.clear_exit:
             # EV.20: the mount follows the run, then stops; the aircraft strafes on without it.
             aim_at(track.aim_m(phase))

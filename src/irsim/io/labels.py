@@ -296,20 +296,24 @@ def write_split_manifest(
 
 #: EV.22: how much larger than the visible target a person draws its box, as log-normal
 #: ``(median, sigma of the log)`` per axis. Measured on Anti-UAV RGBT's sky-only test frames (795
-#: boxes at least 16 px wide, ``scripts/box_convention.py``): the human box over the extent of the
-#: pixels past half the target's contrast is 1.28 wide (10-90 %: 1.13-1.47) and 1.48 tall
-#: (1.26-1.78). The rendered boxes were the mask's extent, 0.98 and 0.97.
-DRAWN_MARGIN: dict[str, tuple[float, float]] = {"width": (1.28, 0.103), "height": (1.48, 0.135)}
+#: boxes at least 16 px wide, ``scripts/box_convention.py``): the human box over the target's
+#: visible extent (:func:`visible_extent`) is 1.29 wide (10-90 %: 1.13-1.48) and 1.50 tall
+#: (1.26-1.79). The rendered boxes were the mask's extent, 0.98 and 0.97.
+DRAWN_MARGIN: dict[str, tuple[float, float]] = {"width": (1.29, 0.104), "height": (1.50, 0.136)}
 
 
 def visible_extent(display: Any, box: Box, *, fraction: float = 0.5) -> tuple[int, int, int, int]:
     """``x1, y1, x2, y2`` of what a person sees of the target in the display frame (EV.22).
 
     The pixels within one box size of ``box`` that stand more than ``fraction`` of the target's
-    contrast from the background (the median outside the box), on the target's side of it -- so
-    a defocused glow counts as far as it shows, and a part too faint to see does not. Falls back
-    to ``box`` when the target shows no contrast.
+    contrast from the background (the median outside the box), on the target's side of it, and
+    are connected to a seen pixel inside the box -- so a defocused glow counts as far as it shows,
+    a part too faint to see does not, and the warm sky near the horizon at the frame's edge is not
+    the target (EV.10: at 1-3 deg elevation it took boxes to 380 px). Falls back to ``box`` when
+    the target shows no contrast.
     """
+    from scipy.ndimage import label as connected
+
     image = np.asarray(display, dtype=np.float64)
     if image.ndim == 3:
         image = image[..., 0]
@@ -329,6 +333,9 @@ def visible_extent(display: Any, box: Box, *, fraction: float = 0.5) -> tuple[in
     if abs(contrast) < 1e-9:
         return box.x1, box.y1, box.x2, box.y2
     seen = (window - background) / contrast > fraction
+    components, _ = connected(seen, structure=np.ones((3, 3), dtype=bool))
+    touching = np.unique(components[seen & inside])
+    seen = np.isin(components, touching[touching > 0])
     rows, cols = np.flatnonzero(seen.any(axis=1)), np.flatnonzero(seen.any(axis=0))
     if rows.size == 0:
         return box.x1, box.y1, box.x2, box.y2

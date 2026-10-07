@@ -1,6 +1,6 @@
 # ADR 0207 — A drone set's label is the box a person draws, measured, not the rotor discs
 
-**Status:** Accepted (EV.22)
+**Status:** Accepted (EV.22); amended by EV.10
 **Date:** 2026-10-07
 
 ## Context
@@ -62,3 +62,12 @@ The old clip set re-labelled this way (`--as-drawn`, the same frames):
 ## Revisit when
 
 - A second real set's boxes are read (`XD.11`). Measure its margin before reusing this one.
+
+## Amendment (EV.10)
+
+At 1–3° elevation the warm sky near the horizon reaches past half the target's contrast at the
+frame's bottom edge, inside `visible_extent`'s window, and took drawn boxes to 380 px.
+`visible_extent` now keeps only the seen pixels connected to one inside the truth box. Re-measured
+with it, the real margin is 1.29 (1.13–1.48) wide and 1.50 (1.26–1.79) tall, and `DRAWN_MARGIN`
+is (1.29, 0.104) and (1.50, 0.136).
+
