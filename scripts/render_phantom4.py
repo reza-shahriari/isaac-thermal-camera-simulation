@@ -686,7 +686,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     )
     from irsim.config.scene import load_scene_config
     from irsim.io.dataset import FrameWriter
-    from irsim.io.labels import frame_labels, write_frame_labels
+    from irsim.io.labels import as_drawn, frame_labels, write_frame_labels
     from irsim.io.png import write_png
     from irsim.isp.palette import palette_table, quantise_display
     from irsim.materials.library import MaterialLibrary
@@ -740,8 +740,6 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         focus = str(args.focus_m).strip().lower()
         sensor = with_focus(sensor, None if focus in ("inf", "infinity") else float(focus))
     if args.corner_illumination is not None:
-        import numpy as np
-
         from irsim.optics.vignetting import radial_vignetting_map
 
         fpa_spec = sensor.sensor.fpa
@@ -1562,14 +1560,23 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 # as far as it is in the picture and one that left it gets no box.
                 legend = truth.legends["part_id"]
                 names = [name for code, name in legend.items() if int(code) != 0]
-                write_frame_labels(
-                    out / "labels",
-                    f"frame_{index:06d}",
-                    frame_labels(
-                        truth.planes["part_id"], legend, {"aircraft": names}, {"aircraft": "drone"}
-                    ),
-                    image_id=index,
+                labels = frame_labels(
+                    truth.planes["part_id"], legend, {"aircraft": names}, {"aircraft": "drone"}
                 )
+                write_frame_labels(out / "labels", f"frame_{index:06d}", labels, image_id=index)
+                if outputs.display8 is not None:
+                    # EV.22: the box a person would draw on this display frame -- what they can
+                    # see of the target, with their margin -- beside the truth's tight one.
+                    write_frame_labels(
+                        out / "labels_drawn",
+                        f"frame_{index:06d}",
+                        as_drawn(
+                            labels,
+                            outputs.display8,
+                            np.random.default_rng([args.scatter_seed, index, 22]),
+                        ),
+                        image_id=index,
+                    )
         if index % 12 == 0 or index == args.frames - 1:
             r = rows[-1]
             # EV.20: once the aircraft has left the field a frame has no target pixels at all.

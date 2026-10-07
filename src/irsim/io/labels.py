@@ -30,7 +30,7 @@ import json
 import os
 import pathlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -38,7 +38,10 @@ from numpy.typing import NDArray
 
 __all__ = [
     "Box",
+    "DRAWN_MARGIN",
     "FrameLabels",
+    "as_drawn",
+    "visible_extent",
     "PointLabel",
     "frame_labels",
     "split_manifest",
@@ -289,3 +292,71 @@ def write_split_manifest(
         )
     )
     return path
+
+
+#: EV.22: how much larger than the visible target a person draws its box, as log-normal
+#: ``(median, sigma of the log)`` per axis. Measured on Anti-UAV RGBT's sky-only test frames (795
+#: boxes at least 16 px wide, ``scripts/box_convention.py``): the human box over the extent of the
+#: pixels past half the target's contrast is 1.28 wide (10-90 %: 1.13-1.47) and 1.48 tall
+#: (1.26-1.78). The rendered boxes were the mask's extent, 0.98 and 0.97.
+DRAWN_MARGIN: dict[str, tuple[float, float]] = {"width": (1.28, 0.103), "height": (1.48, 0.135)}
+
+
+def visible_extent(display: Any, box: Box, *, fraction: float = 0.5) -> tuple[int, int, int, int]:
+    """``x1, y1, x2, y2`` of what a person sees of the target in the display frame (EV.22).
+
+    The pixels within one box size of ``box`` that stand more than ``fraction`` of the target's
+    contrast from the background (the median outside the box), on the target's side of it -- so
+    a defocused glow counts as far as it shows, and a part too faint to see does not. Falls back
+    to ``box`` when the target shows no contrast.
+    """
+    image = np.asarray(display, dtype=np.float64)
+    if image.ndim == 3:
+        image = image[..., 0]
+    height, width = image.shape
+    grow = max(box.x2 - box.x1, box.y2 - box.y1)
+    x0, y0 = max(0, box.x1 - grow), max(0, box.y1 - grow)
+    x3, y3 = min(width, box.x2 + grow), min(height, box.y2 + grow)
+    window = image[y0:y3, x0:x3]
+    inside = np.zeros(window.shape, dtype=bool)
+    inside[box.y1 - y0 : box.y2 - y0, box.x1 - x0 : box.x2 - x0] = True
+    if inside.all() or not inside.any():
+        return box.x1, box.y1, box.x2, box.y2
+    background = float(np.median(window[~inside]))
+    bright = float(np.percentile(window[inside], 99.0)) - background
+    dark = background - float(np.percentile(window[inside], 1.0))
+    contrast = bright if bright >= dark else -dark
+    if abs(contrast) < 1e-9:
+        return box.x1, box.y1, box.x2, box.y2
+    seen = (window - background) / contrast > fraction
+    rows, cols = np.flatnonzero(seen.any(axis=1)), np.flatnonzero(seen.any(axis=0))
+    if rows.size == 0:
+        return box.x1, box.y1, box.x2, box.y2
+    return x0 + int(cols[0]), y0 + int(rows[0]), x0 + int(cols[-1]) + 1, y0 + int(rows[-1]) + 1
+
+
+def as_drawn(labels: FrameLabels, display: Any, rng: np.random.Generator) -> FrameLabels:
+    """``labels`` with every box replaced by one a person would draw (EV.22).
+
+    The box is :func:`visible_extent` grown about its centre by a margin drawn per box from
+    :data:`DRAWN_MARGIN`, and clipped to the frame. The mask, pixel count, visibility and cloud
+    transmittance stay the truth's: only the box is a convention, and it is the one the real sets
+    a detector is scored on were labelled with.
+    """
+    boxes = []
+    for b in labels.boxes:
+        x1, y1, x2, y2 = visible_extent(display, b)
+        mw = DRAWN_MARGIN["width"][0] * float(np.exp(rng.normal(0.0, DRAWN_MARGIN["width"][1])))
+        mh = DRAWN_MARGIN["height"][0] * float(np.exp(rng.normal(0.0, DRAWN_MARGIN["height"][1])))
+        cx, cy = 0.5 * (x1 + x2), 0.5 * (y1 + y2)
+        hw, hh = 0.5 * (x2 - x1) * mw, 0.5 * (y2 - y1) * mh
+        boxes.append(
+            replace(
+                b,
+                x1=max(0, int(round(cx - hw))),
+                y1=max(0, int(round(cy - hh))),
+                x2=min(labels.width, int(round(cx + hw))),
+                y2=min(labels.height, int(round(cy + hh))),
+            )
+        )
+    return replace(labels, boxes=tuple(boxes))

@@ -187,8 +187,12 @@ def render_command(args: argparse.Namespace, run: dict[str, Any], out: Path) -> 
     ]  # fmt: skip
 
 
-def collect(run_dir: Path, name: str, out: Path) -> int:
-    """Copy one run's display frames and labels into the YOLO layout. Returns frames collected."""
+def collect(run_dir: Path, name: str, out: Path, boxes: str = "drawn") -> int:
+    """Copy one run's display frames and labels into the YOLO layout. Returns frames collected.
+
+    ``boxes``: ``drawn`` takes the box a person would draw (EV.22, ``labels_drawn``) where the run
+    wrote one, ``tight`` the truth mask's extent (``labels``).
+    """
     import cv2
 
     images, labels = out / "images" / "train", out / "labels" / "train"
@@ -198,6 +202,9 @@ def collect(run_dir: Path, name: str, out: Path) -> int:
     for display in sorted(run_dir.glob("frame_*_display8.png")):
         stem = display.name.removesuffix("_display8.png")
         label = run_dir / "labels" / f"{stem}.txt"
+        drawn = run_dir / "labels_drawn" / f"{stem}.txt"
+        if boxes == "drawn" and drawn.exists():
+            label = drawn
         if not label.exists():
             continue
         frame = cv2.imread(str(display), cv2.IMREAD_UNCHANGED)
@@ -245,6 +252,13 @@ def main(argv: list[str] | None = None) -> int:
         "draw_focus), 'inf', a distance in metres, or 'sensor' for the sensor file's own",
     )
     parser.add_argument(
+        "--boxes",
+        default="drawn",
+        choices=("drawn", "tight"),
+        help="the label box: 'drawn' as a person would (EV.22: what is visible, plus their "
+        "margin), or 'tight', the truth mask's extent",
+    )
+    parser.add_argument(
         "--housing-start",
         default="drawn",
         help="the camera housing's start offset from settled per clip, K: 'drawn' (EV.23, "
@@ -287,7 +301,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{run['name']}: render failed, see {work / run['name']}.log", flush=True)
                 records.append({**run, "failed": True})
                 continue
-        collected = collect(run_dir, run["name"], out)
+        collected = collect(run_dir, run["name"], out, args.boxes)
         records.append({**run, "collected": collected, "render_s": round(seconds, 1)})
         print(f"{run['name']}: {collected} frames ({run['weather']}, {seconds:.0f} s)", flush=True)
 
