@@ -19,11 +19,12 @@ this does, for a body mesh skinned to a known rig:
    above it (toes point forward), so the declared axis must agree with that displacement or the
    run stops -- a body labelled with Chest and Back swapped renders a plausible person.
 4. **One object per segment**, named ``skin_<Segment>`` (an underscore, because a USD prim name
-   cannot carry a dot and the renderer finds a segment by its prim's name), each keeping its
-   armature modifier and
-   vertex groups so the body still deforms as one. Eyes, eyebrows, eyelashes and hair objects are
-   kept whole and renamed to their layer. These names are what the asset config's ``parts:`` block
-   selects by (``granularity: object``, AI.16/AI.18), so ``prep_asset.py`` needs nothing new.
+   cannot carry a dot and the renderer finds a segment by its prim's name). Eyes, eyebrows,
+   eyelashes and hair objects are kept whole and renamed to their layer; garments and equipment
+   are kept whole. The result is **static**: the rest pose, with no skeleton (the rig stays in
+   make_human.py's own output for HU.10). These names are what the asset config's ``parts:``
+   block selects by (``granularity: object``, AI.16/AI.18), so ``prep_asset.py`` needs nothing
+   new.
 5. **Export** the labelled glTF, a report JSON (faces and area per segment, left/right ratios,
    stature, the forward check) and, with ``--write-config``, the asset YAML skeleton with
    ``kind: human``, the phenotype from the generator's sidecar, the material map and the parts.
@@ -87,13 +88,24 @@ def _worker(argv: list[str]) -> None:
 
     body = bpy.data.objects.get(a.body_object)
     if body is None or body.type != "MESH":
+        # glTF's importer splits a skinned node that has children into an empty of the node's
+        # name and a mesh `<name>.001`; the mesh is the body, whatever the importer called it
+        import re
+
         meshes = [o for o in bpy.data.objects if o.type == "MESH" and o.vertex_groups]
-        if len(meshes) != 1:
+        named = [o for o in meshes if re.sub(r"\.\d{3}$", "", o.name) == a.body_object]
+        if len(named) == 1:
+            if body is not None:
+                body.name = f"{a.body_object}_node"
+            body = named[0]
+            body.name = a.body_object
+        elif len(meshes) == 1:
+            body = meshes[0]
+        else:
             raise SystemExit(
                 f"no object {a.body_object!r}; skinned meshes are {[m.name for m in meshes]} -- "
                 "name the body with --body-object"
             )
-        body = meshes[0]
 
     # --- 1-3. the labelling arithmetic is irsim.io.human_labels (NumPy only, tested without
     # Blender); this worker only gathers the arrays and acts on the answer.
@@ -252,6 +264,23 @@ def _worker(argv: list[str]) -> None:
         tex.image = dyed
         tinted.append(slot)
 
+    # --- 4d. static: the labelled asset is the rest pose, with no skeleton ---------------------
+    # MakeHuman's garments arrive unskinned while the body and anything cut from it are skinned.
+    # Exported under one skeleton, the USD binds the garments to it with no real weights, and the
+    # renderer's skinning collapses them (HU.7: an officer drawn without trousers). No step renders
+    # a deforming person yet -- that is HU.10, which takes the rig from make_human.py's own output
+    # -- so the labelled asset is static: every mesh keeps its rest-pose world transform, the
+    # armature modifiers and the rig go.
+    for obj in [o for o in bpy.data.objects if o.type == "MESH"]:
+        for mod in [m for m in obj.modifiers if m.type == "ARMATURE"]:
+            obj.modifiers.remove(mod)
+        if obj.parent is not None:
+            world_matrix = obj.matrix_world.copy()
+            obj.parent = None
+            obj.matrix_world = world_matrix
+    for obj in [o for o in bpy.data.objects if o.type in ("ARMATURE", "EMPTY")]:
+        bpy.data.objects.remove(obj, do_unlink=True)
+
     # --- 5. report and export --------------------------------------------------------------------
     stats = {}
     for label in present:
@@ -345,6 +374,29 @@ def _garments(name: str, sidecar: dict) -> dict[str, dict]:
     return kept
 
 
+def _equipment(name: str, objects: list[str]) -> dict[str, dict]:
+    """The `equipment:` block: an existing config's entries, one for every `equipment_<x>` object.
+
+    Equipment has no default: a belt and a tape are different materials on different slots, and
+    a guess would be a material nobody chose. An object without an entry stops the run.
+    """
+    import yaml
+
+    cfg = REPO_ROOT / "configs" / "assets" / f"{name}.yaml"
+    have: dict[str, dict] = {}
+    if cfg.is_file():
+        existing = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+        have = dict(((existing.get("asset") or {}).get("human") or {}).get("equipment") or {})
+    worn = sorted(o[len("equipment_") :] for o in objects if o.startswith("equipment_"))
+    missing = [w for w in worn if w not in have]
+    if missing:
+        raise SystemExit(
+            f"equipment {missing} has no entry in configs/assets/{name}.yaml `human.equipment` "
+            "(material and the slot it sits on): seed the config before running"
+        )
+    return {w: dict(have[w]) for w in worn}
+
+
 def _asset_config(
     name: str,
     source_rel: str,
@@ -355,6 +407,7 @@ def _asset_config(
     bmi: float,
     garments: dict[str, dict],
     bmi_source: str = "ESTIMATED",
+    equipment: dict[str, dict] | None = None,
 ) -> str:
     import yaml
 
@@ -379,6 +432,7 @@ def _asset_config(
                 "eyelashes": "human_skin",
                 "hair": "hair",
                 **{f"garment_{slot}": g["material"] for slot, g in garments.items()},
+                **{f"equipment_{n}": e["material"] for n, e in (equipment or {}).items()},
             },
             "human": {
                 "phenotype": {
@@ -390,6 +444,7 @@ def _asset_config(
                 "rig": rig,
                 "forward_axis": forward,
                 "garments": garments,
+                **({"equipment": equipment} if equipment else {}),
             },
             "parts": {"granularity": "object", "parts": parts},
         },
@@ -479,9 +534,19 @@ def main(argv: list[str]) -> int:
     if a.write_config:
         rel = a.source_rel or str(a.out.resolve().relative_to(REPO_ROOT))
         cfg = REPO_ROOT / "configs" / "assets" / f"{a.name}.yaml"
+        equipment = _equipment(a.name, rep["objects"])
         cfg.write_text(
             _asset_config(
-                a.name, rel, sidecar, rep, a.rig, a.forward_axis, a.bmi, garments, a.bmi_source
+                a.name,
+                rel,
+                sidecar,
+                rep,
+                a.rig,
+                a.forward_axis,
+                a.bmi,
+                garments,
+                a.bmi_source,
+                equipment,
             )
         )
         print(f"[prep_human] wrote {cfg}")

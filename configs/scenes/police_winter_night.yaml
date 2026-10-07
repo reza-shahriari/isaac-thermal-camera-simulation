@@ -1,0 +1,25 @@
+# A police officer on a clear January night (roadmap HU.7). Schema v22, ADR 0196. The officer is `police_officer`: a uniform
+# pullover and trousers, a cap, boots, a hi-vis vest over soft body armour (the torso garment: 0.28
+# clo of pullover + 1.0 of armour + 0.05 of vest, Potter et al. 2015), and two pieces of equipment
+# with their own materials -- retroreflective tape on the vest, a leather duty belt on the trousers.
+# At -5 C under a clear sky the armoured torso sits closer to the air than the sleeves, and with no sun the tape and the vest are one temperature.
+#
+# Use: scripts/render_phantom4.py --asset police_officer_parts --scene configs/scenes/police_winter_night.yaml
+#      --sensor configs/sensors/example_lwir_1280.yaml --track outbound --near-m 5.6 --far-m 5.65
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: police_winter_night
+  description: "A police officer on a clear January night at -5 C"
+  weather_file: weather/clear_midlat_winter_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-01-15T02:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: officer, solver: human, asset: police_officer, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

@@ -1363,3 +1363,30 @@ sections:
       more basal heat than the child equation (ADR 0194 amendment). The woman's shirt hem cuts
       into her trousers where MakeHuman's two garments overlap; that is fitting, not physics.
     source: configs/scenes/girl_dressed_summer_noon.yaml, configs/scenes/woman_dressed_summer_noon.yaml, scripts/make_human.py
+
+  - id: police-officer
+    title: A police officer, and a vest that is not a mirror
+    lead: |
+      The first occupation: a navy pullover and trousers, a cap, boots, and a fluorescent-yellow
+      vest over soft body armour, with two retroreflective bands and a duty belt. The vest, tape
+      and belt are cut from the body itself. At noon the vest reads **28.7 °C**, cooler than the
+      navy sleeves at **34.2 °C**: its fluorescent yellow absorbs little sun and the armour beneath
+      insulates it from the skin. The tape is **1.1 K** warmer than the vest, because silver absorbs
+      more sun than fluorescent yellow. The tape is emissive in the long-wave, as glass-bead sheeting
+      is measured to be, not the mirror the roadmap assumed. Every visible part, in both thermal
+      bands, matches the solver to **0.0005 K**.
+    media:
+      - image: humans/police_officer/summer_lwir/frames/pair_00002.png
+        width: full
+        caption: LWIR and RGB at the summer noon
+      - image: humans/police_officer/summer_mwir/frames/ir_00002.png
+        width: half
+        caption: MWIR, the same instant, at 14 m through the 50 mm lens
+      - image: humans/police_officer/winter_lwir/frames/ir_00002.png
+        width: half
+        caption: a clear January night at −5 °C; with no sun the tape vanishes into the vest
+    note: |
+      Wool's 0.75 emissivity lets the sleeves reflect the cold sky, so they read 6 K below their
+      surface. The vest is a single generated surface with jagged armhole edges. The tape's
+      retroreflection under a coaxial NIR illuminator is not modelled (ADR 0196).
+    source: configs/scenes/police_summer_noon.yaml, configs/scenes/police_winter_night.yaml, scripts/make_human.py

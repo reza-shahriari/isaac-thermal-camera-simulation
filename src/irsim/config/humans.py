@@ -49,6 +49,7 @@ __all__ = [
     "BODY_SCHEMA_VERSION",
     "DEFAULT_GARMENT_CLO",
     "DEFAULT_GARMENT_MATERIAL",
+    "EquipmentSpec",
     "JOS3_SEGMENTS",
     "BodySchema",
     "GarmentSlot",
@@ -417,11 +418,25 @@ class GarmentSpec(_Frozen):
         return v
 
 
+class EquipmentSpec(_Frozen):
+    """A part a person carries or wears over a garment: a belt, a vest's tape, a holster (HU.7).
+
+    It has its own library material -- its own emissivity and its own share of the sun -- and it
+    sits ``on`` a garment slot: it is solved with that slot's insulation over that slot's skin,
+    absorbing its own material's α_sol. The object and its material in the mesh are
+    ``equipment_<name>``.
+    """
+
+    material: str = Field(min_length=1)
+    on: str = Field(min_length=1)
+
+
 class HumanSpec(_Frozen):
     """The `human:` block of a `kind: human` asset."""
 
     phenotype: Phenotype
     garments: dict[str, GarmentSpec] = Field(default_factory=dict)
+    equipment: dict[str, EquipmentSpec] = Field(default_factory=dict)
     #: Which asset axis the body faces, for the Chest/Back split. Blender's front view looks
     #: along +Y, so a character facing the viewer faces -Y; MPFB exports that way.
     forward_axis: Literal["+x", "-x", "+y", "-y"] = "-y"
@@ -429,7 +444,9 @@ class HumanSpec(_Frozen):
 
     @property
     def materials(self) -> frozenset[str]:
-        return frozenset(g.material for g in self.garments.values())
+        return frozenset(g.material for g in self.garments.values()) | frozenset(
+            e.material for e in self.equipment.values()
+        )
 
     def check_against(self, schema: BodySchema) -> None:
         """Refuse a garment on a slot the body has not got, or covering what is not a segment."""
@@ -443,6 +460,13 @@ class HumanSpec(_Frozen):
                 bad = [c for c in g.covers if c not in schema.segment_names]
                 if bad:
                     raise ValueError(f"garment {slot!r} covers {bad}, which are not segments")
+        for name, item in self.equipment.items():
+            if item.on not in self.garments:
+                raise ValueError(
+                    f"equipment {name!r} sits on slot {item.on!r}, which the person has no garment "
+                    f"on; it takes that garment's insulation, so the slot must be worn "
+                    f"(garments: {sorted(self.garments)})"
+                )
         if self.rig is not None and self.rig not in schema.rigs:
             raise ValueError(f"unknown rig {self.rig!r}; the body schema has {sorted(schema.rigs)}")
 

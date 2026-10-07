@@ -472,6 +472,10 @@ def build_target(
             if garment.colour_rgb is not None:
                 material = coloured_material(material, garment.colour_rgb)
             absorptance[slot] = float(material.spec.thermal.solar_absorptivity)
+        equipment_alpha = {
+            item: float(library[e.material].spec.thermal.solar_absorptivity)
+            for item, e in asset.human.equipment.items()
+        }
         return HumanBodySolver(
             asset.human,
             weather,
@@ -483,6 +487,7 @@ def build_target(
             site_longitude_deg=None if site is None else float(site.longitude_deg),
             garment_segments=coverage,
             garment_absorptance=absorptance,
+            equipment_absorptance=equipment_alpha,
         )
     if spec.solver == "vehicle_source":
         assert spec.source is not None and spec.load_s is not None and spec.load is not None

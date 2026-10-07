@@ -1,0 +1,30 @@
+# Retroreflective tape: the silver stripes on a hi-vis vest, glass-bead sheeting on a polymer film.
+# HU.7, ADR 0196. **Not a mirror in the long-wave.** The roadmap row assumed the tape reads like
+# polished metal in LWIR. Retroreflective sheeting puts glass beads (or microprisms) and a polymer
+# binder at the surface, both opaque and strongly emissive at 8-14 um; the aluminium behind the
+# beads is a visible-band mirror the long-wave never reaches. The building-envelope literature
+# characterises glass-bead retroreflective materials as "high solar reflectance and high thermal
+# emittance" (Rossi, Castellani et al., e.g. Performance of Retro-Reflective Building Envelope
+# Materials with Fixed Glass Beads, 2019; Yuan, Emura & Farnham's review, 2021), and a
+# glass-sphere-in-polymer film reaches 0.96 over 8-13 um (Iridescence-controlled retroreflective
+# structural colour film, 2019). No measurement of vest tape itself was found: ESTIMATED at the
+# glass value. What makes the tape distinct is the reflective bands -- silver, so it reflects most
+# of the sun and stays cooler than the yellow mesh around it -- and retroreflection under a coaxial
+# NIR illuminator, a directional lobe this material does not model (ADR 0196).
+schema_version: 2
+material:
+  name: retroreflective_tape
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "LWIR/MWIR ESTIMATED from the class: glass-bead retroreflective materials are high-emittance (Rossi et al. 2019, retro-reflective building envelope materials with fixed glass beads; glass-sphere/polymer film 0.96 over 8-13 um, 2019); soda-lime glass as glass_windshield (0.88 LWIR). NIR/SWIR ESTIMATED: silver sheeting, about 0.6 diffuse-equivalent reflectance; the retroreflective lobe is not modelled. Thermal ESTIMATED: a 0.3 mm PVC/PET film with beads, 1300 kg/m3, 1000 J/kg/K, 0.2 W/m/K"
+  description: "Silver glass-bead retroreflective tape; emissive in the long-wave, bright in the sun's bands"
+  thermal:
+    density_kg_m3: 1300
+    specific_heat_j_kgk: 1000
+    conductivity_w_mk: 0.2
+    thickness_m: 0.0003
+    solar_absorptivity: 0.35
+  optical:
+    emissivity_per_band: {nir: 0.40, swir: 0.45, mwir: 0.85, lwir: 0.88}
+    roughness_per_band: {nir: 0.30, swir: 0.30, mwir: 0.40, lwir: 0.45}
+    angular_model: {type: empirical, a: 0.15, p: 5.0}

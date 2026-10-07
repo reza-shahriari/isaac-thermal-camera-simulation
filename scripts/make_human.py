@@ -150,6 +150,127 @@ def _solve_height(basemesh, macro: dict, stature_m: float, target_service) -> fl
     return h
 
 
+#: The vest (HU.7), as fractions of stature and metres. A duty vest over soft armour stands 20-30
+#: mm off the chest; it runs from the waist to the shoulders. Two 50 mm retroreflective bands
+#: (EN ISO 20471 class 2 minimum width) around the torso; a 45 mm duty belt at the waist, 35 mm
+#: out so it sits over the pullover's hem and the trousers' waistband.
+VEST_BOTTOM, VEST_TOP = 0.578, 0.84
+VEST_OFFSET_M = 0.025
+TAPE_BANDS = ((0.625, 0.654), (0.672, 0.701))
+TAPE_OFFSET_M = 0.0015
+BELT_BAND = (0.552, 0.578)
+BELT_OFFSET_M = 0.035
+#: Game-engine bones that carry the torso a vest is cut from (the arms and neck are excluded).
+TORSO_BONES = ("pelvis", "spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r")
+
+
+def _cut_shell(
+    body: bpy.types.Object,
+    bones: tuple[str, ...],
+    z_ranges: list[tuple[float, float]],
+    offset_m: float,
+    name: str,
+    colour: tuple[float, float, float],
+) -> bpy.types.Object:
+    """A copy of ``body`` keeping the skin faces whose dominant bone is in ``bones`` and that lie in
+    one of ``z_ranges`` (metres), pushed ``offset_m`` out along its normals, with the body's vertex
+    groups and armature modifier so it deforms with the body. The horizontal edges are cut by exact
+    planes (``bisect_plane``), so a band is straight rather than the staircase of whole faces. One
+    material of ``name`` with a flat base colour."""
+    import bmesh
+
+    shell = body.copy()
+    shell.data = body.data.copy()
+    for mod in list(shell.modifiers):
+        if mod.type != "ARMATURE":
+            shell.modifiers.remove(mod)
+    bpy.context.collection.objects.link(shell)
+    if shell.data.shape_keys is not None:
+        # MakeHuman's macros are shape keys: the body one sees is the basis plus their mix, so the
+        # shell is cut from the mix, not from the unmorphed base mesh 2-5 cm away
+        for o in bpy.context.selected_objects:
+            o.select_set(False)
+        shell.select_set(True)
+        bpy.context.view_layer.objects.active = shell
+        bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+    groups = {g.index: g.name for g in shell.vertex_groups}
+    rig = next(
+        (mod.object for mod in shell.modifiers if mod.type == "ARMATURE" and mod.object), None
+    )
+    if rig is None:
+        raise SystemExit("the vest is cut by bone, so the body must be rigged first")
+    rig_bones = {b.name for b in rig.data.bones}
+    body_group = shell.vertex_groups.get("body")
+    me = shell.data
+    dominant = []
+    in_body = []
+    for v in me.vertices:
+        weights = [g for g in v.groups if groups.get(g.group, "") in rig_bones]
+        best = max(weights, key=lambda g: g.weight, default=None)
+        dominant.append(groups.get(best.group, "") if best is not None else "")
+        # MakeHuman's helper geometry (tights, skirt, joint cubes) carries torso weights too;
+        # only the faces of the `body` group are skin
+        in_body.append(body_group is None or any(g.group == body_group.index for g in v.groups))
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bm.faces.ensure_lookup_table()
+    # cut in world space: once parented to the rig the mesh's own frame is not the stage's
+    world = shell.matrix_world.copy()
+    bmesh.ops.transform(bm, matrix=world, verts=bm.verts)
+    lo_all, hi_all = min(a for a, _ in z_ranges), max(b for _, b in z_ranges)
+    gone = []
+    for f in bm.faces:
+        zs = [v.co.z for v in f.verts]
+        votes = [dominant[v.index] for v in f.verts]
+        bone = max(sorted(set(votes)), key=votes.count)
+        keep = all(in_body[v.index] for v in f.verts) and bone in bones
+        if not keep or max(zs) < lo_all or min(zs) > hi_all:
+            gone.append(f)
+    bmesh.ops.delete(bm, geom=gone, context="FACES")
+    # exact horizontal edges: split at every range edge, then drop what lies outside the ranges
+    for z in sorted({e for pair in z_ranges for e in pair}):
+        geom = list(bm.verts) + list(bm.edges) + list(bm.faces)
+        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=(0.0, 0.0, z), plane_no=(0.0, 0.0, 1.0))
+    outside = [
+        f for f in bm.faces if not any(a <= f.calc_center_median().z <= b for a, b in z_ranges)
+    ]
+    bmesh.ops.delete(bm, geom=outside, context="FACES")
+    bm.normal_update()
+    for v in bm.verts:
+        v.co += v.normal * offset_m
+    bmesh.ops.transform(bm, matrix=world.inverted(), verts=bm.verts)
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.clear()
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (*colour, 1.0)
+    me.materials.append(mat)
+    _rename(shell, name)
+    return shell
+
+
+def _vest_tape_and_belt(body: bpy.types.Object, stature_m: float) -> list[str]:
+    """The procedural vest (garment_torso), its tape (equipment_tape) and a belt (equipment_belt).
+
+    MakeHuman's CC0 packs have no hi-vis vest, so it is cut from the body itself: the torso faces
+    between the waist and the shoulders, by their dominant bone, offset outward. Deterministic,
+    CC0 like the body it comes from, and rigged by construction.
+    """
+    h = stature_m
+    belt_bones = ("pelvis", "spine_01")
+    vest = [(VEST_BOTTOM * h, VEST_TOP * h)]
+    tape = [(a * h, b * h) for a, b in TAPE_BANDS]
+    belt = [(BELT_BAND[0] * h, BELT_BAND[1] * h)]
+    _cut_shell(body, TORSO_BONES, vest, VEST_OFFSET_M, "garment_torso", (1.0, 1.0, 1.0))
+    _cut_shell(
+        body, TORSO_BONES, tape, VEST_OFFSET_M + TAPE_OFFSET_M, "equipment_tape", (0.72, 0.72, 0.72)
+    )
+    _cut_shell(body, belt_bones, belt, BELT_OFFSET_M, "equipment_belt", (0.02, 0.02, 0.02))
+    return ["belt", "tape"]
+
+
 def _rename(obj: bpy.types.Object, name: str) -> None:
     obj.name = name
     if obj.data is not None:
@@ -180,6 +301,13 @@ def main(argv: list[str]) -> None:
     ap.add_argument("--skin", default=None, help="a skin's name under MPFB's user data skins/")
     ap.add_argument("--rig", default="game_engine", help="an MPFB built-in rig")
     ap.add_argument("--no-eyes", action="store_true")
+    ap.add_argument(
+        "--vest",
+        action="store_true",
+        help="a hi-vis vest cut from the body's own torso (garment_torso, 25 mm out: armour and "
+        "vest), two retroreflective bands on it (equipment_tape) and a duty belt at the waist "
+        "(equipment_belt), all rigged with the body's weights (HU.7)",
+    )
     ap.add_argument(
         "--garment",
         action="append",
@@ -264,7 +392,15 @@ def main(argv: list[str]) -> None:
         meshes = [o for o in fresh if o.type == "MESH"]
         if len(meshes) != 1:
             raise SystemExit(f"garment {asset_name!r} added {len(meshes)} meshes, expected one")
-        _rename(meshes[0], f"garment_{slot}")
+        piece = meshes[0]
+        if not any(s.material for s in piece.material_slots):
+            # some CC0 garments (the newsboy cap) ship no material; give one, named for the slot,
+            # so a colour can be dyed into it and the asset map can bind it
+            mat = bpy.data.materials.new(f"garment_{slot}")
+            mat.use_nodes = True
+            piece.data.materials.clear()
+            piece.data.materials.append(mat)
+        _rename(piece, f"garment_{slot}")
         garments[slot] = asset_name
 
     # MPFB masks the body under a garment that declares a delete group (shoes hide the feet),
@@ -279,6 +415,12 @@ def main(argv: list[str]) -> None:
         raise SystemExit(f"MPFB has no built-in rig {a.rig!r}")
 
     stature = _stature_m(basemesh)
+    equipment: list[str] = []
+    if a.vest:
+        if "torso" in garments:
+            raise SystemExit("--vest is the torso garment; do not also pass --garment torso=...")
+        equipment = _vest_tape_and_belt(basemesh, stature)
+        garments["torso"] = "irsim_hi_vis_vest"  # generated, not a MakeHuman asset
     _rename(basemesh, "body")
     for slot in basemesh.material_slots:
         if slot.material is not None:
@@ -322,6 +464,7 @@ def main(argv: list[str]) -> None:
         "rig": a.rig,
         "body_parts": added,
         "garments": garments,
+        "equipment": equipment,
         "objects": sorted(o.name for o in bpy.data.objects),
     }
     a.out.with_suffix(".json").write_text(json.dumps(sidecar, indent=2) + "\n")

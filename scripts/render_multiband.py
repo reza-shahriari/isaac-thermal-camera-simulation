@@ -117,6 +117,15 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "police_summer_noon.yaml": (
+        "HU.7's police officer at noon: rendered by `render_phantom4.py` in LWIR (with its RGB "
+        "companion) and in MWIR, the two thermal bands the row asks for. The reflective-band "
+        "sweep of the vest and the tape belongs to HU.8 with the soldier's NIR camouflage."
+    ),
+    "police_winter_night.yaml": (
+        "HU.7's police officer on a clear January night, one LWIR still: no sun, so the "
+        "reflective bands have nothing to show."
+    ),
     "woman_dressed_summer_noon.yaml": (
         "HU.6's woman: the man's summer scene with another asset, rendered as the hero still "
         "(RGB + LWIR). Its measurement is that a phenotype change alone gives a new person; the "

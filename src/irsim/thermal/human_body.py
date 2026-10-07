@@ -57,6 +57,7 @@ from irsim.thermal.weather import WeatherSeries
 __all__ = [
     "ACCLIMATISE_S",
     "HEAD_LAYERS",
+    "EquipmentView",
     "GarmentView",
     "HumanBodySolver",
     "SegmentView",
@@ -208,6 +209,7 @@ class HumanBodySolver:
         solar: bool = True,
         garment_segments: Mapping[str, frozenset[str]] | None = None,
         garment_absorptance: Mapping[str, float] | None = None,
+        equipment_absorptance: Mapping[str, float] | None = None,
     ) -> None:
         try:
             from jos3 import JOS3
@@ -250,6 +252,15 @@ class HumanBodySolver:
         #: HU.5: slot → the segments its garment covers, and slot → the garment's α_sol
         self.garment_segments: dict[str, frozenset[str]] = dict(garment_segments or {})
         self.garment_absorptance: dict[str, float] = dict(garment_absorptance or {})
+        #: HU.7: equipment name → its material's α_sol; it sits on `spec.equipment[name].on`
+        self.equipment_absorptance: dict[str, float] = dict(equipment_absorptance or {})
+        bad = (
+            [n for n, e in spec.equipment.items() if e.on not in self.garment_segments]
+            if self.garment_segments
+            else []
+        )
+        if bad:
+            raise ValueError(f"equipment {bad} sits on a slot with no garment coverage")
         unknown = set(self.garment_segments) - set(spec.garments)
         if unknown:
             raise ValueError(
@@ -339,7 +350,7 @@ class HumanBodySolver:
     def segment_temperature_k(self, name: str) -> float:
         return float(self.skin_k()[JOS3_SEGMENTS.index(name)])
 
-    def garment_temperature_k(self, slot: str) -> float:
+    def garment_temperature_k(self, slot: str, absorptance: float | None = None) -> float:
         """The garment on ``slot``, outside: PH.12's ISO 7730 balance on the skin beneath it.
 
         The skin beneath is JOS-3's, area-weighted over the segments the garment covers (JOS-3's
@@ -359,7 +370,7 @@ class HumanBodySolver:
         w = np.array([areas[s] for s in covered])
         t_sk = float(np.dot(w, [skin[JOS3_SEGMENTS.index(s)] for s in covered]) / w.sum()) - 273.15
         f = self.last_forcing if self.last_forcing is not None else self.forcing_at(self._t_s)
-        alpha = self.garment_absorptance.get(slot, 0.7)
+        alpha = self.garment_absorptance.get(slot, 0.7) if absorptance is None else absorptance
         t_cl = clothing_temperature_c(
             f.tdb_c,
             f.tr_longwave_c,
@@ -371,20 +382,22 @@ class HumanBodySolver:
         )
         return t_cl + 273.15
 
-    def derived_targets(self, name: str) -> dict[str, SegmentView | GarmentView]:
+    def derived_targets(self, name: str) -> dict[str, SegmentView | GarmentView | EquipmentView]:
         """``<name>.skin_<Segment>`` for every segment, and the head's optics-only layers.
 
         The spelling is the prim's: a ``kind: human`` asset's segment objects are ``skin_<Segment>``
         (a USD prim name cannot carry a dot), and the renderer looks a prim's thermal node up as
         ``<human>.<leaf>``.
         """
-        out: dict[str, SegmentView | GarmentView] = {
+        out: dict[str, SegmentView | GarmentView | EquipmentView] = {
             f"{name}.skin_{seg}": SegmentView(self, seg) for seg in JOS3_SEGMENTS
         }
         for layer in HEAD_LAYERS:
             out[f"{name}.{layer}"] = SegmentView(self, "Head")
         for slot in self.garment_segments:
             out[f"{name}.garment_{slot}"] = GarmentView(self, slot)
+        for item in self.spec.equipment:
+            out[f"{name}.equipment_{item}"] = EquipmentView(self, item)
         return out
 
 
@@ -424,6 +437,30 @@ class GarmentView:
 
     def temperature(self) -> float:
         return self.body.garment_temperature_k(self.slot)
+
+    @property
+    def state(self) -> SolverState:
+        return SolverState(t_s=self.body.state.t_s, temperature_k=self.temperature())
+
+
+class EquipmentView:
+    """A piece of equipment as a ``TemperatureSolver``: the garment balance of the slot it sits on,
+    with the equipment's own share of the sun (HU.7). A belt on the trousers, tape on a vest."""
+
+    def __init__(self, body: HumanBodySolver, name: str) -> None:
+        if name not in body.spec.equipment:
+            raise KeyError(f"no equipment {name!r}")
+        self.body = body
+        self.name = name
+        self.slot = body.spec.equipment[name].on
+
+    def advance(self, t_s: float, dt_s: float) -> float:
+        self.body.advance(t_s, dt_s)
+        return self.temperature()
+
+    def temperature(self) -> float:
+        alpha = self.body.equipment_absorptance.get(self.name)
+        return self.body.garment_temperature_k(self.slot, absorptance=alpha)
 
     @property
     def state(self) -> SolverState:

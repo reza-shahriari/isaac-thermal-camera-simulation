@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 91 materials. 56 of them were measured and imported by a script; the rest are
+The library has 92 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -259,6 +259,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.95 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |
 | `pvc_roofing_light_grey` | as manufactured | 0.56 | 0.65 | 0.96 | 0.93 | 0.57 | measured: SLUM (MWIR from its class) |
 | `pvc_white` | as manufactured | 0.31 | 0.55 | 0.96 | 0.96 | 0.38 | measured: USGS + polymer n, k |
+| `retroreflective_tape` | as manufactured | 0.40 | 0.45 | 0.85 | 0.88 | 0.35 | literature, partly estimated |
 | `roof_shingle_dark` | weathered | 0.90 | 0.91 | 0.97 | 0.97 | 0.90 | measured: USGS + UCSB |
 | `roof_tar_black` | weathered | 0.97 | 0.97 | 0.97 | 0.97 | 0.97 | measured: USGS + UCSB |
 | `roof_tile_cement_grey` | as manufactured | 0.86 | 0.90 | 0.93 | 0.94 | 0.87 | measured: SLUM (MWIR from its class) |

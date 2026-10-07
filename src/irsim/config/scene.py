@@ -330,7 +330,7 @@ class TargetSpec(_Frozen):
         return self
 
     def _human_fields(self) -> TargetSpec:
-        """HU.4: a person is its asset's phenotype on the scene's weather; nothing else is authored."""
+        """HU.4: a person is its asset's phenotype on the scene's weather; nothing else."""
         if not self.asset:
             raise ValueError(f"target {self.name!r}: a human names its `kind: human` asset")
         for forbidden in (
