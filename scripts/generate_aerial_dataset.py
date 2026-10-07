@@ -57,6 +57,18 @@ FOCUS_INFINITY_SHARE = 0.5
 FOCUS_FAR_FACTOR = 10.0
 
 
+def scene_longitude_deg(scene: str | None) -> float:
+    """The scene's site longitude, which turns a local solar hour into the UTC hour the renderer
+    takes; 0 when no scene is named (UTC is then solar time)."""
+    if not scene:
+        return 0.0
+    import yaml
+
+    path = Path(scene) if Path(scene).is_absolute() else REPO / scene
+    config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return float(config["scene"]["site"]["longitude_deg"])
+
+
 def draw_focus(rng: np.random.Generator, near_m: float, far_m: float) -> str:
     """One clip's focus, as ``render_phantom4.py --focus-m`` takes it: ``inf`` or metres."""
     if rng.uniform() < FOCUS_INFINITY_SHARE:
@@ -71,21 +83,33 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
     # A stream of its own, so adding the focus draw left every earlier set's weather, hours and
     # seeds exactly as they were.
     focus_rng = np.random.default_rng([args.seed, 21])
+    hour_rng = np.random.default_rng([args.seed, 24])
+    longitude = scene_longitude_deg(getattr(args, "scene", None))
     runs: list[dict[str, Any]] = []
     for kind, count, frames in (
         ("clear", args.clear_runs, args.frames_per_run),
         ("cloud", args.cloud_runs, args.cloud_frames_per_run),
     ):
+        # EV.24: the hours are stratified in the site's local solar time -- run i of n falls in
+        # its own 24/n-hour slot, the slots in a shuffled order -- so a set of six is not five
+        # nights and a morning, as the first one was. The position inside the slot is the old
+        # uniform draw, so the main stream (and every seed after it) is unchanged.
+        slots = hour_rng.permutation(count) if count else np.zeros(0, dtype=int)
         for i in range(count):
+            weather = "clear" if kind == "clear" else str(rng.choice(CLOUD_REGIMES))
+            weather_seed = int(rng.integers(0, 2**31 - 1))
+            within = float(rng.uniform(0.0, 24.0)) / 24.0
+            local = (float(slots[i]) + within) * 24.0 / count
             runs.append(
                 {
                     "name": f"{kind}_{i:03d}",
                     "frames": frames,
-                    "weather": "clear" if kind == "clear" else str(rng.choice(CLOUD_REGIMES)),
-                    "weather_seed": int(rng.integers(0, 2**31 - 1)),
-                    # Any hour: the real sets were filmed by day and by night, and a sunlit
+                    "weather": weather,
+                    "weather_seed": weather_seed,
+                    # Every hour: the real sets were filmed by day and by night, and a sunlit
                     # airframe and one that has cooled to the night air are different targets.
-                    "weather_hour": round(float(rng.uniform(0.0, 24.0)), 2),
+                    "weather_hour": round((local - longitude / 15.0) % 24.0, 2),
+                    "local_solar_hour": round(local, 2),
                     "scatter_seed": int(rng.integers(0, 2**31 - 1)),
                     "focus_m": (
                         draw_focus(focus_rng, args.near_m, args.far_m)

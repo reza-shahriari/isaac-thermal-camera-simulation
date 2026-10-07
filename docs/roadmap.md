@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 91 open steps
+#### Then, in order — 90 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -196,16 +196,16 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 5 | **`EV.22`** | EV | A | S | 1 | ready |
 | 6 | **`WX.25`** | WX | A | M | 1 | ready |
 | 7 | **`EV.23`** | EV | A | S | — | ready |
-| 8 | **`EV.24`** | EV | A | S | — | ready |
-| 9 | **`AT.38`** | AT | A | M | — | ready |
-| 10 | **`WX.10`** | WX | A | M | — | ready |
-| 11 | **`WX.27`** | WX | A | M | — | ready |
-| 12 | **`WX.29`** | WX | A | M | — | `WX.22` |
-| 13 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25` |
-| 14 | **`XD.6`** | XD | A | L | — | ready |
-| 15 | **`AT.26`** | AT | B | S | — | ready |
+| 8 | **`AT.38`** | AT | A | M | — | ready |
+| 9 | **`WX.10`** | WX | A | M | — | ready |
+| 10 | **`WX.27`** | WX | A | M | — | ready |
+| 11 | **`WX.29`** | WX | A | M | — | `WX.22` |
+| 12 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25` |
+| 13 | **`XD.6`** | XD | A | L | — | ready |
+| 14 | **`AT.26`** | AT | B | S | — | ready |
+| 15 | **`AI.22`** | AI | B | M | — | ready |
 
-…and 76 more — `python scripts/next_step.py --queue 40`.
+…and 75 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -842,7 +842,7 @@ requirement into an external, cited number, and it can return a negative.
 | EV.21 | ✅ **done.** The drone's focus: `with_focus` / `render_phantom4.py --focus-m`; `IrCamera` now supplies `background_t_k`, without which layered defocus kept silhouettes sharp; `generate_aerial_dataset.py` draws a focus per clip (half at infinity). `edge_width_px` + `target_sharpness.py`. ADR 0204. | **Measured**, edge width p50: real 4.10 px (IQR 3.20–5.40), old renders 1.92, focused at infinity 4.62 (8 frames, telephoto, 20–90 m). | EV.18 | S | A |
 | EV.22 | **The box a human would draw.** The rendered box is the airframe's own pixels: no rotor discs, no defocus glow. Label the box from the rotor discs' projected extent plus the frame's own soft edge. | Box width/height quantiles of a rendered set within the real sky-only set's IQR at matched apparent size; mAP50-95 measured both ways. | EV.21 | S | A |
 | EV.23 | **The lens shading the real frames carry.** Real clear skies are a dark centre with bright corners, different per clip: the housing bowl an uncooled core grows between shutter events. Draw the time since the last flat field per clip. | Corner-minus-centre of clear real frames (DN8, normalised by the sky's own span) against a rendered set: medians within the real IQR. | EV.21 | S | A |
-| EV.24 | **Hours across the day, and a night colder than the day.** Hours are drawn uniformly (five of six clips landed at night), and the synthesised weather gives 22.0 °C at 09:45 and at 22:23. Stratify the hours; give the weather a diurnal air-temperature cycle. | Planned hours cover every 3 h bin; night air colder than afternoon by a climatological diurnal range (stated source); weather and thermal solve still one object. | EV.18 | S | A |
+| EV.24 | ✅ **done.** Hours stratified in local solar time (`plan_runs`, one clip per 24/n-h slot); weather-fx `d0d55ff`: the seasonal draw is the day's mean placed on the diurnal curve, and `move_clock` (used by `weather_state`) carries the air with the clock. ADR 0205. | **Measured**: six clips at 0.4–23.7 h local, one per slot; one clear day at 48° N reads 19.0 °C at 02 UTC and 29.9 °C at 13 UTC (was 22.0 at both); seeds and weather unchanged. | EV.18 | S | A |
 | EV.25 | **More airframes and attitudes.** One Phantom 4 that yaws but never pitches or rolls. Add tilt as a multirotor flies (pitch and roll from its acceleration) and the library's other multirotors per clip. | Pitch/roll distribution stated and drawn; at least three airframes; box aspect ratio p95 against the real 3.3. | EV.10, EV.22 | M | A |
 
 ---

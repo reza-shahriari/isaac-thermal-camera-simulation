@@ -337,9 +337,11 @@ def weather_state(
     Four ways in, in increasing order of specificity, and they compose: a random draw, a named
     regime, a saved JSON preset, and explicit overrides. The site and the clock are applied last
     so a driver can film the *same* weather at a different hour or a different latitude, which is
-    the comparison a sensor study usually wants.
+    the comparison a sensor study usually wants. The same weather means the same *day*: the air
+    temperature moves along the day's curve to the new hour (weather-fx ``move_clock``).
     """
     ensure_weather_fx_on_path()
+    from weather_fx.core.meteorology import move_clock
     from weather_fx.core.random_weather import random_state
     from weather_fx.core.state import WeatherState
 
@@ -367,7 +369,9 @@ def weather_state(
     if hour_utc is not None:
         clock["hour_utc"] = float(hour_utc)
     if clock:
-        state = state.with_updates("sky", **clock)
+        # EV.24: the air rides the day's curve to the new instant. A bare clock update kept the
+        # drawn air temperature and moved the hour, so a 22:00 clip got the afternoon's air.
+        state = move_clock(state, **clock)
     return state
 
 
