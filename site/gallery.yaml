@@ -1477,3 +1477,21 @@ sections:
       The cyclist stands without a bicycle, which is a vehicle asset the library does not yet
       hold. Her helmet's vents are not cut; its insulation carries them (ADR 0198).
     source: configs/humans/kits/construction_worker.yaml, configs/humans/kits/cyclist.yaml, configs/scenes/construction_worker_summer_noon.yaml, configs/scenes/cyclist_summer_night.yaml
+
+  - id: walking-body-probe
+    title: A walking body, held to Blender's skinning
+    lead: |
+      The man walks on the spot, keyed in Blender and rendered in Isaac Sim. Every rendered pixel
+      of every body segment lies on Blender's own skinned surface for that frame, to **0.9 µm**,
+      while the same pixels miss the rest pose by up to **0.56 m** at the feet. The ids that carry
+      each segment's temperature never move to another prim. Each frame is painted here with the
+      man's JOS-3 skin temperatures, looked up by prim id.
+    media:
+      - video: humans/man_adult/walk/walk_temperature.mp4
+        width: full
+        caption: skin temperature by prim id, white-hot, 31.1–34.5 °C, 67 frames at 30 fps
+    note: |
+      This is the per-prim temperature lookup made visible, not a camera image: no radiance, no
+      optics, no noise. The walk is procedural and on the spot. A walking person through the full
+      camera chain waits for the parts pipeline to keep the skeleton (ADR 0199).
+    source: scripts/animate_human.py, scripts/probe_isaac_skel.py, src/irsim_isaac/skel_probe.py

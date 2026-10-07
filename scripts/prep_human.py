@@ -21,8 +21,9 @@ this does, for a body mesh skinned to a known rig:
 4. **One object per segment**, named ``skin_<Segment>`` (an underscore, because a USD prim name
    cannot carry a dot and the renderer finds a segment by its prim's name). Eyes, eyebrows,
    eyelashes and hair objects are kept whole and renamed to their layer; garments and equipment
-   are kept whole. The result is **static**: the rest pose, with no skeleton (the rig stays in
-   make_human.py's own output for HU.10). These names are what the asset config's ``parts:``
+   are kept whole. The result is **static**: the rest pose, with no skeleton -- unless
+   ``--keep-rig``, which keeps the skin segments skinned to the rig for HU.10's moving body.
+   These names are what the asset config's ``parts:``
    block selects by (``granularity: object``, AI.16/AI.18), so ``prep_asset.py`` needs nothing
    new.
 5. **Export** the labelled glTF, a report JSON (faces and area per segment, left/right ratios,
@@ -72,6 +73,7 @@ def _worker(argv: list[str]) -> None:
     ap.add_argument("--forward-axis", default="-y")
     ap.add_argument("--body-object", default="body")
     ap.add_argument("--garments-json", type=pathlib.Path, default=None)
+    ap.add_argument("--keep-rig", action="store_true")
     a = ap.parse_args(argv)
     spec = json.loads(a.rig_json.read_text())
     garments = json.loads(a.garments_json.read_text()) if a.garments_json else {}
@@ -271,14 +273,16 @@ def _worker(argv: list[str]) -> None:
     # a deforming person yet -- that is HU.10, which takes the rig from make_human.py's own output
     # -- so the labelled asset is static: every mesh keeps its rest-pose world transform, the
     # armature modifiers and the rig go.
-    for obj in [o for o in bpy.data.objects if o.type == "MESH"]:
+    # HU.10: `--keep-rig` skips this, for a body that moves (scripts/animate_human.py). Its
+    # garments must then be skinned first, which MakeHuman's are not; the probe body is bare.
+    for obj in [o for o in bpy.data.objects if o.type == "MESH" and not a.keep_rig]:
         for mod in [m for m in obj.modifiers if m.type == "ARMATURE"]:
             obj.modifiers.remove(mod)
         if obj.parent is not None:
             world_matrix = obj.matrix_world.copy()
             obj.parent = None
             obj.matrix_world = world_matrix
-    for obj in [o for o in bpy.data.objects if o.type in ("ARMATURE", "EMPTY")]:
+    for obj in [o for o in bpy.data.objects if o.type in ("ARMATURE", "EMPTY") and not a.keep_rig]:
         bpy.data.objects.remove(obj, do_unlink=True)
 
     # --- 5. report and export --------------------------------------------------------------------
@@ -486,6 +490,12 @@ def main(argv: list[str]) -> int:
     ap.add_argument(
         "--bmi-source", default="ESTIMATED", help="where the BMI comes from, for the config header"
     )
+    ap.add_argument(
+        "--keep-rig",
+        action="store_true",
+        help="keep the skeleton and the skinning (HU.10, scripts/animate_human.py); the default "
+        "is the static rest-pose asset every render uses",
+    )
     ap.add_argument("--blender", default="blender")
     a = ap.parse_args(argv)
 
@@ -501,7 +511,7 @@ def main(argv: list[str]) -> int:
         a.blender, "-b", "--python", str(pathlib.Path(__file__).resolve()), "--",
         "--source", str(a.source), "--rig-json", str(rig_json), "--out", str(a.out),
         "--report", str(report), f"--forward-axis={a.forward_axis}", "--body-object", a.body_object,
-        "--garments-json", str(garments_json),
+        "--garments-json", str(garments_json), *(["--keep-rig"] if a.keep_rig else []),
     ]  # fmt: skip
     r = subprocess.run(cmd, cwd=REPO_ROOT)
     if r.returncode or not report.is_file():
