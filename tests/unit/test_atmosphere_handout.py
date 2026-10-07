@@ -113,8 +113,9 @@ def test_the_two_models_disagree_by_far_more_than_the_netd(layered_scene) -> Non
 
     At 5 km and 20 degrees the grey model puts the path at tau 0.047 (0.057 before AT.27 gave
     LWIR its humidity square; this scene's air is wetter than the clear-dry anchor) and the
-    layered one at 0.576 (0.590 before) -- the grey path is essentially opaque where the real one
-    passes more than half. A target seen
+    layered one at 0.587 (0.576 under AT.27's square, 0.590 before it; AT.37 refit the square
+    smaller and gave it its own half-depth column) -- the grey path is essentially opaque where
+    the real one passes more than half. A target seen
     through the first is almost entirely path radiance; through the second it is mostly itself.
     Against a 50 mK NETD this is not a tolerance question by any reading.
     """
@@ -133,7 +134,7 @@ def test_the_two_models_disagree_by_far_more_than_the_netd(layered_scene) -> Non
         ]
     )
     assert tau_grey == pytest.approx(0.047, abs=0.01), tau_grey
-    assert tau_layered == pytest.approx(0.576, abs=0.01), tau_layered
+    assert tau_layered == pytest.approx(0.587, abs=0.01), tau_layered
     # An order of magnitude. The bound is loose against the measurement on purpose: what is being
     # pinned is "these are different models", not either model's own value, which `AT.1` and the
     # exponential-sum tests own.

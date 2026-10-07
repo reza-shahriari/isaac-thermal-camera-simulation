@@ -16,7 +16,14 @@ model ran on.
 
     python scripts/ici_extract_profiles.py datasets/arm_icii23 \\
         --met datasets/arm_icii23/ici_met_from_video.json \\
+        --era5 datasets/arm_icii23/era5_sgp_2023.json \\
         --out data/validation/ici_sgp2023_clear_sky.csv
+
+AT.37 adds the surface **dew point**, which the title does not print and the water column's
+shape needs: with it, the surface humidity is measured and the water scale height is the one the
+measured PWV implies (``H_w = PWV / w0``), instead of a humidity invented to fit the preset's
+2 km. It is ERA5's hourly 2 m dew point at the site (Open-Meteo's archive, no account; the query
+is in ``scripts/ici_timelapse_clouds.py``), the hour the image falls in.
 
 Needs ``h5py`` (the files are NetCDF-4 / HDF5), which the project does not otherwise depend on;
 the committed CSV is what everything downstream reads.
@@ -45,6 +52,9 @@ def main() -> int:
         "root", help="the unpacked ICI request: sky_azimuth_elevation_map.nc, data/"
     )
     parser.add_argument("--met", required=True, help="scripts/ici_met_from_video.py's JSON")
+    parser.add_argument(
+        "--era5", default=None, help="Open-Meteo ERA5 hourly JSON with dew_point_2m (AT.37)"
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
     try:
@@ -58,6 +68,14 @@ def main() -> int:
     elevation = np.asarray(geo["elevation"][:], dtype=np.float64)
     ground = np.asarray(geo["gnd_mask"][:]) != 0
     met = {r["file"]: r for r in json.loads(pathlib.Path(args.met).read_text(encoding="utf-8"))}
+    dew: dict[str, float] = {}
+    if args.era5:
+        hourly = json.loads(pathlib.Path(args.era5).read_text(encoding="utf-8"))["hourly"]
+        dew = {
+            t: float(v)
+            for t, v in zip(hourly["time"], hourly["dew_point_2m"], strict=True)
+            if v is not None
+        }
 
     rows = []
     for path in sorted(root.glob("data/*/ici_*.nc")):
@@ -77,6 +95,7 @@ def main() -> int:
             "t_surface_c": m["t_surface_c"],
             "pwv_cm": m["pwv_cm"],
             "cloud_fraction": round(float(cloud[sky].mean()), 4),
+            "td_era5_c": dew.get(when.strftime("%Y-%m-%dT%H:00"), ""),
             "fpa_temp_c": round(float(f["fpa_temp_c"][()]), 2),
             "lens_temp_c": round(float(f["lens_temp_c"][()]), 2),
         }
@@ -97,7 +116,8 @@ def main() -> int:
             f"# (cloud_mask == 0) within +-{HALF_WIDTH_DEG} deg of each elevation (l_elNN), the "
             "instrument's own modelled clear sky there (ici_model_elNN),\n"
             "# its cloud fraction, and the surface T and PWV read off the deployment time-lapse "
-            "(scripts/ici_met_from_video.py). Band: nominal 7.3-14 um, shape not published.\n"
+            "(scripts/ici_met_from_video.py); td_era5_c is ERA5's 2 m dew point that hour (AT.37). "
+            "Band: nominal 7.3-14 um, shape not published.\n"
         )
         writer = csv.DictWriter(fh, fieldnames=list(rows[0]))
         writer.writeheader()

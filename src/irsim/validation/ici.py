@@ -20,6 +20,12 @@ What is compared, and what stands in for what we do not have:
   water-vapour scale height ``H_w``, holds the measured column: ``w0 = PWV / H_w``
   (:func:`surface_rh_for_pwv`). A humid night can need more than saturation at ``H_w`` = 2 km --
   the real column is deeper than the preset's -- and is then clamped to RH = 1 and flagged.
+  **AT.37 pins the column instead** wherever the CSV carries the hour's surface dew point (ERA5,
+  ``td_era5_c``): the relative humidity is then the measured one, and the water scale height is
+  the one the measured PWV implies, ``H_w = PWV / w0`` (:func:`pinned_column`) -- 1.5 km on the
+  May night, 2.6 km in August, 2.8 km in December. Fitting the continuum against a column the
+  preset's fixed 2 km got wrong would have baked a profile error into it (ADR 0160); against a
+  measured one it does not (ADR 0200).
 * **The band** is the one thing the data cannot supply. The ICI is a 7.3-14 um microbolometer
   whose response *shape* is not published (the intercomparison report names it the main
   limitation of its own calibration). The comparison uses a microbolometer-shaped response --
@@ -42,7 +48,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from irsim.atmosphere.humidity import absolute_humidity_g_m3
+from irsim.atmosphere.humidity import absolute_humidity_g_m3, saturation_vapour_pressure_hpa
 from irsim.atmosphere.layered import LayeredAtmosphere
 from irsim.config.atmosphere import AtmospherePreset
 from irsim.config.bands import band_id_for
@@ -54,6 +60,7 @@ __all__ = [
     "IciImage",
     "load_ici_clear_sky",
     "surface_rh_for_pwv",
+    "pinned_column",
     "model_clear_sky",
     "ratios",
     "CLEAR_FRACTION_MAX",
@@ -79,6 +86,8 @@ class IciImage:
     elevations_deg: NDArray[np.float64]
     radiance: NDArray[np.float64]  # W/(m^2 sr), NaN where a band had too few clear pixels
     ici_model: NDArray[np.float64]  # the instrument's own clear-sky model, same bands
+    #: The hour's surface dew point (ERA5), K; NaN where the CSV has none (AT.37).
+    td_surface_k: float = math.nan
 
     @property
     def clear(self) -> bool:
@@ -107,6 +116,7 @@ def load_ici_clear_sky(path: str | pathlib.Path) -> list[IciImage]:
                 elevations_deg=np.asarray(elevations, dtype=np.float64),
                 radiance=np.asarray([num(f"l_el{e}") for e in elevations], dtype=np.float64),
                 ici_model=np.asarray([num(f"ici_model_el{e}") for e in elevations]),
+                td_surface_k=num("td_era5_c") + 273.15 if "td_era5_c" in r else math.nan,
             )
         )
     return out
@@ -126,21 +136,47 @@ def surface_rh_for_pwv(t_k: float, pwv_cm: float, scale_height_m: float) -> tupl
     return min(needed, 1.0), needed
 
 
+def pinned_column(image: IciImage) -> tuple[float, float] | None:
+    """``(RH, H_w)`` measured for the image's night (AT.37), or None without a dew point.
+
+    The surface relative humidity is the dew point's (Magnus, the project's coefficients), and
+    the water-vapour scale height is the one that holds the measured column over that surface
+    humidity: ``H_w = PWV / w0``, the layered model's own exponential column read backwards.
+    """
+    if not math.isfinite(image.td_surface_k):
+        return None
+    t_c, td_c = image.t_surface_k - 273.15, image.td_surface_k - 273.15
+    rh = min(saturation_vapour_pressure_hpa(td_c) / saturation_vapour_pressure_hpa(t_c), 1.0)
+    w0 = absolute_humidity_g_m3(image.t_surface_k, rh)
+    return rh, image.pwv_cm * _G_M2_PER_CM / w0
+
+
 def model_clear_sky(
     image: IciImage,
     preset: AtmospherePreset,
     response: SpectralResponse,
     lut: BandLUT,
     band: str | None = None,
+    *,
+    pin: bool = True,
 ) -> NDArray[np.float64]:
     """The layered model's clear sky at the image's elevations, W/(m^2 sr) in ``response``.
 
     The weather is the image's surface sample held constant -- wind 1 m/s, no sun (the ICI
     images here are night and the LWIR sky has no scattered term worth the name; ADR 0086).
+    With ``pin`` (the default) and a dew point on the image, the column is the measured one
+    (:func:`pinned_column`); otherwise the humidity is solved to hold the PWV over the preset's
+    own ``H_w`` (:func:`surface_rh_for_pwv`), as part 1 did.
     """
     band = band or band_id_for(*ICI_BAND_UM)  # the registry names it, not this module
-    scale_height = float(preset.profile.water_vapour_scale_height_m)
-    rh, _ = surface_rh_for_pwv(image.t_surface_k, image.pwv_cm, scale_height)
+    column = pinned_column(image) if pin else None
+    if column is not None:
+        rh, scale_height = column
+        profile = preset.profile.model_copy(update={"water_vapour_scale_height_m": scale_height})
+        preset = preset.model_copy(update={"profile": profile})
+    else:
+        scale_height = float(preset.profile.water_vapour_scale_height_m)
+        rh, _ = surface_rh_for_pwv(image.t_surface_k, image.pwv_cm, scale_height)
     weather = WeatherSeries.constant(
         WeatherSample(image.t_surface_k, rh, 1.0, 0.0, 0.0, 0.0, 23000.0, 0.0), 3600.0
     )

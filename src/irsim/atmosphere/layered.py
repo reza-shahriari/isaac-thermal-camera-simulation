@@ -752,13 +752,20 @@ class LayeredAtmosphere:
         classes = classes_for(band, self._responses.get(band))
         weights = self.weights(band)
         profile = self._preset.profile
+        # AT.37: the water classes' extinction is γ₀ + β₁w + β₂w², evaluated at the surface. The
+        # squared (self-continuum) part goes as w(h)² = w₀² e^{−2h/H_w}, so its column is half
+        # the linear part's; carrying the whole sum on H_w counted the self-continuum's column
+        # twice, which is what made the humid clear sky too bright overhead (ADR 0183). One
+        # exponential per class is kept -- every consumer integrates that shape analytically --
+        # with the height that holds the column exact: H_eff = H_w (γ_lin + γ_sq/2) / (γ_lin +
+        # γ_sq). The surface value, and so every horizontal path and the τ(200 m) anchor, is
+        # unchanged; a band with β₂ = 0 is bit-identical.
+        gamma_sq = coeffs.beta2_per_m_per_g2_m6 * w_h2o * w_h2o
+        water_height = profile.water_vapour_scale_height_m
+        if gamma_sq > 0.0 and gamma_mol > 0.0:
+            water_height *= (gamma_mol - 0.5 * gamma_sq) / gamma_mol
         heights = np.array(
-            [
-                profile.water_vapour_scale_height_m
-                if c.kind == "water"
-                else profile.air_scale_height_m
-                for c in classes
-            ]
+            [water_height if c.kind == "water" else profile.air_scale_height_m for c in classes]
         )
 
         def bases(cs: tuple[SpectralClass, ...]) -> NDArray[np.float64]:
@@ -1080,12 +1087,23 @@ class LayeredAtmosphere:
         elevation_rad: float,
         quantity: Quantity = "lb",
     ) -> float:
-        """The τ_k-weighted effective radiance beyond R (a target at it has zero excess)."""
+        """The τ_k-weighted effective radiance beyond R (a target at it has zero excess).
+
+        ``Σ_k w_k τ_k L_beyond,k / Σ_k w_k τ_k``, written as ``Σ_k w_k (L_sky,k − L_path,k) /
+        Σ_k w_k τ_k`` so that ``L_path + τ_band L_beyond = L_sky`` holds by construction. Going
+        through the per-class values clipped each at zero first, and an opaque class whose
+        finite and infinite quadratures differ by rounding (−1e-7 at τ_k = 1e-8) then lost its
+        share and broke the identity at 1e-10; only the band's total is clipped here.
+        """
         es = self.exponential_sum(band, t_s)
+        lb = self._lb_of_height(band, t_s, quantity)
         tau_k = self.class_transmittances(band, t_s, distance_m, elevation_rad)
-        beyond = self.sky_beyond_per_class(band, t_s, distance_m, elevation_rad, quantity)
-        wt = es.weights * tau_k
-        return float(np.dot(wt, beyond) / wt.sum()) if wt.sum() > 0.0 else 0.0
+        sky_k = es.path_radiance_per_class(math.inf, elevation_rad, lb)
+        path_k = es.path_radiance_per_class(float(distance_m), elevation_rad, lb)
+        wt = float(np.dot(es.weights, tau_k))
+        if wt <= 0.0:
+            return 0.0
+        return max(float(np.dot(es.weights, sky_k - path_k)) / wt, 0.0)
 
     def sky_radiance(
         self, band: str, t_s: float, elevation_rad: float, quantity: Quantity = "lb"

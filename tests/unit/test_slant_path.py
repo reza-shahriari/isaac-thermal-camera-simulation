@@ -186,7 +186,9 @@ def test_the_defect_it_fixes_is_this_big(atmosphere: LayeredAtmosphere) -> None:
     flat = float(es.transmittance(d, np.zeros(1))[0])
     slant = float(es.transmittance(d, np.full(1, math.radians(45.0)))[0])
     assert flat == pytest.approx(0.5995, abs=5e-4)
-    assert slant == pytest.approx(0.7230, abs=5e-4)
+    # 0.7230 before AT.37 gave the self-continuum its own half-depth column (ADR 0200); the
+    # horizontal path, which never leaves the surface, is unchanged
+    assert slant == pytest.approx(0.7243, abs=5e-4)
     assert (slant - flat) / flat > 0.20
 
     path_flat = float(atmosphere.path_radiance_plane("lwir", 0.0, d, np.zeros(1))[0])

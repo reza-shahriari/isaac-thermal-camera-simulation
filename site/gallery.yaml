@@ -1202,10 +1202,12 @@ sections:
       ARM's Infrared Cloud Imager looked straight up at the Southern Great Plains site through
       2023 and recorded the sky in W/(m²·sr) per pixel (doi:10.5439/3001561). `XD.6` holds the
       layered clear sky (ADR 0071) to 30 of its cloud-free images on three nights, with each night's
-      surface temperature and water vapour as the only weather (ADR 0183). **On the cold, dry
-      December night the model is the measurement to 0–7 % from 20° to the zenith; on the humid
-      August night it is 24–28 % too bright at every elevation**, where the instrument's own model is
-      within 3 %. That humid misfit is now a strict expected failure naming its fix, `AT.37`.
+      surface temperature, dew point and water vapour as the only weather (ADR 0183, ADR 0200).
+      **On the cold, dry December night the model is the measurement to 0.99–1.06 at every
+      elevation, and on the humid August night to 0.97–1.08.** August was 24–28 % too bright until
+      `AT.37` gave the self-continuum's square its own, half-depth column and refit it against these
+      nights. May (1.06–1.23) is still bright overhead: its water is a moist layer under dry air,
+      which one exponential cannot draw (`AT.38`).
     media:
       - image: validation/ici/ici_clear_sky.png
         width: full
@@ -1216,8 +1218,7 @@ sections:
     note: |
       The ICI's spectral response is not published; the model uses the project's estimated VOx curve
       for a 7.3–14 µm microbolometer. That moves the December result by under 7 %, and it cannot
-      make a misfit that grows with humidity. The cloudy images in the same files are `XD.6`'s
-      second part.
+      make a misfit that grows with humidity.
     source: scripts/validate_sky_ici.py
 
   - id: validation-phase-renders

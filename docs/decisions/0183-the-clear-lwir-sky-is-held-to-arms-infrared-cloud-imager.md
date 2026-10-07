@@ -3,6 +3,7 @@
 Date: 2026-10-03
 
 **Status:** Accepted (2026-10-03, XD.6 part 1). Measures ADR 0071's layered sky; opens AT.37.
+The humid misfit is closed by ADR 0200 (AT.37): the self-continuum's own column, refit on pinned columns.
 
 ## Context
 

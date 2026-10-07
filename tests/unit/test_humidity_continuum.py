@@ -6,6 +6,10 @@ carries a β₂ w² term sized from the MT_CKD continuum magnitude, with β₁ r
 anchor (us_standard_clear at 288 K, RH 0.46) is unchanged; the humid rows still land in the
 §7.2 band, and every air wetter than the anchor absorbs more than the linear law said, by a
 margin that grows with w. Spec issue S57; ADR 0160; roadmap AT.27.
+
+AT.37 (ADR 0200) refit β₂ against ARM's imager and gave the square its own column: w(h)² falls
+at half the water's scale height, so a vertical path through the square holds half the linear
+term's column, which the last test pins on the layered model itself.
 """
 
 from __future__ import annotations
@@ -71,8 +75,9 @@ def test_the_clear_dry_anchor_is_the_number_it_was_and_humid_air_stays_in_band()
 def test_above_the_anchor_the_square_absorbs_more_and_the_excess_grows_with_w() -> None:
     """Anchored at the clear-dry row, the quadratic sits above the line for every wetter air:
     γ_quad − γ_lin = β₂ w (w − w_dry), zero at the anchor and growing with w. Mid-latitude summer
-    air (12 g/m³) is 1 % murkier over 200 m than the line said, the humid row 7 %, a 35 g/m³
-    monsoon afternoon 16 % -- which is the under-absorption S57 named."""
+    air (12 g/m³) is 0.4 % murkier over 200 m than the line said, the humid row 2.6 %, a 35 g/m³
+    monsoon afternoon 5.9 % -- the under-absorption S57 named, at the size AT.37's fit to ARM's
+    imager allows (β₂ = 3.0e-7, a third of AT.27's MT_CKD-sized 8.6e-7; ADR 0200)."""
     g0, b1, b2 = _lwir()
 
     def linear(w: float) -> float:
@@ -85,7 +90,44 @@ def test_above_the_anchor_the_square_absorbs_more_and_the_excess_grows_with_w() 
     assert abs(excess[0]) < 1e-7, "the anchor itself"
     assert 0.0 < excess[1] < excess[2] < excess[3]
     assert excess[3] == pytest.approx(b2 * 35.0 * (35.0 - W_DRY), rel=0.05)
-    assert 0.98 < _tau_200m(12.0) / math.exp(-200.0 * linear(12.0)) < 1.0
-    # the continuum's share of the water term at the humid row is a real fraction, not a nudge
+    assert 0.99 < _tau_200m(12.0) / math.exp(-200.0 * linear(12.0)) < 1.0
+    # the continuum's share of the water term at the humid row: a real fraction, not a nudge
     share = b2 * W_HUMID**2 / (quad(W_HUMID) - g0)
-    assert 0.25 < share < 0.6, share
+    assert 0.10 < share < 0.2, share
+
+
+@pytest.mark.filterwarnings("ignore:LayeredAtmosphere has no spectral response")
+def test_the_square_s_column_is_half_the_linear_part_s() -> None:
+    """AT.37. The water classes carry γ_lin e^{−h/H_w} + γ_sq e^{−2h/H_w} up the column; the
+    layered model keeps one exponential per class whose surface value is the sum and whose
+    height holds the column exact. A vertical ray's water-class optical depth therefore equals
+    ``scale · (γ_lin H_w + γ_sq H_w / 2)`` to rounding; a band whose β₂ is 0 keeps H_w itself."""
+    import numpy as np
+
+    from irsim.atmosphere.layered import LayeredAtmosphere, classes_for
+    from irsim.thermal.weather import WeatherSample, WeatherSeries
+
+    preset = load_atmosphere_preset("us_standard_clear")
+    weather = WeatherSeries.constant(
+        WeatherSample(303.15, 0.80, 1.0, 0.0, 0.0, 0.0, 23000.0, 0.0), 3600.0
+    )
+    atm = LayeredAtmosphere(preset, weather, {}, {})
+    es = atm.exponential_sum("lwir", 0.0)
+    water = np.array([c.kind == "water" for c in classes_for("lwir")])
+    assert water.any()
+    g0, b1, b2 = _lwir()
+    gamma_lin = g0 + b1 * W_HUMID
+    gamma_sq = b2 * W_HUMID**2
+    h_w = preset.profile.water_vapour_scale_height_m
+    column = es.optical_depths(np.inf, math.pi / 2.0)[water] - es.gamma_aerosol * (
+        preset.profile.aerosol_scale_height_m
+    )
+    scale = es.gamma_0[water] / (gamma_lin + gamma_sq)
+    expected = scale * (gamma_lin * h_w + 0.5 * gamma_sq * h_w)
+    assert np.allclose(column, expected, rtol=1e-9)
+    # half the square's column is a real change at the humid row, not a rounding
+    assert float((expected / (scale * (gamma_lin + gamma_sq) * h_w)).max()) < 0.95
+
+    mwir = atm.exponential_sum("mwir", 0.0)
+    mwir_water = np.array([c.kind == "water" for c in classes_for("mwir")])
+    assert np.all(mwir.scale_heights_m[mwir_water] == h_w)  # β₂ = 0: unchanged, bit for bit

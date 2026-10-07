@@ -16,7 +16,9 @@ atmosphere:
     # molecular coefficients (water vapour) are the same physics in every preset
     # AT.27 (ADR 0160): LWIR beta1 = 4.61e-5 - beta2 * w_dry with w_dry = 5.895 g/m3 (the us_standard_clear
     # check, 288.15 K / RH 0.46), written in full so the clear-dry anchor is the number it was, bit for bit.
-    lwir:    {gamma0_per_m: 7.5e-5,  beta_per_m_per_g_m3: 4.1030698195017574e-05, beta2_per_m_per_g2_m6: 8.6e-7, aerosol_ratio_to_visible: 0.16}
+    # AT.37 (ADR 0200): beta2 refit to 3.0e-7 against ARM's ICI with each night's water column pinned
+    # (ERA5 dew point + the imager's PWV); 8.6e-7 left the humid clear sky 4-12 % too bright.
+    lwir:    {gamma0_per_m: 7.5e-5,  beta_per_m_per_g_m3: 4.433163890523869e-05, beta2_per_m_per_g2_m6: 3.0e-7, aerosol_ratio_to_visible: 0.16}
     mwir:    {gamma0_per_m: 1.56e-4, beta_per_m_per_g_m3: 1.63e-5, aerosol_ratio_to_visible: 0.24}
     swir:    {gamma0_per_m: 9.4e-5,  beta_per_m_per_g_m3: 1.16e-5, aerosol_ratio_to_visible: 0.40}
     nir:     {gamma0_per_m: 2.0e-6,  beta_per_m_per_g_m3: 3.0e-6,  aerosol_ratio_to_visible: 0.60}   # no table row: interpolated
