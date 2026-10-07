@@ -276,6 +276,7 @@ def test_against_pythermalcomfort_when_it_is_installed() -> None:
         "pythermalcomfort", reason="dev-only oracle; install with .[comfort] to run PH.12's check"
     )
     import pythermalcomfort.models  # noqa: F401 - the package does not import its submodules
+
     # pythermalcomfort 3+ renamed `two_nodes` to `two_nodes_gagge`; the result keeps `t_skin`
     two_nodes = getattr(comfort.models, "two_nodes_gagge", None) or comfort.models.two_nodes
     result = two_nodes(tdb=25.0, tr=25.0, v=0.1, rh=50.0, met=SEATED_MET, clo=0.5)

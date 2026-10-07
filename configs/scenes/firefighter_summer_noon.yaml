@@ -1,0 +1,26 @@
+# A firefighter in clear midday air (roadmap HU.11). Schema v22, ADR 0198. The firefighter is `firefighter`: a turnout coat
+# and trousers (aramid shell over moisture barrier and liner; 3.38, 2.54 and 2.73 clo on torso, arms
+# and legs from Kuklane et al. 2022's manikin), leather gloves, rubber boots, a helmet, 76 mm
+# retroreflective trim on the coat, sleeves and trousers, and a carbon-composite breathing cylinder
+# on the back. Every piece is cut from the body by the kit configs/humans/kits/firefighter.yaml.
+# At noon the coat's 3.4 clo holds the skin's heat in; the coat's surface is the sun's and the air's.
+#
+# Use: scripts/render_phantom4.py --asset firefighter_parts --scene configs/scenes/firefighter_summer_noon.yaml
+#      --sensor <a camera> --track outbound --near-m <range> --far-m <range + 0.05>
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: firefighter_summer_noon
+  description: "A firefighter in turnout gear in clear midday air"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: firefighter, solver: human, asset: firefighter, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

@@ -1,0 +1,88 @@
+# A structural firefighter's outfit (HU.11, ADR 0198). Schema: irsim.config.kits.HumanKit.
+# Geometry only: materials and insulation are in configs/assets/firefighter.yaml.
+#
+# Nothing in MakeHuman's CC0 packs is turnout gear, so every piece is cut from the body. Heights
+# are fractions of stature; the joints of MPFB's game-engine rig sit at hip 0.53, knee 0.29, ankle
+# 0.04, elbow 0.69, wrist 0.61, neck 0.86, head 0.91 (measured on the 1.73 m man).
+#   * Coat: the torso and the tops of the thighs from 0.46 to the shoulders, 35 mm out -- a coat
+#     whose hem falls to mid-hip, over three layers (shell, moisture barrier, thermal liner).
+#   * Sleeves: the upper and lower arms, 30 mm out. Gloves: the hands, 6 mm out.
+#   * Trousers: pelvis to ankle, 22 mm out, falling over MakeHuman's CC0 ankle boots (a shell cut
+#     from the foot keeps the toes). Every shell follows the body's anatomy: the cut is the
+#     body's skin pushed out, so a coat sits like a vest, closer than a real one.
+#   * Helmet: the head above 0.95 (above the brow), 30 mm out. No brim, no visor, no hood: the
+#     face is bare, as at a scene before entry. The breathing mask is not worn.
+#   * Trim: NFPA 1970 (formerly 1971) asks for trim at least 50 mm wide round the coat, each sleeve
+#     between wrist and elbow, and each trouser leg; the common 76 mm (3 in.) triple trim is used.
+#     Coat: at the hem and across the chest. Sleeves: a ring round the forearm, cut square to the
+#     bone because the rest-pose forearm is 30 degrees off horizontal. Trousers: above the cuff.
+#   * Breathing cylinder: a 6.8 L, 300 bar carbon-composite cylinder (EN 12245; 157 mm by 532 mm),
+#     upright on the back, 25 mm clear of the coat for the backplate and harness, which are not
+#     modelled.
+#
+# Use: blender -b --python scripts/make_human.py -- --name firefighter --gender 1.0
+#      --age-years 35 --skin young_caucasian_male --kit configs/humans/kits/firefighter.yaml
+#      --out outputs/humans/firefighter/firefighter.glb
+schema_version: 1
+kit:
+  name: firefighter
+  description: "Turnout coat and trousers with retroreflective trim, helmet, gloves, boots, and a breathing cylinder"
+  clothes:
+    feet: toigo_ankle_boots_male
+  pieces:
+    - name: garment_torso
+      colour_rgb: [0.55, 0.45, 0.25]
+      shell:
+        bones: [pelvis, spine_01, spine_02, spine_03, clavicle_l, clavicle_r, thigh_l, thigh_r]
+        bands: [[0.46, 0.835]]
+        offset_m: 0.035
+    - name: garment_arms
+      colour_rgb: [0.55, 0.45, 0.25]
+      shell:
+        bones: [upperarm_l, upperarm_r, lowerarm_l, lowerarm_r]
+        rings: [[-0.2, 1.2]]
+        offset_m: 0.03
+    - name: garment_hands
+      colour_rgb: [0.10, 0.08, 0.06]
+      shell:
+        bones: [hand_*, thumb_*, index_*, middle_*, ring_*, pinky_*]
+        bands: [[-0.05, 1.05]]
+        offset_m: 0.006
+    - name: garment_legs
+      colour_rgb: [0.55, 0.45, 0.25]
+      shell:
+        bones: [pelvis, thigh_l, thigh_r, calf_l, calf_r]
+        bands: [[0.05, 0.56]]
+        offset_m: 0.022
+    - name: garment_head
+      colour_rgb: [0.85, 0.65, 0.05]
+      shell:
+        bones: [head]
+        bands: [[0.95, 1.05]]
+        offset_m: 0.03
+    - name: equipment_trim_coat
+      colour_rgb: [0.78, 0.85, 0.20]
+      shell:
+        bones: [pelvis, spine_01, spine_02, spine_03, clavicle_l, clavicle_r, thigh_l, thigh_r]
+        bands: [[0.47, 0.514], [0.70, 0.744]]
+        offset_m: 0.0365
+    - name: equipment_trim_sleeves
+      colour_rgb: [0.78, 0.85, 0.20]
+      shell:
+        bones: [lowerarm_l, lowerarm_r]
+        rings: [[0.40, 0.69]]
+        offset_m: 0.0315
+    - name: equipment_trim_trousers
+      colour_rgb: [0.78, 0.85, 0.20]
+      shell:
+        bones: [calf_l, calf_r]
+        bands: [[0.085, 0.129]]
+        offset_m: 0.0235
+    - name: equipment_cylinder
+      colour_rgb: [0.04, 0.04, 0.04]
+      cylinder:
+        radius_m: 0.0785
+        length_m: 0.532
+        centre_z: 0.66
+        behind: garment_torso
+        gap_m: 0.025

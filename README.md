@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **A firefighter** — in turnout gear with reflective trim, gloves, a helmet and a breathing cylinder, filmed in three infrared bands and colour; outfits are now files, so the next occupation needs no code.
 - **A soldier** — in camouflage that matches foliage to a near-infrared camera, a plate carrier, a helmet and a pack, filmed in four bands; with the officer, the woman, the girl and the man this completes the first five people.
 - **A police officer** — in a navy uniform and a hi-vis vest with reflective tape and a duty belt, each with its own infrared material; the first occupation, built the same way as the civilians, and filmed in two thermal bands and colour.
 - **A woman and a child** — a woman and an eight-year-old girl join the man, made by changing his age, sex, height and build, with the girl at the World Health Organization's median height for her age; each body's skin temperatures are worked out for its own size.

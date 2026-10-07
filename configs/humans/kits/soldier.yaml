@@ -1,0 +1,40 @@
+# The soldier's outfit (HU.8, ADR 0197; a kit since HU.11, ADR 0198). Schema:
+# irsim.config.kits.HumanKit. Geometry only: the camouflage, the helmet's aramid and each piece's
+# insulation are in configs/assets/soldier.yaml.
+#
+# MakeHuman's CC0 clothes dress the arms (a sweater standing in for the combat shirt's sleeves),
+# legs (cargo trousers), feet (ankle boots) and head (an M1-style helmet). The plate carrier is
+# cut from the body as the police vest is, 45 mm out: plates and soft armour stand 40-50 mm off
+# the chest. A rigger belt at the waist; a 30 x 14 x 40 cm assault pack on the carrier's back.
+#
+# Use: blender -b --python scripts/make_human.py -- --name soldier --gender 1.0 --age-years 25
+#      --skin young_caucasian_male --kit configs/humans/kits/soldier.yaml
+#      --out outputs/humans/soldier/soldier.glb
+schema_version: 1
+kit:
+  name: soldier
+  description: "Camouflage shirt and trousers, helmet, boots; a plate carrier, a rigger belt and an assault pack"
+  clothes:
+    arms: toigo_fisherman_sweater
+    legs: cortu_cargo_pants
+    feet: toigo_ankle_boots_male
+    head: mrgreaterthan_m1_helmet
+  pieces:
+    - name: garment_torso
+      colour_rgb: [1.0, 1.0, 1.0]
+      shell:
+        bones: [pelvis, spine_01, spine_02, spine_03, clavicle_l, clavicle_r]
+        bands: [[0.585, 0.83]]
+        offset_m: 0.045
+    - name: equipment_belt
+      colour_rgb: [0.20, 0.18, 0.12]
+      shell:
+        bones: [pelvis, spine_01]
+        bands: [[0.552, 0.578]]
+        offset_m: 0.035
+    - name: equipment_pack
+      colour_rgb: [0.20, 0.22, 0.12]
+      box:
+        size_m: [0.30, 0.14, 0.40]
+        centre_z: 0.72
+        behind: garment_torso

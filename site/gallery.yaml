@@ -1422,3 +1422,31 @@ sections:
       foliage; the test asserts the material's band. The pattern is one mean value, and the RGB tint
       over the garments' own dark textures reads nearer black than olive (ADR 0197).
     source: configs/scenes/soldier_summer_noon.yaml, configs/scenes/soldier_winter_night.yaml, scripts/make_human.py
+
+  - id: firefighter-turnout
+    title: A firefighter in turnout gear
+    lead: |
+      A turnout coat and trousers, gloves, boots, a helmet, retroreflective trim and a breathing
+      cylinder, every piece cut from the body by one kit file. The turnout's insulation is a
+      thermal manikin's, zone by zone: **3.4 clo** on the torso. At noon the black cylinder takes
+      the most sun (**35.3 °C**) and the trim the least (**29.2 °C**, the coat 31.5); in the near
+      infrared the trim is the brightest thing on him. On a clear January night the coat is
+      **−4.6 °C** in −5 °C air, and only the face, at 24.0 °C, stands out. All four frames match
+      the solver to **0.0005 K**.
+    media:
+      - image: humans/firefighter/summer_lwir/frames/pair_00002.png
+        width: full
+        caption: LWIR and RGB at the summer noon
+      - image: humans/firefighter/summer_nir/frames/ir_00002.png
+        width: half
+        caption: NIR, the trim bright in the sun's band
+      - image: humans/firefighter/summer_mwir/frames/ir_00002.png
+        width: half
+        caption: MWIR, at 14 m
+      - image: humans/firefighter/winter_lwir/frames/ir_00002.png
+        width: half
+        caption: a clear January night at −5 °C; the coat is the air, the face is 24.0 °C
+    note: |
+      The coat is the body's skin pushed 35 mm out, so it follows the anatomy like a vest, and
+      skin shows in small gaps at the wrists. No hood or breathing mask is worn (ADR 0198).
+    source: configs/humans/kits/firefighter.yaml, configs/assets/firefighter.yaml, configs/scenes/firefighter_summer_noon.yaml, scripts/make_human.py

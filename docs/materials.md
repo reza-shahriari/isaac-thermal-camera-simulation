@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 94 materials. 56 of them were measured and imported by a script; the rest are
+The library has 95 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -287,6 +287,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `steel_polished` | polished | 0.36 | 0.25 | 0.08 | 0.02 | 0.39 | measured optical constants |
 | `tarmac_black` | weathered | 0.86 | 0.85 | 0.97 | 0.95 | 0.87 | measured: SLUM (MWIR from its class) |
 | `titanium_polished` | polished | 0.39 | 0.35 | 0.19 | 0.07 | 0.40 | measured optical constants |
+| `turnout_aramid_shell` | as manufactured | 0.50 | 0.45 | 0.87 | 0.90 | 0.55 | literature, partly estimated |
 | `vegetation_leaf` | natural | 0.10 | 0.25 | 0.96 | 0.97 | 0.50 | literature, partly estimated |
 | `water` | natural | 0.95 | 0.98 | 0.98 | 0.96 | 0.93 | literature, partly estimated |
 | `wood_pine` | as manufactured | 0.34 | 0.51 | 0.89 | 0.95 | 0.53 | measured: USGS + UCSB |

@@ -117,6 +117,15 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "firefighter_summer_noon.yaml": (
+        "HU.11's firefighter at noon, filmed by `render_phantom4.py` in LWIR (with its RGB "
+        "companion), MWIR and NIR as hero stills at each camera's own framing range: the trim "
+        "is bright only in the sun's band, which a sweep at one range would not frame."
+    ),
+    "firefighter_winter_night.yaml": (
+        "HU.11's firefighter on a clear January night, one LWIR still: no sun, so the trim and "
+        "the cylinder read the coat's temperature and the reflective bands have nothing to show."
+    ),
     "soldier_summer_noon.yaml": (
         "HU.8's soldier at noon, filmed in all four bands by `render_phantom4.py` as hero stills: "
         "the four-band comparison the row asks for, at each camera's own framing range. A sweep "
