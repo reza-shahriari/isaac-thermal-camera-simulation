@@ -220,6 +220,45 @@ class WeatherFxSky:
     #: and the app-update subscription that redraws it for the camera every frame.
     layer: Any = None
     layer_subscription: Any = None
+    #: The context every effect above reads its anchor and drift from, the camera's position in
+    #: metres and the stage's up axis: what :meth:`advance_clouds` needs to move them together.
+    context: Any = None
+    anchor_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    up_axis: int = 1
+
+    def advance_clouds(self, elapsed_s: float) -> Any:
+        """Carry the cloud ``elapsed_s`` seconds down the wind, in every band at once (WX.28).
+
+        weather-fx's manager does this on its own clock in the viewport; a headless driver has
+        none, so without this call the field stood still for a whole clip -- 1,666 s of mission
+        under a 5 m/s wind is 12 km of cloud that never moved. The drift is weather-fx's own pure
+        function of time and the state's wind (``cloud_drift_from_state``: the surface wind
+        times ``clouds.wind_factor``, toward ``wind.direction_deg``), written into the one
+        context the dome, the volumes and the per-pixel layer read, and into the deck's origin
+        with the same expression :func:`author_weather_fx_sky` used. The infrared camera of any
+        band marches that deck, so no band can see the cloud somewhere else.
+
+        Returns the drift, metres in stage axes.
+        """
+        from weather_fx.core.clouds import cloud_drift_from_state, stage_to_field
+
+        drift = np.asarray(
+            cloud_drift_from_state(self.state, float(elapsed_s), int(self.up_axis)),
+            dtype=np.float64,
+        )
+        if self.context is not None:
+            self.context.cloud_drift_m = drift
+            self.context.time = float(elapsed_s)
+        if self.deck is not None:
+            origin = stage_to_field(
+                np.asarray(self.anchor_m, dtype=np.float64) - drift, int(self.up_axis)
+            )
+            self.deck.origin_m = (float(origin[0]), float(origin[1]), float(origin[2]))
+        if self.effect is not None and hasattr(self.effect, "update"):
+            self.effect.update(0.0, 0.0)  # the dome re-bakes once the drift crosses a step
+        if self.volumes is not None:
+            self.volumes.update(0.0, 0.0)  # the tiles carry the drift as their translate
+        return drift
 
     def visible_cloud_transmittance(self) -> Any:
         """The visible transmittance of the cloud the per-pixel layer last drew, per pixel of
@@ -522,4 +561,7 @@ def author_weather_fx_sky(
         volumes=volumes,
         layer=layer,
         layer_subscription=subscription,
+        context=context,
+        anchor_m=(float(anchor_m[0]), float(anchor_m[1]), float(anchor_m[2])),
+        up_axis=int(up_axis),
     )

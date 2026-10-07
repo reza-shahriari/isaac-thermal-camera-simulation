@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **Clouds that move** — in a rendered clip the clouds now drift with the wind, and the thermal and colour cameras see them move together.
 - **Any downloaded human** — a 3D scan of a person, with no skeleton and no named parts, becomes an infrared-ready person in minutes: an open-source auto-rigger finds the body segments, and the person's own skin colour separates skin from clothes, with the uncertain bits listed for a quick check.
 - **A construction worker and a cyclist** — a man in a hi-vis vest and hard hat and a woman in cycling lycra and a helmet, each made from a short outfit file with no new code, and filmed in thermal, near-infrared and colour.
 - **A firefighter** — in turnout gear with reflective trim, gloves, a helmet and a breathing cylinder, filmed in three infrared bands and colour; outfits are now files, so the next occupation needs no code.
@@ -83,7 +84,6 @@ Validated so far against physics identities and public thermal imagery — see t
 - **DJI Matrice 100** — the developer quadcopter joins the asset library, split into its propellers, motors, arms, landing legs, battery, GPS mast and frame, each with an infrared material.
 - **A Liberty ship** — a WWII cargo ship joins the asset library, split into its hull, hatches, masts, deckhouses, funnel, lifeboats, rudder and propeller, each with an infrared material.
 - **Two FPV drones** — the DJI Avata 2 and DJI FPV join the asset library, split into their propellers, motors, arms, ducts, battery and camera, each with an infrared material.
-- **Spectral materials from Blender** — the Blender add-on can now create a material from a measured spectrum or a single value, and plots any material across the infrared bands.
 
 Full history in the [changelog](CHANGELOG.md).
 

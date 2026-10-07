@@ -485,7 +485,7 @@ class SkyModel:
         azimuth_rad: Any,
         deck: CloudDeck,
         *,
-        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        origin_m: tuple[float, float, float] | None = None,
         steps: int | None = None,
     ) -> NDArray[np.float64]:
         """Per-pixel sky radiance with the cloud **marched** rather than looked up by elevation.
@@ -502,7 +502,11 @@ class SkyModel:
         level are inside it, where the cloud's own opacity dominates the air's.
         """
         el = np.asarray(elevation_rad, dtype=np.float64)
-        march = deck.march(el, azimuth_rad, origin_m=origin_m, steps=steps)
+        # WX.28: no origin means the deck's own (a weather-fx deck's carries the camera's anchor
+        # less the wind's drift, AT.30). A (0, 0, 0) default here overrode it, so the infrared
+        # marched an undrifted field from the field's origin while the visible layer moved.
+        where = {} if origin_m is None else {"origin_m": origin_m}
+        march = deck.march(el, azimuth_rad, steps=steps, **where)
         # **One base.** The deck's geometry says where its base is; the temperature the rays emit
         # at, and the air in front of it, are taken at *that* height (ADR 0146). Before this the
         # temperature came from a second LCL computed from the weather, and the two agreed only
@@ -539,7 +543,7 @@ class SkyModel:
         deck: Any,
         range_m: Any,
         *,
-        origin_m: tuple[float, float, float] = (0.0, 0.0, 0.0),
+        origin_m: tuple[float, float, float] | None = None,
         steps: int | None = None,
     ) -> Any:
         """The cloud between the camera and each pixel's hit: transmittance and emission (AT.14).
@@ -573,9 +577,8 @@ class SkyModel:
             return np.asarray(lut.lookup(t_emit, q), dtype=np.float64) + shine
 
         el = np.maximum(np.asarray(elevation_rad, dtype=np.float64), 0.0)
-        return march_to(
-            el, azimuth_rad, range_m, radiance_at_height, origin_m=origin_m, steps=steps
-        )
+        where = {} if origin_m is None else {"origin_m": origin_m}  # None: the deck's own
+        return march_to(el, azimuth_rad, range_m, radiance_at_height, steps=steps, **where)
 
     def apparent_temperature_field_from_deck(
         self,

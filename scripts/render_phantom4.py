@@ -406,6 +406,13 @@ parser.add_argument(
     "present (the GPU twin, irsim_isaac.cloud_march_gpu, is the default where it can run)",
 )
 parser.add_argument(
+    "--freeze-clouds",
+    action="store_true",
+    help="hold the cloud field still for the whole clip. By default it moves down the state's "
+    "wind (surface wind times clouds.wind_factor) as the clip's clock runs, in the visible "
+    "layer and every infrared band's march alike (WX.28)",
+)
+parser.add_argument(
     "--cloud-steps",
     type=int,
     default=None,
@@ -1306,6 +1313,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     rows: list[dict[str, Any]] = []
     started = time.time()
     agreements: list[Any] = []
+    cloud_drift: Any = None
     for index in range(args.frames):
         phase = float(at(phases[index]))
         position, slant, aspect = place(phase)
@@ -1331,6 +1339,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         def pose_at(dt: float, _p: float = float(phases[index]), _step: float = phase_step) -> None:
             place(float(at(_p + dt / interval_s * _step)))
 
+        if weather_sky is not None and not args.freeze_clouds:
+            # WX.28: the clip's clock carries the cloud down the wind. The camera's own clock
+            # advances one `interval_s` per capture, so this frame is `index * interval_s` in.
+            cloud_drift = weather_sky.advance_clouds(index * interval_s)
         outputs = cam.get_outputs(
             rt_subframes=args.rt_subframes, rgb_subframes=args.rgb_subframes, pose_at=pose_at
         )
@@ -1704,6 +1716,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         "sky_span_c": sky_span,
         "cloud_band_agreement": _agreement_summary(agreements),
         "cloud_band_mask": cam.cloud_band_mask_spec(),
+        # WX.28: how far the wind carried the cloud by the last frame, metres in stage axes;
+        # None when the clouds were frozen or there was no weather-fx sky.
+        "cloud_drift_m": None if cloud_drift is None else [round(float(v), 1) for v in cloud_drift],
         "agc_isp": agc_isp,
         "interval_s": interval_s,
         "seconds_per_frame": round(render_s / max(args.frames, 1), 2),

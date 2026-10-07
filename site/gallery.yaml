@@ -1114,6 +1114,25 @@ sections:
       of its height.
     source: scripts/render_phantom4.py
 
+  - id: cloud-drift-both-bands
+    title: The cloud moves down the wind, in both bands
+    lead: |
+      `WX.28`. A rendered clip used to hold the cloud field still: the extension carries the drift
+      on its own clock, and a headless render has none. Each frame now carries the field by
+      weather-fx's own drift law for that frame's time: the surface wind (4.1 m/s here) times the
+      cloud-level factor (1.5). Over this 24-frame cumulus clip, 69 s apart, that is 9.9 km. Both
+      bands read one moving field: **all 24 frames are inside the agreement bar, cloud-mask IoU
+      min 0.979 (median 0.995), p95 band-emissivity error at most 0.031**. The first attempt moved
+      only the visible cloud, because the infrared's sky model overrode the field's origin with
+      (0, 0, 0). Its last frames scored IoU 0, which is how it was found.
+    media:
+      - video: phantom4_cloudscape_drift/cumulus/phantom4_pair.mp4
+        width: full
+        caption: >-
+          Cumulus, 35 % cover, drifting. Left LWIR apparent temperature, white-hot; right the
+          visible companion from the same camera.
+    source: scripts/render_phantom4.py
+
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

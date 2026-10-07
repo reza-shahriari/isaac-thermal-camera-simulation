@@ -154,6 +154,18 @@ standing on the condensation level of surface air.
   and `depth` in its stats), the camera leaves object pixels out when it did not, and
   `march_on_native_grid` marches every sample of a pixel whose samples do not share one range
   to the hit (`tests/unit/test_pixel_integral.py`, red on the old march).
+- **Amended 2026-10-07: the cloud moves (WX.28).** These clips held the field still: the
+  extension's manager carries the drift on its clock and a headless driver has none.
+  `WeatherFxSky.advance_clouds(t)` evaluates weather-fx's own drift law for the clip's time
+  (`cloud_drift_from_state`: the surface wind times `clouds.wind_factor`). It writes the result
+  into the one context the dome, the volumes and the per-pixel layer read, and into the deck's
+  origin. The first drifting clip found that the infrared ignored it: `SkyModel.cloud_occlusion`
+  and `radiance_field_from_deck` defaulted `origin_m` to (0, 0, 0) and passed it on, overriding
+  the deck's origin (AT.30's anchor included). The visible cloud moved 9.9 km and the infrared's
+  not at all, so the last frames scored IoU 0. With no origin given they now march from the
+  deck's. Re-rendered (cumulus, 24 frames, 69 s apart, 4.1 m/s × 1.5 toward −25°, 9.9 km by
+  the last frame): all 24 frames inside the bar, IoU min 0.979 (median 0.995), p95 at most
+  0.031. `render_phantom4.py --freeze-clouds` keeps a still sky.
 - The sky model's clear-air path to a cloud still takes the base height and a plane-parallel
   airmass (ADR 0126); only the cloud's geometry is on the sphere. Beyond 80 km the band's air is
   opaque in any case, which is why the range cap costs the infrared nothing it could show.
