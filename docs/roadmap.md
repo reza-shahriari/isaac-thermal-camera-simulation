@@ -185,27 +185,27 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 86 open steps
+#### Then, in order — 87 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
 | 1 | **`WX.7`** | WX | A | L | 8 | ready |
 | 2 | **`WX.8`** | WX | A | M | 7 | `WX.7` |
 | 3 | **`WX.11`** | WX | A | S | 2 | ready |
-| 4 | **`WX.25`** | WX | A | M | 1 | ready |
-| 5 | **`WX.22`** | WX | A | L | 1 | ready |
+| 4 | **`WX.22`** | WX | A | L | 2 | ready |
+| 5 | **`WX.25`** | WX | A | M | 1 | ready |
 | 6 | **`AT.38`** | AT | A | M | — | ready |
 | 7 | **`WX.10`** | WX | A | M | — | ready |
 | 8 | **`WX.27`** | WX | A | M | — | ready |
-| 9 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25` |
-| 10 | **`XD.6`** | XD | A | L | — | ready |
-| 11 | **`AT.26`** | AT | B | S | — | ready |
-| 12 | **`AI.22`** | AI | B | M | — | ready |
-| 13 | **`IG.16`** | IG | B | M | — | ready |
-| 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
-| 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
+| 9 | **`WX.29`** | WX | A | M | — | `WX.22` |
+| 10 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25` |
+| 11 | **`XD.6`** | XD | A | L | — | ready |
+| 12 | **`AT.26`** | AT | B | S | — | ready |
+| 13 | **`AI.22`** | AI | B | M | — | ready |
+| 14 | **`IG.16`** | IG | B | M | — | ready |
+| 15 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
 
-…and 71 more — `python scripts/next_step.py --queue 40`.
+…and 72 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -285,7 +285,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `TC.9`–`TC.12`, `TC.16`, `PH.1`–`PH.8`, `PH.13`, `PT.25`, `PT.26`, `AT.24`, `IG.20`, `IG.21`, `IG.22` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half, staged by `IG.20` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.20`, `AI.23`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.37`, `AT.38`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.20`, `WX.1`–`WX.11`, `WX.21`–`WX.27`, `WX.28` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.20`, `AI.23`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.37`, `AT.38`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.20`, `WX.1`–`WX.11`, `WX.21`–`WX.27`, `WX.28`, `WX.29` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `AI.21`, `AI.22`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20`, `HU.1`–`HU.13` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`, `XD.5`, `XD.7`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -680,13 +680,14 @@ repository green on `make check`.
 | WX.19 | **Precipitation carries heat** (§6.7): Q_P = ṁ c_w (T_rain − T_s), snow at its own temperature and L_f while melting. | −58 ± 2 W m⁻² at 10 mm h⁻¹ on a road 5 K above the drops; zero with no rain; an energy budget that closes to 1e-6 with the film. | — | S | C |
 | WX.20 | **Water and snow on the window** (§9.6): a blocked fraction of each pixel's beam footprint at the drop's temperature, from the pupil's position. | One drop covering 10 % of the aperture lowers responsivity to 0.90 ± 0.01 with no change of MTF (Jobert et al. 2024); a drop on a window ahead of the pupil shades a soft-edged region. | WX.15 | M | C |
 | WX.21 | ✅ **closed without building — withdrawn** (ADR 0185). It was *a dome that resolves the camera's pixel*; the dome is no longer what the camera looks at, since the cloud is marched per pixel (`WX.23`). | Not built. The audit that withdrew it: `outputs/cloud_audit/`. | WX.5 | M | A |
-| WX.22 | **A field that does not repeat** (in `isaac-weather-fx`; split from `WX.6`): the procedural field aperiodic over the camera's range. The sun light maps, the path tracer's tiled volumes and the cover calibration all assume one periodic tile and move with it. | Mask autocorrelation at the old tile period < 0.1 (today 1.0 by construction); light maps and volumes agree with the dome beyond one tile; D and b still within §7.5's targets. | WX.6 | L | A |
+| WX.22 | 🟡 **Part 1 done** (ADR 0202): weather-fx `18366de`; the cloudscape both bands march reads its 32 km weather map at a hashed offset per tile, cross-faded on the coverage's normal score (histogram kept), baked into a 160 km texture. **Open, part 2:** the voxel `CloudField` (dome, path-traced volumes, light maps) still tiles every 15.36 km. | **Measured** (`cloud_field_repeat.py`): cover pattern one tile away 0.21 → 0.00, cloudy share 15.8 → 15.7 %. Part 2: the same for the voxel field; light maps and volumes agree with the dome beyond one tile. | WX.6 | L | A |
 | WX.23 | ✅ **done** (ADR 0185). weather-fx `ec6ead3`: `core.cloudscape` (weather map, height profile, shape and detail noise; numpy reference) and `gpu.cloud_march` (Warp: two-stream sun, sky/ground mix, premultiplied out), composed through the sky model's aerial perspective; `tools/render_cloudscape.py`. | GPU density = numpy to 0.05 max / 1e-3 mean over 20k points; furnace 2 %; four headings 90° apart at one sharpness; 6–13 ms per 1280×720 frame on the A6000. The look is a first pass (`WX.27`). | WX.6 | L | A |
 | WX.24 | ✅ **done** (ADR 0186). weather-fx `f25c3a8`: `clouds.render_path = "pixel"` marches the cloudscape for the viewport's camera each frame and emits it from a quad at the far end of its frustum, in RTX Real-Time and the path tracer alike; sky and air tabulated for the GPU (`core/layer_tables.py`); `examples/capture_pixel_clouds.py`. | In Isaac Sim, 1280×720, A6000: 44–48 fps real-time (layer 15 ms); four headings at one sharpness; real-time = path-traced clouds at midday; emission = dome at π × intensity. One camera; dome clear. | WX.23 | L | A |
 | WX.25 | **The same function in the path tracer** (in `isaac-weather-fx`): the cloudscape exported as fine NanoVDB tiles with air in front of it, and bases no longer coloured by the ground's bounce. | Path-traced and real-time frames of one sky agree in median luminance within 15 % and in cloud layout per pixel (IoU ≥ 0.8); no olive tint on bases (chroma within 0.03 of neutral grey). | WX.23 | M | A |
 | WX.26 | ✅ **done** (ADR 0190, 0191). `WeatherFxDeck` marches `Cloudscape` or `CloudField` as a shell to 80 km; tier `pixel`; every genus, with a new cirrus (9 km, thin, streaked; `S67`); `density_scale` reaches the deck; the march on the GPU. | **Measured**, six genera × 24 frames, both bands (`cloud_band_agreement`): IoU min 0.852 (median 0.994), p95 ε error max 0.096; 132/144 frames inside the bar (the rest: small clouds); no drone pixel reads cloud. Bar IoU ≥ 0.9, p95 ≤ 0.05. Fixed on the way: the layer's viewport settings, slab vs shell, cloud beyond 80 km. | WX.23 | M | A |
 | WX.27 | **The look to the owner's eye** (in `isaac-weather-fx`): detail erosion frequencies and strength, lobe sizes and per-genus profiles tuned against reference photographs, judged by the owner on the viewport. | The owner accepts a cumulus, a stratocumulus and a sunset frame; §7.5's D and b targets still met on the new field. | WX.24 | M | A |
 | WX.28 | ✅ **done** (ADR 0191 amended). The cloud moves in a headless clip: `WeatherFxSky.advance_clouds(t)` applies weather-fx's drift law (surface wind × `wind_factor`) to the shared context and the deck's origin each frame; `--freeze-clouds` keeps a still sky. Fixed on the way: the sky model's (0, 0, 0) `origin_m` default overrode the deck's. | **Measured**, cumulus × 24 frames, 9.9 km of drift: both bands move together, 24/24 inside the bar (IoU min 0.979, p95 ≤ 0.031) (`tests/unit/test_cloud_drift.py`). | WX.26, AT.30 | S | A |
+| WX.29 | **No lattice in the cumulus** (in `isaac-weather-fx`): each patch is faded to zero before its 3.2 km cell's border and cannot cross it, so the field has straight clear lanes along every lattice line, both ways (ADR 0202). Let a patch straddle its border: evaluate the 2 × 2 nearest cells. | Plan-view power spectrum of the cloudy mask has no peak at the lattice period (today a clear one); GPU = NumPy reference; cover and §7.5's D and b unchanged. | WX.22 | M | A |
 
 ---
 

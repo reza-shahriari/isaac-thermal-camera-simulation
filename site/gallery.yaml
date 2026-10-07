@@ -1133,6 +1133,28 @@ sections:
           visible companion from the same camera.
     source: scripts/render_phantom4.py
 
+  - id: cloud-field-no-repeat
+    title: The cloud cover pattern, seen from above, no longer repeats
+    lead: |
+      `WX.22` part 1, ADR 0202. The cloudscape both bands march takes its groups of cumulus, and
+      the clear lanes between them, from one 32 km weather map, and a camera sees 80 km. Each
+      tile of the plane now reads that map at its own hashed offset, and the tiles cross-fade at
+      their borders in a way that keeps the cover the solve asked for. Over three tiles from above,
+      **the cover pattern (3 km blocks) one tile away correlates 0.00, where it was 0.21**, and the
+      cloudy share is 15.7 % against 15.8 %.
+    media:
+      - image: cloud_field_repeat/cloud_field_repeat.png
+        width: full
+        caption: >-
+          Cloudy columns (white) of a 35 % cumulus cloudscape over 96 km. Left: the plain wrapped
+          weather map. Right: every tile its own. Red: the 32 km tile borders.
+    note: |
+      The individual clouds never repeated (each lattice cell's patch is hashed), only their
+      grouping did. The same view shows a regularity the tile did not cause: straight clear lanes
+      along every 3.2 km patch-lattice line. That is the next step, `WX.29`. The blended field is
+      baked five tiles a side, so it does repeat every 160 km, twice what a camera sees.
+    source: scripts/cloud_field_repeat.py
+
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |
