@@ -405,12 +405,15 @@ class AerialThermalBridge:
         azimuth_rad: Any | None = None,
         fill_k: float = 0.0,
         strict: bool = True,
+        background_k: Any | None = None,
     ) -> NDArray[np.float32]:
         """The G-buffer's ``temperature_k``: facet temperatures on geometry, T_sky on the sky.
 
         ``elevation_rad`` is the per-pixel ray elevation (:func:`elevation_from_rays`). Without a
         sky model, or without elevations, the masked pixels keep ``fill_k`` and the caller is
-        asserting it will supply the sky itself.
+        asserting it will supply the sky itself. ``background_k`` is
+        :meth:`background_temperature_k` over the whole frame if the caller already has it (it
+        needs it anyway for layered defocus, `OC.7`), so the sky is not marched twice.
         """
         ids = np.asarray(instance_ids)
         if not np.issubdtype(ids.dtype, np.integer):
@@ -423,10 +426,12 @@ class AerialThermalBridge:
         if mask is None:
             mask = ids == BACKGROUND_INSTANCE_ID
         if mask.any() and self.sky is not None and elevation_rad is not None:
-            plane = np.asarray(
-                np.where(mask, self.background_temperature_k(elevation_rad, azimuth_rad), plane),
-                dtype=np.float32,
+            background = (
+                self.background_temperature_k(elevation_rad, azimuth_rad)
+                if background_k is None
+                else background_k
             )
+            plane = np.asarray(np.where(mask, background, plane), dtype=np.float32)
         return plane
 
     def background_temperature_k(

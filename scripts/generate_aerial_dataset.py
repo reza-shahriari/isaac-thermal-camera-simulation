@@ -29,7 +29,7 @@ Everything lands in ``train``: the validation phase selects and scores on **real
 Run with the Isaac interpreter (docs/decisions/0002), pinned to one GPU with ``IRSIM_GPU``. A run
 that already has its ``summary.json`` is collected, not re-rendered, so an interrupted set resumes.
 
-docs/physics-model.md §15 T5; roadmap EV.10 (viewpoint distribution), EV.15 (labels)
+docs/physics-model.md §15 T5; roadmap EV.10 (viewpoint distribution), EV.15 (labels), EV.21 (focus)
 """
 
 from __future__ import annotations
@@ -48,11 +48,29 @@ REPO = Path(__file__).resolve().parents[1]
 #: Cloud regimes of the weather-fx submodule that put structure behind the target without
 #: precipitation in front of it.
 CLOUD_REGIMES = ("fair_cumulus", "broken_cumulus", "overcast")
+#: EV.21: the share of clips whose lens is focused at infinity; the rest are focused at a distance
+#: drawn log-uniformly from ``near_m`` to ``FOCUS_FAR_FACTOR * far_m``. Real anti-UAV targets are
+#: soft (edge width median 4.1 px against 1.9 for the old renders; ADR 0204), and a 50 mm F/1
+#: lens at infinity puts the drone's blur in that range; a clip focused near the drone's own range
+#: keeps some sharp frames too, which a detector should also have seen.
+FOCUS_INFINITY_SHARE = 0.5
+FOCUS_FAR_FACTOR = 10.0
+
+
+def draw_focus(rng: np.random.Generator, near_m: float, far_m: float) -> str:
+    """One clip's focus, as ``render_phantom4.py --focus-m`` takes it: ``inf`` or metres."""
+    if rng.uniform() < FOCUS_INFINITY_SHARE:
+        return "inf"
+    lo, hi = np.log(near_m), np.log(FOCUS_FAR_FACTOR * far_m)
+    return f"{float(np.exp(rng.uniform(lo, hi))):.1f}"
 
 
 def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
     """Every run's weather, hour and seeds, drawn once from ``--seed`` so a set reproduces."""
     rng = np.random.default_rng(args.seed)
+    # A stream of its own, so adding the focus draw left every earlier set's weather, hours and
+    # seeds exactly as they were.
+    focus_rng = np.random.default_rng([args.seed, 21])
     runs: list[dict[str, Any]] = []
     for kind, count, frames in (
         ("clear", args.clear_runs, args.frames_per_run),
@@ -69,6 +87,11 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
                     # airframe and one that has cooled to the night air are different targets.
                     "weather_hour": round(float(rng.uniform(0.0, 24.0)), 2),
                     "scatter_seed": int(rng.integers(0, 2**31 - 1)),
+                    "focus_m": (
+                        draw_focus(focus_rng, args.near_m, args.far_m)
+                        if args.focus == "drawn"
+                        else args.focus
+                    ),
                 }
             )
     return runs
@@ -100,6 +123,7 @@ def render_command(args: argparse.Namespace, run: dict[str, Any], out: Path) -> 
         "--cloud-tier", "real_time",
         "--no-rgb", "--no-overlay",
         "--plane-stride", "1",
+        *([] if run.get("focus_m", "sensor") == "sensor" else ["--focus-m", str(run["focus_m"])]),
         "--out", str(out),
     ]  # fmt: skip
 
@@ -155,10 +179,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--elevation-low-deg", type=float, default=6.0)
     parser.add_argument("--elevation-high-deg", type=float, default=20.0)
     parser.add_argument("--aim-jitter", type=float, default=0.6)
+    parser.add_argument(
+        "--focus",
+        default="drawn",
+        help="the lens focus per clip: 'drawn' (EV.21: half at infinity, half at a distance; "
+        "draw_focus), 'inf', a distance in metres, or 'sensor' for the sensor file's own",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print every planned run (weather, hour, focus, seeds) and its command; "
+        "render nothing",
+    )
     args = parser.parse_args(argv)
 
     out: Path = args.out
     work: Path = args.work or (REPO / "outputs" / "aerial_dataset" / out.name)
+    if args.dry_run:
+        for run in plan_runs(args):
+            print(json.dumps(run))
+            print("  " + " ".join(render_command(args, run, work / run["name"])))
+        return 0
     work.mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
     records = []

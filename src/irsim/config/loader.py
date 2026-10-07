@@ -38,6 +38,7 @@ __all__ = [
     "load_sensor_config",
     "dump_sensor_config",
     "with_integration_time_ms",
+    "with_focus",
     "config_hash",
     "band_hash",
     "file_sha256",
@@ -177,6 +178,39 @@ def with_integration_time_ms(config: SensorConfig, integration_ms: float) -> Sen
             "responsivity is thermal and it has no exposure to set (docs/physics-model.md §8.2)"
         )
     dumped["sensor"]["fpa"]["integration_time_ms"] = float(integration_ms)
+    return SensorConfig.model_validate(dumped)
+
+
+def with_focus(
+    config: SensorConfig,
+    distance_m: float | None,
+    *,
+    model: str = "hopkins",
+    apply: str = "layered",
+) -> SensorConfig:
+    """A copy of ``config`` whose lens is focused at ``distance_m`` (``None``: at infinity), with a
+    defocus model that makes that focus matter.
+
+    docs/physics-model.md §8.3 (``MTF_defocus``); `OC.4`, ADR 0129.
+
+    A tracking camera's lens is focused once, or by a servo, and a drone moving through tens of
+    metres is rarely at that distance: the real anti-UAV frames are soft (EV.21). A camera config
+    with ``defocus_model: none`` is sharp at every range whatever its focus says, so this sets
+    the model too, unless the config already names one -- an explicit choice is kept. As with
+    :func:`with_integration_time_ms`, the change goes through the model so :func:`config_hash`
+    sees it: two focus settings are two cameras.
+    """
+    dumped = config.model_dump(mode="json")
+    optics = dumped["sensor"]["optics"]
+    optics["focus"] = (
+        {"mode": "infinity"}
+        if distance_m is None
+        else {"mode": "fixed", "distance_m": float(distance_m)}
+    )
+    mtf = optics.setdefault("mtf", {})
+    if mtf.get("defocus_model", "none") == "none":
+        mtf["defocus_model"] = model
+        mtf["defocus_apply"] = apply
     return SensorConfig.model_validate(dumped)
 
 

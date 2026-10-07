@@ -890,6 +890,21 @@ class IrCamera:
         azimuth = azimuth_from_rays(rays, up=up_vector, forward=FORWARD_AXIS_VECTOR[axis])
 
         self.bridge.advance_to(self._t_rel_s)
+        # `OC.7`: what each pixel would see with the geometry taken away. Layered defocus needs it
+        # to fill the sky a blurred edge uncovers; without it the composite renormalises there and
+        # a defocused target keeps a nearly sharp silhouette (EV.21: at 21 m through a 50 mm F/1
+        # lens, an edge 3.1 px wide where the lens gives 7.2). It is the sky the temperature
+        # plane takes for its own sky pixels, so it is computed once and handed to both.
+        background = None
+        optics = self.sensor.sensor.optics
+        if (
+            self.sensor.sensor.defocus_enabled
+            and optics.mtf.defocus_apply == "layered"
+            and self.bridge.sky is not None
+        ):
+            background = np.asarray(
+                self.bridge.background_temperature_k(elevation, azimuth), dtype=np.float32
+            )
         temperature = self.bridge.temperature_plane(
             instance_id,
             labels,
@@ -897,6 +912,7 @@ class IrCamera:
             elevation_rad=elevation,
             azimuth_rad=azimuth,
             strict=self.strict_thermal_nodes,
+            background_k=background,
         )
         if self.pointwise is not None:
             # The patch-backed prims take their own cells. The absolute weather clock, not the
@@ -970,6 +986,8 @@ class IrCamera:
         # The reflective terms ride *outside* the M0.6 contract, the way `radiance_behind` does:
         # they are stage-1 inputs, not geometry, and `GBuffer` refuses keys it does not know.
         planes.update(self._illumination_planes(aovs, geometry))
+        if background is not None:
+            planes["background_t_k"] = background
         # AT.14: the cloud between the camera and every hit, marched on the shared field. Sky
         # pixels carry theirs in the temperature already; these planes are for the geometry.
         occlusion = (

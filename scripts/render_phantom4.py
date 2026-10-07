@@ -216,6 +216,13 @@ parser.add_argument(
     help="override a photon FPA's integration time, in ms (as render_quad_flight.py): a daylight "
     "reflective-band scene saturates a low-light exposure; changes the config hash",
 )
+parser.add_argument(
+    "--focus-m",
+    default=None,
+    help="focus the lens at this distance in metres, or 'inf' (EV.21): a tracking camera's focus "
+    "is set once and the drone is rarely at it. Sets a Hopkins defocus model if the sensor names "
+    "none (irsim.config.loader.with_focus); changes the config hash. Default: the sensor's own",
+)
 parser.add_argument("--fps", type=float, default=12.0)
 parser.add_argument(
     "--mission-s",
@@ -657,6 +664,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         band_hash,
         config_hash,
         load_sensor_config,
+        with_focus,
         with_integration_time_ms,
     )
     from irsim.config.scene import load_scene_config
@@ -711,6 +719,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     sensor = load_sensor_config(REPO / args.sensor)
     if args.integration_ms is not None:
         sensor = with_integration_time_ms(sensor, args.integration_ms)
+    if args.focus_m is not None:
+        focus = str(args.focus_m).strip().lower()
+        sensor = with_focus(sensor, None if focus in ("inf", "infinity") else float(focus))
     band = sensor.sensor.band.band_id
     # ADR 0021: a photon FPA runs the whole chain on the photon table, so the sky, the atmosphere
     # and the target solvers are built in the sensor's own form. This was hard-coded "lb", which is
@@ -1296,6 +1307,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         metadata={
             "scene": pathlib.Path(args.scene).name,
             "sensor": pathlib.Path(args.sensor).name,
+            # EV.21: what the lens was focused at, and the model that made it matter
+            "focus": sensor.sensor.optics.focus.model_dump(mode="json", exclude_defaults=True)
+            or {"mode": "infinity"},
+            "defocus_model": sensor.sensor.optics.mtf.defocus_model,
             "asset": args.asset,
             "interval_s": interval_s,
             "track": "lemniscate, one circuit per clip",

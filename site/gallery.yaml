@@ -1155,6 +1155,26 @@ sections:
       baked five tiles a side, so it does repeat every 160 km, twice what a camera sees.
     source: scripts/cloud_field_repeat.py
 
+  - id: drone-focus
+    title: The drone, focused the way a tracking camera is
+    lead: |
+      `EV.21`, ADR 0204. In real anti-drone footage the drone is almost never sharp; the renders
+      were. Measured as the target's contrast over its steepest gradient, the real sky-only test
+      targets read a **median edge width of 4.10 px**, and the old renders read 1.92, the
+      sharp-edge floor. The lens now has a focus. Focused at infinity, a 50 mm F/1 lens blurs a
+      drone at 20–90 m through the existing Hopkins defocus, and **these frames read a median
+      4.62 px**, inside the real interquartile range of 3.20–5.40.
+    media:
+      - image: target_sharpness/focus_pairs.png
+        width: full
+        caption: >-
+          The same five poses at 24, 21, 25, 22 and 42 m. Top: the lens as before, edge width
+          2.6, 2.3, 2.7, 2.0, 2.0 px. Bottom: focused at infinity, 6.6, 4.6, 6.0, 4.6, 3.1 px.
+    note: |
+      The real frames are not shown: the set states no licence over them. The fix that made this
+      visible was in the camera, not the optics: layered defocus needs the sky behind a blurred
+      edge, and the Isaac camera had never supplied it.
+    source: scripts/target_sharpness.py
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

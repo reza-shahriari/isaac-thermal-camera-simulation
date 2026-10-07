@@ -40,6 +40,8 @@ __all__ = [
     "edge_asymmetry",
     "asymmetry_vs_tau_curve",
     "size_from_range_px",
+    "edge_width_px",
+    "blur_sigma_px",
 ]
 
 
@@ -307,3 +309,67 @@ def size_from_range_px(
     if np.any(r <= 0.0):
         raise ValueError("range must be positive")
     return np.asarray(focal_length_mm * 1e-3 * physical_size_m / (r * pitch_um * 1e-6))
+
+
+def _sobel_magnitude(image: NDArray[np.float64]) -> NDArray[np.float64]:
+    """|∇| by the 3 × 3 Sobel pair, scaled by 1/8 so a unit ramp reads 1 per pixel; edge-padded."""
+    p = np.pad(image, 1, mode="edge")
+    right = p[:-2, 2:] + 2.0 * p[1:-1, 2:] + p[2:, 2:]
+    left = p[:-2, :-2] + 2.0 * p[1:-1, :-2] + p[2:, :-2]
+    below = p[2:, :-2] + 2.0 * p[2:, 1:-1] + p[2:, 2:]
+    above = p[:-2, :-2] + 2.0 * p[:-2, 1:-1] + p[:-2, 2:]
+    gx, gy = (right - left) / 8.0, (below - above) / 8.0
+    return np.asarray(np.hypot(gx, gy), dtype=np.float64)
+
+
+def edge_width_px(frame: Any, box: Box, percentile: float = 99.0) -> float:
+    """How soft the target's silhouette is, in pixels: its contrast over its steepest gradient.
+
+    ``w = C / |∇|_p`` with ``C`` the larger of (99th percentile in the box − background) and
+    (background − 1st percentile), the background the median of the frame within one box-size
+    around it but outside the box, and ``|∇|_p`` the ``percentile``-th gradient magnitude inside
+    the box. A step blurred by a Gaussian of σ pixels reads ``√(2π σ² + 4)`` to 4 %: 2.5 σ once σ
+    passes a few pixels, and exactly 2 for a sharp edge, the central difference's own two-pixel
+    span (:func:`blur_sigma_px` inverts it). It is a ratio of two
+    display-domain quantities with the same units, so any linear display mapping cancels -- the
+    property every statistic here needs (ADR 0068) -- and a clipped (saturated) core shortens it
+    only as much as it shortens the contrast.
+
+    EV.21 measured it on Anti-UAV RGBT's sky-only test frames (median 3.97 px, 10-90 % 2.9-6.6)
+    against irsim's clip set (median 1.92 px, 1.6-2.1): the real targets carry a blur of about
+    1.4 px σ, the renders none.
+    """
+    image = np.asarray(frame, dtype=np.float64)
+    if image.ndim != 2:
+        raise ValueError(f"frame must be (H, W), got {image.shape}")
+    rows, cols = box.slice()
+    if rows.start < 0 or cols.start < 0 or rows.stop > image.shape[0] or cols.stop > image.shape[1]:
+        raise ValueError("box lies outside the frame")
+    grow = max(box.width, box.height) // 2
+    outer = box.grown(grow)
+    o_rows = slice(max(0, outer.y), min(image.shape[0], outer.y + outer.height))
+    o_cols = slice(max(0, outer.x), min(image.shape[1], outer.x + outer.width))
+    patch = image[o_rows, o_cols]
+    inside = np.zeros(patch.shape, dtype=bool)
+    inside[rows.start - o_rows.start : rows.stop - o_rows.start,
+           cols.start - o_cols.start : cols.stop - o_cols.start] = True  # fmt: skip
+    if inside.all():
+        raise ValueError("no background around the box: it fills the frame")
+    background = float(np.median(patch[~inside]))
+    target = patch[inside]
+    contrast = max(
+        float(np.percentile(target, 99.0)) - background,
+        background - float(np.percentile(target, 1.0)),
+    )
+    steepest = float(np.percentile(_sobel_magnitude(patch)[inside], percentile))
+    if contrast <= 0.0 or steepest <= 0.0:
+        raise ValueError("the target has no contrast against its background")
+    return contrast / steepest
+
+
+def blur_sigma_px(edge_width: float) -> float:
+    """The Gaussian σ, in pixels, that :func:`edge_width_px` reads as ``edge_width``.
+
+    The inverse of ``w = √(2π σ² + 4)``; 0 at or below the sharp-edge floor of 2.
+    """
+    return math.sqrt(max(0.0, float(edge_width) ** 2 - 4.0) / (2.0 * math.pi))

@@ -223,6 +223,25 @@ def test_sky_pixels_take_t_sky_of_their_own_elevation(tophat_lwir_lut: BandLUT) 
     assert expected[0, 0] > expected[1, 1], "the horizon is warmer than the zenith"
 
 
+def test_a_background_the_caller_already_has_is_the_sky_it_uses(tophat_lwir_lut: BandLUT) -> None:
+    """EV.21: the camera computes the whole-frame background once for layered defocus (`OC.7`)
+    and hands it in. The sky pixels must take exactly that plane, and the geometry its own."""
+    scene = _scene(tophat_lwir_lut, _constant_targets())
+    bridge = AerialThermalBridge(scene, PRIMS, band="lwir")
+    bridge.advance_to(2.0)
+
+    elevation = np.deg2rad(np.array([[5.0, 30.0], [60.0, 89.0]]))
+    ids = np.array([[0, 4], [0, 0]], dtype=np.uint32)
+    background = np.asarray(bridge.background_temperature_k(elevation), dtype=np.float32)
+    given = bridge.temperature_plane(ids, LABELS, elevation_rad=elevation, background_k=background)
+    own = bridge.temperature_plane(ids, LABELS, elevation_rad=elevation)
+    assert np.array_equal(given, own)
+    marker = np.full_like(background, 123.0)
+    planted = bridge.temperature_plane(ids, LABELS, elevation_rad=elevation, background_k=marker)
+    assert planted[0, 0] == planted[1, 0] == planted[1, 1] == np.float32(123.0)
+    assert planted[0, 1] == own[0, 1]
+
+
 def test_below_the_horizon_the_background_is_ground_not_sky(tophat_lwir_lut: BandLUT) -> None:
     """A background ray aimed downwards sees ground; extrapolating the sky there inverts contrast.
 

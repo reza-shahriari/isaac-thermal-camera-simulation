@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **Drones as soft as a real tracking camera sees them** — the lens is focused once per clip, so a drone away from that distance blurs the way it does in real anti-drone footage.
 - **Clouds that move** — in a rendered clip the clouds now drift with the wind, and the thermal and colour cameras see them move together.
 - **Any downloaded human** — a 3D scan of a person, with no skeleton and no named parts, becomes an infrared-ready person in minutes: an open-source auto-rigger finds the body segments, and the person's own skin colour separates skin from clothes, with the uncertain bits listed for a quick check.
 - **A construction worker and a cyclist** — a man in a hi-vis vest and hard hat and a woman in cycling lycra and a helmet, each made from a short outfit file with no new code, and filmed in thermal, near-infrared and colour.
