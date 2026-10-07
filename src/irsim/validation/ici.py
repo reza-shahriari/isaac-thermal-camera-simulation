@@ -63,6 +63,10 @@ __all__ = [
     "pinned_column",
     "model_clear_sky",
     "ratios",
+    "IciCloudMinute",
+    "load_ici_low_cloud",
+    "model_opaque_cloud",
+    "CEILING_W_M2_SR",
     "CLEAR_FRACTION_MAX",
     "ICI_BAND_UM",
 ]
@@ -204,3 +208,107 @@ def ratios(
         [model_clear_sky(im, preset, response, lut) / im.radiance for im in images],
         dtype=np.float64,
     )
+
+
+# -- XD.6 part 2: low cloud --------------------------------------------------------------------
+
+#: The deployment time-lapse draws radiance on a fixed -5..35 W/(m^2 sr) scale; at and above this
+#: its colour is the bar's top, so a pixel reads "at least this" (scripts/ici_timelapse_clouds.py).
+CEILING_W_M2_SR = 34.5
+
+
+@dataclass(frozen=True)
+class IciCloudMinute:
+    """One low-cloud minute of the deployment, read off its time-lapse (XD.6 part 2)."""
+
+    utc: str
+    t_surface_k: float
+    pwv_cm: float
+    td_surface_k: float
+    cloud_fraction: float
+    is_day: bool
+    #: The two nearest airports' ceilometer base (m above the site) and the air temperature there
+    #: (K); NaN where the stations did not agree (``scripts/ici_low_cloud_bases.py``).
+    base_m: float
+    t_base_k: float
+    elevations_deg: NDArray[np.float64]
+    clear: NDArray[np.float64]  # clear pixels' median, NaN where too few
+    cloud_p99: NDArray[np.float64]  # the brightest cloud pixels, NaN where too few
+    cloud_saturated: NDArray[np.float64]  # share of cloud pixels at the scale's ceiling
+
+
+def load_ici_low_cloud(path: str | pathlib.Path) -> list[IciCloudMinute]:
+    """Read ``data/validation/ici_sgp2023_low_cloud.csv``."""
+    text = pathlib.Path(path).read_text(encoding="utf-8").splitlines()
+    rows = list(csv.DictReader(line for line in text if not line.startswith("#")))
+    if not rows:
+        raise ValueError(f"{path}: no minutes")
+    elevations = sorted(int(k[len("clear_el") :]) for k in rows[0] if k.startswith("clear_el"))
+    out = []
+    for r in rows:
+
+        def num(key: str, row: dict[str, str] = r) -> float:
+            return float(row[key]) if row.get(key, "") != "" else math.nan
+
+        out.append(
+            IciCloudMinute(
+                utc=r["utc"],
+                t_surface_k=float(r["t_surface_c"]) + 273.15,
+                pwv_cm=float(r["pwv_cm"]),
+                td_surface_k=float(r["era5_td_c"]) + 273.15,
+                cloud_fraction=num("cloud_fraction"),
+                is_day=r["is_day"] == "1",
+                base_m=num("obs_base_m"),
+                t_base_k=num("t_base_c") + 273.15,
+                elevations_deg=np.asarray(elevations, dtype=np.float64),
+                clear=np.asarray([num(f"clear_el{e}") for e in elevations]),
+                cloud_p99=np.asarray([num(f"cloud_p99_el{e}") for e in elevations]),
+                cloud_saturated=np.asarray([num(f"cloud_sat_el{e}") for e in elevations]),
+            )
+        )
+    return out
+
+
+def model_opaque_cloud(
+    minute: IciCloudMinute,
+    preset: AtmospherePreset,
+    response: SpectralResponse,
+    lut: BandLUT,
+    band: str | None = None,
+) -> NDArray[np.float64]:
+    """An opaque cloud at the minute's observed base, seen through its clear air, W/(m^2 sr).
+
+    ``L = L_clear − τ(0 → R) L_beyond(R) + τ(0 → R) L_B(T_base)`` at the slant range ``R`` to a
+    plane at the base: the identity the sky model's own cloud blend is built on (ADR 0126),
+    with ``T_base`` the reanalysis air at the ceilometer's height rather than a lifted parcel's.
+    The column is pinned as the clear-sky comparison's is (:func:`pinned_column`). It is the
+    *brightest* a cloud there can be; a real cloud's brightest pixels reaching it says the cores
+    are opaque at that temperature.
+    """
+    band = band or band_id_for(*ICI_BAND_UM)
+    if not (math.isfinite(minute.base_m) and math.isfinite(minute.t_base_k)):
+        return np.full(minute.elevations_deg.shape, math.nan)
+    t_c, td_c = minute.t_surface_k - 273.15, minute.td_surface_k - 273.15
+    rh = min(saturation_vapour_pressure_hpa(td_c) / saturation_vapour_pressure_hpa(t_c), 1.0)
+    w0 = absolute_humidity_g_m3(minute.t_surface_k, rh)
+    profile = preset.profile.model_copy(
+        update={"water_vapour_scale_height_m": minute.pwv_cm * _G_M2_PER_CM / w0}
+    )
+    weather = WeatherSeries.constant(
+        WeatherSample(minute.t_surface_k, rh, 1.0, 0.0, 0.0, 0.0, 23000.0, 0.0), 3600.0
+    )
+    atmosphere = LayeredAtmosphere(
+        preset.model_copy(update={"profile": profile}), weather, {band: lut}, {band: response}
+    )
+    l_base = float(np.asarray(lut.lookup(np.float64(minute.t_base_k)))[()])
+    out = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for e in minute.elevations_deg:
+            el = math.radians(float(e))
+            slant = max(minute.base_m, 1.0) / math.sin(el)
+            tau = float(atmosphere.transmittance(band, 0.0, slant, el)[()])
+            beyond = atmosphere.sky_beyond(band, 0.0, slant, el)
+            clear = atmosphere.sky_radiance(band, 0.0, el)
+            out.append(clear - tau * beyond + tau * l_base)
+    return np.asarray(out, dtype=np.float64)
