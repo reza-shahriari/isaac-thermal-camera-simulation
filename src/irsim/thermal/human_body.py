@@ -57,11 +57,13 @@ from irsim.thermal.weather import WeatherSeries
 __all__ = [
     "ACCLIMATISE_S",
     "HEAD_LAYERS",
+    "GarmentView",
     "HumanBodySolver",
     "SegmentView",
     "clo_by_segment",
     "mean_radiant_temperature_k",
     "projected_area_factor",
+    "radiant_terms",
 ]
 
 #: How long the body runs at the scene's start conditions before the first frame, seconds.
@@ -116,6 +118,38 @@ def projected_area_factor(elevation_deg: float) -> float:
     return float(0.308 * np.cos(np.radians(g * (0.998 - g * g / 50000.0))))
 
 
+def radiant_terms(
+    sample: Any,
+    elevation_deg: float,
+    dni_w_m2: float,
+    dhi_w_m2: float,
+    *,
+    ground_reflectance: float = GROUND_REFLECTANCE,
+    t_ground_k: float | None = None,
+    sky_view: float = 0.5,
+) -> tuple[float, float]:
+    """``(q_lw, q_sw)``: long-wave irradiance on a standing body and the short-wave it is offered.
+
+    VDI 3787 Part 2: the long-wave is the project's own ``longwave_down_from_sample`` with the
+    weather's vapour pressure and cloud, half sky and half ground (the ground at air temperature
+    unless given); the short-wave is the beam on Fanger's projected area plus half the diffuse
+    and half the ground's reflection, per unit body area, before any absorptance. Zero
+    short-wave below the horizon.
+    """
+    from irsim.thermal.longwave import longwave_down_from_sample
+
+    t_ground = float(sample.t_air_k) if t_ground_k is None else float(t_ground_k)
+    q_lw = float(longwave_down_from_sample(sample, sky_view, t_ground))
+    q_sw = 0.0
+    if elevation_deg > 0.0:
+        dni, dhi = max(float(dni_w_m2), 0.0), max(float(dhi_w_m2), 0.0)
+        ghi = dhi + dni * float(np.sin(np.radians(elevation_deg)))
+        q_sw = (
+            projected_area_factor(elevation_deg) * dni + 0.5 * dhi + 0.5 * ground_reflectance * ghi
+        )
+    return q_lw, q_sw
+
+
 def mean_radiant_temperature_k(
     sample: Any,
     elevation_deg: float,
@@ -130,26 +164,17 @@ def mean_radiant_temperature_k(
 ) -> float:
     """The outdoor mean radiant temperature a standing person is exposed to, kelvin.
 
-    VDI 3787 Part 2's balance: the long-wave irradiance from sky and ground (the project's own
-    ``longwave_down_from_sample``, with the weather's vapour pressure and cloud), plus the
-    short-wave the body absorbs -- the beam on the projected area, half the diffuse, half the
-    ground's reflection -- weighted by α_k / ε_p, all divided by σ and raised to the quarter.
-    With no sun under an overcast sky and the ground at air temperature this is exactly the
-    air temperature; under a clear night sky it is below it.
+    VDI 3787 Part 2's balance over :func:`radiant_terms`: the long-wave plus the absorbed
+    short-wave weighted by α_k / ε_p, divided by σ and raised to the quarter. With no sun under
+    an overcast sky and the ground at air temperature this is exactly the air temperature; under
+    a clear night sky it is below it.
     """
     from irsim.radiometry.constants import SIGMA_SB
-    from irsim.thermal.longwave import longwave_down_from_sample
 
-    t_ground = float(sample.t_air_k) if t_ground_k is None else float(t_ground_k)
-    q_lw = float(longwave_down_from_sample(sample, sky_view, t_ground))
-    if elevation_deg > 0.0:
-        dni, dhi = max(float(dni_w_m2), 0.0), max(float(dhi_w_m2), 0.0)
-        ghi = dhi + dni * float(np.sin(np.radians(elevation_deg)))
-        q_sw = (
-            projected_area_factor(elevation_deg) * dni + 0.5 * dhi + 0.5 * ground_reflectance * ghi
-        )
-    else:
-        q_sw = 0.0
+    q_lw, q_sw = radiant_terms(
+        sample, elevation_deg, dni_w_m2, dhi_w_m2,
+        ground_reflectance=ground_reflectance, t_ground_k=t_ground_k, sky_view=sky_view,
+    )  # fmt: skip
     return float(((q_lw + (absorptance / emissivity) * q_sw) / SIGMA_SB) ** 0.25)
 
 
@@ -159,6 +184,10 @@ class _Forcing:
     tr_c: float
     rh_percent: float
     v_m_s: float
+    #: the long-wave-only radiant temperature (°C) and the short-wave offered per unit body area
+    #: (W/m²), for a garment's own balance with its own absorptance (HU.5)
+    tr_longwave_c: float = 0.0
+    q_sw_w_m2: float = 0.0
 
 
 class HumanBodySolver:
@@ -177,6 +206,8 @@ class HumanBodySolver:
         site_longitude_deg: float | None = None,
         acclimatise_s: float = ACCLIMATISE_S,
         solar: bool = True,
+        garment_segments: Mapping[str, frozenset[str]] | None = None,
+        garment_absorptance: Mapping[str, float] | None = None,
     ) -> None:
         try:
             from jos3 import JOS3
@@ -216,6 +247,14 @@ class HumanBodySolver:
         self._model.posture = posture
         self._t_s = float(t0_s)
         self._last_step: tuple[float, float] | None = None
+        #: HU.5: slot → the segments its garment covers, and slot → the garment's α_sol
+        self.garment_segments: dict[str, frozenset[str]] = dict(garment_segments or {})
+        self.garment_absorptance: dict[str, float] = dict(garment_absorptance or {})
+        unknown = set(self.garment_segments) - set(spec.garments)
+        if unknown:
+            raise ValueError(
+                f"garment coverage names slots the asset has not got: {sorted(unknown)}"
+            )
         self.steps = 0
         self.last_forcing: _Forcing | None = None
         if acclimatise_s > 0.0:
@@ -228,9 +267,11 @@ class HumanBodySolver:
 
     def forcing_at(self, t_s: float) -> _Forcing:
         """Air, radiant, humidity and wind at ``t_s`` on the weather's axis."""
+        from irsim.radiometry.constants import SIGMA_SB
+
         sample = self.weather.at(t_s)
         tdb = float(sample.t_air_k) - 273.15
-        tr = tdb
+        tr, tr_lw, q_sw = tdb, tdb, 0.0
         if self._solar:
             from irsim.thermal.solar import sun_position_utc
 
@@ -238,12 +279,21 @@ class HumanBodySolver:
             sun = sun_position_utc(float(self._lat), float(self._lon), when)  # type: ignore[arg-type]
             elev = float(np.asarray(sun.elevation_deg).reshape(-1)[0])
             dni = 0.0 if elev <= 0.0 else float(sample.dni_w_m2)
-            tr = mean_radiant_temperature_k(sample, elev, dni, float(sample.dhi_w_m2)) - 273.15
+            q_lw, q_sw = radiant_terms(sample, elev, dni, float(sample.dhi_w_m2))
+            tr_lw = float((q_lw / SIGMA_SB) ** 0.25) - 273.15
+            tr = (
+                float(
+                    ((q_lw + (SKIN_SOLAR_ABSORPTANCE / SKIN_EMISSIVITY) * q_sw) / SIGMA_SB) ** 0.25
+                )
+                - 273.15
+            )
         return _Forcing(
             tdb_c=tdb,
             tr_c=tr,
             rh_percent=100.0 * float(sample.rh_fraction),
             v_m_s=max(float(sample.wind_speed_m_s), MIN_AIR_SPEED_M_S),
+            tr_longwave_c=tr_lw,
+            q_sw_w_m2=q_sw,
         )
 
     def _apply_forcing(self, t_s: float) -> None:
@@ -289,16 +339,52 @@ class HumanBodySolver:
     def segment_temperature_k(self, name: str) -> float:
         return float(self.skin_k()[JOS3_SEGMENTS.index(name)])
 
-    def derived_targets(self, name: str) -> dict[str, SegmentView]:
+    def garment_temperature_k(self, slot: str) -> float:
+        """The garment on ``slot``, outside: PH.12's ISO 7730 balance on the skin beneath it.
+
+        The skin beneath is JOS-3's, area-weighted over the segments the garment covers (JOS-3's
+        standard local areas); the insulation is the garment's clo; the air, long-wave radiant
+        temperature and wind are the body's current forcing; and the garment absorbs its own
+        α_sol of the short-wave the body is offered (HU.5, ADR 0195).
+        """
+        from irsim.config.humans import load_body_schema
+        from irsim.thermal.human import CLO_M2K_W, clothing_temperature_c
+
+        garment = self.spec.garments[slot]
+        covered = sorted(self.garment_segments[slot])
+        if not covered:
+            raise ValueError(f"garment {slot!r} covers no segment")
+        areas = {s.name: s.area_m2 for s in load_body_schema().segments}
+        skin = self.skin_k()
+        w = np.array([areas[s] for s in covered])
+        t_sk = float(np.dot(w, [skin[JOS3_SEGMENTS.index(s)] for s in covered]) / w.sum()) - 273.15
+        f = self.last_forcing if self.last_forcing is not None else self.forcing_at(self._t_s)
+        alpha = self.garment_absorptance.get(slot, 0.7)
+        t_cl = clothing_temperature_c(
+            f.tdb_c,
+            f.tr_longwave_c,
+            garment.clo * CLO_M2K_W,
+            metabolic_w_m2=self.activity_met * 58.15,
+            air_speed_m_s=f.v_m_s,
+            t_skin_c=t_sk,
+            absorbed_solar_w_m2=alpha * f.q_sw_w_m2,
+        )
+        return t_cl + 273.15
+
+    def derived_targets(self, name: str) -> dict[str, SegmentView | GarmentView]:
         """``<name>.skin_<Segment>`` for every segment, and the head's optics-only layers.
 
         The spelling is the prim's: a ``kind: human`` asset's segment objects are ``skin_<Segment>``
         (a USD prim name cannot carry a dot), and the renderer looks a prim's thermal node up as
         ``<human>.<leaf>``.
         """
-        out = {f"{name}.skin_{seg}": SegmentView(self, seg) for seg in JOS3_SEGMENTS}
+        out: dict[str, SegmentView | GarmentView] = {
+            f"{name}.skin_{seg}": SegmentView(self, seg) for seg in JOS3_SEGMENTS
+        }
         for layer in HEAD_LAYERS:
             out[f"{name}.{layer}"] = SegmentView(self, "Head")
+        for slot in self.garment_segments:
+            out[f"{name}.garment_{slot}"] = GarmentView(self, slot)
         return out
 
 
@@ -317,6 +403,27 @@ class SegmentView:
 
     def temperature(self) -> float:
         return self.body.segment_temperature_k(self.segment)
+
+    @property
+    def state(self) -> SolverState:
+        return SolverState(t_s=self.body.state.t_s, temperature_k=self.temperature())
+
+
+class GarmentView:
+    """One garment's outer surface as a ``TemperatureSolver``; steps the body it hangs on."""
+
+    def __init__(self, body: HumanBodySolver, slot: str) -> None:
+        if slot not in body.garment_segments:
+            raise KeyError(f"no garment on slot {slot!r}")
+        self.body = body
+        self.slot = slot
+
+    def advance(self, t_s: float, dt_s: float) -> float:
+        self.body.advance(t_s, dt_s)
+        return self.temperature()
+
+    def temperature(self) -> float:
+        return self.body.garment_temperature_k(self.slot)
 
     @property
     def state(self) -> SolverState:

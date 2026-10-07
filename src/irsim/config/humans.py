@@ -47,6 +47,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 __all__ = [
     "BODY_SCHEMA_PATH",
     "BODY_SCHEMA_VERSION",
+    "DEFAULT_GARMENT_CLO",
+    "DEFAULT_GARMENT_MATERIAL",
     "JOS3_SEGMENTS",
     "BodySchema",
     "GarmentSlot",
@@ -89,6 +91,28 @@ JOS3_SEGMENTS: tuple[str, ...] = (
 )
 
 Side = Literal["left", "right", "centre"]
+
+#: Starting insulation for a garment on each slot, clo, from ISO 9920:2007 / ASHRAE 55 Table 5.2.2
+#: garment values (T-shirt 0.08, long-sleeve shirt 0.25, thick trousers 0.24-0.28, shoes 0.02-0.04,
+#: gloves 0.05, cap 0.01). `prep_human.py` writes these into a new asset's `garments:` so the
+#: first config is a sensible one; a person editing the YAML overrides them. ESTIMATED by slot.
+DEFAULT_GARMENT_CLO: dict[str, float] = {
+    "head": 0.01,
+    "torso": 0.09,
+    "arms": 0.08,
+    "hands": 0.05,
+    "legs": 0.26,
+    "feet": 0.03,
+}
+#: The library material a slot's garment starts with when nothing says otherwise (ESTIMATED).
+DEFAULT_GARMENT_MATERIAL: dict[str, str] = {
+    "head": "cotton_clothing",
+    "torso": "cotton_clothing",
+    "arms": "cotton_clothing",
+    "hands": "leather",
+    "legs": "denim",
+    "feet": "leather",
+}
 _TRAILING_INDEX = re.compile(r"\.\d{3}$")
 
 

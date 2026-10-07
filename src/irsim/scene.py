@@ -458,15 +458,31 @@ def build_target(
         asset = load_asset_mapping(spec.asset)
         if asset.kind != "human" or asset.human is None:
             raise ValueError(f"target {spec.name!r}: asset {spec.asset!r} is not `kind: human`")
+        schema = load_body_schema()
+        # HU.5: a garment covers its slot's segments (or its own list) and absorbs its own
+        # material's share of the sun -- the dyed variant's, when the garment has a colour.
+        from irsim.materials.colour import coloured_material
+        from irsim.materials.library import MaterialLibrary
+
+        library = MaterialLibrary.load()
+        coverage = {slot: asset.human.coverage(schema, slot) for slot in asset.human.garments}
+        absorptance = {}
+        for slot, garment in asset.human.garments.items():
+            material = library[garment.material]
+            if garment.colour_rgb is not None:
+                material = coloured_material(material, garment.colour_rgb)
+            absorptance[slot] = float(material.spec.thermal.solar_absorptivity)
         return HumanBodySolver(
             asset.human,
             weather,
             t0_s,
-            clo=clo_by_segment(asset.human, load_body_schema().garment_slots),
+            clo=clo_by_segment(asset.human, schema.garment_slots),
             activity_met=spec.activity_met,
             posture=spec.posture or "standing",
             site_latitude_deg=None if site is None else float(site.latitude_deg),
             site_longitude_deg=None if site is None else float(site.longitude_deg),
+            garment_segments=coverage,
+            garment_absorptance=absorptance,
         )
     if spec.solver == "vehicle_source":
         assert spec.source is not None and spec.load_s is not None and spec.load is not None

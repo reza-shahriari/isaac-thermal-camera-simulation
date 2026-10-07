@@ -1,0 +1,22 @@
+# Denim: heavy cotton twill, the trousers most people wear.
+# Section 16.2 names only skin, cotton and rubber; this entry is the HU.5 fabric set (ADR 0195). Every
+# number marked ESTIMATED in `reference` is a judgement from the cited class of material, not a
+# measurement of this garment. Colour never reaches the LWIR emissivity (Zhang, Hu & Zhang 2009); a
+# garment's colour changes `solar_absorptivity` and the NIR reflectance through irsim.materials.colour.
+schema_version: 2
+material:
+  name: denim
+  source: literature
+  surface_treatment: as_manufactured
+  reference: "LWIR/MWIR as cotton: Belliveau et al. 2020 (doi:10.1177/0040517519888825) measured cotton at 0.88 over 8-12 um; Zhang, Hu & Zhang 2009 -- colour has no effect on emissivity. NIR/SWIR ESTIMATED for indigo-dyed mid-blue cloth (indigo reflects strongly in the NIR, so the NIR value is a dyed-cotton estimate). Thermal ESTIMATED: 0.8 mm twill at 450 kg/m3 bulk, cotton c_p 1300 J/kg/K"
+  description: "Indigo cotton twill; heavier and stiffer than a shirt, still a surface that follows the air"
+  thermal:
+    density_kg_m3: 450
+    specific_heat_j_kgk: 1300
+    conductivity_w_mk: 0.07
+    thickness_m: 0.0008
+    solar_absorptivity: 0.78
+  optical:
+    emissivity_per_band: {nir: 0.40, swir: 0.55, mwir: 0.86, lwir: 0.88}
+    roughness_per_band: {nir: 0.82, swir: 0.80, mwir: 0.70, lwir: 0.65}
+    angular_model: {type: empirical, a: 0.08, p: 4.0}

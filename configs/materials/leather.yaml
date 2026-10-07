@@ -1,0 +1,22 @@
+# Leather: shoes, belts, gloves and the jacket.
+# Section 16.2 names only skin, cotton and rubber; this entry is the HU.5 fabric set (ADR 0195). Every
+# number marked ESTIMATED in `reference` is a judgement from the cited class of material, not a
+# measurement of this garment. Colour never reaches the LWIR emissivity (Zhang, Hu & Zhang 2009); a
+# garment's colour changes `solar_absorptivity` and the NIR reflectance through irsim.materials.colour.
+schema_version: 2
+material:
+  name: leather
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "LWIR/MWIR ESTIMATED: tanned leather is quoted at 0.95-1.00 in vendor emissivity tables (no primary measurement found); 0.95 taken. NIR/SWIR ESTIMATED for a dark brown finish. Thermal ESTIMATED: 2 mm at 900 kg/m3, c_p 1500 J/kg/K, k 0.16 W/m/K (leather, engineering tables)"
+  description: "Dark tanned leather; dense for a garment, so it lags the air by minutes rather than seconds"
+  thermal:
+    density_kg_m3: 900
+    specific_heat_j_kgk: 1500
+    conductivity_w_mk: 0.16
+    thickness_m: 0.002
+    solar_absorptivity: 0.85
+  optical:
+    emissivity_per_band: {nir: 0.70, swir: 0.75, mwir: 0.93, lwir: 0.95}
+    roughness_per_band: {nir: 0.55, swir: 0.55, mwir: 0.50, lwir: 0.45}
+    angular_model: {type: empirical, a: 0.08, p: 4.0}

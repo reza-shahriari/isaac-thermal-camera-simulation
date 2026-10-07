@@ -1,0 +1,22 @@
+# Hair: a head of hair as an optical layer over the scalp.
+# Section 16.2 names only skin, cotton and rubber; this entry is the HU.5 fabric set (ADR 0195). Every
+# number marked ESTIMATED in `reference` is a judgement from the cited class of material, not a
+# measurement of this garment. Colour never reaches the LWIR emissivity (Zhang, Hu & Zhang 2009); a
+# garment's colour changes `solar_absorptivity` and the NIR reflectance through irsim.materials.colour.
+schema_version: 2
+material:
+  name: hair
+  source: estimated
+  surface_treatment: natural
+  reference: "LWIR/MWIR ESTIMATED: keratin, as skin and nails, is quoted at 0.97-0.99 (no primary measurement of hair found); 0.97 taken, below skin's 0.98 because a hair mass is porous and lets some scalp through. NIR/SWIR ESTIMATED for dark hair (melanin: low NIR reflectance, rising toward 1.1 um). Thermal ESTIMATED: a 10 mm layer at 100 kg/m3 bulk, keratin c_p 1600 J/kg/K, still air in it k 0.04 W/m/K"
+  description: "Dark hair; a porous keratin layer that insulates the scalp and emits near skin's value"
+  thermal:
+    density_kg_m3: 100
+    specific_heat_j_kgk: 1600
+    conductivity_w_mk: 0.04
+    thickness_m: 0.01
+    solar_absorptivity: 0.80
+  optical:
+    emissivity_per_band: {nir: 0.75, swir: 0.75, mwir: 0.96, lwir: 0.97}
+    roughness_per_band: {nir: 0.85, swir: 0.85, mwir: 0.80, lwir: 0.75}
+    angular_model: {type: empirical, a: 0.08, p: 4.0}

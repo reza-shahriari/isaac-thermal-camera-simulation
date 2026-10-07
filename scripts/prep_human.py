@@ -70,8 +70,10 @@ def _worker(argv: list[str]) -> None:
     ap.add_argument("--report", type=pathlib.Path, required=True)
     ap.add_argument("--forward-axis", default="-y")
     ap.add_argument("--body-object", default="body")
+    ap.add_argument("--garments-json", type=pathlib.Path, default=None)
     a = ap.parse_args(argv)
     spec = json.loads(a.rig_json.read_text())
+    garments = json.loads(a.garments_json.read_text()) if a.garments_json else {}
 
     for obj in list(bpy.data.objects):
         bpy.data.objects.remove(obj, do_unlink=True)
@@ -207,6 +209,49 @@ def _worker(argv: list[str]) -> None:
             obj.name = obj.name.lower() if layer == "eyes" else obj.name.lower()
             obj.data.name = obj.name
 
+    # --- 4c. garments: a colour from the asset config dyes the garment's texture -----------------
+    # The tint is baked into a copy of the garment's diffuse image, pixel by pixel, because the
+    # USD the renderer reads (UsdPreviewSurface) carries a texture or a constant, never a multiply
+    # node; the glTF exporter would keep the node, Blender's USD exporter drops it. The same
+    # colour dyes the material's alpha_sol and NIR in irsim.materials.colour.
+    import numpy as np
+
+    tinted = []
+    for slot, g in garments.items():
+        rgb = g.get("colour_rgb")
+        mat = bpy.data.materials.get(f"garment_{slot}")
+        if rgb is None or mat is None or not mat.use_nodes:
+            continue
+        tree = mat.node_tree
+        bsdf = next((n for n in tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if bsdf is None:
+            continue
+        base = bsdf.inputs["Base Color"]
+        tex = next(
+            (link.from_node for link in base.links if link.from_node.type == "TEX_IMAGE"), None
+        )
+        code = "".join(f"{int(round(c * 255)):02x}" for c in rgb)
+        if tex is None or tex.image is None:
+            base.default_value = (*rgb, 1.0)
+            tinted.append(slot)
+            continue
+        src = tex.image
+        if src.get("irsim_tint_source"):
+            src = bpy.data.images[src["irsim_tint_source"]]  # re-dye from the original
+        w, h = src.size
+        px = np.empty(w * h * 4, dtype=np.float32)
+        src.pixels.foreach_get(px)
+        px = px.reshape(-1, 4)
+        px[:, :3] *= np.asarray(rgb, dtype=np.float32)
+        dyed = bpy.data.images.new(f"garment_{slot}_rgb{code}", w, h, alpha=True)
+        dyed.pixels.foreach_set(px.reshape(-1))
+        dyed["irsim_tint_source"] = src.name
+        dyed.filepath_raw = str(a.out.parent / f"garment_{slot}_rgb{code}.png")
+        dyed.file_format = "PNG"
+        dyed.save()
+        tex.image = dyed
+        tinted.append(slot)
+
     # --- 5. report and export --------------------------------------------------------------------
     stats = {}
     for label in present:
@@ -227,6 +272,12 @@ def _worker(argv: list[str]) -> None:
         "forward_axis": a.forward_axis,
         "forward_check_m": forward_check_m,
         "unlabelled_faces_resolved_by_nearest": unlabelled,
+        "garments": sorted(
+            o.name[len("garment_") :]
+            for o in bpy.data.objects
+            if o.type == "MESH" and o.name.startswith("garment_")
+        ),
+        "tinted": tinted,
         "objects": sorted(o.name for o in bpy.data.objects if o.type == "MESH"),
     }
     a.report.write_text(json.dumps(report, indent=2) + "\n")
@@ -271,8 +322,38 @@ def _rig_json(rig: str) -> dict:
     }
 
 
+def _garments(name: str, sidecar: dict) -> dict[str, dict]:
+    """The `garments:` block: an existing config's, else defaults for the slots the mesh wears."""
+    import yaml
+
+    from irsim.config.humans import DEFAULT_GARMENT_CLO, DEFAULT_GARMENT_MATERIAL
+
+    cfg = REPO_ROOT / "configs" / "assets" / f"{name}.yaml"
+    worn = dict(sidecar.get("garments") or {})
+    if cfg.is_file():
+        existing = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+        kept = ((existing.get("asset") or {}).get("human") or {}).get("garments") or {}
+        kept = {slot: dict(g) for slot, g in kept.items() if not worn or slot in worn}
+    else:
+        kept = {}
+    for slot in worn:
+        if slot not in kept:
+            kept[slot] = {
+                "material": DEFAULT_GARMENT_MATERIAL.get(slot, "cotton_clothing"),
+                "clo": DEFAULT_GARMENT_CLO.get(slot, 0.1),
+            }
+    return kept
+
+
 def _asset_config(
-    name: str, source_rel: str, sidecar: dict, report: dict, rig: str, forward: str, bmi: float
+    name: str,
+    source_rel: str,
+    sidecar: dict,
+    report: dict,
+    rig: str,
+    forward: str,
+    bmi: float,
+    garments: dict[str, dict],
 ) -> str:
     import yaml
 
@@ -295,6 +376,8 @@ def _asset_config(
                 "eyes": "human_skin",
                 "eyebrows": "human_skin",
                 "eyelashes": "human_skin",
+                "hair": "hair",
+                **{f"garment_{slot}": g["material"] for slot, g in garments.items()},
             },
             "human": {
                 "phenotype": {
@@ -305,7 +388,7 @@ def _asset_config(
                 },
                 "rig": rig,
                 "forward_axis": forward,
-                "garments": {},
+                "garments": garments,
             },
             "parts": {"granularity": "object", "parts": parts},
         },
@@ -317,9 +400,11 @@ def _asset_config(
         f"# Phenotype: sex and age from the generator's macros ({sidecar.get('macro', {})});\n"
         f"# stature {stature:.3f} m MEASURED on the mesh; mass ESTIMATED from a BMI of {bmi} "
         f"({mass} kg).\n"
-        "# Materials: eyes, eyebrows and eyelashes carry skin's optics (ESTIMATED; the library\n"
-        "# has no eye or hair entry yet -- HU.5 adds `hair`). Garments: none -- the bare body of\n"
-        "# HU.3/HU.4.\n"
+        "# Materials: eyes, eyebrows and eyelashes carry skin's optics (ESTIMATED). Garments: one\n"
+        "# object per slot, `garment_<slot>`, each with a library material, an insulation in clo\n"
+        "# (ISO 9920 garment values, ESTIMATED by slot unless edited) and optionally a colour:\n"
+        "# edit `colour_rgb` and re-run prep_human.py -- the tint reaches the RGB companion and\n"
+        "# the dyed variant's alpha_sol and NIR reach the infrared (HU.5, ADR 0195).\n"
     )
     return head + yaml.safe_dump(doc, sort_keys=False, allow_unicode=True)
 
@@ -348,11 +433,16 @@ def main(argv: list[str]) -> int:
     a.out.parent.mkdir(parents=True, exist_ok=True)
     rig_json = a.out.with_suffix(".rig.json")
     rig_json.write_text(json.dumps(_rig_json(a.rig), indent=1))
+    sidecar = json.loads(a.sidecar.read_text()) if a.sidecar and a.sidecar.is_file() else {}
+    garments = _garments(a.name, sidecar)
+    garments_json = a.out.with_suffix(".garments.json")
+    garments_json.write_text(json.dumps(garments, indent=1))
     report = a.out.with_suffix(".report.json")
     cmd = [
         a.blender, "-b", "--python", str(pathlib.Path(__file__).resolve()), "--",
         "--source", str(a.source), "--rig-json", str(rig_json), "--out", str(a.out),
         "--report", str(report), f"--forward-axis={a.forward_axis}", "--body-object", a.body_object,
+        "--garments-json", str(garments_json),
     ]  # fmt: skip
     r = subprocess.run(cmd, cwd=REPO_ROOT)
     if r.returncode or not report.is_file():
@@ -380,11 +470,14 @@ def main(argv: list[str]) -> int:
         ratio = segs[l_]["area_m2"] / segs[r_]["area_m2"]
         flag = "" if 0.9 <= ratio <= 1.1 else "  <-- asymmetric"
         print(f"  {l_}/{r_} area ratio {ratio:.3f}{flag}")
+    if rep.get("garments"):
+        print(f"  garments: {rep['garments']} (tinted: {rep.get('tinted') or 'none'})")
     if a.write_config:
-        sidecar = json.loads(a.sidecar.read_text()) if a.sidecar and a.sidecar.is_file() else {}
         rel = a.source_rel or str(a.out.resolve().relative_to(REPO_ROOT))
         cfg = REPO_ROOT / "configs" / "assets" / f"{a.name}.yaml"
-        cfg.write_text(_asset_config(a.name, rel, sidecar, rep, a.rig, a.forward_axis, a.bmi))
+        cfg.write_text(
+            _asset_config(a.name, rel, sidecar, rep, a.rig, a.forward_axis, a.bmi, garments)
+        )
         print(f"[prep_human] wrote {cfg}")
     return 0
 

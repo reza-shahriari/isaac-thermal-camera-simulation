@@ -1,0 +1,22 @@
+# Shoe rubber: a sole, a boot shaft, the wet-weather shoe.
+# Section 16.2 names only skin, cotton and rubber; this entry is the HU.5 fabric set (ADR 0195). Every
+# number marked ESTIMATED in `reference` is a judgement from the cited class of material, not a
+# measurement of this garment. Colour never reaches the LWIR emissivity (Zhang, Hu & Zhang 2009); a
+# garment's colour changes `solar_absorptivity` and the NIR reflectance through irsim.materials.colour.
+schema_version: 2
+material:
+  name: shoe_rubber
+  source: literature
+  surface_treatment: as_manufactured
+  reference: "LWIR/MWIR as the spec's rubber (docs/physics-model.md section 16.2, rubber (tyre): 0.95 / 0.94, alpha 0.94); a carbon-filled vulcanised rubber. NIR/SWIR ESTIMATED: black. Thermal: Incropera Table A.3 soft rubber, 1100 kg/m3, 2010 J/kg/K, 0.13 W/m/K; 10 mm ESTIMATED for a sole"
+  description: "Black vulcanised rubber of a sole; thick and dense, the slowest surface on a person"
+  thermal:
+    density_kg_m3: 1100
+    specific_heat_j_kgk: 2010
+    conductivity_w_mk: 0.13
+    thickness_m: 0.01
+    solar_absorptivity: 0.94
+  optical:
+    emissivity_per_band: {nir: 0.93, swir: 0.93, mwir: 0.94, lwir: 0.95}
+    roughness_per_band: {nir: 0.50, swir: 0.50, mwir: 0.45, lwir: 0.40}
+    angular_model: {type: empirical, a: 0.08, p: 4.0}

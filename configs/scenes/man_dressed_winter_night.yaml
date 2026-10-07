@@ -1,0 +1,26 @@
+# The same dressed man on a clear January night at -5 C (roadmap HU.5): the winter street scene an
+# infrared camera actually sees. Schema v22. Weather: `clear_midlat_winter_48h.csv` (the generator's
+# winter variant, HU.5); 02:00 UTC is 03:00 local, the coldest hour, no sun, a clear sky 12 K colder
+# than the air in the radiant balance. Expected (ADR 0122, ADR 0194): the face and hands are the
+# brightest things on him and the clothes sit a few kelvin above the air, so the person a camera
+# sees in winter is a head and two hands.
+#
+# Use: scripts/render_phantom4.py --asset man_adult_dressed_parts --scene configs/scenes/man_dressed_winter_night.yaml
+#      --sensor configs/sensors/example_lwir_1280.yaml --track outbound --near-m 5.6 --far-m 5.65
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: man_dressed_winter_night
+  description: "A dressed man on a clear January night: face and hands bright, clothes near the air"
+  weather_file: weather/clear_midlat_winter_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-01-15T02:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: man, solver: human, asset: man_adult_dressed, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

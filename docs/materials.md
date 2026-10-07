@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 85 materials. 56 of them were measured and imported by a script; the rest are
+The library has 91 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -227,6 +227,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `conifer_needles` | natural | 0.35 | 0.60 | 0.99 | 0.98 | 0.63 | measured: USGS + UCSB |
 | `copper_polished` | polished | 0.05 | 0.03 | 0.01 | 0.01 | 0.19 | measured optical constants |
 | `cotton_clothing` | as manufactured | 0.45 | 0.55 | 0.93 | 0.95 | 0.70 | literature, partly estimated |
+| `denim` | as manufactured | 0.40 | 0.55 | 0.86 | 0.88 | 0.78 | literature, partly estimated |
 | `etics_render` | weathered | 0.88 | 0.88 | 0.90 | 0.91 | 0.30 | literature, partly estimated |
 | `fibre_cement_shingle` | as manufactured | 0.95 | 0.96 | 0.93 | 0.94 | 0.95 | measured: SLUM (MWIR from its class) |
 | `glass_windshield` | as manufactured | 0.15 | 0.22 | 0.85 | 0.88 | 0.10 | LWIR shape from n, k; level literature |
@@ -234,10 +235,12 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `granite_rough` | weathered | 0.48 | 0.50 | 0.96 | 0.92 | 0.52 | measured: SLUM (MWIR from its class) |
 | `granite_weathered` | weathered | 0.42 | 0.45 | 0.96 | 0.93 | 0.46 | measured: SLUM (MWIR from its class) |
 | `grass_dry` | natural | 0.67 | 0.67 | 0.91 | 0.96 | 0.76 | measured: USGS + UCSB |
+| `hair` | natural | 0.75 | 0.75 | 0.96 | 0.97 | 0.80 | literature, partly estimated |
 | `hatch_cover_tarpaulin` | as manufactured | 0.70 | 0.75 | 0.93 | 0.95 | 0.85 | literature, partly estimated |
 | `human_skin` | natural | 0.50 | 0.70 | 0.97 | 0.98 | 0.65 | literature, partly estimated |
 | `iron_weathered` | weathered | 0.94 | 0.93 | 0.96 | 0.97 | 0.95 | measured: SLUM (MWIR from its class) |
 | `leaf_maple` | natural | 0.38 | 0.64 | 0.96 | 0.96 | 0.69 | measured: USGS + UCSB |
+| `leather` | as manufactured | 0.70 | 0.75 | 0.93 | 0.95 | 0.85 | literature, partly estimated |
 | `magnesium_polished` | polished | 0.06 | 0.13 | 0.05 | 0.04 | 0.06 | measured optical constants |
 | `metal_sheet_painted_green` | painted | 0.83 | 0.78 | 0.92 | 0.93 | 0.90 | measured: SLUM (MWIR from its class) |
 | `metal_sheet_painted_grey` | painted | 0.84 | 0.82 | 0.92 | 0.93 | 0.88 | measured: SLUM (MWIR from its class) |
@@ -250,6 +253,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `plywood` | as manufactured | 0.19 | 0.40 | 0.89 | 0.95 | 0.44 | measured: USGS + UCSB |
 | `polycarbonate_dark_grey` | as manufactured | 0.85 | 0.87 | 0.95 | 0.94 | 0.85 | LWIR shape from n, k; level literature |
 | `polycarbonate_light_grey` | as manufactured | 0.50 | 0.60 | 0.95 | 0.94 | 0.55 | LWIR shape from n, k; level literature |
+| `polyester_clothing` | as manufactured | 0.45 | 0.55 | 0.86 | 0.88 | 0.70 | literature, partly estimated |
 | `propeller_rubber` | as manufactured | 0.94 | 0.92 | 0.94 | 0.95 | 0.94 | LWIR shape from ECOSTRESS; level literature |
 | `pvc_roofing_blue` | as manufactured | 0.80 | 0.84 | 0.96 | 0.94 | 0.86 | measured: SLUM (MWIR from its class) |
 | `pvc_roofing_dark_grey` | as manufactured | 0.93 | 0.95 | 0.96 | 0.94 | 0.92 | measured: SLUM (MWIR from its class) |
@@ -270,6 +274,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `seawater` | natural | 0.98 | 0.98 | 0.98 | 0.99 | 0.97 | measured: USGS + UCSB |
 | `ship_steel_painted_dark` | painted | 0.84 | 0.82 | 0.92 | 0.93 | 0.88 | literature, partly estimated |
 | `ship_steel_painted_white` | painted | 0.30 | 0.40 | 0.88 | 0.90 | 0.30 | literature, partly estimated |
+| `shoe_rubber` | as manufactured | 0.93 | 0.93 | 0.94 | 0.95 | 0.94 | literature, partly estimated |
 | `silver_polished` | polished | 0.01 | 0.01 | 0.01 | 0.01 | 0.02 | measured optical constants |
 | `slate_roof` | weathered | 0.91 | 0.91 | 0.83 | 0.90 | 0.91 | measured: SLUM (MWIR from its class) |
 | `snow` | natural | 0.15 | 0.90 | 0.98 | 0.99 | 0.15 | LWIR shape from n, k; level literature |
@@ -282,6 +287,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `vegetation_leaf` | natural | 0.10 | 0.25 | 0.96 | 0.97 | 0.50 | literature, partly estimated |
 | `water` | natural | 0.95 | 0.98 | 0.98 | 0.96 | 0.93 | literature, partly estimated |
 | `wood_pine` | as manufactured | 0.34 | 0.51 | 0.89 | 0.95 | 0.53 | measured: USGS + UCSB |
+| `wool_clothing` | as manufactured | 0.45 | 0.55 | 0.72 | 0.75 | 0.72 | literature, partly estimated |
 
 <!-- end of catalogue table -->
 

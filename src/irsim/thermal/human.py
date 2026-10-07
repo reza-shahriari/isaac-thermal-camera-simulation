@@ -135,6 +135,9 @@ def clothing_temperature_c(
     metabolic_w_m2: float = MET_W_M2,
     air_speed_m_s: float = 0.1,
     work_w_m2: float = 0.0,
+    *,
+    t_skin_c: float | None = None,
+    absorbed_solar_w_m2: float = 0.0,
 ) -> float:
     """Solve ISO 7730's implicit clothing-surface balance for ``t_cl`` (ISO 7730 §4).
 
@@ -145,8 +148,14 @@ def clothing_temperature_c(
     bisection, no residual -- which is the limit PH.12 asks for, returned exactly rather than
     approached to a tolerance.
     """
-    t_sk = skin_temperature_c(metabolic_w_m2, work_w_m2)
+    # HU.5: the skin beneath may be JOS-3's solved segment rather than ISO 7730's set point, and
+    # the garment may be in the sun. Both are additions to the standard's equation, not changes to
+    # it: with the defaults the balance is ISO 7730's, coefficient for coefficient (ADR 0195).
+    t_sk = skin_temperature_c(metabolic_w_m2, work_w_m2) if t_skin_c is None else float(t_skin_c)
     i_cl = float(insulation_m2k_w)
+    q_sun = float(absorbed_solar_w_m2)
+    if q_sun < 0.0:
+        raise ValueError("absorbed_solar_w_m2 cannot be negative")
     if i_cl == 0.0:
         return t_sk
     f_cl = clothing_area_factor(i_cl)
@@ -164,12 +173,14 @@ def clothing_temperature_c(
         h_c = convective_coefficient_w_m2_k(t_cl, t_a, air_speed_m_s)
         radiative = STEFAN_ISO_7730 * f_cl * ((t_cl + 273.0) ** 4 - (t_r + 273.0) ** 4)
         convective = f_cl * h_c * (t_cl - t_a)
-        return t_sk - i_cl * (radiative + convective) - t_cl
+        # absorbed sun is a gain on the clothing area (f_cl), the sign the losses are not
+        return t_sk - i_cl * (radiative + convective - f_cl * q_sun) - t_cl
 
     # The surface lies between the coldest thing it touches and the skin: it cannot be warmer
     # than the body heating it, nor colder than both the air and the sky cooling it.
     lo = min(t_a, t_r, t_sk) - 1.0
-    hi = max(t_sk, t_a, t_r) + 1.0
+    # in the sun the surface may exceed everything that cools it, by at most I_cl f_cl q_sun
+    hi = max(t_sk, t_a, t_r) + 1.0 + i_cl * f_cl * q_sun
     if residual(lo) < 0.0 or residual(hi) > 0.0:
         raise RuntimeError(
             f"ISO 7730 clothing balance has no root between {lo:.1f} and {hi:.1f} C for "

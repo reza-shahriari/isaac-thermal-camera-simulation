@@ -28,7 +28,10 @@ What it does, in order:
 4. **Canonical names.** The body object is ``body``, its material ``skin``; eyes ``eyes``,
    eyebrows and eyelashes ``eyebrows`` / ``eyelashes``, with materials of the same names -- the
    names ``prep_human.py`` and the asset config key on, so nothing downstream reads MPFB's.
-5. **Export** a binary glTF with skins, and a sidecar JSON beside it: the measured stature (the
+5. **Garments** (``--garment slot=asset``): a MakeHuman clothes asset per body-schema slot,
+   fitted and rigged to the body by MPFB, its object and material renamed ``garment_<slot>``;
+   the slot is the one key that joins the mesh to the asset config's ``garments:`` (HU.5).
+6. **Export** a binary glTF with skins, and a sidecar JSON beside it: the measured stature (the
    body's vertical extent, metres), the macro values, the skin, the rig and the MPFB build -- the
    phenotype record the asset config is authored from. Mass is **not** measured here: the asset
    config estimates it from stature and a stated BMI, flagged ESTIMATED.
@@ -132,6 +135,15 @@ def main(argv: list[str]) -> None:
     ap.add_argument("--skin", default=None, help="a skin's name under MPFB's user data skins/")
     ap.add_argument("--rig", default="game_engine", help="an MPFB built-in rig")
     ap.add_argument("--no-eyes", action="store_true")
+    ap.add_argument(
+        "--garment",
+        action="append",
+        default=[],
+        metavar="SLOT=ASSET",
+        help="dress a body-schema slot with a MakeHuman clothes asset (user data clothes/<ASSET>), "
+        "e.g. torso=toigo_basic_tucked_t-shirt legs=toigo_wool_pants feet=shoes01; the object "
+        "and its material are named garment_<SLOT> (HU.5)",
+    )
     a = ap.parse_args(argv)
     if a.age is None:
         a.age = years_to_age_macro(a.age_years) if a.age_years is not None else 0.5
@@ -186,6 +198,34 @@ def main(argv: list[str]) -> None:
             )
             added[kind] = pathlib.Path(mhclo).stem
 
+    garments: dict[str, str] = {}
+    for item in a.garment:
+        slot, _, asset_name = item.partition("=")
+        if not slot or not asset_name:
+            raise SystemExit(f"--garment takes SLOT=ASSET, got {item!r}")
+        mhclo = _find_asset(location_service, "clothes", asset_name, (".mhclo",))
+        if mhclo is None:
+            raise SystemExit(
+                f"no clothes asset {asset_name!r} under {location_service.get_user_data('clothes')}"
+            )
+        before = set(bpy.data.objects.keys())
+        human_service.add_mhclo_asset(
+            mhclo, basemesh, asset_type="Clothes", subdiv_levels=0, material_type="MAKESKIN"
+        )
+        fresh = [o for o in bpy.data.objects if o.name not in before]
+        meshes = [o for o in fresh if o.type == "MESH"]
+        if len(meshes) != 1:
+            raise SystemExit(f"garment {asset_name!r} added {len(meshes)} meshes, expected one")
+        _rename(meshes[0], f"garment_{slot}")
+        garments[slot] = asset_name
+
+    # MPFB masks the body under a garment that declares a delete group (shoes hide the feet),
+    # which is right for a game and wrong here: the body schema wants every segment present, and
+    # the garment prim is what hides the skin from the camera. Keep only the helper mask.
+    for mod in list(basemesh.modifiers):
+        if mod.type == "MASK" and mod.name != "Hide helpers":
+            basemesh.modifiers.remove(mod)
+
     rig = human_service.add_builtin_rig(basemesh, a.rig)
     if rig is None:
         raise SystemExit(f"MPFB has no built-in rig {a.rig!r}")
@@ -233,6 +273,7 @@ def main(argv: list[str]) -> None:
         "skin": pathlib.Path(skin_file).stem,
         "rig": a.rig,
         "body_parts": added,
+        "garments": garments,
         "objects": sorted(o.name for o in bpy.data.objects),
     }
     a.out.with_suffix(".json").write_text(json.dumps(sidecar, indent=2) + "\n")

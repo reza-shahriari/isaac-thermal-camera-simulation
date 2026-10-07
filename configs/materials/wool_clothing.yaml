@@ -1,0 +1,22 @@
+# Wool clothing: a knitted or woven wool garment, the sweater and the winter trousers.
+# Section 16.2 names only skin, cotton and rubber; this entry is the HU.5 fabric set (ADR 0195). Every
+# number marked ESTIMATED in `reference` is a judgement from the cited class of material, not a
+# measurement of this garment. Colour never reaches the LWIR emissivity (Zhang, Hu & Zhang 2009); a
+# garment's colour changes `solar_absorptivity` and the NIR reflectance through irsim.materials.colour.
+schema_version: 2
+material:
+  name: wool_clothing
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "LWIR ESTIMATED from Zhang, Hu & Zhang 2009, J. Textile Inst. 100:90 (doi:10.1080/00405000701692486), which orders PA > PET > wool > cotton over 8-14 um and whose wool figure (about 0.73) is read from a secondary summary, not the paper's text; MWIR likewise. NIR/SWIR ESTIMATED for a mid-tone dye. Thermal ESTIMATED: a 2 mm knit at 200 kg/m3 bulk, wool c_p 1360 J/kg/K (Incropera Table A.3 wool felt)"
+  description: "Mid-tone wool knit; the lowest fabric emissivity in the library, and the warmest to wear"
+  thermal:
+    density_kg_m3: 200
+    specific_heat_j_kgk: 1360
+    conductivity_w_mk: 0.04
+    thickness_m: 0.002
+    solar_absorptivity: 0.72
+  optical:
+    emissivity_per_band: {nir: 0.45, swir: 0.55, mwir: 0.72, lwir: 0.75}
+    roughness_per_band: {nir: 0.85, swir: 0.82, mwir: 0.75, lwir: 0.70}
+    angular_model: {type: empirical, a: 0.08, p: 4.0}

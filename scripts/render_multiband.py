@@ -117,6 +117,17 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "man_dressed_summer_noon.yaml": (
+        "HU.5's dressed man at the summer noon: rendered by `render_phantom4.py` as the hero "
+        "still (RGB + LWIR) in two shirt colours. Its measurement is the garment surface against "
+        "the solver and the shirt's colour reaching the companion; a four-band sweep of the "
+        "dyed garments is the natural next sweep and is owned by HU.8 (the soldier's NIR)."
+    ),
+    "man_dressed_winter_night.yaml": (
+        "HU.5's dressed man on a clear January night, one LWIR still: its measurement is that "
+        "the face and hands are the brightest regions and the coat sits near the air. No sun, "
+        "so the reflective bands have nothing to show."
+    ),
     "man_standing_clear.yaml": (
         "HU.4's standing man: the first `solver: human` scene, rendered by `render_phantom4.py` "
         "as the zoo hero still (RGB + LWIR) to check that every segment prim takes its JOS-3 "

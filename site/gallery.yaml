@@ -1298,3 +1298,45 @@ sections:
       ground is taken at air temperature in the radiant balance and the man wears nothing yet;
       `HU.5` dresses him and solves each garment's surface.
     source: configs/scenes/man_standing_clear.yaml, scripts/render_phantom4.py
+
+  - id: dressed-man
+    title: A blue shirt and a red shirt are the same cloth
+    lead: |
+      The man dressed: a T-shirt, wool trousers and shoes, each **its own prim and its own
+      temperature** — ISO 7730's clothing balance on the JOS-3 skin beneath it, absorbing its own
+      share of the sun. Change the shirt's `colour_rgb` in one line of the asset config and
+      re-run the prep: the RGB camera sees a different shirt, the thermal camera the same cloth.
+      Measured at this noon: a white T-shirt **31.8 °C**, a black one **33.9 °C**, and the blue
+      and the red **0.03 K** apart — colour never touches the long-wave emissivity (Zhang 2009),
+      it only sets how much sun the dye absorbs. All 23 prims match the solver to **0.0005 K**.
+    media:
+      - image: humans/man_adult_dressed/summer_blue/frames/rgb_00002.png
+        width: third
+        caption: the blue shirt, RGB
+      - image: humans/man_adult_dressed/summer_red/frames/rgb_00002.png
+        width: third
+        caption: the red shirt, RGB — one line of YAML changed
+      - image: humans/man_adult_dressed/summer_blue/frames/ir_00002.png
+        width: third
+        caption: LWIR — identical for both shirts
+    note: |
+      Luminance is the whole of colour here: two dyes of equal luminance absorb the same sun. The
+      upgrade is a measured reflectance curve per dye (ADR 0195).
+    source: configs/scenes/man_dressed_summer_noon.yaml, scripts/prep_human.py, scripts/render_phantom4.py
+
+  - id: winter-night
+    title: In winter a person is a face
+    lead: |
+      The same man on a clear January night, −5 °C, the sky 12 K colder than the air, two hours
+      out. His head reads **25 °C**; the T-shirt over a chilled chest **13 °C**; the wool trousers
+      **4 °C**, the shoes **1 °C**, and his bare hands **2.7 °C** — JOS-3 lets them fall to within
+      8 K of the air in two hours, so the hands are not the bright things the winter street
+      scene was expected to show; the face is, by 20 K. A 1 clo coat on him would read 0.4 °C.
+    media:
+      - image: humans/man_adult_dressed/winter_night/frames/ir_00002.png
+        width: full
+        caption: LWIR, white-hot, a clear January night at 03:00
+    note: |
+      The clothes reflect the cold sky: the trousers' apparent temperature is −5 °C against a
+      surface at +4 °C, through wool's 0.75 emissivity. That is physics, not a defect.
+    source: configs/scenes/man_dressed_winter_night.yaml, scripts/render_phantom4.py
