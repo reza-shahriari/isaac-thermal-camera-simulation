@@ -117,6 +117,22 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "construction_worker_summer_noon.yaml": (
+        "HU.11's construction worker at noon, filmed by `render_phantom4.py` in LWIR (with its RGB "
+        "companion) and NIR as hero stills: the occupation's look in both cameras, not a sweep."
+    ),
+    "construction_worker_summer_night.yaml": (
+        "HU.11's construction worker on a clear June night, one LWIR still: no sun, so the "
+        "reflective bands have nothing to show."
+    ),
+    "cyclist_summer_noon.yaml": (
+        "HU.11's cyclist at noon, filmed by `render_phantom4.py` in LWIR (with its RGB "
+        "companion) and NIR as hero stills: the occupation's look in both cameras, not a sweep."
+    ),
+    "cyclist_summer_night.yaml": (
+        "HU.11's cyclist on a clear June night, one LWIR still: no sun, so the reflective bands "
+        "have nothing to show."
+    ),
     "firefighter_summer_noon.yaml": (
         "HU.11's firefighter at noon, filmed by `render_phantom4.py` in LWIR (with its RGB "
         "companion), MWIR and NIR as hero stills at each camera's own framing range: the trim "

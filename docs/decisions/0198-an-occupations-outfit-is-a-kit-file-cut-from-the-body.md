@@ -74,6 +74,14 @@ band cut between horizontal planes is a strip along the forearm, not a ring roun
 - **No breathing mask, no hood.** The face is bare, as at a scene before entry. A masked
   firefighter is a different thermal picture: the face hidden behind a visor.
 
+## Amendment, HU.11 part 2 (2026-10-07)
+
+The criterion held. `construction_worker` and `cyclist` were added as two kits, two asset seeds
+and four scenes, with no change to any Python file. The worker's vest was first cut 12 mm out,
+with no armour under it. MakeHuman's tucked T-shirt stands up to 2 cm off the belly and showed
+through, so the vest is 25 mm out, as on the police officer. A kit's offsets must clear whatever
+MakeHuman garment lies beneath; only the render shows when they do not.
+
 ## Revisit when
 
 - Modelled turnout gear or a helmet with a brim becomes available under a licence that allows

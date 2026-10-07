@@ -1,0 +1,25 @@
+# A road cyclist on a clear June night (roadmap HU.11 part 2). Schema v22, ADR 0198. The person is `cyclist`: a red jersey with short sleeves, black bib shorts, a vented
+# helmet and shoes, the jersey and shorts the skin pushed 3-4 mm out by the kit
+# configs/humans/kits/cyclist.yaml. Bare forearms, hands, knees and calves. Standing, without a
+# bicycle: none is in the asset library yet.
+# At 01:00 local under a clear sky the garments sit a few kelvin above the air and the bare skin stands out.
+#
+# Use: scripts/render_phantom4.py --asset cyclist_parts --scene configs/scenes/cyclist_summer_night.yaml
+#      --sensor <a camera> --track outbound --near-m <range> --far-m <range + 0.05>
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: cyclist_summer_night
+  description: "A road cyclist on a clear June night"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T23:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: cyclist, solver: human, asset: cyclist, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

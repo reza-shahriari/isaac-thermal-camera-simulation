@@ -1,0 +1,44 @@
+# A construction worker's outfit (HU.11 part 2, ADR 0198). Schema: irsim.config.kits.HumanKit.
+# Geometry only: materials and insulation are in configs/assets/construction_worker.yaml.
+#
+# MakeHuman's CC0 clothes dress the arms (a T-shirt: its sleeves are the arms slot, its body is
+# hidden under the vest), the legs (cargo work trousers) and the feet (work boots). Generated:
+#   * A hi-vis vest (EN ISO 20471) cut from the torso as the police vest is, 25 mm out: there is
+#     no armour under it, but the tucked T-shirt stands up to 2 cm off the belly, and at 12 mm it
+#     showed through the vest.
+#   * Two 50 mm retroreflective bands round it, 1.5 mm proud, at the police vest's heights.
+#   * A hard hat: the head above 0.945 of stature, 35 mm out for the suspension's air gap. No
+#     brim or peak; the shell is a dome.
+# Hands are bare: work gloves come and go, and bare hands are what the camera sees most often.
+#
+# Use: blender -b --python scripts/make_human.py -- --name construction_worker --gender 1.0
+#      --age-years 45 --skin middleage_african_male
+#      --kit configs/humans/kits/construction_worker.yaml
+#      --out outputs/humans/construction_worker/construction_worker.glb
+schema_version: 1
+kit:
+  name: construction_worker
+  description: "T-shirt, work trousers and boots; a hi-vis vest with two tape bands; a hard hat"
+  clothes:
+    arms: toigo_basic_tucked_t-shirt
+    legs: cortu_cargo_pants
+    feet: culturalibre_male_boots
+  pieces:
+    - name: garment_torso
+      colour_rgb: [1.0, 0.25, 0.02]
+      shell:
+        bones: [pelvis, spine_01, spine_02, spine_03, clavicle_l, clavicle_r]
+        bands: [[0.578, 0.84]]
+        offset_m: 0.025
+    - name: equipment_tape
+      colour_rgb: [0.72, 0.72, 0.72]
+      shell:
+        bones: [pelvis, spine_01, spine_02, spine_03, clavicle_l, clavicle_r]
+        bands: [[0.625, 0.654], [0.672, 0.701]]
+        offset_m: 0.0265
+    - name: garment_head
+      colour_rgb: [0.95, 0.80, 0.05]
+      shell:
+        bones: [head]
+        bands: [[0.945, 1.05]]
+        offset_m: 0.035

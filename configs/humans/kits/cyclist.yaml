@@ -1,0 +1,47 @@
+# A road cyclist's kit (HU.11 part 2, ADR 0198). Schema: irsim.config.kits.HumanKit. Geometry
+# only: materials and insulation are in configs/assets/cyclist.yaml. The bicycle is not part of
+# the person; it is a vehicle asset of its own, and none is in the library yet.
+#
+# Lycra sits on the skin, so the jersey and shorts are the skin pushed 3-4 mm out:
+#   * Jersey: the torso from the hip to the shoulders, and short sleeves over the upper arms to
+#     just above the elbow (rings to 0.75 of the upper arm).
+#   * Bib shorts: pelvis and thighs down to just above the knee (0.33 of stature; knee 0.29).
+#   * Helmet: the head above 0.945 of stature, 30 mm out: a polycarbonate microshell over EPS.
+#     The vents are not cut; Brühwiler et al. 2006 found that helmets reduce scalp heat transfer
+#     by up to 30 % against the bare headform, which the asset's clo carries instead.
+# MakeHuman's CC0 shoes dress the feet.
+#
+# Use: blender -b --python scripts/make_human.py -- --name cyclist --gender 0.0 --age-years 28
+#      --skin young_asian_female --kit configs/humans/kits/cyclist.yaml
+#      --out outputs/humans/cyclist/cyclist.glb
+schema_version: 1
+kit:
+  name: cyclist
+  description: "A road cyclist: jersey with short sleeves, bib shorts, a vented helmet and shoes"
+  clothes:
+    feet: shoes01
+  pieces:
+    - name: garment_torso
+      colour_rgb: [0.80, 0.05, 0.05]
+      shell:
+        bones: [pelvis, spine_01, spine_02, spine_03, clavicle_l, clavicle_r]
+        bands: [[0.53, 0.84]]
+        offset_m: 0.003
+    - name: garment_arms
+      colour_rgb: [0.80, 0.05, 0.05]
+      shell:
+        bones: [upperarm_l, upperarm_r]
+        rings: [[-0.2, 0.75]]
+        offset_m: 0.003
+    - name: garment_legs
+      colour_rgb: [0.02, 0.02, 0.02]
+      shell:
+        bones: [pelvis, thigh_l, thigh_r]
+        bands: [[0.33, 0.56]]
+        offset_m: 0.004
+    - name: garment_head
+      colour_rgb: [0.90, 0.90, 0.92]
+      shell:
+        bones: [head]
+        bands: [[0.945, 1.05]]
+        offset_m: 0.03

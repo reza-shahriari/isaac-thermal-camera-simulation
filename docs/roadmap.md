@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 88 open steps
+#### Then, in order — 87 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -205,7 +205,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
 | 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
 
-…and 73 more — `python scripts/next_step.py --queue 40`.
+…and 72 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -983,7 +983,7 @@ records which were used.
 | HU.8 | ✅ **done.** `soldier`: NIR-compliant camouflage (`camouflage_nir_compliant`, pattern mean 0.45 NIR reflected), a plate carrier cut from the body (`--plate-carrier`, 1.38 clo), aramid helmet (0.12 clo), boots; belt and pack as equipment. `dye_optics: false`: colour tints RGB only. ADR 0197. | **Measured.** Camo NIR 0.45 in the pattern band 0.37–0.50; the same olive dyed on cotton 0.30; LWIR 0.88. Winter: face 26.6 °C, helmet 17.9, carrier −1.5 (sleeves 4.6), pack = carrier to 1e-9 K. NIR, SWIR, MWIR, LWIR, winter renders = solver to 0.0005 K; 27 parts, 100 %. 4 cases. | HU.7 | M | C |
 | HU.9 | **Any downloaded human.** `prep_human.py` on an unrigged mesh: Make-It-Animatable (MIT) rigs it with Mixamo names, then argmax; skin / hair / garment per face by priority: objects and slots, a skin-tone albedo test on face and hands, Sapiens multi-view projection (CC BY-NC; allowed, recorded in provenance), Find3D (MIT), then a person. The CC-BY Dennis scan is the test. | `HU.3`'s acceptance on the scan; ≥ 95 % of faces labelled without a person and the rest listed for the add-on; the tools used and their licences are in the provenance YAML; CPU-only, under 2 min. | HU.5 | L | C |
 | HU.10 | **A body that moves.** Probe: a `UsdSkel`-skinned multi-prim body under one skeleton through the existing `AovReader` — do ids, float32 position and normals follow the deformed surface? A walk clip (Mixamo or CMU) retargeted in Blender, kept local, never committed; `isaacsim.replicator.agent` stays optional. ADR. | Ids per segment prim stable across the clip; the position AOV is float32 and deformed (a hand prim's centroid moves > 0.2 m over a stride); per-segment temperatures follow their prims; no float16 anywhere. | HU.3 | M | C |
-| HU.11 | 🟡 **Part 1 done.** Outfits are kits: `configs/humans/kits/*.yaml` (ADR 0198), cut from the body by one routine (bands, rings square to a bone, box, cylinder); police and soldier rebuild byte-identical. `firefighter`: turnout (Kuklane 2022 manikin: 3.38/2.54/2.73 clo), gloves, helmet, trim, 6.8 L cylinder. **Open, part 2:** construction worker, cyclist. | **Measured.** Winter: coat −4.6 °C in −5 °C air, face 24.0; trim, cylinder = coat to 1e-9 K. Noon: cylinder 35.3, coat 31.5, trim 29.2. NIR, MWIR, LWIR, winter = solver to 0.0005 K; 30 parts, 100 %. | HU.8 | M | C |
+| HU.11 | ✅ **done.** Outfits are kits (`configs/humans/kits/*.yaml`, ADR 0198) cut from the body by one routine; police, soldier rebuild byte-identical. `firefighter`: turnout (Kuklane 2022 manikin), gloves, helmet, trim, cylinder. Part 2, no Python: `construction_worker` (hi-vis vest, hard hat), `cyclist` (lycra, helmet). | **Measured.** Firefighter winter: coat −4.6 °C in −5 °C air, face 24.0. June night: cyclist's shorts 24.0 vs worker's trousers 21.0, her bare calves 20.6. Every render = solver to 0.0005 K; coverage 100 %. | HU.8 | M | C |
 | HU.12 | **Validation against radiometric faces and streets.** Charlotte-ThermalFace (16-bit T-linear): nose, forehead and cheek deltas against room temperature versus `HU.4`'s head segment plus an authored face-offset table (ESTIMATED, from the survey's measurements). FLIR ADAS v2 pedestrians if its licence allows. | Bias and RMSE per face region beside the dataset's own spread; forehead > cheek > nose at every ambient; the nose's range across 18–30 °C is 2–4 K while the forehead's is < 1.5 K. | HU.4 | M | C |
 | HU.13 | **Portable instructions.** An `ingest-human` branch of the `ingest-asset` skill: the `HU.9` checklist, which tools are NC and how their use is recorded, what a person still decides; the Blender add-on's human mode is `blender_addon/PLAN.md` B14. | Another session takes a Sketchfab human link to a committed YAML with no help from this conversation. | HU.9 | S | C |
 

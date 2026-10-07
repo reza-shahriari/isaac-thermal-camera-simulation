@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **A construction worker and a cyclist** — a man in a hi-vis vest and hard hat and a woman in cycling lycra and a helmet, each made from a short outfit file with no new code, and filmed in thermal, near-infrared and colour.
 - **A firefighter** — in turnout gear with reflective trim, gloves, a helmet and a breathing cylinder, filmed in three infrared bands and colour; outfits are now files, so the next occupation needs no code.
 - **A soldier** — in camouflage that matches foliage to a near-infrared camera, a plate carrier, a helmet and a pack, filmed in four bands; with the officer, the woman, the girl and the man this completes the first five people.
 - **A police officer** — in a navy uniform and a hi-vis vest with reflective tape and a duty belt, each with its own infrared material; the first occupation, built the same way as the civilians, and filmed in two thermal bands and colour.

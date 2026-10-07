@@ -1,0 +1,24 @@
+# A construction worker in clear midday air (roadmap HU.11 part 2). Schema v22, ADR 0198. The person is `construction_worker`: a T-shirt, work trousers and boots, a
+# fluorescent-orange hi-vis vest (EN ISO 20471) with two retroreflective bands, and a hard hat, each
+# cut or dressed by the kit configs/humans/kits/construction_worker.yaml. Bare forearms and hands.
+# At noon the dark garments take the sun; the bare skin is the warmest thing on the person.
+#
+# Use: scripts/render_phantom4.py --asset construction_worker_parts --scene configs/scenes/construction_worker_summer_noon.yaml
+#      --sensor <a camera> --track outbound --near-m <range> --far-m <range + 0.05>
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: construction_worker_summer_noon
+  description: "A construction worker in clear midday air"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: construction_worker, solver: human, asset: construction_worker, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

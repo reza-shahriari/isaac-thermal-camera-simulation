@@ -1450,3 +1450,30 @@ sections:
       The coat is the body's skin pushed 35 mm out, so it follows the anatomy like a vest, and
       skin shows in small gaps at the wrists. No hood or breathing mask is worn (ADR 0198).
     source: configs/humans/kits/firefighter.yaml, configs/assets/firefighter.yaml, configs/scenes/firefighter_summer_noon.yaml, scripts/make_human.py
+
+  - id: construction-worker-and-cyclist
+    title: A construction worker and a cyclist, from files alone
+    lead: |
+      Two more people, each made from a short outfit file and an asset file with no new code. The
+      worker wears a fluorescent-orange hi-vis vest with two retroreflective bands and a hard hat;
+      at noon the vest is **1.0 K** warmer than its tape, which takes less sun. The cyclist's lycra
+      is the skin pushed 3–4 mm out. On a clear June night her thin shorts read **24.0 °C**
+      against the worker's trousers at 21.0, and her bare calves fall to **20.6 °C**. Every frame
+      matches the solver to **0.0005 K**.
+    media:
+      - image: humans/construction_worker/summer_lwir/frames/pair_00002.png
+        width: full
+        caption: the construction worker, LWIR and RGB at the summer noon
+      - image: humans/cyclist/summer_lwir/frames/pair_00002.png
+        width: full
+        caption: the cyclist, LWIR and RGB at the summer noon
+      - image: humans/construction_worker/summer_nir/frames/ir_00002.png
+        width: half
+        caption: NIR, the vest and its tape bright in the sun's band
+      - image: humans/cyclist/night_lwir/frames/ir_00002.png
+        width: half
+        caption: a clear June night at 17 °C; the face is 30.6 °C, the calves 20.6
+    note: |
+      The cyclist stands without a bicycle, which is a vehicle asset the library does not yet
+      hold. Her helmet's vents are not cut; its insulation carries them (ADR 0198).
+    source: configs/humans/kits/construction_worker.yaml, configs/humans/kits/cyclist.yaml, configs/scenes/construction_worker_summer_noon.yaml, configs/scenes/cyclist_summer_night.yaml

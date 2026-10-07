@@ -50,6 +50,10 @@ EXEMPT_REPORTS = {
         "SC.20 measures the radial shape of a sky-only frame in counts and display grey; the "
         "scene holds no surface, so there is no eps_hemi to extrapolate"
     ),
+    "validate_sky_ici.py": (
+        "XD.6 compares clear-sky radiance in W/(m2 sr) with ARM's Infrared Cloud Imager per "
+        "elevation; the sky is the atmosphere's column, no surface is in it, so no eps_hemi enters"
+    ),
     "validate_sky_r13.py": (
         "quotes an absolute apparent *sky* temperature, which comes from the atmosphere's column "
         "emission and not from any surface's eps_hemi -- there is no material to extrapolate"
