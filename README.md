@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **Any downloaded human** — a 3D scan of a person, with no skeleton and no named parts, becomes an infrared-ready person in minutes: an open-source auto-rigger finds the body segments, and the person's own skin colour separates skin from clothes, with the uncertain bits listed for a quick check.
 - **A construction worker and a cyclist** — a man in a hi-vis vest and hard hat and a woman in cycling lycra and a helmet, each made from a short outfit file with no new code, and filmed in thermal, near-infrared and colour.
 - **A firefighter** — in turnout gear with reflective trim, gloves, a helmet and a breathing cylinder, filmed in three infrared bands and colour; outfits are now files, so the next occupation needs no code.
 - **A soldier** — in camouflage that matches foliage to a near-infrared camera, a plate carrier, a helmet and a pack, filmed in four bands; with the officer, the woman, the girl and the man this completes the first five people.

@@ -1496,3 +1496,22 @@ sections:
       optics, no noise. The walk is procedural and on the spot. A walking person through the full
       camera chain waits for the parts pipeline to keep the skeleton (ADR 0199).
     source: scripts/animate_human.py, scripts/probe_isaac_skel.py, src/irsim_isaac/skel_probe.py
+
+  - id: scan-labelled-human
+    title: The same man, labelled from a bare scan
+    lead: |
+      Top: the dressed man as the project builds him, labelled by his own skeleton. Bottom: the
+      same man fused into one bare mesh, with no skeleton and no part names, as a downloaded scan
+      arrives, then rigged by Make-It-Animatable in **6 s on the CPU** and sorted into skin and
+      clothes by his own skin colour. The colour image is unchanged, and the thermal image matches
+      the solver to **0.0005 K**. The trousers read warmer because the scan path gives them default
+      denim insulation until someone names the cloth. Over four such people, **99.3–99.8 %** of
+      what the colour tier decides is right.
+    media:
+      - image: humans/scan_man_dressed/compare_skeleton_vs_scan.png
+        width: full
+        caption: labelled by skeleton (top) and from a bare scan (bottom), LWIR and RGB, summer noon
+    note: |
+      A test person, not a real scan: the answer per triangle is what makes the score possible.
+      A near-white top on pale skin and black hair on dark skin still read as skin (ADR 0201).
+    source: scripts/prep_scan.py, scripts/autorig_mia.py, src/irsim/io/human_scan.py, configs/assets/scan_man_dressed.yaml

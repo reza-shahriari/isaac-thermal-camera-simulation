@@ -1,0 +1,23 @@
+provenance:
+  schema_version: 1
+  asset_name: scan_man_dressed
+  source: local
+  real_name: scan_man_dressed
+  uid: ''
+  title: scan_man_dressed
+  author: MakeHuman community (MPFB2, CC0), fused into one mesh and re-labelled by
+    irsim's scan path
+  author_url: ''
+  model_url: https://static.makehumancommunity.org/assets/assetpacks.html
+  license:
+    slug: cc0
+    label: cc0
+    url: ''
+  shareable: true
+  gate_reason: 'cc0: a modified copy may be redistributed with attribution'
+  source_format: glb
+  archive_sha256: 1060be0c084e20328a50da2a93e2da779b0bfb877858cb0aae3c199f432381be
+  downloaded_at: '2026-10-07T13:35:58+00:00'
+  modifications: Rescaled to metres, regrouped into functional parts, renamed, and
+    re-exported to USD/FBX; materials remapped onto an infrared material library.
+    A modified derivative, not the original.

@@ -1,0 +1,298 @@
+# scan_man_dressed: a downloaded human scan, labelled onto the body schema with no rig of its own
+# by scripts/prep_scan.py (HU.9, ADR 0201). Schema: irsim.materials.mapping.AssetConfig.
+# Tools: Make-It-Animatable (Guo et al. 2025, github.com/jasongzy/Make-It-Animatable, MIT): bone weights; irsim.io.human_scan: segments and skin / hair / garment by the person's own skin colour.
+# Phenotype: sex male and age 25.0 STATED by whoever ran it; stature
+# 1.728 m MEASURED on the mesh; mass from a BMI of 23.0 (68.6 kg), ESTIMATED (a mid-range adult BMI).
+# Garments: one object per slot the scan's non-skin surface falls on, a default material
+# and clo (ESTIMATED by slot; edit them), and the colour MEASURED on the scan, linear.
+# 5.8% of the surface was decided by colour near its threshold and is listed in
+# outputs/humans/scan_man_dressed/scan_man_dressed.review.json for a person to confirm.
+schema_version: 1
+asset:
+  name: scan_man_dressed
+  kind: human
+  source_file: 3d_models/scan_man_dressed/source/scan_man_dressed_labelled.glb
+  scale_to_metres: 1.0
+  materials:
+    garment_arms__0: cotton_clothing
+    garment_arms__1: cotton_clothing
+    garment_arms__2: cotton_clothing
+    garment_arms__3: cotton_clothing
+    garment_arms__4: cotton_clothing
+    garment_arms__5: cotton_clothing
+    garment_arms__6: cotton_clothing
+    garment_feet__0: leather
+    garment_feet__1: leather
+    garment_feet__2: leather
+    garment_feet__3: leather
+    garment_feet__4: leather
+    garment_feet__5: leather
+    garment_feet__6: leather
+    garment_legs__0: denim
+    garment_legs__1: denim
+    garment_legs__2: denim
+    garment_legs__3: denim
+    garment_legs__4: denim
+    garment_legs__5: denim
+    garment_legs__6: denim
+    garment_torso__0: cotton_clothing
+    garment_torso__1: cotton_clothing
+    garment_torso__2: cotton_clothing
+    garment_torso__3: cotton_clothing
+    garment_torso__4: cotton_clothing
+    garment_torso__5: cotton_clothing
+    garment_torso__6: cotton_clothing
+    hair__0: hair
+    hair__1: hair
+    hair__2: hair
+    hair__3: hair
+    hair__4: hair
+    hair__5: hair
+    hair__6: hair
+    skin_Back__0: human_skin
+    skin_Back__1: human_skin
+    skin_Back__2: human_skin
+    skin_Back__3: human_skin
+    skin_Back__4: human_skin
+    skin_Back__5: human_skin
+    skin_Back__6: human_skin
+    skin_Chest__0: human_skin
+    skin_Chest__1: human_skin
+    skin_Chest__2: human_skin
+    skin_Chest__3: human_skin
+    skin_Chest__4: human_skin
+    skin_Chest__5: human_skin
+    skin_Chest__6: human_skin
+    skin_Head__0: human_skin
+    skin_Head__1: human_skin
+    skin_Head__2: human_skin
+    skin_Head__3: human_skin
+    skin_Head__4: human_skin
+    skin_Head__5: human_skin
+    skin_Head__6: human_skin
+    skin_LArm__0: human_skin
+    skin_LArm__1: human_skin
+    skin_LArm__2: human_skin
+    skin_LArm__3: human_skin
+    skin_LArm__4: human_skin
+    skin_LArm__5: human_skin
+    skin_LArm__6: human_skin
+    skin_LFoot__0: human_skin
+    skin_LFoot__1: human_skin
+    skin_LFoot__2: human_skin
+    skin_LFoot__3: human_skin
+    skin_LFoot__4: human_skin
+    skin_LFoot__5: human_skin
+    skin_LFoot__6: human_skin
+    skin_LHand__0: human_skin
+    skin_LHand__1: human_skin
+    skin_LHand__2: human_skin
+    skin_LHand__3: human_skin
+    skin_LHand__4: human_skin
+    skin_LHand__5: human_skin
+    skin_LHand__6: human_skin
+    skin_LLeg__0: human_skin
+    skin_LLeg__1: human_skin
+    skin_LLeg__2: human_skin
+    skin_LLeg__3: human_skin
+    skin_LLeg__4: human_skin
+    skin_LLeg__5: human_skin
+    skin_LLeg__6: human_skin
+    skin_LShoulder__0: human_skin
+    skin_LShoulder__1: human_skin
+    skin_LShoulder__2: human_skin
+    skin_LShoulder__3: human_skin
+    skin_LShoulder__4: human_skin
+    skin_LShoulder__5: human_skin
+    skin_LShoulder__6: human_skin
+    skin_LThigh__0: human_skin
+    skin_LThigh__1: human_skin
+    skin_LThigh__2: human_skin
+    skin_LThigh__3: human_skin
+    skin_LThigh__4: human_skin
+    skin_LThigh__5: human_skin
+    skin_LThigh__6: human_skin
+    skin_Neck__0: human_skin
+    skin_Neck__1: human_skin
+    skin_Neck__2: human_skin
+    skin_Neck__3: human_skin
+    skin_Neck__4: human_skin
+    skin_Neck__5: human_skin
+    skin_Neck__6: human_skin
+    skin_Pelvis__0: human_skin
+    skin_Pelvis__1: human_skin
+    skin_Pelvis__2: human_skin
+    skin_Pelvis__3: human_skin
+    skin_Pelvis__4: human_skin
+    skin_Pelvis__5: human_skin
+    skin_Pelvis__6: human_skin
+    skin_RArm__0: human_skin
+    skin_RArm__1: human_skin
+    skin_RArm__2: human_skin
+    skin_RArm__3: human_skin
+    skin_RArm__4: human_skin
+    skin_RArm__5: human_skin
+    skin_RArm__6: human_skin
+    skin_RFoot__0: human_skin
+    skin_RFoot__1: human_skin
+    skin_RFoot__2: human_skin
+    skin_RFoot__3: human_skin
+    skin_RFoot__4: human_skin
+    skin_RFoot__5: human_skin
+    skin_RFoot__6: human_skin
+    skin_RHand__0: human_skin
+    skin_RHand__1: human_skin
+    skin_RHand__2: human_skin
+    skin_RHand__3: human_skin
+    skin_RHand__4: human_skin
+    skin_RHand__5: human_skin
+    skin_RHand__6: human_skin
+    skin_RLeg__0: human_skin
+    skin_RLeg__1: human_skin
+    skin_RLeg__2: human_skin
+    skin_RLeg__3: human_skin
+    skin_RLeg__4: human_skin
+    skin_RLeg__5: human_skin
+    skin_RLeg__6: human_skin
+    skin_RShoulder__0: human_skin
+    skin_RShoulder__1: human_skin
+    skin_RShoulder__2: human_skin
+    skin_RShoulder__3: human_skin
+    skin_RShoulder__4: human_skin
+    skin_RShoulder__5: human_skin
+    skin_RShoulder__6: human_skin
+    skin_RThigh__0: human_skin
+    skin_RThigh__1: human_skin
+    skin_RThigh__2: human_skin
+    skin_RThigh__3: human_skin
+    skin_RThigh__4: human_skin
+    skin_RThigh__5: human_skin
+    skin_RThigh__6: human_skin
+  human:
+    phenotype:
+      sex: male
+      age_y: 25.0
+      height_m: 1.728
+      mass_kg: 68.6
+    rig: mixamo
+    forward_axis: -y
+    garments:
+      arms:
+        material: cotton_clothing
+        clo: 0.08
+        colour_rgb:
+        - 0.0042
+        - 0.011
+        - 0.1126
+      feet:
+        material: leather
+        clo: 0.03
+        colour_rgb:
+        - 0.1878
+        - 0.0621
+        - 0.0328
+      legs:
+        material: denim
+        clo: 0.26
+        colour_rgb:
+        - 0.0497
+        - 0.0513
+        - 0.0541
+      torso:
+        material: cotton_clothing
+        clo: 0.09
+        colour_rgb:
+        - 0.0042
+        - 0.0108
+        - 0.0982
+  parts:
+    granularity: object
+    parts:
+    - name: skin_Head
+      select:
+        objects:
+        - skin_Head
+    - name: skin_Neck
+      select:
+        objects:
+        - skin_Neck
+    - name: skin_Chest
+      select:
+        objects:
+        - skin_Chest
+    - name: skin_Back
+      select:
+        objects:
+        - skin_Back
+    - name: skin_Pelvis
+      select:
+        objects:
+        - skin_Pelvis
+    - name: skin_LShoulder
+      select:
+        objects:
+        - skin_LShoulder
+    - name: skin_LArm
+      select:
+        objects:
+        - skin_LArm
+    - name: skin_LHand
+      select:
+        objects:
+        - skin_LHand
+    - name: skin_RShoulder
+      select:
+        objects:
+        - skin_RShoulder
+    - name: skin_RArm
+      select:
+        objects:
+        - skin_RArm
+    - name: skin_RHand
+      select:
+        objects:
+        - skin_RHand
+    - name: skin_LThigh
+      select:
+        objects:
+        - skin_LThigh
+    - name: skin_LLeg
+      select:
+        objects:
+        - skin_LLeg
+    - name: skin_LFoot
+      select:
+        objects:
+        - skin_LFoot
+    - name: skin_RThigh
+      select:
+        objects:
+        - skin_RThigh
+    - name: skin_RLeg
+      select:
+        objects:
+        - skin_RLeg
+    - name: skin_RFoot
+      select:
+        objects:
+        - skin_RFoot
+    - name: garment_arms
+      select:
+        objects:
+        - garment_arms
+    - name: garment_feet
+      select:
+        objects:
+        - garment_feet
+    - name: garment_legs
+      select:
+        objects:
+        - garment_legs
+    - name: garment_torso
+      select:
+        objects:
+        - garment_torso
+    - name: hair
+      select:
+        objects:
+        - hair
