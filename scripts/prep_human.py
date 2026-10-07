@@ -354,6 +354,7 @@ def _asset_config(
     forward: str,
     bmi: float,
     garments: dict[str, dict],
+    bmi_source: str = "ESTIMATED",
 ) -> str:
     import yaml
 
@@ -398,8 +399,8 @@ def _asset_config(
         f"# and labelled onto the body schema by its {rig} skeleton with scripts/prep_human.py\n"
         f"# (HU.3, ADR 0192). Schema: irsim.materials.mapping.AssetConfig with `kind: human`.\n#\n"
         f"# Phenotype: sex and age from the generator's macros ({sidecar.get('macro', {})});\n"
-        f"# stature {stature:.3f} m MEASURED on the mesh; mass ESTIMATED from a BMI of {bmi} "
-        f"({mass} kg).\n"
+        f"# stature {stature:.3f} m MEASURED on the mesh; mass from a BMI of {bmi} ({mass} kg),\n"
+        f"# {bmi_source}.\n"
         "# Materials: eyes, eyebrows and eyelashes carry skin's optics (ESTIMATED). Garments: one\n"
         "# object per slot, `garment_<slot>`, each with a library material, an insulation in clo\n"
         "# (ISO 9920 garment values, ESTIMATED by slot unless edited) and optionally a colour:\n"
@@ -427,6 +428,9 @@ def main(argv: list[str]) -> int:
         help="source_file for the config (default: --out, repo-relative)",
     )
     ap.add_argument("--bmi", type=float, default=23.0, help="for the ESTIMATED mass")
+    ap.add_argument(
+        "--bmi-source", default="ESTIMATED", help="where the BMI comes from, for the config header"
+    )
     ap.add_argument("--blender", default="blender")
     a = ap.parse_args(argv)
 
@@ -476,7 +480,9 @@ def main(argv: list[str]) -> int:
         rel = a.source_rel or str(a.out.resolve().relative_to(REPO_ROOT))
         cfg = REPO_ROOT / "configs" / "assets" / f"{a.name}.yaml"
         cfg.write_text(
-            _asset_config(a.name, rel, sidecar, rep, a.rig, a.forward_axis, a.bmi, garments)
+            _asset_config(
+                a.name, rel, sidecar, rep, a.rig, a.forward_axis, a.bmi, garments, a.bmi_source
+            )
         )
         print(f"[prep_human] wrote {cfg}")
     return 0

@@ -117,6 +117,15 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "woman_dressed_summer_noon.yaml": (
+        "HU.6's woman: the man's summer scene with another asset, rendered as the hero still "
+        "(RGB + LWIR). Its measurement is that a phenotype change alone gives a new person; the "
+        "band sweep of dressed people belongs to HU.8, as for the man."
+    ),
+    "girl_dressed_summer_noon.yaml": (
+        "HU.6's eight-year-old girl: as the woman's entry -- the hero still, a phenotype change, "
+        "JOS-3 at a child's size and age; the band sweep belongs to HU.8."
+    ),
     "man_dressed_summer_noon.yaml": (
         "HU.5's dressed man at the summer noon: rendered by `render_phantom4.py` as the hero "
         "still (RGB + LWIR) in two shirt colours. Its measurement is the garment surface against "

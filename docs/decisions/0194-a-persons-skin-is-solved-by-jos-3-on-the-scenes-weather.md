@@ -117,3 +117,19 @@ Scene schema **v22**. Every committed scene moved to 22; nothing in a v21 scene 
 - A scene wants the person on a solved ground: then the radiant balance reads the ground field.
 - JOS-3 moves on PyPI or the port drops its numpy pin: then the one `import jos3` is the only
   place to change.
+
+## Amendment 2026-10-07 — a child is JOS-3 outside its validation, and its metabolism says by how much (HU.6)
+
+HU.6 put an eight-year-old girl through the same solver, sized at WHO 2007's medians for her age
+(126.56 cm, BMI 15.68, so 25.1 kg). JOS-3 accepts her age, height and weight, and sizes her skin at
+0.945 m² against the man's 1.811. Its basal metabolism, though, is Harris-Benedict, an adult
+equation: it gives her **60.1 W** against Schofield's **51.5 W** for a girl of 3–10 (WHO/FAO/UNU
+1985), **17 % high**. Per square metre of skin she makes 63.6 W against the man's 44.2. Even
+Schofield's 54.5 W/m² is above the man's, so the direction holds — a small body runs warmer per
+area at rest — but the size is overstated. Measured at 0 °C in a 1 m/s wind, bare: the girl's mean
+skin is **19.6 °C** against the man's 16.9 and the woman's 17.4; her hands 10.5 °C against 9.4.
+
+Nothing is corrected here, deliberately: overriding JOS-3's metabolism from outside is
+reimplementing a piece of it. The gap is pinned by `tests/unit/test_people.py` (JOS-3 / Schofield
+= 1.17 ± 0.03), so a change in either moves the test. HU.12 measures faces against radiometric
+data; a child-specific correction is a row of its own if the validation shows it matters.

@@ -1,0 +1,24 @@
+# A dressed woman in clear midday air (roadmap HU.6). Schema v22. The same sky, site, weather and hour as
+# `man_dressed_summer_noon.yaml`; the person is `woman_adult_dressed`, whose phenotype (sex, age, height, mass)
+# sizes the JOS-3 body and whose garments are solved on its skin (ADR 0194, ADR 0195). Nothing here
+# differs from the man's scene but the asset and the target's name: a person is data.
+#
+# Use: scripts/render_phantom4.py --asset woman_adult_dressed_parts --scene configs/scenes/woman_dressed_summer_noon.yaml
+#      --sensor configs/sensors/example_lwir_1280.yaml --track outbound --near-m 5.6 --far-m 5.65
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: woman_dressed_summer_noon
+  description: "A dressed woman standing in clear midday air; garments solved on her JOS-3 skin"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: woman, solver: human, asset: woman_adult_dressed, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

@@ -899,7 +899,10 @@ Stated deliberately — see `docs/physics-model.md` Appendix A for the full list
   10 °C arm and its front over a 28 °C chest are one surface. Colour is luminance only (equal-luminance
   dyes absorb and reflect alike), the ground under him is at air temperature in the radiant balance,
   face sub-regions below the head node are absent, and the glue handles no deforming mesh. JOS-3 is
-  extrapolating outdoors: two hours bare-handed at −5 °C puts the hands at 2.6 °C.
+  extrapolating outdoors: two hours bare-handed at −5 °C puts the hands at 2.6 °C. A child is JOS-3
+  outside its validation: its adult basal-metabolism equation gives the WHO-median girl of eight 17 %
+  more heat than Schofield's child equation, so she runs warmer than she should in the cold (HU.6,
+  ADR 0194 amendment; pinned in `tests/unit/test_people.py`).
 - **The cloud agreement score compares the two integrators with each other, not with the world**
   (`WX.26`, ADR 0191). IoU and emissivity error between the visible march and the infrared march say
   the bands draw one cloud; whether that cloud's radiance is right is `XD.6` part 2 (the Infrared

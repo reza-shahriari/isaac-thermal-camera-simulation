@@ -112,6 +112,44 @@ def _stature_m(obj: bpy.types.Object) -> float:
     return max(zs) - min(zs)
 
 
+#: Bisection steps for the height macro: 2^-14 of the slider is about 0.1 mm of an adult.
+_HEIGHT_STEPS = 14
+
+
+def _solve_height(basemesh, macro: dict, stature_m: float, target_service) -> float:  # type: ignore[no-untyped-def]
+    """The height macro that gives ``stature_m``, by bisection on MakeHuman's own body.
+
+    Stature rises monotonically with the height slider at a fixed age and sex (measured: an
+    8-year-old girl is 0.969 / 1.085 / 1.272 m at 0.3 / 0.5 / 0.7), so a bracket on [0, 1]
+    cannot fail; a stature outside what the slider reaches for this age is refused, not clipped.
+    """
+    objprops = importlib.import_module(f"{MPFB_PACKAGE}.entities.objectproperties")
+    props = objprops.HumanObjectProperties
+
+    def stature_at(h: float) -> float:
+        props.set_value("height", h, entity_reference=basemesh)
+        target_service.reapply_macro_details(basemesh)
+        return _stature_m(basemesh)
+
+    lo, hi = 0.0, 1.0
+    s_lo, s_hi = stature_at(lo), stature_at(hi)
+    if not s_lo <= stature_m <= s_hi:
+        raise SystemExit(
+            f"stature {stature_m:.3f} m is outside {s_lo:.3f}-{s_hi:.3f} m, the range the height "
+            f"slider reaches at age macro {macro['age']:.3f}"
+        )
+    for _ in range(_HEIGHT_STEPS):
+        mid = 0.5 * (lo + hi)
+        if stature_at(mid) < stature_m:
+            lo = mid
+        else:
+            hi = mid
+    h = 0.5 * (lo + hi)
+    stature_at(h)
+    print(f"[make_human] height macro {h:.5f} for {stature_m:.4f} m")
+    return h
+
+
 def _rename(obj: bpy.types.Object, name: str) -> None:
     obj.name = name
     if obj.data is not None:
@@ -129,6 +167,13 @@ def main(argv: list[str]) -> None:
     ap.add_argument("--age", type=float, default=None, help="MakeHuman age macro, 0..1")
     ap.add_argument("--age-years", type=float, default=None, help="age in years (sets --age)")
     ap.add_argument("--height", type=float, default=0.5, help="height macro, 0..1")
+    ap.add_argument(
+        "--stature-m",
+        type=float,
+        default=None,
+        help="solve the height macro for this standing height, metres (e.g. a WHO median); "
+        "overrides --height",
+    )
     ap.add_argument("--weight", type=float, default=0.5, help="weight macro, 0..1")
     ap.add_argument("--muscle", type=float, default=0.5)
     ap.add_argument("--proportions", type=float, default=0.5)
@@ -171,6 +216,9 @@ def main(argv: list[str]) -> None:
         scale=0.1,
         macro_detail_dict=macro,
     )
+
+    if a.stature_m is not None:
+        macro["height"] = _solve_height(basemesh, macro, float(a.stature_m), target_service)
 
     skin_file = _find_asset(location_service, "skins", a.skin, (".mhmat",))
     if skin_file is None:

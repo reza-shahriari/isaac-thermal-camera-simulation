@@ -71,6 +71,7 @@ Validated so far against physics identities and public thermal imagery — see t
 
 ## What's new
 
+- **A woman and a child** — a woman and an eight-year-old girl join the man, made by changing his age, sex, height and build, with the girl at the World Health Organization's median height for her age; each body's skin temperatures are worked out for its own size.
 - **A dressed man, and a shirt of any colour** — the man now wears a T-shirt, trousers and shoes, each with its own infrared temperature solved on the skin beneath it; change the shirt's colour in one line of the asset file and the RGB camera sees a new shirt while the thermal camera sees the same cloth, warmer only by what the darker dye absorbs from the sun.
 - **Every kind of cloud, in both cameras** — cumulus, congestus, stratocumulus, stratus, storm and cirrus are drawn per pixel for the visible camera and marched for the infrared one from the same cloud, and the two are checked against each other frame by frame.
 - **The first human** — an adult man generated from MakeHuman's free assets, labelled into head, neck, chest, back, pelvis, arms, hands, legs and feet by his own skeleton, and standing in a real sky in RGB and LWIR; any rigged human can enter the same way.
