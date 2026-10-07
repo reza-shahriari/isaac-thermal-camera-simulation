@@ -1175,6 +1175,26 @@ sections:
       visible was in the camera, not the optics: layered defocus needs the sky behind a blurred
       edge, and the Isaac camera had never supplied it.
     source: scripts/target_sharpness.py
+  - id: drone-sky-bowl
+    title: The clear sky's bowl, from a camera that has not settled
+    lead: |
+      `EV.23` part 1, ADR 0206. Real anti-drone footage of a clear sky shows a dark centre and
+      bright corners. A tracking camera's housing drifts after its shutter, and off-axis pixels
+      see more of it. The renders started settled, behind a lens with almost no fall-off. Here
+      the camera starts 8 K below its settled housing behind a lens vignetting to 0.6 at the
+      corner. Over the 28-minute clip the bowl grows to a **signed depth of 0.21 at the median and
+      0.49 at the 90th percentile** (radial share 0.67), against 0.05 for the settled camera. The
+      real frames reach a median of 0.82.
+    media:
+      - image: sky_bowl/settled_vs_drifted.png
+        width: full
+        caption: >-
+          The same pose and sky at the end of the clip, 17° elevation. Left: settled camera, cos⁴
+          only; the sky's own gradient. Right: housing warmed since power-up, 0.6 corner.
+    note: |
+      The depth is a quarter of the real one, and the mechanism behind the rest is not known. It
+      may be a stronger shading in the real camera, or a near-horizon sky flatter than ours.
+    source: scripts/sky_bowl.py
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

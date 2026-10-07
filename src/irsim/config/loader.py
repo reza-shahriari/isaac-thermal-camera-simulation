@@ -39,6 +39,7 @@ __all__ = [
     "dump_sensor_config",
     "with_integration_time_ms",
     "with_focus",
+    "with_vignetting_map",
     "config_hash",
     "band_hash",
     "file_sha256",
@@ -211,6 +212,18 @@ def with_focus(
     if mtf.get("defocus_model", "none") == "none":
         mtf["defocus_model"] = model
         mtf["defocus_apply"] = apply
+    return SensorConfig.model_validate(dumped)
+
+
+def with_vignetting_map(config: SensorConfig, path: str | os.PathLike[str]) -> SensorConfig:
+    """A copy of ``config`` whose lens carries the mechanical-vignetting map at ``path`` (EV.23).
+
+    The map is a ``.npy`` at the native detector grid (:func:`irsim.optics.vignetting.
+    load_vignetting_map`); :func:`config_hash` reads the file's content, so two maps are two
+    cameras.
+    """
+    dumped = config.model_dump(mode="json")
+    dumped["sensor"]["optics"]["vignetting_map"] = str(path)
     return SensorConfig.model_validate(dumped)
 
 

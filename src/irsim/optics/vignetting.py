@@ -26,6 +26,7 @@ __all__ = [
     "field_angle_map",
     "cos4_field",
     "load_vignetting_map",
+    "radial_vignetting_map",
 ]
 
 Float32Array = NDArray[np.float32]
@@ -132,3 +133,23 @@ def format_corner_cos4(width: int, height: int, pitch_um: float, focal_length_mm
     half_w = width * pitch_um * 1e-3 / 2.0
     half_h = height * pitch_um * 1e-3 / 2.0
     return float(cos4_at_radius(math.hypot(half_w, half_h), focal_length_mm))
+
+
+def radial_vignetting_map(width: int, height: int, corner: float) -> Float32Array:
+    """A mechanical-vignetting map falling as the square of the field radius: 1 on axis, ``corner``
+    at the format's corner (``1 - (1 - corner) ρ²``, ρ the radius over the corner radius).
+
+    ESTIMATED: a stand-in for :func:`load_vignetting_map`'s measured map where a lens has none
+    (EV.23). The quadratic is the leading term of any smooth, symmetric fall-off, and it is what
+    :func:`irsim.validation.radial.radial_fit` measures, so a frame's bowl and this map speak
+    the same shape. It multiplies cos⁴ like a measured map, so through
+    :func:`irsim.optics.self_emission.housing_power_field` the off-axis pixels see more of the
+    housing: a housing that has drifted since the shutter leaves a bowl ``∝ (1 − corner)``.
+    """
+    if not 0.0 < float(corner) <= 1.0:
+        raise ValueError(f"corner relative illumination must lie in (0, 1], got {corner}")
+    y, x = np.mgrid[0:height, 0:width].astype(np.float64)
+    rho2 = ((x + 0.5 - width / 2.0) ** 2 + (y + 0.5 - height / 2.0) ** 2) / (
+        (width / 2.0) ** 2 + (height / 2.0) ** 2
+    )
+    return np.asarray(1.0 - (1.0 - float(corner)) * rho2, dtype=np.float32)

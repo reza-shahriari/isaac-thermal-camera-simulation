@@ -29,7 +29,8 @@ Everything lands in ``train``: the validation phase selects and scores on **real
 Run with the Isaac interpreter (docs/decisions/0002), pinned to one GPU with ``IRSIM_GPU``. A run
 that already has its ``summary.json`` is collected, not re-rendered, so an interrupted set resumes.
 
-docs/physics-model.md §15 T5; roadmap EV.10 (viewpoint distribution), EV.15 (labels), EV.21 (focus)
+docs/physics-model.md §15 T5; roadmap EV.10 (viewpoint distribution), EV.15 (labels),
+EV.21 (focus), EV.23 (lens shading), EV.24 (hours)
 """
 
 from __future__ import annotations
@@ -55,6 +56,15 @@ CLOUD_REGIMES = ("fair_cumulus", "broken_cumulus", "overcast")
 #: keeps some sharp frames too, which a detector should also have seen.
 FOCUS_INFINITY_SHARE = 0.5
 FOCUS_FAR_FACTOR = 10.0
+#: EV.23: each clip's camera starts its housing this far from settled, K, uniform. Real clear-sky
+#: frames are dark-centred in 71 % of cases (a housing that warmed since its shutter); -4 K is a
+#: camera just switched on, and a housing in the sun runs further. Three quarters of the band is
+#: warming. ESTIMATED; ADR 0206.
+HOUSING_START_K = (-8.0, 3.0)
+#: EV.23: each clip's lens falls to this relative illumination at the corner, uniform: real fast IR
+#: lenses vignette mechanically as well as by cos^4, and the bowl a drift leaves grows with it.
+#: ESTIMATED; ADR 0206.
+CORNER_ILLUMINATION = (0.6, 0.9)
 
 
 def scene_longitude_deg(scene: str | None) -> float:
@@ -67,6 +77,23 @@ def scene_longitude_deg(scene: str | None) -> float:
     path = Path(scene) if Path(scene).is_absolute() else REPO / scene
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
     return float(config["scene"]["site"]["longitude_deg"])
+
+
+def draw_camera(rng: np.random.Generator, args: argparse.Namespace) -> dict[str, float | None]:
+    """One clip's camera unit (EV.23): how far from settled its housing starts, and how much its
+    lens vignettes. Both are drawn even when fixed, so the stream does not depend on the flags."""
+    housing = round(float(rng.uniform(*HOUSING_START_K)), 2)
+    corner = round(float(rng.uniform(*CORNER_ILLUMINATION)), 3)
+    chosen_housing = getattr(args, "housing_start", "drawn")
+    chosen_corner = getattr(args, "corner_illumination", "drawn")
+    return {
+        "housing_start_k": housing if chosen_housing == "drawn" else float(chosen_housing),
+        "corner_illumination": (
+            corner
+            if chosen_corner == "drawn"
+            else (None if chosen_corner == "sensor" else float(chosen_corner))
+        ),
+    }
 
 
 def draw_focus(rng: np.random.Generator, near_m: float, far_m: float) -> str:
@@ -84,6 +111,7 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
     # seeds exactly as they were.
     focus_rng = np.random.default_rng([args.seed, 21])
     hour_rng = np.random.default_rng([args.seed, 24])
+    camera_rng = np.random.default_rng([args.seed, 23])
     longitude = scene_longitude_deg(getattr(args, "scene", None))
     runs: list[dict[str, Any]] = []
     for kind, count, frames in (
@@ -116,6 +144,7 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
                         if args.focus == "drawn"
                         else args.focus
                     ),
+                    **draw_camera(camera_rng, args),
                 }
             )
     return runs
@@ -148,6 +177,12 @@ def render_command(args: argparse.Namespace, run: dict[str, Any], out: Path) -> 
         "--no-rgb", "--no-overlay",
         "--plane-stride", "1",
         *([] if run.get("focus_m", "sensor") == "sensor" else ["--focus-m", str(run["focus_m"])]),
+        "--housing-start-k", str(run.get("housing_start_k", 0.0)),
+        *(
+            []
+            if run.get("corner_illumination") is None
+            else ["--corner-illumination", str(run["corner_illumination"])]
+        ),
         "--out", str(out),
     ]  # fmt: skip
 
@@ -208,6 +243,18 @@ def main(argv: list[str] | None = None) -> int:
         default="drawn",
         help="the lens focus per clip: 'drawn' (EV.21: half at infinity, half at a distance; "
         "draw_focus), 'inf', a distance in metres, or 'sensor' for the sensor file's own",
+    )
+    parser.add_argument(
+        "--housing-start",
+        default="drawn",
+        help="the camera housing's start offset from settled per clip, K: 'drawn' (EV.23, "
+        "HOUSING_START_K) or a number; 0 is the settled camera",
+    )
+    parser.add_argument(
+        "--corner-illumination",
+        default="drawn",
+        help="the lens's relative illumination at the corner per clip: 'drawn' (EV.23, "
+        "CORNER_ILLUMINATION), a number in (0, 1], or 'sensor' for the sensor file's own",
     )
     parser.add_argument(
         "--dry-run",

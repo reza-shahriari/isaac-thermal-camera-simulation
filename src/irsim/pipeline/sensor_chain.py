@@ -121,12 +121,19 @@ class SensorChain:
         t0_s: float = 0.0,
         defects_enabled: bool = True,
         residual_enabled: bool = True,
+        housing_start_offset_k: float = 0.0,
     ) -> SensorChain:
         """Assemble the chain a sensor config describes.
 
         ``weather`` is the scene's single ``WeatherSeries`` (CLAUDE.md #6); pass it whenever the
         housing or FPA node is not ``fixed``. ``dn_per_k`` is ∂DN/∂T at 300 K from
         ``irsim.isp.dn_per_kelvin`` — converted once, at the call site, as ADR 0056 requires.
+
+        ``housing_start_offset_k`` starts a ``coupled`` housing that far from its steady state at
+        ``t0_s`` (EV.23): ``-self_heating_k`` is a camera just switched on, which warms through
+        the sequence; a positive one a camera carried out of somewhere warmer, which cools. The
+        shutter fires at power-up, so the drift since then is the radial bowl a real tracking
+        camera shows (§8.2, §11.2; ADR 0148). 0 is the settled camera, as before.
         """
         shape = sensor.fpa_shape
         housing = HousingTemperature.from_optics(
@@ -135,6 +142,19 @@ class SensorChain:
             ambient_provider=ambient_provider,  # type: ignore[arg-type]
             t0_s=t0_s,
         )
+        if housing_start_offset_k != 0.0:
+            if housing.mode != "coupled":
+                raise ValueError(
+                    "a housing start offset needs housing_temp_mode 'coupled': a "
+                    f"{housing.mode!r} housing has no state of its own to start away from"
+                )
+            housing = HousingTemperature.from_optics(
+                sensor.optics,
+                weather=weather,  # type: ignore[arg-type]
+                ambient_provider=ambient_provider,  # type: ignore[arg-type]
+                t0_s=t0_s,
+                t0_k=housing.steady_state_k(t0_s) + float(housing_start_offset_k),
+            )
         fpa_node = None
         if sensor.fpa.fpa_temp_mode is not None:
             fpa_node = FpaThermalModel(
@@ -329,8 +349,11 @@ def attach_sensor_chain(
     t0_s: float = 0.0,
     defects_enabled: bool | None = None,
     residual_enabled: bool | None = None,
+    housing_start_offset_k: float = 0.0,
 ) -> Any:
     """Return a copy of ``config`` with an M9 chain attached (M9.8).
+
+    ``housing_start_offset_k``: :meth:`SensorChain.build`'s (EV.23).
 
     ``defects_enabled`` and ``residual_enabled`` default to ``None``, meaning *take the value from
     the sensor config's own* ``fidelity:`` *block* (ME.8, `bad_pixels` and `nuc_residual`), so an
@@ -377,5 +400,6 @@ def attach_sensor_chain(
         t0_s=t0_s,
         defects_enabled=defects_enabled,
         residual_enabled=residual_enabled,
+        housing_start_offset_k=housing_start_offset_k,
     )
     return replace(config, chain=chain)

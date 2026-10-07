@@ -223,6 +223,14 @@ parser.add_argument(
     "is set once and the drone is rarely at it. Sets a Hopkins defocus model if the sensor names "
     "none (irsim.config.loader.with_focus); changes the config hash. Default: the sensor's own",
 )
+parser.add_argument(
+    "--corner-illumination",
+    type=float,
+    default=None,
+    help="give the lens a mechanical vignetting falling to this relative illumination at the "
+    "format's corner (EV.23; irsim.optics.vignetting.radial_vignetting_map, ESTIMATED): the "
+    "off-axis pixels see more housing, so a drifted housing leaves a bowl. Default: the sensor's",
+)
 parser.add_argument("--fps", type=float, default=12.0)
 parser.add_argument(
     "--mission-s",
@@ -276,6 +284,14 @@ parser.add_argument(
     "real shuttered core removes",
 )
 parser.add_argument("--no-chain", action="store_true", help="ideal camera: no M9 sensor chain")
+parser.add_argument(
+    "--housing-start-k",
+    type=float,
+    default=0.0,
+    help="start the camera's housing this far from its settled temperature (EV.23): -4 is a "
+    "camera just switched on, which warms through the clip and grows a dark-centred bowl since "
+    "its power-up shutter; positive cools and grows a bright centre. 0: settled, as before",
+)
 parser.add_argument(
     "--nose-deg",
     type=float,
@@ -666,6 +682,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         load_sensor_config,
         with_focus,
         with_integration_time_ms,
+        with_vignetting_map,
     )
     from irsim.config.scene import load_scene_config
     from irsim.io.dataset import FrameWriter
@@ -722,6 +739,18 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     if args.focus_m is not None:
         focus = str(args.focus_m).strip().lower()
         sensor = with_focus(sensor, None if focus in ("inf", "infinity") else float(focus))
+    if args.corner_illumination is not None:
+        import numpy as np
+
+        from irsim.optics.vignetting import radial_vignetting_map
+
+        fpa_spec = sensor.sensor.fpa
+        vignetting = out / "vignetting_map.npy"
+        np.save(
+            vignetting,
+            radial_vignetting_map(fpa_spec.width, fpa_spec.height, args.corner_illumination),
+        )
+        sensor = with_vignetting_map(sensor, vignetting.resolve())
     band = sensor.sensor.band.band_id
     # ADR 0021: a photon FPA runs the whole chain on the photon table, so the sky, the atmosphere
     # and the target solvers are built in the sensor's own form. This was hard-coded "lb", which is
@@ -1223,7 +1252,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         else:
             from irsim.pipeline.sensor_chain import attach_sensor_chain
 
-            pipeline = attach_sensor_chain(pipeline, scene.weather, t0_s=scene.t0_s)
+            pipeline = attach_sensor_chain(
+                pipeline,
+                scene.weather,
+                t0_s=scene.t0_s,
+                housing_start_offset_k=args.housing_start_k,
+            )
     cam = IrCamera(
         sensor,
         scene,
@@ -1311,6 +1345,9 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             "focus": sensor.sensor.optics.focus.model_dump(mode="json", exclude_defaults=True)
             or {"mode": "infinity"},
             "defocus_model": sensor.sensor.optics.mtf.defocus_model,
+            # EV.23: how far from settled the housing started, K (0: settled)
+            "housing_start_k": args.housing_start_k,
+            "corner_illumination": args.corner_illumination,
             "asset": args.asset,
             "interval_s": interval_s,
             "track": "lemniscate, one circuit per clip",
