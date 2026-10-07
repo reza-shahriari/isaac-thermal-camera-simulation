@@ -62,6 +62,7 @@ __all__ = [
     "HORIZON_MARGIN_DEG",
     "clear_exit_seconds",
     "horizon_safe_aim",
+    "tilt_matrix",
     "lowest_framable_elevation_deg",
     "world_frame_to_stage",
 ]
@@ -107,6 +108,41 @@ def lowest_framable_elevation_deg(
 ) -> float:
     """The lowest target elevation :func:`horizon_safe_aim` can frame, degrees."""
     return margin_deg + 0.1 * float(half_vfov_deg)
+
+
+#: EV.25: the largest tilt a drawn attitude may reach, degrees. A camera multirotor's attitude
+#: limit in normal flight is about 25-35 deg (DJI quotes 25 for the Phantom 4 in P-mode).
+TILT_MAX_DEG = 25.0
+
+
+def tilt_matrix(pitch_deg: float, roll_deg: float) -> NDArray[np.float64]:
+    """Stage-axes rotation that pitches and rolls an aircraft whose nose points north (-Z) and
+    whose right is east (+X) (EV.25).
+
+    Pitch is nose-up positive, about the right axis; roll is right-wing-down positive, about the
+    nose axis; roll is applied first, in the body. A driver composes ``spin(heading) @ tilt @
+    spin(-nose)``, so the aircraft keeps its heading and leans about its own axes.
+    """
+    p, r = math.radians(float(pitch_deg)), math.radians(float(roll_deg))
+    # Nose-up about +X: the nose (0, 0, -1) goes to (0, sin p, -cos p).
+    pitch = np.array(
+        [[1.0, 0.0, 0.0], [0.0, math.cos(p), -math.sin(p)], [0.0, math.sin(p), math.cos(p)]]
+    )
+    # Right-wing-down about the nose: +X goes to (cos r, -sin r, 0).
+    roll = np.array(
+        [[math.cos(r), math.sin(r), 0.0], [-math.sin(r), math.cos(r), 0.0], [0.0, 0.0, 1.0]]
+    )
+    return np.asarray(pitch @ roll, dtype=np.float64)
+
+
+def _drawn_tilts(seed: int, count: int, sigma_deg: float) -> NDArray[np.float64]:
+    """``(count, 2)`` pitch and roll, degrees: a tilt half-normal in magnitude with ``sigma_deg``,
+    capped at :data:`TILT_MAX_DEG`, in a uniformly drawn direction. On its own stream, so adding
+    it moved no other draw of a track."""
+    rng = np.random.default_rng([int(seed), 25])
+    magnitude = np.minimum(np.abs(rng.normal(0.0, sigma_deg, count)), TILT_MAX_DEG)
+    direction = rng.uniform(0.0, 2.0 * math.pi, count)
+    return np.stack([magnitude * np.cos(direction), magnitude * np.sin(direction)], axis=-1)
 
 
 #: The stage's own axes, in the order the rotation's rows are built from: east, up, north.
@@ -485,6 +521,8 @@ class ScatterTrack:
     far_m: float = 40.0
     elevation_low_deg: float = 14.0
     elevation_high_deg: float = 60.0
+    #: EV.25: each pose's tilt, half-normal with this sigma (degrees); 0 flies level.
+    tilt_sigma_deg: float = 0.0
 
     def __post_init__(self) -> None:
         if self.count < 1:
@@ -516,6 +554,7 @@ class ScatterTrack:
         # Frozen dataclass: the draws are derived state, set once here and never again.
         object.__setattr__(self, "_positions", positions)
         object.__setattr__(self, "_heading", heading)
+        object.__setattr__(self, "_tilts", _drawn_tilts(self.seed, n, self.tilt_sigma_deg))
 
     def _index(self, phase: object) -> NDArray[np.int64]:
         p = np.clip(np.asarray(phase, dtype=np.float64), 0.0, 1.0)
@@ -530,6 +569,11 @@ class ScatterTrack:
         """Heading of the nose about +Y, degrees, in :meth:`FigureEightTrack.yaw_deg`'s sense."""
         heading: NDArray[np.float64] = self._heading  # type: ignore[attr-defined]
         return np.asarray(heading[self._index(phase)], dtype=np.float64)
+
+    def attitude_deg(self, phase: object) -> NDArray[np.float64]:
+        """``(pitch, roll)`` in degrees (:func:`tilt_matrix`'s sense) of the pose at ``phase``."""
+        tilts: NDArray[np.float64] = self._tilts  # type: ignore[attr-defined]
+        return np.asarray(tilts[self._index(phase)], dtype=np.float64)
 
     def range_m(self, phase: object) -> NDArray[np.float64]:
         """Slant range from the observer to the aircraft."""
@@ -571,6 +615,9 @@ class WanderTrack:
     #: Full turns of bearing around the observer over the clip, on top of the wander: what takes
     #: the line of sight through every sun aspect.
     bearing_turns: float = 1.0
+    #: EV.25: the tilt's scale, degrees: pitch and roll each wander smoothly over about
+    #: +-1.5 sigma, capped at TILT_MAX_DEG. 0 flies level.
+    tilt_sigma_deg: float = 0.0
 
     def __post_init__(self) -> None:
         if not 0.0 < self.near_m <= self.far_m:
@@ -594,6 +641,10 @@ class WanderTrack:
         object.__setattr__(self, "_phase", phase)
         object.__setattr__(self, "_weight", weight)
         object.__setattr__(self, "_start", rng.uniform(0.0, 360.0, size=2))
+        # EV.25: two more channels on a stream of their own, so every earlier draw stands.
+        tilt_rng = np.random.default_rng([self.seed, 25])
+        object.__setattr__(self, "_tilt_frequency", tilt_rng.uniform(1.0, self.cycles, size=(2, 3)))
+        object.__setattr__(self, "_tilt_phase", tilt_rng.uniform(0.0, 2.0 * math.pi, size=(2, 3)))
 
     def _wander(self, channel: int, phase: object) -> NDArray[np.float64]:
         """One channel's smooth signal in [-1, 1]."""
@@ -647,6 +698,15 @@ class WanderTrack:
         p = np.asarray(phase, dtype=np.float64)
         heading = self._start[1] + 900.0 * p + 120.0 * self._wander(3, p)  # type: ignore[attr-defined]
         return np.asarray((heading + 180.0) % 360.0 - 180.0, dtype=np.float64)
+
+    def attitude_deg(self, phase: object) -> NDArray[np.float64]:
+        """``(pitch, roll)`` in degrees, each a smooth wander of about +-1.5 ``tilt_sigma_deg``
+        (three sinusoids at seeded frequencies), capped at :data:`TILT_MAX_DEG`."""
+        p = np.asarray(phase, dtype=np.float64)[..., None, None]
+        f = self._tilt_frequency  # type: ignore[attr-defined]
+        signal = np.sin(2.0 * math.pi * f * p + self._tilt_phase).mean(axis=-1)  # type: ignore[attr-defined]
+        tilt = 1.5 * self.tilt_sigma_deg * np.sqrt(3.0) * signal
+        return np.asarray(np.clip(tilt, -TILT_MAX_DEG, TILT_MAX_DEG), dtype=np.float64)
 
     def aim_fraction(self, phase: object) -> NDArray[np.float64]:
         """Where the mount points relative to the aircraft, ``(..., 2)`` in [-1, 1] per axis."""

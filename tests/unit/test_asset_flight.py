@@ -305,3 +305,47 @@ def test_a_target_too_low_to_frame_is_refused() -> None:
     horizon_safe_aim(lowest + 1e-6, 0.0, 3.5)
     with pytest.raises(ValueError, match="cannot be framed"):
         horizon_safe_aim(lowest - 0.05, 0.0, 3.5)
+
+
+# --- EV.25: an aircraft that leans --------------------------------------------------------------
+
+
+def test_the_tilt_leans_the_nose_up_and_the_right_wing_down() -> None:
+    """Facing north (-Z) with east (+X) on its right: a 10 deg pitch lifts the nose 10 deg, a
+    12 deg roll drops the right wing 12 deg, and a level tilt is the identity."""
+    from irsim_isaac.asset_flight import tilt_matrix
+
+    nose = tilt_matrix(10.0, 0.0) @ np.array([0.0, 0.0, -1.0])
+    assert math.degrees(math.asin(nose[1])) == pytest.approx(10.0)
+    right = tilt_matrix(0.0, 12.0) @ np.array([1.0, 0.0, 0.0])
+    assert math.degrees(math.asin(-right[1])) == pytest.approx(12.0)
+    both = tilt_matrix(7.0, -5.0)
+    assert np.allclose(both @ both.T, np.eye(3)) and np.linalg.det(both) == pytest.approx(1.0)
+    assert np.allclose(tilt_matrix(0.0, 0.0), np.eye(3))
+
+
+def test_scatter_tilts_are_drawn_on_their_own_stream_and_capped() -> None:
+    """A tilt sigma adds pitch and roll per pose without moving a single position or heading,
+    and no pose leans past the 25 deg attitude limit."""
+    from irsim_isaac.asset_flight import TILT_MAX_DEG, ScatterTrack
+
+    level = ScatterTrack(count=400, seed=4)
+    leaning = ScatterTrack(count=400, seed=4, tilt_sigma_deg=12.0)
+    phases = np.linspace(0.0, 1.0, 400)
+    assert np.array_equal(level.position_m(phases), leaning.position_m(phases))
+    assert np.array_equal(level.yaw_deg(phases), leaning.yaw_deg(phases))
+    assert np.all(level.attitude_deg(phases) == 0.0)
+    tilt = np.hypot(*leaning.attitude_deg(phases).T)
+    assert tilt.max() <= TILT_MAX_DEG + 1e-9
+    assert 7.0 < float(np.median(tilt)) < 10.0  # half-normal median 0.674 sigma = 8.1 deg
+
+
+def test_a_wandering_aircraft_leans_smoothly() -> None:
+    from irsim_isaac.asset_flight import WanderTrack
+
+    track = WanderTrack(seed=9, tilt_sigma_deg=8.0)
+    phases = np.linspace(0.0, 1.0, 3000)
+    attitude = track.attitude_deg(phases)
+    assert np.max(np.abs(np.diff(attitude, axis=0))) < 0.5  # no jumps between frames
+    assert 4.0 < float(np.std(attitude)) < 12.0
+    assert np.array_equal(WanderTrack(seed=9).position_m(phases), track.position_m(phases))

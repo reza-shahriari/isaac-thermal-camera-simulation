@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 89 open steps
+#### Then, in order — 88 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -205,7 +205,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`AI.22`** | AI | B | M | — | ready |
 | 15 | **`IG.16`** | IG | B | M | — | ready |
 
-…and 74 more — `python scripts/next_step.py --queue 40`.
+…and 73 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -843,7 +843,7 @@ requirement into an external, cited number, and it can return a negative.
 | EV.22 | ✅ **done.** The box a person draws: `irsim.io.labels.as_drawn` = `visible_extent` (past half the contrast) × a log-normal margin measured on the real set (`DRAWN_MARGIN`); `render_phantom4.py` writes `labels_drawn/`; `box_convention.py`. Rotor discs not needed. ADR 0207. | **Measured**: box ÷ visible, real 1.29 × 1.48, renders 0.98 × 0.97; as drawn, aspect p50 1.47 (real 1.52, was 1.74), not fitted. | EV.21 | S | A |
 | EV.23 | 🟡 **Part 1 done** (ADR 0206): `--housing-start-k` (a coupled housing started off steady) and `--corner-illumination` (`radial_vignetting_map`, ESTIMATED), drawn per clip; `sky_bowl.py`. **Open:** the real bowl is 4× deeper; mechanism or near-horizon sky gradient. | **Measured**, signed depth p50 / radial share: real 0.82 / 0.85, old renders 0.06 / 0.20, −8 K start + 0.6 corner 0.21 / 0.67 (8 frames). Part 2: depth p50 within the real IQR. | EV.21 | S | A |
 | EV.24 | ✅ **done.** Hours stratified in local solar time (`plan_runs`, one clip per 24/n-h slot); weather-fx `d0d55ff`: the seasonal draw is the day's mean placed on the diurnal curve, and `move_clock` (used by `weather_state`) carries the air with the clock. ADR 0205. | **Measured**: six clips at 0.4–23.7 h local, one per slot; one clear day at 48° N reads 19.0 °C at 02 UTC and 29.9 °C at 13 UTC (was 22.0 at both); seeds and weather unchanged. | EV.18 | S | A |
-| EV.25 | **More airframes and attitudes.** One Phantom 4 that yaws but never pitches or rolls. Add tilt as a multirotor flies (pitch and roll from its acceleration) and the library's other multirotors per clip. | Pitch/roll distribution stated and drawn; at least three airframes; box aspect ratio p95 against the real 3.3. | EV.10, EV.22 | M | A |
+| EV.25 | ✅ **done.** Seven airframes per set (`AIRFRAMES`: Phantom 4 solved, six library DJI multirotors on `zoo_hero`'s generic heat), range band scaled by span; `tilt_matrix` + per-pose/per-clip pitch and roll (`--tilt-sigma-deg`, 8° in the planner, cap 25°). ADR 0209. | **Measured**, 6 tilted frames each at 1–10°, boxes as drawn: pooled aspect p90 2.55 (real 3.14, Phantom 4 alone 1.71); Mini 3 Pro 3.41, Avata 2 3.08. | EV.10, EV.22 | M | A |
 
 ---
 

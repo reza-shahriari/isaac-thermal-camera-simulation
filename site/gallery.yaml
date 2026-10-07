@@ -1212,6 +1212,26 @@ sections:
       Lower views do not flatten a Phantom 4's box (aspect p90 1.83 against the real 3.14): its
       landing skids keep it tall. The real set's flattest boxes are other airframes (`EV.25`).
     source: scripts/render_phantom4.py
+  - id: drone-airframes
+    title: Seven airframes, leaning as they fly
+    lead: |
+      `EV.25`, ADR 0209. The drone sets flew one level Phantom 4, and its boxes could not be as
+      flat as the real set's. A set now cycles seven airframes: the solved Phantom 4 and six
+      library DJI multirotors with generic per-part heat. Each pitches and rolls about its own
+      axes. Over 39 drawn boxes at 1–10° elevation the **aspect's 90th percentile is 2.55**,
+      against the real 3.14 and the Phantom 4's own 1.71.
+    media:
+      - image: airframes/airframes.png
+        width: full
+        caption: >-
+          Phantom 4 (40.7 m, pitch 7.9°), Mini 3 Pro (22.1 m, roll −15.5°), Avata 2, FPV,
+          Inspire 3, Matrice 100, Matrice 300 RTK (77.8 m, 1.5° elevation), through the 50 mm
+          telephoto.
+    note: |
+      These frames used one range band for every airframe. A dataset scales the band by each
+      airframe's span, so the Matrice 300 flies farther out and the Avata closer in. Only the
+      Phantom 4 has a solved per-cell temperature field.
+    source: scripts/generate_aerial_dataset.py
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

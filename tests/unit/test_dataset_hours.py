@@ -89,3 +89,45 @@ def test_a_clear_night_clip_is_filmed_in_night_air() -> None:
     night, afternoon = at(2.0), at(13.0)
     assert afternoon.clouds.temperature_c - night.clouds.temperature_c > 9.0
     assert night.clouds.dewpoint_c == afternoon.clouds.dewpoint_c
+
+
+def test_seven_clips_fly_seven_airframes_each_in_its_own_scene() -> None:
+    """EV.25: the airframes come in a shuffled cycle, so a set of n clips flies min(n, 7)
+    different aircraft; the Phantom 4 keeps its solved scene and the others fly `zoo_hero`."""
+    planner = _planner()
+    runs = planner.plan_runs(_args(clear_runs=7, cloud_runs=0))
+    assert sorted(r["asset"] for r in runs) == sorted(a[0] for a in planner.AIRFRAMES)
+    for run in runs:
+        expected = "phantom4_pointwise" if run["asset"] == "phantom4" else "zoo_hero"
+        assert expected in run["scene"]
+        assert (run["nose_deg"] is None) == (run["asset"] == "phantom4")
+        span = next(a[3] for a in planner.AIRFRAMES if a[0] == run["asset"])
+        # the band is the Phantom 4's, scaled by the airframe's span: the same apparent sizes
+        assert run["near_m"] == pytest.approx(20.0 * span / planner.REFERENCE_SPAN_M, abs=0.01)
+        assert run["far_m"] == pytest.approx(90.0 * span / planner.REFERENCE_SPAN_M, abs=0.01)
+
+
+def test_the_render_command_flies_the_clips_airframe_tilted() -> None:
+    planner = _planner()
+    runs = planner.plan_runs(_args(clear_runs=7, cloud_runs=0))
+    run = next(r for r in runs if r["asset"] == "dji_mini_3_pro_parts")
+    args = _args(
+        python="python", track="wander", wander_cycles=6.0, mission_s=1666.0, asset="phantom4",
+        sensor="c.yaml", elevation_low_deg=1.0, elevation_high_deg=12.0, aim_jitter=0.6,
+        tilt_sigma_deg=8.0,
+    )  # fmt: skip
+    command = planner.render_command(args, run, pathlib.Path("out"))
+    value = {
+        flag: command[command.index(flag) + 1] for flag in ("--asset", "--scene", "--nose-deg")
+    }
+    assert value == {
+        "--asset": "dji_mini_3_pro_parts",
+        "--scene": "configs/scenes/zoo_hero.yaml",
+        "--nose-deg": "-129.0",
+    }
+    assert command[command.index("--tilt-sigma-deg") + 1] == "8.0"
+
+
+def test_one_named_airframe_flies_every_clip() -> None:
+    runs = _planner().plan_runs(_args(airframes="phantom4"))
+    assert {r["asset"] for r in runs} == {"phantom4"}

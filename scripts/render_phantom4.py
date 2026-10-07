@@ -285,6 +285,13 @@ parser.add_argument(
 )
 parser.add_argument("--no-chain", action="store_true", help="ideal camera: no M9 sensor chain")
 parser.add_argument(
+    "--tilt-sigma-deg",
+    type=float,
+    default=0.0,
+    help="scatter/wander: pitch and roll the aircraft (EV.25), a tilt of this scale in degrees "
+    "(half-normal per scatter pose, a smooth wander per clip), capped at 25. 0 flies level",
+)
+parser.add_argument(
     "--housing-start-k",
     type=float,
     default=0.0,
@@ -596,6 +603,21 @@ def main(argv: list[str] | None = None) -> int:
     return status
 
 
+def _spin(yaw_deg: float) -> Any:
+    """The 3x3 yaw :func:`_mount_matrix` applies: about +Y, positive from -Z toward +X."""
+    import numpy as np
+
+    yaw = math.radians(yaw_deg)
+    return np.asarray(
+        [
+            [math.cos(yaw), 0.0, -math.sin(yaw)],
+            [0.0, 1.0, 0.0],
+            [math.sin(yaw), 0.0, math.cos(yaw)],
+        ],
+        dtype=np.float64,
+    )
+
+
 def _mount_matrix(rotation: Any, centre: Any, yaw_deg: float, position: Any) -> Any:
     """The asset's local-to-world 4x4, in USD's row-vector convention.
 
@@ -719,6 +741,7 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         clear_exit_seconds,
         horizon_safe_aim,
         lowest_framable_elevation_deg,
+        tilt_matrix,
         world_frame_to_stage,
     )
     from irsim_isaac.pipeline.ir_camera import IrCamera
@@ -806,7 +829,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             )
             if v is not None
         }
-        track = ScatterTrack(count=args.frames, seed=args.scatter_seed, **track_kwargs)
+        track = ScatterTrack(
+            count=args.frames,
+            seed=args.scatter_seed,
+            tilt_sigma_deg=args.tilt_sigma_deg,
+            **track_kwargs,
+        )
     elif args.track == "wander":
         track_kwargs = {
             k: v
@@ -818,7 +846,12 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             )
             if v is not None
         }
-        track = WanderTrack(seed=args.scatter_seed, cycles=args.wander_cycles, **track_kwargs)
+        track = WanderTrack(
+            seed=args.scatter_seed,
+            cycles=args.wander_cycles,
+            tilt_sigma_deg=args.tilt_sigma_deg,
+            **track_kwargs,
+        )
     else:
         track_kwargs = {
             k: v
@@ -1176,7 +1209,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         """
         position = track.position_m(phase)
         heading = float(track.yaw_deg(phase)) + args.turn_deg
-        transform_op.Set(_mount_matrix(mount, centre, heading - nose_yaw_deg, position))
+        if args.track in ("scatter", "wander") and args.tilt_sigma_deg > 0.0:
+            # EV.25: lean about the aircraft's own axes -- turned to north, tilted, turned back to
+            # its heading -- which is the level mount exactly when the tilt is zero.
+            pitch_deg, roll_deg = (float(v) for v in track.attitude_deg(phase))
+            leaned = tilt_matrix(pitch_deg, roll_deg) @ _spin(-nose_yaw_deg) @ mount
+            transform_op.Set(_mount_matrix(leaned, centre, heading, position))
+        else:
+            transform_op.Set(_mount_matrix(mount, centre, heading - nose_yaw_deg, position))
         if args.track == "scatter":
             aim_at(
                 position,
@@ -1563,6 +1603,11 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 extra_metadata={
                     "range_m": round(slant, 3),
                     "aspect_deg": round(aspect, 2),
+                    "attitude_deg": (
+                        [round(float(v), 2) for v in track.attitude_deg(phase)]
+                        if hasattr(track, "attitude_deg")
+                        else None
+                    ),
                     "elevation_deg": round(float(track.elevation_deg(phase)), 2),
                     "node_temperatures_k": node_k,
                 },

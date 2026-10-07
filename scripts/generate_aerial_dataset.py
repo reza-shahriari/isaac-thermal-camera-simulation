@@ -65,6 +65,24 @@ HOUSING_START_K = (-8.0, 3.0)
 #: lenses vignette mechanically as well as by cos^4, and the bowl a drift leaves grows with it.
 #: ESTIMATED; ADR 0206.
 CORNER_ILLUMINATION = (0.6, 0.9)
+#: EV.25: the airframes a clip may fly, as (asset, scene, nose bearing in the asset's XY plane,
+#: degrees from +x; None for the Phantom 4's measured NOSE_IN_ASSET). The Phantom 4 flies its
+#: solved per-cell scene; the library's other multirotors fly `zoo_hero.yaml`, whose generic
+#: heat sources serve any part-split asset (motors hot, the pack warm, the shell near air).
+#: Noses are the ones their asset configs state; the last field is the asset's span as
+#: `render_phantom4.py` measures it ("m across"), which scales the clip's range band so every
+#: airframe covers the apparent sizes the band was set for (the real boxes are 34-83 px wide).
+AIRFRAMES: tuple[tuple[str, str, float | None, float], ...] = (
+    ("phantom4", "configs/scenes/phantom4_pointwise.yaml", None, 0.618),
+    ("dji_mini_3_pro_parts", "configs/scenes/zoo_hero.yaml", -129.0, 0.391),
+    ("dji_avata_2_parts", "configs/scenes/zoo_hero.yaml", -90.0, 0.212),
+    ("dji_fpv_parts", "configs/scenes/zoo_hero.yaml", -90.0, 0.330),
+    ("dji_inspire_3_parts", "configs/scenes/zoo_hero.yaml", -90.0, 0.917),
+    ("dji_matrice_100_parts", "configs/scenes/zoo_hero.yaml", -90.0, 0.690),
+    ("dji_matrice_300_rtk_parts", "configs/scenes/zoo_hero.yaml", -90.0, 1.032),
+)
+#: The span the range band (``--near-m``/``--far-m``) is stated for: the Phantom 4's.
+REFERENCE_SPAN_M = 0.618
 
 
 def scene_longitude_deg(scene: str | None) -> float:
@@ -77,6 +95,28 @@ def scene_longitude_deg(scene: str | None) -> float:
     path = Path(scene) if Path(scene).is_absolute() else REPO / scene
     config = yaml.safe_load(path.read_text(encoding="utf-8"))
     return float(config["scene"]["site"]["longitude_deg"])
+
+
+def draw_airframe(index: int, args: argparse.Namespace) -> dict[str, object]:
+    """One clip's airframe (EV.25): the asset, the scene it flies in and its nose. With
+    ``--airframes all`` the caller passes the clip's place in a shuffled cycle through
+    :data:`AIRFRAMES`, so a set of n clips flies min(n, 7) different aircraft; a name keeps that
+    one for every clip."""
+    chosen = getattr(args, "airframes", "all")
+    if chosen != "all":
+        names = [a[0] for a in AIRFRAMES]
+        if chosen not in names:
+            raise ValueError(f"unknown airframe {chosen!r}; known: {names}")
+        index = names.index(chosen)
+    asset, scene, nose, span = AIRFRAMES[index]
+    scale = span / REFERENCE_SPAN_M
+    return {
+        "asset": asset,
+        "scene": scene,
+        "nose_deg": nose,
+        "near_m": round(args.near_m * scale, 2),
+        "far_m": round(args.far_m * scale, 2),
+    }
 
 
 def draw_camera(rng: np.random.Generator, args: argparse.Namespace) -> dict[str, float | None]:
@@ -112,6 +152,7 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
     focus_rng = np.random.default_rng([args.seed, 21])
     hour_rng = np.random.default_rng([args.seed, 24])
     camera_rng = np.random.default_rng([args.seed, 23])
+    airframe_rng = np.random.default_rng([args.seed, 26])
     longitude = scene_longitude_deg(getattr(args, "scene", None))
     runs: list[dict[str, Any]] = []
     for kind, count, frames in (
@@ -123,6 +164,9 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
         # nights and a morning, as the first one was. The position inside the slot is the old
         # uniform draw, so the main stream (and every seed after it) is unchanged.
         slots = hour_rng.permutation(count) if count else np.zeros(0, dtype=int)
+        cycle = np.concatenate(
+            [airframe_rng.permutation(len(AIRFRAMES)) for _ in range(count // len(AIRFRAMES) + 1)]
+        )
         for i in range(count):
             weather = "clear" if kind == "clear" else str(rng.choice(CLOUD_REGIMES))
             weather_seed = int(rng.integers(0, 2**31 - 1))
@@ -145,6 +189,7 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
                         else args.focus
                     ),
                     **draw_camera(camera_rng, args),
+                    **draw_airframe(int(cycle[i]), args),
                 }
             )
     return runs
@@ -158,13 +203,15 @@ def render_command(args: argparse.Namespace, run: dict[str, Any], out: Path) -> 
         "--wander-cycles", str(args.wander_cycles),
         "--mission-s", str(args.mission_s),
         "--agc-clip",
-        "--asset", args.asset,
-        "--scene", args.scene,
+        "--asset", run.get("asset", args.asset),
+        "--scene", run.get("scene", args.scene),
+        *([] if run.get("nose_deg") is None else ["--nose-deg", str(run["nose_deg"])]),
+        "--tilt-sigma-deg", str(getattr(args, "tilt_sigma_deg", 0.0)),
         "--sensor", args.sensor,
         "--frames", str(run["frames"]),
         "--scatter-seed", str(run["scatter_seed"]),
-        "--near-m", str(args.near_m),
-        "--far-m", str(args.far_m),
+        "--near-m", str(run.get("near_m", args.near_m)),
+        "--far-m", str(run.get("far_m", args.far_m)),
         "--elevation-low-deg", str(args.elevation_low_deg),
         "--elevation-high-deg", str(args.elevation_high_deg),
         "--aim-jitter", str(args.aim_jitter),
@@ -252,6 +299,18 @@ def main(argv: list[str] | None = None) -> int:
         default="drawn",
         help="the lens focus per clip: 'drawn' (EV.21: half at infinity, half at a distance; "
         "draw_focus), 'inf', a distance in metres, or 'sensor' for the sensor file's own",
+    )
+    parser.add_argument(
+        "--airframes",
+        default="all",
+        help="'all' draws an airframe per clip from AIRFRAMES (EV.25); an asset name keeps one",
+    )
+    parser.add_argument(
+        "--tilt-sigma-deg",
+        type=float,
+        default=8.0,
+        help="the aircraft's pitch and roll scale per clip, degrees (EV.25; ESTIMATED: a camera "
+        "multirotor cruises at 5-20 deg of tilt); 0 flies level",
     )
     parser.add_argument(
         "--boxes",
