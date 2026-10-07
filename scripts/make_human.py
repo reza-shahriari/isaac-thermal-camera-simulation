@@ -271,6 +271,56 @@ def _vest_tape_and_belt(body: bpy.types.Object, stature_m: float) -> list[str]:
     return ["belt", "tape"]
 
 
+#: The plate carrier (HU.8): plates and soft armour stand 40-50 mm off the chest, from the waist to
+#: the shoulders; a rigger belt at the waist; a 30 x 14 x 40 cm assault pack on the upper back.
+CARRIER_BOTTOM, CARRIER_TOP = 0.585, 0.83
+CARRIER_OFFSET_M = 0.045
+PACK_SIZE_M = (0.30, 0.14, 0.40)
+PACK_CENTRE_Z = 0.72
+
+
+def _carrier_belt_and_pack(body: bpy.types.Object, stature_m: float) -> list[str]:
+    """A plate carrier (garment_torso), a rigger belt (equipment_belt), a pack (equipment_pack).
+
+    The carrier and belt are cut from the body as the police vest is (:func:`_cut_shell`); the pack
+    is a box sat on the carrier's back. CC0 and deterministic like the body. The labelled asset is
+    static (prep_human.py), so the pack needs no weights.
+    """
+    import bmesh
+
+    h = stature_m
+    carrier = _cut_shell(
+        body, TORSO_BONES, [(CARRIER_BOTTOM * h, CARRIER_TOP * h)], CARRIER_OFFSET_M,
+        "garment_torso", (1.0, 1.0, 1.0),
+    )  # fmt: skip
+    _cut_shell(
+        body, ("pelvis", "spine_01"), [(BELT_BAND[0] * h, BELT_BAND[1] * h)], BELT_OFFSET_M,
+        "equipment_belt", (0.20, 0.18, 0.12),
+    )  # fmt: skip
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    ev = carrier.evaluated_get(depsgraph)
+    me = ev.to_mesh()
+    back_y = max((carrier.matrix_world @ v.co).y for v in me.vertices)  # the body faces -y
+    ev.to_mesh_clear()
+    w, d, tall = PACK_SIZE_M
+    mesh = bpy.data.meshes.new("equipment_pack")
+    bm = bmesh.new()
+    bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, vec=(w, d, tall), verts=bm.verts)
+    bmesh.ops.translate(bm, vec=(0.0, back_y + 0.5 * d, PACK_CENTRE_Z * h), verts=bm.verts)
+    bm.to_mesh(mesh)
+    bm.free()
+    pack = bpy.data.objects.new("equipment_pack", mesh)
+    bpy.context.collection.objects.link(pack)
+    mat = bpy.data.materials.new("equipment_pack")
+    mat.use_nodes = True
+    next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED").inputs[
+        "Base Color"
+    ].default_value = (0.20, 0.22, 0.12, 1.0)
+    mesh.materials.append(mat)
+    return ["belt", "pack"]
+
+
 def _rename(obj: bpy.types.Object, name: str) -> None:
     obj.name = name
     if obj.data is not None:
@@ -301,6 +351,12 @@ def main(argv: list[str]) -> None:
     ap.add_argument("--skin", default=None, help="a skin's name under MPFB's user data skins/")
     ap.add_argument("--rig", default="game_engine", help="an MPFB built-in rig")
     ap.add_argument("--no-eyes", action="store_true")
+    ap.add_argument(
+        "--plate-carrier",
+        action="store_true",
+        help="a plate carrier cut from the body's torso (garment_torso, 45 mm out), a rigger belt "
+        "(equipment_belt) and an assault pack on the back (equipment_pack) (HU.8)",
+    )
     ap.add_argument(
         "--vest",
         action="store_true",
@@ -421,6 +477,13 @@ def main(argv: list[str]) -> None:
             raise SystemExit("--vest is the torso garment; do not also pass --garment torso=...")
         equipment = _vest_tape_and_belt(basemesh, stature)
         garments["torso"] = "irsim_hi_vis_vest"  # generated, not a MakeHuman asset
+    if a.plate_carrier:
+        if "torso" in garments or a.vest:
+            raise SystemExit(
+                "--plate-carrier is the torso garment; not with --vest or --garment torso"
+            )
+        equipment = _carrier_belt_and_pack(basemesh, stature)
+        garments["torso"] = "irsim_plate_carrier"  # generated, not a MakeHuman asset
     _rename(basemesh, "body")
     for slot in basemesh.material_slots:
         if slot.material is not None:

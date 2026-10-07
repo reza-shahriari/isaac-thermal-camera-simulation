@@ -1,0 +1,25 @@
+# A soldier in clear midday air (roadmap HU.8). Schema v22, ADR 0197. The soldier is `soldier`: a woodland combat
+# shirt and trousers of NIR-compliant camouflage cloth, a plate carrier (1.38 clo on chest and back:
+# 0.28 shirt + 1.0 armour + 0.1 carrier), an aramid helmet, boots, a rigger belt and an assault pack.
+# The camouflage's colour reaches the RGB companion only; its near infrared is the material's,
+# matched to vegetation (`dye_optics: false`). Filmed in NIR, SWIR, MWIR and LWIR: the four bands in which camouflage is a different problem.
+#
+# Use: scripts/render_phantom4.py --asset soldier_parts --scene configs/scenes/soldier_summer_noon.yaml
+#      --sensor <a camera> --track outbound --near-m <range> --far-m <range + 0.05>
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: soldier_summer_noon
+  description: "A soldier in NIR-compliant camouflage in clear midday air"
+  weather_file: weather/clear_midlat_summer_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-06-21T10:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: soldier, solver: human, asset: soldier, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0

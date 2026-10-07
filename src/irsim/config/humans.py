@@ -407,6 +407,11 @@ class GarmentSpec(_Frozen):
     clo: float = Field(ge=0.0, le=5.0)
     colour_rgb: tuple[float, float, float] | None = None
     covers: list[str] | None = None
+    #: HU.8: whether the colour also dyes the material's optics (α_sol and the dyed bands, ADR
+    #: 0195). False for a cloth whose near infrared is engineered rather than a consequence of its
+    #: dye -- NIR-compliant camouflage matches foliage whatever its visible colour -- so the colour
+    #: then tints the RGB companion only and the library material is used as authored.
+    dye_optics: bool = True
 
     @field_validator("colour_rgb")
     @classmethod

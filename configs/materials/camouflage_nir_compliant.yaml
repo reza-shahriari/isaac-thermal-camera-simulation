@@ -1,0 +1,33 @@
+# NIR-compliant camouflage cloth: a woven nylon/cotton combat uniform whose near-infrared
+# reflectance is engineered to match vegetation, not left to its dye (HU.8, ADR 0197).
+# A plain dyed dark-green cloth goes dark in the near infrared (irsim.materials.colour: an olive of
+# luminance 0.17 reflects about 0.25), and against foliage, which reflects 0.45-0.60 over
+# 700-1100 nm, it reads as a black figure on a bright field. Camouflage specifications set NIR
+# targets per pattern colour from the vegetation, soil and bark the pattern hides against: green
+# 45-55 %, brown 25-40 %, beige 60-70 %, blue-black 5-20 % over 700-1100 nm (Yahaya et al. 2026,
+# Development and characterisation of near-infrared camouflage fabrics for military combat
+# uniform, J. Industrial Textiles, doi:10.1177/15280837251319055; and the visible/NIR camouflage
+# textile literature it cites; leaves reach 60 % over 700-1000 nm). This entry is the woodland
+# pattern's area-weighted mean, about 0.45 reflected in the NIR -- ESTIMATED from those targets
+# for a pattern of roughly 40 % green, 30 % brown, 20 % beige, 10 % black. SWIR: dyed fabrics
+# converge ("similar signatures in the SWIR", Kaur et al. 2024) and foliage drops at the 1450 nm
+# water band; ESTIMATED 0.40 reflected. LWIR/MWIR: nylon and cotton at 0.88 (Belliveau et al. 2020);
+# colour does not reach the long-wave (Zhang, Hu & Zhang 2009), and a printed pattern is one
+# emissivity. Thermal: a 0.5 mm NYCO rip-stop, ESTIMATED.
+schema_version: 2
+material:
+  name: camouflage_nir_compliant
+  source: estimated
+  surface_treatment: as_manufactured
+  reference: "NIR target bands: Yahaya et al. 2026, doi:10.1177/15280837251319055 (green 45-55 %, brown 25-40 %, beige 60-70 %, black 5-20 % over 700-1100 nm); pattern mean ESTIMATED. SWIR ESTIMATED (Kaur et al. 2024, doi:10.1177/00037028241258111). LWIR/MWIR: Belliveau et al. 2020, doi:10.1177/0040517519888825 (nylon and cotton 0.88). Thermal ESTIMATED: NYCO rip-stop, 0.5 mm, 400 kg/m3 bulk"
+  description: "Woodland NYCO combat cloth with vegetation-matched NIR; its colour reaches the visible only"
+  thermal:
+    density_kg_m3: 400
+    specific_heat_j_kgk: 1300
+    conductivity_w_mk: 0.06
+    thickness_m: 0.0005
+    solar_absorptivity: 0.72
+  optical:
+    emissivity_per_band: {nir: 0.55, swir: 0.60, mwir: 0.86, lwir: 0.88}
+    roughness_per_band: {nir: 0.80, swir: 0.78, mwir: 0.70, lwir: 0.65}
+    angular_model: {type: empirical, a: 0.08, p: 4.0}

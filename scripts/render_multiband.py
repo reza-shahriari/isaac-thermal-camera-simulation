@@ -117,6 +117,15 @@ UNSWEPT_SCENES: dict[str, str] = {
         "away and then strafes out of a fixed field. Its measurement is the frame edge over "
         "time, which one frame per band cannot show."
     ),
+    "soldier_summer_noon.yaml": (
+        "HU.8's soldier at noon, filmed in all four bands by `render_phantom4.py` as hero stills: "
+        "the four-band comparison the row asks for, at each camera's own framing range. A sweep "
+        "would film the same four frames at one range, too far for the narrow MWIR lens."
+    ),
+    "soldier_winter_night.yaml": (
+        "HU.8's soldier on a clear January night, one LWIR still: no sun, so the reflective "
+        "bands have nothing to show."
+    ),
     "police_summer_noon.yaml": (
         "HU.7's police officer at noon: rendered by `render_phantom4.py` in LWIR (with its RGB "
         "companion) and in MWIR, the two thermal bands the row asks for. The reflective-band "

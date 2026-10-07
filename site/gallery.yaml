@@ -1390,3 +1390,35 @@ sections:
       surface. The vest is a single generated surface with jagged armhole edges. The tape's
       retroreflection under a coaxial NIR illuminator is not modelled (ADR 0196).
     source: configs/scenes/police_summer_noon.yaml, configs/scenes/police_winter_night.yaml, scripts/make_human.py
+
+  - id: soldier-four-bands
+    title: A soldier in four bands
+    lead: |
+      A combat shirt and trousers of NIR-compliant camouflage, a plate carrier over armour, an
+      aramid helmet, a belt and a pack. A plain dark-green dye goes dark in the near infrared and
+      makes a uniform a black figure against bright foliage. This cloth carries the camouflage
+      pattern's engineered mean instead, **0.45** reflected against the specifications' 0.37–0.50,
+      where the same olive dyed on cotton reflects **0.30**. Its colour reaches the visible camera
+      only. In the near infrared he is as bright as his skin; in the thermal bands the cloth is
+      0.88 whatever its colour. All five frames match the solver to **0.0005 K**.
+    media:
+      - image: humans/soldier/summer_lwir/frames/pair_00002.png
+        width: full
+        caption: LWIR and RGB at the summer noon
+      - image: humans/soldier/summer_nir/frames/ir_00002.png
+        width: half
+        caption: NIR, the same instant
+      - image: humans/soldier/summer_swir/frames/ir_00002.png
+        width: half
+        caption: SWIR, at 7 m
+      - image: humans/soldier/summer_mwir/frames/ir_00002.png
+        width: half
+        caption: MWIR, at 14 m
+      - image: humans/soldier/winter_lwir/frames/ir_00002.png
+        width: half
+        caption: a clear January night at −5 °C; face 26.6 °C, helmet 17.9, carrier −1.5
+    note: |
+      The ground here is not vegetation, so these frames cannot show the cloth blending with
+      foliage; the test asserts the material's band. The pattern is one mean value, and the RGB tint
+      over the garments' own dark textures reads nearer black than olive (ADR 0197).
+    source: configs/scenes/soldier_summer_noon.yaml, configs/scenes/soldier_winter_night.yaml, scripts/make_human.py

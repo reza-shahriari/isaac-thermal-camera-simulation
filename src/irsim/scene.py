@@ -469,7 +469,7 @@ def build_target(
         absorptance = {}
         for slot, garment in asset.human.garments.items():
             material = library[garment.material]
-            if garment.colour_rgb is not None:
+            if garment.colour_rgb is not None and garment.dye_optics:
                 material = coloured_material(material, garment.colour_rgb)
             absorptance[slot] = float(material.spec.thermal.solar_absorptivity)
         equipment_alpha = {

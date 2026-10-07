@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 89 open steps
+#### Then, in order — 88 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -205,7 +205,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 14 | **`WX.13`** | WX | C | M | 5 | `WX.8` |
 | 15 | **`WX.15`** | WX | C | L | 3 | `WX.13` |
 
-…and 74 more — `python scripts/next_step.py --queue 40`.
+…and 73 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -980,7 +980,7 @@ records which were used.
 | HU.5 | ✅ **done.** Six fabrics (polyester, denim, wool, leather, shoe rubber, hair; cotton/nylon/polyester at Belliveau's 0.88, S66 open); `irsim.materials.colour` dyes a variant (α_sol, NIR; never LWIR) at render time; a garment is a prim and a target, PH.12's balance on the JOS-3 skin beneath with its own absorbed sun; `make_human.py --garment`, the tint baked into the texture. `man_adult_dressed`, two scenes. ADR 0195. | **Measured.** Black vs white cotton Δε_LWIR = 0, Δα 0.48; at the noon a T-shirt 31.8 °C white, 33.9 black, blue/red 0.03 K apart. 11 cases. | HU.4 | M | C |
 | HU.6 | ✅ **done.** `woman_adult_dressed`, `girl_child_dressed` from the same scripts (new: `make_human.py --stature-m` solves the height slider; `prep_human.py --bmi-source`); the girl at WHO 2007's 8-year medians, her shorts on the thighs only; a scene each. ADR 0194 amendment: JOS-3's adult BMR for a child. | **Measured.** Configs differ only in phenotype and garments; girl 1.2656 m vs WHO 1.26556, BMI 15.68; our skin = JOS-3 by hand to 1e-9 K; at 0 °C bare her mean skin 19.6 °C vs the man's 16.9 (BMR 17 % over Schofield's); renders = solver to 0.0005 K. 6 cases. | HU.5 | M | C |
 | HU.7 | ✅ **done.** `police_officer`: uniform, cap, boots; a vest over armour cut from the body (`make_human.py --vest`, 1.33 clo, Potter 2015); `HumanSpec.equipment` (tape, belt) solved on its slot with its own α. Premise corrected (ADR 0196): `retroreflective_tape` is emissive in LWIR (0.88, ESTIMATED). Humans static until HU.10. | **Measured.** Night: tape = vest to 1e-9 K, noon +1.1 K. Winter torso −1.4 °C vs sleeves 4.6 (ISO 7730's figure to 1e-6), head 24.8; noon vest 28.7 vs sleeves 34.2. LWIR, MWIR, winter renders = solver to 0.0005 K; 27 parts, 100 %. 5 cases. | HU.6 | M | C |
-| HU.8 | **A soldier.** A camouflage uniform is NIR-compliant — reflectance matched to foliage below 1.1 µm, where dye matters, and pattern-independent in LWIR; a new material with a sourced NIR/SWIR curve; aramid helmet, plate carrier, boots, pack as parts. Rendered in NIR, SWIR, MWIR and LWIR. | In NIR the uniform's reflectance lies in the foliage band, not at cotton's 0.5–0.6; the pattern's colours share one LWIR ε to 1e-6; helmet and plate carrier read colder than the face in winter by the solved amounts. | HU.7 | M | C |
+| HU.8 | ✅ **done.** `soldier`: NIR-compliant camouflage (`camouflage_nir_compliant`, pattern mean 0.45 NIR reflected), a plate carrier cut from the body (`--plate-carrier`, 1.38 clo), aramid helmet (0.12 clo), boots; belt and pack as equipment. `dye_optics: false`: colour tints RGB only. ADR 0197. | **Measured.** Camo NIR 0.45 in the pattern band 0.37–0.50; the same olive dyed on cotton 0.30; LWIR 0.88. Winter: face 26.6 °C, helmet 17.9, carrier −1.5 (sleeves 4.6), pack = carrier to 1e-9 K. NIR, SWIR, MWIR, LWIR, winter renders = solver to 0.0005 K; 27 parts, 100 %. 4 cases. | HU.7 | M | C |
 | HU.9 | **Any downloaded human.** `prep_human.py` on an unrigged mesh: Make-It-Animatable (MIT) rigs it with Mixamo names, then argmax; skin / hair / garment per face by priority: objects and slots, a skin-tone albedo test on face and hands, Sapiens multi-view projection (CC BY-NC; allowed, recorded in provenance), Find3D (MIT), then a person. The CC-BY Dennis scan is the test. | `HU.3`'s acceptance on the scan; ≥ 95 % of faces labelled without a person and the rest listed for the add-on; the tools used and their licences are in the provenance YAML; CPU-only, under 2 min. | HU.5 | L | C |
 | HU.10 | **A body that moves.** Probe: a `UsdSkel`-skinned multi-prim body under one skeleton through the existing `AovReader` — do ids, float32 position and normals follow the deformed surface? A walk clip (Mixamo or CMU) retargeted in Blender, kept local, never committed; `isaacsim.replicator.agent` stays optional. ADR. | Ids per segment prim stable across the clip; the position AOV is float32 and deformed (a hand prim's centroid moves > 0.2 m over a stride); per-segment temperatures follow their prims; no float16 anywhere. | HU.3 | M | C |
 | HU.11 | **A firefighter, and the occupations after.** Turnout gear (aramid shell, retroreflective trim), helmet, SCBA cylinder; then a construction worker and a cyclist, each as garments and equipment parts under the same schema. | Each occupation is a YAML of garments and parts with no new code; the SCBA cylinder and helmet carry library materials; coverage 100 %; rendered in both bands. | HU.8 | M | C |

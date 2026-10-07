@@ -7,7 +7,7 @@ camera sees: a surface that emits well shows its own temperature, and one that h
 shows a reflection of the sky. This page says where every number came from and how you can
 check it yourself.
 
-The library has 92 materials. 56 of them were measured and imported by a script; the rest are
+The library has 94 materials. 56 of them were measured and imported by a script; the rest are
 the project's first, literature-based values, and say so in their own files. The files are in
 [`configs/materials/`](../configs/materials/), one per material.
 
@@ -208,6 +208,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `bare_aluminium` | oxidised | 0.08 | 0.05 | 0.06 | 0.09 | 0.15 | literature, partly estimated |
 | `brick_red` | as manufactured | 0.77 | 0.75 | 0.67 | 0.95 | 0.83 | measured: USGS + UCSB |
 | `brick_tan` | as manufactured | 0.83 | 0.82 | 0.92 | 0.96 | 0.86 | measured: USGS + UCSB |
+| `camouflage_nir_compliant` | as manufactured | 0.55 | 0.60 | 0.86 | 0.88 | 0.72 | literature, partly estimated |
 | `car_paint_black` | painted | 0.94 | 0.94 | 0.88 | 0.90 | 0.94 | LWIR shape from ECOSTRESS; level literature |
 | `car_paint_white` | painted | 0.30 | 0.40 | 0.88 | 0.90 | 0.28 | LWIR shape from ECOSTRESS; level literature |
 | `carbon_fibre` | as manufactured | 0.90 | 0.88 | 0.88 | 0.90 | 0.90 | literature, partly estimated |
@@ -237,6 +238,7 @@ The values the simulator uses, per band (a Planck-weighted average over the band
 | `grass_dry` | natural | 0.67 | 0.67 | 0.91 | 0.96 | 0.76 | measured: USGS + UCSB |
 | `hair` | natural | 0.75 | 0.75 | 0.96 | 0.97 | 0.80 | literature, partly estimated |
 | `hatch_cover_tarpaulin` | as manufactured | 0.70 | 0.75 | 0.93 | 0.95 | 0.85 | literature, partly estimated |
+| `helmet_aramid_painted` | painted | 0.55 | 0.60 | 0.88 | 0.91 | 0.75 | literature, partly estimated |
 | `human_skin` | natural | 0.50 | 0.70 | 0.97 | 0.98 | 0.65 | literature, partly estimated |
 | `iron_weathered` | weathered | 0.94 | 0.93 | 0.96 | 0.97 | 0.95 | measured: SLUM (MWIR from its class) |
 | `leaf_maple` | natural | 0.38 | 0.64 | 0.96 | 0.96 | 0.69 | measured: USGS + UCSB |

@@ -130,7 +130,7 @@ def dress_asset_materials(
     out = dict(materials)
     extra: dict[str, Material] = {}
     for slot, garment in human.garments.items():
-        if garment.colour_rgb is None:
+        if garment.colour_rgb is None or not garment.dye_optics:
             continue
         base = library[garment.material]
         variant = coloured_material(base, garment.colour_rgb)

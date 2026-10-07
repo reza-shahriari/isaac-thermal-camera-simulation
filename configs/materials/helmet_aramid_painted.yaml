@@ -1,0 +1,26 @@
+# A combat helmet: a para-aramid composite shell under a flat, NIR-matched paint (HU.8, ADR 0197).
+# Optically it is its paint: a flat military coating is a filled polymer, emissive in the thermal
+# bands like the library's painted entries (0.88-0.93, section 16.2's car paint at 0.90), and its
+# near infrared is matched to vegetation as the uniform's is -- ESTIMATED at the same 0.45
+# reflected. Thermally it is the shell: 8 mm of aramid composite, density about 1300 kg/m3,
+# c_p about 1400 J/kg/K, k about 0.3 W/m/K (aramid/epoxy laminates, ESTIMATED). Its insulation over
+# the head is the helmet system's: 0.029-0.055 m2K/W measured on a manikin headform with
+# suspension or pads (the internal-system study, Int. J. Industrial Ergonomics 2014) -- carried by
+# the garment's clo in the asset, not by this file.
+schema_version: 2
+material:
+  name: helmet_aramid_painted
+  source: estimated
+  surface_treatment: painted
+  reference: "Optics ESTIMATED as a flat military paint: thermal bands as the library's painted entries (docs/physics-model.md section 16.2 car paint 0.90); NIR matched to vegetation as camouflage_nir_compliant. Thermal ESTIMATED: aramid/epoxy composite shell, 8 mm, 1300 kg/m3, 1400 J/kg/K, 0.3 W/m/K. Helmet insulation 0.029-0.055 m2K/W: manikin-headform study of ballistic helmet internal systems, Int. J. Industrial Ergonomics 2014 (doi via ScienceDirect S0169814113001418)"
+  description: "Aramid combat helmet under flat NIR-matched paint; emissive in the thermal bands"
+  thermal:
+    density_kg_m3: 1300
+    specific_heat_j_kgk: 1400
+    conductivity_w_mk: 0.3
+    thickness_m: 0.008
+    solar_absorptivity: 0.75
+  optical:
+    emissivity_per_band: {nir: 0.55, swir: 0.60, mwir: 0.88, lwir: 0.91}
+    roughness_per_band: {nir: 0.70, swir: 0.65, mwir: 0.55, lwir: 0.50}
+    angular_model: {type: empirical, a: 0.10, p: 4.5}

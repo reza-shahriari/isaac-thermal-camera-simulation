@@ -1,0 +1,25 @@
+# A soldier on a clear January night (roadmap HU.8). Schema v22, ADR 0197. The soldier is `soldier`: a woodland combat
+# shirt and trousers of NIR-compliant camouflage cloth, a plate carrier (1.38 clo on chest and back:
+# 0.28 shirt + 1.0 armour + 0.1 carrier), an aramid helmet, boots, a rigger belt and an assault pack.
+# The camouflage's colour reaches the RGB companion only; its near infrared is the material's,
+# matched to vegetation (`dye_optics: false`). At -5 C under a clear sky the helmet and the plate carrier sit near the air while the face does not.
+#
+# Use: scripts/render_phantom4.py --asset soldier_parts --scene configs/scenes/soldier_winter_night.yaml
+#      --sensor <a camera> --track outbound --near-m <range> --far-m <range + 0.05>
+#      --elevation-deg 3 --nose-deg -90 --turn-deg 180 --frames 3 --mission-s 600 --no-overlay
+
+schema_version: 22
+scene:
+  name: soldier_winter_night
+  description: "A soldier on a clear January night at -5 C"
+  weather_file: weather/clear_midlat_winter_48h.csv
+  atmosphere_preset: us_standard_clear
+  environment_preset: clear_dry
+  site: {latitude_deg: 48.1, longitude_deg: 11.6, altitude_m: 520.0}
+  start_utc: "2024-01-15T02:00:00Z"
+  world_frame: {up: [0.0, 0.0, 1.0], north: [0.0, 1.0, 0.0]}
+  targets:
+    - {name: soldier, solver: human, asset: soldier, posture: standing}
+  thermal:
+    spin_up_hours: 6.0
+    tick_s: 30.0
