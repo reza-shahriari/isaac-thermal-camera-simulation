@@ -42,7 +42,7 @@ ADR 0207):
   wide per tall, because of its landing skids. **The real set's flat tail (p90 3.1) is other
   airframes**, wider and lower than a Phantom 4. That moves to `EV.25`.
 - Near the horizon the warm air at the frame's bottom crosses the visible-extent threshold. That
-  exposed a fault in `visible_extent`, fixed in the same step (ADR 0207's amendment).
+  exposed a fault in `seen_extent`, fixed in the same step (ADR 0207's amendment).
 - The clear sky below 15° is the layered model, extrapolated: the ICI comparison starts at 15°
   (ADR 0183). The near-horizon gradient this band now samples is the part ADR 0206 suspects.
 - The real elevation band is read by eye. Reading the burnt-in readout (as `ici_met_from_video.py`

@@ -41,7 +41,7 @@ __all__ = [
     "DRAWN_MARGIN",
     "FrameLabels",
     "as_drawn",
-    "visible_extent",
+    "seen_extent",
     "PointLabel",
     "frame_labels",
     "split_manifest",
@@ -297,12 +297,12 @@ def write_split_manifest(
 #: EV.22: how much larger than the visible target a person draws its box, as log-normal
 #: ``(median, sigma of the log)`` per axis. Measured on Anti-UAV RGBT's sky-only test frames (795
 #: boxes at least 16 px wide, ``scripts/box_convention.py``): the human box over the target's
-#: visible extent (:func:`visible_extent`) is 1.29 wide (10-90 %: 1.13-1.48) and 1.50 tall
+#: visible extent (:func:`seen_extent`) is 1.29 wide (10-90 %: 1.13-1.48) and 1.50 tall
 #: (1.26-1.79). The rendered boxes were the mask's extent, 0.98 and 0.97.
 DRAWN_MARGIN: dict[str, tuple[float, float]] = {"width": (1.29, 0.104), "height": (1.50, 0.136)}
 
 
-def visible_extent(display: Any, box: Box, *, fraction: float = 0.5) -> tuple[int, int, int, int]:
+def seen_extent(display: Any, box: Box, *, fraction: float = 0.5) -> tuple[int, int, int, int]:
     """``x1, y1, x2, y2`` of what a person sees of the target in the display frame (EV.22).
 
     The pixels within one box size of ``box`` that stand more than ``fraction`` of the target's
@@ -345,14 +345,14 @@ def visible_extent(display: Any, box: Box, *, fraction: float = 0.5) -> tuple[in
 def as_drawn(labels: FrameLabels, display: Any, rng: np.random.Generator) -> FrameLabels:
     """``labels`` with every box replaced by one a person would draw (EV.22).
 
-    The box is :func:`visible_extent` grown about its centre by a margin drawn per box from
+    The box is :func:`seen_extent` grown about its centre by a margin drawn per box from
     :data:`DRAWN_MARGIN`, and clipped to the frame. The mask, pixel count, visibility and cloud
     transmittance stay the truth's: only the box is a convention, and it is the one the real sets
     a detector is scored on were labelled with.
     """
     boxes = []
     for b in labels.boxes:
-        x1, y1, x2, y2 = visible_extent(display, b)
+        x1, y1, x2, y2 = seen_extent(display, b)
         mw = DRAWN_MARGIN["width"][0] * float(np.exp(rng.normal(0.0, DRAWN_MARGIN["width"][1])))
         mh = DRAWN_MARGIN["height"][0] * float(np.exp(rng.normal(0.0, DRAWN_MARGIN["height"][1])))
         cx, cy = 0.5 * (x1 + x2), 0.5 * (y1 + y2)

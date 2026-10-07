@@ -6,7 +6,7 @@
 
 Each argument is a frame set, as in ``scripts/target_sharpness.py``. For every box at least
 ``--min-width`` px wide it measures the box over the target's visible extent
-(:func:`irsim.io.labels.visible_extent`: the pixels past half the target's contrast within one
+(:func:`irsim.io.labels.seen_extent`: the pixels past half the target's contrast within one
 box size), per axis, and the box's own width, height and aspect, as quantiles. A set named with
 ``--as-drawn`` is measured a second time with its boxes replaced by the ones a person would draw
 (:func:`irsim.io.labels.as_drawn`), which is how the convention is checked on frames rendered
@@ -33,7 +33,7 @@ def measure(spec: str, args: argparse.Namespace, drawn: bool) -> tuple[str, dict
     import cv2
     from target_sharpness import frames_of
 
-    from irsim.io.labels import Box, FrameLabels, as_drawn, visible_extent
+    from irsim.io.labels import Box, FrameLabels, as_drawn, seen_extent
 
     name, pairs = frames_of(spec)
     pairs = [(i, lab) for i, lab in pairs if lab.exists() and lab.read_text().strip()]
@@ -55,7 +55,7 @@ def measure(spec: str, args: argparse.Namespace, drawn: bool) -> tuple[str, dict
         if drawn:
             labels = FrameLabels(w, h, (box,), (), ("drone",))
             box = as_drawn(labels, frame, np.random.default_rng([args.seed, k])).boxes[0]
-        vx1, vy1, vx2, vy2 = visible_extent(frame, box)
+        vx1, vy1, vx2, vy2 = seen_extent(frame, box)
         width, height = box.x2 - box.x1, box.y2 - box.y1
         rows.append((width / (vx2 - vx1), height / (vy2 - vy1), width, height, width / height))
     if not rows:

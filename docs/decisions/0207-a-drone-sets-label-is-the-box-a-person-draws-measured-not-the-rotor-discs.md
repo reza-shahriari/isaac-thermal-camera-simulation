@@ -10,7 +10,7 @@ were drawn by people. The rendered boxes were the truth mask's extent (`EV.15`).
 blamed the difference on the rotor discs: the rendered box was tight on the airframe without the
 discs its propellers sweep. That was a guess. `scripts/box_convention.py` measures how each box sits on what the frame
 shows: the box over the extent of the pixels past half the target's contrast
-(`irsim.io.labels.visible_extent`), per axis.
+(`irsim.io.labels.seen_extent`), per axis.
 
 | Boxes ≥ 16 px wide | Box ÷ visible, width p10 / p50 / p90 | Height | Aspect p10 / p50 / p90 |
 |---|---|---|---|
@@ -33,7 +33,7 @@ person boxes what they see.
 
 Option 2.
 
-- `irsim.io.labels.as_drawn(labels, display, rng)` replaces each box with `visible_extent` on the
+- `irsim.io.labels.as_drawn(labels, display, rng)` replaces each box with `seen_extent` on the
   display frame. A defocus glow counts as far as it shows; a part too faint to see does not; a
   target with no contrast keeps its truth box.
 - The box grows about its centre by a log-normal margin per axis, then is clipped to the frame.
@@ -66,8 +66,8 @@ The old clip set re-labelled this way (`--as-drawn`, the same frames):
 ## Amendment (EV.10)
 
 At 1–3° elevation the warm sky near the horizon reaches past half the target's contrast at the
-frame's bottom edge, inside `visible_extent`'s window, and took drawn boxes to 380 px.
-`visible_extent` now keeps only the seen pixels connected to one inside the truth box. Re-measured
+frame's bottom edge, inside `seen_extent`'s window, and took drawn boxes to 380 px.
+`seen_extent` now keeps only the seen pixels connected to one inside the truth box. Re-measured
 with it, the real margin is 1.29 (1.13–1.48) wide and 1.50 (1.26–1.79) tall, and `DRAWN_MARGIN`
 is (1.29, 0.104) and (1.50, 0.136).
 

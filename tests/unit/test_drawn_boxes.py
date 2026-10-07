@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 from scipy.ndimage import gaussian_filter
 
-from irsim.io.labels import DRAWN_MARGIN, Box, FrameLabels, as_drawn, visible_extent
+from irsim.io.labels import DRAWN_MARGIN, Box, FrameLabels, as_drawn, seen_extent
 
 TRUTH = Box("quad", "drone", 90, 100, 150, 130, 1800, 1.0, [])
 
@@ -24,14 +24,14 @@ def _display(level: float = 220.0, sky: float = 60.0, sigma: float = 0.0) -> np.
 
 
 def test_a_sharp_target_is_seen_to_its_own_edge() -> None:
-    assert visible_extent(_display(), TRUTH) == (TRUTH.x1, TRUTH.y1, TRUTH.x2, TRUTH.y2)
+    assert seen_extent(_display(), TRUTH) == (TRUTH.x1, TRUTH.y1, TRUTH.x2, TRUTH.y2)
 
 
 def test_a_defocused_glow_counts_as_far_as_it_shows_and_a_dark_target_too() -> None:
     """Blurred, a step crosses half its contrast at the edge itself, so the visible extent is the
     truth to a pixel; a cold target against a warm sky is seen the same way."""
     for frame in (_display(sigma=3.0), _display(level=40.0, sky=200.0, sigma=3.0)):
-        x1, y1, x2, y2 = visible_extent(frame, TRUTH)
+        x1, y1, x2, y2 = seen_extent(frame, TRUTH)
         assert abs(x1 - TRUTH.x1) <= 1 and abs(x2 - TRUTH.x2) <= 1
         assert abs(y1 - TRUTH.y1) <= 1 and abs(y2 - TRUTH.y2) <= 1
 
@@ -41,7 +41,7 @@ def test_a_part_too_faint_to_see_is_not_boxed() -> None:
     person sees: the visible extent stops at the body."""
     frame = _display()
     frame[TRUTH.y1 : TRUTH.y2, TRUTH.x1 : TRUTH.x1 + 20] = 60.0 + 0.2 * (220.0 - 60.0)
-    assert visible_extent(frame, TRUTH)[0] == TRUTH.x1 + 20
+    assert seen_extent(frame, TRUTH)[0] == TRUTH.x1 + 20
 
 
 def test_the_warm_sky_at_the_frame_edge_is_not_the_target() -> None:
@@ -49,11 +49,11 @@ def test_the_warm_sky_at_the_frame_edge_is_not_the_target() -> None:
     bottom edge, inside the search window. Only what is connected to the target is boxed."""
     frame = _display()
     frame[150:, :] = 230.0  # the horizon's warm air, 20 px below the target's box
-    assert visible_extent(frame, TRUTH) == (TRUTH.x1, TRUTH.y1, TRUTH.x2, TRUTH.y2)
+    assert seen_extent(frame, TRUTH) == (TRUTH.x1, TRUTH.y1, TRUTH.x2, TRUTH.y2)
 
 
 def test_a_target_with_no_contrast_keeps_the_truth_box() -> None:
-    assert visible_extent(np.full((240, 320), 80.0), TRUTH) == (90, 100, 150, 130)
+    assert seen_extent(np.full((240, 320), 80.0), TRUTH) == (90, 100, 150, 130)
 
 
 def test_the_drawn_margins_are_the_measured_ones_and_the_truth_is_kept() -> None:
