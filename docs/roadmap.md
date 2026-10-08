@@ -185,7 +185,7 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 
 `WX.7` is phase A, size L, and unblocks 8 other step(s).
 
-#### Then, in order — 88 open steps
+#### Then, in order — 97 open steps
 
 | # | step | lane | phase | size | unblocks | waiting on |
 |---|---|---|---|---|---|---|
@@ -195,17 +195,17 @@ requirement, not a lane deliverable: `PT.20` is a block on a ground patch, not a
 | 4 | **`WX.22`** | WX | A | L | 2 | ready |
 | 5 | **`WX.25`** | WX | A | M | 1 | ready |
 | 6 | **`EV.23`** | EV | A | S | — | ready |
-| 7 | **`AT.38`** | AT | A | M | — | ready |
-| 8 | **`WX.10`** | WX | A | M | — | ready |
-| 9 | **`WX.27`** | WX | A | M | — | ready |
-| 10 | **`WX.29`** | WX | A | M | — | `WX.22` |
-| 11 | **`WX.9`** | WX | A | M | — | `WX.8`, `WX.22`, `WX.25` |
-| 12 | **`XD.6`** | XD | A | L | — | ready |
-| 13 | **`AT.26`** | AT | B | S | — | ready |
-| 14 | **`AI.22`** | AI | B | M | — | ready |
-| 15 | **`IG.16`** | IG | B | M | — | ready |
+| 7 | **`EV.28`** | EV | A | S | — | ready |
+| 8 | **`EV.31`** | EV | A | S | — | ready |
+| 9 | **`EV.32`** | EV | A | S | — | ready |
+| 10 | **`EV.33`** | EV | A | S | — | ready |
+| 11 | **`EV.34`** | EV | A | S | — | ready |
+| 12 | **`EV.35`** | EV | A | S | — | ready |
+| 13 | **`AT.38`** | AT | A | M | — | ready |
+| 14 | **`EV.27`** | EV | A | M | — | ready |
+| 15 | **`EV.29`** | EV | A | M | — | ready |
 
-…and 73 more — `python scripts/next_step.py --queue 40`.
+…and 82 more — `python scripts/next_step.py --queue 40`.
 
 <!-- next:end -->
 
@@ -285,7 +285,7 @@ row says so and names the step that closes it.
 |---|---|---|
 | **0 — Repair** | `RP.1`–`RP.10`, `PT.3`, `PT.4`, `IG.1`, `IG.5`, `IG.8` | The three shared documents are true and mergeable; no shipped physics result rests on a measured error |
 | **P — Point-wise and coupled physics** | `PT.6`–`PT.8`, `PT.11`, `PT.12`, `PT.14`, `PT.15`, `PT.17`–`PT.22`, `WM.1`–`WM.7`, `TC.1`–`TC.7`, `TC.9`–`TC.12`, `TC.16`, `PH.1`–`PH.8`, `PH.13`, `PT.25`, `PT.26`, `AT.24`, `IG.20`, `IG.21`, `IG.22` | **CPU only.** From a scene config plus one command: a wall half in sun (`PT.20`), an engine warming the metal around it with hot soak after key-off (`TC.6`), a road wet on one half and dry on the other (`PH.2`), and a plume bright in MWIR and faint in LWIR (`PH.6`) — each with its engine-free test green; the rendered frames are the in-engine half, staged by `IG.20` |
-| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.20`, `AI.23`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.37`, `AT.38`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.25`, `WX.1`–`WX.11`, `WX.21`–`WX.27`, `WX.28`, `WX.29` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
+| **A — Aerial to the bar** | `AI.1`, `AI.2`, `AI.5`, `AI.7`–`AI.12`, `AI.14`–`AI.20`, `AI.23`, `PT.1`, `PT.2`, `PT.5`, `PT.9`, `PT.23`, `TC.13`, `TC.18`, `TC.17`, `AT.1`–`AT.5`, `AT.10`–`AT.12`, `AT.15`, `AT.16`, `AT.18`, `AT.19`, `AT.14`, `AT.29`, `AT.30`, `AT.31`, `AT.32`–`AT.37`, `AT.38`, `XD.14`, `IG.23`, `IG.24`, `XD.6`, `AT.20`, `SC.1`–`SC.4`, `SC.17`–`SC.26`, `IG.2`, `IG.6`, `IG.13`, `IG.18`, `GT.1`, `GT.2`, `PT.24`, `PT.28`, `AT.21`–`AT.23`, `AT.25`, `AT.27`, `AT.28`, `SC.28`–`SC.34`, `IG.19`, `EV.14`–`EV.35`, `WX.1`–`WX.11`, `WX.21`–`WX.27`, `WX.28`, `WX.29` | **CPU only.** An aerial scene config plus one command produces float32 frames whose target carries a gradient across one prim, with a per-pixel slant path behind it; **clouds appear in the infrared in both render tiers and meet §7.5's realism criteria against calibrated full-sky LWIR (`XD.6`), and in the path-traced tier a target behind or inside a cloud is occluded in both bands while in the real-time tier it is occluded in neither (ADR 0169, checked in the engine)** |
 | **B — Maritime to the same bar** | `AI.3`, `AI.4`, `AI.6`, `AI.21`, `AI.22`, `PT.10`, `SE.1`–`SE.3`, `OC.6`, `OC.7`, `XD.3`, `IG.16`, `AT.26` | A maritime scene config plus one command produces the same, with the sea model's angular envelope recorded |
 | **C — Ground and automotive** | `AI.13`, `PT.13`, `PT.16`, `TC.8`, `TC.14`, `TC.15`, `PH.9`–`PH.12`, `PH.14`, `AT.6`–`AT.9`, `AT.17`, `OC.8`, `XD.10`, `GT.7`, `PT.27`, `WX.12`–`WX.20`, `HU.1`–`HU.13` | Deferred material breadth stays deferred (see *Deferred deliberately*); what lands is depth on surfaces already modelled, plus the phenomena rows no earlier scene needed |
 | **X — Cross-cutting, continuous** | `SC.5`–`SC.16`, `SC.27`, `EV.1`–`EV.13`, `XD.1`, `XD.2`, `XD.4`, `XD.5`, `XD.7`–`XD.9`, `XD.11`–`XD.13`, `AT.13`, `IG.3`, `IG.4`, `IG.7`, `IG.9`–`IG.12`, `IG.14`, `IG.15`, `IG.17`, `GT.3`–`GT.6`, `GT.8`–`GT.11`, `OC.1`–`OC.5`, `OC.9`, `OC.10`–`OC.13`, `DC.1`–`DC.6` | Runs alongside; `EV` gates nothing but is gated by `PT.9`/`PT.10` for its headline measurement |
@@ -841,9 +841,19 @@ requirement into an external, cited number, and it can return a negative.
 | EV.20 | ✅ **done.** `render_phantom4.py --clear-exit`: the solved Phantom 4 (`phantom4_clear_exit.yaml`, cloudless) 5→60 m in 15 s at 60 Hz from T+540 (cruise), then the mount stops and it strafes out at 10 m/s (`StraightOutExitTrack`), 1 s of empty sky. Readout margin measured (`readout_margin`). ADR 0189. | **Measured**: 0.2 px horizontal, last drawn frame 999 vs 1000 predicted, nothing after; rear motors 56.9 °C, arms 37.8 °C beside the mounts vs ~31 °C mid-span. | EV.16, TC.13 | S | A |
 | EV.21 | ✅ **done.** The drone's focus: `with_focus` / `render_phantom4.py --focus-m`; `IrCamera` now supplies `background_t_k`, without which layered defocus kept silhouettes sharp; `generate_aerial_dataset.py` draws a focus per clip (half at infinity). `edge_width_px` + `target_sharpness.py`. ADR 0204. | **Measured**, edge width p50: real 4.10 px (IQR 3.20–5.40), old renders 1.92, focused at infinity 4.62 (8 frames, telephoto, 20–90 m). | EV.18 | S | A |
 | EV.22 | ✅ **done.** The box a person draws: `irsim.io.labels.as_drawn` = `seen_extent` (past half the contrast) × a log-normal margin measured on the real set (`DRAWN_MARGIN`); `render_phantom4.py` writes `labels_drawn/`; `box_convention.py`. Rotor discs not needed. ADR 0207. | **Measured**: box ÷ visible, real 1.29 × 1.48, renders 0.98 × 0.97; as drawn, aspect p50 1.47 (real 1.52, was 1.74), not fitted. | EV.21 | S | A |
-| EV.23 | 🟡 **Part 1 done** (ADR 0206): `--housing-start-k` (a coupled housing started off steady) and `--corner-illumination` (`radial_vignetting_map`, ESTIMATED), drawn per clip; `sky_bowl.py`. **Open:** the real bowl is 4× deeper; mechanism or near-horizon sky gradient. | **Measured**, signed depth p50 / radial share: real 0.82 / 0.85, old renders 0.06 / 0.20, −8 K start + 0.6 corner 0.21 / 0.67 (8 frames). Part 2: depth p50 within the real IQR. | EV.21 | S | A |
+| EV.23 | 🟡 **Part 1 done** (ADR 0206): `--housing-start-k` (a coupled housing started off steady) and `--corner-illumination` (`radial_vignetting_map`, ESTIMATED), drawn per clip; `sky_bowl.py`. **Open, part 2:** per-clip bowl measured on the real set, fixed or drifting, and drawn from that spread including none. | **Measured**, signed depth p50 / radial share: real 0.82 / 0.85, old renders 0.06 / 0.20, −8 K start + 0.6 corner 0.21 / 0.67 (8 frames). Part 2: depth p50 within the real IQR. | EV.21 | S | A |
 | EV.24 | ✅ **done.** Hours stratified in local solar time (`plan_runs`, one clip per 24/n-h slot); weather-fx `d0d55ff`: the seasonal draw is the day's mean placed on the diurnal curve, and `move_clock` (used by `weather_state`) carries the air with the clock. ADR 0205. | **Measured**: six clips at 0.4–23.7 h local, one per slot; one clear day at 48° N reads 19.0 °C at 02 UTC and 29.9 °C at 13 UTC (was 22.0 at both); seeds and weather unchanged. | EV.18 | S | A |
 | EV.25 | ✅ **done.** Seven airframes per set (`AIRFRAMES`: Phantom 4 solved, six library DJI multirotors on `zoo_hero`'s generic heat), range band scaled by span; `tilt_matrix` + per-pose/per-clip pitch and roll (`--tilt-sigma-deg`, 8° in the planner, cap 25°). ADR 0209. | **Measured**, 6 tilted frames each at 1–10°, boxes as drawn: pooled aspect p90 2.55 (real 3.14, Phantom 4 alone 1.71); Mini 3 Pro 3.41, Avata 2 3.08. | EV.10, EV.22 | M | A |
+| EV.26 | ✅ **done.** Empty frames: `generate_aerial_dataset.draw_lost_runs` sizes a set's lost runs to the real share (`--absent-share real`, 1.24 %) with real run lengths (`absent_frames.py`); `render_phantom4.py --lost-lock` swings the mount off sideways or up (`LostLock`). Plan: `docs/anti-uav-dataset.md`. ADR 0210. | **Measured**: real 3,692 of 296,901 frames, 97 runs, median 14. Planner: 1.24 % at 6, 30 and 100 clips; 18 of 100 clips (real 52/318). Render: 24-frame clip with runs of 4 and 2: 6 empty frames, exactly the runs, every other frame boxed. | EV.18 | S | A |
+| EV.27 | **Birds and other non-drones.** A licence-checked bird through `ingest-asset`: warm body, cooler feathers, flapping wings, its own heat model; in some clips beside the drone, in some alone; class `bird` or no box, never `drone`. Later: distant aircraft. | Bird surface temperatures cited to a published thermal image of the species or size class; bird box statistics reported beside the drone's. | EV.26 | M | A |
+| EV.28 | **Elevation 0–15°, seen from the side.** The planner band becomes 0–15° (lowest framable ~0.3°); the tilt cap comes down so a pitched drone does not show its belly (25° today). The owner's reading of the real set: about level, never from beneath. | Rendered elevation spread and box aspect re-measured against the real set (`box_convention.py`). | EV.25 | S | A |
+| EV.29 | **Clouds behind the drone in the set's clips**, so the display's contrast moves as the drone crosses cloud. Cloudy share measured on the sky-only split. | Frame-to-frame change of the display's mean and spread against the real clips' distribution. ~6× a clear frame (63 s vs 11 s). | EV.18, WX.28 | M | A |
+| EV.30 | **Camera shake, measured first.** The real boxes' frame-to-frame motion (spectrum, size relative to the box), then high-frequency mount shake and its motion blur sized to it. | Rendered frame-to-frame box motion inside the real distribution's IQR. | EV.18 | M | A |
+| EV.31 | **Box area and contrast matched to the real set.** Measure the real box-area and display-contrast distributions; draw each clip's range so the box areas reproduce them. | Box-area p10/p50/p90 and the contrast median inside the real IQR. | EV.25 | S | A |
+| EV.32 | **Cold drones and crossover.** The solved Phantom 4 starts at T+540 s, warm. Draw the clip's mission start from takeoff on, a share starting cold. | Drone-to-sky contrast at takeoff reported per weather case; a share of clips reaches near-zero contrast. | EV.18 | S | A |
+| EV.33 | **Shutter freezes, only at the real rate.** `irsim.isp.ffc` has the freeze; the set has it off. Count frozen runs (identical frames, then a jump) in the real videos first. | The real rate recorded; the set's rate matches it, and stays 0 if the real one is 0. | EV.18 | S | A |
+| EV.34 | **Labels in Anti-UAV's own format**: per clip `exist` + `gt_rect`, plus a track ID per object. | The benchmark's own evaluation code scores a synthetic clip's truth as 1.0. | EV.26 | S | A |
+| EV.35 | **The real codec before training.** The real videos are MPEG-4 Part 2 at 0.47–0.96 Mbit/s, 20 fps (not H.264). Measure the real blockiness (8×8 border step against the interior step); pick the encoder setting that matches; one `ffmpeg` per clip; train on the decoded frames. | Blockiness of the decoded synthetic frames inside the real IQR; EV.19's training run with and without the pass. | EV.18 | S | A |
 
 ---
 

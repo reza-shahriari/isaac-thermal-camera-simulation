@@ -43,6 +43,10 @@ frames of a flight are near-duplicates, and a set built from them has seen one r
 and one patch of sky many times over. This one draws every frame's range, elevation, bearing and
 heading independently from stated bands, behind the same interface, so the driver that films a
 flight also films a dataset.
+
+**Losing the aircraft** (:class:`LostLock`, EV.26). A real operator's mount sometimes loses the
+drone, and the real sets' frames without one carry no box. A lost run swings the boresight off the
+aircraft, sideways or up, holds it past the frame edge, and swings back.
 """
 
 from __future__ import annotations
@@ -55,11 +59,14 @@ from numpy.typing import NDArray
 
 __all__ = [
     "FigureEightTrack",
+    "LostLock",
     "ScatterTrack",
     "StraightOutExitTrack",
     "StraightOutTrack",
     "WanderTrack",
     "HORIZON_MARGIN_DEG",
+    "LOST_RAMP_FRAMES",
+    "lost_lock_offset",
     "clear_exit_seconds",
     "horizon_safe_aim",
     "tilt_matrix",
@@ -149,6 +156,79 @@ def _drawn_tilts(seed: int, count: int, sigma_deg: float) -> NDArray[np.float64]
 STAGE_EAST = (1.0, 0.0, 0.0)
 STAGE_UP = (0.0, 1.0, 0.0)
 STAGE_NORTH = (0.0, 0.0, -1.0)
+
+
+#: EV.26: frames the mount takes to swing off the aircraft before a lost run, and to come back
+#: after it. One: a set's frames are seconds apart (5.6 s at the planner's default), so the swing
+#: happens between two frames, and the frames outside the run are on the aircraft as usual. A
+#: slower swing left the frame either side of a run empty too, so the run's empty frames came out
+#: two more than its length.
+LOST_RAMP_FRAMES = 1
+#: EV.26: how far past the frame edge the boresight is held during a lost run, in half-fields,
+#: beyond the wander's own reach: a drone at the dataset's ranges is under a tenth of a half-field
+#: across (the real boxes are 34-83 px of 640), so half a half-field clears it with room.
+LOST_CLEARANCE = 0.5
+
+
+@dataclass(frozen=True)
+class LostLock:
+    """EV.26: a run of frames in which the camera has lost the aircraft.
+
+    ``first`` and ``length`` are frame indices of the clip; ``direction_deg`` is where the mount
+    swings, in the frame's own sense (0 right, 90 up, 180 left). Up or sideways only: a mount
+    swung down would take the frame to the horizon, which the aerial scenes do not author, and
+    :func:`horizon_safe_aim` would lift it back onto the aircraft.
+    """
+
+    first: int
+    length: int
+    direction_deg: float
+
+    def __post_init__(self) -> None:
+        if self.first < 0 or self.length < 1:
+            raise ValueError(f"need first >= 0 and length >= 1, got {self.first}, {self.length}")
+        if not 0.0 <= self.direction_deg <= 180.0:
+            raise ValueError(f"direction must be in [0, 180] deg, got {self.direction_deg}")
+
+    @classmethod
+    def parse(cls, text: str) -> tuple[LostLock, ...]:
+        """``"first:length:direction,..."`` as ``render_phantom4.py --lost-lock`` takes it."""
+        runs = []
+        for item in filter(None, (t.strip() for t in text.split(","))):
+            first, length, direction = item.split(":")
+            runs.append(cls(int(first), int(length), float(direction)))
+        return tuple(sorted(runs, key=lambda r: r.first))
+
+    def envelope(self, frame: float) -> float:
+        """0 on the aircraft, 1 lost: a smoothstep over :data:`LOST_RAMP_FRAMES` either side of
+        the run, flat at 1 for frames ``first`` to ``first + length - 1``."""
+        ramp = float(LOST_RAMP_FRAMES)
+        start, end = self.first - ramp, self.first + self.length - 1 + ramp
+        if frame <= start or frame >= end:
+            return 0.0
+        x = min(frame - start, end - frame) / ramp
+        x = min(max(x, 0.0), 1.0)
+        return x * x * (3.0 - 2.0 * x)
+
+
+def lost_lock_offset(
+    runs: tuple[LostLock, ...], frame: float, aim_jitter: float
+) -> NDArray[np.float64]:
+    """The boresight's extra offset from the aircraft at ``frame``, in half-fields (x right, y up).
+
+    At full envelope the larger component is ``1 + aim_jitter + LOST_CLEARANCE``: past the frame
+    edge by more than the wander (up to ``aim_jitter`` half-fields, either way) can bring back,
+    plus the aircraft's own size. The direction keeps its angle; it is scaled on its larger axis
+    so a diagonal swing clears the frame as surely as a straight one.
+    """
+    out = np.zeros(2, dtype=np.float64)
+    for run in runs:
+        level = run.envelope(frame)
+        if level > 0.0:
+            a = math.radians(run.direction_deg)
+            d = np.array([math.cos(a), math.sin(a)])
+            out += level * (1.0 + aim_jitter + LOST_CLEARANCE) * d / float(np.abs(d).max())
+    return out
 
 
 def world_frame_to_stage(up: object, north: object) -> NDArray[np.float64]:

@@ -1232,6 +1232,26 @@ sections:
       airframe's span, so the Matrice 300 flies farther out and the Avata closer in. Only the
       Phantom 4 has a solved per-cell temperature field.
     source: scripts/generate_aerial_dataset.py
+  - id: drone-lost-lock
+    title: The camera loses the drone, as the real operators do
+    lead: |
+      `EV.26`, ADR 0210. In the real Anti-UAV set 1.24 % of frames have no drone (97 runs, median
+      14 frames); every rendered frame had one. A set now loses it at that rate: the mount swings
+      off sideways or up for a drawn run of frames and comes back, and those frames get an empty
+      label. In this check clip, runs of 4 and 2 frames gave **exactly 6 frames with no aircraft
+      pixel**, and every other frame a box.
+    media:
+      - image: lost_lock/lost_lock_strip.png
+        width: full
+        caption: >-
+          Frames 4–11: on the drone, the 4-frame run with the mount swung up, then back on it.
+      - video: lost_lock/lost_lock_agc.mp4
+        width: half
+        caption: the whole 24-frame clip, the camera's own display
+    note: |
+      Without the hot drone the display's AGC stretches the bare sky's gradient, so the empty
+      frames read brighter than their neighbours, as a real camera's would.
+    source: scripts/render_phantom4.py
   - id: cloud-function
     title: The cloud as a function, marched per pixel
     lead: |

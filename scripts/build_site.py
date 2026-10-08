@@ -78,6 +78,14 @@ DOCUMENTS: list[tuple[str, str, str, str, str]] = [
         "Every step that shipped, with the measurement that justified it.",
     ),
     (
+        "docs/anti-uav-dataset.md",
+        "anti-uav-dataset/",
+        "Anti-UAV dataset plan",
+        "Plan",
+        "The steps that close the gap between a rendered drone set and the real Anti-UAV frames, "
+        "each measured on the real set first.",
+    ),
+    (
         "TECHNICAL_REPORT.md",
         "status/",
         "Status",

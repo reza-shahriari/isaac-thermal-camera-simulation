@@ -278,6 +278,13 @@ parser.add_argument(
     "field of view on each axis (0 centres it in every frame, which no real mount does)",
 )
 parser.add_argument(
+    "--lost-lock",
+    default="",
+    help="wander: runs of frames in which the camera loses the aircraft (EV.26), as "
+    "'first:length:direction,...' -- direction in degrees, 0 right, 90 up, 180 left; the mount "
+    "swings off over LOST_RAMP_FRAMES frames either side and holds the aircraft out of frame",
+)
+parser.add_argument(
     "--no-flat-field",
     action="store_true",
     help="skip the two-point flat field (SC.29): the picture then carries the housing bowl a "
@@ -734,12 +741,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
     from irsim_isaac.aircraft_pass import look_at_quaternion
     from irsim_isaac.asset_flight import (
         FigureEightTrack,
+        LostLock,
         ScatterTrack,
         StraightOutExitTrack,
         StraightOutTrack,
         WanderTrack,
         clear_exit_seconds,
         horizon_safe_aim,
+        lost_lock_offset,
         lowest_framable_elevation_deg,
         tilt_matrix,
         world_frame_to_stage,
@@ -1200,6 +1209,19 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
         )
         return float(offset[0]), math.radians(float(raised))
 
+    # EV.26: the runs in which the camera has lost the aircraft, by frame; a wander clip's frame
+    # i sits at phase i / (frames - 1), so a sub-frame re-pose lands between two frames.
+    lost_runs = LostLock.parse(args.lost_lock)
+    if lost_runs and args.track != "wander":
+        raise SystemExit("--lost-lock needs --track wander: only its mount follows the aircraft")
+    if lost_runs and max(r.first + r.length for r in lost_runs) > args.frames:
+        raise SystemExit(
+            f"--lost-lock {args.lost_lock!r} runs past the clip's {args.frames} frames"
+        )
+
+    def lost_frame(phase: float) -> float:
+        return float(phase) * (max(args.frames, 2) - 1)
+
     def place(phase: float) -> tuple[Any, float, float]:
         """Put the aircraft on the track at ``phase`` and slew the camera onto it.
 
@@ -1224,10 +1246,14 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
             )
         elif args.track == "wander":
             # The mount lags and leads the aircraft smoothly, like a tracker, not frame by frame.
-            aim_at(
-                position,
-                above_horizon(position, track.aim_fraction(phase) * args.aim_jitter * half_fov),
+            # EV.26: inside a lost run it swings off the aircraft altogether -- added after the
+            # horizon raise, whose guard is for a mount still on the aircraft. The swing is never
+            # down, so it cannot bring the horizon into the frame.
+            azimuth, elevation = above_horizon(
+                position, track.aim_fraction(phase) * args.aim_jitter * half_fov
             )
+            lost = lost_lock_offset(lost_runs, lost_frame(phase), args.aim_jitter) * half_fov
+            aim_at(position, (azimuth + float(lost[0]), elevation + float(lost[1])))
         elif args.clear_exit:
             # EV.20: the mount follows the run, then stops; the aircraft strafes on without it.
             aim_at(track.aim_m(phase))
@@ -1579,6 +1605,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                 "elevation_deg": round(float(track.elevation_deg(phase)), 2),
                 "px_across": round(float(px_across[index]), 1),
                 "target_px": int(hit.size),
+                # EV.26: 1 inside a lost run, 0 on the aircraft, between on the swing.
+                "lost_lock": round(
+                    max((r.envelope(float(index)) for r in lost_runs), default=0.0), 3
+                ),
                 "target_min_c": float(hit.min() - 273.15) if hit.size else None,
                 "target_max_c": float(hit.max() - 273.15) if hit.size else None,
                 "node_c": {k: round(v - 273.15, 2) for k, v in temperatures.items()},
@@ -1878,6 +1908,10 @@ def _render(args: Any, usd: pathlib.Path) -> int:  # noqa: PLR0915 - one driver,
                     "elevation_deg": [track.elevation_low_deg, track.elevation_high_deg],
                     "cycles": track.cycles,
                     "aim_jitter": args.aim_jitter,
+                    "lost_lock": [[r.first, r.length, r.direction_deg] for r in lost_runs],
+                    # EV.26: frames whose truth holds no aircraft pixel -- the empty frames,
+                    # each labelled with an empty file.
+                    "frames_without_aircraft": sum(1 for r in rows if not r["target_px"]),
                 }
                 if isinstance(track, WanderTrack)
                 else {

@@ -20,6 +20,7 @@ truth ``part_id`` plane (roadmap EV.15). Output::
 
     <out>/images/train/<run>_<frame>.png      8-bit grey
     <out>/labels/train/<run>_<frame>.txt      YOLO, one class (drone); empty = aircraft off frame
+                                              (EV.26: the camera loses it, at the real set's rate)
     <out>/videos/<run>_{ir,agc}.mp4           each clip: fixed span, and the camera's own display
     <out>/manifest.json                       every run's arguments, frame count and seconds
 
@@ -30,7 +31,7 @@ Run with the Isaac interpreter (docs/decisions/0002), pinned to one GPU with ``I
 that already has its ``summary.json`` is collected, not re-rendered, so an interrupted set resumes.
 
 docs/physics-model.md §15 T5; roadmap EV.10 (viewpoint distribution), EV.15 (labels),
-EV.21 (focus), EV.23 (lens shading), EV.24 (hours)
+EV.21 (focus), EV.23 (lens shading), EV.24 (hours), EV.26 (empty frames)
 """
 
 from __future__ import annotations
@@ -83,6 +84,12 @@ AIRFRAMES: tuple[tuple[str, str, float | None, float], ...] = (
 )
 #: The span the range band (``--near-m``/``--far-m``) is stated for: the Phantom 4's.
 REFERENCE_SPAN_M = 0.618
+#: EV.26: the real set's runs of frames with no drone in them (``scripts/absent_frames.py``).
+#: Their share of all frames is what a set's empty frames are sized to; their lengths, in
+#: frames, are what each run's length is drawn from.
+ABSENT_RUNS_CSV = REPO / "data" / "validation" / "anti_uav_absent_runs.csv"
+#: EV.26: no lost run is longer than this share of its clip, so every clip keeps its flight.
+LOST_MAX_SHARE = 0.25
 
 
 def scene_longitude_deg(scene: str | None) -> float:
@@ -136,6 +143,63 @@ def draw_camera(rng: np.random.Generator, args: argparse.Namespace) -> dict[str,
     }
 
 
+def real_absent_runs(path: Path = ABSENT_RUNS_CSV) -> tuple[float, list[int]]:
+    """The real set's share of drone-absent frames and the lengths of its absent runs."""
+    import csv
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    totals = dict(
+        item.split("=")
+        for line in lines
+        if line.startswith("# clips=")
+        for item in line[2:].split()
+    )
+    lengths = [int(r["length"]) for r in csv.DictReader(x for x in lines if not x.startswith("#"))]
+    return int(totals["absent_frames"]) / int(totals["frames"]), lengths
+
+
+def draw_lost_runs(
+    rng: np.random.Generator, frames: list[int], share: float, lengths: list[int]
+) -> list[list[tuple[int, int, float]]]:
+    """Each clip's lost runs (EV.26) as ``(first, length, direction_deg)``, for a whole set.
+
+    The set's lost frames add up to ``share`` of its frames, rounded: lengths are drawn from the
+    real runs (capped at :data:`LOST_MAX_SHARE` of the clip), and one that would carry the total
+    past the target is redrawn, up to 500 draws. The last runs of a set are therefore a little
+    shorter than the real ones on average; at a few hundred frames of target the bias is small.
+    Each run goes to a clip in proportion to its frames, at a uniform start that leaves room for
+    the mount's swing either side and does not touch another run; one that finds no room in 50
+    tries is redrawn too. Direction is uniform over sideways and up (0-180 deg).
+    """
+    from irsim_isaac.asset_flight import LOST_RAMP_FRAMES
+
+    runs: list[list[tuple[int, int, float]]] = [[] for _ in frames]
+    total = int(sum(frames))
+    target = share * total
+    if target <= 0.0 or not lengths or not total:
+        return runs
+    weights = np.asarray(frames, dtype=np.float64) / total
+    gap = 2 * LOST_RAMP_FRAMES
+    placed = 0
+    for _ in range(500):
+        if abs(placed - target) <= 0.5 * min(lengths):
+            break
+        clip = int(rng.choice(len(frames), p=weights))
+        length = max(1, min(int(rng.choice(lengths)), int(LOST_MAX_SHARE * frames[clip])))
+        if placed + length > target + 0.5:
+            continue
+        lo, hi = LOST_RAMP_FRAMES, frames[clip] - LOST_RAMP_FRAMES - length
+        for _ in range(50 if hi >= lo else 0):
+            first = int(rng.integers(lo, hi + 1))
+            if all(first + length + gap <= f or f + n + gap <= first for f, n, _ in runs[clip]):
+                runs[clip].append((first, length, round(float(rng.uniform(0.0, 180.0)), 1)))
+                placed += length
+                break
+    for clip_runs in runs:
+        clip_runs.sort()
+    return runs
+
+
 def draw_focus(rng: np.random.Generator, near_m: float, far_m: float) -> str:
     """One clip's focus, as ``render_phantom4.py --focus-m`` takes it: ``inf`` or metres."""
     if rng.uniform() < FOCUS_INFINITY_SHARE:
@@ -153,6 +217,7 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
     hour_rng = np.random.default_rng([args.seed, 24])
     camera_rng = np.random.default_rng([args.seed, 23])
     airframe_rng = np.random.default_rng([args.seed, 26])
+    lost_rng = np.random.default_rng([args.seed, 27])
     longitude = scene_longitude_deg(getattr(args, "scene", None))
     runs: list[dict[str, Any]] = []
     for kind, count, frames in (
@@ -192,7 +257,26 @@ def plan_runs(args: argparse.Namespace) -> list[dict[str, Any]]:
                     **draw_airframe(int(cycle[i]), args),
                 }
             )
+    # EV.26: the empty frames are sized over the whole set, so its share is the one asked for
+    # however few clips it has; scatter poses have no mount to lose the aircraft with.
+    share = absent_share(getattr(args, "absent_share", "real"))
+    if getattr(args, "track", "wander") == "wander" and share > 0.0:
+        lost = draw_lost_runs(
+            lost_rng, [int(r["frames"]) for r in runs], share, real_absent_runs()[1]
+        )
+        for run, clip_runs in zip(runs, lost, strict=True):
+            run["lost_lock"] = [list(r) for r in clip_runs]
     return runs
+
+
+def absent_share(value: str | float) -> float:
+    """``--absent-share``: ``real`` is the real set's measured share, else a number in [0, 1)."""
+    if value == "real":
+        return real_absent_runs()[0]
+    share = float(value)
+    if not 0.0 <= share < 1.0:
+        raise ValueError(f"--absent-share must be in [0, 1) or 'real', got {value!r}")
+    return share
 
 
 def render_command(args: argparse.Namespace, run: dict[str, Any], out: Path) -> list[str]:
@@ -224,6 +308,11 @@ def render_command(args: argparse.Namespace, run: dict[str, Any], out: Path) -> 
         "--no-rgb", "--no-overlay",
         "--plane-stride", "1",
         *([] if run.get("focus_m", "sensor") == "sensor" else ["--focus-m", str(run["focus_m"])]),
+        *(
+            ["--lost-lock", ",".join(f"{a}:{b}:{c}" for a, b, c in run["lost_lock"])]
+            if run.get("lost_lock")
+            else []
+        ),
         "--housing-start-k", str(run.get("housing_start_k", 0.0)),
         *(
             []
@@ -330,6 +419,12 @@ def main(argv: list[str] | None = None) -> int:
         default="drawn",
         help="the lens's relative illumination at the corner per clip: 'drawn' (EV.23, "
         "CORNER_ILLUMINATION), a number in (0, 1], or 'sensor' for the sensor file's own",
+    )
+    parser.add_argument(
+        "--absent-share",
+        default="real",
+        help="the share of a set's frames in which the camera has lost the drone (EV.26): "
+        "'real' is the real set's measured 1.24 %%, or a number; 0 keeps the drone in every frame",
     )
     parser.add_argument(
         "--dry-run",
