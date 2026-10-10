@@ -1,0 +1,90 @@
+# DJI Phantom 4, built FROM SCRATCH in Blender by `3d_models/phantom4_scratch/build_phantom4.py`
+# (no third-party mesh). Schema: irsim.materials.mapping.AssetConfig. NOT COMMITTED: an experiment
+# the owner asked to see before deciding whether it is real enough (2026-10-07).
+#
+# **Dimensions** -- every number has a source in the builder's header:
+#   DJI: 350 mm motor diagonal, 289.5 x 289.5 x 196 mm, 9450S props (238.8 mm), 81.3 Wh 4S pack.
+#   Owners (phantompilots.com): 187 mm tall without props, 194 with; 171 x 165 mm gear footprint.
+#   Built: 289.5 x 289.5 x 188.3 mm without props, 194.8 mm with; diagonal 350.0; props 238.8 mm.
+#   Proportions DJI does not publish (body, arm taper, pod, motor bell, gimbal, battery cap) were
+#   fitted by rendering the model through cameras solved from two Wikimedia Commons photographs'
+#   own perspective (side and rear) and overlaying them -- ESTIMATED.
+#
+# **Materials**: the builder names each material after its substance, so the map below is 1:1
+# and no part needs to assert one. DJI publishes no part materials; all are ESTIMATED.
+#
+# **Hidden parts are real meshes** (owner's standing preference): the four pouch cells inside the
+# pack, the flight controller with its heat sink, four ESC boards in the arms and the GPS
+# receiver. The builder checks every one sits inside the shell (signed distance < -4 mm).
+schema_version: 1
+asset:
+  name: phantom4_scratch
+  source_file: 3d_models/phantom4_scratch/out/phantom4_scratch.glb
+  scale_to_metres: 1.0  # the builder writes metres
+
+  materials:
+    p4_white_gloss: abs_plastic_white  # shell, legs, battery case: moulded PC/ABS, ESTIMATED
+    p4_white_prop: abs_plastic_white  # 9450S blades: moulded plastic, ESTIMATED
+    p4_silver: aluminium_anodised  # motor bells, prop caps: clear-anodised, never bare (AT.18)
+    p4_motor_dark: aluminium_anodised  # the bell's base ring
+    p4_camera_grey: aluminium_anodised  # gimbal motors and camera body: anodised alloy, ESTIMATED
+    p4_gimbal_plastic: polycarbonate_light_grey  # gimbal mount, brackets, belly pan
+    p4_rubber: rubber_tyre  # gimbal dampers
+    p4_black_glass: glass_windshield  # camera lens, vision camera windows
+    p4_dark_plastic: polycarbonate_dark_grey  # vision panel, gauge windows, button
+    p4_led_red: polycarbonate_light_grey  # LED lenses: clear PC, opaque in LWIR
+    p4_led_clear: polycarbonate_light_grey
+    p4_copper: aircraft_aluminium_painted  # hidden: enamelled windings, eps ~0.9 (as the M300)
+    p4_pcb: painted_composite  # hidden: FR-4 under solder mask, ESTIMATED
+    p4_cell: aluminium_anodised  # hidden: pouch cells' laminate, ESTIMATED
+    p4_heatsink: aluminium_anodised  # hidden: FC heat sink and shield can
+
+  parts:
+    centre: [0.0, 0.0, 0.0]
+    coverage_threshold: 0.95
+    # The builder makes one object per functional part, named as the part: select by name (AI.18).
+    granularity: object
+    # Footprints ESTIMATED from the built geometry; `dry_default` throughout (ADR 0097).
+    contacts:
+      - {a: motor_front_left, b: fuselage, joint: dry_default, area_m2: 0.0007}  # 30 mm base ring on the pod
+      - {a: motor_front_right, b: fuselage, joint: dry_default, area_m2: 0.0007}
+      - {a: motor_rear_left, b: fuselage, joint: dry_default, area_m2: 0.0007}
+      - {a: motor_rear_right, b: fuselage, joint: dry_default, area_m2: 0.0007}
+      - {a: esc_front_left, b: fuselage, joint: dry_default, area_m2: 0.0004}  # board on a pad in the arm
+      - {a: esc_front_right, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: esc_rear_left, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: esc_rear_right, b: fuselage, joint: dry_default, area_m2: 0.0004}
+      - {a: flight_controller, b: fuselage, joint: dry_default, area_m2: 0.0002}  # four standoffs
+      - {a: gps_module, b: fuselage, joint: dry_default, area_m2: 0.0003}
+      - {a: battery, b: fuselage, joint: dry_default, area_m2: 0.0010}  # pack on the bay's rails
+      - {a: landing_gear_left, b: fuselage, joint: dry_default, area_m2: 0.00075}  # two strut sockets
+      - {a: landing_gear_right, b: fuselage, joint: dry_default, area_m2: 0.00075}
+      - {a: forward_vision, b: landing_gear_left, joint: dry_default, area_m2: 0.0001}
+      - {a: gimbal, b: fuselage, joint: dry_default, area_m2: 0.00012}  # through four dampers
+      - {a: gimbal_camera, b: gimbal, joint: dry_default, area_m2: 0.0002}
+      - {a: camera_lens, b: gimbal_camera, joint: dry_default, area_m2: 0.0002}
+      - {a: downward_vision, b: fuselage, joint: dry_default, area_m2: 0.0008}
+    parts:
+      - {name: propeller_front_left, target: propeller, select: {objects: [propeller_front_left]}}
+      - {name: propeller_front_right, target: propeller, select: {objects: [propeller_front_right]}}
+      - {name: propeller_rear_left, target: propeller, select: {objects: [propeller_rear_left]}}
+      - {name: propeller_rear_right, target: propeller, select: {objects: [propeller_rear_right]}}
+      - {name: motor_front_left, target: motor, select: {objects: [motor_front_left]}}
+      - {name: motor_front_right, target: motor, select: {objects: [motor_front_right]}}
+      - {name: motor_rear_left, target: motor, select: {objects: [motor_rear_left]}}
+      - {name: motor_rear_right, target: motor, select: {objects: [motor_rear_right]}}
+      - {name: esc_front_left, target: motor, select: {objects: [esc_front_left]}}
+      - {name: esc_front_right, target: motor, select: {objects: [esc_front_right]}}
+      - {name: esc_rear_left, target: motor, select: {objects: [esc_rear_left]}}
+      - {name: esc_rear_right, target: motor, select: {objects: [esc_rear_right]}}
+      - {name: battery, target: battery, select: {objects: [battery]}}
+      - {name: flight_controller, target: airframe, select: {objects: [flight_controller]}}
+      - {name: gps_module, target: airframe, select: {objects: [gps_module]}}
+      - {name: landing_gear_left, target: airframe, select: {objects: [landing_gear_left]}}
+      - {name: landing_gear_right, target: airframe, select: {objects: [landing_gear_right]}}
+      - {name: forward_vision, target: airframe, select: {objects: [forward_vision]}}
+      - {name: gimbal, target: airframe, select: {objects: [gimbal]}}
+      - {name: gimbal_camera, target: airframe, select: {objects: [gimbal_camera]}}
+      - {name: camera_lens, target: airframe, select: {objects: [camera_lens]}}
+      - {name: downward_vision, target: airframe, select: {objects: [downward_vision]}}
+      - {name: fuselage, target: airframe, select: {objects: [fuselage]}}
